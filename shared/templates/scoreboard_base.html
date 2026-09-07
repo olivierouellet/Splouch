@@ -255,9 +255,33 @@ function isLaneActive(i) {
     if (!lane_running[i]) return false;
     return !hasClock();             // the ticking digits say it better
 }
+/* Stopping mid-cycle would snap the number from the timing colour straight back
+   to the row colour — and every lane takes its first re-base from the same frame,
+   so the whole column would flick at once. The keyframes begin and end on the row
+   colour, so waiting for the next iteration boundary makes the stop invisible, at
+   the cost of up to one more second of pulse over a clock that has already
+   started. A paused animation never reaches a boundary, so a hidden page drops the
+   class outright rather than waiting for an event that will not come. */
 function updateLanePulse(i) {
     var el = document.getElementById('lane_num' + i);
-    if (el) el.classList.toggle('lane-pulsing', isLaneActive(i));
+    if (!el) return;
+
+    if (isLaneActive(i)) {
+        el._pulseEnding = false;
+        el.classList.add('lane-pulsing');
+        return;
+    }
+    if (!el.classList.contains('lane-pulsing') || document.hidden) {
+        el.classList.remove('lane-pulsing');
+        return;
+    }
+    if (el._pulseEnding) return;                  /* already waiting it out */
+    el._pulseEnding = true;
+    el.addEventListener('animationiteration', function done() {
+        el.removeEventListener('animationiteration', done);
+        el._pulseEnding = false;
+        if (!isLaneActive(i)) el.classList.remove('lane-pulsing');
+    });
 }
 function updateAllLanePulses() {
     for (var i = 1; i <= NUM_LANES; i++) updateLanePulse(i);

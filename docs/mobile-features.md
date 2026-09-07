@@ -275,6 +275,9 @@ Live lane state during a heat. The busiest screen and the one most worth getting
 >   it is worse than no clock. A client that joins mid-heat shows the
 >   **lane-number pulse** (the number cycling between row text colour and timing
 >   colour) until the first `running_time` arrives, then switches to the clock.
+>   Let a pulse finish its cycle before dropping it: it begins and ends on the row
+>   colour, and every lane re-bases off the same frame, so stopping them all
+>   mid-cycle flicks the whole column at once.
 > - **A missed re-base is not a problem; a missing feed is.** The clock is an
 >   offset from the last re-base, not a sum of ticks, so a skipped one costs
 >   nothing and the next one corrects it in a single hard set. But a lane must not
