@@ -353,7 +353,7 @@ Live lane state during a heat. The busiest screen and the one most worth getting
 | `R-04` | Same six columns and visibility flags as the Scoreboard tab | shared config | must |
 | `R-05` | **Lane sort**: row index = `channel`; a lane with no final time leaves its row blank | `sort == "lane"`, and when `sort` is absent | must |
 | `R-06` | **Place sort**: rows fill top-down as a ranking | `sort == "place"` | must |
-| `R-07` | Missing time or place renders as `—`, not blank | — | should |
+| `R-07` | A missing time renders as `—`, not blank; a missing **place** renders empty — no dash, and no `#` in front of it | — | should |
 | `R-08` | Long names shrink to fit rather than clipping | — | should — see `L-17` |
 | `R-09` | Final times carry the "locked" styling | `r.time` non-empty | should |
 | `R-10` | Returning to the tab re-joins the meet, reconnecting first if needed | web: `on_tab_shown` | must |

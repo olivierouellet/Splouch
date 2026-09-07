@@ -52,7 +52,9 @@ var SHOW_PODIUM = {{ show_podium | default(true, true) | tojson }};
 function showWaiting() { document.getElementById('waiting').classList.remove('hidden'); }
 
 /* Empty one row. `lane` is what its number cell should read — its own lane in lane
-   mode, an em dash when the list is a ranking and this position was never filled. */
+   mode, an em dash when the list is a ranking and this position was never filled.
+   The place cell stays empty rather than taking a dash: an unplaced swimmer has no
+   rank to stand in for, and the `#` would come with it (`R-07`). */
 function blankRow(i, lane) {
     var tr = document.getElementById('row' + i);
     if (tr) tr.classList.remove('podium-gold', 'podium-silver', 'podium-bronze');
@@ -62,7 +64,7 @@ function blankRow(i, lane) {
     document.getElementById('lane_club'    + i).textContent = '';
     document.getElementById('lane_time'    + i).textContent = '—';
     document.getElementById('lane_delta'   + i).innerHTML   = '';
-    setLanePlace(i, PLACE_NONE);
+    setLanePlace(i, '');
 }
 
 /* Wipe the board back to an empty grid. Called when the feed goes away, so nothing
@@ -116,7 +118,7 @@ function renderResults(d) {
             tel.textContent = r.time || '—';
             if (r.time && r.time.trim()) tel.classList.add('time-locked');
             document.getElementById('lane_delta'   + i).innerHTML   = r.delta || '';
-            setLanePlace(i, (r.place || '').trim() || PLACE_NONE);
+            setLanePlace(i, r.place || '');
         } else {
             blankRow(i, laneMode ? i : '—');
         }
