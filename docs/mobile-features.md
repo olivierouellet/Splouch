@@ -1,6 +1,6 @@
 # Splouch mobile — feature contract
 
-**Contract version: `v1`** · Reference implementation: `cloud/templates/` (see §0.2).
+**Contract version: `v2`** · Reference implementation: `cloud/templates/` (see §0.2).
 
 [`api.md`](api.md) is the *data* contract — sockets, events, payload shapes. This
 document is the *behaviour* contract: what a spectator can see and do on a phone,
@@ -135,7 +135,8 @@ and the place the user returns to via `A-02`.
 | `A-06` | Content clears notch, Dynamic Island, and home indicator | web: `env(safe-area-inset-*)` | must (free natively) |
 | `A-07` | Portrait stacks label under icon; landscape drops labels to save height | CSS media queries | should |
 | `A-08` | Window and home-screen title is the meet's `app_window_title`, falling back to the meet's `name` | `settings.app_window_title`, then `name` | web-only — see note |
-| `A-09` | Meet goes offline mid-session → return to the picker | `GET /mobile` 303s to `/` when the meet is gone | must |
+| `A-09` | Add-to-Home-Screen hint | **retired** — removed from the shell; the picker does the steering now (`P-10`) | n/a |
+| `A-10` | Meet goes offline mid-session → return to the picker | `GET /mobile` 303s to `/` when the meet is gone | must |
 
 > **`A-03` — do not port the edge strips.** The web restricts swipe to two 28px
 > strips at the screen edges purely because each tab is an `<iframe>`, and a
@@ -500,12 +501,31 @@ Not on any phone client, now or planned:
 
 ## Changelog
 
+- **v2** — The scoreboard gets a real clock, and the picker starts handing off to
+  the apps. Tracks `api.md` v1, whose `running_time` the relay now throttles
+  rather than strips (§5.1).
+  - `L-12` replaced. Was: the lane number pulsing, the only sign of a running
+    race once the cloud dropped `running_time`. Now: the heat's race clock in
+    every running lane's time cell, re-based by the relay every couple of seconds
+    and ticked by the device in between. The pulse survives as the fallback for a
+    lane running with no clock — a client that joined mid-heat, or one whose feed
+    went quiet. `L-22` restated to match: what is out of scope is a *per-lane*
+    clock, not a clock.
+  - `L-11` raised to **must**: with digits in the cell either way, the styling is
+    the only thing separating a live clock from a frozen split.
+  - `P-10` is now the install hand-off — store links to the native apps once they
+    ship, Add-to-Home-Screen only where there is no app to send people to.
+  - `A-03` now requires the swipe to be *visible* while it happens, not only to
+    land on the next tab.
+  - `A-08` restated as chrome — window title, home-screen label, manifest name —
+    and dropped to `web-only`: an app cannot retitle itself per meet.
+  - `R-07` split: a missing time still renders `—`, a missing place renders
+    empty, with no `#` in front of it (`L-15`).
+  - `L-21` names the kiosk holds it excludes; the `L-17` note lost its history.
+  - **`A-09` was briefly deleted and `A-10` renumbered onto it. That is reverted.**
+    Both keep the IDs they were given: the never-renumber rule in §0.1 has no
+    exception for "nobody has adopted it yet", because the cost of finding out
+    otherwise falls on the app repos, not on this one.
+
 - **v1** — First statement of the mobile feature contract, taken from the cloud
   templates as of the FastAPI/plain-WebSocket server. Tracks `api.md` v1.
-  - Revised while still v1, before any client had adopted it and while the IDs
-    were therefore still free to move: `A-09` (Add-to-Home-Screen hint) dropped
-    outright and the old `A-10` renumbered onto it; `L-12` became the race clock,
-    server-rebased and locally interpolated, with the pulse demoted to its
-    join-mid-race fallback and `L-22` restated to match; `P-10` became the
-    native-app hand-off; `A-08` restated as chrome. The never-renumber rule in
-    §0.1 binds from here on.
