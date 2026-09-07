@@ -197,44 +197,74 @@ Live lane state during a heat. The busiest screen and the one most worth getting
 | `L-08` | Column *headers* hide independently of the columns: `show_*_header` | meet `settings` | should |
 | `L-09` | Empty lanes render blank in place — rows never collapse or shift | — | must |
 | `L-10` | Frames are partial: merge changed keys into local state, never replace | `update_scoreboard` (§5.1) | must |
-| `L-11` | A running lane's time is styled distinctly; on stop it plays a one-shot "locked" transition | `lane_running<i>` false-edge | should |
-| `L-12` | A running lane shows an **elapsed clock the device drives itself**, in that lane's time cell, replaced by the real time when the lane stops | `lane_running<i>` **and** `meet_live`, timed locally — see note | **must** |
+| `L-11` | A running lane's time is styled distinctly; on stop it plays a one-shot "locked" transition, cancelled if the lane pushes off again | `lane_running<i>` false-edge | **must** — it is what separates a live clock from a frozen split (`L-12`) |
+| `L-12` | Every running lane's time cell shows the **race clock**: one value for the heat, re-based by the server every couple of seconds and ticked by the device in between | `running_time` (throttled by the relay) + `lane_running<i>` + `meet_live` — see note | **must** |
 | `L-13` | Event or heat change blanks all times, deltas, and places | `current_event` / `current_heat` change | must |
 | `L-14` | Returning to the tab re-runs layout and refreshes the clock | web: parent re-dispatches `resize` | must (native: on-appear) |
 
-> **`L-12` — the chronometer is local, and faked on purpose.** The cloud strips
-> `running_time` before forwarding — one field at timing-tick frequency multiplied
-> by every connected phone ([`notes/cloud_parity.md`](../notes/cloud_parity.md)) —
-> and it stays stripped. Without some sign of motion the board looks frozen for the
-> length of every heat, so the client makes its own clock rather than asking the
-> server for one. Nothing extra is sent or received while a heat runs.
+> **`L-12` — one clock per heat, re-based by the server, ticked by the device.**
+> This is the same clock the Qt board runs, minus its header slot: on the kiosk
+> the value sits top-right beside the wall clock *and* is mirrored into every
+> running lane's time cell, and the phone header has no room for it, so on mobile
+> the lane cells are the whole of it. There is **no per-lane elapsed time.** All
+> running lanes show the same figure; a lane's own time only becomes meaningful at
+> its split, and that arrives as `lane_time<i>`.
 >
-> - **Start** it on the frame where `lane_running<i>` goes false→true, from the
->   device's *monotonic* clock — not wall time, which an NTP correction mid-heat
->   would move.
-> - **Tick** it locally at about 10Hz off the platform's display link
->   (`requestAnimationFrame` / `CADisplayLink` / `Choreographer`), and only while
->   the tab is on screen (`L-14`).
-> - **Show tenths, never hundredths** — `1:02.4`. One digit coarser than a result
->   is what keeps it from being read as one. It starts late by the relay latency,
->   so it reads low by tens to hundreds of milliseconds and must never be presented
->   as a time.
-> - **Stop** on the false edge and let that frame's `lane_time<i>` replace it with
->   `L-11`'s locked styling. Never keep counting past the stop, and never let the
->   local value survive as a result.
-> - **A start you did not see is not a start.** A client that joins with
->   `lane_running<i>` already true cannot know when the lane went off and must not
->   guess. Leave its clock blank and fall back to the **lane-number pulse** — the
->   number cycling between row text colour and timing colour — for that lane until
->   the next heat.
-> - **Backgrounding**: on foreground, recompute the elapsed value from the stored
->   start instant. Accumulating ticks means a phone that slept for a minute comes
->   back a minute behind.
+> **Throttle the field, do not strip it.** What
+> [`notes/cloud_parity.md`](../notes/cloud_parity.md) refused was the *frequency* —
+> the console sends `running_time` on every timing tick, and the cloud's answer was
+> to drop it outright. Forwarding it **at most once every ~2s, plus on any frame
+> that also carries a `lane_running<i>` key**, costs roughly one short string every
+> two seconds per meet instead of ten to twenty a second, and buys back everything
+> a purely local clock cannot have: no drift, no accumulated error over a 1500m,
+> and a client that joins mid-heat catching up within one interval instead of
+> never. The `lane_running` exception is what makes the moments that must be exact
+> — start, wall, push-off, finish — exact; they are rare by nature.
 >
-> It is gated on `meet_live` as well as `lane_running<i>`: with no console feeding
-> the meet, nothing counts, so stale lane state cannot masquerade as a live race. A
-> disconnect implies `meet_live = false` (`C-09`) and stops every clock on the
-> board.
+> Between re-bases the device advances the clock itself, ~10Hz off the platform's
+> display link from a *monotonic* clock, re-basing hard on each `running_time`
+> frame rather than easing towards it. The Qt board does exactly this on a 50ms
+> ticker ([`scoreboard/board.py`](../scoreboard/board.py), `_tick_clock`); the
+> behaviour is pinned by
+> [`tests/test_scoreboard_clock.py`](../tests/test_scoreboard_clock.py), which is
+> the best statement of it in the repo.
+>
+> - **A split freezes the lane, never the clock.** At every wall the console drops
+>   `lane_running<i>` and sends the lap in `lane_time<i>`; that cell holds the
+>   split for the few seconds it takes to read while the heat clock runs on for
+>   everyone else, and on push-off the flag returns and the lane rejoins it. So
+>   **never start or reset the clock from a lane edge** — it would restart at every
+>   length. `lane_running<i>` decides only whether lane *i* displays the clock.
+> - **A running lane ignores `lane_time<i>`.** The split stays in the merged
+>   snapshot (`L-10`), so every later frame touching that lane would otherwise
+>   flicker the stale lap over the live clock.
+> - **Say which one you are looking at.** A ticking clock and a frozen split are
+>   the same digits in the same place; only the styling separates them. That is
+>   `L-11`'s job and it stops being cosmetic here: running is dimmed, a split locks
+>   with the one-shot flash, and a flash still in flight is cancelled when the lane
+>   pushes off.
+> - **Show tenths** — `1:02.4`. The interpolation is good to well under a frame,
+>   but the value carries the relay path's latency as a near-constant offset, so it
+>   reads low by tens to hundreds of milliseconds. Hundredths would claim a
+>   precision the path does not have; the kiosk is on the LAN and can afford them.
+> - **Joining mid-heat costs one interval at most.** Do **not** keep
+>   `running_time` in the relay's replay snapshot — a cached clock with no age on
+>   it is worse than no clock. A client that joins mid-heat shows the
+>   **lane-number pulse** (the number cycling between row text colour and timing
+>   colour) until the first `running_time` arrives, then switches to the clock.
+> - **Backgrounding**: stop the ticker when the tab or app leaves the screen and
+>   leave it stopped on return — the base is stale, and resuming from it jumps.
+>   The next `running_time` re-bases it, within the sync interval. Never
+>   accumulate ticks across a suspend.
+> - **When the last lane stops**, each lane holds its final time and the clock
+>   simply has nothing more to say. `meet_live` false or a disconnect (`C-09`)
+>   stops every clock on the board, so stale lane state cannot masquerade as a
+>   live race.
+>
+> **Not in the relay yet.** `_forward()` in `cloud/cloud_server.py` still does
+> `data.pop('running_time')`, and [`api.md`](api.md) §5.1 still documents the field
+> as local-server-only. Both change with this row. Until they do, the pulse is all
+> a phone has.
 
 ### 3.3 Layout
 
@@ -270,7 +300,7 @@ Live lane state during a heat. The busiest screen and the one most worth getting
 | `L-19` | Podium highlight animation | n/a — Pi-local, `race_finished` is not forwarded |
 | `L-20` | Animated column show/hide, operator-driven | n/a — cloud columns are always visible |
 | `L-21` | Any timed hold on a state — the kiosk's 3s `brief_results` flash, its results pause, its leave-results debounce | n/a — still real on the kiosk board, still deliberately absent here: the phone shows the last frame received and runs no clock that decides *what* is on screen, so a client joining mid-sequence cannot land out of step with the console. `L-12`'s clock only fills a cell; it gates no transition |
-| `L-22` | Running clock fed by the server | n/a — `running_time` is stripped and stays stripped; the clock in `L-12` is the device's own |
+| `L-22` | Independent per-lane clock, each lane timing its own length | n/a — the console has one race clock and the lanes mirror it; a lane's own figure exists only as its split, `lane_time<i>`. See `L-12` |
 
 ---
 
@@ -435,7 +465,8 @@ Not on any phone client, now or planned:
   templates as of the FastAPI/plain-WebSocket server. Tracks `api.md` v1.
   - Revised while still v1, before any client had adopted it and while the IDs
     were therefore still free to move: `A-09` (Add-to-Home-Screen hint) dropped
-    outright and the old `A-10` renumbered onto it; `L-12` became a device-driven
-    clock with the pulse demoted to its join-mid-race fallback; `P-10` became the
+    outright and the old `A-10` renumbered onto it; `L-12` became the race clock,
+    server-rebased and locally interpolated, with the pulse demoted to its
+    join-mid-race fallback and `L-22` restated to match; `P-10` became the
     native-app hand-off; `A-08` restated as chrome. The never-renumber rule in
     §0.1 binds from here on.
