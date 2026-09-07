@@ -267,6 +267,16 @@ Live lane state during a heat. The busiest screen and the one most worth getting
 >   it is worse than no clock. A client that joins mid-heat shows the
 >   **lane-number pulse** (the number cycling between row text colour and timing
 >   colour) until the first `running_time` arrives, then switches to the clock.
+> - **A missed re-base is not a problem; a missing feed is.** The clock is an
+>   offset from the last re-base, not a sum of ticks, so a skipped one costs
+>   nothing and the next one corrects it in a single hard set. But a lane must not
+>   count forever because the frame that stopped it never came: if no
+>   `running_time` has arrived for **three sync intervals** while a lane is still
+>   flagged running, hold the last value and fall back to the pulse. Hold, do not
+>   blank — a board that empties mid-race reads as a crash. The real safety net is
+>   still `meet_live` and the heartbeat (`C-04`, `C-05`), which turn a dead socket
+>   into a stopped clock within seconds; this only covers a feed that keeps talking
+>   while saying nothing about the race.
 > - **Backgrounding**: stop the ticker when the tab or app leaves the screen and
 >   leave it stopped on return — the base is stale, and resuming from it jumps.
 >   The next `running_time` re-bases it, within the sync interval. Never
