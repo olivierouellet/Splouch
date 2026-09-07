@@ -348,8 +348,8 @@ Live lane state during a heat. The busiest screen and the one most worth getting
 
 | ID | Feature | Driven by | Level |
 | --- | --- | --- | --- |
-| `R-01` | "Waiting for results…" until the first snapshot arrives | `mobile.waiting_results` | must |
-| `R-02` | The waiting state returns on disconnect and when `meet_live` goes false | `disconnect`, `meet_live` | must |
+| `R-01` | Until the first snapshot: an empty grid, with "Waiting for results…" below it wherever there is room to say so | `mobile.waiting_results` | must — see note |
+| `R-02` | A disconnect, or `meet_live` going false, **wipes the board** and returns it to that state | `disconnect`, `meet_live` | must |
 | `R-03` | Header shows the snapshot's own event, heat, and event name | `results_snapshot` | must |
 | `R-04` | Same six columns and visibility flags as the Scoreboard tab | shared config | must |
 | `R-05` | **Lane sort**: row index = `channel`; a lane with no final time leaves its row blank | `sort == "lane"`, and when `sort` is absent | must |
@@ -359,10 +359,29 @@ Live lane state during a heat. The busiest screen and the one most worth getting
 | `R-09` | Final times carry the "locked" styling | `r.time` non-empty | should |
 | `R-10` | Returning to the tab re-joins the meet, reconnecting first if needed | web: `on_tab_shown` | must |
 
-> **`R-05` / `R-06` is one field with two very different layouts.** Getting it
-> backwards silently renumbers every swimmer. A relay predating the field omits
-> `sort` entirely — **absent must be read as `lane`**, never as a default of
-> `place`.
+> **`R-01` / `R-02` — clear first, then say so.** The message is not an overlay
+> and never covers the board: it sits in the flow and takes whatever room the rows
+> leave. In portrait they take their natural height, so it lands under a visible
+> empty grid; in landscape they share out the full height and there is no room, so
+> the web suppresses it and the empty grid carries the meaning on its own. Either
+> layout is parity — an app with a taller results area may well have room in both.
+>
+> What is **not** optional is the wipe. A results screen holds still by design,
+> which is exactly what makes a stale heat read as a current one: an app that
+> shows the message over the last heat it received is worse than one that shows
+> nothing. Clear the rows, then say you are waiting.
+
+> **`R-05` / `R-06` — `sort` says what a row index *means*.** In lane mode the
+> payload is a set of lanes and the row *is* the lane: `channel` 4 renders in row
+> 4, and a lane that never posted a time leaves row 4 blank. In place mode the
+> payload is already ordered as a ranking and the rows fill from the top: the
+> first element is first place, whatever lane it swam in.
+>
+> Read one as the other and nothing errors — every swimmer simply appears in
+> somebody else's row, which on a results screen is indistinguishable from a
+> result. Lane-ordered data rendered as a ranking makes lane 1 the winner. A relay
+> predating the field omits `sort` entirely, and those relays send lanes, so
+> **absent must be read as `lane`** and never as a default of `place`.
 
 ---
 
@@ -379,13 +398,21 @@ it to find *their* swimmer among several hundred.
 | `S-02` | Each card lists its lanes: lane number, name, club, seed time | `lanes[]` | must |
 | `S-03` | Relay entries show member first names joined by `·` | `lane.swimmers[].first`, falling back to `.name` | should |
 | `S-04` | Alternating card backgrounds, computed over *visible* cards so filtering keeps the stripe | — | should |
-| `S-05` | The current heat is highlighted | `results_snapshot` **and** `update_scoreboard` — both update it | must |
+| `S-05` | The heat the meet is on is highlighted in the list | `update_scoreboard.current_event`/`current_heat` **and** `results_snapshot.event`/`heat` | must |
 | `S-06` | The list auto-scrolls to the current heat once per appearance | re-armed on returning to the foreground | must |
 | `S-07` | Empty state when no meet file is loaded | `mobile.no_schedule` / `mobile.no_meet` | must |
 
-> **`S-05` listens to two sockets on purpose.** `update_scoreboard` moves first as
-> the operator advances; `results_snapshot` corrects it at the end of a heat.
-> Subscribing to only one leaves the highlight lagging or stuck.
+> **`S-05` reads the current heat off the *other* two sockets, on purpose.** This
+> tab has no feed of its own for it: `/ws/schedule` only signals that the start
+> list changed (`S-21`), and says nothing about where the meet has got to. So the
+> page opens all three and takes the event/heat from whichever speaks last.
+>
+> They arrive at different moments and that is the point. `update_scoreboard`
+> carries `current_event` / `current_heat` and moves as soon as the operator
+> advances the console, before anyone has swum. `results_snapshot` carries the
+> event and heat its *results* belong to, and lands when a heat is confirmed. With
+> only the scoreboard the highlight can sit ahead of results that have since been
+> published; with only the results it trails a heat behind all meeting.
 
 ### 5.2 Filtering
 
@@ -400,10 +427,17 @@ it to find *their* swimmer among several hundred.
 | `S-14` | A swimmer filter matches relay members, not just the lane's display name | `lane.swimmers[]` | must |
 | `S-15` | With filters on, non-matching lanes are hidden and heats with no match disappear | — | must |
 | `S-16` | **All heats** toggle: keep every heat visible, still filtering the lanes inside | — | should |
-| `S-17` | **Upcoming** toggle: hide heats before the current one | needs `S-05`'s current event/heat | should |
+| `S-17` | **Upcoming** toggle: hide every heat listed *ahead* of the current one, keeping that one | the current heat's position in the start list (`S-05`) | should — see note |
 | `S-18` | Reset clears filters and both toggles, behind a confirmation | `mobile.reset_confirm` | should |
 | `S-19` | Distinct empty states for "no swimmers match these filters" and "no search results" | — | should |
 | `S-20` | Filters live only for the session — not persisted | — | should |
+
+> **`S-17` cuts by position in the start list, not by the clock.** It finds the
+> current heat's index and drops everything before it. Scheduled times are
+> planning figures — a session runs early or late all day — so filtering on them
+> would hide heats that have not swum yet. If the current heat is unknown (nothing
+> has arrived on either socket) or is not in this list at all, the toggle must
+> change nothing rather than empty the screen.
 
 > **`S-16` exists to answer "when does my kid swim next?"** With filters on and
 > All-heats off, the list collapses to only the heats they are in — the common
@@ -467,10 +501,22 @@ a look of its own.
 | `T-01` | Palette from the meet's config: `bg`, `header_bg`, `header_border`, `header_label`, `header_value`, `th_text`, `th_bg`, `row_odd`, `row_even`, `row_text`, `time`, `delta_better`, `delta_worse` | `settings.theme_colors` | must |
 | `T-02` | Schedule-specific colours `schedule_event`, `schedule_time`, `schedule_name`, `schedule_club`, each with a built-in default | `settings.theme_colors` | should |
 | `T-03` | Three font roles — `family` (text), `digits` (clock), `timing` (times and deltas) | `settings.theme_fonts` | must |
-| `T-04` | Column headers and header labels come from the server, already translated | `settings.labels` | must |
+| `T-04` | Column headers and header labels come from the server, already resolved | `settings.labels` — the meet's locale × the operator's `label_style` | must — see note |
 | `T-05` | The app's own chrome strings — tab names, empty states, filter UI | the `[mobile]` locale section, en/fr/es | must |
 | `T-06` | Language follows the **meet's** locale, not the phone's | `settings.locale` | must |
 | `T-07` | Missing theme keys fall back to the documented defaults rather than rendering unstyled | — | must |
+
+> **`T-04` is not a translation, which is why it is not a `[mobile]` string.** The
+> label set is not a fixed vocabulary the app could ship: the server resolves each
+> entry from the meet's locale **and** the operator's `label_style` — `EVENT` or
+> `EV`, `PLACE` or `PL` — and a Pi can carry a custom locale file that replaces the
+> wording outright. An app holding its own `EVENT` would ignore the style toggle,
+> ignore any custom wording, and print the device's language across a board running
+> in the meet's.
+>
+> `T-05` is the opposite case and belongs in the bundle for the same reason: tab
+> names, empty states and the filter UI are the app's own chrome, no meet has an
+> opinion about them, and no server sends them.
 
 > **`T-04` + `T-06`: never translate a label the server sent.** `labels` and
 > `event_name` arrive already localised in the meet's language. Re-translating
