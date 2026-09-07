@@ -265,7 +265,7 @@ Live lane state during a heat. The busiest screen and the one most worth getting
 >   the same digits in the same place; only the styling separates them. That is
 >   `L-11`'s job and it stops being cosmetic here: running is dimmed, a split locks
 >   with the one-shot flash, and a flash still in flight is cancelled when the lane
->   rejoins the clock — the hold can be shorter than the flash.
+>   rejoins the clock, whatever the hold's length — nothing coordinates the two.
 > - **Show tenths** — `1:02.4`. The interpolation is good to well under a frame,
 >   but the value carries the relay path's latency as a near-constant offset, so it
 >   reads low by tens to hundreds of milliseconds. Hundredths would claim a

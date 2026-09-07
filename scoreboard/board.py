@@ -1467,11 +1467,12 @@ class BoardWindow(QWidget):
         # Running flags first: they decide whether the rows redrawn below take
         # their time from `lane_time<i>` or leave it to the ticker.
         #
-        # A lane pauses at every wall. The console drops `lane_running<i>` and
-        # sends the split in `lane_time<i>`, which stays on screen for a few
-        # seconds so it can be read, then the flag comes back and the lane
-        # rejoins the clock. Freezing the split is the whole point of the flag —
-        # without it the lap time would be overwritten before anyone saw it.
+        # A lane pauses at every wall. On the touch the console drops
+        # `lane_running<i>` and sends the split in `lane_time<i>`, then holds it
+        # there for a fixed number of seconds — its own setting, not the length of
+        # the turn — before the flag comes back and the lane rejoins the clock.
+        # Freezing the split is the whole point of the flag — without it the lap
+        # time would be overwritten before anyone saw it.
         was_racing = any(row.running for row in self.rows)
         for key, value in data.items():
             if not key.startswith('lane_running'):

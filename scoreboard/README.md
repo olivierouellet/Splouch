@@ -478,10 +478,12 @@ split are the same digits in the same place otherwise. `.time-running` and the
 there — they are not theme keys, so they are hardcoded here too rather than becoming
 settings that exist on only one of the two displays.
 
-**A lane pauses at every wall.** The console drops the running flag and sends the
-lap in `lane_time<i>`, which has to stay on screen for the few seconds it takes to
-read before the flag returns and the lane rejoins the clock. Freezing it is the
-entire point: without that, the lap time is overwritten before anyone sees it.
+**A lane pauses at every wall.** On the touch the console drops the running flag
+and sends the lap in `lane_time<i>`, then holds it there for a fixed number of
+seconds — a setting on the console, not the length of the turn, and not ended by
+the swimmer leaving the pad — before the flag returns and the lane rejoins the
+clock. Freezing it is the entire point: without that, the lap time is overwritten
+before anyone sees it.
 
 Consequences worth knowing before touching this code:
 

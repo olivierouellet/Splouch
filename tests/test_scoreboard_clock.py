@@ -1,8 +1,9 @@
 """Per-lane running clocks.
 
-A lane does not tick continuously. At every wall the console drops
-`lane_running<i>` and sends the lap in `lane_time<i>`; that split has to stay on
-screen for the few seconds it takes to read, then the flag returns and the lane
+A lane does not tick continuously. On the touch the console drops
+`lane_running<i>` and sends the lap in `lane_time<i>`, then holds it there for a
+fixed number of seconds — its own setting, not the length of the turn, and not
+ended by the swimmer leaving the pad — before the flag returns and the lane
 rejoins the race clock. Freezing the split is the entire point of the flag —
 without it the lap time is overwritten before anyone sees it.
 
@@ -67,7 +68,7 @@ def test_clock_interpolates_between_console_frames(board, qt_app):
     assert board.rows[0].time_label.text() == board.chrono_label.text()
 
 
-def test_a_split_freezes_the_lane_until_it_pushes_off(board, qt_app):
+def test_a_split_freezes_the_lane_until_the_hold_ends(board, qt_app):
     """The case this feature exists for."""
     board.apply_update({'running_time': '5.00',
                         'lane_running1': True, 'lane_running2': True})
@@ -84,7 +85,7 @@ def test_a_split_freezes_the_lane_until_it_pushes_off(board, qt_app):
     assert board.rows[0].time_label.text() == '28.41', 'split was overwritten'
     assert board.rows[1].time_label.text() != '28.41', 'lane 2 should still tick'
 
-    # Push-off: the lane rejoins the clock.
+    # The console's hold expires: the lane rejoins the clock.
     board.apply_update({'lane_running1': True, 'running_time': '30.00'})
     qt_app.processEvents()
     _pump(qt_app, 0.15)
@@ -227,7 +228,11 @@ def test_locking_a_split_flashes_it_back_to_the_time_colour(board, qt_app):
 
 
 def test_rejoining_the_clock_cancels_a_flash_in_flight(board, qt_app):
-    """A lane pauses at every wall, so the flash and the next length can overlap."""
+    """A lane pauses at every wall, so the flash and the next length can overlap.
+
+    Nothing coordinates the console's hold with the 800ms flash, so the lane can
+    rejoin the clock with one still in flight.
+    """
     from scoreboard.board import _TIME_RUNNING
     board.apply_update({'running_time': '12.30', 'lane_running1': True})
     qt_app.processEvents()
