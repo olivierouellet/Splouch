@@ -1,6 +1,6 @@
 # Splouch API contract
 
-**Contract version: `v1`** · Server implementation: this repo (`server/app.py` local, `cloud/cloud_server.py` cloud).
+**Contract version: `v2`** · Server implementation: this repo (`server/app.py` local, `cloud/cloud_server.py` cloud).
 
 This is the source-of-truth contract that every non-browser client follows — the
 Qt/PySide TV display (`Splouch-tv`), the iOS app (`Splouch-ios`), and the
@@ -335,6 +335,15 @@ same `settings` shape, so the two config sources agree.
 ---
 
 ## Changelog
+- **v2** — `running_time` over the relay. It was stripped from every forwarded
+  frame; the cloud now **throttles** it instead — at most one every 2s, plus any
+  frame that also carries a `lane_running<i>` key — and deliberately keeps it out
+  of the snapshot replayed on `join_meet` (§3, §5.1). Not an additive change: a
+  v1 client could reasonably assume the field never arrives over the relay, and
+  one that renders each frame verbatim now shows a clock that steps every two
+  seconds. What to do with it is `mobile-features.md` `L-12` (v2) — re-base and
+  interpolate, do not render.
+
 - **v1** — Initial contract after the Flask/Socket.IO → FastAPI/plain-WebSocket
   migration. Envelope `{event, data}`; local paths `/ws/scoreboard|results|settings|terminal`;
   cloud paths `/ws/relay|scoreboard|results|schedule` with `join_meet` rooms.

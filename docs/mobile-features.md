@@ -502,8 +502,8 @@ Not on any phone client, now or planned:
 ## Changelog
 
 - **v2** — The scoreboard gets a real clock, and the picker starts handing off to
-  the apps. Tracks `api.md` v1, whose `running_time` the relay now throttles
-  rather than strips (§5.1).
+  the apps. Tracks `api.md` v2 — the relay throttling `running_time` rather than
+  stripping it is the change that makes the clock below possible.
   - `L-12` replaced. Was: the lane number pulsing, the only sign of a running
     race once the cloud dropped `running_time`. Now: the heat's race clock in
     every running lane's time cell, re-based by the relay every couple of seconds
