@@ -50,7 +50,7 @@
     .timing-table tbody td:nth-child(4) { grid-column: 2; grid-row: 2; padding-top: 0; font-size: 0.92em; text-align: left !important; }
     .timing-table tbody td:nth-child(5) { grid-column: 3; grid-row: 2; padding-top: 0; font-size: 0.78em; text-align: right !important; }
     .timing-table tbody td:nth-child(6) { grid-column: 4; grid-row: 2; text-align: right !important; padding-top: 0; font-size: 0.78em; }
-    [id^="lane_place"]:not(:empty)::before { content: '#'; opacity: 0.5; }
+    [id^="lane_place"].has-place::before { content: '#'; opacity: 0.5; }
 }
 /* ── Columns ──
    Always visible, and never animated: nothing on a phone collapses them, and an
@@ -300,6 +300,21 @@ function bindLanePulse(sock) {
         updateAllLanePulses();
     });
 }
+/* The `#` in portrait is a CSS prefix on the place cell, so it must never stand
+   in front of a placeholder. `:empty` cannot tell one: the console sends a space
+   for "no place" (docs/api.md §5.1) and the Results tab writes an em dash
+   (`R-07`), and neither is an empty element. Mark the cell instead. */
+var PLACE_NONE = '\u2014';
+
+function setLanePlace(i, value) {
+    var el = document.getElementById('lane_place' + i);
+    if (!el) return;
+    var v = (value === null || value === undefined) ? '' : String(value);
+    el.textContent = v;
+    var real = v.trim() !== '' && v.trim() !== PLACE_NONE;
+    el.classList.toggle('has-place', real);
+}
+
 function escHtml(s) {
     return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
@@ -382,12 +397,16 @@ function applyScoreboardFrame(new_s) {
         /* A running lane's time cell belongs to the ticker. The split stays in
            the server's snapshot and comes back on the join replay, so without
            this it would sit on top of the live clock until the next re-base. */
-        if (VALID_FIELDS.has(k) &&
+        if (VALID_FIELDS.has(k) && !k.startsWith("lane_place") &&
             !(k.startsWith("lane_time") && clockOwnsLane(k.replace("lane_time", ""))))
             document.getElementById(k).innerHTML = s[k];
 
         if (k.startsWith("lane_time"))  lane_time_blank[k.replace("lane_time", "")]   = (s[k].trim() === "");
-        if (k.startsWith("lane_place")) lane_place_blank[k.replace("lane_place", "")] = (s[k].trim() === "");
+        if (k.startsWith("lane_place")) {
+            var pi = k.replace("lane_place", "");
+            lane_place_blank[pi] = (s[k].trim() === "");
+            setLanePlace(pi, s[k]);          /* writes the cell and its `#` marker */
+        }
         if (k.startsWith("lane_name")) names_changed = true;
         if (k.startsWith("lane_name") && !k.startsWith("lane_name_alt"))
             lane_name_blank[k.replace("lane_name", "")] = (s[k].trim() === "");

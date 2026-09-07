@@ -62,7 +62,7 @@ function blankRow(i, lane) {
     document.getElementById('lane_club'    + i).textContent = '';
     document.getElementById('lane_time'    + i).textContent = '—';
     document.getElementById('lane_delta'   + i).innerHTML   = '';
-    document.getElementById('lane_place'   + i).textContent = '—';
+    setLanePlace(i, PLACE_NONE);
 }
 
 /* Wipe the board back to an empty grid. Called when the feed goes away, so nothing
@@ -116,7 +116,7 @@ function renderResults(d) {
             tel.textContent = r.time || '—';
             if (r.time && r.time.trim()) tel.classList.add('time-locked');
             document.getElementById('lane_delta'   + i).innerHTML   = r.delta || '';
-            document.getElementById('lane_place'   + i).textContent = (r.place || '').trim() || '—';
+            setLanePlace(i, (r.place || '').trim() || PLACE_NONE);
         } else {
             blankRow(i, laneMode ? i : '—');
         }

@@ -309,7 +309,7 @@ Live lane state during a heat. The busiest screen and the one most worth getting
 
 | ID | Feature | Driven by | Level |
 | --- | --- | --- | --- |
-| `L-15` | Portrait: two-line compact row — lane number spanning left, name on line 1 with club right-aligned, time and delta and place on line 2; place prefixed `#` | — | must |
+| `L-15` | Portrait: two-line compact row — lane number spanning left, name on line 1 with club right-aligned, time and delta and place on line 2; a place is prefixed `#`, and nothing is when there is no place | — | must |
 | `L-16` | Landscape: full table with a header row, row font scaled to lane count | — | should |
 | `L-17` | Long names shrink to fit their cell, ellipsis only as a floor | — | must — see note |
 
