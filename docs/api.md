@@ -144,8 +144,8 @@ Join handshake, then listen — identical pattern on all three attendee paths:
 
 ### `/ws/scoreboard`
 **Server → client:** `meet_live {live}` (sent first, then whenever the console
-connects/disconnects), `update_scoreboard` (§5.1; the cloud strips `running_time`),
-`reload`.
+connects/disconnects), `update_scoreboard` (§5.1; the cloud throttles
+`running_time` and never caches it), `reload`.
 
 ### `/ws/results`
 **Server → client:** `meet_live {live}`, `results_snapshot` (§5.2), `next_heats` (§5.3), `reload`.
@@ -206,7 +206,7 @@ Lane keys are 1-indexed (`<i>` = 1…12).
 | `current_event`, `current_heat` | string | e.g. `"3"`, `"1"` |
 | `event_name` | string | display name, already localised/translated |
 | `heat_time` | string | scheduled time, may be `""` |
-| `running_time` | string | live clock; **present only on the local server** (cloud strips it) |
+| `running_time` | string | the race clock for the heat — one value, not per lane. The Pi sends it on every timing tick; **the cloud forwards at most one every 2s**, plus any frame that also carries a `lane_running<i>` key, and never keeps it in the join snapshot. Clients re-base on each one and tick locally in between |
 | `expected_splits` | int | laps expected for the event |
 | `lane_name<i>` | string | swimmer/relay display name |
 | `lane_club<i>` | string | club |

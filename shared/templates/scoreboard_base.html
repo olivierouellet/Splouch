@@ -157,12 +157,18 @@ function fitNameFontSize() {
 window.addEventListener('resize', function() { requestAnimationFrame(fitNameFontSize); });
 
 /* ── Lane pulse ───────────────────────────────────────────────────────────────
-   Neither mobile view carries a running clock — the cloud strips `running_time`
-   for relay load, the Pi's phone view never showed one — so the lane number
-   pulsing is the *only* sign a race is under way. Gated on `meet_live` as well as
-   `lane_running`, so a dead console can't leave stale lane state looking live
-   (docs/api.md §2.1 locally, §3 on the cloud). Both servers send the same event
-   with the same shape, so this is one implementation for both. */
+   Neither mobile view carries a running clock yet, so the lane number pulsing is
+   the only sign a race is under way. That is now the *fallback*, not the plan:
+   the cloud no longer strips `running_time` but throttles it to one re-base every
+   couple of seconds (docs/api.md §5.1), for a clock the client ticks itself
+   between frames. Until this page does that, the pulse is all it has; after it,
+   the pulse is what a client joining mid-heat shows until the first re-base
+   arrives (docs/mobile-features.md `L-12`).
+
+   Gated on `meet_live` as well as `lane_running`, so a dead console can't leave
+   stale lane state looking live (docs/api.md §2.1 locally, §3 on the cloud). Both
+   servers send the same event with the same shape, so this is one implementation
+   for both. */
 var meet_live    = false;
 var lane_running = {};
 

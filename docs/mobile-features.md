@@ -276,10 +276,11 @@ Live lane state during a heat. The busiest screen and the one most worth getting
 >   stops every clock on the board, so stale lane state cannot masquerade as a
 >   live race.
 >
-> **Not in the relay yet.** `_forward()` in `cloud/cloud_server.py` still does
-> `data.pop('running_time')`, and [`api.md`](api.md) §5.1 still documents the field
-> as local-server-only. Both change with this row. Until they do, the pulse is all
-> a phone has.
+> **The relay half is done; the clients are not.** `_forward()` in
+> `cloud/cloud_server.py` throttles the field and keeps it out of the join
+> snapshot, and [`api.md`](api.md) §5.1 documents it. No phone client reads it
+> yet — the web board still shows only the pulse — so this row is the spec for
+> all three, the reference implementation included.
 
 ### 3.3 Layout
 

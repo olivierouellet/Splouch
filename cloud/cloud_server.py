@@ -22,6 +22,7 @@ import secrets
 import sqlite3
 import tempfile
 import threading
+import time
 import tomllib
 import urllib.request
 from contextlib import asynccontextmanager
@@ -241,7 +242,7 @@ def _ch(ns, meet_id):
 # ── Per-meet state ─────────────────────────────────────────────────────────────
 # _meets: meet_id -> {
 #   relay_key, relay_sid, organizer, name, location, sport, meet_date,
-#   settings, connected_at,
+#   settings, connected_at, clock_at,
 #   last_scoreboard, last_results, last_next_heats, schedule_data
 # }
 # _retained: meet_id -> persisted snapshot that outlives the relay connection, so
@@ -268,6 +269,11 @@ _RETAINED_FIELDS = ('organizer', 'relay_key', 'name', 'location', 'sport',
 #   <id>.icon / .picker  the home-icon / picker-image base64 strings
 # See info/async_architecture.md ("Scaling the cloud persistence").
 _ID_RE = re.compile(r'^[A-Za-z0-9_-]{1,64}$')   # meet id -> safe filename
+
+# How often a running race clock is re-based on the attendees' devices. They tick
+# it themselves in between, so this is a correction rate, not a frame rate: it
+# bounds drift and how long a phone joining mid-heat waits for a clock.
+_CLOCK_SYNC_SECS = 2.0
 
 
 # ── Retained meets (persistence) ───────────────────────────────────────────────
@@ -1513,6 +1519,7 @@ async def _on_relay_register(ws, sid, data):
             'settings':         data.get('settings', {}),
             'connected_at':     prev.get('connected_at') or datetime.datetime.now().strftime('%H:%M:%S'),
             'last_scoreboard':  prev.get('last_scoreboard', {}),
+            'clock_at':         0.0,   # monotonic() of the last `running_time` sent
             'last_results':     prev.get('last_results', {}),
             'last_next_heats':  prev.get('last_next_heats', {}),
             # Restore the retained schedule on a fresh reconnect so it shows
@@ -1561,8 +1568,27 @@ async def _forward(sid, event, data):
         return
 
     if event == 'update_scoreboard':
-        data.pop('running_time', None)
+        # `running_time` is the race clock, and the console sends it on every
+        # timing tick. Forwarding that to every attendee is the traffic
+        # notes/cloud_parity.md refused; dropping it outright left the phones with
+        # no clock at all. So throttle it: the client re-bases on what we send and
+        # interpolates in between (docs/mobile-features.md `L-12`).
+        clock = data.pop('running_time', None)
+
+        # Cache the frame without the clock. The join replay sends the snapshot
+        # with no way to say how old it is, and a stale clock is worse than none —
+        # a client joining mid-heat waits for the next re-base instead.
         meet['last_scoreboard'].update(data)
+
+        # A frame that also moves a lane's running flag is a start, a wall, a
+        # push-off or a finish: rare, and exactly where the value has to be right.
+        if clock is not None:
+            now = time.monotonic()
+            if (now - meet.get('clock_at', 0.0) >= _CLOCK_SYNC_SECS
+                    or any(k.startswith('lane_running') for k in data)):
+                meet['clock_at']     = now
+                data['running_time'] = clock
+
         await manager.broadcast(_ch('scoreboard', meet_id), event, data)
     elif event == 'results_snapshot':
         meet['last_results'] = data
