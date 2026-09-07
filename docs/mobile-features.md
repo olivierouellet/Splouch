@@ -229,15 +229,30 @@ Live lane state during a heat. The busiest screen and the one most worth getting
 > [`tests/test_scoreboard_clock.py`](../tests/test_scoreboard_clock.py), which is
 > the best statement of it in the repo.
 >
+> **Mirror the interpolated value into the cells, not the last frame.** The kiosk
+> browser interpolates its header chrono and repaints the lane cells only when a
+> frame lands — invisible at console frame rate. At one re-base every two seconds
+> that would be a clock that moves twice a minute. Follow the Qt board, where a
+> running lane's cell and the race clock are the same string on every tick.
+>
 > - **A split freezes the lane, never the clock.** At every wall the console drops
 >   `lane_running<i>` and sends the lap in `lane_time<i>`; that cell holds the
 >   split for the few seconds it takes to read while the heat clock runs on for
 >   everyone else, and on push-off the flag returns and the lane rejoins it. So
 >   **never start or reset the clock from a lane edge** — it would restart at every
 >   length. `lane_running<i>` decides only whether lane *i* displays the clock.
+> - **The freeze needs no timer.** It is not a client-side hold and does not
+>   conflict with `L-21`: gate the clock write on `lane_running<i>`, paint
+>   `lane_time<i>` when it arrives, and the split stays up for exactly as long as
+>   the swimmer is turning, because nothing overwrites it until the console says
+>   the lane is running again. The console owns the duration; the client owns
+>   nothing but the gate.
 > - **A running lane ignores `lane_time<i>`.** The split stays in the merged
->   snapshot (`L-10`), so every later frame touching that lane would otherwise
->   flicker the stale lap over the live clock.
+>   snapshot (`L-10`), so every later frame touching that lane re-stamps it. The
+>   kiosk gets away with painting it and overwriting it, because the next
+>   `running_time` lands a few hundred milliseconds later; at a two-second re-base
+>   the stale lap would sit on top of the live clock for seconds. Skip the write
+>   instead of racing it.
 > - **Say which one you are looking at.** A ticking clock and a frozen split are
 >   the same digits in the same place; only the styling separates them. That is
 >   `L-11`'s job and it stops being cosmetic here: running is dimmed, a split locks
