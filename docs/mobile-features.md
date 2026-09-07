@@ -94,7 +94,7 @@ and the place the user returns to via `A-02`.
 | `P-07` | Privacy note, shown whenever attendance counting is on for this server | `strings.privacy_note`, gated on `analytics_enabled` | must |
 | `P-08` | Selecting a meet opens the app shell for it | `GET /meet/{id}/config` | must |
 | `P-09` | Pull-to-refresh re-fetches the meet list | — | should |
-| `P-10` | Add-to-Home-Screen prompt (iOS hint / Android `beforeinstallprompt`) | — | web-only |
+| `P-10` | Install hand-off: store links to the native iOS/Android apps once they ship, Add-to-Home-Screen until then | — | web-only — see note |
 
 > **`P-06` is not decoration.** The disclaimer states these are live, unofficial
 > results subject to validation, and points at SplashMe for validated ones. It is
@@ -104,6 +104,18 @@ and the place the user returns to via `A-02`.
 > Render the server's text rather than a copy compiled into the app: it is served
 > from `/picker/config` precisely so wording can be corrected without waiting on a
 > store review.
+
+> **`P-10` is a hand-off, not a feature of the apps.** The Add-to-Home-Screen
+> hint exists because the phone clients do not yet. When they ship, the same slot
+> points at the App Store or Play Store entry for the device it is running on, and
+> falls back to Add-to-Home-Screen only where there is no app to send people to —
+> desktop, or a platform we do not publish for. Inside a native app it renders
+> nothing: an app cannot install itself. That is what `web-only` means on this row.
+>
+> Serve the store URLs from `/picker/config`, next to `P-06`'s disclaimer, rather
+> than compiling them into the page, and hide the affordance when they are absent;
+> a store listing that moves must not need a deploy. `api.md` gains the fields when
+> the first app is submitted.
 
 > **Picker language is the device's, not a meet's.** The list spans meets that may
 > each run in a different language, so `/picker/config` resolves from `?lang=` or
@@ -117,14 +129,13 @@ and the place the user returns to via `A-02`.
 | --- | --- | --- | --- |
 | `A-01` | Three tabs — Scoreboard, Results, Schedule — each with icon and label | `mobile.scoreboard` / `.results` / `.schedule` | must |
 | `A-02` | Back affordance to the meet picker | — | must |
-| `A-03` | Horizontal swipe moves between adjacent tabs | web: 28px edge strips only, ≥40px travel | must — **see note** |
+| `A-03` | Horizontal swipe moves between adjacent tabs, and the movement is visible — the tabs follow the finger and settle on release | web: 28px edge strips only, ≥40px travel, switched on `touchend` with nothing in between | must — **see note** |
 | `A-04` | The selected tab survives a relaunch | web: `sessionStorage['tab']` | should |
 | `A-05` | Pull-to-refresh re-fetches config and rejoins the sockets | web: 80px threshold, rotating indicator | should |
 | `A-06` | Content clears notch, Dynamic Island, and home indicator | web: `env(safe-area-inset-*)` | must (free natively) |
 | `A-07` | Portrait stacks label under icon; landscape drops labels to save height | CSS media queries | should |
-| `A-08` | App/window title is the meet's `app_window_title`, falling back to its name | `settings.app_window_title` | should |
-| `A-09` | Add-to-Home-Screen hint | **retired** — removed from the shell; the picker steers people to the native apps instead | n/a |
-| `A-10` | Meet goes offline mid-session → return to the picker | `GET /mobile` 303s to `/` when the meet is gone | must |
+| `A-08` | Window and home-screen title is the meet's `app_window_title`, falling back to the meet's `name` | `settings.app_window_title`, then `name` | web-only — see note |
+| `A-09` | Meet goes offline mid-session → return to the picker | `GET /mobile` 303s to `/` when the meet is gone | must |
 
 > **`A-03` — do not port the edge strips.** The web restricts swipe to two 28px
 > strips at the screen edges purely because each tab is an `<iframe>`, and a
@@ -132,6 +143,28 @@ and the place the user returns to via `A-02`.
 > pager has no such problem: **use a normal full-width swipe** with the platform's
 > standard pager. This is the clearest case in the file where matching the web
 > implementation would make the app worse.
+>
+> **Answer the gesture while it happens.** The web switches on `touchend` and
+> draws nothing in between, so the screen is either one tab or the next: a
+> half-committed swipe looks like nothing happened, and a swipe the user did not
+> mean to make looks like a glitch. A platform pager tracks the drag, reveals the
+> neighbouring tab's edge, and animates the settle — take it, together with the
+> tab-bar indicator moving with the drag rather than jumping after it. Where
+> tracking is genuinely impractical the floor is an animated transition on the
+> switch, never an instant cut.
+
+> **`A-08` is chrome, not a screen.** No mobile page draws this string. On the
+> web it is the `<title>` (the browser tab), the `apple-mobile-web-app-title`, and
+> the PWA manifest's `name` / `short_name` — the label under the icon after a
+> `P-10` install. The shell has no title bar of its own: the tab strip and the
+> back arrow are the whole chrome, deliberately.
+>
+> A native app cannot retitle itself per meet — the store listing fixes the icon
+> label — so it satisfies this row by existing. Android may set the recents-card
+> label from it (`TaskDescription`); iOS has no equivalent. Do **not** grow a title
+> bar in the shell to have somewhere to put it. The fallback order is the
+> operator's `app_window_title`, then the meet `name` shown on the `P-01` card,
+> then `Splouch`.
 
 > **The iframes themselves are `web-only` throughout.** Anything the templates do
 > to work around them — re-dispatching `resize` on tab switch, calling into
@@ -165,18 +198,43 @@ Live lane state during a heat. The busiest screen and the one most worth getting
 | `L-09` | Empty lanes render blank in place — rows never collapse or shift | — | must |
 | `L-10` | Frames are partial: merge changed keys into local state, never replace | `update_scoreboard` (§5.1) | must |
 | `L-11` | A running lane's time is styled distinctly; on stop it plays a one-shot "locked" transition | `lane_running<i>` false-edge | should |
-| `L-12` | Lane **number pulses** between row text colour and timing colour while that lane runs | `lane_running<i>` **and** `meet_live` | **must** |
+| `L-12` | A running lane shows an **elapsed clock the device drives itself**, in that lane's time cell, replaced by the real time when the lane stops | `lane_running<i>` **and** `meet_live`, timed locally — see note | **must** |
 | `L-13` | Event or heat change blanks all times, deltas, and places | `current_event` / `current_heat` change | must |
 | `L-14` | Returning to the tab re-runs layout and refreshes the clock | web: parent re-dispatches `resize` | must (native: on-appear) |
 
-> **`L-12` is the chronometer's replacement.** The cloud strips `running_time`
-> before forwarding — one field at timing-tick frequency multiplied by every
-> connected phone ([`notes/cloud_parity.md`](../notes/cloud_parity.md)). The pulse
-> is therefore the *only* signal that a race is under way. An app that skips it
-> shows a board that looks frozen for the length of every heat.
+> **`L-12` — the chronometer is local, and faked on purpose.** The cloud strips
+> `running_time` before forwarding — one field at timing-tick frequency multiplied
+> by every connected phone ([`notes/cloud_parity.md`](../notes/cloud_parity.md)) —
+> and it stays stripped. Without some sign of motion the board looks frozen for the
+> length of every heat, so the client makes its own clock rather than asking the
+> server for one. Nothing extra is sent or received while a heat runs.
+>
+> - **Start** it on the frame where `lane_running<i>` goes false→true, from the
+>   device's *monotonic* clock — not wall time, which an NTP correction mid-heat
+>   would move.
+> - **Tick** it locally at about 10Hz off the platform's display link
+>   (`requestAnimationFrame` / `CADisplayLink` / `Choreographer`), and only while
+>   the tab is on screen (`L-14`).
+> - **Show tenths, never hundredths** — `1:02.4`. One digit coarser than a result
+>   is what keeps it from being read as one. It starts late by the relay latency,
+>   so it reads low by tens to hundreds of milliseconds and must never be presented
+>   as a time.
+> - **Stop** on the false edge and let that frame's `lane_time<i>` replace it with
+>   `L-11`'s locked styling. Never keep counting past the stop, and never let the
+>   local value survive as a result.
+> - **A start you did not see is not a start.** A client that joins with
+>   `lane_running<i>` already true cannot know when the lane went off and must not
+>   guess. Leave its clock blank and fall back to the **lane-number pulse** — the
+>   number cycling between row text colour and timing colour — for that lane until
+>   the next heat.
+> - **Backgrounding**: on foreground, recompute the elapsed value from the stored
+>   start instant. Accumulating ticks means a phone that slept for a minute comes
+>   back a minute behind.
 >
 > It is gated on `meet_live` as well as `lane_running<i>`: with no console feeding
-> the meet, nothing pulses, so stale lane state cannot masquerade as a live race.
+> the meet, nothing counts, so stale lane state cannot masquerade as a live race. A
+> disconnect implies `meet_live = false` (`C-09`) and stops every clock on the
+> board.
 
 ### 3.3 Layout
 
@@ -186,14 +244,11 @@ Live lane state during a heat. The busiest screen and the one most worth getting
 | `L-16` | Landscape: full table with a header row, row font scaled to lane count | — | should |
 | `L-17` | Long names shrink to fit their cell, ellipsis only as a floor | — | must — see note |
 
-> **`L-17` — shrink, on this tab and on Results (`R-08`).** An earlier version of
-> this file said the opposite: clip here, shrink there, on the grounds that a live
-> board wants uniform row heights. That was wrong twice over. Row heights are
+> **`L-17` — shrink, on this tab and on Results (`R-08`).** Row heights are
 > floored by `min-height` in portrait and shared out by the table in landscape, so
 > shrinking a name changes type size and nothing else — and the Qt board, which is
 > what spectators actually watch, has shrunk names from the start
-> ([`notes/scoreboard_parity.md`](../notes/scoreboard_parity.md)). The web boards
-> have been brought into line.
+> ([`notes/scoreboard_parity.md`](../notes/scoreboard_parity.md)).
 >
 > **Do not put the re-fit on the per-frame path.** Measuring forces a synchronous
 > layout per lane. Names arrive on a heat change, so the web gates the call on a
@@ -214,8 +269,8 @@ Live lane state during a heat. The busiest screen and the one most worth getting
 | `L-18` | Carousel / fullscreen image overlay | n/a — images are local to the Pi and are never relayed |
 | `L-19` | Podium highlight animation | n/a — Pi-local, `race_finished` is not forwarded |
 | `L-20` | Animated column show/hide, operator-driven | n/a — cloud columns are always visible |
-| `L-21` | Any timed hold on a state — e.g. a 3s results flash on an unconfirmed finish | n/a — the board shows the last frame received and never runs its own clock, so a client joining mid-sequence cannot land out of step with the console |
-| `L-22` | Live running clock per lane | n/a — `running_time` is stripped; see `L-12` |
+| `L-21` | Any timed hold on a state — the kiosk's 3s `brief_results` flash, its results pause, its leave-results debounce | n/a — still real on the kiosk board, still deliberately absent here: the phone shows the last frame received and runs no clock that decides *what* is on screen, so a client joining mid-sequence cannot land out of step with the console. `L-12`'s clock only fills a cell; it gates no transition |
+| `L-22` | Running clock fed by the server | n/a — `running_time` is stripped and stays stripped; the clock in `L-12` is the device's own |
 
 ---
 
@@ -378,3 +433,9 @@ Not on any phone client, now or planned:
 
 - **v1** — First statement of the mobile feature contract, taken from the cloud
   templates as of the FastAPI/plain-WebSocket server. Tracks `api.md` v1.
+  - Revised while still v1, before any client had adopted it and while the IDs
+    were therefore still free to move: `A-09` (Add-to-Home-Screen hint) dropped
+    outright and the old `A-10` renumbered onto it; `L-12` became a device-driven
+    clock with the pulse demoted to its join-mid-race fallback; `P-10` became the
+    native-app hand-off; `A-08` restated as chrome. The never-renumber rule in
+    §0.1 binds from here on.
