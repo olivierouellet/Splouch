@@ -280,8 +280,10 @@ Live lane state during a heat. The busiest screen and the one most worth getting
 >   nothing and the next one corrects it in a single hard set. But a lane must not
 >   count forever because the frame that stopped it never came: if no
 >   `running_time` has arrived for **three sync intervals** while a lane is still
->   flagged running, hold the last value and fall back to the pulse. Hold, do not
->   blank — a board that empties mid-race reads as a crash. The real safety net is
+>   flagged running, stop the ticker and fall back to the pulse. Freeze the digits
+>   where they stopped — three intervals past the last re-base, not back at it;
+>   rewinding a clock in front of a spectator is worse than losing it. And freeze,
+>   do not blank: a board that empties mid-race reads as a crash. The real safety net is
 >   still `meet_live` and the heartbeat (`C-04`, `C-05`), which turn a dead socket
 >   into a stopped clock within seconds; this only covers a feed that keeps talking
 >   while saying nothing about the race.

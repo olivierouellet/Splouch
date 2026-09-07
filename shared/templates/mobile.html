@@ -151,6 +151,10 @@
 
         function show(idx) {
             if (idx === current) return;
+            // Hiding an iframe fires no visibility event inside it, so the page
+            // leaving the screen is told. It stops its race-clock ticker there
+            // (scoreboard_base.html); the next re-base restarts it on return.
+            try { frames[current].contentWindow.on_tab_hidden(); } catch(e) {}
             frames[current].classList.remove('active');
             tabs[current].classList.remove('active');
             current = idx;

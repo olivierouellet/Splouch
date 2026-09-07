@@ -156,14 +156,92 @@ function fitNameFontSize() {
 }
 window.addEventListener('resize', function() { requestAnimationFrame(fitNameFontSize); });
 
+/* ── Race clock ───────────────────────────────────────────────────────────────
+   `running_time` is one clock for the heat, not one per lane, and every running
+   lane shows it (docs/mobile-features.md `L-12`). The relay forwards at most one
+   every couple of seconds, plus any frame that moves a `lane_running` flag
+   (docs/api.md §5.1), so what arrives is a *re-base*, not a frame to render: the
+   page ticks the clock itself in between, off `performance.now()` — monotonic, so
+   a device clock corrected mid-heat cannot move it.
+
+   Tenths, never hundredths. The interpolation is good to far better than that,
+   but the value carries the relay path's latency as a near-constant offset, so it
+   reads a little low and must not claim a precision the path does not have. The
+   kiosk board is on the LAN and shows hundredths. */
+var CLOCK_TICK_MS  = 100;             /* one tenth — the last digit we display   */
+var CLOCK_STALE_MS = 6000;            /* 3 sync intervals: the feed has gone quiet */
+var _clock_h    = null;               /* hundredths at the last re-base          */
+var _clock_at   = null;               /* performance.now() when it arrived       */
+var _clock_timer = null;
+
+function parseHundredths(str) {
+    var m = String(str).match(/^(?:(\d+):)?(\d{1,2})\.(\d{2})$/);
+    if (!m) return null;
+    return parseInt(m[1] || 0, 10) * 6000 + parseInt(m[2], 10) * 100 + parseInt(m[3], 10);
+}
+
+function formatTenths(h) {
+    var t  = Math.floor(h / 10);
+    var mm = Math.floor(t / 600), ss = Math.floor(t / 10) % 60, d = t % 10;
+    return mm > 0 ? mm + ':' + (ss < 10 ? '0' : '') + ss + '.' + d
+                  : ss + '.' + d;
+}
+
+function hasClock() { return _clock_h !== null; }
+
+/* True while the ticker owns a lane's time cell, so the frame handler leaves it
+   alone. Ownership ends the moment the clock does, which is what hands the cell
+   back for the split (or the final) to be painted. */
+function clockOwnsLane(i) { return hasClock() && !!lane_running[i]; }
+
+function tickClock() {
+    if (!hasClock()) { stopClock(); return; }
+    var age = performance.now() - _clock_at;
+    /* Silence long enough to mean the feed died, not the throttle. Hold what is
+       on screen and let the pulse take over — blanking mid-race reads as a crash.
+       The next re-base starts it again. */
+    if (age > CLOCK_STALE_MS) { stopClock(); return; }
+
+    var text = formatTenths(_clock_h + Math.floor(age / 10));
+    for (var i = 1; i <= NUM_LANES; i++) {
+        if (!lane_running[i]) continue;
+        var el = document.getElementById('lane_time' + i);
+        if (el) el.innerHTML = text;
+    }
+}
+
+function rebaseClock(value) {
+    var h = parseHundredths(value);
+    if (h === null) return;                 /* a console sent something odd */
+    _clock_h  = h;
+    _clock_at = performance.now();
+    if (_clock_timer === null) _clock_timer = setInterval(tickClock, CLOCK_TICK_MS);
+    tickClock();                            /* paint on the frame, not 100ms later */
+    updateAllLanePulses();                  /* the clock supersedes the pulse */
+}
+
+/* Leaves the cells as they are — whoever stopped the clock decides what replaces
+   the digits: a split, a final time, or nothing on a heat change. */
+function stopClock() {
+    if (_clock_timer !== null) { clearInterval(_clock_timer); _clock_timer = null; }
+    _clock_h = _clock_at = null;
+    updateAllLanePulses();
+}
+
+/* The shell hides a tab by hiding its iframe, which fires no visibility event, so
+   it calls in here; backgrounding the whole app does fire one. Either way the
+   ticker stops and stays stopped: its base is stale, and resuming from it would
+   jump. The next re-base brings it back, within a sync interval. */
+function on_tab_hidden() { stopClock(); }
+document.addEventListener('visibilitychange', function() {
+    if (document.hidden) stopClock();
+});
+
 /* ── Lane pulse ───────────────────────────────────────────────────────────────
-   Neither mobile view carries a running clock yet, so the lane number pulsing is
-   the only sign a race is under way. That is now the *fallback*, not the plan:
-   the cloud no longer strips `running_time` but throttles it to one re-base every
-   couple of seconds (docs/api.md §5.1), for a clock the client ticks itself
-   between frames. Until this page does that, the pulse is all it has; after it,
-   the pulse is what a client joining mid-heat shows until the first re-base
-   arrives (docs/mobile-features.md `L-12`).
+   The fallback for a running lane with no clock to show: a client that joined
+   mid-heat and is waiting for its first re-base, or one whose feed went quiet.
+   With a clock running the digits are the signal and the pulse would only compete
+   with them.
 
    Gated on `meet_live` as well as `lane_running`, so a dead console can't leave
    stale lane state looking live (docs/api.md §2.1 locally, §3 on the cloud). Both
@@ -174,7 +252,8 @@ var lane_running = {};
 
 function isLaneActive(i) {
     if (!meet_live) return false;   // nothing feeding us — never animate
-    return !!lane_running[i];       // glow only while the lane is actually running
+    if (!lane_running[i]) return false;
+    return !hasClock();             // the ticking digits say it better
 }
 function updateLanePulse(i) {
     var el = document.getElementById('lane_num' + i);
@@ -186,8 +265,16 @@ function updateAllLanePulses() {
 /* Wire a socket's liveness events to the pulse. Call once per page, after the
    socket exists; a drop must read as "not live" or the board freezes mid-glow. */
 function bindLanePulse(sock) {
-    sock.on('meet_live',  function(d) { meet_live = !!(d && d.live); updateAllLanePulses(); });
-    sock.on('disconnect', function()  { meet_live = false;           updateAllLanePulses(); });
+    sock.on('meet_live',  function(d) {
+        meet_live = !!(d && d.live);
+        if (!meet_live) stopClock();     /* no console: nothing is running */
+        updateAllLanePulses();
+    });
+    sock.on('disconnect', function() {
+        meet_live = false;
+        stopClock();                     /* `C-09`: a drop implies not live */
+        updateAllLanePulses();
+    });
 }
 function escHtml(s) {
     return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
@@ -221,6 +308,7 @@ var VALID_FIELDS = new Set([
 function reset_state() {
     current_state = 0; last_state = 0; last_event = 0; last_heat = 0;
     lane_running = {}; lane_place_blank = {}; lane_time_blank = {}; lane_name_blank = {};
+    stopClock();
     updateAllLanePulses();
 }
 
@@ -235,30 +323,45 @@ function apply_state_transition() {
 function applyScoreboardFrame(new_s) {
     for (var k in new_s) { s[k] = new_s[k]; }
 
-    var names_changed = false;
+    /* Running flags first, as the Qt board does. They decide whether the cells
+       written below take their time from `lane_time<i>` or from the clock, and at
+       a wall the flag and the split arrive in the same frame — key order must not
+       be what settles it. */
     for (var k in s) {
-        if (VALID_FIELDS.has(k)) document.getElementById(k).innerHTML = s[k];
-
-        if (k.startsWith("lane_running")) {
-            var li  = k.replace("lane_running", "");
-            var was = lane_running[li] || false;
-            lane_running[li] = s[k];
-            var tel = document.getElementById("lane_time" + li);
-            if (tel) {
-                if (s[k]) {
-                    tel.classList.add('time-running');
-                    tel.classList.remove('time-locked');
-                } else if (was) {
-                    /* Drop both classes before the reflow: re-adding a class that
-                       is still set does not restart its animation, so a lane that
-                       finishes twice would show the lock effect only once. */
-                    tel.classList.remove('time-running');
-                    tel.classList.remove('time-locked');
-                    void tel.offsetWidth;
-                    tel.classList.add('time-locked');
-                }
+        if (!k.startsWith("lane_running")) continue;
+        var li  = k.replace("lane_running", "");
+        var was = lane_running[li] || false;
+        lane_running[li] = s[k];
+        var tel = document.getElementById("lane_time" + li);
+        if (tel) {
+            if (s[k]) {
+                tel.classList.add('time-running');
+                tel.classList.remove('time-locked');
+            } else if (was) {
+                /* Drop both classes before the reflow: re-adding a class that
+                   is still set does not restart its animation, so a lane that
+                   finishes twice would show the lock effect only once. */
+                tel.classList.remove('time-running');
+                tel.classList.remove('time-locked');
+                void tel.offsetWidth;
+                tel.classList.add('time-locked');
             }
         }
+    }
+
+    /* Then the clock, so the first paint of a re-base lands before anything below
+       can stamp a stale split over it. */
+    if ("running_time" in s) rebaseClock(s["running_time"]);
+
+    var names_changed = false;
+    for (var k in s) {
+        /* A running lane's time cell belongs to the ticker. The split stays in
+           the server's snapshot and comes back on the join replay, so without
+           this it would sit on top of the live clock until the next re-base. */
+        if (VALID_FIELDS.has(k) &&
+            !(k.startsWith("lane_time") && clockOwnsLane(k.replace("lane_time", ""))))
+            document.getElementById(k).innerHTML = s[k];
+
         if (k.startsWith("lane_time"))  lane_time_blank[k.replace("lane_time", "")]   = (s[k].trim() === "");
         if (k.startsWith("lane_place")) lane_place_blank[k.replace("lane_place", "")] = (s[k].trim() === "");
         if (k.startsWith("lane_name")) names_changed = true;
@@ -303,6 +406,9 @@ function applyScoreboardFrame(new_s) {
     if (current_state === 1 && last_state === 2) current_state = 3;
 
     apply_state_transition();
+    /* State 2 is "some lane is running" and nothing else runs a clock: on intro
+       the cells are blanked, on results they hold finals. */
+    if (current_state !== 2) stopClock();
     updateAllLanePulses();
     /* Only when a name actually arrived — which is a heat change, not every tick.
        Re-fitting on each frame would force a layout pass per lane mid-race. */
