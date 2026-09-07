@@ -1580,8 +1580,9 @@ async def _forward(sid, event, data):
         # a client joining mid-heat waits for the next re-base instead.
         meet['last_scoreboard'].update(data)
 
-        # A frame that also moves a lane's running flag is a start, a wall, a
-        # push-off or a finish: rare, and exactly where the value has to be right.
+        # A frame that also moves a lane's running flag is a start, a touch, the
+        # end of the console's split hold or a finish: rare, and exactly where the
+        # value has to be right.
         if clock is not None:
             now = time.monotonic()
             if (now - meet.get('clock_at', 0.0) >= _CLOCK_SYNC_SECS

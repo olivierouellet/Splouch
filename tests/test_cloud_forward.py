@@ -7,8 +7,9 @@ the field outright — which left the phone board with no sign at all that a rac
 was under way.
 
 It is now throttled instead: one re-base every `_CLOCK_SYNC_SECS`, plus any frame
-that also moves a `lane_running<i>` flag, because a start, a wall, a push-off and
-a finish are rare and are exactly where the value has to be right. Clients tick
+that also moves a `lane_running<i>` flag, because a start, a touch, the end of the
+console's split hold and a finish are rare and are exactly where the value has to
+be right. Clients tick
 their own clock in between (`docs/mobile-features.md` `L-12`).
 
 Two things are easy to get wrong and are what most of this file guards:
@@ -109,13 +110,17 @@ def test_a_wall_always_carries_the_clock(relay):
     """
     relay.send(running_time='5.00')                       # opens the interval
     frame = relay.send(running_time='28.60',
-                       lane_running1=False, lane_time1='28.41')
+                       lane_running1=False, lane_time1='28.41')  # the touch
     assert frame['running_time'] == '28.60'
     assert frame['lane_time1'] == '28.41'
 
 
-def test_a_push_off_always_carries_the_clock(relay):
-    """The other edge of the same pause — the lane rejoins the race clock."""
+def test_the_end_of_a_hold_always_carries_the_clock(relay):
+    """The other edge of the same pause — the lane rejoins the race clock.
+
+    The console ends the hold on its own timer, some seconds after the touch, so
+    this frame lands mid-interval and would otherwise be throttled away.
+    """
     relay.send(running_time='5.00')
     assert relay.send(running_time='30.00', lane_running1=True)['running_time']
 

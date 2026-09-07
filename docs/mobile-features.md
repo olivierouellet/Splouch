@@ -197,7 +197,7 @@ Live lane state during a heat. The busiest screen and the one most worth getting
 | `L-08` | Column *headers* hide independently of the columns: `show_*_header` | meet `settings` | should |
 | `L-09` | Empty lanes render blank in place — rows never collapse or shift | — | must |
 | `L-10` | Frames are partial: merge changed keys into local state, never replace | `update_scoreboard` (§5.1) | must |
-| `L-11` | A running lane's time is styled distinctly; on stop it plays a one-shot "locked" transition, cancelled if the lane pushes off again | `lane_running<i>` false-edge | **must** — it is what separates a live clock from a frozen split (`L-12`) |
+| `L-11` | A running lane's time is styled distinctly; on stop it plays a one-shot "locked" transition, cancelled if the lane starts running again | `lane_running<i>` false-edge | **must** — it is what separates a live clock from a frozen split (`L-12`) |
 | `L-12` | Every running lane's time cell shows the **race clock**: one value for the heat, re-based by the server every couple of seconds and ticked by the device in between | `running_time` (throttled by the relay) + `lane_running<i>` + `meet_live` — see note | **must** |
 | `L-13` | Event or heat change blanks all times, deltas, and places | `current_event` / `current_heat` change | must |
 | `L-14` | Returning to the tab re-runs layout and refreshes the clock | web: parent re-dispatches `resize` | must (native: on-appear) |
@@ -219,7 +219,8 @@ Live lane state during a heat. The busiest screen and the one most worth getting
 > a purely local clock cannot have: no drift, no accumulated error over a 1500m,
 > and a client that joins mid-heat catching up within one interval instead of
 > never. The `lane_running` exception is what makes the moments that must be exact
-> — start, wall, push-off, finish — exact; they are rare by nature.
+> — a start, a touch, the end of a split hold, a finish — exact; they are rare by
+> nature.
 >
 > Between re-bases the device advances the clock itself, ~10Hz off the platform's
 > display link from a *monotonic* clock, re-basing hard on each `running_time`
@@ -235,18 +236,25 @@ Live lane state during a heat. The busiest screen and the one most worth getting
 > that would be a clock that moves twice a minute. Follow the Qt board, where a
 > running lane's cell and the race clock are the same string on every tick.
 >
-> - **A split freezes the lane, never the clock.** At every wall the console drops
+> - **A split freezes the lane, never the clock.** On the touch the console drops
 >   `lane_running<i>` and sends the lap in `lane_time<i>`; that cell holds the
->   split for the few seconds it takes to read while the heat clock runs on for
->   everyone else, and on push-off the flag returns and the lane rejoins it. So
->   **never start or reset the clock from a lane edge** — it would restart at every
->   length. `lane_running<i>` decides only whether lane *i* displays the clock.
-> - **The freeze needs no timer.** It is not a client-side hold and does not
->   conflict with `L-21`: gate the clock write on `lane_running<i>`, paint
->   `lane_time<i>` when it arrives, and the split stays up for exactly as long as
->   the swimmer is turning, because nothing overwrites it until the console says
->   the lane is running again. The console owns the duration; the client owns
->   nothing but the gate.
+>   split while the heat clock runs on for everyone else, and when the flag comes
+>   back the lane rejoins it. So **never start or reset the clock from a lane
+>   edge** — it would restart at every length. `lane_running<i>` decides only
+>   whether lane *i* displays the clock.
+> - **The freeze is the console's, and it is a fixed length.** It starts at the
+>   touch and ends a set number of seconds later — a console setting, nothing to
+>   do with when the swimmer leaves the pad. Leaving the pad does not end it, and
+>   a slow turn does not extend it, so do not model the hold as "the length of the
+>   turn" or try to detect its end from anything but the flag.
+>
+>   The client therefore needs **no timer of its own**, which is also why this does
+>   not conflict with `L-21`: gate the clock write on `lane_running<i>`, paint
+>   `lane_time<i>` when it arrives, and the split stays up until the console says
+>   the lane is running again. Both edges are `lane_running<i>` frames, so both
+>   re-base the clock (see the throttle rule above) — the second one is where a
+>   lane that has been frozen for several seconds picks the race clock back up,
+>   and it must be right.
 > - **A running lane ignores `lane_time<i>`.** The split stays in the merged
 >   snapshot (`L-10`), so every later frame touching that lane re-stamps it. The
 >   kiosk gets away with painting it and overwriting it, because the next
@@ -257,7 +265,7 @@ Live lane state during a heat. The busiest screen and the one most worth getting
 >   the same digits in the same place; only the styling separates them. That is
 >   `L-11`'s job and it stops being cosmetic here: running is dimmed, a split locks
 >   with the one-shot flash, and a flash still in flight is cancelled when the lane
->   pushes off.
+>   rejoins the clock — the hold can be shorter than the flash.
 > - **Show tenths** — `1:02.4`. The interpolation is good to well under a frame,
 >   but the value carries the relay path's latency as a near-constant offset, so it
 >   reads low by tens to hundreds of milliseconds. Hundredths would claim a
