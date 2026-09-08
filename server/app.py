@@ -27,6 +27,7 @@ from routes.debug      import router as debug_router
 from routes.system     import router as system_router
 from routes.network    import router as network_router
 from routes.appearance import router as appearance_router
+from routes.i18n       import router as i18n_router
 
 SECRET_KEY = 'rimnqiuqnewiornhf7nfwenjmqvliwynhtmlfnlsklrmqwe'
 
@@ -78,6 +79,7 @@ app = FastAPI(lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None
 app.add_middleware(SessionMiddleware, secret_key=SECRET_KEY)
 app.mount('/static', StaticFiles(directory=state.STATIC_DIR), name='static')
 
+app.include_router(i18n_router)
 app.include_router(scoreboard_router)
 app.include_router(meet_router)
 app.include_router(settings_router)

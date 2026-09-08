@@ -101,9 +101,53 @@
             background: #1a3a5c; border: 1px solid #5ab4e8; color: #5ab4e8;
             font-size: 13px; padding: 6px 14px; border-radius: 8px; cursor: pointer;
         }
+        /* ── Display preferences ──
+           The one place a spectator sees every meet, so the one place the choice
+           belongs (docs/mobile-features.md `T-08`). Top-right, clear of the logo
+           and title, which are centred and may be either order. */
+        #prefs-btn {
+            position: fixed; top: max(10px, env(safe-area-inset-top)); right: 12px;
+            z-index: 60; width: 40px; height: 40px; border-radius: 10px;
+            background: #1a1a1a; border: 1px solid #333; color: #b0b0b0;
+            display: flex; align-items: center; justify-content: center; cursor: pointer;
+        }
+        #prefs-btn svg { width: 20px; height: 20px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; }
+        #prefs-btn:active { opacity: 0.7; }
+        #prefs-panel {
+            position: fixed; top: max(56px, calc(env(safe-area-inset-top) + 46px)); right: 12px;
+            z-index: 61; width: min(280px, calc(100vw - 24px));
+            background: #141414; border: 1px solid #333; border-radius: 12px;
+            padding: 12px; display: none; box-shadow: 0 8px 28px rgba(0,0,0,0.6);
+        }
+        #prefs-panel.open { display: block; }
+        .prefs-group { font-size: 12px; color: #7c7c7c; text-transform: uppercase;
+                       letter-spacing: 0.04em; margin: 4px 2px 6px; }
+        .prefs-group + .prefs-group { margin-top: 14px; }
+        .prefs-opt {
+            display: block; width: 100%; text-align: left; margin-bottom: 5px;
+            background: #1e1e1e; border: 1px solid #2c2c2c; border-radius: 8px;
+            color: #d0d0d0; font-size: 14px; padding: 9px 11px; cursor: pointer;
+        }
+        .prefs-opt[aria-pressed="true"] { border-color: #5ab4e8; color: #5ab4e8; }
+        .prefs-opt:active { opacity: 0.7; }
     </style>
 </head>
 <body>
+    <button id="prefs-btn" onclick="togglePrefs(event)" aria-label="{{ t.prefs_title or 'Display' }}">
+        <svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+    </button>
+    <div id="prefs-panel">
+        <div class="prefs-group">{{ t.language or 'Language' }}</div>
+        <button class="prefs-opt" data-pref="lang" data-value="">{{ t.language_auto or 'Auto' }}</button>
+        {% for code, name in locales %}
+        <button class="prefs-opt" data-pref="lang" data-value="{{ code }}">{{ name }}</button>
+        {% endfor %}
+        <div class="prefs-group">{{ t.prefs_labels or 'Column labels' }}</div>
+        <button class="prefs-opt" data-pref="style" data-value="">{{ t.prefs_auto or 'Meet default' }}</button>
+        <button class="prefs-opt" data-pref="style" data-value="short">{{ t.prefs_short or 'Short' }}</button>
+        <button class="prefs-opt" data-pref="style" data-value="long">{{ t.prefs_long or 'Long' }}</button>
+    </div>
+
     <div id="ptr-edge"></div>
     <div id="ptr-wrap"><div id="ptr-indicator">↻</div></div>
 
@@ -168,6 +212,58 @@
     </p>
     {% endif %}
     <script>
+/* ── Display preferences ──────────────────────────────────────────────────────
+   Stored per device, read back by every meet page the visitor opens: the shell
+   restores them from here when a link arrives without them, so the meet cards
+   below stay plain links (docs/mobile-features.md `T-08`, `T-09`).
+
+   Empty means "no choice": the picker keeps following the browser, and a meet page
+   keeps following the meet. That is the default, and clearing is how you get back
+   to it. */
+var PREFS = { lang: 'splouch_lang', style: 'splouch_style' };
+
+function readPref(name) {
+    try { return localStorage.getItem(PREFS[name]) || ''; } catch (e) { return ''; }
+}
+
+function markPrefs() {
+    document.querySelectorAll('.prefs-opt').forEach(function (b) {
+        b.setAttribute('aria-pressed',
+            readPref(b.dataset.pref) === b.dataset.value ? 'true' : 'false');
+    });
+}
+
+function togglePrefs(e) {
+    if (e) e.stopPropagation();
+    document.getElementById('prefs-panel').classList.toggle('open');
+    markPrefs();
+}
+
+document.addEventListener('click', function (e) {
+    var panel = document.getElementById('prefs-panel');
+    if (panel.classList.contains('open') && !panel.contains(e.target)) panel.classList.remove('open');
+});
+
+document.querySelectorAll('.prefs-opt').forEach(function (b) {
+    b.addEventListener('click', function () {
+        try {
+            if (b.dataset.value) localStorage.setItem(PREFS[b.dataset.pref], b.dataset.value);
+            else                 localStorage.removeItem(PREFS[b.dataset.pref]);
+        } catch (e) {}
+        markPrefs();
+        /* This page is rendered server-side, so a language change is a reload with
+           `?lang=`. A style change alters nothing here — the picker has no columns
+           — so it is stored and left for the meet pages. */
+        if (b.dataset.pref === 'lang') {
+            var url = new URL(location.href);
+            if (b.dataset.value) url.searchParams.set('lang', b.dataset.value);
+            else                 url.searchParams.delete('lang');
+            location.assign(url.toString());
+        }
+    });
+});
+markPrefs();
+
         // ── Add to Home Screen ────────────────────────────────────────────────
         (function() {
             var isIOS        = /iphone|ipad|ipod/i.test(navigator.userAgent);

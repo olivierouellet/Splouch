@@ -3,7 +3,7 @@ import os
 from fastapi import APIRouter, Request
 
 import state
-from web import display_config, redirect, render
+from web import client_strings, display_config, redirect, render
 
 router = APIRouter(tags=['Scoreboard'])
 
@@ -56,7 +56,8 @@ def route_live_mobile(request: Request):
     return render(request, 'live-mobile.html',
                   num_lanes=int(state.settings.get('num_lanes', 8)),
                   theme_fonts={**state.DEFAULT_THEME_FONTS,
-                               **state.settings.get('theme_fonts', {})})
+                               **state.settings.get('theme_fonts', {})},
+                  **client_strings(request))
 
 
 @router.get('/mobile')
@@ -67,8 +68,8 @@ def route_mobile(request: Request):
     link and points the tabs at the local routes instead of the per-meet ones."""
     app_title = (state.settings.get('app_window_title') or
                  state.settings.get('meet_title') or 'Splouch')
-    return render(request, 'mobile.html', t=state._mobile_strings(),
-                  app_title=app_title)
+    return render(request, 'mobile.html', app_title=app_title,
+                  **client_strings(request))
 
 
 @router.get('/results')
@@ -79,7 +80,7 @@ def route_results(request: Request):
                                 **state.settings.get('theme_colors', {})},
                   theme_fonts={**state.DEFAULT_THEME_FONTS,
                                **state.settings.get('theme_fonts', {})},
-                  t=state._mobile_strings())
+                  **client_strings(request))
 
 
 @router.get('/operator')

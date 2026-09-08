@@ -150,6 +150,13 @@ err_password_mismatch = "Las nuevas contraseñas no coinciden."
 err_empty_password   = "La contraseña no puede estar vacía."
 language             = "Idioma"
 language_auto        = "Auto (navegador)"
+# Preferencias de visualización del visitante, ofrecidas en el selector y
+# conservadas en cada competición abierta después (docs/mobile-features.md T-08, T-09).
+prefs_title          = "Visualización"
+prefs_auto           = "Predeterminado de la competición"
+prefs_labels         = "Etiquetas de columna"
+prefs_short          = "Cortas"
+prefs_long           = "Largas"
 panel_language       = "Idioma del panel"
 page_language        = "Idioma de la página pública"
 page_language_hint   = "Idioma predeterminado de la página pública de selección, usado cuando el idioma del navegador del visitante no está disponible. Cada visitante sigue viendo su propio idioma del navegador cuando es posible."

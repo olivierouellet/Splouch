@@ -150,6 +150,13 @@ err_password_mismatch = "Les nouveaux mots de passe ne correspondent pas."
 err_empty_password   = "Le mot de passe ne peut pas être vide."
 language             = "Langue"
 language_auto        = "Auto (navigateur)"
+# Préférences d'affichage du visiteur, offertes sur le sélecteur et conservées pour
+# chaque compétition ouverte ensuite (docs/mobile-features.md T-08, T-09).
+prefs_title          = "Affichage"
+prefs_auto           = "Défaut de la compétition"
+prefs_labels         = "Étiquettes des colonnes"
+prefs_short          = "Courtes"
+prefs_long           = "Longues"
 panel_language       = "Langue du panneau"
 page_language        = "Langue de la page publique"
 page_language_hint   = "Langue par défaut de la page publique de sélection, utilisée lorsque la langue du navigateur du visiteur n’est pas disponible. Chaque visiteur voit tout de même sa propre langue de navigateur lorsque c’est possible."

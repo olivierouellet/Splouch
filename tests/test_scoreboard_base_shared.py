@@ -187,11 +187,23 @@ def test_results_page_reacts_to_meet_live_its_own_way(res_cloud):
 def test_shell_tabs_point_at_each_server_own_routes(shell_pi, shell_cloud):
     """`meet_id` is the whole difference: the cloud routes by room, the Pi serves
     one meet from local paths."""
-    for page, meet in (('live', 'live'), ('results', 'results'), ('schedule', 'schedule')):
-        assert f'src="/mobile/{page}?meet=abc123"' in shell_cloud
+    for page in ('live', 'results', 'schedule'):
+        assert f'src="/mobile/{page}?meet=abc123&' in shell_cloud
     for path in ('/live-mobile', '/results', '/schedule'):
-        assert f'src="{path}"' in shell_pi
+        assert f'src="{path}?' in shell_pi
     assert 'meet=' not in _body(shell_pi)
+
+
+def test_the_tabs_inherit_the_shell_resolved_language_and_style(shell_pi, shell_cloud):
+    """One control, three tabs. The shell has already reconciled the visitor's
+    choice with the meet's defaults, so a tab reads its answer off the URL rather
+    than re-deriving it (docs/mobile-features.md `T-06`, `T-09`)."""
+    for shell in (shell_pi, shell_cloud):
+        for frame in ('frame0', 'frame1', 'frame2'):
+            src = re.search(rf'id="{frame}"[^>]*src="([^"]+)"', shell).group(1)
+            assert 'lang=' in src and 'style=' in src, src
+    # And the shell asks for itself again when a link arrives without the choice.
+    assert 'splouch_lang' in shell_cloud and 'location.replace' in shell_cloud
 
 
 def test_back_to_meets_only_where_there_are_meets(shell_pi, shell_cloud):
@@ -532,7 +544,7 @@ def test_waiting_message_is_translated_on_both(res_pi, res_cloud):
     for html in (res_pi, res_cloud):
         assert 'Waiting…' in html            # the fixture's [mobile] string won
     src = open(os.path.join(REPO, 'cloud', 'cloud_server.py')).read()
-    assert src.count("t=_strings(_meet_lang(meet), 'mobile')") == 3, \
+    assert src.count("t=_strings(_client_lang(request, meet), 'mobile')") == 3, \
         'every per-meet cloud page must pass the [mobile] strings'
 
 

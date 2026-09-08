@@ -640,10 +640,13 @@ Not on any phone client, now or planned:
   user move off the operator's short/long pick. `T-04` restated around it: the
   words are still always the server's, custom wording included, via
   `settings.label_overrides`.
-  - **Nothing here is served yet.** [`api.md`](api.md) §5.9 and §5.4 specify the
+  - **Served, and wired on the web.** [`api.md`](api.md) §5.9 and §5.4 carry the
     endpoints and fields; both are additive, so that contract stands at v2 while
-    this one moves. Until they exist, a client behaves as v2 — `settings.labels`
-    and `settings.locale`, no override.
+    this one moves. Both servers serve `/i18n/{lang}` and `/locales`; the cloud
+    picker has the control, and the shell carries the choice into all three tabs.
+    A client that implements none of it behaves as v2 — `settings.labels` and
+    `settings.locale`, no override — which is also what every page does until a
+    visitor touches the menu.
 
 - **v2** — The scoreboard gets a real clock, and the picker starts handing off to
   the apps. Tracks `api.md` v2 — the relay throttling `running_time` rather than

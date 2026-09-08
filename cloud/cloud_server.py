@@ -109,6 +109,89 @@ def _strings(lang, section):
             _locale_cache[lang] = tomllib.load(f)
     return _locale_cache[lang].get(section, {})
 
+def _i18n_bundle(lang):
+    """Client-facing strings for one language — ``GET /i18n/{lang}``, api.md §5.9.
+
+    The bundled table only: a Pi's ``scoreboard/locale/`` files are invisible here,
+    and reach clients as ``settings.label_overrides`` on the meet instead (§5.4).
+    English-merged per key so a half-translated locale degrades word by word.
+    """
+    if lang not in {code for code, _ in _available_locales()}:
+        lang = 'en'
+
+    def merged(section):
+        base = _strings('en', section)
+        return dict(base) if lang == 'en' else {**base, **_strings(lang, section)}
+
+    labels = merged('labels')
+    return {
+        'lang':    lang,
+        'mobile':  merged('mobile'),
+        'display': merged('display'),
+        'labels': {style: {k: v.get(style) or v.get('long') or v.get('short') or ''
+                           for k, v in labels.items() if isinstance(v, dict)}
+                   for style in ('short', 'long')},
+    }
+
+
+def _client_lang(request, meet):
+    """The language to render a meet page in: the visitor's choice, else the meet's.
+
+    `?lang=` is the whole mechanism — the shell stores the preference and puts it on
+    every page it opens, so one control on the picker reaches the tabs
+    (docs/mobile-features.md `T-06`, `T-08`). An unknown code falls back rather than
+    erroring: a stale bookmark must not break the board.
+    """
+    lang = request.query_params.get('lang', '')
+    if lang and lang in {code for code, _ in _available_locales()}:
+        return lang
+    return _meet_lang(meet)
+
+
+def _client_labels(meet, lang, style):
+    """Column headers for a chosen language and style, the pool's wording included.
+
+    With no choice made this is exactly `settings.labels` — what the operator picked,
+    byte for byte. With one, the bundled table for that language is layered with the
+    meet's `label_overrides`, which is the only part of the table the cloud cannot
+    resolve for itself: those files live on one Pi (api.md §5.4). A club's wording
+    exists only in the language it was written in, so choosing another language
+    correctly gets the bundled word.
+    """
+    s = meet.get('settings', {})
+    if lang == _meet_lang(meet) and style == s.get('label_style', 'short'):
+        return s.get('labels', {})
+    labels = dict(_i18n_bundle(lang)['labels'].get(style, {}))
+    labels.update(s.get('label_overrides', {}).get(lang, {}).get(style, {}))
+    # The relay folds a few [mobile] strings into `labels`; keep whatever else the
+    # meet sent so nothing that read them starts rendering blank.
+    for key, value in s.get('labels', {}).items():
+        labels.setdefault(key, value)
+    return labels
+
+
+def _client_style(request, meet):
+    """`short` or `long` — the visitor's pick, else the operator's (`T-09`)."""
+    style = request.query_params.get('style', '')
+    if style in ('short', 'long'):
+        return style
+    return meet.get('settings', {}).get('label_style', 'short')
+
+
+def _etagged(request, payload):
+    """JSON with an ETag, and a 304 when the client already has that body.
+
+    One response serves every meet on this server, so it is worth caching and worth
+    revalidating cheaply. `no-cache` means revalidate, not do not cache.
+    """
+    body = json.dumps(payload, ensure_ascii=False, sort_keys=True).encode()
+    etag = '"' + hashlib.sha256(body).hexdigest()[:16] + '"'
+    headers = {'ETag': etag, 'Cache-Control': 'no-cache'}
+    if request.headers.get('if-none-match') == etag:
+        return Response(status_code=304, headers=headers)
+    return Response(body, media_type='application/json', headers=headers)
+
+
 def _browser_lang(request):
     """First Accept-Language entry matching an available locale, or None."""
     available = {code for code, _ in _available_locales()}
@@ -779,11 +862,30 @@ def route_index(request: Request):
     lang = _picker_lang(request)
     return render(request, 'picker.html', meets=meets, t=_strings(lang, 'cloud'),
         lang=lang,
+        # For the display-preferences menu: the languages this server can serve.
+        locales=_available_locales(),
         picker_title=brand['title'],
         picker_window_title=brand['window_title'],
         picker_logo=brand['has_logo'],
         picker_logo_above=brand['logo_above'],
         analytics_enabled=_analytics_enabled())
+
+
+@app.get('/locales', tags=['Public'])
+def route_locales(request: Request):
+    """The languages this server can serve — for a client offering the choice."""
+    return _etagged(request, [{'code': c, 'name': n} for c, n in _available_locales()])
+
+
+@app.get('/i18n/{lang}', tags=['Public'])
+def route_i18n(lang: str, request: Request):
+    """One language: app chrome plus both label styles (§5.9).
+
+    No meet in the path on purpose — the table is a property of this server's locale
+    files, identical for every meet, so it is fetched once per language and cached
+    rather than repeated inside each meet's config.
+    """
+    return _etagged(request, _i18n_bundle(lang))
 
 
 @app.get('/meets', tags=['Public'])
@@ -830,8 +932,10 @@ def route_mobile(request: Request):
     return render(request, 'mobile.html',
                   meet_id=meet_id,
                   app_title=(meet.get('app_window_title') or meet['name'] or 'Splouch'),
-                  t=_strings(_meet_lang(meet), 'mobile'),
-                  lang=_meet_lang(meet))
+                  t=_strings(_client_lang(request, meet), 'mobile'),
+                  lang=_client_lang(request, meet),
+                  # Passed down to the tab iframes so one choice covers all three.
+                  ui_style=_client_style(request, meet))
 
 
 @app.get('/mobile/live', tags=['Public'])
@@ -860,8 +964,8 @@ def route_live(request: Request):
         # variable empty. Matches route_results and route_schedule.
         theme_colors={**_DEFAULT_COLORS, **s.get('theme_colors', {})},
         theme_fonts={**_DEFAULT_FONTS,  **s.get('theme_fonts',  {})},
-        labels=s.get('labels', {}),
-        lang=_meet_lang(meet),
+        labels=_client_labels(meet, _client_lang(request, meet), _client_style(request, meet)),
+        lang=_client_lang(request, meet),
     )
 
 
@@ -887,13 +991,13 @@ def route_results(request: Request):
         show_delta=s.get('show_delta', True),
         show_position=s.get('show_position', True),
         show_podium=s.get('show_podium', True),
-        t=_strings(_meet_lang(meet), 'mobile'),
+        t=_strings(_client_lang(request, meet), 'mobile'),
         theme_colors={**_DEFAULT_COLORS, **s.get('theme_colors', {})},
         # Merged, not a wholesale fallback: a relay sending only one font would
         # otherwise leave the other two CSS variables empty. Same as route_live.
         theme_fonts={**_DEFAULT_FONTS,  **s.get('theme_fonts',  {})},
-        labels=s.get('labels', {}),
-        lang=_meet_lang(meet),
+        labels=_client_labels(meet, _client_lang(request, meet), _client_style(request, meet)),
+        lang=_client_lang(request, meet),
     )
 
 
@@ -944,11 +1048,11 @@ def route_schedule(request: Request):
         heats_json=json.dumps(heats),
         has_meet=bool(heats),
         meet_name=meet['name'],
-        t=_strings(_meet_lang(meet), 'mobile'),
-        labels=s.get('labels', {}),
+        t=_strings(_client_lang(request, meet), 'mobile'),
+        labels=_client_labels(meet, _client_lang(request, meet), _client_style(request, meet)),
         theme_colors={**_DEFAULT_COLORS, **s.get('theme_colors', {})},
         theme_fonts={**_DEFAULT_FONTS,  **s.get('theme_fonts', {})},
-        lang=_meet_lang(meet),
+        lang=_client_lang(request, meet),
     )
 
 

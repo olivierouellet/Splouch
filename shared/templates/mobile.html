@@ -28,6 +28,26 @@
     <link rel="manifest" href="/manifest.json">
     {% endif %}
     <title>{{ app_title }}</title>
+    <script>
+    /* The visitor's language and label style live in localStorage (mobile-features
+       `T-08`), but these pages are rendered server-side, so a page opened without
+       the parameters — a bookmark, a shared link — has to ask for itself again with
+       them. Runs in <head>, before the tab iframes are parsed, so this costs one
+       replace and no visible flash. */
+    (function () {
+        try {
+            var url = new URL(location.href), changed = false;
+            [['lang', 'splouch_lang'], ['style', 'splouch_style']].forEach(function (p) {
+                var want = localStorage.getItem(p[1]);
+                if (want && url.searchParams.get(p[0]) !== want) {
+                    url.searchParams.set(p[0], want);
+                    changed = true;
+                }
+            });
+            if (changed) location.replace(url.toString());
+        } catch (e) {}
+    })();
+    </script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         html, body { width: 100%; height: 100%; overflow: hidden; background: #000; }
@@ -109,14 +129,18 @@
     </style>
 </head>
 <body>
+{# One suffix for all three tabs: the shell has already resolved the visitor's
+   choice against the meet's defaults, so the tabs inherit rather than re-deriving
+   it (mobile-features `T-06`, `T-09`). #}
+{%- set ui = '&lang=' ~ lang ~ '&style=' ~ (ui_style or 'short') %}
     {% if meet_id %}
-    <iframe id="frame0" class="active" src="/mobile/live?meet={{ meet_id }}"></iframe>
-    <iframe id="frame1"               src="/mobile/results?meet={{ meet_id }}"></iframe>
-    <iframe id="frame2"               src="/mobile/schedule?meet={{ meet_id }}"></iframe>
+    <iframe id="frame0" class="active" src="/mobile/live?meet={{ meet_id }}{{ ui }}"></iframe>
+    <iframe id="frame1"               src="/mobile/results?meet={{ meet_id }}{{ ui }}"></iframe>
+    <iframe id="frame2"               src="/mobile/schedule?meet={{ meet_id }}{{ ui }}"></iframe>
     {% else %}
-    <iframe id="frame0" class="active" src="/live-mobile"></iframe>
-    <iframe id="frame1"               src="/results"></iframe>
-    <iframe id="frame2"               src="/schedule"></iframe>
+    <iframe id="frame0" class="active" src="/live-mobile?{{ ui[1:] }}"></iframe>
+    <iframe id="frame1"               src="/results?{{ ui[1:] }}"></iframe>
+    <iframe id="frame2"               src="/schedule?{{ ui[1:] }}"></iframe>
     {% endif %}
 
     <div class="edge edge-left"  id="edgeL"></div>

@@ -7,7 +7,7 @@ from pydantic import BaseModel
 
 import state
 from meet_data import _build_meet_data, send_event_info
-from web import redirect, render, require_login
+from web import client_strings, redirect, render, require_login
 
 router = APIRouter(tags=['Meet'])
 
@@ -80,12 +80,11 @@ def route_schedule(request: Request):
                   heats_json=json.dumps(heats_out),
                   has_meet=bool(events_grouped),
                   meet_name=meet_name,
-                  t=state._mobile_strings(),
-                  labels=state.load_locale(),
                   theme_colors={**state.DEFAULT_THEME_COLORS,
                                 **state.settings.get('theme_colors', {})},
                   theme_fonts={**state.DEFAULT_THEME_FONTS,
-                               **state.settings.get('theme_fonts', {})})
+                               **state.settings.get('theme_fonts', {})},
+                  **client_strings(request))
 
 
 @router.get('/search_suggestions')

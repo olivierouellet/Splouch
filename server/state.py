@@ -461,34 +461,134 @@ def git_describe():
 
 
 def _locale_path(code):
+    """The file a language resolves to. Prefer :func:`_locale_section` for reading:
+    it layers a custom file over the shipped one instead of replacing it."""
     custom = os.path.join(CUSTOM_LOCALE_FOLDER, code + '.toml')
     return custom if os.path.exists(custom) else os.path.join(LOCALES_DIR, code + '.toml')
+
+def available_locales():
+    """``(code, display name)`` for every language this Pi can serve.
+
+    Custom files in ``scoreboard/locale/`` count: a club that adds one adds a
+    language, and ``_locale_path`` already prefers it over the bundled file.
+    """
+    found = {}
+    for folder in (LOCALES_DIR, CUSTOM_LOCALE_FOLDER):
+        for path in sorted(glob.glob(os.path.join(folder, '*.toml'))):
+            code = os.path.splitext(os.path.basename(path))[0]
+            try:
+                with open(path, 'rb') as f:
+                    data = tomllib.load(f)
+            except Exception:
+                continue
+            found[code] = data.get('meta', {}).get('name', code)
+    return sorted(found.items())
+
+
+def _toml_section(path, section):
+    try:
+        with open(path, 'rb') as f:
+            return tomllib.load(f).get(section, {})
+    except Exception:
+        return {}
+
+
+def _locale_section(code, section):
+    """One section of a language: the shipped file with this Pi's custom file over it.
+
+    ``_locale_path`` picks a custom file *instead of* the shipped one, which meant a
+    club overriding a single label silently dropped every other key in that
+    language and fell back to English. Layering is a strict superset — a complete
+    custom file resolves identically — and it is the model the cloud is sent, since
+    :func:`label_overrides` ships a diff for the client to layer the same way. The
+    two have to agree.
+    """
+    base = _toml_section(os.path.join(LOCALES_DIR, code + '.toml'), section)
+    custom = os.path.join(CUSTOM_LOCALE_FOLDER, code + '.toml')
+    return {**base, **_toml_section(custom, section)} if os.path.exists(custom) else base
+
+
+def i18n_bundle(code=None):
+    """Client-facing strings for one language — ``GET /i18n/{lang}``, api.md §5.9.
+
+    Everything a client renders itself: its own chrome (``[mobile]``, ``[display]``)
+    and both label styles, so language and short/long are one fetch rather than two
+    axes the client has to reassemble. English-merged per key, the rule
+    :func:`display_strings` already follows — a half-translated locale falls back
+    word by word instead of rendering blank.
+
+    Read through ``_locale_path``, so a Pi's custom wording is *served*, not diffed.
+    The cloud cannot see those files, which is why the relay also ships
+    :func:`label_overrides`.
+    """
+    code = code or settings.get('locale', 'en')
+    if code not in dict(available_locales()):
+        code = 'en'
+
+    def merged(section):
+        base = _locale_section('en', section)
+        return dict(base) if code == 'en' else {**base, **_locale_section(code, section)}
+
+    labels = merged('labels')
+    return {
+        'lang':    code,
+        'mobile':  merged('mobile'),
+        'display': merged('display'),
+        # A custom file may give one style only; fall back to the other rather
+        # than serving an empty header.
+        'labels': {style: {k: v.get(style) or v.get('long') or v.get('short') or ''
+                           for k, v in labels.items() if isinstance(v, dict)}
+                   for style in ('short', 'long')},
+    }
+
+
+def label_overrides():
+    """What this Pi's custom locale files change in ``[labels]``, lang → style → key.
+
+    Only the difference. The bundled table is the same for every meet on a cloud and
+    travels as ``GET /i18n/{lang}``; what cannot travel that way is a file sitting in
+    one pool's ``scoreboard/locale/``, so that — and only that — rides in the relay
+    payload (api.md §5.4). Normally empty.
+    """
+    out = {}
+    for path in sorted(glob.glob(os.path.join(CUSTOM_LOCALE_FOLDER, '*.toml'))):
+        code = os.path.splitext(os.path.basename(path))[0]
+        try:
+            with open(path, 'rb') as f:
+                custom = tomllib.load(f).get('labels', {})
+        except Exception:
+            continue
+        bundled = {}
+        shipped = os.path.join(LOCALES_DIR, code + '.toml')
+        if os.path.exists(shipped):
+            try:
+                with open(shipped, 'rb') as f:
+                    bundled = tomllib.load(f).get('labels', {})
+            except Exception:
+                pass
+        for key, val in custom.items():
+            if not isinstance(val, dict):
+                continue
+            for style in ('short', 'long'):
+                if style in val and val[style] != bundled.get(key, {}).get(style):
+                    out.setdefault(code, {}).setdefault(style, {})[key] = val[style]
+    return out
+
 
 def load_locale(style=None):
     code  = settings.get('locale', 'en')
     style = style or settings.get('label_style', 'long')
-    try:
-        with open(_locale_path(code), 'rb') as f:
-            data = tomllib.load(f)
-        return {k: v[style] for k, v in data['labels'].items()}
-    except Exception:
+    labels = _locale_section(code, 'labels')
+    if not labels:
         return dict(_FALLBACK_LABELS)
+    return {k: (v.get(style) or v.get('long') or v.get('short') or '')
+            for k, v in labels.items() if isinstance(v, dict)}
 
 def load_preview_strings():
-    code = settings.get('locale', 'en')
-    try:
-        with open(_locale_path(code), 'rb') as f:
-            return tomllib.load(f).get('preview', {})
-    except Exception:
-        return {}
+    return _locale_section(settings.get('locale', 'en'), 'preview')
 
 def _mobile_strings():
-    code = settings.get('locale', 'en')
-    try:
-        with open(_locale_path(code), 'rb') as f:
-            return tomllib.load(f).get('mobile', {})
-    except Exception:
-        return {}
+    return _locale_section(settings.get('locale', 'en'), 'mobile')
 
 def display_strings(code=None):
     """Status strings for the native TV display, English-merged.
@@ -500,22 +600,11 @@ def display_strings(code=None):
     """
     code = code or settings.get('locale', 'en')
 
-    def _section(c):
-        try:
-            with open(_locale_path(c), 'rb') as f:
-                return tomllib.load(f).get('display', {})
-        except Exception:
-            return {}
-
-    base = _section('en')
-    return base if code == 'en' else {**base, **_section(code)}
+    base = _locale_section('en', 'display')
+    return base if code == 'en' else {**base, **_locale_section(code, 'display')}
 
 def _settings_section(code):
-    try:
-        with open(_locale_path(code), 'rb') as f:
-            return tomllib.load(f).get('settings', {})
-    except Exception:
-        return {}
+    return _locale_section(code, 'settings')
 
 def settings_strings(code=None):
     """UI strings for the operator Settings panel, English-merged so any
@@ -621,11 +710,7 @@ def load_theme(code):
         return dict(DEFAULT_THEME_COLORS), dict(DEFAULT_THEME_FONTS)
 
 def load_event_translations():
-    try:
-        with open(_locale_path(settings.get('locale', 'en')), 'rb') as f:
-            return tomllib.load(f).get('event_name', {})
-    except Exception:
-        return {}
+    return _locale_section(settings.get('locale', 'en'), 'event_name')
 
 def translate_event_name(raw, ev):
     if not ev or not raw:

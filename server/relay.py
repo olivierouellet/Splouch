@@ -75,6 +75,14 @@ def _get_metadata():
                                      **state.settings.get('theme_fonts', {})},
             'locale':               state.settings.get('locale', 'en'),
             'labels':               flat_labels,
+            # Which of the two styles the phone labels above were resolved in, so a
+            # client offering the choice knows where to start (api.md §5.4). The
+            # kiosk's `label_style` is a separate setting and stays out of this.
+            'label_style':          state.settings.get('cloud_label_style', 'short'),
+            # Only what this Pi's custom locale files change. The bundled table is
+            # the same for every meet and travels as GET /i18n/{lang}; these files
+            # exist on this box alone, so the diff has to ride along.
+            'label_overrides':      state.label_overrides(),
         },
     }
     icon = _icon_b64()

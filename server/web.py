@@ -99,6 +99,41 @@ def _globals():
     )
 
 
+def client_prefs(request: Request):
+    """The visitor's language and label style for a phone page, else this meet's.
+
+    `?lang=` and `?style=` are how the choice travels: the shell stores it and puts
+    it on every page it opens, so one control covers all three tabs
+    (docs/mobile-features.md `T-06`, `T-08`, `T-09`). Unknown values fall back
+    rather than erroring — a stale bookmark must not break the board.
+    """
+    lang = request.query_params.get('lang', '')
+    if lang not in dict(state.available_locales()):
+        lang = state.settings.get('locale', 'en')
+    style = request.query_params.get('style', '')
+    if style not in ('short', 'long'):
+        style = state.settings.get('label_style', 'long')
+    return lang, style
+
+
+def client_strings(request: Request):
+    """`t`, `labels`, `lang` and `ui_style` for a phone page, honouring `client_prefs`.
+
+    With no choice made these are exactly what `_globals()` and `_mobile_strings()`
+    produce today. With one, they come from the same bundle `GET /i18n/{lang}`
+    serves — this Pi's custom wording included, since it reads the files directly.
+    """
+    lang, style = client_prefs(request)
+    default_lang  = state.settings.get('locale', 'en')
+    default_style = state.settings.get('label_style', 'long')
+    if lang == default_lang and style == default_style:
+        return dict(t=state._mobile_strings(), labels=state.load_locale(),
+                    lang=lang, ui_style=style)
+    bundle = state.i18n_bundle(lang)
+    return dict(t=bundle['mobile'], labels=bundle['labels'][style],
+                lang=lang, ui_style=style)
+
+
 def render(request: Request, name: str, **ctx):
     """Render a template, merging in the global context."""
     return templates.TemplateResponse(request, name, {**_globals(), **ctx})

@@ -144,6 +144,13 @@ err_password_mismatch = "New passwords do not match."
 err_empty_password   = "Password cannot be empty."
 language             = "Language"
 language_auto        = "Auto (browser)"
+# Visitor-side display preferences, offered on the picker and carried into every
+# meet opened afterwards (docs/mobile-features.md T-08, T-09).
+prefs_title          = "Display"
+prefs_auto           = "Meet default"
+prefs_labels         = "Column labels"
+prefs_short          = "Short"
+prefs_long           = "Long"
 panel_language       = "Panel language"
 page_language        = "Public page language"
 page_language_hint   = "Default language for the public picker page, used when a visitor’s browser language isn’t available. Each visitor still sees their own browser language when possible."
