@@ -1,6 +1,6 @@
 # Splouch mobile — feature contract
 
-**Contract version: `v2`** · Reference implementation: `cloud/templates/` (see §0.2).
+**Contract version: `v3`** · Reference implementation: `cloud/templates/` (see §0.2).
 
 [`api.md`](api.md) is the *data* contract — sockets, events, payload shapes. This
 document is the *behaviour* contract: what a spectator can see and do on a phone,
@@ -501,28 +501,113 @@ a look of its own.
 | `T-01` | Palette from the meet's config: `bg`, `header_bg`, `header_border`, `header_label`, `header_value`, `th_text`, `th_bg`, `row_odd`, `row_even`, `row_text`, `time`, `delta_better`, `delta_worse` | `settings.theme_colors` | must |
 | `T-02` | Schedule-specific colours `schedule_event`, `schedule_time`, `schedule_name`, `schedule_club`, each with a built-in default | `settings.theme_colors` | should |
 | `T-03` | Three font roles — `family` (text), `digits` (clock), `timing` (times and deltas) | `settings.theme_fonts` | must |
-| `T-04` | Column headers and header labels come from the server, already resolved | `settings.labels` — the meet's locale × the operator's `label_style` | must — see note |
-| `T-05` | The app's own chrome strings — tab names, empty states, filter UI | the `[mobile]` locale section, en/fr/es | must |
-| `T-06` | Language follows the **meet's** locale, not the phone's | `settings.locale` | must |
+| `T-04` | Column headers and header labels are the server's words, never the app's | `settings.labels` for the default; `GET /i18n/{lang}` → `labels` when the user has chosen | must — see note |
+| `T-05` | The app's own chrome — tab names, empty states, filter UI — is **fetched and cached**, not translated in the app | `GET /i18n/{lang}` → `mobile` ([`api.md`](api.md) §5.9) | must — see note |
+| `T-06` | Language defaults to the **meet's** locale and the user may override it | `settings.locale`, then the stored preference | must |
 | `T-07` | Missing theme keys fall back to the documented defaults rather than rendering unstyled | — | must |
+| `T-08` | A language control, per device, applying to every meet opened afterwards | `GET /locales` for the list | should — see note |
+| `T-09` | A short/long label control, starting from the operator's pick | `settings.label_style` | should |
+| `T-10` | A bundled snapshot of the strings is the floor: shipped with the app, refreshed from the server, cached to disk | — | must — see note |
 
 > **`T-04` is not a translation, which is why it is not a `[mobile]` string.** The
-> label set is not a fixed vocabulary the app could ship: the server resolves each
-> entry from the meet's locale **and** the operator's `label_style` — `EVENT` or
-> `EV`, `PLACE` or `PL` — and a Pi can carry a custom locale file that replaces the
-> wording outright. An app holding its own `EVENT` would ignore the style toggle,
-> ignore any custom wording, and print the device's language across a board running
-> in the meet's.
+> label set is not a fixed vocabulary an app could ship. The server resolves each
+> entry from *two* settings — the meet's `locale` and the operator's `label_style`
+> — so the same column header has six possible values before anyone customises
+> anything:
 >
-> `T-05` is the opposite case and belongs in the bundle for the same reason: tab
-> names, empty states and the filter UI are the app's own chrome, no meet has an
-> opinion about them, and no server sends them.
+> | | `long` | `short` |
+> | --- | --- | --- |
+> | `locale = "en"` | `EVENT` · `HEAT` · `LANE` · `PLACE` | `EV` · `HT` · `LN` · `PL` |
+> | `locale = "fr"` | `ÉPREUVE` · `SÉRIE` · `COULOIR` · `POS` | `ÉP` · `SÉR` · `CL` · `POS` |
+> | `locale = "es"` | `PRUEBA` · `SERIE` · `CALLE` · `POSICIÓN` | `PR` · `SER` · `CA` · `POS` |
+>
+> Note that the two styles are not a mechanical truncation, and not every entry
+> even has two forms: French `POS` and `TEMPS`, Spanish `TIEMPO`, English `TIME`
+> and `NAME` are the same string in both columns, while `ÉPREUVE` → `ÉP` and
+> `POSICIÓN` → `POS` are not. There is no rule to reimplement — there is a table,
+> and the server owns it (`load_locale()` in `server/state.py`).
+>
+> On top of that, a Pi reads `scoreboard/locale/*.toml` before the bundled
+> locales, so a club can ship `fr.toml` with `lane = { short = "CO", long = "CORRIDOR" }`
+> and every display in that pool says `CORRIDOR`. The value never appears in this
+> repo at all.
+>
+> So an app with `"EVENT"` in its own string table gets it wrong three ways: a
+> French meet reads `EVENT` over `ÉPREUVE`, the operator's short/long toggle stops
+> working, and the club's custom wording is ignored. Worse, the labels are the
+> *only* strings on that screen a meet controls, so the board would end up half in
+> the device's language and half in the meet's.
+>
+> **The app never holds this table.** It renders `settings.labels` as sent, or — if
+> the user has chosen a language or a style (`T-08`, `T-09`) — the matching entry
+> from `GET /i18n/{lang}`'s `labels` section. Both come from the server, so neither
+> can drift from `shared/locales/` and neither needs a release to gain a language.
+>
+> A style flag on its own would not have been enough, and this is why: it selects a
+> column of a table, and no table an app ships has `CORRIDOR` in it. Custom wording
+> lives in one Pi's `scoreboard/locale/*.toml`. The Pi serves it directly on
+> `GET /i18n/{lang}`; over the relay it arrives as `settings.label_overrides`,
+> which the client layers on top of the bundled table
+> ([`api.md`](api.md) §5.4). Note the one thing it cannot do: a club writes its
+> custom wording in *its* language, so a user reading in Spanish gets `CALLE`, not
+> `CORRIDOR`. Falling back to the bundled word is right — inventing a translation
+> would be worse — but say so in the UI if you offer the choice.
+>
+> Two styles, not one setting: `label_style` drives the kiosk and
+> `cloud_label_style` the phones, chosen independently. What reaches a phone as
+> `settings.label_style` is the phone one; `T-09` starts there and lets the user
+> move.
+
+> **`T-05` inverted in v3: fetch the chrome, do not ship it.** The earlier rule —
+> the app bundles `[mobile]` for every locale — made this repo's locale files the
+> source of truth and then copied them into two app repos by hand. `Splouch-tv`
+> already showed the alternative: it is a separate repo on a separate release
+> cycle and ships no translations at all, because `GET /config` hands it
+> `display_strings`. Same problem, and the phone answer was the one that scales
+> worst: a fourth language, or a typo in the third, meant two store submissions and
+> users who never update; nothing detects a drifted copy; and a club's custom
+> wording could never reach it.
+>
+> `mobile.scoreboard` = `Scoreboard` / `Tableau` / `Marcador`,
+> `mobile.upcoming_only` = `Upcoming` / `À venir` / `Próximas`. Nothing about those
+> is meet data — but nothing about them belongs in three repos either.
+
+> **`T-10` — fetch, but never depend on the fetch.** Ship a snapshot of the strings
+> in the app and treat the endpoint as a refresh: read the cache, draw, then
+> revalidate in the background and store what comes back. Resolution order per key
+> is **cached server value → bundled value → English → the key's own name**, so a
+> server older than the app (a Pi that predates a screen) leaves the new screen in
+> English rather than blank. That is the same English-merge rule
+> [`api.md`](api.md) §5.9 applies server-side, applied again on the client because
+> the two sides can be different ages.
+>
+> This is what makes `T-05` safe: no network on first launch, no spinner in front
+> of a tab bar, and a language added on the server appears the next time the app
+> revalidates instead of the next time it ships.
+
+> **`T-08` — one choice, stored per device, set where every meet is in view.** The
+> natural home is the meet picker, which already resolves `?lang=` from the visitor
+> rather than a meet ([`api.md`](api.md) §5.7): a spectator sets it once and every
+> meet they open afterwards follows. Two consequences to design for rather than
+> discover:
+>
+> - **The picker is cloud-only.** The Pi serves the shell and the tabs but has no
+>   picker (§0.2), so a picker-only control leaves the Pi's phone pages following
+>   the operator's settings with no way to override. Either give the shell a second
+>   home for it, or accept that — those users are mostly operators.
+> - **`event_name` never follows the choice.** It is meet data, composed on the Pi
+>   in the meet's language from the LENEX entry (`T-04`'s labels and the chrome can
+>   both move; a translated event name does not exist to move to). A spectator
+>   reading in Spanish at a French meet gets Spanish chrome, Spanish labels, and a
+>   French event name. That is the residual, and it is correct: the alternative is
+>   an app inventing a translation of a name the meet owns.
 
 > **`T-04` + `T-06`: never translate a label the server sent.** `labels` and
 > `event_name` arrive already localised in the meet's language. Re-translating
-> them, or localising the chrome to the device language while the board stays in
-> the meet's, produces a screen in two languages at once. The app ships the
-> `[mobile]` strings for all three locales and picks by `settings.locale`.
+> them produces a screen in two languages at once *by accident*. What v3 adds is
+> the same screen in two languages *on purpose*: `T-06` lets the user pick, and the
+> app then asks the server for that language (`T-05`, `T-08`) instead of translating
+> anything itself. Absent a choice, everything still follows `settings.locale`.
 
 > **`T-03`**: the bundled faces are in [`shared/static/fonts/`](../shared/static/fonts/)
 > — Overpass Mono, DSEG7 Classic, DSEG14 Classic, Share Tech Mono, Orbitron, Roboto
@@ -546,6 +631,19 @@ Not on any phone client, now or planned:
 ---
 
 ## Changelog
+
+- **v3** — Translation stops being something an app ships. `T-05` inverts: the
+  chrome is fetched from `GET /i18n/{lang}` and cached behind a bundled snapshot
+  (`T-10`), the way `Splouch-tv` has always taken `display_strings`, so a new
+  language is one file in `shared/locales/` and no store submission. `T-06` gains a
+  user override (`T-08`) with the meet's locale as the default, and `T-09` lets the
+  user move off the operator's short/long pick. `T-04` restated around it: the
+  words are still always the server's, custom wording included, via
+  `settings.label_overrides`.
+  - **Nothing here is served yet.** [`api.md`](api.md) §5.9 and §5.4 specify the
+    endpoints and fields; both are additive, so that contract stands at v2 while
+    this one moves. Until they exist, a client behaves as v2 — `settings.labels`
+    and `settings.locale`, no override.
 
 - **v2** — The scoreboard gets a real clock, and the picker starts handing off to
   the apps. Tracks `api.md` v2 — the relay throttling `running_time` rather than

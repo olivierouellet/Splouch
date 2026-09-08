@@ -175,6 +175,8 @@ JSON/asset endpoints (everything else the servers expose is HTML for the browser
 | method · path | returns |
 | --- | --- |
 | `GET /config` | **display config JSON** — `num_lanes`, `theme_colors`, `theme_fonts`, `show_*` flags, `labels`, `meet_title`, `locale`, `display_strings`, `carousel_images`, `carousel_interval` (§6). Lets the Qt display theme *and translate* itself without a rendered page |
+| `GET /i18n/{lang}` | **planned, not served yet** — client-facing strings for one language (§5.9). Merges this Pi's `scoreboard/locale/{lang}.toml` over the bundled one, so custom wording reaches every client |
+| `GET /locales` | **planned, not served yet** — `[{ "code": "fr", "name": "Français" }]`, the languages this server can serve |
 | `GET /manifest.json` | PWA manifest (app title, icons) |
 | `GET /home_icon`, `/home_icon_512` | meet home-screen icon PNG |
 | `GET /picker_image` | active picker image PNG |
@@ -188,6 +190,8 @@ JSON/asset endpoints (everything else the servers expose is HTML for the browser
 | `GET /picker/config` | **picker chrome JSON** — branding, localised strings, analytics flag (§5.7) |
 | `GET /meet/{meet_id}/config` | **meet config JSON** — `name`, `location`, `sport`, `meet_date`, `live`, and the `settings` block (§5.4). Lets a phone render the board without scraping the HTML page |
 | `GET /meet/{meet_id}/schedule` | **start list JSON** — `{ "heats": [ … ] }` (§5.8); 404 for an unknown meet, empty `heats` when the meet has no schedule yet |
+| `GET /i18n/{lang}` | **planned, not served yet** — the bundled strings for one language (§5.9). No meet in the path: the table is a property of this server's locale files, not of a meet |
+| `GET /locales` | **planned, not served yet** — as local |
 | `GET /manifest/{meet_id}` | per-meet PWA manifest |
 | `GET /icon/{meet_id}` | meet icon PNG · `GET /picker_image/{meet_id}` picker image PNG |
 | `GET /search_suggestions?meet_id=&q=` | `[{type:"swimmer"|"club", name, club?}]` swimmer/club typeahead |
@@ -246,10 +250,25 @@ row by lane (blank gaps) or by finishing place. `delta` is browser HTML;
   "settings": { "num_lanes": 8, "show_name": true, "show_club": true, "show_delta": true,
                 "show_position": true, "show_podium": true, "show_*_header": true,
                 "theme_colors": { … }, "theme_fonts": { … }, "locale": "fr",
-                "labels": { … }, "home_icon_b64": "…?", "picker_image_b64": "…?" } }
+                "labels": { … }, "label_style": "short", "label_overrides": { … },
+                "home_icon_b64": "…?", "picker_image_b64": "…?" } }
 ```
 This `settings` block is the meet's display config — the same values a native
 attendee needs to render the board (lane count, visible columns, theme, labels).
+
+`label_style` and `label_overrides` are **planned, not sent yet**, and are additive:
+a client that ignores them behaves exactly as today.
+
+| field | meaning |
+| --- | --- |
+| `labels` | as now — resolved for the meet's `locale` and the operator's style. The default a client renders before any user preference, and the whole story for a client that wants no more than that |
+| `label_style` | `"short"` or `"long"` — *which* of the two the operator picked, so a client offering the choice knows where to start. The Pi's phone style is `cloud_label_style`, separate from the kiosk's `label_style` |
+| `label_overrides` | only what this Pi's `scoreboard/locale/*.toml` changes from the bundled table, keyed by language then style: `{ "fr": { "long": { "lane": "CORRIDOR" } } }`. Normally absent. It is the one part of the label table that is genuinely meet-scoped, because it exists on that Pi and nowhere else |
+
+The full label table does **not** travel here. It is the same for every meet on a
+server and would be duplicated per meet, persisted per meet, and re-sent to every
+phone in languages it will never render; it comes from `GET /i18n/{lang}` instead,
+one language at a time and cached (§5.9).
 
 ### 5.5 relay `schedule_snapshot` (Pi → cloud)
 ```json
@@ -297,6 +316,35 @@ schedule yet, and the client waits for `schedule_update` on `/ws/schedule`.
 
 ---
 
+### 5.9 `GET /i18n/{lang}` — **planned, not served yet**
+
+One language, everything a client renders itself. `lang` falls back to `en` when
+the server has no such locale.
+
+```json
+{ "lang": "fr",
+  "mobile":  { "scoreboard": "Tableau", "results": "Résultats", … },
+  "display": { "waiting_server": "…", "connection_lost": "…", … },
+  "labels":  { "short": { "event": "ÉP", "lane": "CL", … },
+               "long":  { "event": "ÉPREUVE", "lane": "COULOIR", … } } }
+```
+
+- **English-merged per key**, the rule `display_strings` already follows: a
+  half-translated locale falls back word by word rather than rendering blank.
+- **`ETag` + `Cache-Control`.** The body changes only when the server's locale files
+  do, so a client fetches one language once and revalidates.
+- **Not meet-scoped**, which is the point: one response serves every meet on the
+  server. The Pi merges its own `scoreboard/locale/{lang}.toml` first, so custom
+  wording is served rather than diffed; the cloud cannot see those files, which is
+  why `settings.label_overrides` exists (§5.4).
+- `labels` here is the *bundled* table. A client wanting exactly what the operator
+  chose can ignore this section entirely and render `settings.labels`.
+
+Cost of a new language, by design: one file in `shared/locales/`. Nothing is added
+to any meet payload, and no client repo ships a string.
+
+---
+
 ## 6. Config for native clients
 
 The browser clients receive display config through server-rendered templates
@@ -328,6 +376,15 @@ have no template, so config is exposed as JSON — all three additions below are
    HTML, so a native client had nothing to call; the browser pages now build on the
    same helpers and cannot drift from them.
 
+5. **`GET /i18n/{lang}` and `GET /locales`** (§5.9) — **planned.** Today the Qt
+   display is served its strings (`display_strings`) while the phone clients are
+   told to embed theirs, which is the same problem answered two different ways: a
+   fourth language means one file here and two store submissions there, and a Pi's
+   custom wording can never reach an embedded table. These endpoints make every
+   non-browser client fetch what the TV already fetches. Clients still ship a
+   snapshot as a floor and refresh into it, so nothing depends on the network to
+   draw its first frame.
+
 A native client's flow: list meets → fetch that meet's config and schedule → open the
 WebSockets → merge event frames. The cloud relay `register` metadata (§5.4) carries the
 same `settings` shape, so the two config sources agree.
@@ -343,6 +400,12 @@ same `settings` shape, so the two config sources agree.
   one that renders each frame verbatim now shows a clock that steps every two
   seconds. What to do with it is `mobile-features.md` `L-12` (v2) — re-base and
   interpolate, do not render.
+
+- **Planned, specified here but not yet served**: `GET /i18n/{lang}` and
+  `GET /locales` (§5.9), and `settings.label_style` / `settings.label_overrides`
+  (§5.4). All additive — a v2 client ignores them and is unaffected — so the
+  version stands until they ship, and `mobile-features.md` v3 is what consumes
+  them.
 
 - **v1** — Initial contract after the Flask/Socket.IO → FastAPI/plain-WebSocket
   migration. Envelope `{event, data}`; local paths `/ws/scoreboard|results|settings|terminal`;
