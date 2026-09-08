@@ -1,4 +1,4 @@
-"""Strings for clients that render themselves.
+"""Strings for clients that render themselves, and who this server is.
 
 The Qt display has always been served its status strings (`display_strings` in
 `GET /config`); these two endpoints do the same for everything else, so no client
@@ -11,9 +11,36 @@ import json
 from fastapi import APIRouter, Request
 from fastapi.responses import Response
 
+import socket
+
 import state
 
 router = APIRouter(tags=['Strings'])
+
+# The contracts this build implements, for the handshake below. Bumped with the
+# headers of docs/api.md and docs/mobile-features.md, which a test pins.
+API_CONTRACT    = 'v2'
+MOBILE_CONTRACT = 'v4'
+
+
+@router.get('/server')
+def route_server():
+    """Who this server is — the handshake a native client makes before anything else.
+
+    An app can be pointed at a Pi or at a cloud (docs/mobile-features.md `P-11`),
+    and the two are not interchangeable: this one has a single meet and no picker,
+    so a client that lands here goes straight to the board instead of asking for a
+    meet list. Guessing from a 404 on `/meets` would be a protocol by accident.
+
+    It doubles as the check a client runs before saving a hand-typed address, and
+    as the version handshake now that both contracts are numbered.
+    """
+    return {
+        'kind':     'pi',
+        'name':     (state.settings.get('meet_title')
+                     or socket.gethostname() or 'Splouch'),
+        'contract': {'api': API_CONTRACT, 'mobile': MOBILE_CONTRACT},
+    }
 
 
 def etagged(request: Request, payload):

@@ -1,6 +1,6 @@
 # Splouch mobile — feature contract
 
-**Contract version: `v3`** · Reference implementation: `cloud/templates/` (see §0.2).
+**Contract version: `v4`** · Reference implementation: `cloud/templates/` (see §0.2).
 
 [`api.md`](api.md) is the *data* contract — sockets, events, payload shapes. This
 document is the *behaviour* contract: what a spectator can see and do on a phone,
@@ -34,8 +34,12 @@ repos, so **never renumber**. A retired feature keeps its ID and gains a
 
 ### 0.2 What the apps are clients of
 
-Phones connect to the **cloud relay**, not the Pi ([`api.md`](api.md) §3), but both
-servers now render the *same* templates — the four phone pages live in
+Phones connect to the **cloud relay** by default, not the Pi ([`api.md`](api.md) §3),
+but an app is not fixed to one server the way a web page is fixed to its origin: it
+can be pointed at another cloud or at a Pi on the pool's own network (`P-11`–`P-13`).
+Which one it is talking to changes the shape of the session, not just the address —
+a Pi has one meet and no picker — so a client asks `GET /server` rather than
+inferring it. Both servers render the *same* templates — the four phone pages live in
 `shared/templates/` and differ only in whether `MEET_ID` is set:
 
 | Surface | Reference template |
@@ -67,6 +71,7 @@ the other by construction. Keep it that way — extend the helper, never the rou
 | **must** | the app is not at parity without it |
 | **should** | expected, but a first release can ship without it |
 | **web-only** | an artifact of running in a browser; a native app satisfies it by existing, or not at all |
+| **native-only** | the mirror image: meaningless on the web, which has no choice to make. Server selection is the case — a web page's origin *is* its server |
 | **n/a** | present in the Pi/kiosk product, deliberately absent from mobile |
 
 ### 0.4 Describe behaviour, not markup
@@ -95,6 +100,9 @@ and the place the user returns to via `A-02`.
 | `P-08` | Selecting a meet opens the app shell for it | `GET /meet/{id}/config` | must |
 | `P-09` | Pull-to-refresh re-fetches the meet list | — | should |
 | `P-10` | Install hand-off: store links to the native iOS/Android apps once they ship, Add-to-Home-Screen until then | — | web-only — see note |
+| `P-11` | Choose which server to connect to, from a list, in the picker's menu | `GET /servers` ([`api.md`](api.md) §5.11), each entry verified with `GET /server` | native-only — see note |
+| `P-12` | Servers on the local network are offered without anyone typing an address | mDNS browse for `_splouch._tcp` | native-only — should |
+| `P-13` | A server can be added by hand, checked before it is saved | `GET /server` must answer | native-only — must |
 
 > **`P-06` is not decoration.** The disclaimer states these are live, unofficial
 > results subject to validation, and points at SplashMe for validated ones. It is
@@ -104,6 +112,37 @@ and the place the user returns to via `A-02`.
 > Render the server's text rather than a copy compiled into the app: it is served
 > from `/picker/config` precisely so wording can be corrected without waiting on a
 > store review.
+
+> **`P-11`–`P-13` — the server list is data, and the LAN is the case that matters.**
+> The list is *fetched*, never compiled in, for the reason `T-05` gives about
+> strings: a club standing up its own instance must not wait on a store release to
+> become reachable. The app ships knowing one URL — the default cloud — and
+> everything else arrives as data or is typed.
+>
+> At a pool the useful server is usually the Pi in the building: no internet
+> dependency, and the race clock arrives unthrottled. A Pi publishes
+> `_splouch._tcp` over mDNS, so `P-12` is a browse, not a prompt. Its
+> `splouch.local` alias is an A record — it only helps someone who already knows
+> what to type, which is nobody.
+>
+> Three rules that are cheaper to decide now than to migrate to later:
+>
+> - **Ask `GET /server` before saving anything** (`P-13`). A typo must fail at
+>   entry, not at the first blank board. The same call says whether this is a Pi —
+>   in which case there is no meet list and the app opens the board directly — and
+>   which contract versions the server implements.
+> - **`vid` is per server, never shared** — see `C-10`.
+> - **Cleartext only for the local network.** A Pi is plain HTTP; anything remote
+>   must be HTTPS. That means a *scoped* ATS exception on iOS (local networking,
+>   with `NSLocalNetworkUsageDescription` and the Bonjour service declared) and an
+>   Android `network_security_config` permitting cleartext for `.local` and private
+>   ranges only. A blanket exception is a review risk on both stores, and it is not
+>   needed.
+>
+> **Show the server when it is not the default.** A user who has switched and
+> forgotten has no way to answer "where did my meet go?" from a screen that looks
+> identical either way. The menu is the place to change it; the header is where it
+> has to be visible.
 
 > **`P-10` is a hand-off, not a feature of the apps.** The Add-to-Home-Screen
 > hint exists because the phone clients do not yet. When they ship, the same slot
@@ -474,7 +513,7 @@ app that works on a pool deck and one that shows a frozen board after a screen l
 | `C-07` | Unknown events are ignored, not treated as errors | — | must |
 | `C-08` | `reload` → re-fetch config and redraw (web: full page reload) | — | must |
 | `C-09` | `meet_live` gates live affordances; a `disconnect` implies `meet_live = false` | — | must |
-| `C-10` | Anonymous per-install id (`vid`) sent with `join_meet` | random UUID, stored once | must — see note |
+| `C-10` | Anonymous per-install, **per-server** id (`vid`) sent with `join_meet` | random UUID per server, stored once each | must — see note |
 
 > **`C-05` is the one that bites phones.** iOS and Android freeze background
 > sockets without ever firing a close: the connection is dead but looks open, so
@@ -482,8 +521,15 @@ app that works on a pool deck and one that shows a frozen board after a screen l
 > foreground probe is what makes the reconnect prompt. Do not rely on `C-03` alone.
 
 > **`C-10` — privacy constraints are binding.** `vid` is a random UUID generated
-> once and stored locally, used server-side only for `COUNT(DISTINCT)` to estimate
-> attendance. It must **not** be `identifierForVendor`, an advertising id, a device
+> once **per server** and stored locally, used server-side only for
+> `COUNT(DISTINCT)` to estimate attendance.
+>
+> Per server is not a detail. Once a user can add a server (`P-11`), one shared id
+> means every server they ever connect to learns the same identifier the default
+> cloud uses, and any two of them can confirm they saw the same person. A fresh
+> UUID per server costs nothing and removes that entirely — but only if it is done
+> from the start, because a deployed app cannot re-anonymise ids it has already
+> sent. It must **not** be `identifierForVendor`, an advertising id, a device
 > id, or anything derived from one, and it must not be correlated with a name or an
 > IP address. It is also what `P-07`'s privacy note describes to the user — that
 > notice and this field ship together or not at all. Both stores require the
@@ -631,6 +677,22 @@ Not on any phone client, now or planned:
 ---
 
 ## Changelog
+
+- **v4** — An app stops being tied to one server. `P-11`–`P-13` let a user pick
+  from a fetched directory ([`api.md`](api.md) §5.11), browse the local network for
+  a Pi over mDNS, or type an address that is verified with `GET /server` (§5.10)
+  before it is saved — which is also how a client learns whether it is talking to a
+  Pi (one meet, no picker) or a cloud, and which contracts that build implements.
+  §0.3 gains a `native-only` level for rows the web cannot have an opinion about,
+  its origin being its server.
+  - **`C-10` changes, and it is a `must`.** `vid` becomes one id *per server*
+    rather than one per install. With a single id, every server a user adds learns
+    the identifier the default cloud already knows. This is why the version moved
+    rather than being folded into v3: v3 is committed, and a client built against
+    it would ship the wrong privacy behaviour.
+  - Served already: both endpoints, and the Pi's `_splouch._tcp` record. What no
+    client has yet is the menu — the web picker cannot have one, since its origin
+    *is* its server.
 
 - **v3** — Translation stops being something an app ships. `T-05` inverts: the
   chrome is fetched from `GET /i18n/{lang}` and cached behind a bundled snapshot

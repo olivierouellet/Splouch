@@ -871,6 +871,63 @@ def route_index(request: Request):
         analytics_enabled=_analytics_enabled())
 
 
+# The contracts this build implements, for the handshake below. Bumped with the
+# headers of docs/api.md and docs/mobile-features.md, which a test pins.
+API_CONTRACT    = 'v2'
+MOBILE_CONTRACT = 'v4'
+
+SERVERS_FILE = os.path.join(DATA_DIR, 'servers.json')
+
+
+@app.get('/server', tags=['Public'])
+def route_server():
+    """Who this server is — the handshake a native client makes before anything else.
+
+    An app can be pointed at a Pi or at a cloud (docs/mobile-features.md `P-11`),
+    and the two are not interchangeable: a Pi has one meet and no picker, this has
+    many. Guessing from a 404 on `/meets` would be a protocol by accident. It also
+    validates a hand-typed address before a client saves it, and carries the
+    contract versions.
+    """
+    return {
+        'kind':     'cloud',
+        'name':     _picker_branding().get('title') or 'Splouch',
+        'contract': {'api': API_CONTRACT, 'mobile': MOBILE_CONTRACT},
+    }
+
+
+@app.get('/servers', tags=['Public'])
+def route_servers(request: Request):
+    """Servers a client may offer to connect to — a directory, not a whitelist.
+
+    Fetched rather than compiled into an app, for the reason `T-05` gives about
+    strings: a club standing up its own instance must not need a store release to
+    become reachable. This server is always first and is derived from the request,
+    so the endpoint is useful with no configuration at all; anything further comes
+    from `servers.json` in the data directory, deduplicated by URL.
+
+    A client keeps its own additions (docs/mobile-features.md `P-13`) — this list
+    informs the menu, it does not replace what the user typed.
+    """
+    here = str(request.base_url).rstrip('/')
+    servers = [{'name': _picker_branding().get('title') or 'Splouch',
+                'url': here, 'kind': 'cloud'}]
+    try:
+        with open(SERVERS_FILE, 'rb') as f:
+            extra = json.load(f)
+    except Exception:
+        extra = []
+    seen = {here}
+    for entry in extra if isinstance(extra, list) else []:
+        url = str(entry.get('url', '')).rstrip('/')
+        if not url or url in seen:
+            continue
+        seen.add(url)
+        servers.append({'name': entry.get('name') or url,
+                        'url': url, 'kind': entry.get('kind', 'cloud')})
+    return {'servers': servers}
+
+
 @app.get('/locales', tags=['Public'])
 def route_locales(request: Request):
     """The languages this server can serve — for a client offering the choice."""

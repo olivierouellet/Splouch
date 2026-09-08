@@ -538,6 +538,27 @@ EOF
     sudo systemctl enable --now splouch-mdns-aliases
     info "mDNS aliases active: $MDNS_ALIASES → (live interface IP)"
 
+    # A browsable service, not just names. The aliases above are A records: they
+    # only help someone who already knows to type splouch.local. The phone apps
+    # browse for `_splouch._tcp` instead and offer whatever answers, so a spectator
+    # on the pool WiFi never types an address (docs/mobile-features.md `P-12`).
+    # `kind` and `path` mirror GET /server so a client can list before it connects.
+    sudo mkdir -p /etc/avahi/services
+    sudo tee /etc/avahi/services/splouch.service > /dev/null <<EOF
+<?xml version="1.0" standalone='no'?><!DOCTYPE service-group SYSTEM "avahi-service.dtd">
+<service-group>
+  <name replace-wildcards="yes">Splouch on %h</name>
+  <service>
+    <type>_splouch._tcp</type>
+    <port>5000</port>
+    <txt-record>kind=pi</txt-record>
+    <txt-record>path=/server</txt-record>
+  </service>
+</service-group>
+EOF
+    sudo systemctl restart avahi-daemon
+    info "Discoverable as _splouch._tcp on port 5000"
+
     section "Port 80 redirect"
     sudo systemctl disable --now tremplin-redirect 2>/dev/null || true   # retire pre-rename unit
     sudo rm -f /etc/systemd/system/tremplin-redirect.service

@@ -256,3 +256,74 @@ def test_the_pi_honours_a_choice_and_hands_the_style_to_the_template(monkeypatch
     assert ctx['lang'] == 'fr' and ctx['ui_style'] == 'short'
     assert ctx['labels']['event'] == 'ÉP'
     assert ctx['t']['scoreboard'] == 'Tableau'
+
+
+# ── Which server am I talking to ──────────────────────────────────────────────
+#
+# A native app can be pointed at a Pi or at a cloud (`P-11`), and the two are not
+# interchangeable: a Pi has one meet and no picker. `GET /server` is how a client
+# is told rather than inferring it from a 404, and it carries the contract versions
+# now that both documents are numbered.
+
+def test_each_server_says_what_kind_it_is():
+    from routes.i18n import route_server as pi_server
+    assert pi_server()['kind'] == 'pi'
+    assert cs.route_server()['kind'] == 'cloud'
+
+
+def test_each_server_names_itself_for_the_menu():
+    """A list of servers is unusable if every row reads "Splouch"."""
+    from routes.i18n import route_server as pi_server
+    assert pi_server()['name']
+    assert cs.route_server()['name']
+
+
+@pytest.mark.parametrize('doc, key', [('api.md', 'api'), ('mobile-features.md', 'mobile')])
+def test_the_handshake_matches_the_contract_it_claims(doc, key):
+    """The versions a build advertises are the ones the documents carry.
+
+    Two contracts, two version headers, and a handshake that repeats them: without
+    this the code drifts from the docs silently and a client negotiates against a
+    number nobody maintains.
+    """
+    import re
+    from routes.i18n import route_server as pi_server
+    text = io.open(os.path.join(REPO, 'docs', doc), encoding='utf-8').read()
+    stated = re.search(r'\*\*Contract version: `(v\d+)`\*\*', text).group(1)
+    assert pi_server()['contract'][key] == stated
+    assert cs.route_server()['contract'][key] == stated
+
+
+class _BaseUrlReq:
+    def __init__(self, base): self.base_url = base
+
+
+def test_the_directory_lists_this_server_with_no_configuration(monkeypatch, tmp_path):
+    """Pointed at any cloud, a client gets at least that cloud back."""
+    monkeypatch.setattr(cs, 'SERVERS_FILE', str(tmp_path / 'absent.json'))
+    servers = cs.route_servers(_BaseUrlReq('https://splouch.example/'))['servers']
+    assert [s['url'] for s in servers] == ['https://splouch.example']
+    assert servers[0]['kind'] == 'cloud'
+
+
+def test_the_directory_adds_what_the_operator_published(monkeypatch, tmp_path):
+    """A club standing up its own instance must not need a store release to be
+    reachable — which is the whole reason this is fetched (`P-11`)."""
+    f = tmp_path / 'servers.json'
+    f.write_text('[{"name": "Club X", "url": "https://x.example/"},'
+                 ' {"url": "https://splouch.example"},'
+                 ' {"name": "no url"}]', encoding='utf-8')
+    monkeypatch.setattr(cs, 'SERVERS_FILE', str(f))
+    servers = cs.route_servers(_BaseUrlReq('https://splouch.example/'))['servers']
+    # This server first, the published one after it; the duplicate and the
+    # entry with no URL are dropped rather than rendering a dead row.
+    assert [(s['name'], s['url']) for s in servers] == [
+        ('Splouch', 'https://splouch.example'), ('Club X', 'https://x.example')]
+
+
+def test_a_broken_directory_file_does_not_take_the_endpoint_down(monkeypatch, tmp_path):
+    """It is hand-edited on a server, so assume it will be malformed one day."""
+    f = tmp_path / 'servers.json'
+    f.write_text('{not json', encoding='utf-8')
+    monkeypatch.setattr(cs, 'SERVERS_FILE', str(f))
+    assert len(cs.route_servers(_BaseUrlReq('https://splouch.example/'))['servers']) == 1

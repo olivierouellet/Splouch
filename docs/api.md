@@ -175,6 +175,7 @@ JSON/asset endpoints (everything else the servers expose is HTML for the browser
 | method · path | returns |
 | --- | --- |
 | `GET /config` | **display config JSON** — `num_lanes`, `theme_colors`, `theme_fonts`, `show_*` flags, `labels`, `meet_title`, `locale`, `display_strings`, `carousel_images`, `carousel_interval` (§6). Lets the Qt display theme *and translate* itself without a rendered page |
+| `GET /server` | **who this server is** (§5.10) — `kind: "pi"`, its name, and the contract versions this build implements |
 | `GET /i18n/{lang}` | **client strings for one language** (§5.9). Layers this Pi's `scoreboard/locale/{lang}.toml` over the bundled file, so custom wording reaches every client |
 | `GET /locales` | `[{ "code": "fr", "name": "Français" }]` — the languages this server can serve, custom files included |
 | `GET /manifest.json` | PWA manifest (app title, icons) |
@@ -190,6 +191,8 @@ JSON/asset endpoints (everything else the servers expose is HTML for the browser
 | `GET /picker/config` | **picker chrome JSON** — branding, localised strings, analytics flag (§5.7) |
 | `GET /meet/{meet_id}/config` | **meet config JSON** — `name`, `location`, `sport`, `meet_date`, `live`, and the `settings` block (§5.4). Lets a phone render the board without scraping the HTML page |
 | `GET /meet/{meet_id}/schedule` | **start list JSON** — `{ "heats": [ … ] }` (§5.8); 404 for an unknown meet, empty `heats` when the meet has no schedule yet |
+| `GET /server` | **who this server is** (§5.10) — `kind: "cloud"` |
+| `GET /servers` | **server directory** (§5.11) — where else a client may connect; this server always first |
 | `GET /i18n/{lang}` | **client strings for one language** (§5.9). No meet in the path: the table is a property of this server's locale files, not of a meet |
 | `GET /locales` | as local |
 | `GET /manifest/{meet_id}` | per-meet PWA manifest |
@@ -343,6 +346,54 @@ the server has no such locale.
 Cost of a new language, by design: one file in `shared/locales/`. Nothing is added
 to any meet payload, and no client repo ships a string.
 
+### 5.10 `GET /server`
+
+The handshake a native client makes before anything else. Both servers answer it.
+
+```json
+{ "kind": "pi", "name": "Piscine Olympique",
+  "contract": { "api": "v2", "mobile": "v4" } }
+```
+
+- **`kind`** decides the shape of the session, not just the base URL. A `pi` has one
+  meet and no picker, so a client that lands on one goes straight to the board;
+  a `cloud` starts at the meet list. Inferring this from a 404 on `/meets` is a
+  protocol by accident.
+- **`name`** is what a server list shows. A menu where every row reads "Splouch"
+  is not a menu.
+- **`contract`** is the versions *this build* implements, not the newest that
+  exist. A client that needs `v4` behaviour against a `v3` server can then say so
+  rather than rendering an empty screen; a test pins these to the two documents'
+  headers so they cannot drift.
+
+It is also the request a client makes against a hand-typed address before saving
+it — a typo should fail at entry, not at the first blank board.
+
+### 5.11 `GET /servers` (cloud)
+
+A directory, not a whitelist.
+
+```json
+{ "servers": [ { "name": "Splouch", "url": "https://splouch.app", "kind": "cloud" },
+               { "name": "Club X",  "url": "https://x.example",   "kind": "cloud" } ] }
+```
+
+Fetched rather than compiled into an app, for the reason §5.9 gives about strings:
+a club standing up its own instance must not need a store release to become
+reachable. The first entry is always *this* server, derived from the request, so the
+endpoint is useful with no configuration; further entries come from `servers.json`
+in the data directory, deduplicated by URL, with malformed entries dropped rather
+than rendered as dead rows.
+
+What it is not: an authority. A client keeps whatever the user typed
+(`mobile-features.md` `P-13`), and a server absent from every directory still works.
+
+**Discovery on a LAN is separate and matters more at a pool.** A Pi publishes
+`_splouch._tcp` over mDNS (port 5000, `kind=pi`, `path=/server`), so an app browses
+for it instead of asking anyone to type an address. The hostname aliases the Pi also
+publishes — `splouch.local` and the translated ones — are A records: they only help
+someone who already knows what to type.
+
 ---
 
 ## 6. Config for native clients
@@ -402,9 +453,10 @@ same `settings` shape, so the two config sources agree.
   interpolate, do not render.
 
 - **Added since v2, all additive so the version stands**: `GET /i18n/{lang}` and
-  `GET /locales` (§5.9), and `settings.label_style` / `settings.label_overrides`
-  (§5.4). A v2 client ignores them and is unaffected; `mobile-features.md` v3 is
-  what consumes them.
+  `GET /locales` (§5.9), `settings.label_style` / `settings.label_overrides`
+  (§5.4), and `GET /server` / `GET /servers` (§5.10–5.11) with the Pi's
+  `_splouch._tcp` mDNS record. A v2 client ignores all of it and is unaffected;
+  `mobile-features.md` v3 and v4 are what consume them.
 
 - **v1** — Initial contract after the Flask/Socket.IO → FastAPI/plain-WebSocket
   migration. Envelope `{event, data}`; local paths `/ws/scoreboard|results|settings|terminal`;
