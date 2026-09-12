@@ -93,10 +93,32 @@ DEFAULT_THEME_COLORS = {
 DEFAULT_THEME_FONTS = {'family': 'Overpass Mono', 'digits': 'DSEG7Classic', 'timing': 'Overpass Mono'}
 
 _FALLBACK_LABELS = {
-    'event': 'EVENT', 'heat': 'HEAT', 'lane': 'LANE',
-    'place': 'PLACE', 'time': 'TIME', 'name': 'NAME', 'club': 'CLUB',
+    'event': 'EVENT', 'heat': 'HEAT', 'lane': 'LN',
+    'place': 'PL', 'time': 'TIME', 'name': 'NAME', 'club': 'CLUB',
     'chrono': 'CHRONO',
 }
+
+# Only these columns have a long form worth showing. The lane and place columns are
+# the two narrow ones on every board we ship: a long word there either clips or
+# shrinks the whole row to fit it, so they resolve short whatever `label_style` says
+# (docs/app.md `T-09`). Keep this list and the cloud's copy in step.
+STYLED_LABEL_KEYS = frozenset({'event', 'heat'})
+
+
+def resolve_labels(labels, style):
+    """Flatten a `[labels]` table to one string per key, in `style`.
+
+    `style` reaches only STYLED_LABEL_KEYS; every other key resolves short. A custom
+    file may define one form and not the other, so each key falls back to whatever it
+    does have rather than serving an empty header.
+    """
+    out = {}
+    for key, val in labels.items():
+        if not isinstance(val, dict):
+            continue
+        want = style if key in STYLED_LABEL_KEYS else 'short'
+        out[key] = val.get(want) or val.get('long') or val.get('short') or ''
+    return out
 
 _STROKE_ALIASES = [
     ('individual medley', 'medley'),
@@ -534,10 +556,12 @@ def i18n_bundle(code=None):
         'lang':    code,
         'mobile':  merged('mobile'),
         'display': merged('display'),
-        # A custom file may give one style only; fall back to the other rather
-        # than serving an empty header.
-        'labels': {style: {k: v.get(style) or v.get('long') or v.get('short') or ''
-                           for k, v in labels.items() if isinstance(v, dict)}
+        # The vocabulary an event name is composed from, so a client that took
+        # `event_name_parts` can render it in this language (api.md §5.1, §5.9).
+        'event_name': merged('event_name'),
+        # Both styles, so language and short/long are one fetch. `long` differs from
+        # `short` only for STYLED_LABEL_KEYS; the narrow columns are short in both.
+        'labels': {style: resolve_labels(labels, style)
                    for style in ('short', 'long')},
     }
 
@@ -581,8 +605,7 @@ def load_locale(style=None):
     labels = _locale_section(code, 'labels')
     if not labels:
         return dict(_FALLBACK_LABELS)
-    return {k: (v.get(style) or v.get('long') or v.get('short') or '')
-            for k, v in labels.items() if isinstance(v, dict)}
+    return resolve_labels(labels, style)
 
 def load_preview_strings():
     return _locale_section(settings.get('locale', 'en'), 'preview')
@@ -712,20 +735,29 @@ def load_theme(code):
 def load_event_translations():
     return _locale_section(settings.get('locale', 'en'), 'event_name')
 
-def translate_event_name(raw, ev):
-    if not ev or not raw:
-        return raw
-    s    = raw.strip()
-    unit = ev.get('unit', 'm')
-    sep  = ev.get('separator', '  —  ')
+def parse_event_name(raw):
+    """Decompose a raw event name into language-neutral parts.
+
+    Keys, not words: ``stroke``, ``gender`` and ``age_key`` name entries in a
+    locale's ``[event_name]`` table, so one parse renders in every language the
+    server ships. That is what lets a spectator reading in Spanish at a French meet
+    get a Spanish event name (docs/app.md `T-04`, `T-06`) — the alternative is three
+    client repos re-implementing the regexes below and drifting.
+
+    ``age`` carries a numeric band verbatim (``< 12``, ``12-13``) because a number
+    needs no translation; ``age_key`` carries ``open`` / ``senior``, which do.
+    """
+    if not raw:
+        return None
+    s = raw.strip()
 
     gender = ''
     for pat, key in _GENDER_PATTERNS:
         if re.search(pat, s, re.IGNORECASE):
-            gender = ev.get(key, key)
+            gender = key
             break
 
-    age   = ''
+    age, age_key = '', ''
     s_rest = s
     age_m = re.search(
         r'\b(\d+)\s*(?:[Uu](?:nder)?|&\s*[Uu]nder|[Aa]nd\s+[Uu]nder)\b'
@@ -740,11 +772,11 @@ def translate_event_name(raw, ev):
             age    = range_m.group(1)
             s_rest = s[:range_m.start()] + s[range_m.end():]
         elif re.search(r'\bopen\b', s, re.IGNORECASE):
-            age    = ev.get('open', 'Open')
-            s_rest = re.sub(r'\bopen\b', '', s, flags=re.IGNORECASE)
+            age_key = 'open'
+            s_rest  = re.sub(r'\bopen\b', '', s, flags=re.IGNORECASE)
         elif re.search(r'\bsenior\b', s, re.IGNORECASE):
-            age    = ev.get('senior', 'Senior')
-            s_rest = re.sub(r'\bsenior\b', '', s, flags=re.IGNORECASE)
+            age_key = 'senior'
+            s_rest  = re.sub(r'\bsenior\b', '', s, flags=re.IGNORECASE)
 
     is_relay = bool(re.search(r'\brelay\b', s_rest, re.IGNORECASE))
 
@@ -756,23 +788,52 @@ def translate_event_name(raw, ev):
     stroke = ''
     for alias, key in _STROKE_ALIASES:
         if re.search(r'\b' + re.escape(alias) + r'\b', s_rest, re.IGNORECASE):
-            stroke = ev.get(key, alias)
+            stroke = key
             break
 
+    return {'raw': raw, 'dist': dist, 'stroke': stroke, 'relay': is_relay,
+            'gender': gender, 'age': age, 'age_key': age_key}
+
+
+def compose_event_name(parts, ev):
+    """Render parsed parts with one locale's ``[event_name]`` vocabulary.
+
+    The other half of :func:`parse_event_name`, and the only half a client needs: a
+    lookup and a join, no parsing. An unknown key renders as itself rather than
+    blank, the same floor `T-10` sets for every other string.
+    """
+    if not parts:
+        return ''
+    if not ev:
+        return parts.get('raw', '')
+    unit = ev.get('unit', 'm')
+    sep  = ev.get('separator', '  \u2014  ')
+
     left_parts = []
-    if dist:
-        left_parts.append(dist + ' ' + unit)
-    if stroke:
-        left_parts.append(stroke)
-    if is_relay and ev.get('relay'):
+    if parts.get('dist'):
+        left_parts.append(parts['dist'] + ' ' + unit)
+    if parts.get('stroke'):
+        left_parts.append(ev.get(parts['stroke'], parts['stroke']))
+    if parts.get('relay') and ev.get('relay'):
         left_parts.append(ev['relay'])
     left = ' '.join(left_parts)
 
+    age = parts.get('age') or (ev.get(parts['age_key'], parts['age_key'])
+                               if parts.get('age_key') else '')
+    gender = ev.get(parts['gender'], parts['gender']) if parts.get('gender') else ''
     right = ' '.join(p for p in [gender, age] if p)
 
     if left and right:
         return left + sep + right
-    return left or right or raw
+    return left or right or parts.get('raw', '')
+
+
+def translate_event_name(raw, ev):
+    """One raw name rendered in one locale — ``compose(parse(raw))``."""
+    if not ev or not raw:
+        return raw
+    return compose_event_name(parse_event_name(raw), ev)
+
 
 # ── Settings loader ────────────────────────────────────────────────────────────
 

@@ -2,7 +2,7 @@
 
 The Qt display has always been *served* its status strings; the phone apps were
 told to embed theirs, which put `shared/locales/` in three repos and made a fourth
-language two store submissions (docs/mobile-features.md `T-05`). These endpoints
+language two store submissions (docs/app.md `T-05`). These endpoints
 make every non-browser client fetch what the TV already fetches.
 
 Two things carry the weight here. The English merge, per key, so a half-translated
@@ -63,7 +63,9 @@ def test_an_unknown_language_falls_back_to_english(build):
 @pytest.mark.parametrize('build', [state.i18n_bundle, cs._i18n_bundle])
 def test_both_servers_agree_on_the_shipped_languages(build):
     assert build('es')['mobile']['scoreboard'] == 'Marcador'
-    assert build('es')['labels']['long']['place'] == 'POSICIÓN'
+    # A styled key, so `long` is the long word; `place` is narrow and short in both.
+    assert build('es')['labels']['long']['event'] == 'PRUEBA'
+    assert build('es')['labels']['long']['place'] == 'POS'
 
 
 # ── A locale that is only half translated ─────────────────────────────────────
@@ -122,9 +124,26 @@ def custom_pool(monkeypatch, tmp_path):
 def test_the_pi_serves_custom_wording_rather_than_diffing_it(custom_pool):
     """On the LAN there is nothing to reconcile — the Pi has the file."""
     b = state.i18n_bundle('fr')
-    assert b['labels']['long']['lane']  == 'CORRIDOR'
+    # `lane` is not a styled key (`T-09`), so the club's short word is what both
+    # styles render — its `CORRIDOR` is carried in the file but never shown.
     assert b['labels']['short']['lane'] == 'CO'
+    assert b['labels']['long']['lane']  == 'CO'
     assert b['labels']['long']['event'] == 'ÉPREUVE'   # untouched keys still shipped
+
+
+@pytest.mark.parametrize('style', ['short', 'long'])
+def test_the_style_reaches_event_and_heat_only(style):
+    """`T-09`: lane and place are the narrow columns and stay short in both styles.
+
+    This is the table `GET /config` hands the Qt board and `GET /i18n/{lang}` hands a
+    phone, so getting it right here is what keeps a long word out of a 5%-wide column
+    on every client at once.
+    """
+    labels = state.resolve_labels(state._locale_section('fr', 'labels'), style)
+    assert labels['lane']  == 'CL'
+    assert labels['place'] == 'POS'
+    assert labels['event'] == ('ÉPREUVE' if style == 'long' else 'ÉP')
+    assert labels['heat']  == ('SÉRIE'   if style == 'long' else 'SÉR')
 
 
 def test_overrides_carry_only_what_the_pool_changed(custom_pool):
@@ -153,7 +172,7 @@ def test_a_custom_language_counts_as_a_language(custom_pool):
 
 def test_the_cloud_cannot_see_a_pools_files(custom_pool):
     """Which is the whole reason `label_overrides` exists (api.md §5.4)."""
-    assert cs._i18n_bundle('fr')['labels']['long']['lane'] == 'COULOIR'
+    assert cs._i18n_bundle('fr')['labels']['short']['lane'] == 'CL'
 
 
 # ── Caching ───────────────────────────────────────────────────────────────────
@@ -201,7 +220,8 @@ class _Q:
 _MEET = {'settings': {
     'locale': 'fr', 'label_style': 'short',
     'labels': {'event': 'ÉP', 'lane': 'CL'},
-    'label_overrides': {'fr': {'long': {'lane': 'CORRIDOR'}}},
+    'label_overrides': {'fr': {'short': {'event': 'ÉPR', 'lane': 'CO'},
+                               'long':  {'event': 'COURSE', 'lane': 'CORRIDOR'}}},
 }}
 
 
@@ -214,16 +234,23 @@ def test_no_choice_renders_exactly_what_the_operator_configured():
 
 def test_choosing_the_other_style_keeps_the_pools_own_wording():
     """The cloud cannot resolve a Pi's locale file, so it layers the diff it was
-    sent (api.md §5.4). Without this a club's `CORRIDOR` reverts the moment a
+    sent (api.md §5.4). Without this a club's `COURSE` reverts the moment a
     visitor touches the control."""
-    assert cs._client_labels(_MEET, 'fr', 'long')['lane'] == 'CORRIDOR'
-    assert cs._client_labels(_MEET, 'fr', 'long')['event'] == 'ÉPREUVE'
+    assert cs._client_labels(_MEET, 'fr', 'long')['event'] == 'COURSE'
+
+
+def test_a_narrow_column_ignores_the_long_style_even_from_a_pools_file():
+    """`T-09`: `style` reaches EVENT and HEAT only. A club may write `lane.long`,
+    and the lane column still renders its short word — otherwise the override is a
+    back door around the rule the bundled table already follows."""
+    assert cs._client_labels(_MEET, 'fr', 'long')['lane'] == 'CO'
+    assert cs._client_labels(_MEET, 'es', 'long')['lane'] == 'CA'
 
 
 def test_choosing_another_language_gets_the_bundled_word():
     """Custom wording exists only in the language the club wrote it in. Falling back
-    is right; inventing a translation of `CORRIDOR` would not be."""
-    assert cs._client_labels(_MEET, 'es', 'long')['lane'] == 'CALLE'
+    is right; inventing a translation of `COURSE` would not be."""
+    assert cs._client_labels(_MEET, 'es', 'long')['event'] == 'PRUEBA'
 
 
 def test_a_stale_link_falls_back_instead_of_breaking_the_board():
@@ -278,7 +305,7 @@ def test_each_server_names_itself_for_the_menu():
     assert cs.route_server()['name']
 
 
-@pytest.mark.parametrize('doc, key', [('api.md', 'api'), ('mobile-features.md', 'mobile')])
+@pytest.mark.parametrize('doc, key', [('api.md', 'api'), ('app.md', 'app')])
 def test_the_handshake_matches_the_contract_it_claims(doc, key):
     """The versions a build advertises are the ones the documents carry.
 
@@ -327,3 +354,54 @@ def test_a_broken_directory_file_does_not_take_the_endpoint_down(monkeypatch, tm
     f.write_text('{not json', encoding='utf-8')
     monkeypatch.setattr(cs, 'SERVERS_FILE', str(f))
     assert len(cs.route_servers(_BaseUrlReq('https://splouch.example/'))['servers']) == 1
+
+
+# ── Event names follow the reader, not the meet ───────────────────────────────
+
+def test_an_event_name_parses_into_keys_not_words():
+    """`T-04`: the parts name entries in a locale table, so one parse renders in
+    every language the server ships. Words here would pin the meet's language."""
+    p = state.parse_event_name('200 Backstroke Girls 12 & Under')
+    assert p['stroke'] == 'backstroke'
+    assert p['gender'] == 'girls'
+    assert p['dist']   == '200'
+    assert p['age']    == '< 12'      # a number needs no translation
+    assert p['age_key'] == ''
+
+
+@pytest.mark.parametrize('lang, expected', [
+    ('en', '200 m Backstroke  —  Girls < 12'),
+    ('fr', '200 m dos  —  Filles < 12'),
+    ('es', '200 m espalda  —  Niñas < 12'),
+])
+def test_one_parse_composes_in_every_shipped_language(lang, expected):
+    """The whole point: a spectator reading Spanish at a French meet gets a Spanish
+    event name, without the client owning a parser or the frame being per-viewer."""
+    parts = state.parse_event_name('200 Backstroke Girls 12 & Under')
+    assert state.compose_event_name(parts, state.i18n_bundle(lang)['event_name']) == expected
+
+
+@pytest.mark.parametrize('build', [state.i18n_bundle, cs._i18n_bundle])
+def test_both_servers_serve_the_event_name_vocabulary(build):
+    """A client cannot compose what it was not given, and the cloud must agree with
+    the Pi or the same meet reads differently through the relay."""
+    ev = build('fr')['event_name']
+    assert ev['freestyle'] == 'libre'
+    assert ev['girls'] == 'Filles'
+    assert ev['unit'] and ev['separator']
+
+
+def test_composing_survives_a_name_that_parses_into_nothing():
+    """Hand-entered names exist. Falling back to the raw string beats a blank header."""
+    parts = state.parse_event_name('Club Handicap Final')
+    assert state.compose_event_name(parts, state.i18n_bundle('fr')['event_name']) \
+        == 'Club Handicap Final'
+
+
+def test_translate_event_name_still_composes_through_the_split():
+    """The meet's own locale still resolves server-side, unchanged — the parts are
+    additive, and `event_name` stays correct for a client that ignores them."""
+    ev = state._locale_section('fr', 'event_name')
+    assert state.translate_event_name('100 Free Women', ev) == '100 m libre  —  Femmes'
+    assert state.translate_event_name('', ev) == ''
+    assert state.translate_event_name('100 Free', None) == '100 Free'

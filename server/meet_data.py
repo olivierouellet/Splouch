@@ -48,10 +48,24 @@ def get_lane_seed_time(event_num, heat_num, lane):
         return m.event_info.get_seed_time(event_num, heat_num, lane)
 
 
-def get_event_name_display(event_num):
+def _raw_event_name(event_num):
     m = state.meet
-    raw = m.event_names.get(event_num) or m.event_info.get_event_name(event_num)
-    return state.translate_event_name(raw, state.load_event_translations())
+    return m.event_names.get(event_num) or m.event_info.get_event_name(event_num)
+
+
+def get_event_name_display(event_num):
+    return state.translate_event_name(_raw_event_name(event_num),
+                                      state.load_event_translations())
+
+
+def get_event_name_parts(event_num):
+    """The same name, language-neutral, for a client rendering in its own language.
+
+    Travels beside `event_name` rather than replacing it (api.md §5.1): a client
+    that does not compose keeps rendering the string, which is already correct for
+    anyone who has not chosen a language (docs/app.md `T-04`).
+    """
+    return state.parse_event_name(_raw_event_name(event_num))
 
 
 def get_lane_parts(event_num, heat_num, lane):
@@ -108,6 +122,7 @@ def _get_next_heats(after_event=0, after_heat=0, n=3, num_lanes=8):
             'event':      ev,
             'heat':       ht,
             'event_name': get_event_name_display(ev),
+            'event_name_parts': get_event_name_parts(ev),
             'time':       m.heat_times.get(ev, {}).get(ht, ''),
             'swimmers':   swimmers,
         })
@@ -150,6 +165,7 @@ def _build_results_snapshot():
         'event':      str(ev) if ev else '',
         'heat':       str(ht) if ht else '',
         'event_name': get_event_name_display(ev) if ev else '',
+        'event_name_parts': get_event_name_parts(ev) if ev else None,
         # Lanes without a final time are omitted above; 'sort' lets the client
         # place each result in the row matching its lane (lane mode) so a missing
         # lane leaves a blank row instead of shifting the lanes below it up.
@@ -165,9 +181,12 @@ def _build_meet_data():
         ev_trans    = state.load_event_translations()
         event_names = {num: state.translate_event_name(name, ev_trans)
                        for num, name in m.event_names.items()}
+        event_name_parts = {num: state.parse_event_name(name)
+                            for num, name in m.event_names.items()}
         events_grouped = [(ev, sorted(m.start_list[ev]))
                           for ev in sorted(m.start_list)]
         return dict(events_grouped=events_grouped, event_names=event_names,
+                    event_name_parts=event_name_parts,
                     start_list=m.start_list,
                     heat_times=m.heat_times,
                     meet_info=m.meet_info)
@@ -202,6 +221,7 @@ def send_event_info():
         'current_event': str(ev) if started else '',
         'current_heat':  str(ht) if started else '',
         'event_name':    get_event_name_display(ev) if started else '',
+        'event_name_parts': get_event_name_parts(ev) if started else None,
     }
     for i in range(1, 11):
         name, club = get_lane_parts(ev, ht, i)

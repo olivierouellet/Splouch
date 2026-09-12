@@ -541,7 +541,7 @@ EOF
     # A browsable service, not just names. The aliases above are A records: they
     # only help someone who already knows to type splouch.local. The phone apps
     # browse for `_splouch._tcp` instead and offer whatever answers, so a spectator
-    # on the pool WiFi never types an address (docs/mobile-features.md `P-12`).
+    # on the pool WiFi never types an address (docs/app.md `P-12`).
     # `kind` and `path` mirror GET /server so a client can list before it connects.
     sudo mkdir -p /etc/avahi/services
     sudo tee /etc/avahi/services/splouch.service > /dev/null <<EOF

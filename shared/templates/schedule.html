@@ -509,7 +509,8 @@ function renderSchedule() {
         html += '<span class="heat-title">' +
                 esc(LABELS.event) + ' ' + esc(evStr) + ' — ' +
                 esc(LABELS.heat)  + ' ' + esc(htStr) + '</span>';
-        if (h.event_name) html += '<span class="heat-name">' + esc(h.event_name) + '</span>';
+        var heatName = eventNameOf(h);
+        if (heatName) html += '<span class="heat-name">' + esc(heatName) + '</span>';
         html += '</div><div class="swimmer-list">';
         for (var j = 0; j < visibleLanes.length; j++) {
             var lane = visibleLanes[j];
@@ -671,6 +672,7 @@ document.addEventListener('visibilitychange', function() {
 renderSchedule();
 </script>
 
+<script>window.EVENT_VOCAB = {{ event_vocab | default({}, true) | tojson }};</script>
 <script src="/static/js/ws.js"></script>
 <script>
 var sockResults    = splouchSocket('/ws/results');

@@ -168,6 +168,10 @@ def send_schedule(client=None):
         data = {
             'events': [[ev, sorted(heats)] for ev, heats in md['events_grouped']],
             'names':  {str(k): v for k, v in md['event_names'].items()},
+            # Language-neutral parts beside the composed names, so the cloud can
+            # serve a schedule in a language this Pi's meet is not run in
+            # (docs/app.md `T-04`). The cloud never sees the raw name otherwise.
+            'name_parts': {str(k): v for k, v in md.get('event_name_parts', {}).items()},
             'times':  {str(k): {str(h): t for h, t in v.items()}
                        for k, v in md['heat_times'].items()},
             'start_list': _serialise_start_list(md['start_list']),

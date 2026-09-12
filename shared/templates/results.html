@@ -3,7 +3,7 @@
    One page, served by both servers. Unlike the live board this view is read
    carefully and holds still, so it earns two things the live board deliberately
    does without: podium tints on the first three places, and shrink-to-fit on a
-   name too long for its cell (`R-08` in docs/mobile-features.md).
+   name too long for its cell (`R-08` in docs/app.md).
 
    Structure, styling and the clock come from scoreboard_base.html — the same base
    the Scoreboard tab uses, so swiping between the two does not shift the layout. #}
@@ -84,7 +84,7 @@ function renderResults(d) {
     if (!lanes.length) return;
     document.getElementById('current_event').innerHTML = escHtml(d.event || '');
     document.getElementById('current_heat').innerHTML  = escHtml(d.heat  || '');
-    document.getElementById('event_name').innerHTML    = escHtml(d.event_name || '');
+    document.getElementById('event_name').innerHTML    = escHtml(eventNameOf(d));
 
     /* Map each result to a display row. In lane mode (the default) a row equals its
        lane number, so a lane with no final time leaves that row blank instead of

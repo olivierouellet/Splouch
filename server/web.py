@@ -69,6 +69,9 @@ def _globals():
     return dict(
         splash_url=state.settings.get('splash_url', ''),
         labels=state.load_locale(),
+        # The vocabulary `event_name_parts` composes against, in the same language
+        # `labels` is read in (docs/app.md `T-11`).
+        event_vocab=state.load_event_translations(),
         # BCP-47 tag for <html lang>, from the same setting `labels` is read in.
         # Display pages only — the admin UI has its own per-device language
         # (`ui_lang`), so those templates deliberately keep lang="en".
@@ -104,7 +107,7 @@ def client_prefs(request: Request):
 
     `?lang=` and `?style=` are how the choice travels: the shell stores it and puts
     it on every page it opens, so one control covers all three tabs
-    (docs/mobile-features.md `T-06`, `T-08`, `T-09`). Unknown values fall back
+    (docs/app.md `T-06`, `T-08`, `T-09`). Unknown values fall back
     rather than erroring — a stale bookmark must not break the board.
     """
     lang = request.query_params.get('lang', '')
@@ -128,9 +131,11 @@ def client_strings(request: Request):
     default_style = state.settings.get('label_style', 'long')
     if lang == default_lang and style == default_style:
         return dict(t=state._mobile_strings(), labels=state.load_locale(),
+                    event_vocab=state.load_event_translations(),
                     lang=lang, ui_style=style)
     bundle = state.i18n_bundle(lang)
     return dict(t=bundle['mobile'], labels=bundle['labels'][style],
+                event_vocab=bundle['event_name'],
                 lang=lang, ui_style=style)
 
 

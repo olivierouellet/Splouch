@@ -7,7 +7,7 @@ Qt/PySide TV display (`Splouch-tv`), the iOS app (`Splouch-ios`), and the
 Android app (`Splouch-android`). There is intentionally **no shared client
 library**: the platforms are too different. They agree only on this document.
 
-The phone clients also follow [`mobile-features.md`](mobile-features.md), which
+The phone clients also follow [`app.md`](app.md), which
 covers the *behaviour* side — what a spectator sees and can do — where this
 document covers the wire format.
 
@@ -211,7 +211,8 @@ Lane keys are 1-indexed (`<i>` = 1…12).
 | key | type | notes |
 | --- | --- | --- |
 | `current_event`, `current_heat` | string | e.g. `"3"`, `"1"` |
-| `event_name` | string | display name, already localised/translated |
+| `event_name` | string | display name, composed in the **meet's** locale |
+| `event_name_parts` | object\|null | the same name, language-neutral, for a client rendering in a language the meet is not run in — see below |
 | `heat_time` | string | scheduled time, may be `""` |
 | `running_time` | string | the race clock for the heat — one value, not per lane. The Pi sends it on every timing tick; **the cloud forwards at most one every 2s**, plus any frame that also carries a `lane_running<i>` key, and never keeps it in the join snapshot. Clients re-base on each one and tick locally in between |
 | `expected_splits` | int | laps expected for the event |
@@ -228,6 +229,27 @@ Lane keys are 1-indexed (`<i>` = 1…12).
 
 > Native clients should use `lane_delta_seconds<i>` / `lane_delta_better<i>` and
 > ignore the HTML `lane_delta<i>`. On a heat change all three reset (`""` / `null`).
+
+**`event_name_parts`** is an event name decomposed into keys rather than words, so
+one broadcast frame serves viewers reading in different languages (`app.md` `T-04`):
+
+```json
+"event_name": "200 m dos  —  Filles < 12",
+"event_name_parts": { "raw": "200 Backstroke Girls 12 & Under",
+                      "dist": "200", "stroke": "backstroke", "relay": false,
+                      "gender": "girls", "age": "< 12", "age_key": "" }
+```
+
+`stroke`, `gender` and `age_key` name entries in `GET /i18n/{lang}`'s `event_name`
+section (§5.9); `age` is a numeric band that needs no translation, and only one of
+`age`/`age_key` is ever set. Compose as `dist + unit`, stroke, `relay` — then
+`separator`, then gender and age; fall back to `raw` when nothing parsed. The same
+field rides on `results_snapshot` (§5.2) and each heat of `GET /meet/{id}/schedule`
+(§5.8), as `name_parts` in the relay's `schedule_snapshot` (§5.5).
+
+It is **additive and optional**: `event_name` is still sent and is already right for
+every viewer who has not chosen a language, so a client may ignore the parts
+entirely.
 
 ### 5.2 `results_snapshot`
 ```json
@@ -266,7 +288,7 @@ behaves exactly as before they existed.
 | --- | --- |
 | `labels` | as now — resolved for the meet's `locale` and the operator's style. The default a client renders before any user preference, and the whole story for a client that wants no more than that |
 | `label_style` | `"short"` or `"long"` — *which* of the two the operator picked, so a client offering the choice knows where to start. The Pi's phone style is `cloud_label_style`, separate from the kiosk's `label_style` |
-| `label_overrides` | only what this Pi's `scoreboard/locale/*.toml` changes from the bundled table, keyed by language then style: `{ "fr": { "long": { "lane": "CORRIDOR" } } }`. Normally absent. It is the one part of the label table that is genuinely meet-scoped, because it exists on that Pi and nowhere else |
+| `label_overrides` | only what this Pi's `scoreboard/locale/*.toml` changes from the bundled table, keyed by language then style: `{ "fr": { "long": { "event": "COURSE" } } }`. Normally absent. It is the one part of the label table that is genuinely meet-scoped, because it exists on that Pi and nowhere else. A `long` override on a narrow column is ignored, the same as in the bundled table (`app.md` `T-09`) |
 
 The full label table does **not** travel here. It is the same for every meet on a
 server and would be duplicated per meet, persisted per meet, and re-sent to every
@@ -328,8 +350,10 @@ the server has no such locale.
 { "lang": "fr",
   "mobile":  { "scoreboard": "Tableau", "results": "Résultats", … },
   "display": { "waiting_server": "…", "connection_lost": "…", … },
-  "labels":  { "short": { "event": "ÉP", "lane": "CL", … },
-               "long":  { "event": "ÉPREUVE", "lane": "COULOIR", … } } }
+  "labels":  { "short": { "event": "ÉP", "heat": "SÉR", "lane": "CL", … },
+               "long":  { "event": "ÉPREUVE", "heat": "SÉRIE", "lane": "CL", … } },
+  "event_name": { "unit": "m", "separator": "  —  ",
+                  "freestyle": "libre", "girls": "Filles", … } }
 ```
 
 - **English-merged per key**, the rule `display_strings` already follows: a
@@ -340,6 +364,12 @@ the server has no such locale.
   server. The Pi merges its own `scoreboard/locale/{lang}.toml` first, so custom
   wording is served rather than diffed; the cloud cannot see those files, which is
   why `settings.label_overrides` exists (§5.4).
+- **`event_name`** is the vocabulary `update_scoreboard.event_name_parts` composes
+  against (§5.1) — strokes, genders, age words, the unit and the separator. It is
+  what lets an event name follow the reader's language instead of the meet's.
+- **`long` differs from `short` for `event` and `heat` only.** Every other header is
+  a narrow column and carries its short word in both tables, so a client renders
+  whichever table the user picked without a rule of its own (`app.md` `T-09`).
 - `labels` here is the *bundled* table. A client wanting exactly what the operator
   chose can ignore this section entirely and render `settings.labels`.
 
@@ -352,7 +382,7 @@ The handshake a native client makes before anything else. Both servers answer it
 
 ```json
 { "kind": "pi", "name": "Piscine Olympique",
-  "contract": { "api": "v2", "mobile": "v4" } }
+  "contract": { "api": "v2", "app": "v1" } }
 ```
 
 - **`kind`** decides the shape of the session, not just the base URL. A `pi` has one
@@ -362,9 +392,9 @@ The handshake a native client makes before anything else. Both servers answer it
 - **`name`** is what a server list shows. A menu where every row reads "Splouch"
   is not a menu.
 - **`contract`** is the versions *this build* implements, not the newest that
-  exist. A client that needs `v4` behaviour against a `v3` server can then say so
-  rather than rendering an empty screen; a test pins these to the two documents'
-  headers so they cannot drift.
+  exist — `api` for this document, `app` for [`app.md`](app.md). A client that needs
+  a behaviour an older server lacks can then say so rather than rendering an empty
+  screen; a test pins both to the documents' headers so they cannot drift.
 
 It is also the request a client makes against a hand-typed address before saving
 it — a typo should fail at entry, not at the first blank board.
@@ -386,7 +416,7 @@ in the data directory, deduplicated by URL, with malformed entries dropped rathe
 than rendered as dead rows.
 
 What it is not: an authority. A client keeps whatever the user typed
-(`mobile-features.md` `P-13`), and a server absent from every directory still works.
+(`app.md` `P-13`), and a server absent from every directory still works.
 
 **Discovery on a LAN is separate and matters more at a pool.** A Pi publishes
 `_splouch._tcp` over mDNS (port 5000, `kind=pi`, `path=/server`), so an app browses
@@ -449,14 +479,14 @@ same `settings` shape, so the two config sources agree.
   of the snapshot replayed on `join_meet` (§3, §5.1). Not an additive change: a
   v1 client could reasonably assume the field never arrives over the relay, and
   one that renders each frame verbatim now shows a clock that steps every two
-  seconds. What to do with it is `mobile-features.md` `L-12` (v2) — re-base and
+  seconds. What to do with it is `app.md` `L-12` — re-base and
   interpolate, do not render.
 
 - **Added since v2, all additive so the version stands**: `GET /i18n/{lang}` and
   `GET /locales` (§5.9), `settings.label_style` / `settings.label_overrides`
   (§5.4), and `GET /server` / `GET /servers` (§5.10–5.11) with the Pi's
   `_splouch._tcp` mDNS record. A v2 client ignores all of it and is unaffected;
-  `mobile-features.md` v3 and v4 are what consume them.
+  `app.md` is what consumes them.
 
 - **v1** — Initial contract after the Flask/Socket.IO → FastAPI/plain-WebSocket
   migration. Envelope `{event, data}`; local paths `/ws/scoreboard|results|settings|terminal`;

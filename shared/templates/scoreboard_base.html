@@ -158,7 +158,7 @@ window.addEventListener('resize', function() { requestAnimationFrame(fitNameFont
 
 /* ── Race clock ───────────────────────────────────────────────────────────────
    `running_time` is one clock for the heat, not one per lane, and every running
-   lane shows it (docs/mobile-features.md `L-12`). The relay forwards at most one
+   lane shows it (docs/app.md `L-12`). The relay forwards at most one
    every couple of seconds, plus any frame that moves a `lane_running` flag
    (docs/api.md §5.1), so what arrives is a *re-base*, not a frame to render: the
    page ticks the clock itself in between, off `performance.now()` — monotonic, so
@@ -389,6 +389,14 @@ function applyScoreboardFrame(new_s) {
        can stamp a stale split over it. */
     if ("running_time" in s) rebaseClock(s["running_time"]);
 
+    /* An event name the visitor reads in their own language is composed here, not
+       sent: the frame is one broadcast and `event_name` is in the meet's language
+       (docs/app.md `T-11`). Same string when the two agree. */
+    if (s["event_name_parts"]) {
+        var composed = composeEventName(s["event_name_parts"], window.EVENT_VOCAB);
+        if (composed) s["event_name"] = composed;
+    }
+
     var names_changed = false;
     for (var k in s) {
         /* A running lane's time cell belongs to the ticker. The split stays in
@@ -517,6 +525,7 @@ function init() {
 {% block body_end %}{% endblock %}
 <div class="background"></div>
 
+<script>window.EVENT_VOCAB = {{ event_vocab | default({}, true) | tojson }};</script>
 <script src="/static/js/ws.js"></script>
 <script>
 {% block socket %}{% endblock %}

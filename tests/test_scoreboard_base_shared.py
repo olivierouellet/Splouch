@@ -197,7 +197,7 @@ def test_shell_tabs_point_at_each_server_own_routes(shell_pi, shell_cloud):
 def test_the_tabs_inherit_the_shell_resolved_language_and_style(shell_pi, shell_cloud):
     """One control, three tabs. The shell has already reconciled the visitor's
     choice with the meet's defaults, so a tab reads its answer off the URL rather
-    than re-deriving it (docs/mobile-features.md `T-06`, `T-09`)."""
+    than re-deriving it (docs/app.md `T-06`, `T-09`)."""
     for shell in (shell_pi, shell_cloud):
         for frame in ('frame0', 'frame1', 'frame2'):
             src = re.search(rf'id="{frame}"[^>]*src="([^"]+)"', shell).group(1)
@@ -608,3 +608,27 @@ def test_stale_results_are_cleared_not_covered(res_pi, res_cloud):
         assert 'function goIdle() { clearResults(); showWaiting(); }' in html
         assert "sock.on('disconnect', goIdle)" in html
         assert 'if (!(d && d.live)) goIdle()' in html
+
+
+# ── Event names follow the reader (`T-11`) ────────────────────────────────────
+
+def test_the_board_composes_the_event_name_it_is_given_parts_for(pi, cloud):
+    """A frame is one broadcast, so `event_name` is in the meet's language. A page
+    rendered for a visitor reading another one composes from `event_name_parts`
+    against the vocabulary the server embedded — see `T-11`."""
+    for page in (pi, cloud):
+        assert 'window.EVENT_VOCAB' in page
+        assert 'composeEventName(s["event_name_parts"], window.EVENT_VOCAB)' in page
+
+
+def test_the_vocabulary_is_the_page_language_not_the_meets():
+    """Embedded per render, so the tab the visitor opened carries their words."""
+    page = _render('server/templates', 'live-mobile.html',
+                   event_vocab={'unit': 'm', 'freestyle': 'libre'})
+    assert '"freestyle": "libre"' in page or '"freestyle":"libre"' in page
+
+
+def test_a_page_without_a_vocabulary_still_renders(pi):
+    """`event_vocab` is optional: an older render path leaves it out and the board
+    falls back to `event_name`, which is already right for most viewers."""
+    assert 'window.EVENT_VOCAB = {}' in pi

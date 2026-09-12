@@ -29,7 +29,7 @@
     {% endif %}
     <title>{{ app_title }}</title>
     <script>
-    /* The visitor's language and label style live in localStorage (mobile-features
+    /* The visitor's language and label style live in localStorage (app.md
        `T-08`), but these pages are rendered server-side, so a page opened without
        the parameters — a bookmark, a shared link — has to ask for itself again with
        them. Runs in <head>, before the tab iframes are parsed, so this costs one
@@ -131,7 +131,7 @@
 <body>
 {# One suffix for all three tabs: the shell has already resolved the visitor's
    choice against the meet's defaults, so the tabs inherit rather than re-deriving
-   it (mobile-features `T-06`, `T-09`). #}
+   it (app.md `T-06`, `T-09`). #}
 {%- set ui = '&lang=' ~ lang ~ '&style=' ~ (ui_style or 'short') %}
     {% if meet_id %}
     <iframe id="frame0" class="active" src="/mobile/live?meet={{ meet_id }}{{ ui }}"></iframe>

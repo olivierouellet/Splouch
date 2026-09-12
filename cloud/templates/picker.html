@@ -103,7 +103,7 @@
         }
         /* ── Display preferences ──
            The one place a spectator sees every meet, so the one place the choice
-           belongs (docs/mobile-features.md `T-08`). Top-right, clear of the logo
+           belongs (docs/app.md `T-08`). Top-right, clear of the logo
            and title, which are centred and may be either order. */
         #prefs-btn {
             position: fixed; top: max(10px, env(safe-area-inset-top)); right: 12px;
@@ -215,7 +215,7 @@
 /* ── Display preferences ──────────────────────────────────────────────────────
    Stored per device, read back by every meet page the visitor opens: the shell
    restores them from here when a link arrives without them, so the meet cards
-   below stay plain links (docs/mobile-features.md `T-08`, `T-09`).
+   below stay plain links (docs/app.md `T-08`, `T-09`).
 
    Empty means "no choice": the picker keeps following the browser, and a meet page
    keeps following the meet. That is the default, and clearing is how you get back

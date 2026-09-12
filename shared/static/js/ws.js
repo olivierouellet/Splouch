@@ -160,3 +160,33 @@ function splouchSocket(path) {
     setTimeout(connect, 0);
     return api;
 }
+
+
+/* ── Event names ───────────────────────────────────────────────────────────────
+   An event name arrives composed in the *meet's* language, with the parts it was
+   composed from beside it (api.md §5.1). For a visitor reading in another language
+   the parts are what follow them: a lookup in `GET /i18n/{lang}`'s `event_name`
+   section and a join — never a re-parse, which is the server's job and stays there
+   (docs/app.md `T-11`). Falls back to the raw name, then to nothing, so a
+   hand-entered title that parses into no parts still reaches the header. */
+function composeEventName(parts, vocab) {
+    if (!parts || !vocab) return '';
+    var word = function (k) { return k ? (vocab[k] || k) : ''; };
+    var left = [];
+    if (parts.dist)   left.push(parts.dist + ' ' + (vocab.unit || 'm'));
+    if (parts.stroke) left.push(word(parts.stroke));
+    if (parts.relay && vocab.relay) left.push(vocab.relay);
+    var age   = parts.age || word(parts.age_key);
+    var right = [word(parts.gender), age].filter(Boolean).join(' ');
+    var l     = left.join(' ');
+    if (l && right) return l + (vocab.separator || '  \u2014  ') + right;
+    return l || right || parts.raw || '';
+}
+
+/* The composed name for a payload carrying either shape, `event_name` being the
+   one already right for anyone who has not chosen a language. */
+function eventNameOf(payload) {
+    var composed = composeEventName(payload && payload.event_name_parts,
+                                    window.EVENT_VOCAB);
+    return composed || (payload && payload.event_name) || '';
+}

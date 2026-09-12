@@ -109,6 +109,27 @@ def _strings(lang, section):
             _locale_cache[lang] = tomllib.load(f)
     return _locale_cache[lang].get(section, {})
 
+# Only these columns have a long form worth showing — the lane and place columns are
+# too narrow for one on every board we ship (docs/app.md `T-09`). The Pi says the same
+# thing in `state.STYLED_LABEL_KEYS`; the two deployables share no code, so both carry
+# it and both must move together.
+STYLED_LABEL_KEYS = frozenset({'event', 'heat'})
+
+
+def _resolve_labels(labels, style):
+    """Flatten a `[labels]` table to one string per key, in `style`.
+
+    `style` reaches only STYLED_LABEL_KEYS; every other key resolves short.
+    """
+    out = {}
+    for key, val in labels.items():
+        if not isinstance(val, dict):
+            continue
+        want = style if key in STYLED_LABEL_KEYS else 'short'
+        out[key] = val.get(want) or val.get('long') or val.get('short') or ''
+    return out
+
+
 def _i18n_bundle(lang):
     """Client-facing strings for one language — ``GET /i18n/{lang}``, api.md §5.9.
 
@@ -128,8 +149,10 @@ def _i18n_bundle(lang):
         'lang':    lang,
         'mobile':  merged('mobile'),
         'display': merged('display'),
-        'labels': {style: {k: v.get(style) or v.get('long') or v.get('short') or ''
-                           for k, v in labels.items() if isinstance(v, dict)}
+        # The vocabulary an event name is composed from, so a client that took
+        # `event_name_parts` can render it in this language (api.md §5.1, §5.9).
+        'event_name': merged('event_name'),
+        'labels': {style: _resolve_labels(labels, style)
                    for style in ('short', 'long')},
     }
 
@@ -139,7 +162,7 @@ def _client_lang(request, meet):
 
     `?lang=` is the whole mechanism — the shell stores the preference and puts it on
     every page it opens, so one control on the picker reaches the tabs
-    (docs/mobile-features.md `T-06`, `T-08`). An unknown code falls back rather than
+    (docs/app.md `T-06`, `T-08`). An unknown code falls back rather than
     erroring: a stale bookmark must not break the board.
     """
     lang = request.query_params.get('lang', '')
@@ -162,7 +185,16 @@ def _client_labels(meet, lang, style):
     if lang == _meet_lang(meet) and style == s.get('label_style', 'short'):
         return s.get('labels', {})
     labels = dict(_i18n_bundle(lang)['labels'].get(style, {}))
-    labels.update(s.get('label_overrides', {}).get(lang, {}).get(style, {}))
+    # A pool's wording goes through the same rule as the bundled table: `style`
+    # reaches only STYLED_LABEL_KEYS, so a club shipping `lane.long` does not get a
+    # long word into a narrow column by the back door (docs/app.md `T-09`).
+    overrides = s.get('label_overrides', {}).get(lang, {})
+    for key, value in overrides.get('short', {}).items():
+        if key not in STYLED_LABEL_KEYS:
+            labels[key] = value
+    for key, value in overrides.get(style, {}).items():
+        if key in STYLED_LABEL_KEYS:
+            labels[key] = value
     # The relay folds a few [mobile] strings into `labels`; keep whatever else the
     # meet sent so nothing that read them starts rendering blank.
     for key, value in s.get('labels', {}).items():
@@ -872,9 +904,9 @@ def route_index(request: Request):
 
 
 # The contracts this build implements, for the handshake below. Bumped with the
-# headers of docs/api.md and docs/mobile-features.md, which a test pins.
+# headers of docs/api.md and docs/app.md, which a test pins.
 API_CONTRACT    = 'v2'
-MOBILE_CONTRACT = 'v4'
+APP_CONTRACT    = 'v1'
 
 SERVERS_FILE = os.path.join(DATA_DIR, 'servers.json')
 
@@ -883,7 +915,7 @@ SERVERS_FILE = os.path.join(DATA_DIR, 'servers.json')
 def route_server():
     """Who this server is — the handshake a native client makes before anything else.
 
-    An app can be pointed at a Pi or at a cloud (docs/mobile-features.md `P-11`),
+    An app can be pointed at a Pi or at a cloud (docs/app.md `P-11`),
     and the two are not interchangeable: a Pi has one meet and no picker, this has
     many. Guessing from a 404 on `/meets` would be a protocol by accident. It also
     validates a hand-typed address before a client saves it, and carries the
@@ -892,7 +924,7 @@ def route_server():
     return {
         'kind':     'cloud',
         'name':     _picker_branding().get('title') or 'Splouch',
-        'contract': {'api': API_CONTRACT, 'mobile': MOBILE_CONTRACT},
+        'contract': {'api': API_CONTRACT, 'app': APP_CONTRACT},
     }
 
 
@@ -906,7 +938,7 @@ def route_servers(request: Request):
     so the endpoint is useful with no configuration at all; anything further comes
     from `servers.json` in the data directory, deduplicated by URL.
 
-    A client keeps its own additions (docs/mobile-features.md `P-13`) — this list
+    A client keeps its own additions (docs/app.md `P-13`) — this list
     informs the menu, it does not replace what the user typed.
     """
     here = str(request.base_url).rstrip('/')
@@ -1022,6 +1054,9 @@ def route_live(request: Request):
         theme_colors={**_DEFAULT_COLORS, **s.get('theme_colors', {})},
         theme_fonts={**_DEFAULT_FONTS,  **s.get('theme_fonts',  {})},
         labels=_client_labels(meet, _client_lang(request, meet), _client_style(request, meet)),
+        # The vocabulary `event_name_parts` composes against, in the language the
+        # page is rendered in (docs/app.md `T-11`).
+        event_vocab=_strings(_client_lang(request, meet), 'event_name'),
         lang=_client_lang(request, meet),
     )
 
@@ -1054,6 +1089,9 @@ def route_results(request: Request):
         # otherwise leave the other two CSS variables empty. Same as route_live.
         theme_fonts={**_DEFAULT_FONTS,  **s.get('theme_fonts',  {})},
         labels=_client_labels(meet, _client_lang(request, meet), _client_style(request, meet)),
+        # The vocabulary `event_name_parts` composes against, in the language the
+        # page is rendered in (docs/app.md `T-11`).
+        event_vocab=_strings(_client_lang(request, meet), 'event_name'),
         lang=_client_lang(request, meet),
     )
 
@@ -1062,6 +1100,7 @@ def _build_heats_json(sched):
     if not sched or not sched.get('events'):
         return []
     names      = sched.get('names', {})
+    name_parts = sched.get('name_parts', {})
     times      = sched.get('times', {})
     start_list = sched.get('start_list', {})
     heats = []
@@ -1084,6 +1123,7 @@ def _build_heats_json(sched):
                 'event':      ev,
                 'heat':       ht,
                 'event_name': names.get(ev_str, ''),
+                'event_name_parts': name_parts.get(ev_str),
                 'time':       times.get(ev_str, {}).get(ht_str, ''),
                 'lanes':      lanes,
             })
@@ -1107,6 +1147,7 @@ def route_schedule(request: Request):
         meet_name=meet['name'],
         t=_strings(_client_lang(request, meet), 'mobile'),
         labels=_client_labels(meet, _client_lang(request, meet), _client_style(request, meet)),
+        event_vocab=_strings(_client_lang(request, meet), 'event_name'),
         theme_colors={**_DEFAULT_COLORS, **s.get('theme_colors', {})},
         theme_fonts={**_DEFAULT_FONTS,  **s.get('theme_fonts', {})},
         lang=_client_lang(request, meet),
@@ -1733,7 +1774,7 @@ async def _forward(sid, event, data):
         # timing tick. Forwarding that to every attendee is the traffic
         # notes/cloud_parity.md refused; dropping it outright left the phones with
         # no clock at all. So throttle it: the client re-bases on what we send and
-        # interpolates in between (docs/mobile-features.md `L-12`).
+        # interpolates in between (docs/app.md `L-12`).
         clock = data.pop('running_time', None)
 
         # Cache the frame without the clock. The join replay sends the snapshot

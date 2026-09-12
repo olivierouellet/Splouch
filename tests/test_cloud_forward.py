@@ -10,7 +10,7 @@ It is now throttled instead: one re-base every `_CLOCK_SYNC_SECS`, plus any fram
 that also moves a `lane_running<i>` flag, because a start, a touch, the end of the
 console's split hold and a finish are rare and are exactly where the value has to
 be right. Clients tick
-their own clock in between (`docs/mobile-features.md` `L-12`).
+their own clock in between (`docs/app.md` `L-12`).
 
 Two things are easy to get wrong and are what most of this file guards:
 throttling the *clock* must never throttle the rest of the frame, and the clock

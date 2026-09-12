@@ -43,7 +43,7 @@ The Pi sends `running_time` as part of `update_scoreboard` at high frequency dur
 
 It no longer does — the objection was always the frequency, not the field. `_forward()` now **throttles** it to at most one frame every `_CLOCK_SYNC_SECS` (2s), plus any frame that also carries a `lane_running<i>` key, since a start, a touch, the end of a split hold and a finish are rare and are exactly where the value has to be right. That is roughly one short string every two seconds per meet instead of ten to twenty a second, and the phone gets a real clock back: it re-bases on each frame and interpolates in between, the way the Qt board already does between console frames. Stripping the field saved a little more traffic and cost the phone every sign that a race was under way.
 
-The clock is deliberately **not** merged into `last_scoreboard`. The join replay sends that snapshot with no way to say how old it is, and a stale clock is worse than none; a phone joining mid-heat shows the lane-number pulse — the number cycling between the row text colour and the timing colour — until the first re-base arrives, at most one interval later. `docs/mobile-features.md` `L-12` is the full client contract, splits and backgrounding included.
+The clock is deliberately **not** merged into `last_scoreboard`. The join replay sends that snapshot with no way to say how old it is, and a stale clock is worse than none; a phone joining mid-heat shows the lane-number pulse — the number cycling between the row text colour and the timing colour — until the first re-base arrives, at most one interval later. `docs/app.md` `L-12` is the full client contract, splits and backgrounding included.
 
 ---
 
@@ -61,7 +61,7 @@ Carousel images are files local to the Pi. Relaying them would require encoding 
 
 The cost is a synchronous layout pass per lane, so it is gated: it runs when a frame carries a `lane_name` key (a heat change), on resize, and when a hidden tab is revealed. Never per tick.
 
-What remains a real limitation is the *event name* in the header, which CSS can only wrap or clamp — see the header table in `scoreboard_parity.md`. That, and finer control at small sizes, is what `adjustsFontSizeToFitWidth` and `autoSizeTextType` still buy the native apps (`R-08` in [`../docs/mobile-features.md`](../docs/mobile-features.md)).
+What remains a real limitation is the *event name* in the header, which CSS can only wrap or clamp — see the header table in `scoreboard_parity.md`. That, and finer control at small sizes, is what `adjustsFontSizeToFitWidth` and `autoSizeTextType` still buy the native apps (`R-08` in [`../docs/app.md`](../docs/app.md)).
 
 ---
 

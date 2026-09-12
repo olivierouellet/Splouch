@@ -27,8 +27,10 @@ DEFAULT_FONTS = {
     'family': 'Overpass Mono', 'digits': 'DSEG7Classic', 'timing': 'Overpass Mono',
 }
 
+# Lane and place are short here and stay short whatever the label style is — they are
+# the two narrow columns (docs/app.md `T-09`, server `state.STYLED_LABEL_KEYS`).
 DEFAULT_LABELS = {
-    'event': 'EVENT', 'heat': 'HEAT', 'lane': 'LANE', 'place': 'PLACE',
+    'event': 'EVENT', 'heat': 'HEAT', 'lane': 'LN', 'place': 'PL',
     'time': 'TIME', 'name': 'NAME', 'club': 'CLUB', 'delta': 'DELTA',
     'chrono': 'CHRONO',
 }

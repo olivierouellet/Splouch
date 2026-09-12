@@ -52,7 +52,7 @@ def test_null_theme_blocks_do_not_wipe_defaults():
     cfg = Config({'theme_colors': None, 'theme_fonts': None, 'labels': None})
     assert cfg.color('row_text') == DEFAULT_COLORS['row_text']
     assert cfg.fonts['family'] == DEFAULT_FONTS['family']
-    assert cfg.labels['lane'] == 'LANE'
+    assert cfg.labels['lane'] == 'LN'
 
 
 def test_labels_are_taken_from_the_server_locale():

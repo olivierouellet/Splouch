@@ -11,7 +11,8 @@ import bus
 import relay
 import state
 from meet_data import (
-    delta_fields, get_event_name_display, get_lane_alt, get_lane_parts,
+    delta_fields, get_event_name_display, get_event_name_parts,
+    get_lane_alt, get_lane_parts,
     get_lane_seed_time, _get_next_heats, _build_results_snapshot, send_event_info,
 )
 
@@ -50,7 +51,8 @@ def _list_sessions():
 
 def _on_event_changed(updates, ev, ht):
     m = state.meet
-    updates['event_name'] = get_event_name_display(ev)
+    updates['event_name']       = get_event_name_display(ev)
+    updates['event_name_parts'] = get_event_name_parts(ev)
     updates['heat_time']  = m.heat_times.get(ev, {}).get(ht, '')
     pool_len = int(state.settings.get('pool_length', 25))
     dist     = m.event_distances.get(ev, 0)
