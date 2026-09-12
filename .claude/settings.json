@@ -1,0 +1,49 @@
+{
+  "sandbox": {
+    "enabled": true,
+    "autoAllowBashIfSandboxed": true,
+
+    "network": {
+      "allowedDomains": [
+        "pypi.org",
+        "files.pythonhosted.org",
+        "github.com",
+        "*.github.com",
+        "*.githubusercontent.com",
+        "astral.sh",
+        "*.astral.sh"
+      ],
+      "allowLocalBinding": true
+    },
+
+    "filesystem": {
+      "allowWrite": [
+        "~/SplouchData",
+        "~/.cache/uv",
+        "~/.local/share/uv"
+      ],
+      "denyRead": [
+        "~/.ssh",
+        "~/.aws",
+        "~/.gnupg",
+        "~/.config/gh",
+        "~/.netrc",
+        "~/.git-credentials",
+        "~/Library/Keychains"
+      ]
+    }
+  },
+
+  "permissions": {
+    "ask": [
+      "Bash(git push:*)",
+      "Bash(gh pr:*)",
+      "Bash(gh release:*)",
+      "Bash(gh api:*)"
+    ],
+    "deny": [
+      "Bash(rm -rf /:*)",
+      "Bash(sudo:*)"
+    ]
+  }
+}

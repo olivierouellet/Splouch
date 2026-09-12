@@ -33,6 +33,10 @@ htmlcov/
 settings.json
 *.log
 
+# ...but the Claude Code sandbox policy is project config, not runtime data.
+# The bare `settings.json` rule above matches at any depth and would swallow it.
+!.claude/settings.json
+
 # Downloaded assets (fetched by install.sh)
 shared/static/js/xterm.min.js
 shared/static/css/xterm.min.css
