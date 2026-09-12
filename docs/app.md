@@ -107,7 +107,7 @@ where the user returns via `A-02`.
 | `P-09` | Pull-to-refresh re-fetches the meet list | — | should |
 | `P-10` | Install hand-off: store links to the native iOS/Android apps once they ship, Add-to-Home-Screen until then | — | web-only — see note |
 | `P-11` | Choose which server to connect to, from a list, in the picker's menu | `GET /servers` ([`api.md`](api.md) §5.11), each entry verified with `GET /server` | native-only — see note |
-| `P-12` | Servers on the local network are offered without anyone typing an address | mDNS browse for `_splouch._tcp` (do not use `splouch.local`)| native-only — should |
+| `P-12` | Servers on the local network are offered without anyone typing an address | mDNS browse for `_splouch._tcp` (do not use `splouch.local`) | native-only — should |
 | `P-13` | A server can be added by hand, checked before it is saved | `GET /server` must answer | native-only — must |
 
 > **`P-06` is not decoration.** The disclaimer — live, unofficial results pending
