@@ -414,7 +414,7 @@ of its own.
 | `T-07` | Missing theme keys fall back to the documented defaults rather than rendering unstyled | — | must |
 | `T-08` | A language control, per device, applying to every meet opened afterwards | `GET /locales` for the list | should — see note |
 | `T-09` | A short/long control over the EVENT and HEAT headers only, starting from short | `settings.label_style` | should — see note |
-| `T-10` | A bundled snapshot of the strings is the floor: shipped with the app, refreshed from the server, cached to disk | — | must — see note |
+| `T-10` | A built-in snapshot of the strings is the floor: compiled into the app, refreshed from the server, cached to disk | — | must — see note |
 | `T-11` | The event name follows the chosen language, composed from parts the server sends | `update_scoreboard.event_name_parts` + `GET /i18n/{lang}` → `event_name`; falls back to `event_name` | should — see note |
 
 > **`T-03`**: the bundled faces are in [`shared/static/fonts/`](../shared/static/fonts/)
@@ -473,8 +473,19 @@ of its own.
 > store what comes back. Resolve each key in this order, first hit wins:
 >
 > ```text
-> key ─► cached server value ─► bundled value ─► English ─► the key's own name
+> key ─► cached server value ─► built-in value ─► built-in English ─► the key's own name
 > ```
+>
+> **Built-in** means compiled into the app at build time — not the server's
+> `shared/locales/`, which [`api.md`](api.md) calls the *bundled* table. The cache is the
+> live answer; the built-in copy is what a first launch, an offline start or a cleared
+> cache falls back to, and it has to carry English so a key the chosen language lacks
+> still lands somewhere.
+>
+> The server already merges English per key ([`api.md`](api.md) §5.9), so the client
+> repeating the rule only matters when the two sides are different ages: an app newer
+> than its server asks for a key that server has never heard of, gets nothing back, and
+> falls through to English rather than rendering a gap.
 
 > **`T-11` — an event name follows the reader too.** It is meet data, composed on the
 > Pi from the LENEX entry, so it cannot simply be looked up the way a label is. It is
