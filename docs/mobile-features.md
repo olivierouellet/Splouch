@@ -230,38 +230,53 @@ Live lane state during a heat. The busiest screen and the one most worth getting
 > running lane shows the same figure, and a lane's own time only becomes meaningful at
 > its split, `lane_time<i>`.
 >
-> **Throttle the field, do not strip it.** What
-> [`notes/cloud_parity.md`](../notes/cloud_parity.md) refused was the *frequency*, and
-> the cloud's answer was to drop `running_time` outright. Forward it instead **at most
-> once every ~2s, plus on any frame carrying a `lane_running<i>` key**: one short string
-> every two seconds per meet rather than ten to twenty a second, and it buys what a
-> purely local clock cannot have — no drift, no accumulated error over a 1500m, and a
-> client joining mid-heat catching up within one interval instead of never. The
-> `lane_running` exception keeps the moments that must be exact — start, touch, end of a
-> split hold, finish — exact; they are rare by nature.
+> **What lane *i* shows**, from `lane_running<i>` and how recently a `running_time`
+> landed:
 >
-> Between re-bases the device advances the clock itself, ~10Hz off the platform's display
-> link from a *monotonic* clock, re-basing hard on each `running_time` rather than easing
-> towards it, and mirroring that interpolated value into the cells rather than the last
-> frame. The Qt board does exactly this on a 50ms ticker
-> ([`scoreboard/board.py`](../scoreboard/board.py), `_tick_clock`), pinned by
-> [`tests/test_scoreboard_clock.py`](../tests/test_scoreboard_clock.py). The kiosk
-> browser instead repaints lane cells only when a frame lands — invisible at console
-> frame rate, but at a two-second re-base it is a clock that moves twice a minute.
+> | `lane_running<i>` | Race clock | Time cell | Lane number |
+> | --- | --- | --- | --- |
+> | true | re-based within 3 sync intervals | the race clock, ticked by the device | normal |
+> | true | none yet — joined mid-heat, or the heat just changed | — | **pulse** |
+> | true | silent for 3 sync intervals | frozen where it stopped | **pulse** |
+> | false | — | `lane_time<i>`, held until the lane runs again | normal |
+> | either | `meet_live` false, or disconnected (`C-09`) | last value, held | normal |
 >
-> - **A split freezes the lane, never the clock.** On the touch the console drops
->   `lane_running<i>` and sends the lap in `lane_time<i>`; that cell holds the split while
->   the heat clock runs on for everyone else. **Never start or reset the clock from a lane
->   edge** — it would restart at every length. `lane_running<i>` decides only whether lane
->   *i* displays the clock.
-> - **The freeze is the console's, and a fixed length** — a set number of seconds from the
+> The pulse is the lane number cycling between row text colour and timing colour. Let a
+> cycle finish before dropping it: it begins and ends on the row colour, and every lane
+> re-bases off the same frame, so stopping them all mid-cycle flicks the whole column at
+> once.
+>
+> **What moves the clock** — and, just as much, what does not:
+>
+> | Event | Effect on the clock |
+> | --- | --- |
+> | a `running_time` frame | hard re-base; never ease towards it |
+> | between frames | the device advances it ~10Hz off the platform's display link, from a *monotonic* clock |
+> | a `lane_running<i>` edge, either direction | re-bases — the relay forces a `running_time` onto that frame |
+> | a lane's touch, split, or hold | **nothing.** The clock never stops for a lane |
+> | event or heat change | blanks everything (`L-13`) |
+> | 3 sync intervals with no `running_time` | stop the ticker, freeze the digits, fall back to the pulse |
+> | tab or app backgrounded | stop the ticker; never accumulate ticks across a suspend, and do not resume from a stale base |
+> | `meet_live` false, or a disconnect | every clock on the board stops, so stale lane state cannot masquerade as a live race |
+>
+> A split therefore freezes the lane, never the clock:
+>
+> ```text
+>  console   lane_running4 = true     lane_running4 = false        lane_running4 = true
+>                                     lane_time4   = "28.43"
+>                    │                          │                           │
+>  lane 4        race clock ──────────►  28.43, locked ──────────────►  race clock
+>                                        └─ the console's fixed hold ─┘
+>  race clock  ───────────────── runs on for everyone else ─────────────────────►
+> ```
+>
+> - **Never start or reset the clock from a lane edge** — it would restart at every
+>   length. `lane_running<i>` decides only whether lane *i* displays the clock.
+> - **The hold is the console's, and a fixed length** — a set number of seconds from the
 >   touch, unrelated to when the swimmer leaves the pad. Do not model it as "the length of
->   the turn" or detect its end from anything but the flag, and keep **no timer of your
->   own**: gate the clock write on `lane_running<i>`, paint `lane_time<i>` when it
->   arrives, and the split holds until the console says the lane is running again. That is
->   why this does not conflict with `L-21`. Both edges are `lane_running<i>` frames and so
->   both re-base the clock; the second is where a lane frozen for seconds picks it back
->   up, and it must be right.
+>   the turn", do not detect its end from anything but the flag, and keep **no timer of
+>   your own**; that is also why this does not conflict with `L-21`. The second edge is
+>   where a lane frozen for seconds picks the race clock back up, and it must be right.
 > - **A running lane ignores `lane_time<i>`.** The split stays in the merged snapshot
 >   (`L-10`), so every later frame touching that lane re-stamps it. The kiosk gets away
 >   with overwriting it because the next `running_time` lands a few hundred milliseconds
@@ -274,28 +289,30 @@ Live lane state during a heat. The busiest screen and the one most worth getting
 >   value carries the relay path's latency as a near-constant offset and reads low by tens
 >   to hundreds of milliseconds. Hundredths would claim a precision the path does not
 >   have; the kiosk is on the LAN and can afford them.
-> - **Joining mid-heat costs one interval at most.** Do **not** keep `running_time` in the
->   relay's replay snapshot — a cached clock with no age on it is worse than no clock.
->   Until the first one arrives, show the **lane-number pulse** (the number cycling
->   between row text colour and timing colour). Let a pulse finish its cycle before
->   dropping it: it begins and ends on the row colour, and every lane re-bases off the
->   same frame, so stopping them all mid-cycle flicks the whole column at once.
-> - **A missed re-base is not a problem; a missing feed is.** The clock is an offset from
->   the last re-base, not a sum of ticks, so a skipped one costs nothing. But after
->   **three sync intervals** with no `running_time` while a lane is still flagged running,
->   stop the ticker and fall back to the pulse — a lane must not count forever because the
->   frame that stopped it never came. Freeze the digits where they stopped, three
->   intervals on rather than back at the re-base (rewinding a clock in front of a
->   spectator is worse than losing it), and freeze rather than blank: a board that empties
->   mid-race reads as a crash. The real safety net is `meet_live` and the heartbeat
->   (`C-04`, `C-05`); this only covers a feed that keeps talking while saying nothing
->   about the race.
-> - **Backgrounding**: stop the ticker when the tab or app leaves the screen and leave it
->   stopped on return — the base is stale, and resuming from it jumps. The next
->   `running_time` re-bases it. Never accumulate ticks across a suspend.
-> - **When the last lane stops**, each lane holds its final time and the clock has nothing
->   more to say. `meet_live` false or a disconnect (`C-09`) stops every clock, so stale
->   lane state cannot masquerade as a live race.
+> - **Freeze forward, and freeze rather than blank.** The digits stop three intervals past
+>   the last re-base, not back at it: rewinding a clock in front of a spectator is worse
+>   than losing it, and a board that empties mid-race reads as a crash. A *missed* re-base
+>   costs nothing — the clock is an offset from the last one, not a sum of ticks. The real
+>   safety net is `meet_live` and the heartbeat (`C-04`, `C-05`); the three-interval rule
+>   only covers a feed that keeps talking while saying nothing about the race.
+>
+> **Throttle the field, do not strip it.** What
+> [`notes/cloud_parity.md`](../notes/cloud_parity.md) refused was the *frequency*, and
+> the cloud's answer was to drop `running_time` outright. Forward it instead **at most
+> once every ~2s, plus on any frame carrying a `lane_running<i>` key**: one short string
+> every two seconds per meet rather than ten to twenty a second, and it buys what a
+> purely local clock cannot have — no drift, no accumulated error over a 1500m, and a
+> client joining mid-heat catching up within one interval instead of never. The
+> `lane_running` exception keeps the moments that must be exact — start, touch, end of a
+> split hold, finish — exact; they are rare by nature. Do **not** keep `running_time` in
+> the relay's replay snapshot: a cached clock with no age on it is worse than no clock.
+>
+> The Qt board ticks exactly this way on a 50ms timer
+> ([`scoreboard/board.py`](../scoreboard/board.py), `_tick_clock`), pinned by
+> [`tests/test_scoreboard_clock.py`](../tests/test_scoreboard_clock.py). The kiosk
+> browser instead repaints lane cells only when a frame lands — invisible at console
+> frame rate, but at a two-second re-base it is a clock that moves twice a minute, so
+> mirror the interpolated value into the cells rather than the last frame.
 >
 > **The relay half is done; the clients are not.** `_forward()` in
 > `cloud/cloud_server.py` throttles the field and keeps it out of the join snapshot
@@ -366,15 +383,17 @@ Live lane state during a heat. The busiest screen and the one most worth getting
 > makes a stale heat read as a current one: showing the message over the last heat
 > received is worse than showing nothing.
 
-> **`R-05` / `R-06` — `sort` says what a row index *means*.** In lane mode the payload is
-> a set of lanes and the row *is* the lane: `channel` 4 renders in row 4, and a lane that
-> never posted a time leaves row 4 blank. In place mode the payload is already a ranking
-> and rows fill from the top: the first element is first place, whatever lane it swam in.
+> **`R-05` / `R-06` — `sort` says what a row index *means*.**
 >
-> Read one as the other and nothing errors — every swimmer just appears in somebody
-> else's row, and lane-ordered data rendered as a ranking makes lane 1 the winner. A
-> relay predating the field omits `sort`, and those relays send lanes, so **absent must
-> be read as `lane`**, never as a default of `place`.
+> | `sort` | The payload is | A row index is | An empty row means | Read as the other, you get |
+> | --- | --- | --- | --- | --- |
+> | `"lane"`, or absent | a set of lanes | that lane's `channel` | the lane posted no final time | swimmers scattered into other lanes' rows |
+> | `"place"` | an ordered ranking | the rank, filled from the top | — the list is dense | lane 1 announced as the winner |
+>
+> Read one as the other and nothing errors: on a results screen the wrong answer is
+> indistinguishable from the right one. A relay predating the field omits `sort`, and
+> those relays send lanes, so **absent must be read as `lane`**, never as a default of
+> `place`.
 
 ---
 
