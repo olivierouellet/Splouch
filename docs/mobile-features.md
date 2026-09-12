@@ -74,9 +74,23 @@ Extend the helper, never the route.
 ### 0.4 Describe behaviour, not markup
 
 Rows state observable behaviour and its data source. Where the web implementation is an
-accident of HTML — iframes, `env(safe-area-inset-*)`, 28px edge strips — the row says
-so. **Reproducing a workaround is not parity.** Where the divergence should be visible,
-the row gives the native equivalent.
+accident of HTML, the row says so. **Reproducing a workaround is not parity** — implement
+the effect, never the mechanism:
+
+| Web mechanism | Why it exists there | Native equivalent |
+| --- | --- | --- |
+| 28px edge strips for the swipe (`A-03`) | a full-width listener would swallow touches meant for the schedule list inside the `<iframe>` tab | the platform's standard pager, full-width and drag-tracking |
+| `sessionStorage['tab']` (`A-04`) | a browser page restores no state of its own | platform state restoration |
+| 80px pull threshold, rotating indicator (`A-05`) | hand-rolled; the browser has no refresh control | the platform's refresh control |
+| `env(safe-area-inset-*)` (`A-06`) | the only way a page learns where the notch is | safe-area layout guides — free |
+| `<title>`, `apple-mobile-web-app-title`, manifest `name` (`A-08`) | the browser tab, and the installed icon's label | none — the store listing fixes the label (Android may set `TaskDescription`) |
+| parent re-dispatches `resize`; `contentWindow.on_tab_shown()` (`L-14`, `R-10`) | an `<iframe>` is never told it was revealed | the on-appear callback |
+| the `#edgeT` / `#filter-header` 65px alignment contract in `mobile.html` | two documents have to line up as one screen | none — it is one view |
+| one `scrollWidth`/`clientWidth` ratio, applied on a gated frame (`L-17`) | CSS cannot shrink text to fit | `UILabel.adjustsFontSizeToFitWidth`, Android `autoSizeTextType` |
+
+The right-hand column is the requirement. Where the platform does the job better than the
+web can — `A-03`'s pager, `L-17`'s auto-shrink — matching the web is the floor, not the
+target.
 
 ---
 
@@ -164,13 +178,7 @@ where the user returns via `A-02`.
 | `A-09` | Add-to-Home-Screen hint | **retired** — removed from the shell; the picker steers now (`P-10`) | n/a |
 | `A-10` | Meet goes offline mid-session → return to the picker | `GET /mobile` 303s to `/` when the meet is gone | must |
 
-> **`A-03` — do not port the edge strips.** The web confines the swipe to two 28px edge
-> strips only because each tab is an `<iframe>` and a full-width listener would swallow
-> touches meant for the schedule list. A native pager has no such problem: **use a
-> full-width swipe** with the platform's standard pager. Copying the web here would make
-> the app worse — the clearest such case in the file.
->
-> **Answer the gesture while it happens.** Switching on `touchend` with nothing drawn in
+> **`A-03` — answer the gesture while it happens.** Switching on `touchend` with nothing drawn in
 > between makes a half-committed swipe look like nothing happened and an accidental one
 > look like a glitch. A platform pager tracks the drag, reveals the neighbouring tab's
 > edge, animates the settle, and moves the tab-bar indicator with the finger rather than
@@ -181,17 +189,10 @@ where the user returns via `A-02`.
 > the `<title>`, the `apple-mobile-web-app-title`, and the manifest's `name` /
 > `short_name` — the label under the icon after a `P-10` install. The shell has no title
 > bar of its own; the tab strip and back arrow are the whole chrome, deliberately, so do
-> **not** grow one to have somewhere to put this.
->
-> A native app cannot retitle itself per meet — the store listing fixes the icon label —
-> so it satisfies this row by existing; Android may set the recents-card label
-> (`TaskDescription`), iOS has no equivalent. Fallback order: `app_window_title`, the
-> meet `name` from the `P-01` card, then `Splouch`.
-
-> **The iframes themselves are `web-only` throughout.** Their workarounds —
-> re-dispatching `resize` on tab switch, `contentWindow.on_tab_shown()`, the `#edgeT` /
-> `#filter-header` 65px alignment contract documented in `mobile.html` — have no native
-> counterpart. Implement the *effect* (`R-06`, `L-14`), never the mechanism.
+> **not** grow one to have somewhere to put this. A native app cannot retitle itself per
+> meet — the store listing fixes the icon label (§0.4) — so it satisfies this row by
+> existing. Fallback order: `app_window_title`, the meet `name` from the `P-01` card,
+> then `Splouch`.
 
 ---
 
@@ -337,13 +338,9 @@ Live lane state during a heat. The busiest screen and the one most worth getting
 > **Keep the re-fit off the per-frame path**: measuring forces a synchronous layout per
 > lane, and an app that re-fits every label on every update frame will drop frames
 > mid-race. Names arrive on a heat change, so the web gates the call on a frame carrying
-> a `lane_name` key, plus resize and tab-reveal.
->
-> **Native still does it better.** Per
-> [`notes/native_app_strategy.md`](../notes/native_app_strategy.md), the web computes one
-> ratio from `scrollWidth`/`clientWidth`, whereas `UILabel.adjustsFontSizeToFitWidth` and
-> Android's `autoSizeTextType` fit properly and cheaply, with a real minimum size.
-> Matching the web is the floor, not the target.
+> a `lane_name` key, plus resize and tab-reveal. The platform's own auto-shrink (§0.4)
+> does the same job properly and cheaply, with a real minimum size
+> ([`notes/native_app_strategy.md`](../notes/native_app_strategy.md)).
 
 ### 3.4 Not on this tab
 
@@ -471,6 +468,25 @@ find *their* swimmer among several hundred.
 
 The rules in [`ws.js`](../shared/static/js/ws.js). These are the difference between an
 app that works on a pool deck and one that shows a frozen board after a screen lock.
+Each of the three sockets runs this loop independently:
+
+```text
+  connect
+     │
+     ├─► join_meet {meet_id, vid}      on every connect, including every reconnect   C-02
+     │   queued frames flush                                                         C-06
+     │
+     ├─► ping every 15s ──────────► pong                                             C-04
+     │
+     └─► dead, by either test:
+           no inbound frame for 35s                                                  C-04
+           foregrounded or network back: ping, no pong within ~4s                    C-05
+             │
+             └─► close ─► backoff 500ms → 5s ─► connect again                        C-03
+```
+
+A dead socket implies `meet_live = false` (`C-09`), which stops the clocks (`L-12`) and
+wipes the results board (`R-02`).
 
 | ID | Feature | Driven by | Level |
 | --- | --- | --- | --- |
@@ -578,11 +594,16 @@ of its own.
 
 > **`T-10` — fetch, but never depend on the fetch.** Ship a snapshot of the strings and
 > treat the endpoint as a refresh: read the cache, draw, revalidate in the background,
-> store what comes back. Resolution order per key is **cached server value → bundled
-> value → English → the key's own name**, so a server older than the app (a Pi that
-> predates a screen) leaves the new screen in English rather than blank — the same
-> English-merge rule [`api.md`](api.md) §5.9 applies server-side, applied again on the
-> client because the two sides can be different ages.
+> store what comes back. Resolve each key in this order, first hit wins:
+>
+> ```text
+> key ─► cached server value ─► bundled value ─► English ─► the key's own name
+> ```
+>
+> So a server older than the app (a Pi that predates a screen) leaves the new screen in
+> English rather than blank, and a key nothing knows about shows its own name rather than
+> a gap. It is the same English-merge rule [`api.md`](api.md) §5.9 applies server-side,
+> applied again on the client because the two sides can be different ages.
 >
 > This is what makes `T-05` safe: no network on first launch, no spinner in front of a
 > tab bar, and a language added on the server appears at the next revalidation instead of
