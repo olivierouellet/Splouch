@@ -52,9 +52,25 @@ collapse that the phone pages deliberately drop
 
 Everything a phone needs is reachable as JSON — no screen is HTML-only, nothing requires
 scraping ([`api.md`](api.md) §4). Each browser page renders from the same helper its
-JSON endpoint returns (`_public_meet_list`, `_build_heats_json`, `_picker_branding`), so
-web and native cannot drift: a field added for one appears in the other by construction.
-Extend the helper, never the route.
+JSON endpoint returns (`_public_meet_list`, `_build_heats_json`, `_picker_branding`,
+the Pi's `build_heats`), so web and native cannot drift: a field added for one appears
+in the other by construction. Extend the helper, never the route.
+
+**A Pi session is the same app with different addresses.** `GET /server` says
+`kind: "pi"`; from then on the rows below that name a cloud endpoint resolve as follows,
+and nothing else about the session changes:
+
+| Needed for | Cloud | Pi |
+| --- | --- | --- |
+| meet config, theme, labels (`P-08`, `T-*`) | `GET /meet/{id}/config` → `settings` | `GET /config` (same keys, flattened) |
+| meet name in the shell | `GET /meet/{id}/config` → `app_window_title`, then `name` | `GET /config` → `meet_title` |
+| start list (`S-01`) | `GET /meet/{id}/schedule` | `GET /schedule.json` |
+| typeahead (`S-09`) | `GET /search_suggestions?meet_id=&q=` | `GET /search_suggestions?q=` |
+| strings (`T-05`) | `GET /i18n/{lang}` | `GET /i18n/{lang}` |
+| `join_meet` (`C-02`) | on every connect | **never** — the Pi pushes on connect |
+| `vid` (`C-10`) | one per server | none — nothing receives it |
+| meet gone (`A-09`) | `GET /meet/{id}/config` → 404 | n/a — one meet, it cannot go away; an unreachable Pi is `C-03` |
+| meet picker (`P-*`) | the launch screen | skipped — `P-11`'s server list is the only list |
 
 ### 0.3 Requirement levels
 
@@ -109,6 +125,7 @@ where the user returns via `A-02`.
 | `P-11` | Choose which server to connect to, from a list, in the picker's menu | `GET /servers` ([`api.md`](api.md) §5.11), each entry verified with `GET /server` | native-only — see note |
 | `P-12` | Servers on the local network are offered without anyone typing an address | mDNS browse for `_splouch._tcp` (do not use `splouch.local`) | native-only — should |
 | `P-13` | A server can be added by hand, checked before it is saved | `GET /server` must answer | native-only — must |
+| `P-14` | A server whose contract versions differ from the app's gets a one-line notice naming both; the app **connects regardless** | `GET /server` → `contract.api`, `contract.app`, compared for equality with the versions the app was built against ([`api.md`](api.md) §5.10) | native-only — should |
 
 > **`P-06` is not decoration.** The disclaimer — live, unofficial results pending
 > validation, with SplashMe for validated ones — is the only thing between a live feed
@@ -136,6 +153,12 @@ where the user returns via `A-02`.
 >   forgot cannot answer "where did my meet go?" from a screen that looks identical
 >   either way. The menu changes it; the header keeps it visible.
 
+> **`P-14` — a notice, not a gate.** A newer server is additive by contract and an
+> older one degrades a feature (`L-12`'s clock against a v1 relay, say) rather than
+> breaking the board. Either is better than refusing a pool's only server because its
+> Pi is a release behind. Show the line once per session, where the server name
+> already shows (`P-11`'s header rule), and never block a connect on it.
+
 > **`P-12` — Cleartext for the local network only.** A Pi is plain HTTP, anything
 > remote must be HTTPS: a *scoped* ATS exception on iOS (local networking,
 > `NSLocalNetworkUsageDescription`, Bonjour service declared) and an Android
@@ -160,7 +183,16 @@ where the user returns via `A-02`.
 | `A-06` | Content clears notch, Dynamic Island, and home indicator | web: `env(safe-area-inset-*)` | must (free natively) |
 | `A-07` | Portrait stacks label under icon; landscape drops labels to save height | CSS media queries | should |
 | `A-08` | Window and home-screen title is the meet's `app_window_title`, falling back to its `name` | `settings.app_window_title`, then `name`, then `Splouch` | web-only |
-| `A-09` | Meet goes offline mid-session → return to the picker | `GET /mobile` 303s to `/` when the meet is gone | must |
+| `A-09` | Meet gone mid-session → return to the picker | cloud: `GET /meet/{id}/config` answers **404**. Re-fetch it on every reconnect, foreground, pull-to-refresh (`A-05`) and `reload` (`C-08`); web: `GET /mobile` 303s to `/` on page load. Pi: n/a (§0.2) | must — see note |
+
+> **`A-09` has no socket signal, on purpose.** `join_meet` for a meet the cloud no
+> longer holds is silently ignored — no reply, no `meet_live`, nothing
+> ([`api.md`](api.md) §3) — and an expiring meet announces nothing to the sockets
+> already on it. So the app *asks*: the config fetch it already makes on the moments
+> listed is the check, and a 404 there means gone. A socket that connects and stays
+> silent is **not** the signal — it is also what a live meet between frames looks
+> like. Any other status, or no answer, is a network fault (`C-03`), not a missing
+> meet.
 
 ---
 
@@ -189,7 +221,7 @@ Live lane state during a heat. The busiest screen and the one most worth getting
 | `L-10` | Frames are partial: merge changed keys into local state, never replace | `update_scoreboard` (§5.1) | must |
 | `L-11` | A running lane's time is styled distinctly; on stop it plays a one-shot "locked" transition, cancelled if the lane starts running again | `lane_running<i>` false-edge | **must** — it is what separates a live clock from a frozen split (`L-12`) |
 | `L-12` | Every running lane's time cell shows the **race clock**: one value for the heat, re-based by the server every couple of seconds and ticked by the device in between | `running_time` (throttled by the relay) + `lane_running<i>` + `meet_live` — see note | **must** |
-| `L-13` | Event or heat change blanks all times, deltas, and places | `current_event` / `current_heat` change | must |
+| `L-13` | Event or heat change blanks all times, deltas, and places — **unless** a lane was running on the previous frame, in which case the times stay on screen as results. The first event and heat seen after a connect are a baseline, not a change | `current_event` / `current_heat` change, compared as strings | must — see note |
 | `L-14` | Returning to the tab re-runs layout and refreshes the clock | web: parent re-dispatches `resize` | must (native: on-appear) |
 
 > **`L-12` — one clock per heat, re-based by the server, ticked by the device.** There
@@ -219,7 +251,7 @@ Live lane state during a heat. The busiest screen and the one most worth getting
 > | a `running_time` frame | hard re-base; never ease towards it |
 > | between frames | the device advances it ~10Hz off the platform's display link, from a *monotonic* clock |
 > | a `lane_running<i>` edge, either direction | re-bases — the relay forces a `running_time` onto that frame |
-> | event or heat change | blanks everything (`L-13`) |
+> | event or heat change | stops the ticker; what replaces the digits is `L-13`'s call |
 > | 3 sync intervals with no `running_time` | stop the ticker, freeze the digits, fall back to the pulse |
 > | tab or app backgrounded | stop the ticker; never accumulate ticks across a suspend, and do not resume from a stale base |
 > | `meet_live` false, or a disconnect | every clock on the board stops, so stale lane state cannot masquerade as a live race |
@@ -238,6 +270,24 @@ Live lane state during a heat. The busiest screen and the one most worth getting
 > **Throttle the field.** Forward `running_time` instead **at most
 > once every ~2s, plus on any frame carrying a `lane_running<i>` key**: one short string
 > every two seconds per meet rather than ten to twenty a second
+>
+> **Parse it with the one pattern** [`api.md`](api.md) §5.1 gives — `m:ss.hh` or
+> `ss.hh` — and treat a value that does not match as no re-base at all: the ticker
+> carries on from its last base. Not a freeze, not a blank.
+
+> **`L-13` — three cases, two of them exceptions.**
+>
+> | Frame carries a new event or heat, and… | Do |
+> | --- | --- |
+> | it is the first event/heat this connection has seen | nothing — it is the **baseline**. The join replay (cloud) or the connect snapshot (Pi) carries the current heat's times beside its number; blanking them throws away the only state a late joiner has |
+> | a lane was running on the previous frame | keep every time as a result: the console advanced before it published results, and the next frame moves on. Blanking here erases what the swimmers just posted |
+> | otherwise | blank all times, deltas and places; names and clubs arrive in the same frame |
+>
+> A lane running on *this* frame outranks all three: the lane shows the clock
+> (`L-12`). The web reference implements the second and third cases; on the first
+> it blanks, because it starts its "last event" at `0` and so reads the join
+> replay as a change — an artefact of that initialisation, not a behaviour to
+> reproduce (§0.4).
 
 ### 3.3 Layout
 
@@ -295,11 +345,11 @@ find *their* swimmer among several hundred.
 
 | ID | Feature | Driven by | Level |
 | --- | --- | --- | --- |
-| `S-01` | Every heat as a card: scheduled time, "Event N — Heat M", event name | `GET /meet/{id}/schedule` ([`api.md`](api.md) §5.8) | must |
+| `S-01` | Every heat as a card: scheduled time, "Event N — Heat M", event name | `GET /meet/{id}/schedule` ([`api.md`](api.md) §5.8); Pi: `GET /schedule.json`, same body | must |
 | `S-02` | Each card lists its lanes: lane number, name, club, seed time | `lanes[]` | must |
 | `S-03` | Relay entries show member first names joined by `·` | `lane.swimmers[].first`, falling back to `.name` | should |
 | `S-04` | Alternating card backgrounds, computed over *visible* cards so filtering keeps the stripe | — | should |
-| `S-05` | The heat the meet is on is highlighted in the list | `update_scoreboard.current_event`/`current_heat` **and** `results_snapshot.event`/`heat` | must |
+| `S-05` | The heat the meet is on is highlighted in the list | `update_scoreboard.current_event`/`current_heat` **and** `results_snapshot.event`/`heat`, compared to the schedule's `event`/`heat` **as strings** — they are integers there ([`api.md`](api.md) §5.1) | must |
 | `S-06` | The list auto-scrolls to the current heat once per appearance | re-armed on returning to the foreground | must |
 | `S-07` | Empty state when no meet file is loaded | `mobile.no_schedule` / `mobile.no_meet` | must |
 
@@ -313,7 +363,7 @@ find *their* swimmer among several hundred.
 | ID | Feature | Driven by | Level |
 | --- | --- | --- | --- |
 | `S-08` | Full-screen filter sheet, opened from a button in the top bar | — | must |
-| `S-09` | Typeahead search over swimmers and clubs, debounced ~220ms | `GET /search_suggestions?meet_id=&q=` | must |
+| `S-09` | Typeahead search over swimmers and clubs, debounced ~220ms | `GET /search_suggestions?meet_id=&q=`; Pi: `?q=` alone | must |
 | `S-10` | Suggestions show type (swimmer/club), name, and club; already-added ones are marked and inert | — | should |
 | `S-11` | Active filters appear as chips; tapping a chip's × removes it | — | must |
 | `S-12` | A count badge on the filter button shows how many filters are active | — | should |
@@ -359,7 +409,7 @@ Each of the three sockets runs this loop independently:
 ```text
   connect
      │
-     ├─► join_meet {meet_id, vid}      on every connect, including every reconnect   C-02
+     ├─► join_meet {meet_id, vid}      cloud only: on every connect and reconnect     C-02
      │   queued frames flush                                                         C-06
      │
      ├─► ping every 15s ──────────► pong                                             C-04
@@ -377,7 +427,7 @@ wipes the results board (`R-02`).
 | ID | Feature | Driven by | Level |
 | --- | --- | --- | --- |
 | `C-01` | Three independent sockets: `/ws/scoreboard`, `/ws/results`, `/ws/schedule` | §2–3 of `api.md` | must |
-| `C-02` | `join_meet {meet_id, vid}` on **every** connect, including every reconnect | — | must |
+| `C-02` | `join_meet {meet_id, vid}` on **every** connect, including every reconnect — **gated on `kind == "cloud"`** from `GET /server`. A Pi pushes on connect and ignores the frame, so nothing is sent there | `GET /server` → `kind` | must |
 | `C-03` | Automatic reconnect, capped exponential backoff (web: 500ms → 5s) | — | must |
 | `C-04` | Heartbeat `ping` every 15s; no inbound frame for 35s means dead — close and reconnect | server replies `pong` | must |
 | `C-05` | On foreground or network-restored: probe with a `ping`; no `pong` within ~4s means dead | — | **must** |
@@ -385,7 +435,7 @@ wipes the results board (`R-02`).
 | `C-07` | Unknown events are ignored, not treated as errors | — | must |
 | `C-08` | `reload` → re-fetch config and redraw (web: full page reload) | — | must |
 | `C-09` | `meet_live` gates live affordances; a `disconnect` implies `meet_live = false` | — | must |
-| `C-10` | Anonymous per-install, **per-server** id (`vid`) sent with `join_meet` | random UUID per server, stored once each | must — see note |
+| `C-10` | Anonymous per-install, **per-server** id (`vid`) sent with `join_meet` | random UUID, created the first time a `join_meet` goes to that server and stored once, keyed by normalised scheme, host and port | must — see note |
 
 > **`C-05` is the one that bites phones.** iOS and Android freeze background sockets
 > without ever firing a close: the connection is dead but looks open, so backoff never
@@ -394,7 +444,11 @@ wipes the results board (`R-02`).
 
 > **`C-10` — privacy constraints are binding.** `vid` is a random UUID generated once
 > **per server** and stored locally, used server-side only for `COUNT(DISTINCT)` to
-> estimate attendance.
+> estimate attendance. It exists only where something receives it: the key is the
+> server's normalised origin (scheme, host, port), created on the first `join_meet`
+> to that origin. A Pi has no `join_meet` (`C-02`), so pointing the app at one
+> creates nothing. Never derive one `vid` from another, and never send a server an
+> id minted for a different one.
 
 ---
 
@@ -486,6 +540,17 @@ of its own.
 > repeating the rule only matters when the two sides are different ages: an app newer
 > than its server asks for a key that server has never heard of, gets nothing back, and
 > falls through to English rather than rendering a gap.
+>
+> **The snapshot is captured, never transcribed.** It is the JSON body of
+> `GET /i18n/{lang}`, verbatim, one checked-in file per language the default cloud
+> lists in `GET /locales`, written by a script in the app repo that fetches them from
+> a running server and regenerated on demand — before a release, and whenever
+> `shared/locales/` changes. Strings are data, so this is not a copy of the docs; but
+> a hand-maintained copy of the TOML would be a second source of truth and would
+> drift within a season, which is the problem `T-05` exists to remove. The file the
+> app reads at build time and the file it caches at run time have the **same
+> shape**, so there is one decoder and the fallback chain above is a lookup order,
+> not a format conversion.
 
 > **`T-11` — an event name follows the reader too.** It is meet data, composed on the
 > Pi from the LENEX entry, so it cannot simply be looked up the way a label is. It is
@@ -526,6 +591,13 @@ Not on any phone client, now or planned:
 ---
 
 ## Changelog
+
+- **v1, clarified while the iOS app was built** (no bump — nothing a conforming
+  client did became wrong): `L-13` states its two exceptions, the running-lane hold
+  and the post-connect baseline; `A-09` names its cloud signal, a 404 on the config
+  fetch; `C-02` and `C-10` are gated on `kind`; `S-05` compares as strings; `T-10`
+  says how the snapshot is made; `P-14` added; §0.2 gains the Pi-session table,
+  with `GET /schedule.json` added on the Pi to honour the no-HTML-only rule.
 
 - **v1** — First statement of the mobile feature contract, taken from the cloud templates
   as of the FastAPI/plain-WebSocket server. Tracks `api.md` v2.

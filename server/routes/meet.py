@@ -41,12 +41,16 @@ def route_full_schedule(request: Request):
                   **data)
 
 
-@router.get('/schedule')
-def route_schedule(request: Request):
+def build_heats():
+    """The start list as the phone Schedule tab consumes it — every heat in running
+    order, each with its lanes. One builder for the HTML page and the JSON endpoint,
+    so the two cannot drift (docs/app.md §0.2); the shape is the cloud's
+    `GET /meet/{id}/schedule` (docs/api.md §5.8)."""
     data           = _build_meet_data()
     events_grouped = data.get('events_grouped', [])
     start_list     = data.get('start_list', {})
     event_names    = data.get('event_names', {})
+    name_parts     = data.get('event_name_parts', {})
     heat_times     = data.get('heat_times', {})
 
     heats_out = []
@@ -69,16 +73,33 @@ def route_schedule(request: Request):
                 'event':      ev,
                 'heat':       ht,
                 'event_name': event_names.get(ev, ''),
+                'event_name_parts': name_parts.get(ev),
                 'time':       heat_times.get(ev, {}).get(ht, ''),
                 'lanes':      lanes_out,
             })
+    return heats_out
 
+
+@router.get('/schedule.json')
+def route_schedule_json():
+    """The start list as JSON — what `/schedule` embeds, for native clients.
+
+    The Pi's twin of the cloud's `GET /meet/{id}/schedule` (docs/api.md §4): one
+    meet, so no id in the path. An empty `heats` means no meet file is loaded,
+    which is not an error — the client shows its no-schedule state and waits for
+    `schedule_update` on `/ws/schedule`."""
+    return {'heats': build_heats()}
+
+
+@router.get('/schedule')
+def route_schedule(request: Request):
+    heats_out = build_heats()
     meet_name = (state.meet.meet_info.get('name') or
                  state.settings.get('meet_title') or '')
 
     return render(request, 'schedule.html',
                   heats_json=json.dumps(heats_out),
-                  has_meet=bool(events_grouped),
+                  has_meet=bool(heats_out),
                   meet_name=meet_name,
                   theme_colors={**state.DEFAULT_THEME_COLORS,
                                 **state.settings.get('theme_colors', {})},

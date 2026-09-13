@@ -151,11 +151,18 @@ connects/disconnects), `update_scoreboard` (§5.1; the cloud throttles
 **Server → client:** `meet_live {live}`, `results_snapshot` (§5.2), `next_heats` (§5.3), `reload`.
 
 ### `/ws/schedule`
-**Server → client:** `schedule_update` (no data) — signal to re-fetch the schedule
-JSON from `GET /mobile/schedule` or the meet's `schedule_data`.
+**Server → client:** `schedule_update` (no data) — signal to re-fetch
+`GET /meet/{meet_id}/schedule` (§5.8).
 
 > **Re-join on reconnect.** After any drop the client must re-send `join_meet`;
 > the server replays `meet_live` + the latest cached snapshot so the UI catches up.
+
+> **An unknown `meet_id` is ignored, not refused.** `join_meet` for a meet this
+> server does not hold — expired, swept, or never here — gets **no reply**: no
+> `meet_live`, no error, and the socket stays open and silent. A meet that expires
+> mid-session announces nothing on its sockets either. The signal that a meet is
+> gone is `GET /meet/{meet_id}/config` answering **404**, which is why a client
+> re-fetches it on every reconnect, foreground and refresh (`app.md` `A-09`).
 
 ### `/ws/relay` (the Pi relay — not a spectator)
 Documented for completeness; implemented by [`relay.py`](../relay.py). The Pi is a
@@ -176,6 +183,8 @@ JSON/asset endpoints (everything else the servers expose is HTML for the browser
 | --- | --- |
 | `GET /config` | **display config JSON** — `num_lanes`, `theme_colors`, `theme_fonts`, `show_*` flags, `labels`, `meet_title`, `locale`, `display_strings`, `carousel_images`, `carousel_interval` (§6). Lets the Qt display theme *and translate* itself without a rendered page |
 | `GET /server` | **who this server is** (§5.10) — `kind: "pi"`, its name, and the contract versions this build implements |
+| `GET /schedule.json` | **start list JSON** — `{ "heats": [ … ] }`, the same shape as the cloud's `GET /meet/{id}/schedule` (§5.8) and what the Pi's `/schedule` page embeds. No id in the path: one meet. Empty `heats` when no meet file is loaded |
+| `GET /search_suggestions?q=` | `[{type:"swimmer"\|"club", name, club?}]` — as the cloud's, without `meet_id` |
 | `GET /i18n/{lang}` | **client strings for one language** (§5.9). Layers this Pi's `scoreboard/locale/{lang}.toml` over the bundled file, so custom wording reaches every client |
 | `GET /locales` | `[{ "code": "fr", "name": "Français" }]` — the languages this server can serve, custom files included |
 | `GET /manifest.json` | PWA manifest (app title, icons) |
@@ -210,11 +219,11 @@ Lane keys are 1-indexed (`<i>` = 1…12).
 
 | key | type | notes |
 | --- | --- | --- |
-| `current_event`, `current_heat` | string | e.g. `"3"`, `"1"` |
+| `current_event`, `current_heat` | string | e.g. `"3"`, `"1"` — see the type note below |
 | `event_name` | string | display name, composed in the **meet's** locale |
 | `event_name_parts` | object\|null | the same name, language-neutral, for a client rendering in a language the meet is not run in — see below |
 | `heat_time` | string | scheduled time, may be `""` |
-| `running_time` | string | the race clock for the heat — one value, not per lane. The Pi sends it on every timing tick; **the cloud forwards at most one every 2s**, plus any frame that also carries a `lane_running<i>` key, and never keeps it in the join snapshot. Clients re-base on each one and tick locally in between |
+| `running_time` | string | the race clock for the heat — one value, not per lane. **Format `m:ss.hh` or `ss.hh`**, see below. The Pi sends it on every timing tick; **the cloud forwards at most one every 2s**, plus any frame that also carries a `lane_running<i>` key, and never keeps it in the join snapshot. Clients re-base on each one and tick locally in between |
 | `expected_splits` | int | laps expected for the event |
 | `lane_name<i>` | string | swimmer/relay display name |
 | `lane_club<i>` | string | club |
@@ -229,6 +238,28 @@ Lane keys are 1-indexed (`<i>` = 1…12).
 
 > Native clients should use `lane_delta_seconds<i>` / `lane_delta_better<i>` and
 > ignore the HTML `lane_delta<i>`. On a heat change all three reset (`""` / `null`).
+
+**Clock strings** — `running_time`, `lane_time<i>`, `results_snapshot.lanes[].time`
+— are `m:ss.hh` or `ss.hh`: optional minutes, one or two second digits, always
+two hundredths (`"5.23"`, `"25.61"`, `"1:05.23"`). Every decoder normalises to this
+before it leaves the Pi. Exactly one pattern matches it, and every client uses
+that pattern and nothing looser:
+
+```text
+^(?:(\d+):)?(\d{1,2})\.(\d{2})$
+```
+
+A `running_time` that does not match is **ignored** — no re-base, the clock keeps
+ticking from its last base. Render a `lane_time<i>` that does not match verbatim;
+it is a final and not a clock.
+
+**Event and heat numbers change type across payloads**, and that is not going to
+be harmonised: `current_event` / `current_heat` here and `event` / `heat` in
+`results_snapshot` (§5.2) are **strings**; `event` / `heat` in `next_heats` (§5.3)
+and in every heat of `GET /meet/{id}/schedule` and `GET /schedule.json` (§5.8) are
+**integers**. A client that compares them — the Schedule tab highlighting the
+current heat (`app.md` `S-05`) — normalises **to a string on decode**, as the web
+page does, and compares nothing numerically.
 
 **`event_name_parts`** is an event name decomposed into keys rather than words, so
 one broadcast frame serves viewers reading in different languages (`app.md` `T-04`):
@@ -338,6 +369,12 @@ Every heat in running order — the whole start list, not just the next few
 (compare `next_heats`, §5.3). Heats with no entries still appear with an empty
 `lanes`. An empty `heats` is not an error: the meet is loaded but carries no
 schedule yet, and the client waits for `schedule_update` on `/ws/schedule`.
+`event` and `heat` are integers here (§5.1, type note). Each heat also carries
+`event_name_parts` (§5.1).
+
+The Pi serves the same body at **`GET /schedule.json`** (§4) — no meet in the
+path, one meet per server. A client keeps one Schedule tab and changes only the
+URL it fetches.
 
 ---
 
@@ -395,6 +432,15 @@ The handshake a native client makes before anything else. Both servers answer it
   exist — `api` for this document, `app` for [`app.md`](app.md). A client that needs
   a behaviour an older server lacks can then say so rather than rendering an empty
   screen; a test pins both to the documents' headers so they cannot drift.
+
+  **A mismatch is a notice, never a refusal.** The values are bare tags (`"v2"`),
+  compared for equality with the versions the client was built against. When either
+  differs the client **connects anyway** and shows a one-line notice naming the two
+  versions (`app.md` `P-14`). Newer server: every change is additive or ignorable
+  (§1, unknown events are dropped). Older server: a feature degrades rather than
+  failing — a v1 relay strips `running_time`, so the clock never starts and the lane
+  pulse stands in for it. Neither is worth a blank board at a pool; a hard stop
+  would be.
 
 It is also the request a client makes against a hand-typed address before saving
 it — a typo should fail at entry, not at the first blank board.
@@ -487,6 +533,14 @@ same `settings` shape, so the two config sources agree.
   (§5.4), and `GET /server` / `GET /servers` (§5.10–5.11) with the Pi's
   `_splouch._tcp` mDNS record. A v2 client ignores all of it and is unaffected;
   `app.md` is what consumes them.
+
+- **Stated since v2, nothing on the wire changed**: the Pi's `GET /schedule.json`
+  and `GET /search_suggestions?q=` (§4) — the Pi's start list was HTML-only, against
+  `app.md` §0.2; the clock string format and the event/heat type rule (§5.1); that
+  `join_meet` for an unknown meet is silently ignored and a 404 on
+  `GET /meet/{id}/config` is the signal a meet is gone (§3); and that a contract
+  mismatch is a notice, not a refusal (§5.10). All of it was already how the
+  servers behaved.
 
 - **v1** — Initial contract after the Flask/Socket.IO → FastAPI/plain-WebSocket
   migration. Envelope `{event, data}`; local paths `/ws/scoreboard|results|settings|terminal`;
