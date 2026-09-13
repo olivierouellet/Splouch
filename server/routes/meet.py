@@ -108,53 +108,6 @@ def route_schedule(request: Request):
                   **client_strings(request))
 
 
-@router.get('/search_suggestions')
-def route_search_suggestions(request: Request):
-    """**Deprecated** (`docs/api.md` §7) — clients build this list themselves.
-
-    Still served, unchanged, because shipped `Splouch-ios` and `Splouch-android`
-    builds call it. It reads only the start list, every field of which `GET /schedule.json`
-    already carries, so `app.md` `S-09` now specifies a local index instead: the
-    request bought a round-trip per keystroke and a window where this server's start
-    list was ahead of the client's and suggested a swimmer the client could not match.
-
-    Delete once both apps have stopped calling it.
-    """
-    import unicodedata
-    def fold(s):
-        return unicodedata.normalize('NFD', s.lower()).encode('ascii', 'ignore').decode()
-
-    q = fold(request.query_params.get('q', '').strip())
-    if not q:
-        return []
-
-    swimmers = {}
-    clubs    = set()
-    for ev_heats in state.meet.start_list.values():
-        for heat_lanes in ev_heats.values():
-            for entry in heat_lanes.values():
-                club = entry.get('club', '')
-                if club:
-                    clubs.add(club)
-                name = entry.get('name', '')
-                if name:
-                    swimmers[name] = club
-                for s in entry.get('swimmers', []):
-                    sname = s.get('name', '')
-                    if sname:
-                        swimmers[sname] = club
-
-    results = []
-    for name in sorted(swimmers):
-        if q in fold(name):
-            results.append({'type': 'swimmer', 'name': name, 'club': swimmers[name]})
-    for club in sorted(clubs):
-        if q in fold(club):
-            results.append({'type': 'club', 'name': club})
-
-    return results[:20]
-
-
 @router.get('/hytek_preview')
 def route_hytek_preview():
     return redirect('/meet')

@@ -1,21 +1,23 @@
-"""Typeahead suggestions — now built on the client, and the servers agree meanwhile.
+"""Typeahead suggestions (`app.md` `S-09`) — built on the client, from the start list.
 
-`app.md` `S-09` used to be the one filter the phone could not answer alone: every
-other part of the filter sheet runs against the start list the client already holds,
-but the suggestion list round-tripped to `GET /search_suggestions`. It never needed
-to. `_build_heats_json()` hands every lane its `name`, `club` and `swimmers[]`, which
-is the whole of what the endpoint read, so the fetch bought nothing but latency and a
-window where the server could offer a swimmer the client's list did not have yet.
+There used to be a `GET /search_suggestions` on both servers. It never needed to
+exist: it read only `lane.name`, `lane.club` and `lane.swimmers[].name`, every one of
+which `GET /meet/{id}/schedule` and the Pi's `GET /schedule.json` already carry. The
+fetch bought a round-trip per keystroke and a window where the server's start list was
+ahead of the client's and could offer a swimmer the client could not then match. Both
+routes are gone (`api.md` §7); `S-09` specifies a local index instead.
 
-The endpoint outlived its purpose the moment the Pi grew `GET /schedule.json`. It
-still serves, because `Splouch-ios` and `Splouch-android` are still calling it, and
-until they stop the two implementations have to agree — they had already drifted,
-which is the second thing here.
+Two things keep that honest, and they are what this file guards. The payload has to
+keep carrying the index's three inputs — trim one and the typeahead quietly stops
+finding people, with no error anywhere — and the page has to keep building the index
+rather than reaching for a server.
 """
 import os
 import re
 import sys
 import tempfile
+
+import pytest
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, REPO)
@@ -30,25 +32,14 @@ import cloud_server as cs                       # noqa: E402
 import state                                    # noqa: E402
 from routes import meet as meet_routes          # noqa: E402
 
-# Built to hit every case the two implementations disagreed on: a relay (team name
-# *and* members), a name whose accents the fold cannot transliterate, one swimmer
-# entered twice under different clubs, and a numeric-looking club.
+# A relay and an individual, which between them carry every field the index reads.
 _START_LIST = {
     3: {1: {4: {'name': 'Sørensen, Åse', 'club': 'CAMO', 'seed_time': '1:02.40',
                 'swimmers': []},
             5: {'name': 'Relay A', 'club': '1900 Aquatique', 'seed_time': '',
                 'swimmers': [{'pos': 1, 'name': 'Élise Roy', 'first': 'Élise'},
-                             {'pos': 2, 'name': "O'Brien, Pat", 'first': 'Pat'}]},
-            6: {'name': 'Tremblay, Luc', 'club': 'CAMO', 'seed_time': '58.10',
-                'swimmers': []}},
-        2: {1: {'name': 'Tremblay, Luc', 'club': 'NATATION SUD', 'seed_time': '57.90',
-                'swimmers': []}}},
+                             {'pos': 2, 'name': "O'Brien, Pat", 'first': 'Pat'}]}}},
 }
-
-
-class _Req:
-    def __init__(self, **kw):
-        self.query_params = kw
 
 
 def _as_str(start_list):
@@ -58,79 +49,64 @@ def _as_str(start_list):
             for ev, heats in start_list.items()}
 
 
-def _pi(monkeypatch, q):
-    monkeypatch.setattr(state, 'meet', state._Meet(start_list=_START_LIST))
-    return meet_routes.route_search_suggestions(_Req(q=q))
+@pytest.fixture
+def pi_lanes(monkeypatch):
+    monkeypatch.setattr(state, 'meet', state._Meet(
+        event_names={3: '200 Backstroke'}, start_list=_START_LIST,
+        heat_times={3: {1: '10:42'}}, meet_info={'name': 'Invitation'}))
+    return meet_routes.route_schedule_json()['heats'][0]['lanes']
 
 
-def _cloud(monkeypatch, q):
-    meet = {'schedule_data': {'start_list': _as_str(_START_LIST)}}
-    monkeypatch.setattr(cs, '_get_meet', lambda meet_id: meet if meet_id == 'M1' else None)
-    return cs.route_search_suggestions(_Req(q=q, meet_id='M1'))
+@pytest.fixture
+def cloud_lanes():
+    sched = {'events': [(3, [1])], 'names': {'3': '200 Backstroke'},
+             'times': {'3': {'1': '10:42'}}, 'start_list': _as_str(_START_LIST)}
+    return cs._build_heats_json(sched)[0]['lanes']
 
 
-def test_pi_and_cloud_answer_identically(monkeypatch):
-    """The drift this file exists for: the Pi skipped relay *team* names.
+@pytest.mark.parametrize('lanes', ['pi_lanes', 'cloud_lanes'])
+def test_the_payload_carries_everything_the_index_reads(lanes, request):
+    """`S-09`'s three inputs, on both servers. Drop one and the typeahead goes quiet.
 
-    It guarded the lane name with `not entry.get('swimmers')`, so a relay's team
-    name was indexed on the cloud and invisible on a Pi — the same swimmer typing
-    the same query got different suggestions depending on which server the app
-    happened to be pointed at, against `app.md` §0.2.
+    There is no request left to fall back on, so a lane that loses its `club` or a
+    relay that loses `swimmers[]` is simply unfindable — no error, no empty state,
+    just a swimmer who cannot be searched for.
     """
-    for q in ('tre', 'srensen', 'elise', 'relay', 'camo', '1900', 'roy', "o'brien", 'z'):
-        assert _pi(monkeypatch, q) == _cloud(monkeypatch, q), q
+    individual, relay = request.getfixturevalue(lanes)
+    assert individual['name'] == 'Sørensen, Åse'
+    assert individual['club'] == 'CAMO'
+    # The team name is indexed like any other entry: a spectator may know the team
+    # and not one swimmer on it.
+    assert relay['name'] == 'Relay A'
+    assert relay['club'] == '1900 Aquatique'
+    # And its members, which is also what `S-14` filters on.
+    assert [s['name'] for s in relay['swimmers']] == ['Élise Roy', "O'Brien, Pat"]
 
 
-def test_a_relay_is_findable_by_its_team_name(monkeypatch):
-    """A spectator may know the team and not one member on it."""
-    assert _pi(monkeypatch, 'relay a') == [
-        {'type': 'swimmer', 'name': 'Relay A', 'club': '1900 Aquatique'}]
+def test_neither_server_still_exposes_the_endpoint():
+    """Removed, not deprecated (`api.md` §7).
 
-
-def test_a_relay_is_findable_by_its_members(monkeypatch):
-    """`S-14`: the members are indexed under the lane's club, not the team name."""
-    assert _pi(monkeypatch, 'elise') == [
-        {'type': 'swimmer', 'name': 'Élise Roy', 'club': '1900 Aquatique'}]
-
-
-def test_clubs_come_after_swimmers(monkeypatch):
-    """Both lists are sorted, and swimmers lead — the common search."""
-    assert [(r['type'], r['name']) for r in _pi(monkeypatch, 'a')] == [
-        ('swimmer', "O'Brien, Pat"),
-        ('swimmer', 'Relay A'),
-        ('swimmer', 'Sørensen, Åse'),
-        ('swimmer', 'Tremblay, Luc'),
-        ('club', '1900 Aquatique'),
-        ('club', 'CAMO'),
-        ('club', 'NATATION SUD'),
-    ]
-
-
-def test_the_fold_strips_what_it_cannot_decompose(monkeypatch):
-    """`ø` has no NFD decomposition, so it is dropped rather than folded to `o`.
-
-    Lossy, and deliberately kept: the client's `foldName()` reproduces it exactly,
-    so a query that finds a swimmer on the server finds them on the phone.
+    It was also the one route the two servers wrote out separately instead of
+    sharing a helper, and they had drifted: the cloud offered relay team names and
+    the Pi did not, so the same query answered differently depending on which server
+    an app happened to be pointed at. Re-adding it re-opens that.
     """
-    assert _pi(monkeypatch, 'srensen')
-    assert _pi(monkeypatch, 'sorensen') == []
-
-
-def test_an_empty_query_returns_nothing(monkeypatch):
-    for q in ('', '   '):
-        assert _pi(monkeypatch, q) == []
-        assert _cloud(monkeypatch, q) == []
+    for mod in (meet_routes, cs):
+        assert not hasattr(mod, 'route_search_suggestions')
+    for name in ('server/routes/meet.py', 'cloud/cloud_server.py'):
+        src = open(os.path.join(REPO, name), encoding='utf-8').read()
+        assert 'search_suggestions' not in src
 
 
 def test_the_schedule_page_builds_its_own_suggestions():
-    """The web page holds the same start list, so it must not fetch them.
+    """`S-09`'s 220ms debounce went with the fetch.
 
-    `S-09`'s 220ms debounce went with the fetch: it existed to spare the server, and
-    over a local index it would only lag the sheet (`app.md` §0.4).
+    It existed to spare the server; over a local index it would only lag the sheet
+    (`app.md` §0.4).
     """
     src = open(os.path.join(REPO, 'shared', 'templates', 'schedule.html'),
                encoding='utf-8').read()
     body = src[src.index('<script>'):]
-    assert 'search_suggestions' not in body.replace('/search_suggestions endpoint', '')
-    assert not re.search(r'fetch\(\s*url', body)
     assert 'buildSuggestIndex' in body
+    assert not re.search(r'fetch\(\s*url', body)
+    assert '_searchTimer' not in body

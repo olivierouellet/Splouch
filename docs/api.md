@@ -184,7 +184,6 @@ JSON/asset endpoints (everything else the servers expose is HTML for the browser
 | `GET /config` | **display config JSON** — `num_lanes`, `theme_colors`, `theme_fonts`, `show_*` flags, `labels`, `meet_title`, `locale`, `display_strings`, `carousel_images`, `carousel_interval` (§6). Lets the Qt display theme *and translate* itself without a rendered page |
 | `GET /server` | **who this server is** (§5.10) — `kind: "pi"`, its name, and the contract versions this build implements |
 | `GET /schedule.json` | **start list JSON** — `{ "heats": [ … ] }`, the same shape as the cloud's `GET /meet/{id}/schedule` (§5.8) and what the Pi's `/schedule` page embeds. No id in the path: one meet. Empty `heats` when no meet file is loaded |
-| `GET /search_suggestions?q=` | **deprecated** (§7) — `[{type:"swimmer"\|"club", name, club?}]`, as the cloud's without `meet_id`. Still served for shipped apps; new clients build the list from `GET /schedule.json` (`app.md` `S-09`) |
 | `GET /i18n/{lang}` | **client strings for one language** (§5.9). The same body the cloud serves for that language |
 | `GET /locales` | `[{ "code": "fr", "name": "Français" }]` — the languages this server can serve, custom files included |
 | `GET /manifest.json` | PWA manifest (app title, icons) |
@@ -206,7 +205,6 @@ JSON/asset endpoints (everything else the servers expose is HTML for the browser
 | `GET /locales` | as local |
 | `GET /manifest/{meet_id}` | per-meet PWA manifest |
 | `GET /icon/{meet_id}` | meet icon PNG · `GET /picker_image/{meet_id}` picker image PNG |
-| `GET /search_suggestions?meet_id=&q=` | **deprecated** (§7) — swimmer/club typeahead, `[{type:"swimmer"\|"club", name, club?}]`. Still served for shipped apps; new clients build the list from `GET /meet/{id}/schedule` (`app.md` `S-09`) |
 | `GET /mobile/schedule?meet=<id>` | schedule page (HTML embedding the same `heats` list) |
 
 ---
@@ -548,22 +546,26 @@ same `settings` shape, so the two config sources agree.
   so a client that read it already treated a missing key as `{}`; one that
   layered it now layers nothing. The `label_style` field beside it is unchanged.
 
-- **Deprecated since v2, the version stands**: `GET /search_suggestions`
-  on both servers (§4). Both still answer, unchanged, and nothing that calls one
-  breaks — it leaves the *contract*, not the build. It read only the start list
-  (`lane.name`, `lane.club`, `lane.swimmers[].name`), all of which `GET /meet/{id}/schedule`
-  and the Pi's `GET /schedule.json` already carry, so the request bought a
-  round-trip per keystroke and a window where the server's start list was ahead of
-  the client's and could suggest a swimmer the client could not then match.
-  `app.md` `S-09` is the replacement and specifies the index. Retiring it also
-  settles a drift: the two implementations were written separately and disagreed on
-  relay entries — the cloud offered the team name, the Pi did not. The Pi now matches
-  the cloud, which is the behaviour `S-09` describes. Delete both routes once
-  `Splouch-ios` and `Splouch-android` have stopped calling them.
+- **Also removed since v2, the version stands**: `GET /search_suggestions`, on
+  both servers, and with it its §4 rows. It read only the start list (`lane.name`,
+  `lane.club`, `lane.swimmers[].name`), all of which `GET /meet/{id}/schedule` and
+  the Pi's `GET /schedule.json` already carry, so a client could always have
+  answered it itself — and should have: the request cost a round-trip per
+  keystroke, and opened a window where the server's start list ran ahead of the
+  client's and offered a swimmer the client could not then match. `app.md` `S-09`
+  is the replacement and specifies the index, the fold included, so suggestions do
+  not depend on which client the spectator is holding. This is the one removal a v2
+  client can notice, and the only one that was not already how the servers behaved.
+  It was also the single route the two servers wrote out separately instead of
+  sharing a helper, and they had drifted: the cloud offered relay *team* names and
+  the Pi did not, so the same query answered differently depending on which server
+  an app was pointed at.
 
 - **Stated since v2, nothing on the wire changed**: the Pi's `GET /schedule.json`
-  and `GET /search_suggestions?q=` (§4) — the Pi's start list was HTML-only, against
-  `app.md` §0.2; the clock string format and the event/heat type rule (§5.1); that
+  and `GET /search_suggestions?q=` — the Pi's start list was HTML-only, against
+  `app.md` §0.2. (`/schedule.json` is §4; stating the Pi's suggestions endpoint is
+  what showed it had never been needed, and it was removed above.) Also: the clock
+  string format and the event/heat type rule (§5.1); that
   `join_meet` for an unknown meet is silently ignored and a 404 on
   `GET /meet/{id}/config` is the signal a meet is gone (§3); and that a contract
   mismatch is a notice, not a refusal (§5.10). All of it was already how the

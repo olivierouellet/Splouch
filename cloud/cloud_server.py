@@ -1226,52 +1226,6 @@ def route_meet_schedule(meet_id: str):
     return {'heats': _build_heats_json(meet.get('schedule_data', {}))}
 
 
-@app.get('/search_suggestions', tags=['Public'])
-def route_search_suggestions(request: Request):
-    """**Deprecated** (`docs/api.md` §7) — clients build this list themselves.
-
-    Still served, unchanged, because shipped `Splouch-ios` and `Splouch-android`
-    builds call it. It reads only the start list, every field of which `GET /meet/{id}/schedule`
-    already carries, so `app.md` `S-09` now specifies a local index instead: the
-    request bought a round-trip per keystroke and a window where this server's start
-    list was ahead of the client's and suggested a swimmer the client could not match.
-
-    Delete once both apps have stopped calling it.
-    """
-    import unicodedata
-    def fold(s):
-        return unicodedata.normalize('NFD', s.lower()).encode('ascii', 'ignore').decode()
-
-    meet_id = request.query_params.get('meet_id', '')
-    q       = fold(request.query_params.get('q', '').strip())
-    if not q:
-        return []
-    with _lock:
-        meet = _get_meet(meet_id)
-    if not meet:
-        return []
-    start_list = meet.get('schedule_data', {}).get('start_list', {})
-    swimmers, clubs = {}, set()
-    for ev, heats in start_list.items():
-        for ht, lanes in heats.items():
-            for lane, entry in lanes.items():
-                if entry.get('club'):
-                    clubs.add(entry['club'])
-                if entry.get('name'):
-                    swimmers[entry['name']] = entry.get('club', '')
-                for sw in entry.get('swimmers', []):
-                    if sw.get('name'):
-                        swimmers[sw['name']] = entry.get('club', '')
-    results = []
-    for name, club in sorted(swimmers.items()):
-        if q in fold(name):
-            results.append({'type': 'swimmer', 'name': name, 'club': club})
-    for club in sorted(clubs):
-        if q in fold(club):
-            results.append({'type': 'club', 'name': club})
-    return results[:20]
-
-
 @app.get('/logout', tags=['Admin'])
 def route_logout():
     return Response(

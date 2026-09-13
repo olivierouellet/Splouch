@@ -376,14 +376,13 @@ find *their* swimmer among several hundred.
 | `S-19` | Distinct empty states for "no swimmers match these filters" and "no search results" | — | should |
 | `S-20` | Filters live only for the session — not persisted | — | should |
 
-> **`S-09` builds its own index — do not call `GET /search_suggestions`.** The
-> endpoint still answers, because shipped apps call it, but it is retired from this
-> contract ([`api.md`](api.md) §7) and reads nothing `S-01` has not already given you:
-> every `lane.name`, `lane.club` and `lane.swimmers[].name`. Fetching it costs a
-> round-trip per keystroke and opens a window the local index closes by construction —
-> the server answers from *its* start list, so between a `schedule_update` and the
-> re-fetch it can offer a swimmer this list does not have, and the chip then matches
-> nothing. Build the index from the payload you rendered, and rebuild it with `S-21`.
+> **`S-09` builds its own index. There is no endpoint for it.** `GET /search_suggestions`
+> was removed from both servers ([`api.md`](api.md) §7) — it read nothing `S-01` has
+> not already given you: every `lane.name`, `lane.club` and `lane.swimmers[].name`.
+> It also opened a window the local index closes by construction: the server answered
+> from *its* start list, so between a `schedule_update` and the re-fetch it could
+> offer a swimmer this list did not have, and the chip then matched nothing. Build the
+> index from the payload you rendered, and rebuild it with `S-21`.
 
 > **What goes in the index, and how it matches.** One entry per distinct name:
 > every `lane.name` — relay **team** names included, since a spectator may know the
