@@ -304,7 +304,10 @@ def _ui_lang_cookie(request):
     return cookie if cookie in available else ''
 
 def _load_cloud_strings(request):
-    return _panel_strings(_admin_lang(request), 'cloud')
+    """`[chrome]` underneath `[cloud]`: the sidebar and theme switcher are the same
+    markup as the Pi's Settings panel, so their words live in one section both read."""
+    lang = _admin_lang(request)
+    return {**_panel_strings(lang, 'chrome'), **_panel_strings(lang, 'cloud')}
 
 def _meet_lang(meet):
     return meet.get('settings', {}).get('locale') or 'en'

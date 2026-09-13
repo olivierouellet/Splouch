@@ -122,16 +122,15 @@ webhook_unreachable        = "Deploy webhook unreachable"
 webhook_unreachable_hint   = "On the server: systemctl status deploy-webhook"
 unavailable                = "Unavailable"
 unknown                    = "unknown"
+
+# The release the server is running, in the Update tab.
+current                    = "Current"
 [settings]
 
 # Banner shown in Settings when a code update needs a full reinstall to apply.
 reinstall_banner = '''<strong>Update needs a reinstall to finish.</strong> A recent update changed system setup the in-app updater can't apply on its own. Run the installer again on this device — the <strong>Reinstall</strong> desktop shortcut, or <code>bash install/install.sh server</code> from the repo over SSH.'''
 
 # Sidebar chrome
-ui_theme        = "Theme"
-ui_theme_light  = "Light"
-ui_theme_dark   = "Dark"
-ui_theme_auto   = "Auto (follow system)"
 ui_panel_lang   = "Panel language"
 ui_lang_auto    = "Auto (follow browser)"
 
@@ -172,7 +171,6 @@ btn_refresh     = "Refresh"
 btn_enable      = "Enable"
 btn_clear       = "Clear"
 btn_preview     = "Preview"
-loading         = "Loading…"
 hold_delete_all = "Hold to delete all…"
 
 # Meet Setup
@@ -492,3 +490,18 @@ js_playing = "Playing"
 js_play = "Play"
 js_builtin = "built-in"
 js_go_to_network = "Go to Network tab"
+
+[chrome]
+# Panel furniture both operator pages draw: the sidebar, its toggle, and the
+# theme switcher. One home, because the Pi's Settings and the cloud's /admin
+# render the same markup and a second copy is what lets the two drift.
+menu           = "Menu"
+toggle_menu    = "Toggle menu"
+close          = "Close"
+auto           = "Auto"
+refresh        = "Refresh"
+loading        = "Loading…"
+theme          = "Theme"
+theme_light    = "Light"
+theme_dark     = "Dark"
+theme_auto     = "Auto (follow system)"

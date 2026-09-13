@@ -120,16 +120,15 @@ webhook_unreachable        = "Webhook de déploiement injoignable"
 webhook_unreachable_hint   = "Sur le serveur : systemctl status deploy-webhook"
 unavailable                = "Indisponible"
 unknown                    = "inconnu"
+
+# The release the server is running, in the Update tab.
+current                    = "Actuelle"
 [settings]
 
 # Bannière affichée dans les Réglages quand une mise à jour du code exige une réinstallation complète.
 reinstall_banner = '''<strong>La mise à jour nécessite une réinstallation.</strong> Une mise à jour récente a modifié la configuration système que le programme de mise à jour intégré ne peut pas appliquer seul. Relancez l'installateur sur cet appareil — le raccourci <strong>Réinstaller</strong> du bureau, ou <code>bash install/install.sh server</code> depuis le dépôt via SSH.'''
 
 # Barre latérale
-ui_theme        = "Thème"
-ui_theme_light  = "Clair"
-ui_theme_dark   = "Sombre"
-ui_theme_auto   = "Auto (selon le système)"
 ui_panel_lang   = "Langue du panneau"
 ui_lang_auto    = "Auto (langue du navigateur)"
 
@@ -170,7 +169,6 @@ btn_refresh     = "Actualiser"
 btn_enable      = "Activer"
 btn_clear       = "Effacer"
 btn_preview     = "Aperçu"
-loading         = "Chargement…"
 hold_delete_all = "Maintenir pour tout supprimer…"
 
 # Compétition
@@ -489,3 +487,18 @@ js_playing = "Lecture"
 js_play = "Lire"
 js_builtin = "intégrée"
 js_go_to_network = "Aller à l'onglet Réseau"
+
+[chrome]
+# Panel furniture both operator pages draw: the sidebar, its toggle, and the
+# theme switcher. One home, because the Pi's Settings and the cloud's /admin
+# render the same markup and a second copy is what lets the two drift.
+menu           = "Menu"
+toggle_menu    = "Afficher le menu"
+close          = "Fermer"
+auto           = "Auto"
+refresh        = "Actualiser"
+loading        = "Chargement…"
+theme          = "Thème"
+theme_light    = "Clair"
+theme_dark     = "Sombre"
+theme_auto     = "Auto (suit le système)"

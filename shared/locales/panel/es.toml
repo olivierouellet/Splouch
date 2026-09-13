@@ -120,16 +120,15 @@ webhook_unreachable        = "Webhook de despliegue inaccesible"
 webhook_unreachable_hint   = "En el servidor: systemctl status deploy-webhook"
 unavailable                = "No disponible"
 unknown                    = "desconocido"
+
+# The release the server is running, in the Update tab.
+current                    = "Actual"
 [settings]
 
 # Aviso mostrado en Ajustes cuando una actualización de código requiere una reinstalación completa.
 reinstall_banner = '''<strong>La actualización necesita una reinstalación.</strong> Una actualización reciente cambió la configuración del sistema que el actualizador integrado no puede aplicar por sí solo. Vuelve a ejecutar el instalador en este dispositivo — el acceso directo <strong>Reinstalar</strong> del escritorio, o <code>bash install/install.sh server</code> desde el repositorio por SSH.'''
 
 # Barra lateral
-ui_theme        = "Tema"
-ui_theme_light  = "Claro"
-ui_theme_dark   = "Oscuro"
-ui_theme_auto   = "Auto (según el sistema)"
 ui_panel_lang   = "Idioma del panel"
 ui_lang_auto    = "Auto (idioma del navegador)"
 
@@ -170,7 +169,6 @@ btn_refresh     = "Refrescar"
 btn_enable      = "Activar"
 btn_clear       = "Borrar"
 btn_preview     = "Vista previa"
-loading         = "Cargando…"
 hold_delete_all = "Mantén para eliminar todo…"
 
 # Competición
@@ -489,3 +487,18 @@ js_playing = "Reproduciendo"
 js_play = "Reproducir"
 js_builtin = "integrada"
 js_go_to_network = "Ir a la pestaña Red"
+
+[chrome]
+# Panel furniture both operator pages draw: the sidebar, its toggle, and the
+# theme switcher. One home, because the Pi's Settings and the cloud's /admin
+# render the same markup and a second copy is what lets the two drift.
+menu           = "Menú"
+toggle_menu    = "Mostrar el menú"
+close          = "Cerrar"
+auto           = "Auto"
+refresh        = "Actualizar"
+loading        = "Cargando…"
+theme          = "Tema"
+theme_light    = "Claro"
+theme_dark     = "Oscuro"
+theme_auto     = "Auto (sigue el sistema)"

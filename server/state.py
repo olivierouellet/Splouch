@@ -593,8 +593,14 @@ def display_strings(code=None):
 def settings_strings(code=None):
     """UI strings for the operator Settings panel, English-merged so any
     untranslated key falls back to English — templates can safely use
-    ``{{ t.key }}`` without risking a blank label."""
-    return _panel_section(code or settings.get('locale', 'en'), 'settings')
+    ``{{ t.key }}`` without risking a blank label.
+
+    ``[chrome]`` underneath: the sidebar and theme switcher are the same markup here
+    and in the cloud's ``/admin``, so their words live in one section both pages read.
+    ``[settings]`` wins on a clash, so a page-specific override stays possible.
+    """
+    code = code or settings.get('locale', 'en')
+    return {**_panel_section(code, 'chrome'), **_panel_section(code, 'settings')}
 
 def ui_locale(request):
     """Resolve the Settings-panel UI language.

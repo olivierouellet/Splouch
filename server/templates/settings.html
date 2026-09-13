@@ -59,7 +59,7 @@ function onPasswordInput(form) {
 <body>
 <div class="container-fluid px-0">
     <nav class="navbar border-bottom px-3 py-2 justify-content-center position-relative">
-        <button class="navbar-toggler d-lg-none border-0 shadow-none p-0 position-absolute top-50 start-0 translate-middle-y ms-3" type="button" data-bs-toggle="offcanvas" data-bs-target="#app-sidebar" aria-controls="app-sidebar" aria-label="Toggle menu">
+        <button class="navbar-toggler d-lg-none border-0 shadow-none p-0 position-absolute top-50 start-0 translate-middle-y ms-3" type="button" data-bs-toggle="offcanvas" data-bs-target="#app-sidebar" aria-controls="app-sidebar" aria-label="{{ t.toggle_menu }}">
             <span class="navbar-toggler-icon"></span>
         </button>
         <span class="navbar-brand mb-0 h5 me-0"><i class="bi bi-gear me-2"></i>Splouch</span>
@@ -68,8 +68,8 @@ function onPasswordInput(form) {
     <div class="d-flex">
         <div class="offcanvas-lg offcanvas-start border-end" tabindex="-1" id="app-sidebar" aria-labelledby="app-sidebar-label">
             <div class="offcanvas-header d-lg-none">
-                <h5 class="offcanvas-title" id="app-sidebar-label">Menu</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#app-sidebar" aria-label="Close"></button>
+                <h5 class="offcanvas-title" id="app-sidebar-label">{{ t.menu }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#app-sidebar" aria-label="{{ t.close }}"></button>
             </div>
             <div class="offcanvas-body d-flex flex-column">
                 <nav class="nav flex-column app-nav">
@@ -110,18 +110,18 @@ function onPasswordInput(form) {
                 </div>
                 <hr>
                 <div class="app-theme">
-                    <div class="panel-eyebrow">{{ t.ui_theme }}</div>
-                    <div class="btn-group btn-group-sm w-100" role="group" aria-label="{{ t.ui_theme }}">
-                        <button type="button" class="btn btn-outline-secondary" data-theme-set="light" title="{{ t.ui_theme_light }}">☀</button>
-                        <button type="button" class="btn btn-outline-secondary" data-theme-set="dark" title="{{ t.ui_theme_dark }}">🌙</button>
-                        <button type="button" class="btn btn-outline-secondary" data-theme-set="auto" title="{{ t.ui_theme_auto }}">Auto</button>
+                    <div class="panel-eyebrow">{{ t.theme }}</div>
+                    <div class="btn-group btn-group-sm w-100" role="group" aria-label="{{ t.theme }}">
+                        <button type="button" class="btn btn-outline-secondary" data-theme-set="light" title="{{ t.theme_light }}">☀</button>
+                        <button type="button" class="btn btn-outline-secondary" data-theme-set="dark" title="{{ t.theme_dark }}">🌙</button>
+                        <button type="button" class="btn btn-outline-secondary" data-theme-set="auto" title="{{ t.theme_auto }}">{{ t.auto }}</button>
                     </div>
                 </div>
                 <div class="app-lang mt-3">
                     <div class="panel-eyebrow">{{ t.ui_panel_lang }}</div>
                     <!-- A segmented group matching the theme toggle above. -->
                     <div class="btn-group btn-group-sm w-100" role="group" aria-label="{{ t.ui_panel_lang }}">
-                        <button type="button" class="btn btn-outline-secondary {% if not ui_lang_cookie %}active{% endif %}" data-ui-lang-set="auto" title="{{ t.ui_lang_auto }}">Auto</button>
+                        <button type="button" class="btn btn-outline-secondary {% if not ui_lang_cookie %}active{% endif %}" data-ui-lang-set="auto" title="{{ t.ui_lang_auto }}">{{ t.auto }}</button>
                     {% for code, lname in locale_list %}
                         <button type="button" class="btn btn-outline-secondary {% if code == ui_lang_cookie %}active{% endif %}" data-ui-lang-set="{{ code }}" title="{{ lname }}">{{ code|upper }}</button>
                     {% endfor %}

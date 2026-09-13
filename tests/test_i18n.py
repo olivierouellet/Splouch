@@ -161,7 +161,9 @@ def test_the_served_file_holds_only_what_a_spectator_reads():
     """The whole point of the split: a translator sees the spectator words and no
     operator string, and the served bundle cannot grow a panel string by accident."""
     assert set(_served('en')) == {'meta', 'labels', 'event_name', 'aliases', 'mobile', 'display'}
-    assert set(_panel('en')) == {'preview', 'cloud', 'settings'}
+    # `chrome` is the fourth because both operator pages draw the same sidebar and
+    # theme switcher; its words live once rather than once per page.
+    assert set(_panel('en')) == {'preview', 'cloud', 'settings', 'chrome'}
 
 
 @pytest.mark.parametrize('style', ['short', 'long'])
@@ -530,14 +532,6 @@ def test_translate_event_name_still_composes_through_the_split():
 # one: the Appearance form and the Debug tab read as half-translated for a long time
 # because their markup carried the words as literals and never looked anything up.
 
-PANEL_DIR = os.path.join(REPO, 'shared', 'locales', 'panel')
-
-
-def _panel(code):
-    with open(os.path.join(PANEL_DIR, f'{code}.toml'), 'rb') as f:
-        return tomllib.load(f)
-
-
 @pytest.mark.parametrize('code', ['fr', 'es'])
 def test_every_panel_language_carries_every_english_key(code):
     """English-merge hides an omission behind an English word. This names it."""
@@ -580,3 +574,52 @@ def test_the_cloud_panel_no_longer_hard_codes_those_words(literal):
     src = open(os.path.join(REPO, 'cloud', 'templates', 'admin.html'),
                encoding='utf-8').read()
     assert literal not in src, f'{literal!r} is back in the markup'
+
+
+# ── Shared panel chrome ────────────────────────────────────────────────────────
+#
+# The Pi's Settings and the cloud's /admin render the same sidebar and theme switcher.
+# The words used to exist twice — translated under `[settings]`, hard-coded in the
+# cloud's markup — which is how one panel ended up in French and the other in English.
+
+CHROME_KEYS = ['menu', 'toggle_menu', 'close', 'auto', 'refresh', 'loading',
+               'theme', 'theme_light', 'theme_dark', 'theme_auto']
+
+
+@pytest.mark.parametrize('key', CHROME_KEYS)
+def test_the_shared_chrome_words_live_in_one_section(key):
+    assert key in _panel('en')['chrome']
+    for section in ('cloud', 'settings'):
+        assert key not in _panel('en')[section], \
+            f'{key} is back in [{section}] — two copies is what lets them drift'
+
+
+@pytest.mark.parametrize('lang', ['en', 'fr', 'es'])
+def test_both_panels_read_the_chrome_section(lang):
+    """Each page's own section wins, so a page-specific override stays possible."""
+    sys.path.insert(0, os.path.join(REPO, 'cloud'))
+    import state
+    pi = state.settings_strings(lang)
+    for key in CHROME_KEYS:
+        assert pi.get(key), f'Pi Settings has no {key} in {lang}'
+    # The cloud's loader is the twin; check the same file resolves for it.
+    merged = {**_panel(lang).get('chrome', {}), **_panel(lang).get('cloud', {})}
+    for key in CHROME_KEYS:
+        assert merged.get(key), f'cloud /admin has no {key} in {lang}'
+
+
+@pytest.mark.parametrize('literal,template', [
+    ('>Menu<',               'cloud/templates/admin.html'),
+    ('Toggle menu',          'cloud/templates/admin.html'),
+    ('Auto (follow system)', 'cloud/templates/admin.html'),
+    ('aria-label="Close"',   'cloud/templates/admin.html'),
+    ('>Current<',            'cloud/templates/admin.html'),
+    ('>Loading…<',           'cloud/templates/admin.html'),
+    ('>Menu<',               'server/templates/settings.html'),
+    ('Toggle menu',          'server/templates/settings.html'),
+    ('aria-label="Close"',   'server/templates/settings.html'),
+])
+def test_neither_panel_hard_codes_its_chrome(literal, template):
+    src = open(os.path.join(REPO, template), encoding='utf-8').read()
+    body = re.sub(r'<script.*?</script>', '', src, flags=re.S)
+    assert literal not in body, f'{literal!r} is back in {template}'
