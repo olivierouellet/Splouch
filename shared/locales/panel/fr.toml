@@ -488,6 +488,11 @@ js_play = "Lire"
 js_builtin = "intégrée"
 js_go_to_network = "Aller à l'onglet Réseau"
 
+# Inline confirmation where a panel saves as you change it, in place of the
+# Update button that used to be both the trigger and the receipt.
+js_saved                 = "Enregistré"
+js_saving                = "Enregistrement…"
+
 [chrome]
 # Panel furniture both operator pages draw: the sidebar, its toggle, and the
 # theme switcher. One home, because the Pi's Settings and the cloud's /admin
