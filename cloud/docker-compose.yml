@@ -11,6 +11,17 @@ services:
       DATA_DIR:               /data
       DEPLOY_WEBHOOK_URL:     http://host.docker.internal:9000/deploy
       DEPLOY_WEBHOOK_SECRET:  ${DEPLOY_SECRET:-}
+      # Caddy terminates TLS and proxies to uvicorn over plain HTTP, so the ASGI
+      # scope says `http` unless the `X-Forwarded-Proto` Caddy sends is trusted.
+      # uvicorn trusts only 127.0.0.1 by default, and Caddy reaches us from a
+      # compose-bridge address, so the header was being dropped and `GET /servers`
+      # advertised `http://splouch.ca` — a second, untappable row in the app's
+      # server menu, blocked by ATS (docs/api.md §5.11).
+      #
+      # Private ranges rather than `*`: this covers Caddy wherever Docker renumbers
+      # the bridge, while a public client cannot spoof the scheme. `app` publishes
+      # no ports, so only Caddy reaches it in any case.
+      FORWARDED_ALLOW_IPS:    ${FORWARDED_ALLOW_IPS:-127.0.0.1,::1,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:
