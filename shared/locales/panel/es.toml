@@ -483,6 +483,7 @@ timing_finish_debounce_warn    = "Distinto del valor por defecto. Los resultados
 timing_restore_default         = "Restaurar el valor por defecto"
 timing_split_min               = "Parada mínima para una longitud"
 timing_split_min_help          = "Cuánto debe permanecer parado el cronómetro de una calle para contar una longitud. Más corto cuenta el viraje antes pero puede contar un parpadeo momentáneo de la consola; más largo ignora esos parpadeos a costa de perder un toque muy rápido. Con placas en un solo extremo, cada parada contada avanza el contador en dos."
+timing_split_min_warn          = "Distinto del valor por defecto. Una longitud solo se cuenta tras una parada de esa duración."
 
 [chrome]
 # Panel furniture both operator pages draw: the sidebar, its toggle, and the

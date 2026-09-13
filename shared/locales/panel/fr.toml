@@ -483,6 +483,7 @@ timing_finish_debounce_warn    = "Différent de la valeur par défaut. Les résu
 timing_restore_default         = "Rétablir la valeur par défaut"
 timing_split_min               = "Arrêt minimal pour une longueur"
 timing_split_min_help          = "Durée pendant laquelle le chronomètre d’une ligne doit rester arrêté pour compter une longueur. Plus court, le virage est compté plus tôt mais un bref artefact de la console risque de l’être aussi; plus long, les artefacts sont ignorés au risque de manquer une touche très rapide. Avec des plaques d’un seul côté, chaque arrêt compté avance le compteur de deux."
+timing_split_min_warn          = "Différent de la valeur par défaut. Une longueur n’est comptée qu’après un arrêt de cette durée."
 
 [chrome]
 # Panel furniture both operator pages draw: the sidebar, its toggle, and the

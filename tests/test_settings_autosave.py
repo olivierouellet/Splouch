@@ -184,10 +184,9 @@ def test_the_default_comes_from_the_server(src):
 def test_the_warning_tracks_the_default_and_the_reset_saves(src):
     """`3` and `3.0` are the same delay, so the comparison has to be numeric — and
     the reset sets the value from script, which fires no event by itself."""
-    blk = re.search(r'^    \(function \(\) \{\n        var input = '
-                    r'document\.getElementById\(.finish_debounce.\);.*?^    \}\)\(\);',
+    blk = re.search(r'^    function defaultWarning\(inputId, warnId, resetId\) \{.*?^    \}',
                     src, re.S | re.M)
-    assert blk, 'the race-detection block is no longer a top-level IIFE'
+    assert blk, 'defaultWarning is no longer a top-level function'
 
     harness = '''
     var els = {};
@@ -198,12 +197,10 @@ def test_the_warning_tracks_the_default_and_the_reset_saves(src):
       els[id]=o; return o; }
     var input = mk('finish_debounce'); input.dataset.default = '3'; input.value = '3.0';
     var warn = mk('finish-debounce-warn'), reset = mk('finish-debounce-reset');
-    mk('timing_tuning_form');
     var document = { getElementById: function (id) { return els[id] || null; } };
     function Event(t) { this.type = t; }
-    var saves = 0;
-    function autoSave() { return { saveNow: function () { saves++; } }; }
     ''' + blk.group(0) + '''
+    defaultWarning('finish_debounce', 'finish-debounce-warn', 'finish-debounce-reset');
     var steps = [];
     // What the browser actually goes by — `hidden` loses to `.d-flex` in Bootstrap.
     function snap(l) { steps.push([l, input.value,
@@ -292,10 +289,79 @@ def test_the_warning_is_hidden_by_class_not_by_hidden(src):
     utilities instead, and the server renders the right one so the warning is correct
     before any script runs.
     """
-    el = re.search(r'<div id="finish-debounce-warn"[^>]*>', src).group(0)
-    assert ' hidden' not in el, 'the hidden attribute is back and does nothing here'
-    assert 'd-none' in el and 'd-flex' in el, 'the start state must come from the server'
-    block = src[src.index("var warn  = document.getElementById('finish-debounce-warn')"):]
-    block = block[:block.index('})();')]
+    for warn_id in ('finish-debounce-warn', 'split-min-warn'):
+        el = re.search(r'<div id="%s"[^>]*>' % warn_id, src).group(0)
+        assert ' hidden' not in el, f'{warn_id}: hidden is back and does nothing here'
+        assert 'd-none' in el and 'd-flex' in el, f'{warn_id}: start state must be server-side'
+    block = re.search(r'^    function defaultWarning\(.*?^    \}', src, re.S | re.M).group(0)
     assert 'warn.hidden' not in block
     assert "classList.toggle('d-none'" in block and "classList.toggle('d-flex'" in block
+
+
+@pytest.mark.parametrize('field,warn,reset,default_var', [
+    ('finish_debounce',    'finish-debounce-warn', 'finish-debounce-reset',
+     'finish_debounce_default'),
+    ('split_min_duration', 'split-min-warn',       'split-min-reset',
+     'split_min_duration_default'),
+])
+def test_both_race_detection_fields_warn_off_default(src, field, warn, reset, default_var):
+    """Each changes how the meet is read, not how it looks, so neither should sit off
+    its default quietly."""
+    assert 'data-default="{{ %s }}"' % default_var in src
+    el = re.search(r'<div id="%s"[^>]*>' % warn, src).group(0)
+    assert ' hidden' not in el, 'hidden does not work here — see the Bootstrap note'
+    assert 'd-none' in el and 'd-flex' in el, 'the start state must come from the server'
+    assert 'id="%s"' % reset in src
+    assert "defaultWarning('%s'" % field in src
+
+
+def test_the_defaults_are_named_once(src):
+    """Retyping 3.0 or 1.0 into the template is how it drifts from `state`."""
+    import sys
+    sys.path.insert(0, os.path.join(REPO, 'server'))
+    import state
+    assert state.settings['finish_debounce'] == state.FINISH_DEBOUNCE_DEFAULT
+    assert state.settings['split_min_duration'] == state.SPLIT_MIN_DEFAULT
+
+
+@needs_js
+def test_the_shared_warning_helper_works_for_the_split_field(src):
+    """One helper, two fields — so the second is not a copy that drifts."""
+    blk = re.search(r'^    function defaultWarning\(inputId, warnId, resetId\) \{.*?^    \}',
+                    src, re.S | re.M)
+    assert blk
+    harness = '''
+    var els = {};
+    function mk(id) { var o = { id:id, value:'', dataset:{}, _h:{}, _cls:{},
+      addEventListener:function(e,f){ (this._h[e]=this._h[e]||[]).push(f); },
+      dispatchEvent:function(ev){ (this._h[ev.type]||[]).forEach(function(f){f();}); } };
+      o.classList = { toggle: function (c, on) { o._cls[c] = !!on; } };
+      els[id]=o; return o; }
+    var input = mk('split_min_duration'); input.dataset.default = '1'; input.value = '1.0';
+    var warn = mk('split-min-warn'), reset = mk('split-min-reset');
+    var document = { getElementById: function (id) { return els[id] || null; } };
+    function Event(t) { this.type = t; }
+    ''' + blk.group(0) + '''
+    defaultWarning('split_min_duration', 'split-min-warn', 'split-min-reset');
+    var steps = [];
+    function hidden() { return warn._cls['d-none'] === true && warn._cls['d-flex'] === false; }
+    steps.push(['load', input.value, hidden()]);
+    input.value = '2.5'; input.dispatchEvent(new Event('change'));
+    steps.push(['changed', input.value, hidden()]);
+    reset.dispatchEvent(new Event('click'));
+    steps.push(['reset', input.value, hidden()]);
+    JSON.stringify(steps);
+    '''
+    with tempfile.NamedTemporaryFile('w', suffix='.js', delete=False, encoding='utf-8') as fh:
+        fh.write(harness)
+        path = fh.name
+    try:
+        res = subprocess.run(['osascript', '-l', 'JavaScript', path],
+                             capture_output=True, text=True)
+    finally:
+        os.unlink(path)
+    assert res.returncode == 0, res.stderr
+    steps = dict((s[0], (s[1], s[2])) for s in json.loads(res.stdout))
+    assert steps['load'][1] is True,    'no warning when the value is the default'
+    assert steps['changed'][1] is False
+    assert steps['reset'] == ('1', True), 'reset restores the default and clears'

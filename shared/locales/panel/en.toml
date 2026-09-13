@@ -486,6 +486,7 @@ timing_finish_debounce_warn    = "Not the default. Every screen shows the result
 timing_restore_default         = "Restore default"
 timing_split_min               = "Minimum split stop"
 timing_split_min_help          = "How long a lane’s clock must stay stopped before it counts as a completed length. Shorter counts a turn sooner but risks counting a momentary console blip; longer ignores blips at the cost of missing a very quick touch. With touchpads at one end only, each counted stop advances the length count by two."
+timing_split_min_warn          = "Not the default. A length is counted only once the clock has been stopped this long."
 
 [chrome]
 # Panel furniture both operator pages draw: the sidebar, its toggle, and the

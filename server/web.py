@@ -93,6 +93,7 @@ def _globals():
         # back, so the default has to reach the template rather than be retyped.
         finish_debounce_default=state.FINISH_DEBOUNCE_DEFAULT,
         split_min_duration=float(state.settings.get('split_min_duration', 1.0)),
+        split_min_duration_default=state.SPLIT_MIN_DEFAULT,
         pool_length=int(state.settings.get('pool_length', 25)),
         touchpad_sides=int(state.settings.get('touchpad_sides', 1)),
         lenex_pool_length=int(state.meet.meet_info.get('pool_length_lenex') or 0),

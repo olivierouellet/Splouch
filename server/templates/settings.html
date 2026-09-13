@@ -505,10 +505,19 @@ function onPasswordInput(form) {
                             <label class="form-label mb-1" for="split_min_duration">{{ t.timing_split_min }}</label>
                             <div class="input-group input-group-sm" style="max-width:220px;">
                                 <input id="split_min_duration" type="number" name="split_min_duration" value="{{ split_min_duration }}"
-                                       min="0.5" max="10" step="0.1" class="form-control">
+                                       min="0.5" max="10" step="0.1" class="form-control"
+                                       data-default="{{ split_min_duration_default }}">
                                 <span class="input-group-text">{{ t.seconds }}</span>
                             </div>
                             <div class="form-text">{{ t.timing_split_min_help }}</div>
+                            {# Same class-toggle as the debounce above: `hidden` loses to
+                               `.d-flex`, and the server picks the starting one. #}
+                            <div id="split-min-warn" class="alert alert-warning py-2 px-3 mt-2 mb-0 flex-wrap align-items-center gap-2 {% if split_min_duration == split_min_duration_default %}d-none{% else %}d-flex{% endif %}">
+                                <span class="small flex-fill">{{ t.timing_split_min_warn }}</span>
+                                <button type="button" id="split-min-reset" class="btn btn-outline-secondary btn-sm">
+                                    {{ t.timing_restore_default }} ({{ split_min_duration_default }}&nbsp;{{ t.seconds }})
+                                </button>
+                            </div>
                         </div>
                         <span id="timing-tuning-note" class="small ms-2" role="status" aria-live="polite"></span>
                     </form>
@@ -1387,21 +1396,23 @@ function onPasswordInput(form) {
     autoSave(document.getElementById('theme_update_form'), 'theme-save-note');
 
     // ── Race detection ────────────────────────────────────────────────────────
-    // `finish_debounce` holds the results back on every screen at once — the board,
-    // the Results page and the cloud — so a value left off the default is worth
-    // saying out loud rather than leaving to be rediscovered mid-meet.
-    (function () {
-        var input = document.getElementById('finish_debounce');
-        var warn  = document.getElementById('finish-debounce-warn');
-        var reset = document.getElementById('finish-debounce-reset');
+    // Both of these change how the meet is read, not how it looks: `finish_debounce`
+    // holds the results back on every screen at once — the board, the Results page and
+    // the cloud — and `split_min_duration` decides whether a turn is counted at all. A
+    // value left off the default is worth saying out loud rather than being
+    // rediscovered mid-meet, so each gets a warning and its default back in one press.
+    function defaultWarning(inputId, warnId, resetId) {
+        var input = document.getElementById(inputId);
+        var warn  = document.getElementById(warnId);
+        var reset = document.getElementById(resetId);
         if (!input || !warn || !reset) return;
-
-        var saver = autoSave(document.getElementById('timing_tuning_form'), 'timing-tuning-note');
 
         function sync() {
             // Compare as numbers: "3" and "3.0" are the same delay.
             var isDefault = parseFloat(input.value) === parseFloat(input.dataset.default);
-            // Both classes, never `hidden`: see the note on the element.
+            // Both classes, never `hidden`: Bootstrap's `[hidden]` and `.d-flex` are
+            // equally specific and both important, and `.d-flex` comes later, so it
+            // wins. See the note on the element.
             warn.classList.toggle('d-none', isDefault);
             warn.classList.toggle('d-flex', !isDefault);
         }
@@ -1415,7 +1426,11 @@ function onPasswordInput(form) {
             input.dispatchEvent(new Event('change', { bubbles: true }));
         });
         sync();
-    })();
+    }
+
+    autoSave(document.getElementById('timing_tuning_form'), 'timing-tuning-note');
+    defaultWarning('finish_debounce',    'finish-debounce-warn', 'finish-debounce-reset');
+    defaultWarning('split_min_duration', 'split-min-warn',       'split-min-reset');
 
     // ── Theme colour pickers: flag changes from default + per-swatch revert ────
     (function () {

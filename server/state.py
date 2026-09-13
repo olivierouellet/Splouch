@@ -150,6 +150,11 @@ _GENDER_PATTERNS = [
 # value is off this and offers it back, so it is named rather than repeated.
 FINISH_DEBOUNCE_DEFAULT = 3.0
 
+# How long a lane's clock must stay stopped before the decoder counts a completed
+# length. The Timing pane warns when the running value is off this and offers it
+# back, so it is named rather than repeated.
+SPLIT_MIN_DEFAULT = 1.0
+
 settings = {
     'meet_title': '',
     'serial_port': 'COM1',
@@ -183,7 +188,7 @@ settings = {
     },
     'theme_fonts': {'family': 'Overpass Mono', 'digits': 'DSEG7Classic', 'timing': 'Overpass Mono'},
     'finish_debounce': FINISH_DEBOUNCE_DEFAULT,
-    'split_min_duration': 1.0,
+    'split_min_duration': SPLIT_MIN_DEFAULT,
     'pool_length': 25,
     'touchpad_sides': 1,
     'carousel_interval': 10,
