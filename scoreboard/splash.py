@@ -16,8 +16,9 @@ Three behaviours worth knowing:
   (`GET /images/{filename}`), and the board must never block on the network — see
   `scoreboard/README.md`.
 
-`live.html` omits the meet title here; `scoreboard.html` has it. This follows
-`scoreboard.html`, since a splash with no idea whose meet it is helps nobody.
+The meet title goes across the top, which `live.html` omits: a splash with no idea
+whose meet it is helps nobody, and this screen is what a hall stares at between
+heats.
 """
 import os
 import threading

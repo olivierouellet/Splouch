@@ -147,10 +147,9 @@ def test_an_unchanged_title_does_not_broadcast(settings, monkeypatch):
 # *after* the typed handlers, which is where two bugs came from.
 
 @pytest.mark.parametrize('key, submit, posted, minimum', [
-    ('intro_timeout',     'flow_settings_submit',   '2',   5),
-    ('results_timeout',   'flow_settings_submit',   '1',   5),
     ('carousel_interval', 'splash_settings_submit', '1',   3),
-    ('finish_debounce',   'flow_settings_submit',   '0.1', 0.5),
+    ('finish_debounce',   'timing_tuning_submit',   '0.1', 0.5),
+    ('split_min_duration', 'timing_tuning_submit',  '0.1', 0.5),
 ])
 def test_the_sweep_does_not_undo_a_clamp(key, submit, posted, minimum, monkeypatch):
     """It used to overwrite the clamped value with the raw form text.
@@ -159,7 +158,7 @@ def test_the_sweep_does_not_undo_a_clamp(key, submit, posted, minimum, monkeypat
     finish debounce of 0.1s past a 0.5s one, which is what stops results flapping
     on the board at the end of a race.
     """
-    monkeypatch.setitem(state.settings, key, 300 if 'timeout' in key else 9.0)
+    monkeypatch.setitem(state.settings, key, 9.0)
     _post({submit: '1', key: posted}, monkeypatch)
     assert float(state.settings[key]) >= minimum, 'the clamp was defeated'
 
@@ -167,7 +166,6 @@ def test_the_sweep_does_not_undo_a_clamp(key, submit, posted, minimum, monkeypat
 @pytest.mark.parametrize('key, submit, posted, expected', [
     ('num_lanes',         'pool_setup_submit',      '10',  10),
     ('carousel_interval', 'splash_settings_submit', '25',  25),
-    ('intro_timeout',     'flow_settings_submit',   '120', 120),
 ])
 def test_numbers_stay_numbers(key, submit, posted, expected, monkeypatch):
     """Comparing an int against form text is always unequal, so every save used

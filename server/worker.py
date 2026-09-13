@@ -154,7 +154,8 @@ def _on_race_state_changed(now_finished, updates=None):
         state._last_results_snapshot = _build_results_snapshot()
         state._finish_timer_gen += 1
         def _finish_task(gen=state._finish_timer_gen, snap=state._last_results_snapshot):
-            time.sleep(float(state.settings.get('finish_debounce', 3.0)))
+            time.sleep(float(state.settings.get('finish_debounce',
+                                               state.FINISH_DEBOUNCE_DEFAULT)))
             if state._finish_timer_gen == gen:
                 print('[race-state] results confirmed', flush=True)
                 bus.emit('/scoreboard', 'race_finished', {})

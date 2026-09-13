@@ -337,9 +337,10 @@ def test_a_solo_name_keeps_the_full_row_ceiling(board, qt_app):
 
 
 # ── Heat transition ────────────────────────────────────────────────────────────
-# Results → next heat is a five-step dissolve, mirroring mode_to_intro() in
-# scoreboard.html: podium tints fade, columns close, the table fades out, the new
-# heat is painted while invisible, the table fades back in. 500ms per step.
+# Results → next heat is a five-step dissolve: podium tints fade, columns close, the
+# table fades out, the new heat is painted while invisible, the table fades back in.
+# 500ms per step. `/live` cuts instead; the fade is deliberate here, because an
+# instant cut reads as a glitch at TV distance.
 
 def _finish_a_heat(board, qt_app, event='3', heat='1'):
     board.apply_update({'current_event': event, 'current_heat': heat,

@@ -1,9 +1,8 @@
 """The scoreboard window — header bar plus one row per lane.
 
 Layout mirrors ``server/templates/live.html`` — the page the Chromium kiosk
-actually rendered, since ``/`` redirects there. ``scoreboard.html`` is a different,
-diverged template; do not use it as the reference without checking, as its column
-widths and heat transition both differ.
+actually rendered, since ``/`` redirects there, and now the only board the Pi
+serves.
 
 Four things depart from the browser, deliberately:
 
@@ -12,8 +11,8 @@ Four things depart from the browser, deliberately:
   fields rather than the HTML ``lane_delta<i>`` blob, as ``docs/api.md`` §5.1
   instructs native clients to do.
 * Heats dissolve into one another instead of cutting. ``/live`` collapses the
-  columns instantly; this follows ``scoreboard.html``'s softer sequence because it
-  reads better on a TV. See the README.
+  columns instantly; a fade reads better across a hall at TV distance, where an
+  instant cut looks like a glitch. See the README.
 * The event/heat numbers take ``header_value`` rather than the browser's
   ``header_label``, which leaves the header's text in two near-identical greys.
 
@@ -74,8 +73,9 @@ _HDR_PAD_X = 0.02
 # Name takes the remainder, as it does in CSS. They sum to 100, so the weights are
 # the percentages directly.
 #
-# Note these are NOT scoreboard.html's numbers — that page gives delta 9vw. `/live`
-# is the reference for this display; see the README.
+# Taken from `/live`, which is the reference for this display; see the README.
+# A retired second template used to give delta 9vw, so a stray 9 here is a sign
+# someone measured the wrong page.
 _W_LANE, _W_NAME, _W_CLUB, _W_TIME, _W_DELTA, _W_PLACE = 5, 49, 8, 17, 15, 6
 
 # Per-column padding, as fractions of the row width: `.lane-name-cell`'s `0 2vw`,
@@ -90,7 +90,7 @@ _PAD_DELTA = 0.005
 # 500ms matches `.timing-anim { transition: … 0.5s ease }` in timing_display.css.
 _COL_ANIM_MS = 500
 
-# Heat transition, mirroring mode_to_intro() in scoreboard.html: the podium tints
+# Heat transition: the podium tints
 # fade, then the columns close, then the table fades out, is swapped while
 # invisible, and fades back in. Each step is 500ms in the browser.
 _PODIUM_FADE_MS  = 500

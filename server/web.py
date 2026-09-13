@@ -88,10 +88,10 @@ def _globals():
         show_position=state.settings.get('show_position', True),
         show_podium=state.settings.get('show_podium', True),
         num_lanes=int(state.settings.get('num_lanes', 6)),
-        intro_timeout=int(state.settings.get('intro_timeout', 300)),
-        results_timeout=int(state.settings.get('results_timeout', 300)),
-        server_update_timeout=int(state.settings.get('server_update_timeout', 300)),
         finish_debounce=float(state.settings.get('finish_debounce', 3.0)),
+        # The Timing pane warns when the delay is off the default and offers it
+        # back, so the default has to reach the template rather than be retyped.
+        finish_debounce_default=state.FINISH_DEBOUNCE_DEFAULT,
         split_min_duration=float(state.settings.get('split_min_duration', 1.0)),
         pool_length=int(state.settings.get('pool_length', 25)),
         touchpad_sides=int(state.settings.get('touchpad_sides', 1)),

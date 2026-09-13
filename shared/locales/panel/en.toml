@@ -243,28 +243,7 @@ timing_raw_data = "Raw data on a scoreboard"
 timing_raw_data_btn = "Raw data Scoreboard"
 
 # Flow
-flow_screen_modes = "Screen Modes"
-flow_modes_desc = "The scoreboard switches modes automatically based on what the CTS console is sending."
-flow_splash_when = '''No activity for <strong>Intro timeout</strong> or <strong>Results timeout</strong>'''
-flow_new_heat = "New event / heat received"
-flow_intro_desc = "Shows swimmer names — if no names, goes straight to Running"
-flow_lane_running = "Any lane starts running"
-flow_running_desc = "Shows live clock in all active lanes"
-flow_lanes_finish = "All lanes finish"
-flow_results_desc = "Shows final times and podium highlights (name column empty if no names loaded)"
-flow_splash_timeouts = "Splash timeouts"
-flow_scoreboard_only = "(scoreboard.html only)"
-flow_splash_scope = '''These apply only to <code>scoreboard.html</code>, which has a Splash mode. <code>live.html</code> has no splash.'''
-flow_intro_splash = "Intro → Splash after"
-flow_results_splash = "Results → Splash after"
-flow_noupdate_splash = "No server update → Splash after"
 seconds = "seconds"
-flow_if_no_start = "If the race doesn't start."
-flow_timing = "Timing"
-flow_finish_debounce = "Finish debounce"
-flow_finish_debounce_hint = "Lap split vs. true finish."
-flow_split_min = "Split min. duration"
-flow_split_min_hint = "Min. stop time to count as a split."
 
 # Display
 disp_title = "Title"
@@ -500,6 +479,17 @@ js_go_to_network = "Go to Network tab"
 # Update button that used to be both the trigger and the receipt.
 js_saved                 = "Saved"
 js_saving                = "Saving…"
+
+# Race detection, in the Timing pane. These two are console behaviour, not
+# display behaviour: one gates when results are published, the other how long a
+# lane must stay stopped to count a length.
+timing_tuning                  = "Race detection"
+timing_finish_debounce         = "Finish confirmation delay"
+timing_finish_debounce_help    = "How long the server waits, after the console reports every lane finished, before publishing the results. The snapshot is taken at once; if the console leaves the finished state inside this window — a stray artifact at race end — nothing is sent. Raising it makes a false finish less likely to reach a screen; lowering it puts the final times and podium colours up sooner. It gates the results for the scoreboard, the Results page and the cloud alike, so every screen waits this long."
+timing_finish_debounce_warn    = "Not the default. Every screen shows the results this long after the console reports the finish."
+timing_restore_default         = "Restore default"
+timing_split_min               = "Minimum split stop"
+timing_split_min_help          = "How long a lane’s clock must stay stopped before it counts as a completed length. Shorter counts a turn sooner but risks counting a momentary console blip; longer ignores blips at the cost of missing a very quick touch. With touchpads at one end only, each counted stop advances the length count by two."
 
 [chrome]
 # Panel furniture both operator pages draw: the sidebar, its toggle, and the

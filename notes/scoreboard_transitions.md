@@ -13,7 +13,7 @@
 
 ## Trigger Conditions (from socket updates)
 
-- **→ Splash (0):** Server explicitly resets state or no server updates received within the configurable `server_update_timeout` (default 300 s, reset by `scoreboard_updated` watchdog).
+- **→ Splash (0):** Server explicitly resets state. There is no idle timeout: `/live` has no watchdog, and the configurable `server_update_timeout` this line used to cite belonged to a second template that has since been deleted.
 - **→ Intro (1):** `current_event` or `current_heat` value changes in a server update.
 - **→ Running (2):** At least one `lane_running` flag is `true`.
 - **→ Results (3):** All lanes with a recorded time have a non-blank place (heat is fully done and no lane is still running).
@@ -32,7 +32,7 @@ Scoreboard is invisible by this point. Prepare for next transition.
 3. Scoreboard content cleared (names, clubs, times, diff, podium, place)
 4. Columns at the right of Club instantly collapsed (no animation — `anim` class removed, widths set to 0, re-added).
 
-**Timeout triggers:** Intro times out after `INTRO_TIMEOUT` (configurable) without a heat start. Results time out after `RESULTS_TIMEOUT` (configurable).
+**Timeout triggers:** none. The board stays in whatever state the console last put it in; the configurable `INTRO_TIMEOUT` / `RESULTS_TIMEOUT` these notes used to cite were the retired template's.
 
 ---
 
@@ -59,7 +59,7 @@ Scoreboard is invisible by this point. Prepare for next transition.
 - Content table fades **in** (500ms, or 250ms). No time, place, or delta columns visible.
 - If `intro_fast_mode`: after fade-in, immediately transitions to Running.
 
-**Timeout:** If no lane starts running within `INTRO_TIMEOUT`, the scoreboard returns to Splash.
+**Timeout:** none — the start list stays up until the next heat or an operator splash.
 
 ---
 
@@ -86,7 +86,7 @@ The scoreboard is always fully visible before `mode_to_running()` is called — 
 - Podium rows highlighted (gold/silver/bronze).
 - `scoreboard_paused = true` for 10 seconds to freeze display while results are read.
 
-**Timeout:** Returns to Splash after `RESULTS_TIMEOUT`.
+**Timeout:** none — results stay up until the next heat arrives.
 
 **Edge case — new heat arrives while still Running:** Transitions to Results without highlights and without pause (`brief_results = true`), then automatically goes to Intro after 3 seconds.
 

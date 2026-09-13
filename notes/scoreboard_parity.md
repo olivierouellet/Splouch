@@ -3,9 +3,10 @@
 The Qt display in [`scoreboard/`](../scoreboard/) replaced a Chromium kiosk pointed at
 `http://splouch.local`, which redirects to `/live`. So the reference for every layout
 decision is [`server/templates/live.html`](../server/templates/live.html) plus
-[`shared/static/css/timing_display.css`](../shared/static/css/timing_display.css) — **not**
-`scoreboard.html`, which is a diverged template with different column widths and a different
-heat transition.
+[`shared/static/css/timing_display.css`](../shared/static/css/timing_display.css). A second,
+diverged template (`scoreboard.html`) once sat beside it with different column widths and a
+different heat transition; it has been deleted, and the rows that cited it now stand on their
+own reasons.
 
 This file is the ledger. Every row below is one of:
 
@@ -76,7 +77,7 @@ number gained a digit or the chrono appeared. The Qt board had fixed weights fro
 percentages — the same convention as the column weights.
 
 On the browser side this is **opt-in**, through a `header_cells_fixed` class on the bar.
-`timing_display.css` is shared with `scoreboard.html`, `live-mobile.html` and `results.html`,
+`timing_display.css` is shared with `live-mobile.html` and `results.html`,
 and only the kiosk page wants fixed shares — a phone in particular does not.
 
 It only holds because the race clock keeps its slot when it has nothing to show. Both sides
@@ -245,10 +246,10 @@ stopped lining up with the data underneath.
 
 ## Transitions between heats
 
-| Aspect | `/live` | `scoreboard.html` | Qt board | Status |
-| --- | --- | --- | --- | --- |
-| results → next heat | instant cut | five-step dissolve | dissolve | **intentional** — it reads better on a TV; this is the one place the Qt board follows `scoreboard.html` |
-| state machine | intro / running / results, with a 350ms leave-results debounce and a 3s `brief_results` | — | none; heat-key change and `lane_running` drive it directly | **gap**, see below |
+| Aspect | `/live` | Qt board | Status |
+| --- | --- | --- | --- |
+| results → next heat | instant cut | five-step dissolve | **intentional** — a fade reads better at TV distance, where an instant cut looks like a glitch |
+| state machine | intro / running / results, with a 350ms leave-results debounce and a 3s `brief_results` | none; heat-key change and `lane_running` drive it directly | **gap**, see below |
 
 The dissolve is five 500ms steps: podium tints fade, columns close, the table fades out, the
 new heat is painted while invisible, the table fades back in. The table *pauses* from step 1
@@ -264,7 +265,7 @@ and an empty board skips it, since two seconds of dissolving nothing just looks 
 | --- | --- | --- | --- |
 | splash / carousel | `#carousel-overlay`, `inset: 4%`, `object-fit: contain` | `SplashOverlay`, same 4% inset | match |
 | — fade | 0.8s in/out, 1s cross-fade | `FADE_MS` 800, `CROSSFADE_MS` 1000 | match |
-| — meet title | absent | across the top 12% | **intentional** — follows `scoreboard.html`; a splash with no idea whose meet it is helps nobody |
+| — meet title | absent | across the top 12% | **intentional** — a splash with no idea whose meet it is helps nobody |
 | — background | `#000` | `shared/static/img/scoreboard_bg.png`, cropped to cover | **intentional** — sponsor logos are usually transparent PNGs, and what sits behind them is most of what the audience sees |
 | test badge | `.test-overlay` — bottom 2.5vh, `0.6vh 2.5vw`, 2.2vh bold, `0.15em`, radius 6, `row_text` at 75%, `bg` text | same proportions, same 75% | match |
 | cold-boot waiting screen | — | full-screen, opaque, `set_status()` | **Qt only** — the browser has no equivalent; a kiosk with a blank TV needs to say why |
@@ -286,9 +287,9 @@ decisions.
 
 | Gap | Detail |
 | --- | --- |
-| automatic idle splash | `/live` drops to a splash on its own after `INTRO_TIMEOUT` / `RESULTS_TIMEOUT`. The Qt overlay is operator-driven only, so the board holds the last start list until someone presses the button. |
-| results hold | `/live` pauses on results for `RESULTS_TIMEOUT` and distinguishes a brief result from a full one (`brief_results`). Here results simply stay until the next heat arrives. |
-| background image behind the table | Neither display does this today — `.background` in the CSS is a flat `--color-bg` fill, and `#splash_img` exists only in `scoreboard.html`. Worth having on both. |
+| automatic idle splash | Neither display has one: the Qt overlay is operator-driven, and `/live` never had a timeout — the `INTRO_TIMEOUT` / `RESULTS_TIMEOUT` this row used to cite belonged to the retired second template. Both boards hold the last start list until someone presses the button. |
+| results hold | `/live` distinguishes a brief result from a full one (`brief_results`). Here results simply stay until the next heat arrives. |
+| background image behind the table | Neither display does this today — `.background` in the CSS is a flat `--color-bg` fill. Worth having on both. |
 
 ---
 

@@ -118,7 +118,7 @@ def test_the_operator_button_shows_and_hides_it(board, qt_app):
 
 
 def test_the_meet_title_is_on_the_splash(board):
-    """`live.html` omits it; `scoreboard.html` has it. We follow scoreboard.html.
+    """`live.html` omits it; the Qt splash carries it deliberately.
 
     The title comes from Settings → Display → Title, which reaches us as
     `meet_title` in /config.

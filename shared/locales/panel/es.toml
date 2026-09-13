@@ -241,28 +241,7 @@ timing_raw_data = "Datos brutos en un marcador"
 timing_raw_data_btn = "Marcador de datos brutos"
 
 # Flujo
-flow_screen_modes = "Modos de pantalla"
-flow_modes_desc = "El marcador cambia de modo automáticamente según lo que envía la consola CTS."
-flow_splash_when = '''Sin actividad durante el <strong>tiempo de intro</strong> o el <strong>tiempo de resultados</strong>'''
-flow_new_heat = "Nueva prueba / serie recibida"
-flow_intro_desc = "Muestra los nombres de los nadadores — si no hay nombres, pasa directo a Running"
-flow_lane_running = "Alguna calle arranca"
-flow_running_desc = "Muestra el cronómetro en vivo en todas las calles activas"
-flow_lanes_finish = "Todas las calles terminan"
-flow_results_desc = "Muestra los tiempos finales y el podio (columna de nombres vacía si no hay nombres cargados)"
-flow_splash_timeouts = "Tiempos de espera"
-flow_scoreboard_only = "(solo scoreboard.html)"
-flow_splash_scope = '''Solo se aplican a <code>scoreboard.html</code>, que tiene un modo de espera. <code>live.html</code> no tiene espera.'''
-flow_intro_splash = "Intro → Espera tras"
-flow_results_splash = "Resultados → Espera tras"
-flow_noupdate_splash = "Sin actualización del servidor → Espera tras"
 seconds = "segundos"
-flow_if_no_start = "Si la carrera no arranca."
-flow_timing = "Cronometraje"
-flow_finish_debounce = "Antirrebote de llegada"
-flow_finish_debounce_hint = "Parcial de largo vs. llegada real."
-flow_split_min = "Duración mín. de un parcial"
-flow_split_min_hint = "Tiempo de parada mín. para contar como parcial."
 
 # Visualización
 disp_title = "Título"
@@ -497,6 +476,17 @@ js_go_to_network = "Ir a la pestaña Red"
 # Update button that used to be both the trigger and the receipt.
 js_saved                 = "Guardado"
 js_saving                = "Guardando…"
+
+# Race detection, in the Timing pane. These two are console behaviour, not
+# display behaviour: one gates when results are published, the other how long a
+# lane must stay stopped to count a length.
+timing_tuning                  = "Detección de carrera"
+timing_finish_debounce         = "Retardo de confirmación de llegada"
+timing_finish_debounce_help    = "Cuánto espera el servidor, tras informar la consola de que todas las calles han llegado, antes de publicar los resultados. La instantánea se toma de inmediato; si la consola sale del estado de llegada dentro de esa ventana — un artefacto pasajero al final de la carrera — no se envía nada. Subirlo reduce el riesgo de que una llegada falsa alcance una pantalla; bajarlo muestra antes los tiempos finales y los colores del podio. Afecta por igual al marcador, a la página de Resultados y a la nube, así que todas las pantallas esperan lo mismo."
+timing_finish_debounce_warn    = "Distinto del valor por defecto. Los resultados aparecen en todas las pantallas tras ese retardo."
+timing_restore_default         = "Restaurar el valor por defecto"
+timing_split_min               = "Parada mínima para una longitud"
+timing_split_min_help          = "Cuánto debe permanecer parado el cronómetro de una calle para contar una longitud. Más corto cuenta el viraje antes pero puede contar un parpadeo momentáneo de la consola; más largo ignora esos parpadeos a costa de perder un toque muy rápido. Con placas en un solo extremo, cada parada contada avanza el contador en dos."
 
 [chrome]
 # Panel furniture both operator pages draw: the sidebar, its toggle, and the

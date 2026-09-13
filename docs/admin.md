@@ -16,9 +16,8 @@ Change these in **Settings → Account** before deploying at a meet.
 
 | URL | Description |
 | --- | --- |
-| `/` | Redirects to `/scoreboard` |
-| `/scoreboard` | Full scoreboard (lane count from Meet Setup settings) |
-| `/live` | Compact live view |
+| `/` | Redirects to `/live` |
+| `/live` | The scoreboard (lane count from Meet Setup settings) — the reference display, and what the Qt board mirrors |
 | `/operator` | Operator control view |
 | `/mobile` | Mobile shell — three-tab view (Scoreboard, Results, Schedule) |
 | `/results` | Results after each heat |

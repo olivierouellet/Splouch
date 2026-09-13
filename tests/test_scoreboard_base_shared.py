@@ -363,7 +363,7 @@ def test_every_shared_template_declares_a_language():
 
 
 @pytest.mark.parametrize('template', [
-    'live.html', 'scoreboard.html', 'next_heats.html', 'full_schedule.html',
+    'live.html', 'next_heats.html', 'full_schedule.html',
 ])
 def test_pi_display_pages_declare_the_scoreboard_language(template):
     """Every page that renders `labels` shows text in the Settings → Display →

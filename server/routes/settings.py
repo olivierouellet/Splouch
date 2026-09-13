@@ -228,16 +228,13 @@ def _settings_view(request, form):
                                               state.settings)
                 _restart_worker()
 
-        if 'flow_settings_submit' in form:
-            for key, default in (('intro_timeout', 300), ('results_timeout', 300),
-                                  ('server_update_timeout', 300)):
-                try:
-                    val = max(5, int(form.get(key, default)))
-                    if val != state.settings.get(key, default):
-                        state.settings[key] = val
-                        modified = True
-                except (ValueError, TypeError):
-                    pass
+        if 'timing_tuning_submit' in form:
+            # Console behaviour, not display behaviour: `finish_debounce` gates when a
+            # results snapshot is published (worker.py), `split_min_duration` how long a
+            # lane must stay stopped to count a length (the decoder). They lived in an
+            # Appearance > Flow pane beside three timeouts that only `scoreboard.html`
+            # read; that template is gone and these moved to Timing, where they belong.
+            decoder_changed = False
             try:
                 val = round(max(0.5, float(form.get('finish_debounce', 3.0))), 1)
                 if val != state.settings.get('finish_debounce', 3.0):
@@ -249,9 +246,14 @@ def _settings_view(request, form):
                 val = round(max(0.5, float(form.get('split_min_duration', 1.0))), 1)
                 if val != state.settings.get('split_min_duration', 1.0):
                     state.settings['split_min_duration'] = val
-                    modified = True
+                    modified = decoder_changed = True
             except (ValueError, TypeError):
                 pass
+            if decoder_changed:
+                # The decoder reads this in configure(), which otherwise runs only at
+                # startup — so until now a changed value sat in settings.json and did
+                # nothing until the server was restarted.
+                state._decoder.configure(state.settings)
 
         if 'display_settings_submit' in form:
             for key in ('show_lane_header', 'show_name_header', 'show_club_header',

@@ -3,16 +3,15 @@
 The native display for the kiosk Pi. Replaces the Chromium kiosk that rendered
 `/live` in a browser.
 
-> **`/live` is the reference, not `/scoreboard`.** The kiosk pointed at
-> `http://splouch.local`, which redirects to `/live`. The two templates have
-> diverged, and where this display departs from `/live` it is called out:
+> **`/live` is the reference.** The kiosk pointed at `http://splouch.local`, which
+> redirects to `/live` — now the only board the Pi serves. Where this display departs
+> from it, that is called out:
 >
-> | | `/live` (the kiosk) | `/scoreboard` | here |
-> | --- | --- | --- | --- |
-> | between heats | instant cut | five-step dissolve | dissolve |
-> | delta column | 15vw | 9vw | 15vw |
-> | title on the splash | absent | present | present |
-> | idle splash timeout | yes | yes | not implemented |
+> | | `/live` (the kiosk) | here |
+> | --- | --- | --- |
+> | between heats | instant cut | five-step dissolve |
+> | delta column | 15vw | 15vw |
+> | title on the splash | absent | present |
 >
 > [`notes/scoreboard_parity.md`](../notes/scoreboard_parity.md) is the full ledger —
 > every layout aspect of the two, marked *match*, *intentional* or *gap*. Read it
@@ -204,12 +203,11 @@ reliably close them.
 **A deliberate departure from `/live`.** `live.html`'s `mode_to_intro()` collapses
 the columns instantly — it strips the `timing-anim` class, sets the widths to 0,
 forces a reflow, then puts the class back, which is the standard "change this
-without animating" trick. Only `scoreboard.html` dissolves. This display follows
-`scoreboard.html` here because the dissolve looks better on a TV; everything else
-follows `/live`.
+without animating" trick. This display dissolves instead, because a cut reads as a
+glitch at TV distance; everything else follows `/live`.
 
 Going from one heat's results to the next start list is a five-step dissolve,
-mirroring `mode_to_intro()` in `scoreboard.html`. 500ms per step:
+500ms per step:
 
 1. **Podium tints fade** back to the row stripes
 2. **Columns close**
@@ -450,8 +448,9 @@ worth keeping:
   `display_overlay` rebroadcasts are no-ops on a display already going down.
 
 **The meet title is a deliberate addition.** `live.html` has no title on its
-carousel — `scoreboard.html` does, and this follows `scoreboard.html`. It comes
-from Settings → Display → Title (`meet_title` in `/config`).
+carousel; a splash with no idea whose meet it is helps nobody, and this screen is
+what a hall stares at between heats. It comes from Settings → Display → Title
+(`meet_title` in `/config`).
 
 **The background is `scoreboard_bg.png`**, not a black rectangle. Sponsor logos are
 usually transparent PNGs, so what sits behind them is most of what the audience
@@ -740,13 +739,12 @@ intact).
 
 This is a working scaffold, not the finished display. Still to do:
 
-- **Automatic idle splash.** The overlay is operator-driven only. `/live` also
-  drops to a splash on its own after `INTRO_TIMEOUT` / `RESULTS_TIMEOUT`; here the
-  board holds the last start list until someone presses the button.
+- **Automatic idle splash.** The overlay is operator-driven only, and so is
+  `/live`'s — the timeouts this note used to cite belonged to a second template that
+  has since been deleted. Both boards hold the last start list until someone
+  presses the button.
 - **Background image behind the board.** `scoreboard_bg.png` backs the splash on
   this display. Neither board puts it behind the lane table — `.background` in
-  `timing_display.css` is a flat `--color-bg` fill and `#splash_img` exists only in
-  `scoreboard.html` — but both would be better for it.
-- **Results hold.** The browser pauses on results for `RESULTS_TIMEOUT` and
-  distinguishes a brief result from a full one; here results simply stay until
-  the next heat arrives.
+  `timing_display.css` is a flat `--color-bg` fill — but both would be better for it.
+- **Results hold.** `/live` distinguishes a brief result from a full one; here
+  results simply stay until the next heat arrives.

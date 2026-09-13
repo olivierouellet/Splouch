@@ -19,16 +19,6 @@ def route_index():
     return redirect('/live')
 
 
-@router.get('/scoreboard')
-def route_scoreboard_default(request: Request):
-    lanes = int(state.settings.get('num_lanes', 8))
-    return render(request, 'scoreboard.html',
-                  meet_title=state.settings['meet_title'],
-                  num_lanes=lanes,
-                  nosplash='nosplash' in request.query_params,
-                  test_background='test' in request.query_params)
-
-
 @router.get('/live')
 def route_live(request: Request):
     lanes = int(state.settings.get('num_lanes', 8))

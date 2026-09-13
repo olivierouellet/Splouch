@@ -145,6 +145,11 @@ _GENDER_PATTERNS = [
 
 # ── Settings ───────────────────────────────────────────────────────────────────
 
+# How long the server waits, after the console reports every lane finished, before
+# publishing the results snapshot (worker.py). The Timing pane warns when the running
+# value is off this and offers it back, so it is named rather than repeated.
+FINISH_DEBOUNCE_DEFAULT = 3.0
+
 settings = {
     'meet_title': '',
     'serial_port': 'COM1',
@@ -177,10 +182,7 @@ settings = {
         'connection_lost': '#ef5350', 'connection_lost_text': '#0d0d0d',
     },
     'theme_fonts': {'family': 'Overpass Mono', 'digits': 'DSEG7Classic', 'timing': 'Overpass Mono'},
-    'intro_timeout': 300,
-    'results_timeout': 300,
-    'server_update_timeout': 300,
-    'finish_debounce': 3.0,
+    'finish_debounce': FINISH_DEBOUNCE_DEFAULT,
     'split_min_duration': 1.0,
     'pool_length': 25,
     'touchpad_sides': 1,

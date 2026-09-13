@@ -241,28 +241,7 @@ timing_raw_data = "Données brutes sur un tableau"
 timing_raw_data_btn = "Tableau données brutes"
 
 # Déroulement
-flow_screen_modes = "Modes d'écran"
-flow_modes_desc = "Le tableau change de mode automatiquement selon ce que la console CTS envoie."
-flow_splash_when = '''Aucune activité pendant le <strong>délai d'intro</strong> ou le <strong>délai des résultats</strong>'''
-flow_new_heat = "Nouvelle épreuve / série reçue"
-flow_intro_desc = "Affiche les noms des nageurs — s'il n'y a pas de noms, passe directement à Running"
-flow_lane_running = "Un couloir démarre"
-flow_running_desc = "Affiche le chrono en direct dans tous les couloirs actifs"
-flow_lanes_finish = "Tous les couloirs terminent"
-flow_results_desc = "Affiche les temps finaux et le podium (colonne des noms vide si aucun nom chargé)"
-flow_splash_timeouts = "Délais de veille"
-flow_scoreboard_only = "(scoreboard.html seulement)"
-flow_splash_scope = '''Ne s'appliquent qu'à <code>scoreboard.html</code>, qui possède un mode Veille. <code>live.html</code> n'a pas de veille.'''
-flow_intro_splash = "Intro → Veille après"
-flow_results_splash = "Résultats → Veille après"
-flow_noupdate_splash = "Aucune mise à jour du serveur → Veille après"
 seconds = "secondes"
-flow_if_no_start = "Si la course ne démarre pas."
-flow_timing = "Chronométrage"
-flow_finish_debounce = "Anti-rebond d'arrivée"
-flow_finish_debounce_hint = "Passage de longueur vs. arrivée réelle."
-flow_split_min = "Durée min. d'un passage"
-flow_split_min_hint = "Temps d'arrêt min. pour compter comme un passage."
 
 # Affichage
 disp_title = "Titre"
@@ -497,6 +476,17 @@ js_go_to_network = "Aller à l'onglet Réseau"
 # Update button that used to be both the trigger and the receipt.
 js_saved                 = "Enregistré"
 js_saving                = "Enregistrement…"
+
+# Race detection, in the Timing pane. These two are console behaviour, not
+# display behaviour: one gates when results are published, the other how long a
+# lane must stay stopped to count a length.
+timing_tuning                  = "Détection de course"
+timing_finish_debounce         = "Délai de confirmation de l’arrivée"
+timing_finish_debounce_help    = "Temps d’attente du serveur, après que la console signale toutes les lignes arrivées, avant de publier les résultats. L’instantané est pris immédiatement; si la console quitte l’état « arrivé » pendant ce délai — un artefact passager en fin de course — rien n’est envoyé. Augmenter réduit le risque qu’une fausse arrivée atteigne un écran; diminuer affiche plus tôt les temps finaux et les couleurs du podium. Ce délai s’applique au tableau, à la page Résultats et au nuage, donc tous les écrans attendent d’autant."
+timing_finish_debounce_warn    = "Différent de la valeur par défaut. Les résultats apparaissent sur tous les écrans après ce délai."
+timing_restore_default         = "Rétablir la valeur par défaut"
+timing_split_min               = "Arrêt minimal pour une longueur"
+timing_split_min_help          = "Durée pendant laquelle le chronomètre d’une ligne doit rester arrêté pour compter une longueur. Plus court, le virage est compté plus tôt mais un bref artefact de la console risque de l’être aussi; plus long, les artefacts sont ignorés au risque de manquer une touche très rapide. Avec des plaques d’un seul côté, chaque arrêt compté avance le compteur de deux."
 
 [chrome]
 # Panel furniture both operator pages draw: the sidebar, its toggle, and the
