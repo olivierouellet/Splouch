@@ -475,10 +475,6 @@ js_play = "Play"
 js_builtin = "built-in"
 js_go_to_network = "Go to Network tab"
 
-# Inline confirmation where a panel saves as you change it, in place of the
-# Update button that used to be both the trigger and the receipt.
-js_saved                 = "Saved"
-js_saving                = "Saving…"
 
 # Race detection, in the Timing pane. These two are console behaviour, not
 # display behaviour: one gates when results are published, the other how long a

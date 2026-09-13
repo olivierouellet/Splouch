@@ -1308,26 +1308,31 @@ function onPasswordInput(form) {
         var note  = document.getElementById(noteId);
         var timer = null, inFlight = false;
 
-        function show(text, cls) {
+        // Nothing is said on the way through. A "Saving…" then "Saved" on every
+        // checkbox is noise: the panel is for a meet in progress, and the change is
+        // its own confirmation — the field holds what you typed and the board shows
+        // it. A failure is not self-evident, so that still speaks.
+        function fail(text) {
             if (!note) return;
-            note.className = 'small ms-2 ' + cls;
+            note.className = 'small ms-2 text-danger';
             note.textContent = text;
+        }
+        function clear() {
+            if (note) note.textContent = '';
         }
         function save() {
             if (inFlight) { schedule(); return; }   // coalesce onto the next window
             inFlight = true;
-            show(T.js_saving, 'text-body-secondary');
+            clear();
             fetch(form.action, { method: 'POST', body: new FormData(form) })
                 .then(function (r) {
                     if (!r.ok) throw new Error('HTTP ' + r.status);
-                    show(T.js_saved, 'text-success');
-                    setTimeout(function () { show('', ''); }, 2500);
                     // Some fields change how this very page renders — the scoreboard
                     // locale is also the panel language when no ui_lang cookie is set.
                     if (opts.reloadAfter && opts.reloadAfter()) location.reload();
                 })
                 .catch(function (e) {
-                    show(T.js_request_failed_c + e.message, 'text-danger');
+                    fail(T.js_request_failed_c + e.message);
                 })
                 .finally(function () { inFlight = false; });
         }

@@ -89,7 +89,7 @@ def test_autosave_debounces_and_reports(src):
     assert fn, 'autoSave is no longer a top-level function'
 
     harness = '''
-    var T = { js_saved: 'Saved', js_saving: 'Saving…', js_request_failed_c: 'Failed: ' };
+    var T = { js_request_failed_c: 'Failed: ' };
     var posts = [], __timers = [];
     var note = { className: '', textContent: '' };
     var document = { getElementById: function () { return note; } };
@@ -139,7 +139,9 @@ def test_autosave_debounces_and_reports(src):
     assert out['alive'] == 1, 'each change must replace the pending save, not add one'
     assert out['posts'] == ['/settings'], out['posts']
     assert out['debounce'] >= 300, 'too tight to coalesce a drag'
-    assert out['note'] == 'Saved'
+    # Silent on success: a "Saving…"/"Saved" on every checkbox is noise during a meet,
+    # and the change is its own confirmation — the field holds what you typed.
+    assert out['note'] == '', f'a success notice is back: {out["note"]!r}'
 
 
 # ── Race detection (Timing pane) ───────────────────────────────────────────────
@@ -226,3 +228,52 @@ def test_the_warning_tracks_the_default_and_the_reset_saves(src):
     assert steps['back to default'][1] is True, '"3.0" and "3" are the same delay'
     assert steps['low'][1] is False
     assert steps['reset'] == ('3', True),       'reset must restore the default and clear'
+
+
+@needs_js
+def test_a_failed_save_still_speaks(src):
+    """Silence is right for success and wrong for failure.
+
+    A change that never reached the server looks exactly like one that did — the
+    field still holds what you typed — so this is the one case the note exists for.
+    """
+    fn = re.search(r'^    function autoSave\(form, noteId, opts\) \{.*?^    \}',
+                   src, re.S | re.M)
+    assert fn
+    harness = '''
+    var T = { js_request_failed_c: 'Failed: ' };
+    var __timers = [];
+    var note = { className: '', textContent: '' };
+    var document = { getElementById: function () { return note; } };
+    function setTimeout(f, ms) { __timers.push([f, ms]); return __timers.length; }
+    function clearTimeout(i) { if (i) __timers[i - 1] = null; }
+    function FormData(f) {}
+    function fetch() {
+      return { then: function () {
+        return { then: function () { return this; },
+                 catch: function (h) { h(new Error('HTTP 500')); return this; },
+                 finally: function (h) { h(); return this; } }; } };
+    }
+    var handlers = [];
+    var form = { action: '/settings', querySelectorAll: function () {
+      var els = [{ addEventListener: function (ev, fn) { handlers.push(fn); } }];
+      els.forEach = Array.prototype.forEach.bind(els);
+      return els; } };
+    ''' + fn.group(0) + '''
+    autoSave(form, 'note');
+    handlers[0]();
+    __timers.filter(Boolean)[0][0]();
+    JSON.stringify({ text: note.textContent, cls: note.className });
+    '''
+    with tempfile.NamedTemporaryFile('w', suffix='.js', delete=False, encoding='utf-8') as fh:
+        fh.write(harness)
+        path = fh.name
+    try:
+        res = subprocess.run(['osascript', '-l', 'JavaScript', path],
+                             capture_output=True, text=True)
+    finally:
+        os.unlink(path)
+    assert res.returncode == 0, res.stderr
+    out = json.loads(res.stdout)
+    assert 'HTTP 500' in out['text'], 'the reason has to reach the operator'
+    assert 'text-danger' in out['cls']
