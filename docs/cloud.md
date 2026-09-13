@@ -89,15 +89,35 @@ On iOS, tap **Share → Add to Home Screen** for a full-screen app-like experien
 
 ## Updating the cloud server
 
-Click **Update** in `/admin` — it pulls the latest code from GitHub and rebuilds the container automatically. The page polls until the server is back up, then reloads.
+Click **Update** in `/admin` — it fetches from GitHub and rebuilds the container automatically. The page polls until the server is back up, then reloads. Prefer it: it resolves the right ref for the way this server was installed, which the manual commands below leave to you.
 
-To update manually over SSH:
+To update over SSH, check which track the checkout is on first — `install.sh` offers two, and they update differently:
 
 ```bash
-cd ~/Splouch && git pull && cd cloud && docker compose up -d --build
+cd ~/Splouch && git branch --show-current
 ```
 
-Caddy and the `data` volume (which stores `keys.json`) are preserved across updates.
+**`master`** — a development install. The branch tracks the remote, so a pull is enough:
+
+```bash
+git pull && cd cloud && docker compose up -d --build
+```
+
+**`release`** — a "Latest release" install. `install.sh` created this branch from a *tag*, so it has no upstream and `git pull` fails with *"There is no tracking information for the current branch"*. Move it to the tag you want instead:
+
+```bash
+git fetch --tags
+git checkout -B release "$(git tag -l --sort=-version:refname | grep -E '^v[0-9]{4}\.[0-9]{2}\.[0-9]+$' | head -1)"
+cd cloud && docker compose up -d --build
+```
+
+To switch a release install onto the development branch, name the remote branch so the upstream is set — after which `git pull` works there too:
+
+```bash
+git fetch origin && git checkout -B master origin/master
+```
+
+Caddy and the `data` volume (which stores `keys.json`) are preserved across updates. So is your edited `Caddyfile`, as long as you move between refs with `checkout` rather than `reset --hard` — the domain you set at install time lives in that tracked file and a hard reset would revert it.
 
 ## Logs
 
