@@ -102,21 +102,53 @@ def _globals():
     )
 
 
+# The visitor's choice lives in these cookies, one per device and per server
+# (docs/app.md `T-08`). A year, because the choice is meant to outlive the meet.
+PREF_COOKIES  = {'lang': 'splouch_lang', 'style': 'splouch_style'}
+PREF_MAX_AGE  = 365 * 24 * 3600
+
+
+def _pref(request: Request, name, valid):
+    """`?name=` for this request, else the cookie, else '' — invalid values ignored.
+
+    The query string still wins for one request so a shared link opens the way its
+    sender saw it and an old bookmark keeps working; `remember_prefs` then writes
+    it to the cookie so the next page needs no parameter at all.
+    """
+    for value in (request.query_params.get(name, ''),
+                  request.cookies.get(PREF_COOKIES[name], '')):
+        if value in valid:
+            return value
+    return ''
+
+
 def client_prefs(request: Request):
     """The visitor's language and label style for a phone page, else this meet's.
 
-    `?lang=` and `?style=` are how the choice travels: the shell stores it and puts
-    it on every page it opens, so one control covers all three tabs
-    (docs/app.md `T-06`, `T-08`, `T-09`). Unknown values fall back
-    rather than erroring — a stale bookmark must not break the board.
+    Unknown values fall back rather than erroring — a stale bookmark or a cookie
+    for a language this server no longer ships must not break the board
+    (docs/app.md `T-06`, `T-08`, `T-09`).
     """
-    lang = request.query_params.get('lang', '')
-    if lang not in dict(state.available_locales()):
-        lang = state.settings.get('locale', 'en')
-    style = request.query_params.get('style', '')
-    if style not in ('short', 'long'):
-        style = state.settings.get('label_style', 'long')
+    lang  = _pref(request, 'lang', dict(state.available_locales())) \
+            or state.settings.get('locale', 'en')
+    style = _pref(request, 'style', ('short', 'long')) \
+            or state.settings.get('label_style', 'long')
     return lang, style
+
+
+def remember_prefs(request: Request, response):
+    """Turn a valid `?lang=` / `?style=` on this request into the device cookie.
+
+    Called by the shell, the one page a shared link lands on: after it, the tabs
+    and every later visit read the cookie and the URL carries nothing.
+    """
+    for name, valid in (('lang', dict(state.available_locales())),
+                        ('style', ('short', 'long'))):
+        value = request.query_params.get(name, '')
+        if value in valid and value != request.cookies.get(PREF_COOKIES[name]):
+            response.set_cookie(PREF_COOKIES[name], value, max_age=PREF_MAX_AGE,
+                                samesite='lax')
+    return response
 
 
 def client_strings(request: Request):

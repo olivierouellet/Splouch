@@ -202,8 +202,10 @@ def test_the_tabs_inherit_the_shell_resolved_language_and_style(shell_pi, shell_
         for frame in ('frame0', 'frame1', 'frame2'):
             src = re.search(rf'id="{frame}"[^>]*src="([^"]+)"', shell).group(1)
             assert 'lang=' in src and 'style=' in src, src
-    # And the shell asks for itself again when a link arrives without the choice.
-    assert 'splouch_lang' in shell_cloud and 'location.replace' in shell_cloud
+    # The choice itself is a cookie the server read before rendering, so the shell
+    # no longer reloads itself to restore it from client-side storage.
+    for shell in (shell_pi, shell_cloud):
+        assert 'localStorage' not in shell and 'location.replace' not in shell
 
 
 def test_back_to_meets_only_where_there_are_meets(shell_pi, shell_cloud):

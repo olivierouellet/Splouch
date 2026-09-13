@@ -119,26 +119,13 @@ function onPasswordInput(form) {
                 </div>
                 <div class="app-lang mt-3">
                     <div class="panel-eyebrow">{{ t.ui_panel_lang }}</div>
-                    {% if custom_locale_list %}
-                    <!-- Custom locales present: a dropdown scales where the button group would overflow. -->
-                    <select class="form-select form-select-sm" data-ui-lang aria-label="{{ t.ui_panel_lang }}">
-                        <option value="auto" {% if not ui_lang_cookie %}selected{% endif %}>{{ t.ui_lang_auto }}</option>
-                    {% for code, lname in locale_list %}
-                        <option value="{{ code }}" {% if code == ui_lang_cookie %}selected{% endif %}>{{ lname }}</option>
-                    {% endfor %}
-                    {% for code, lname in custom_locale_list %}
-                        <option value="{{ code }}" {% if code == ui_lang_cookie %}selected{% endif %}>{{ lname }}</option>
-                    {% endfor %}
-                    </select>
-                    {% else %}
-                    <!-- Only built-in locales: a segmented group matching the theme toggle above. -->
+                    <!-- A segmented group matching the theme toggle above. -->
                     <div class="btn-group btn-group-sm w-100" role="group" aria-label="{{ t.ui_panel_lang }}">
                         <button type="button" class="btn btn-outline-secondary {% if not ui_lang_cookie %}active{% endif %}" data-ui-lang-set="auto" title="{{ t.ui_lang_auto }}">Auto</button>
                     {% for code, lname in locale_list %}
                         <button type="button" class="btn btn-outline-secondary {% if code == ui_lang_cookie %}active{% endif %}" data-ui-lang-set="{{ code }}" title="{{ lname }}">{{ code|upper }}</button>
                     {% endfor %}
                     </div>
-                    {% endif %}
                 </div>
                 <div class="dropup mt-auto pt-3 border-top">
                     <a href="#" class="d-flex align-items-center text-body-secondary text-decoration-none dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
@@ -583,28 +570,7 @@ function onPasswordInput(form) {
                             {% for code, lname in locale_list %}
                                 <option value="{{ code }}" {% if code == locale %}selected{% endif %}>{{ lname }}</option>
                             {% endfor %}
-                            {% if custom_locale_list %}
-                                <optgroup label="Custom">
-                                {% for code, lname in custom_locale_list %}
-                                    <option value="{{ code }}" {% if code == locale %}selected{% endif %}>{{ lname }}</option>
-                                {% endfor %}
-                                </optgroup>
-                            {% endif %}
                             </select>
-                            <div class="d-flex flex-wrap gap-1">
-                                <div class="file-picker">
-                                    <label class="btn btn-secondary btn-sm m-0" style="cursor:pointer;">
-                                        {{ t.common_add }}<input name="locale_file" type="file" accept=".toml" style="display:none;">
-                                    </label>
-                                    <span class="file-msg small text-body-secondary ms-1"></span>
-                                </div>
-                                {% if locale in custom_locale_codes %}
-                                <a href="/locale_delete" class="btn btn-outline-danger btn-sm">{{ t.btn_delete }}</a>
-                                {% endif %}
-                                {% if custom_locale_list %}
-                                <a href="/locale_delete_all" class="btn btn-outline-danger btn-sm" data-hold data-hold-label="{{ t.hold_delete_all }}">{{ t.btn_delete_all }}</a>
-                                {% endif %}
-                            </div>
                         </div>
                         <hr>
                         <div class="mb-3">

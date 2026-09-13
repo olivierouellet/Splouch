@@ -75,31 +75,6 @@ def route_icon_delete_all():
     return redirect('/settings#tab-meet')
 
 
-@router.get('/locale_delete', dependencies=[Depends(require_login)])
-def route_locale_delete():
-    code = state.settings.get('locale', '')
-    path = os.path.join(state.CUSTOM_LOCALE_FOLDER, code + '.toml')
-    if os.path.isfile(path):
-        os.remove(path)
-    state.settings['locale'] = 'fr'
-    state.save_settings()
-    return redirect('/settings')
-
-
-@router.get('/locale_delete_all', dependencies=[Depends(require_login)])
-def route_locale_delete_all():
-    for f in os.listdir(state.CUSTOM_LOCALE_FOLDER):
-        fp = os.path.join(state.CUSTOM_LOCALE_FOLDER, f)
-        if os.path.isfile(fp):
-            os.remove(fp)
-    builtin_codes = [os.path.splitext(os.path.basename(p))[0]
-                     for p in glob.glob(os.path.join(state.LOCALES_DIR, '*.toml'))]
-    if state.settings.get('locale') not in builtin_codes:
-        state.settings['locale'] = 'fr'
-    state.save_settings()
-    return redirect('/settings')
-
-
 @router.get('/theme_delete', dependencies=[Depends(require_login)])
 def route_theme_delete():
     code = state.settings.get('active_theme', '')

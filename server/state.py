@@ -36,6 +36,8 @@ REPO_DIR          = os.path.dirname(app_dir)
 SHARED_DIR        = os.path.join(REPO_DIR, 'shared')
 STATIC_DIR        = os.path.join(SHARED_DIR, 'static')
 LOCALES_DIR       = os.path.join(SHARED_DIR, 'locales')
+# Operator-facing strings, one optional file per language, English-merged per key.
+PANEL_LOCALES_DIR = os.path.join(LOCALES_DIR, 'panel')
 SCOREBOARD_DIR    = os.path.expanduser('~/SplouchData')
 _LEGACY_DATA_DIR  = os.path.expanduser('~/TremplinData')  # pre-Splouch; migrated on first run
 settings_file     = os.path.join(SCOREBOARD_DIR, 'settings.json')
@@ -50,7 +52,6 @@ HOME_ICON_512_PATH     = os.path.join(ICONS_DIR, 'home_icon_512.png')
 PICKER_DIR             = os.path.join(SCOREBOARD_DIR, 'picker')
 MEET_FOLDER            = os.path.join(SCOREBOARD_DIR, 'meet')
 LOGS_DIR               = os.path.join(SCOREBOARD_DIR, 'logs')
-CUSTOM_LOCALE_FOLDER          = os.path.join(SCOREBOARD_DIR, 'locale')
 THEME_FOLDER           = os.path.join(app_dir, 'themes')
 CUSTOM_THEME_FOLDER    = os.path.join(SCOREBOARD_DIR, 'themes')
 CUSTOM_DECODERS_FOLDER = os.path.join(SCOREBOARD_DIR, 'console_decoders')
@@ -426,7 +427,7 @@ _rtc_log_done          = None
 
 def _ensure_data_dirs():
     for d in (SCOREBOARD_DIR, MEET_FOLDER, IMAGES_DIR, ICONS_DIR, PICKER_DIR,
-              CUSTOM_SESSIONS_FOLDER, CUSTOM_LOCALE_FOLDER, CUSTOM_THEME_FOLDER,
+              CUSTOM_SESSIONS_FOLDER, CUSTOM_THEME_FOLDER,
               CUSTOM_DECODERS_FOLDER):
         os.makedirs(d, exist_ok=True)
     if not os.path.exists(settings_file) and os.path.exists(_settings_default):
@@ -482,28 +483,22 @@ def git_describe():
     return _git_describe_cache
 
 
-def _locale_path(code):
-    """The file a language resolves to. Prefer :func:`_locale_section` for reading:
-    it layers a custom file over the shipped one instead of replacing it."""
-    custom = os.path.join(CUSTOM_LOCALE_FOLDER, code + '.toml')
-    return custom if os.path.exists(custom) else os.path.join(LOCALES_DIR, code + '.toml')
-
 def available_locales():
-    """``(code, display name)`` for every language this Pi can serve.
+    """``(code, display name)`` for every language this server serves.
 
-    Custom files in ``scoreboard/locale/`` count: a club that adds one adds a
-    language, and ``_locale_path`` already prefers it over the bundled file.
+    One file in ``shared/locales/`` is one language (docs/admin.md "Localisation").
+    ``panel/`` is not a language list: it holds the operator-facing strings, and a
+    language may omit its panel file and read English there.
     """
     found = {}
-    for folder in (LOCALES_DIR, CUSTOM_LOCALE_FOLDER):
-        for path in sorted(glob.glob(os.path.join(folder, '*.toml'))):
-            code = os.path.splitext(os.path.basename(path))[0]
-            try:
-                with open(path, 'rb') as f:
-                    data = tomllib.load(f)
-            except Exception:
-                continue
-            found[code] = data.get('meta', {}).get('name', code)
+    for path in sorted(glob.glob(os.path.join(LOCALES_DIR, '*.toml'))):
+        code = os.path.splitext(os.path.basename(path))[0]
+        try:
+            with open(path, 'rb') as f:
+                data = tomllib.load(f)
+        except Exception:
+            continue
+        found[code] = data.get('meta', {}).get('name', code)
     return sorted(found.items())
 
 
@@ -516,18 +511,21 @@ def _toml_section(path, section):
 
 
 def _locale_section(code, section):
-    """One section of a language: the shipped file with this Pi's custom file over it.
+    """One section of a served language file, as shipped."""
+    return _toml_section(os.path.join(LOCALES_DIR, code + '.toml'), section)
 
-    ``_locale_path`` picks a custom file *instead of* the shipped one, which meant a
-    club overriding a single label silently dropped every other key in that
-    language and fell back to English. Layering is a strict superset — a complete
-    custom file resolves identically — and it is the model the cloud is sent, since
-    :func:`label_overrides` ships a diff for the client to layer the same way. The
-    two have to agree.
+
+def _panel_section(code, section):
+    """One section of a language's operator-panel file, English-merged per key.
+
+    The panel is the operator's console, not what a spectator reads, so a language
+    may ship without one: every key then renders in English, and a partial file
+    degrades word by word (docs/admin.md "Localisation").
     """
-    base = _toml_section(os.path.join(LOCALES_DIR, code + '.toml'), section)
-    custom = os.path.join(CUSTOM_LOCALE_FOLDER, code + '.toml')
-    return {**base, **_toml_section(custom, section)} if os.path.exists(custom) else base
+    base = _toml_section(os.path.join(PANEL_LOCALES_DIR, 'en.toml'), section)
+    if code == 'en':
+        return dict(base)
+    return {**base, **_toml_section(os.path.join(PANEL_LOCALES_DIR, code + '.toml'), section)}
 
 
 def i18n_bundle(code=None):
@@ -539,9 +537,8 @@ def i18n_bundle(code=None):
     :func:`display_strings` already follows — a half-translated locale falls back
     word by word instead of rendering blank.
 
-    Read through ``_locale_path``, so a Pi's custom wording is *served*, not diffed.
-    The cloud cannot see those files, which is why the relay also ships
-    :func:`label_overrides`.
+    The shipped table only: there is no per-Pi wording, so the Pi and the cloud
+    serve the same body for the same language and a client may cache either.
     """
     code = code or settings.get('locale', 'en')
     if code not in dict(available_locales()):
@@ -566,39 +563,6 @@ def i18n_bundle(code=None):
     }
 
 
-def label_overrides():
-    """What this Pi's custom locale files change in ``[labels]``, lang → style → key.
-
-    Only the difference. The bundled table is the same for every meet on a cloud and
-    travels as ``GET /i18n/{lang}``; what cannot travel that way is a file sitting in
-    one pool's ``scoreboard/locale/``, so that — and only that — rides in the relay
-    payload (api.md §5.4). Normally empty.
-    """
-    out = {}
-    for path in sorted(glob.glob(os.path.join(CUSTOM_LOCALE_FOLDER, '*.toml'))):
-        code = os.path.splitext(os.path.basename(path))[0]
-        try:
-            with open(path, 'rb') as f:
-                custom = tomllib.load(f).get('labels', {})
-        except Exception:
-            continue
-        bundled = {}
-        shipped = os.path.join(LOCALES_DIR, code + '.toml')
-        if os.path.exists(shipped):
-            try:
-                with open(shipped, 'rb') as f:
-                    bundled = tomllib.load(f).get('labels', {})
-            except Exception:
-                pass
-        for key, val in custom.items():
-            if not isinstance(val, dict):
-                continue
-            for style in ('short', 'long'):
-                if style in val and val[style] != bundled.get(key, {}).get(style):
-                    out.setdefault(code, {}).setdefault(style, {})[key] = val[style]
-    return out
-
-
 def load_locale(style=None):
     code  = settings.get('locale', 'en')
     style = style or settings.get('label_style', 'long')
@@ -608,7 +572,7 @@ def load_locale(style=None):
     return resolve_labels(labels, style)
 
 def load_preview_strings():
-    return _locale_section(settings.get('locale', 'en'), 'preview')
+    return _panel_section(settings.get('locale', 'en'), 'preview')
 
 def _mobile_strings():
     return _locale_section(settings.get('locale', 'en'), 'mobile')
@@ -626,16 +590,11 @@ def display_strings(code=None):
     base = _locale_section('en', 'display')
     return base if code == 'en' else {**base, **_locale_section(code, 'display')}
 
-def _settings_section(code):
-    return _locale_section(code, 'settings')
-
 def settings_strings(code=None):
     """UI strings for the operator Settings panel, English-merged so any
     untranslated key falls back to English — templates can safely use
     ``{{ t.key }}`` without risking a blank label."""
-    code = code or settings.get('locale', 'en')
-    base = _settings_section('en')
-    return base if code == 'en' else {**base, **_settings_section(code)}
+    return _panel_section(code or settings.get('locale', 'en'), 'settings')
 
 def ui_locale(request):
     """Resolve the Settings-panel UI language.
@@ -651,7 +610,7 @@ def ui_locale(request):
     the language the meet is actually run in. Someone who wants otherwise sets the
     override, which is what it is for.
     """
-    installed = {c for c, _ in list_locales()} | {c for c, _ in list_custom_locales()}
+    installed = {c for c, _ in list_locales()}
     cookie = request.cookies.get('ui_lang')
     if cookie in installed:
         return cookie
@@ -694,13 +653,6 @@ def provisioning_stale():
 
     want = _read(PROVISION_VERSION_FILE)
     return want > 0 and want > _read(PROVISIONED_MARKER)
-
-def list_custom_locales():
-    result = []
-    for path in sorted(glob.glob(os.path.join(CUSTOM_LOCALE_FOLDER, '*.toml'))):
-        code = os.path.splitext(os.path.basename(path))[0]
-        result.append((code, _read_locale_name(path, code)))
-    return result
 
 def _read_theme_name(path, fallback):
     try:

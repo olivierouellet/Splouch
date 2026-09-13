@@ -101,6 +101,7 @@ def _available_locales():
     return locales
 
 def _strings(lang, section):
+    """One section of a served language file (`shared/locales/{lang}.toml`)."""
     available = {code for code, _ in _available_locales()}
     if lang not in available:
         lang = 'en'
@@ -108,6 +109,59 @@ def _strings(lang, section):
         with open(os.path.join(LOCALES_DIR, f'{lang}.toml'), 'rb') as f:
             _locale_cache[lang] = tomllib.load(f)
     return _locale_cache[lang].get(section, {})
+
+
+_panel_cache = {}
+
+def _panel_strings(lang, section):
+    """One section of a language's operator-panel file, English-merged per key.
+
+    `panel/{lang}.toml` is optional: the admin page is not what a spectator reads,
+    so a language shipped without one renders it in English (docs/admin.md).
+    """
+    def load(code):
+        if code not in _panel_cache:
+            path = os.path.join(LOCALES_DIR, 'panel', f'{code}.toml')
+            try:
+                with open(path, 'rb') as f:
+                    _panel_cache[code] = tomllib.load(f)
+            except OSError:
+                _panel_cache[code] = {}
+        return _panel_cache[code].get(section, {})
+    base = load('en')
+    return dict(base) if lang == 'en' else {**base, **load(lang)}
+
+
+# The visitor's choice, per device and per server (docs/app.md `T-08`): the picker
+# writes these, every meet page reads them, and the URL carries nothing. The Pi
+# uses the same names (server/web.py), so the rule is one rule.
+PREF_COOKIES = {'lang': 'splouch_lang', 'style': 'splouch_style'}
+PREF_MAX_AGE = 365 * 24 * 3600
+
+
+def _pref(request, name, valid):
+    """`?name=` for this request, else the cookie, else '' — invalid values ignored.
+
+    The query string still wins for one request so a shared link opens the way its
+    sender saw it and an old bookmark keeps working; `_remember_prefs` then writes
+    it to the cookie so the next page needs no parameter at all.
+    """
+    for value in (request.query_params.get(name, ''),
+                  request.cookies.get(PREF_COOKIES[name], '')):
+        if value in valid:
+            return value
+    return ''
+
+
+def _remember_prefs(request, response):
+    """Turn a valid `?lang=` / `?style=` on this request into the device cookie."""
+    for name, valid in (('lang', {c for c, _ in _available_locales()}),
+                        ('style', ('short', 'long'))):
+        value = request.query_params.get(name, '')
+        if value in valid and value != request.cookies.get(PREF_COOKIES[name]):
+            response.set_cookie(PREF_COOKIES[name], value, max_age=PREF_MAX_AGE,
+                                samesite='lax')
+    return response
 
 # Only these columns have a long form worth showing — the lane and place columns are
 # too narrow for one on every board we ship (docs/app.md `T-09`). The Pi says the same
@@ -133,9 +187,8 @@ def _resolve_labels(labels, style):
 def _i18n_bundle(lang):
     """Client-facing strings for one language — ``GET /i18n/{lang}``, api.md §5.9.
 
-    The bundled table only: a Pi's ``scoreboard/locale/`` files are invisible here,
-    and reach clients as ``settings.label_overrides`` on the meet instead (§5.4).
-    English-merged per key so a half-translated locale degrades word by word.
+    The same body the Pi serves for the same language — there is no per-Pi wording
+    — English-merged per key so a half-translated locale degrades word by word.
     """
     if lang not in {code for code, _ in _available_locales()}:
         lang = 'en'
@@ -160,41 +213,26 @@ def _i18n_bundle(lang):
 def _client_lang(request, meet):
     """The language to render a meet page in: the visitor's choice, else the meet's.
 
-    `?lang=` is the whole mechanism — the shell stores the preference and puts it on
-    every page it opens, so one control on the picker reaches the tabs
-    (docs/app.md `T-06`, `T-08`). An unknown code falls back rather than
+    The picker stores the choice in a cookie and every meet page reads it, so one
+    control reaches the tabs (docs/app.md `T-06`, `T-08`); `?lang=` wins for one
+    request so a shared link opens as sent. An unknown code falls back rather than
     erroring: a stale bookmark must not break the board.
     """
-    lang = request.query_params.get('lang', '')
-    if lang and lang in {code for code, _ in _available_locales()}:
-        return lang
-    return _meet_lang(meet)
+    return _pref(request, 'lang', {code for code, _ in _available_locales()}) \
+        or _meet_lang(meet)
 
 
 def _client_labels(meet, lang, style):
-    """Column headers for a chosen language and style, the pool's wording included.
+    """Column headers for a chosen language and style.
 
     With no choice made this is exactly `settings.labels` — what the operator picked,
-    byte for byte. With one, the bundled table for that language is layered with the
-    meet's `label_overrides`, which is the only part of the table the cloud cannot
-    resolve for itself: those files live on one Pi (api.md §5.4). A club's wording
-    exists only in the language it was written in, so choosing another language
-    correctly gets the bundled word.
+    byte for byte. With one, it is the shipped table for that language, the same
+    body `GET /i18n/{lang}` serves (api.md §5.9).
     """
     s = meet.get('settings', {})
     if lang == _meet_lang(meet) and style == s.get('label_style', 'short'):
         return s.get('labels', {})
     labels = dict(_i18n_bundle(lang)['labels'].get(style, {}))
-    # A pool's wording goes through the same rule as the bundled table: `style`
-    # reaches only STYLED_LABEL_KEYS, so a club shipping `lane.long` does not get a
-    # long word into a narrow column by the back door (docs/app.md `T-09`).
-    overrides = s.get('label_overrides', {}).get(lang, {})
-    for key, value in overrides.get('short', {}).items():
-        if key not in STYLED_LABEL_KEYS:
-            labels[key] = value
-    for key, value in overrides.get(style, {}).items():
-        if key in STYLED_LABEL_KEYS:
-            labels[key] = value
     # The relay folds a few [mobile] strings into `labels`; keep whatever else the
     # meet sent so nothing that read them starts rendering blank.
     for key, value in s.get('labels', {}).items():
@@ -204,10 +242,8 @@ def _client_labels(meet, lang, style):
 
 def _client_style(request, meet):
     """`short` or `long` — the visitor's pick, else the operator's (`T-09`)."""
-    style = request.query_params.get('style', '')
-    if style in ('short', 'long'):
-        return style
-    return meet.get('settings', {}).get('label_style', 'short')
+    return _pref(request, 'style', ('short', 'long')) \
+        or meet.get('settings', {}).get('label_style', 'short')
 
 
 def _etagged(request, payload):
@@ -243,10 +279,12 @@ def _server_lang(request):
     return _browser_lang(request) or 'en'
 
 def _picker_lang(request):
-    # Public picker: each visitor's browser language wins; the server-wide
-    # default (creds['locale']) is only a fallback when the browser language
-    # isn't available. Set from the Appearance tab — see change_locale.
-    return _browser_lang(request) or _server_lang(request)
+    # Public picker: the visitor's stored choice (`?lang=`, then the cookie) wins,
+    # then the browser language; the server-wide default (creds['locale']) is only
+    # a fallback when neither names a language this server ships. Set from the
+    # Appearance tab — see change_locale.
+    return (_pref(request, 'lang', {c for c, _ in _available_locales()})
+            or _browser_lang(request) or _server_lang(request))
 
 def _admin_lang(request):
     # The admin panel language is per-device, independent of the server-wide
@@ -266,7 +304,7 @@ def _ui_lang_cookie(request):
     return cookie if cookie in available else ''
 
 def _load_cloud_strings(request):
-    return _strings(_admin_lang(request), 'cloud')
+    return _panel_strings(_admin_lang(request), 'cloud')
 
 def _meet_lang(meet):
     return meet.get('settings', {}).get('locale') or 'en'
@@ -892,7 +930,8 @@ def route_index(request: Request):
     # The list spans meets that may each run in a different language, so this page
     # follows the visitor, not a meet. Per-meet language starts at /mobile.
     lang = _picker_lang(request)
-    return render(request, 'picker.html', meets=meets, t=_strings(lang, 'cloud'),
+    return _remember_prefs(request, render(request, 'picker.html', meets=meets,
+        t=_strings(lang, 'mobile'),
         lang=lang,
         # For the display-preferences menu: the languages this server can serve.
         locales=_available_locales(),
@@ -900,7 +939,7 @@ def route_index(request: Request):
         picker_window_title=brand['window_title'],
         picker_logo=brand['has_logo'],
         picker_logo_above=brand['logo_above'],
-        analytics_enabled=_analytics_enabled())
+        analytics_enabled=_analytics_enabled()))
 
 
 # The contracts this build implements, for the handshake below. Bumped with the
@@ -999,10 +1038,8 @@ def route_picker_config(request: Request):
 
     ``privacy_note`` is present regardless, but is only to be shown when
     ``analytics_enabled`` is true, matching the web picker."""
-    lang = request.query_params.get('lang', '')
-    if lang not in {code for code, _ in _available_locales()}:
-        lang = _picker_lang(request)
-    strings = _strings(lang, 'cloud')
+    lang = _picker_lang(request)
+    strings = _strings(lang, 'mobile')
     return {
         **_picker_branding(),
         'lang':              lang,
@@ -1018,13 +1055,13 @@ def route_mobile(request: Request):
         meet = _get_meet(meet_id)
     if not meet:
         return RedirectResponse('/', status_code=303)
-    return render(request, 'mobile.html',
+    return _remember_prefs(request, render(request, 'mobile.html',
                   meet_id=meet_id,
                   app_title=(meet.get('app_window_title') or meet['name'] or 'Splouch'),
                   t=_strings(_client_lang(request, meet), 'mobile'),
                   lang=_client_lang(request, meet),
                   # Passed down to the tab iframes so one choice covers all three.
-                  ui_style=_client_style(request, meet))
+                  ui_style=_client_style(request, meet)))
 
 
 @app.get('/mobile/live', tags=['Public'])

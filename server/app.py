@@ -298,8 +298,7 @@ async def ws_settings(ws: WebSocket):
 def _register_locale_aliases():
     import tomllib
     seen = set()
-    for path in glob.glob(os.path.join(state.LOCALES_DIR, '*.toml')) + \
-                glob.glob(os.path.join(state.CUSTOM_LOCALE_FOLDER, '*.toml')):
+    for path in glob.glob(os.path.join(state.LOCALES_DIR, '*.toml')):
         try:
             with open(path, 'rb') as f:
                 aliases = tomllib.load(f).get('aliases', {})

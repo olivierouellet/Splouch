@@ -269,13 +269,6 @@ def _settings_view(request, form):
                 if key in form and state.settings.get(key) != form.get(key):
                     state.settings[key] = form.get(key)
                     modified = True
-            if 'locale_file' in form:
-                file = form['locale_file']
-                if file and file.filename and file.filename.endswith('.toml'):
-                    filename = os.path.basename(file.filename)
-                    save_upload(file, os.path.join(state.CUSTOM_LOCALE_FOLDER, filename))
-                    state.settings['locale'] = os.path.splitext(filename)[0]
-                    modified = True
 
         if 'splash_settings_submit' in form:
             # meet_title moved here with its input: it heads the splash screen on
@@ -493,14 +486,11 @@ def _settings_view(request, form):
                  glob.glob(os.path.join(state.MEET_FOLDER, '*.lxf'))
     )
 
-    custom_locale_list  = state.list_custom_locales()
-    custom_locale_codes = [c for c, _ in custom_locale_list]
-
     ui_lang = state.ui_locale(request)
     # Whether the user has explicitly pinned a panel language (vs. "Auto"). Only
     # an installed locale counts, so a stale cookie for a removed locale reads as
     # Auto — matching how ui_locale() resolves it.
-    installed_ui = {c for c, _ in state.list_locales()} | set(custom_locale_codes)
+    installed_ui = {c for c, _ in state.list_locales()}
     ui_lang_cookie = request.cookies.get('ui_lang', '')
     ui_lang_cookie = ui_lang_cookie if ui_lang_cookie in installed_ui else ''
     return render(
@@ -523,8 +513,6 @@ def _settings_view(request, form):
         carousel_interval=int(state.settings.get('carousel_interval', 10)),
         locale=state.settings.get('locale', 'en'),
         locale_list=state.list_locales(),
-        custom_locale_list=custom_locale_list,
-        custom_locale_codes=custom_locale_codes,
         label_style=state.settings.get('label_style', 'short'),
         num_lanes=int(state.settings.get('num_lanes', 6)),
         show_lane_header=state.settings.get('show_lane_header', True),

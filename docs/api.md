@@ -185,7 +185,7 @@ JSON/asset endpoints (everything else the servers expose is HTML for the browser
 | `GET /server` | **who this server is** (§5.10) — `kind: "pi"`, its name, and the contract versions this build implements |
 | `GET /schedule.json` | **start list JSON** — `{ "heats": [ … ] }`, the same shape as the cloud's `GET /meet/{id}/schedule` (§5.8) and what the Pi's `/schedule` page embeds. No id in the path: one meet. Empty `heats` when no meet file is loaded |
 | `GET /search_suggestions?q=` | `[{type:"swimmer"\|"club", name, club?}]` — as the cloud's, without `meet_id` |
-| `GET /i18n/{lang}` | **client strings for one language** (§5.9). Layers this Pi's `scoreboard/locale/{lang}.toml` over the bundled file, so custom wording reaches every client |
+| `GET /i18n/{lang}` | **client strings for one language** (§5.9). The same body the cloud serves for that language |
 | `GET /locales` | `[{ "code": "fr", "name": "Français" }]` — the languages this server can serve, custom files included |
 | `GET /manifest.json` | PWA manifest (app title, icons) |
 | `GET /home_icon`, `/home_icon_512` | meet home-screen icon PNG |
@@ -306,25 +306,25 @@ row by lane (blank gaps) or by finishing place. `delta` is browser HTML;
   "settings": { "num_lanes": 8, "show_name": true, "show_club": true, "show_delta": true,
                 "show_position": true, "show_podium": true, "show_*_header": true,
                 "theme_colors": { … }, "theme_fonts": { … }, "locale": "fr",
-                "labels": { … }, "label_style": "short", "label_overrides": { … },
+                "labels": { … }, "label_style": "short",
                 "home_icon_b64": "…?", "picker_image_b64": "…?" } }
 ```
 This `settings` block is the meet's display config — the same values a native
 attendee needs to render the board (lane count, visible columns, theme, labels).
 
-`label_style` and `label_overrides` are additive: a client that ignores them
-behaves exactly as before they existed.
+`label_style` is additive: a client that ignores it behaves exactly as before it
+existed.
 
 | field | meaning |
 | --- | --- |
 | `labels` | as now — resolved for the meet's `locale` and the operator's style. The default a client renders before any user preference, and the whole story for a client that wants no more than that |
 | `label_style` | `"short"` or `"long"` — *which* of the two the operator picked, so a client offering the choice knows where to start. The Pi's phone style is `cloud_label_style`, separate from the kiosk's `label_style` |
-| `label_overrides` | only what this Pi's `scoreboard/locale/*.toml` changes from the bundled table, keyed by language then style: `{ "fr": { "long": { "event": "COURSE" } } }`. Normally absent. It is the one part of the label table that is genuinely meet-scoped, because it exists on that Pi and nowhere else. A `long` override on a narrow column is ignored, the same as in the bundled table (`app.md` `T-09`) |
 
 The full label table does **not** travel here. It is the same for every meet on a
 server and would be duplicated per meet, persisted per meet, and re-sent to every
 phone in languages it will never render; it comes from `GET /i18n/{lang}` instead,
-one language at a time and cached (§5.9).
+one language at a time and cached (§5.9). There is no per-meet override of that
+table: `labels` is the operator's pick, resolved from the same file.
 
 ### 5.5 relay `schedule_snapshot` (Pi → cloud)
 ```json
@@ -357,7 +357,9 @@ Language resolves from `?lang=` when it names an available locale, else
 
 `strings` is served rather than shipped in the app because `results_disclaimer`
 and `privacy_note` are compliance text and must be correctable without an app
-release. Show `privacy_note` only when `analytics_enabled` is true.
+release. Show `privacy_note` only when `analytics_enabled` is true. The same
+keys are in `GET /i18n/{lang}` → `mobile` (§5.9), which is where the rest of the
+picker's chrome — the language and label-style controls — comes from.
 
 ### 5.8 `GET /meet/{meet_id}/schedule`
 ```json
@@ -398,9 +400,13 @@ the server has no such locale.
 - **`ETag` + `Cache-Control`.** The body changes only when the server's locale files
   do, so a client fetches one language once and revalidates.
 - **Not meet-scoped**, which is the point: one response serves every meet on the
-  server. The Pi merges its own `scoreboard/locale/{lang}.toml` first, so custom
-  wording is served rather than diffed; the cloud cannot see those files, which is
-  why `settings.label_overrides` exists (§5.4).
+  server, and the Pi and the cloud serve the same body for the same language.
+  There is no per-Pi wording, so a client may cache either server's copy.
+- **`mobile` is every word a spectator reads that the web pages also show**: the
+  tabs, the empty states, the filter sheet, and the picker's chrome and
+  compliance text (§5.7). It does not carry words about the app or the device —
+  a server sheet, a connection error, an OS requirement — which are native in
+  each app (`app.md` `T-05`).
 - **`event_name`** is the vocabulary `update_scoreboard.event_name_parts` composes
   against (§5.1) — strokes, genders, age words, the unit and the separator. It is
   what lets an event name follow the reader's language instead of the meet's.
@@ -410,8 +416,10 @@ the server has no such locale.
 - `labels` here is the *bundled* table. A client wanting exactly what the operator
   chose can ignore this section entirely and render `settings.labels`.
 
-Cost of a new language, by design: one file in `shared/locales/`. Nothing is added
-to any meet payload, and no client repo ships a string.
+Cost of a new language, by design: one file in `shared/locales/`, complete against
+`en.toml` (a test enforces it). The operator panel's `panel/{lang}.toml` is
+optional and falls back to English per key. Nothing is added to any meet payload,
+and no client repo ships a spectator-facing string.
 
 ### 5.10 `GET /server`
 
@@ -529,10 +537,16 @@ same `settings` shape, so the two config sources agree.
   interpolate, do not render.
 
 - **Added since v2, all additive so the version stands**: `GET /i18n/{lang}` and
-  `GET /locales` (§5.9), `settings.label_style` / `settings.label_overrides`
-  (§5.4), and `GET /server` / `GET /servers` (§5.10–5.11) with the Pi's
-  `_splouch._tcp` mDNS record. A v2 client ignores all of it and is unaffected;
-  `app.md` is what consumes them.
+  `GET /locales` (§5.9), `settings.label_style` (§5.4), and `GET /server` /
+  `GET /servers` (§5.10–5.11) with the Pi's `_splouch._tcp` mDNS record. A v2
+  client ignores all of it and is unaffected; `app.md` is what consumes them.
+  `GET /i18n/{lang}` → `mobile` later gained the picker chrome and filter-sheet
+  keys (§5.9), also additive.
+
+- **Removed since v2, the version stands**: `settings.label_overrides` (§5.4),
+  with the per-Pi locale file it carried. It was documented as normally absent,
+  so a client that read it already treated a missing key as `{}`; one that
+  layered it now layers nothing. The `label_style` field beside it is unchanged.
 
 - **Stated since v2, nothing on the wire changed**: the Pi's `GET /schedule.json`
   and `GET /search_suggestions?q=` (§4) — the Pi's start list was HTML-only, against

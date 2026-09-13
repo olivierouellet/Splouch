@@ -213,9 +213,10 @@
     {% endif %}
     <script>
 /* ── Display preferences ──────────────────────────────────────────────────────
-   Stored per device, read back by every meet page the visitor opens: the shell
-   restores them from here when a link arrives without them, so the meet cards
-   below stay plain links (docs/app.md `T-08`, `T-09`).
+   Two cookies per device, read by the server for every page it renders, so the
+   meet cards below stay plain links and a bookmark opens right without a
+   parameter (docs/app.md `T-08`, `T-09`). A preference, not tracking: nothing
+   here identifies the visitor.
 
    Empty means "no choice": the picker keeps following the browser, and a meet page
    keeps following the meet. That is the default, and clearing is how you get back
@@ -223,7 +224,13 @@
 var PREFS = { lang: 'splouch_lang', style: 'splouch_style' };
 
 function readPref(name) {
-    try { return localStorage.getItem(PREFS[name]) || ''; } catch (e) { return ''; }
+    var m = document.cookie.match('(?:^|; )' + PREFS[name] + '=([^;]*)');
+    return m ? decodeURIComponent(m[1]) : '';
+}
+
+function writePref(name, value) {
+    document.cookie = PREFS[name] + '=' + encodeURIComponent(value || '') +
+        ';path=/;samesite=lax;max-age=' + (value ? 31536000 : 0);
 }
 
 function markPrefs() {
@@ -246,18 +253,15 @@ document.addEventListener('click', function (e) {
 
 document.querySelectorAll('.prefs-opt').forEach(function (b) {
     b.addEventListener('click', function () {
-        try {
-            if (b.dataset.value) localStorage.setItem(PREFS[b.dataset.pref], b.dataset.value);
-            else                 localStorage.removeItem(PREFS[b.dataset.pref]);
-        } catch (e) {}
+        writePref(b.dataset.pref, b.dataset.value);
         markPrefs();
-        /* This page is rendered server-side, so a language change is a reload with
-           `?lang=`. A style change alters nothing here — the picker has no columns
-           — so it is stored and left for the meet pages. */
+        /* This page is rendered server-side, so a language change is a reload: the
+           server reads the cookie just written. A stale `?lang=` on the URL would
+           outrank it, so drop it. A style change alters nothing here — the picker
+           has no columns — so it is stored and left for the meet pages. */
         if (b.dataset.pref === 'lang') {
             var url = new URL(location.href);
-            if (b.dataset.value) url.searchParams.set('lang', b.dataset.value);
-            else                 url.searchParams.delete('lang');
+            url.searchParams.delete('lang');
             location.assign(url.toString());
         }
     });

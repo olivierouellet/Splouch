@@ -498,12 +498,31 @@ of its own.
 > **`T-04` + `T-06`: never translate anything the server sent.** `labels` and
 > `event_name` arrive already localised in the meet's language. `T-06` lets the user
 > pick, and the app asks the server for that language (`T-05`, `T-08`) rather than
-> translating anything itself.
+> translating anything itself. There is no per-meet override of the label table to
+> layer: `settings.labels` is the operator's pick and `GET /i18n/{lang}` is the
+> rest, both resolved from the same file.
+
+> **`T-05` — which words are the server's, and which are the app's.** The line is
+> what the word is about, not which repo renders it. If the web page shows the same
+> word, the server owns it and it is in `[mobile]`: tab names, empty states, the
+> filter sheet (`filter`, `no_filters`, `no_search_results`, `no_matches`,
+> `swimmer`, `club`), and the picker's chrome and preference controls
+> (`language`, `language_auto`, `prefs_*`, `results_disclaimer`, `privacy_note`).
+> If the word is about the app or the device, the app owns it and translates it
+> natively: the server sheet, "nearby", connection and address errors, OS
+> requirements, and the standard buttons the platform localises anyway. A timing
+> server has no business translating an Android version requirement, and a new
+> language may reach the native table a release later than the server — English
+> fills the gap until it does.
 
 > **`T-08` — one choice, stored per device, set where every meet is in view.** The
-> natural home is the meet picker, which already resolves `?lang=` from the visitor
-> rather than a meet ([`api.md`](api.md) §5.7): set once, every meet opened
-> afterwards follows.
+> natural home is the meet picker, which already resolves the visitor's language
+> rather than a meet's ([`api.md`](api.md) §5.7): set once, every meet opened
+> afterwards follows. On the web the choice is two cookies, `splouch_lang` and
+> `splouch_style`, written by the picker and read by the server for every page it
+> renders; `?lang=` / `?style=` on a link win for that one request so a shared link
+> opens as sent, and the shell writes them to the cookie. An app stores the choice
+> itself and sends `lang` on the request; it has no cookie to keep.
 >
 > **The picker is cloud-only.** The Pi serves the shell and the tabs but has no
 > picker (§0.2), so a picker-only control leaves its phone pages following the
@@ -518,9 +537,7 @@ of its own.
 >
 > This is the server's rule, not the client's: `GET /i18n/{lang}` already returns a
 > `long` table whose narrow columns hold their short words, so a client that simply
-> renders what it is given is correct. It holds for a club's custom wording too — a Pi
-> shipping `lane = { long = "CORRIDOR" }` still gets `CO` in the lane header, because an
-> override that outranked the rule would be a back door around it.
+> renders what it is given is correct.
 
 > **`T-10` — fetch, but never depend on the fetch.** Ship a snapshot of the strings and
 > treat the endpoint as a refresh: read the cache, draw, revalidate in the background,

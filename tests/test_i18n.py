@@ -7,10 +7,13 @@ make every non-browser client fetch what the TV already fetches.
 
 Two things carry the weight here. The English merge, per key, so a half-translated
 locale falls back word by word instead of rendering a blank header; and the split
-between the *bundled* table, which is identical for every meet and so belongs in a
-cached response, and a Pi's *custom* wording, which exists on one box and so has to
-ride in that meet's relay payload (`label_overrides`, docs/api.md §5.4).
+between the *served* file, `shared/locales/{lang}.toml`, which is what a spectator
+reads and must be complete, and the optional `panel/{lang}.toml`, which is the
+operator's console and may be missing (docs/admin.md "Localisation").
 """
+import glob
+import re
+import tomllib
 import io
 import os
 import sys
@@ -33,6 +36,33 @@ class _Req:
     """Only `.headers` is read, and only for `if-none-match`."""
     def __init__(self, etag=None):
         self.headers = {'if-none-match': etag} if etag else {}
+
+
+LOCALES = os.path.join(REPO, 'shared', 'locales')
+
+
+def _served(code):
+    with open(os.path.join(LOCALES, f'{code}.toml'), 'rb') as f:
+        return tomllib.load(f)
+
+
+def _panel(code):
+    with open(os.path.join(LOCALES, 'panel', f'{code}.toml'), 'rb') as f:
+        return tomllib.load(f)
+
+
+def _keys(table, prefix=''):
+    """Every leaf key of a TOML table, dotted. `[aliases]` is a language's own URL
+    shorthands (`/tableau` → `/scoreboard`), not a translation, so it is skipped."""
+    out = set()
+    for k, v in table.items():
+        if k == 'aliases' and not prefix:
+            continue
+        if isinstance(v, dict):
+            out |= _keys(v, f'{prefix}{k}.')
+        else:
+            out.add(prefix + k)
+    return out
 
 
 # ── The bundled table, as shipped ─────────────────────────────────────────────
@@ -81,7 +111,6 @@ def half_translated(monkeypatch, tmp_path):
         '[mobile]\nscoreboard = "Tableau ZZ"\n'
         '[labels]\nlane = { short = "ZL", long = "ZLANE" }\n', encoding='utf-8')
     monkeypatch.setattr(state, 'LOCALES_DIR', str(tmp_path))
-    monkeypatch.setattr(state, 'CUSTOM_LOCALE_FOLDER', str(tmp_path / 'none'))
     return tmp_path
 
 
@@ -95,40 +124,44 @@ def test_untranslated_keys_fall_back_to_english_word_by_word(half_translated):
 
 
 def test_a_style_a_locale_omits_falls_back_to_the_other(monkeypatch, tmp_path):
-    """A custom file may define one form; an empty header is the worse answer."""
+    """A file may define one form; an empty header is the worse answer."""
     (tmp_path / 'en.toml').write_text(
         '[labels]\nlane = { long = "LANE" }\n', encoding='utf-8')
     monkeypatch.setattr(state, 'LOCALES_DIR', str(tmp_path))
-    monkeypatch.setattr(state, 'CUSTOM_LOCALE_FOLDER', str(tmp_path / 'none'))
     assert state.i18n_bundle('en')['labels']['short']['lane'] == 'LANE'
 
 
-# ── A pool's own wording ──────────────────────────────────────────────────────
+# ── One file is one language, and it has to be whole ──────────────────────────
+#
+# The served file is what a spectator reads on a phone, in an app or on the TV, so
+# it is gated: every language ships every key English has. The panel file is the
+# operator's console and is not gated — a new language may leave it out entirely.
 
-@pytest.fixture
-def custom_pool(monkeypatch, tmp_path):
-    """A Pi whose `scoreboard/locale/fr.toml` renames one label."""
-    shipped, custom = tmp_path / 'shipped', tmp_path / 'custom'
-    shipped.mkdir(); custom.mkdir()
-    for code in ('en', 'fr'):
-        (shipped / f'{code}.toml').write_text(io.open(
-            os.path.join(REPO, 'shared', 'locales', f'{code}.toml'),
-            encoding='utf-8').read(), encoding='utf-8')
-    (custom / 'fr.toml').write_text(
-        '[meta]\nname = "Français (club)"\n'
-        '[labels]\nlane = { short = "CO", long = "CORRIDOR" }\n', encoding='utf-8')
-    monkeypatch.setattr(state, 'LOCALES_DIR', str(shipped))
-    monkeypatch.setattr(state, 'CUSTOM_LOCALE_FOLDER', str(custom))
+SHIPPED = sorted(os.path.splitext(os.path.basename(p))[0]
+                 for p in glob.glob(os.path.join(LOCALES, '*.toml')))
 
 
-def test_the_pi_serves_custom_wording_rather_than_diffing_it(custom_pool):
-    """On the LAN there is nothing to reconcile — the Pi has the file."""
-    b = state.i18n_bundle('fr')
-    # `lane` is not a styled key (`T-09`), so the club's short word is what both
-    # styles render — its `CORRIDOR` is carried in the file but never shown.
-    assert b['labels']['short']['lane'] == 'CO'
-    assert b['labels']['long']['lane']  == 'CO'
-    assert b['labels']['long']['event'] == 'ÉPREUVE'   # untouched keys still shipped
+@pytest.mark.parametrize('code', [c for c in SHIPPED if c != 'en'])
+def test_every_served_language_carries_every_english_key(code):
+    """The gate. A key missing here renders as English on every client at once, and
+    the apps only delete their own English floors because this holds."""
+    missing = _keys(_served('en')) - _keys(_served(code))
+    assert not missing, f'{code}.toml lacks {sorted(missing)}'
+
+
+@pytest.mark.parametrize('code', [c for c in SHIPPED if c != 'en'])
+def test_no_served_language_invents_a_key_english_lacks(code):
+    """English is the fallback, so a key only another language has is unreachable
+    from the merge and is almost always a typo."""
+    extra = _keys(_served(code)) - _keys(_served('en'))
+    assert not extra, f'{code}.toml has {sorted(extra)} that en.toml lacks'
+
+
+def test_the_served_file_holds_only_what_a_spectator_reads():
+    """The whole point of the split: a translator sees the spectator words and no
+    operator string, and the served bundle cannot grow a panel string by accident."""
+    assert set(_served('en')) == {'meta', 'labels', 'event_name', 'aliases', 'mobile', 'display'}
+    assert set(_panel('en')) == {'preview', 'cloud', 'settings'}
 
 
 @pytest.mark.parametrize('style', ['short', 'long'])
@@ -146,33 +179,81 @@ def test_the_style_reaches_event_and_heat_only(style):
     assert labels['heat']  == ('SÉRIE'   if style == 'long' else 'SÉR')
 
 
-def test_overrides_carry_only_what_the_pool_changed(custom_pool):
-    """This is what rides in the relay payload, so it must not be the whole table."""
-    assert state.label_overrides() == {
-        'fr': {'short': {'lane': 'CO'}, 'long': {'lane': 'CORRIDOR'}}}
+def test_a_language_without_a_panel_file_reads_the_panel_in_english(monkeypatch, tmp_path):
+    """Adding a language is the served file alone (docs/admin.md)."""
+    (tmp_path / 'en.toml').write_text('[settings]\nsave = "Save"\n[preview]\nmeet = "Meet"\n',
+                                      encoding='utf-8')
+    monkeypatch.setattr(state, 'PANEL_LOCALES_DIR', str(tmp_path))
+    assert state.settings_strings('zz') == {'save': 'Save'}
+    assert state._panel_section('zz', 'preview') == {'meet': 'Meet'}
 
 
-def test_a_custom_file_that_changes_nothing_overrides_nothing(monkeypatch, tmp_path):
-    """Re-stating the shipped value is not an override, and must not be sent."""
-    shipped, custom = tmp_path / 'shipped', tmp_path / 'custom'
-    shipped.mkdir(); custom.mkdir()
-    (shipped / 'fr.toml').write_text(
-        '[labels]\nlane = { short = "CL", long = "COULOIR" }\n', encoding='utf-8')
-    (custom / 'fr.toml').write_text(
-        '[labels]\nlane = { short = "CL", long = "COULOIR" }\n', encoding='utf-8')
-    monkeypatch.setattr(state, 'LOCALES_DIR', str(shipped))
-    monkeypatch.setattr(state, 'CUSTOM_LOCALE_FOLDER', str(custom))
-    assert state.label_overrides() == {}
+def test_a_partial_panel_file_degrades_word_by_word(monkeypatch, tmp_path):
+    (tmp_path / 'en.toml').write_text('[settings]\nsave = "Save"\ncancel = "Cancel"\n',
+                                      encoding='utf-8')
+    (tmp_path / 'zz.toml').write_text('[settings]\nsave = "Sauver"\n', encoding='utf-8')
+    monkeypatch.setattr(state, 'PANEL_LOCALES_DIR', str(tmp_path))
+    assert state.settings_strings('zz') == {'save': 'Sauver', 'cancel': 'Cancel'}
 
 
-def test_a_custom_language_counts_as_a_language(custom_pool):
-    """A club adding a file adds a language, and the picker must offer it."""
-    assert dict(state.available_locales())['fr'] == 'Français (club)'
+def test_the_cloud_admin_reads_the_panel_file_the_same_way(monkeypatch, tmp_path):
+    (tmp_path / 'panel').mkdir()
+    (tmp_path / 'panel' / 'en.toml').write_text('[cloud]\nlogout = "Log out"\nsave = "Save"\n',
+                                                encoding='utf-8')
+    (tmp_path / 'panel' / 'fr.toml').write_text('[cloud]\nlogout = "Déconnexion"\n',
+                                                encoding='utf-8')
+    monkeypatch.setattr(cs, 'LOCALES_DIR', str(tmp_path))
+    monkeypatch.setattr(cs, '_panel_cache', {})
+    assert cs._panel_strings('fr', 'cloud') == {'logout': 'Déconnexion', 'save': 'Save'}
+    assert cs._panel_strings('de', 'cloud') == {'logout': 'Log out', 'save': 'Save'}
 
 
-def test_the_cloud_cannot_see_a_pools_files(custom_pool):
-    """Which is the whole reason `label_overrides` exists (api.md §5.4)."""
-    assert cs._i18n_bundle('fr')['labels']['short']['lane'] == 'CL'
+# ── Words about the meet are the server's; words about the app are the app's ──
+#
+# `[mobile]` carries every word a spectator reads that the web pages also show —
+# the tabs, the empty states, the filter sheet, the picker's chrome and compliance
+# text. It does not carry words about the app or the device (server sheet,
+# connection errors, OS requirements): those are native in each app repo.
+
+PICKER_KEYS = ('page_title', 'no_meets', 'unnamed_meet', 'results_disclaimer',
+               'privacy_note', 'offline', 'language', 'language_auto', 'prefs_title',
+               'prefs_auto', 'prefs_labels', 'prefs_short', 'prefs_long')
+FILTER_KEYS = ('filter', 'no_filters', 'no_search_results', 'no_matches', 'swimmer', 'club')
+
+
+@pytest.mark.parametrize('key', PICKER_KEYS + FILTER_KEYS)
+def test_the_picker_and_filter_words_are_served_to_every_client(key):
+    """Both apps listed these as words the server lacked and carried an English
+    floor for them. The preference words existed all along, in the admin section;
+    the filter words were hard-coded in French in the web template."""
+    for build in (state.i18n_bundle, cs._i18n_bundle):
+        for code in SHIPPED:
+            assert build(code)['mobile'].get(key), f'{code} lacks [mobile].{key}'
+
+
+def test_the_native_picker_reads_its_strings_from_the_served_table():
+    """`GET /picker/config` §5.7 — the compliance text must stay correctable
+    without an app release, so it has to be in the file that is served."""
+    for key in cs._PICKER_STRING_KEYS:
+        assert key in _served('en')['mobile'], key
+
+
+def test_the_schedule_template_hard_codes_no_language():
+    """Two French strings sat here for a season while the apps lacked the keys."""
+    src = io.open(os.path.join(REPO, 'shared', 'templates', 'schedule.html'),
+                  encoding='utf-8').read()
+    for word in ('Aucun', 'Nageur'):
+        assert word not in src, f'schedule.html still hard-codes {word!r}'
+    for key in ('no_search_results', 'no_matches', 'swimmer', 'club'):
+        assert f't.{key}' in src, f'schedule.html does not read [mobile].{key}'
+
+
+def test_the_words_about_the_app_are_not_the_servers():
+    """A timing server has no business translating an Android version requirement.
+    If one of these lands in `[mobile]`, the line has moved and app.md T-05 with it."""
+    for key in ('needs_android_14', 'cleartext_not_local', 'not_splouch',
+                'server_unreachable', 'add_server', 'nearby'):
+        assert key not in _served('en')['mobile'], key
 
 
 # ── Caching ───────────────────────────────────────────────────────────────────
@@ -203,25 +284,30 @@ def test_a_changed_string_changes_the_etag():
             pi_etagged(_Req(), {'a': 2}).headers['etag'])
 
 
-# ── The visitor's choice, per request ─────────────────────────────────────────
+# ── The visitor's choice, per device ──────────────────────────────────────────
 #
-# `?lang=` and `?style=` are the whole mechanism: the picker stores a preference,
-# the shell puts it on every page it opens, and each page resolves it against the
-# meet's defaults here. What matters is that *no* choice is byte-for-byte what the
-# operator configured — the override must not quietly restyle every board.
+# The choice is two cookies (`T-08`): the picker writes them, every page reads them,
+# and the URL carries nothing. `?lang=` / `?style=` still win for one request so a
+# shared link opens as sent, and the shell turns that into the cookie. What matters
+# is that *no* choice is byte-for-byte what the operator configured — the override
+# must not quietly restyle every board.
 
 
 class _Q:
-    """A request with only query params, which is all these read."""
-    def __init__(self, **params):
+    """A request with query params and cookies, which is all these read."""
+    def __init__(self, cookies=None, **params):
         self.query_params = params
+        self.cookies = cookies or {}
+
+
+class _Resp:
+    def __init__(self): self.cookies = {}
+    def set_cookie(self, key, value, **kw): self.cookies[key] = (value, kw)
 
 
 _MEET = {'settings': {
     'locale': 'fr', 'label_style': 'short',
     'labels': {'event': 'ÉP', 'lane': 'CL'},
-    'label_overrides': {'fr': {'short': {'event': 'ÉPR', 'lane': 'CO'},
-                               'long':  {'event': 'COURSE', 'lane': 'CORRIDOR'}}},
 }}
 
 
@@ -232,25 +318,13 @@ def test_no_choice_renders_exactly_what_the_operator_configured():
     assert cs._client_labels(_MEET, 'fr', 'short') is _MEET['settings']['labels']
 
 
-def test_choosing_the_other_style_keeps_the_pools_own_wording():
-    """The cloud cannot resolve a Pi's locale file, so it layers the diff it was
-    sent (api.md §5.4). Without this a club's `COURSE` reverts the moment a
-    visitor touches the control."""
-    assert cs._client_labels(_MEET, 'fr', 'long')['event'] == 'COURSE'
-
-
-def test_a_narrow_column_ignores_the_long_style_even_from_a_pools_file():
-    """`T-09`: `style` reaches EVENT and HEAT only. A club may write `lane.long`,
-    and the lane column still renders its short word — otherwise the override is a
-    back door around the rule the bundled table already follows."""
-    assert cs._client_labels(_MEET, 'fr', 'long')['lane'] == 'CO'
-    assert cs._client_labels(_MEET, 'es', 'long')['lane'] == 'CA'
-
-
-def test_choosing_another_language_gets_the_bundled_word():
-    """Custom wording exists only in the language the club wrote it in. Falling back
-    is right; inventing a translation of `COURSE` would not be."""
+def test_choosing_a_style_or_language_reads_the_served_table():
+    """The same body `GET /i18n/{lang}` serves, so a phone page and an app that
+    made the same choice show the same header."""
+    assert cs._client_labels(_MEET, 'fr', 'long')['event'] == 'ÉPREUVE'
     assert cs._client_labels(_MEET, 'es', 'long')['event'] == 'PRUEBA'
+    # `T-09`: lane is narrow and stays short whatever the style says.
+    assert cs._client_labels(_MEET, 'es', 'long')['lane'] == 'CA'
 
 
 def test_a_stale_link_falls_back_instead_of_breaking_the_board():
@@ -262,6 +336,46 @@ def test_a_stale_link_falls_back_instead_of_breaking_the_board():
 def test_the_choice_is_honoured_when_it_is_available():
     assert cs._client_lang(_Q(lang='es'), _MEET) == 'es'
     assert cs._client_style(_Q(style='long'), _MEET) == 'long'
+
+
+def test_the_cookie_is_the_choice_and_the_url_is_a_one_shot_override():
+    """A bookmark carries nothing and still opens right; a shared link carrying
+    `?lang=` opens as its sender saw it, that once."""
+    cookies = {'splouch_lang': 'es', 'splouch_style': 'long'}
+    assert cs._client_lang(_Q(cookies), _MEET) == 'es'
+    assert cs._client_style(_Q(cookies), _MEET) == 'long'
+    assert cs._client_lang(_Q(cookies, lang='en'), _MEET) == 'en'
+    assert cs._client_style(_Q(cookies, style='short'), _MEET) == 'short'
+    # A cookie for a language this server no longer ships reads as no choice.
+    assert cs._client_lang(_Q({'splouch_lang': 'de'}), _MEET) == 'fr'
+
+
+def test_the_picker_follows_the_cookie_before_the_browser(monkeypatch):
+    class _P(_Q):
+        def __init__(self, cookies=None, accept='', **params):
+            super().__init__(cookies, **params)
+            self.headers = {'Accept-Language': accept}
+    monkeypatch.setattr(cs, '_load_creds', lambda: {})
+    assert cs._picker_lang(_P(accept='es-ES,es;q=0.9')) == 'es'
+    assert cs._picker_lang(_P({'splouch_lang': 'fr'}, accept='es-ES')) == 'fr'
+    assert cs._picker_lang(_P({'splouch_lang': 'fr'}, accept='es-ES', lang='en')) == 'en'
+
+
+@pytest.mark.parametrize('remember', [cs._remember_prefs, web.remember_prefs])
+def test_the_shell_turns_a_link_parameter_into_the_cookie(remember):
+    """After the shell, the tabs and every later visit need no parameter at all."""
+    resp = remember(_Q(lang='es', style='long'), _Resp())
+    assert resp.cookies['splouch_lang'][0] == 'es'
+    assert resp.cookies['splouch_style'][0] == 'long'
+    assert resp.cookies['splouch_lang'][1]['max_age'] >= 30 * 24 * 3600
+    # Nothing valid on the URL, nothing written — and nothing rewritten needlessly.
+    assert remember(_Q(lang='de'), _Resp()).cookies == {}
+    assert remember(_Q({'splouch_lang': 'es'}, lang='es'), _Resp()).cookies == {}
+
+
+def test_both_servers_name_the_cookies_the_same():
+    """One device, two servers, one preference: the names must match exactly."""
+    assert cs.PREF_COOKIES == web.PREF_COOKIES
 
 
 def test_the_pi_serves_its_own_settings_when_nothing_is_chosen(monkeypatch):
@@ -279,10 +393,12 @@ def test_the_pi_honours_a_choice_and_hands_the_style_to_the_template(monkeypatch
     out of here even when it equals the default."""
     monkeypatch.setitem(state.settings, 'locale', 'en')
     monkeypatch.setitem(state.settings, 'label_style', 'long')
-    ctx = web.client_strings(_Q(lang='fr', style='short'))
-    assert ctx['lang'] == 'fr' and ctx['ui_style'] == 'short'
-    assert ctx['labels']['event'] == 'ÉP'
-    assert ctx['t']['scoreboard'] == 'Tableau'
+    for req in (_Q(lang='fr', style='short'),
+                _Q({'splouch_lang': 'fr', 'splouch_style': 'short'})):
+        ctx = web.client_strings(req)
+        assert ctx['lang'] == 'fr' and ctx['ui_style'] == 'short'
+        assert ctx['labels']['event'] == 'ÉP'
+        assert ctx['t']['scoreboard'] == 'Tableau'
 
 
 # ── Which server am I talking to ──────────────────────────────────────────────

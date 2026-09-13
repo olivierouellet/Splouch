@@ -156,7 +156,7 @@
             min-height: 46px;
         }
         #chips-section:empty::before {
-            content: 'Aucun filtre actif';
+            content: attr(data-empty);   /* [mobile].no_filters, set on the element */
             color: var(--color-schedule-club);
             font-size: 0.82em;
             font-style: italic;
@@ -395,7 +395,7 @@
 </div>
 
 {% if not has_meet %}
-<div id="waiting">{{ labels.no_schedule or t.no_meet or 'Aucune compétition chargée' }}</div>
+<div id="waiting">{{ labels.no_schedule or t.no_meet or 'No meet file loaded' }}</div>
 {% else %}
 
 <!-- Filter overlay -->
@@ -411,8 +411,8 @@
         <button id="btn-upcoming" onclick="toggleUpcoming()">{{ t.upcoming_only or 'Upcoming' }}</button>
         <button id="btn-all-heats" onclick="toggleAllHeats()">☰ {{ t.show_all_heats or 'All heats' }}</button>
     </div>
-    <div id="chips-section"></div>
-    <div id="no-suggestions" class="hidden">Aucun résultat</div>
+    <div id="chips-section" data-empty="{{ t.no_filters or 'No active filters' }}"></div>
+    <div id="no-suggestions" class="hidden">{{ t.no_search_results or 'No results' }}</div>
     <div id="suggestions"></div>
     <div id="reset-row">
         <button id="btn-reset" onclick="resetFilters()" data-confirm="{{ t.reset_confirm or 'Clear all filters?' }}">↺ {{ t.reset_filters or 'Reset' }}</button>
@@ -421,13 +421,15 @@
 
 <!-- Schedule content -->
 <div id="schedule"></div>
-<div id="no-matches" class="hidden">Aucun nageur trouvé pour ces filtres</div>
+<div id="no-matches" class="hidden">{{ t.no_matches or 'No swimmers match these filters' }}</div>
 
 <script>
 // Empty on the Pi: one meet, no rooms, and nothing to count (docs/api.md §2).
 const MEET_ID = '{{ meet_id | default('', true) }}';
 const HEATS   = {{ heats_json | safe }};
 const LABELS  = {{ labels | tojson }};
+// Suggestion-row type words, from the same [mobile] table as the rest of the sheet.
+const TYPE_LABELS = {{ {'swimmer': t.swimmer or 'Swimmer', 'club': t.club or 'Club'} | tojson }};
 
 // Random per-device id for anonymous attendance counting (opt-in, admin side).
 function splouchVid() {
@@ -633,7 +635,7 @@ function renderSuggestions(items) {
     for (var i = 0; i < items.length; i++) {
         var it = items[i];
         var already = filterExists(it.type, it.name);
-        var typeLabel = it.type === 'swimmer' ? 'Nageur' : 'Club';
+        var typeLabel = TYPE_LABELS[it.type] || it.type;
         html += '<div class="suggestion-item' + (already ? ' already-added' : '') + '"' +
                 ' data-type="' + esc(it.type) + '" data-name="' + esc(it.name) + '">';
         html += '<span class="sug-type ' + esc(it.type) + '">' + typeLabel + '</span>';

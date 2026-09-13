@@ -3,7 +3,7 @@ import os
 from fastapi import APIRouter, Request
 
 import state
-from web import client_strings, display_config, redirect, render
+from web import client_strings, display_config, redirect, remember_prefs, render
 
 router = APIRouter(tags=['Scoreboard'])
 
@@ -68,8 +68,8 @@ def route_mobile(request: Request):
     link and points the tabs at the local routes instead of the per-meet ones."""
     app_title = (state.settings.get('app_window_title') or
                  state.settings.get('meet_title') or 'Splouch')
-    return render(request, 'mobile.html', app_title=app_title,
-                  **client_strings(request))
+    return remember_prefs(request, render(request, 'mobile.html', app_title=app_title,
+                                          **client_strings(request)))
 
 
 @router.get('/results')

@@ -74,7 +74,6 @@ Append `?test` to any scoreboard URL to show mode control buttons (Splash, Intro
 | `~/SplouchData/meet/` | Lenex `.lxf` and Hytek `.csv` meet files (uploaded via Meet Setup, or [placed here manually](#manual-and-cli-reference)) |
 | `~/SplouchData/images/` | Sponsor or club logo images for the splash screen |
 | `~/SplouchData/recorded/` | Custom recorded sessions for playback in the Test tab |
-| `~/SplouchData/locale/` | Custom locale `.toml` overrides (takes priority over built-in locales) |
 | `~/SplouchData/themes/` | Custom theme `.toml` files |
 | `~/SplouchData/console_decoders/` | Local-only decoder plugins (`.py` files) — loaded at startup, not tracked by git |
 | `~/SplouchData/settings.json` | All admin UI settings |
@@ -83,30 +82,52 @@ Append `?test` to any scoreboard URL to show mode control buttons (Splash, Intro
 
 ## Localisation
 
-Built-in languages:
+One file in `shared/locales/` is one language, and it is what a spectator reads:
+the column labels, the event-name vocabulary, the phone pages' chrome and the TV
+display's status lines. The Pi, the cloud, the phone apps and the TV all read it,
+the apps through `GET /i18n/{lang}` ([api.md](api.md) §5.9).
 
 | File | Language |
 | --- | --- |
-| `locales/en.toml` | English |
-| `locales/fr.toml` | Français |
-| `locales/es.toml` | Español |
+| `shared/locales/en.toml` | English — the fallback for every key |
+| `shared/locales/fr.toml` | Français |
+| `shared/locales/es.toml` | Español |
+| `shared/locales/panel/<code>.toml` | the operator panel, meet preview and cloud admin — optional |
 
-Each file defines short and long label variants:
+Each served file carries the same sections, and the test suite fails when a
+language lacks a key English has:
 
 ```toml
 [meta]
 name = "English"
 
-[labels]
+[labels]                       # column headers, short and long forms
 event = { short = "EV",   long = "EVENT" }
 heat  = { short = "HT",   long = "HEAT"  }
-lane  = { short = "LN",   long = "LANE"  }
-place = { short = "PL",   long = "PLACE" }
-time  = { short = "TIME", long = "TIME"  }
-name  = { short = "NAME", long = "NAME"  }
+
+[event_name]                   # the words an event name is composed from
+freestyle = "Freestyle"
+
+[mobile]                       # phone pages, apps and picker chrome
+scoreboard = "Scoreboard"
+
+[display]                      # TV display status lines
+waiting_server = "Waiting for the timing server"
 ```
 
-Add any `.toml` with the same structure to `locales/` (or upload via the Display tab) and it appears in the Language dropdown automatically. Files placed in `~/SplouchData/locale/` take priority over the built-in ones.
+**Adding a language** is a pull request with one new file in `shared/locales/`,
+complete against `en.toml`. It appears in every Language control on the next
+deploy; the phone apps pick it up from `GET /locales` without a release. A
+matching `panel/<code>.toml` is welcome but not required — every panel string it
+lacks renders in English, key by key.
+
+**What is not translated here.** Words about an app or a device — the server
+sheet, connection errors, OS requirements — live in each app repo, natively.
+The rule is in [app.md](app.md) `T-05`: if the web page shows the word, the
+server owns it; otherwise the app does.
+
+There is no per-Pi locale file. A club that wants different wording changes the
+shipped file, so every server and every client agree.
 
 ---
 

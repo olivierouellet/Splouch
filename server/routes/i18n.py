@@ -3,7 +3,7 @@
 The Qt display has always been served its status strings (`display_strings` in
 `GET /config`); these two endpoints do the same for everything else, so no client
 repo carries a copy of `shared/locales/` (docs/api.md §5.9,
-docs/app.md `T-05`). Adding a language is one file here.
+docs/app.md `T-05`). Adding a language is one file in `shared/locales/`.
 """
 import hashlib
 import json
@@ -48,8 +48,8 @@ def etagged(request: Request, payload):
 
     The strings change only when a locale file does, so a client fetches a language
     once and revalidates for a few bytes after that. `no-cache` means *revalidate*,
-    not *do not cache*: an operator editing `scoreboard/locale/fr.toml` must not
-    have to wait out a max-age for the pool's boards to pick it up.
+    not *do not cache*: a string fixed in `shared/locales/` must not have to wait
+    out a max-age before the pool's boards pick it up.
     """
     body = json.dumps(payload, ensure_ascii=False, sort_keys=True).encode()
     etag = '"' + hashlib.sha256(body).hexdigest()[:16] + '"'
@@ -61,7 +61,7 @@ def etagged(request: Request, payload):
 
 @router.get('/locales')
 def route_locales(request: Request):
-    """The languages this server can serve, custom files included."""
+    """The languages this server can serve: one file each in `shared/locales/`."""
     return etagged(request, [{'code': c, 'name': n} for c, n in state.available_locales()])
 
 
