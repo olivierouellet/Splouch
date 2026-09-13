@@ -639,3 +639,34 @@ def test_a_page_without_a_vocabulary_still_renders(pi):
     """`event_vocab` is optional: an older render path leaves it out and the board
     falls back to `event_name`, which is already right for most viewers."""
     assert 'window.EVENT_VOCAB = {}' in pi
+
+
+# ── Script load order ──────────────────────────────────────────────────────────
+
+def test_schedule_loads_ws_js_before_it_renders(sched_pi, sched_cloud):
+    """`renderSchedule()` runs at the end of the page's own script, and composes each
+    heat's title through `eventNameOf()` — which lives in `ws.js` (`app.md` `T-11`).
+
+    With `ws.js` after that block the call threw a ReferenceError, the whole script
+    died, and the Schedule tab rendered an empty list on both servers. Nothing caught
+    it: these tests match substrings in the HTML and never execute it, so ordering is
+    asserted here directly.
+    """
+    for html in (sched_pi, sched_cloud):
+        ws     = html.index('src="/static/js/ws.js"')
+        vocab  = html.index('window.EVENT_VOCAB')
+        render = html.index('\nrenderSchedule();')
+        assert ws < render, 'ws.js must load before the page calls renderSchedule()'
+        assert vocab < render, 'EVENT_VOCAB must be set before renderSchedule() composes names'
+
+
+def test_the_schedule_page_only_calls_ws_js_helpers_it_has_loaded(sched_pi):
+    """Any other `ws.js` helper used at load would need the same ordering."""
+    import re
+    helpers = set(re.findall(r'^function (\w+)', open(
+        os.path.join(REPO, 'shared', 'static', 'js', 'ws.js'), encoding='utf-8').read(), re.M))
+    body = sched_pi[sched_pi.index('src="/static/js/ws.js"'):]
+    used = {h for h in helpers if h + '(' in body}
+    # Everything used has to sit after the tag that defines it, which is what the
+    # slice above proves; this pins the set so a new helper gets the same thought.
+    assert used <= {'splouchSocket', 'eventNameOf', 'composeEventName'}, used

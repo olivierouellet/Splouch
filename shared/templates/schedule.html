@@ -423,6 +423,11 @@
 <div id="schedule"></div>
 <div id="no-matches" class="hidden">{{ t.no_matches or 'No swimmers match these filters' }}</div>
 
+{# ws.js and the vocab first: the script below ends by calling renderSchedule(),
+   which composes each heat's event name through eventNameOf() (docs/app.md `T-11`).
+   Loaded after, the page died on a ReferenceError and rendered an empty list. #}
+<script>window.EVENT_VOCAB = {{ event_vocab | default({}, true) | tojson }};</script>
+<script src="/static/js/ws.js"></script>
 <script>
 // Empty on the Pi: one meet, no rooms, and nothing to count (docs/api.md §2).
 const MEET_ID = '{{ meet_id | default('', true) }}';
@@ -735,8 +740,6 @@ document.addEventListener('visibilitychange', function() {
 renderSchedule();
 </script>
 
-<script>window.EVENT_VOCAB = {{ event_vocab | default({}, true) | tojson }};</script>
-<script src="/static/js/ws.js"></script>
 <script>
 var sockResults    = splouchSocket('/ws/results');
 var sockScoreboard = splouchSocket('/ws/scoreboard');
