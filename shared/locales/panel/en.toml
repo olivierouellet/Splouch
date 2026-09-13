@@ -97,6 +97,31 @@ language_auto        = "Auto (browser)"
 # ── Operator Settings panel (server admin UI) ──────────────────────────────
 # Read via state.settings_strings(); English here is the canonical fallback for
 # every other locale. Keys grouped by area / tab.
+
+# Picker appearance form and the Debug tab. Both were English-only until now:
+# the markup carried the words as literals rather than looking them up.
+picker_page          = "Picker Page"
+window_title         = "Window Title"
+window_title_hint    = "browser tab / app title"
+picker_title         = "Title"
+picker_title_hint    = "heading shown on page — leave blank to hide"
+logo                 = "Logo"
+upload_image         = "Upload Image"
+remove               = "Remove"
+logo_above           = "Image above title"
+home_icon            = "Home Screen Icon"
+home_icon_hint       = "(square PNG, 512 or 1024 px)"
+log_source_app       = "App container"
+log_source_webhook   = "Deploy webhook"
+log_refresh          = "Refresh"
+log_follow           = "Follow"
+
+# Shown when /admin cannot reach the deploy webhook (a systemd service
+# outside Docker), in place of the version list.
+webhook_unreachable        = "Deploy webhook unreachable"
+webhook_unreachable_hint   = "On the server: systemctl status deploy-webhook"
+unavailable                = "Unavailable"
+unknown                    = "unknown"
 [settings]
 
 # Banner shown in Settings when a code update needs a full reinstall to apply.

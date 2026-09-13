@@ -328,7 +328,7 @@
             <!-- The admin-panel language is per-device (sidebar). This box's language
                  selector is the server-wide default for the PUBLIC picker page. -->
             <div class="card"><div class="card-body">
-                <h2 class="panel-eyebrow mb-3">Picker Page</h2>
+                <h2 class="panel-eyebrow mb-3">{{ t.picker_page }}</h2>
                 <div class="mb-3">
                     <label class="form-label">{{ t.get('page_language', 'Public page language') }}</label>
                     <form method="post" id="locale-form">
@@ -344,22 +344,22 @@
                 </div>
                 <form id="picker-form" onsubmit="savePickerAppearance(this); return false;" enctype="multipart/form-data">
                     <div class="mb-3">
-                        <label class="form-label">Window Title</label>
+                        <label class="form-label">{{ t.window_title }}</label>
                         <input type="text" name="picker_window_title" value="{{ picker_window_title_form }}" class="form-control form-control-sm" style="max-width:360px;" placeholder="Splouch">
-                        <div class="form-text">browser tab / app title</div>
+                        <div class="form-text">{{ t.window_title_hint }}</div>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">Title</label>
+                        <label class="form-label">{{ t.picker_title }}</label>
                         <input type="text" name="picker_title" value="{{ picker_title_form }}" class="form-control form-control-sm" style="max-width:360px;" placeholder="Splouch">
-                        <div class="form-text">heading shown on page — leave blank to hide</div>
+                        <div class="form-text">{{ t.picker_title_hint }}</div>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">Logo</label>
+                        <label class="form-label">{{ t.logo }}</label>
                         <div class="d-flex flex-wrap gap-2 align-items-center">
                             <label class="btn btn-secondary btn-sm m-0" style="cursor:pointer;">
-                                Upload Image<input type="file" name="picker_logo" accept="image/*" style="display:none;" onchange="previewPickerLogo(this)">
+                                {{ t.upload_image }}<input type="file" name="picker_logo" accept="image/*" style="display:none;" onchange="previewPickerLogo(this)">
                             </label>
-                            <button type="button" class="btn btn-outline-danger btn-sm" id="picker-logo-remove-btn" onclick="clearPickerLogo()" {% if not has_picker_logo %}hidden{% endif %}>Remove</button>
+                            <button type="button" class="btn btn-outline-danger btn-sm" id="picker-logo-remove-btn" onclick="clearPickerLogo()" {% if not has_picker_logo %}hidden{% endif %}>{{ t.remove }}</button>
                             <img id="picker-logo-current" src="{{ '/picker_logo' if has_picker_logo else '' }}" style="max-height:36px;max-width:72px;border-radius:4px;border:1px solid #333;flex-shrink:0;" {% if not has_picker_logo %}hidden{% endif %}>
                         </div>
                         <div id="picker-logo-preview" style="display:none;margin-top:4px;">
@@ -369,16 +369,16 @@
                     <div class="mb-3">
                         <div class="form-check">
                             <input class="form-check-input" type="checkbox" id="picker_logo_above" name="picker_logo_above" value="1" {% if picker_logo_above %}checked{% endif %}>
-                            <label class="form-check-label" for="picker_logo_above">Image above title</label>
+                            <label class="form-check-label" for="picker_logo_above">{{ t.logo_above }}</label>
                         </div>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">Home Screen Icon <span class="text-body-secondary text-lowercase">(square PNG, 512 or 1024 px)</span></label>
+                        <label class="form-label">{{ t.home_icon }} <span class="text-body-secondary text-lowercase">{{ t.home_icon_hint }}</span></label>
                         <div class="d-flex flex-wrap gap-2 align-items-center">
                             <label class="btn btn-secondary btn-sm m-0" style="cursor:pointer;">
-                                Upload Image<input type="file" name="picker_icon" accept="image/png" style="display:none;" onchange="previewPickerIcon(this)">
+                                {{ t.upload_image }}<input type="file" name="picker_icon" accept="image/png" style="display:none;" onchange="previewPickerIcon(this)">
                             </label>
-                            <button type="button" class="btn btn-outline-danger btn-sm" id="picker-icon-remove-btn" onclick="clearPickerIcon()" {% if not has_picker_icon %}hidden{% endif %}>Remove</button>
+                            <button type="button" class="btn btn-outline-danger btn-sm" id="picker-icon-remove-btn" onclick="clearPickerIcon()" {% if not has_picker_icon %}hidden{% endif %}>{{ t.remove }}</button>
                             <img id="picker-icon-current" src="{{ '/picker_icon' if has_picker_icon else '' }}" style="height:36px;width:36px;border-radius:8px;border:1px solid #333;flex-shrink:0;" {% if not has_picker_icon %}hidden{% endif %}>
                         </div>
                         <div id="picker-icon-preview" style="display:none;margin-top:4px;">
@@ -386,7 +386,7 @@
                         </div>
                     </div>
                     <div>
-                        <button type="submit" class="btn btn-secondary btn-sm">Save</button>
+                        <button type="submit" class="btn btn-secondary btn-sm">{{ t.save }}</button>
                         <span id="picker-appearance-status" class="small text-body-secondary ms-2"></span>
                     </div>
                 </form>
@@ -455,14 +455,14 @@
             <div class="card"><div class="card-body">
                 <div class="d-flex gap-2 align-items-center mb-3 flex-wrap">
                     <select id="log-source" class="form-select form-select-sm w-auto" onchange="loadLogs()">
-                        <option value="app">App container</option>
+                        <option value="app">{{ t.log_source_app }}</option>
                         <option value="caddy">Caddy</option>
-                        <option value="webhook">Deploy webhook</option>
+                        <option value="webhook">{{ t.log_source_webhook }}</option>
                     </select>
-                    <button onclick="loadLogs()" class="btn btn-secondary btn-sm">Refresh</button>
+                    <button onclick="loadLogs()" class="btn btn-secondary btn-sm">{{ t.log_refresh }}</button>
                     <div class="form-check m-0">
                         <input class="form-check-input" type="checkbox" id="log-follow" onchange="toggleFollow()">
-                        <label class="form-check-label" for="log-follow">Follow</label>
+                        <label class="form-check-label" for="log-follow">{{ t.log_follow }}</label>
                     </div>
                     <span id="log-status" class="small text-body-secondary ms-auto"></span>
                 </div>
@@ -575,18 +575,18 @@
             const sel = document.getElementById('update-version');
             sel.innerHTML = '';
             sel.appendChild(Object.assign(document.createElement('option'),
-                { textContent: 'Unavailable', disabled: true, selected: true }));
+                { textContent: {{ t.unavailable | tojson }}, disabled: true, selected: true }));
             sel.disabled = true;
             // Nothing to deploy to: leaving the button live only produces a second,
             // vaguer failure when it is pressed.
             document.getElementById('update-btn').disabled = true;
             const cur = document.getElementById('current-version');
-            if (cur) cur.textContent = 'unknown';
+            if (cur) cur.textContent = {{ t.unknown | tojson }};
             const status = document.getElementById('update-status');
             if (status) {
                 status.className = 'small text-danger';
-                status.textContent = 'Deploy webhook unreachable (' + reason
-                    + '). On the server: systemctl status deploy-webhook';
+                status.textContent = {{ t.webhook_unreachable | tojson }}
+                    + ' (' + reason + '). ' + {{ t.webhook_unreachable_hint | tojson }};
             }
         }
 

@@ -521,3 +521,62 @@ def test_translate_event_name_still_composes_through_the_split():
     assert state.translate_event_name('100 Free Women', ev) == '100 m libre  —  Femmes'
     assert state.translate_event_name('', ev) == ''
     assert state.translate_event_name('100 Free', None) == '100 Free'
+
+
+# ── The operator panel's own words ─────────────────────────────────────────────
+#
+# `_panel_strings` merges English per key, so a missing translation degrades to an
+# English word rather than a blank. That is the right failure, and it is also a silent
+# one: the Appearance form and the Debug tab read as half-translated for a long time
+# because their markup carried the words as literals and never looked anything up.
+
+PANEL_DIR = os.path.join(REPO, 'shared', 'locales', 'panel')
+
+
+def _panel(code):
+    with open(os.path.join(PANEL_DIR, f'{code}.toml'), 'rb') as f:
+        return tomllib.load(f)
+
+
+@pytest.mark.parametrize('code', ['fr', 'es'])
+def test_every_panel_language_carries_every_english_key(code):
+    """English-merge hides an omission behind an English word. This names it."""
+    en, other = _panel('en'), _panel(code)
+    for section in en:
+        missing = sorted(set(en[section]) - set(other.get(section, {})))
+        assert not missing, f'{code} [{section}] is missing: {missing}'
+
+
+@pytest.mark.parametrize('code', ['fr', 'es'])
+def test_no_panel_language_invents_a_key_english_lacks(code):
+    """A key only a translation has is dead weight: nothing renders it."""
+    en, other = _panel('en'), _panel(code)
+    for section in other:
+        extra = sorted(set(other[section]) - set(en.get(section, {})))
+        assert not extra, f'{code} [{section}] has no English source for: {extra}'
+
+
+# The words the cloud panel used to hard-code. `t.<key>`, not `t.get(key, 'English')`:
+# the fallback form would have hidden a missing key just as effectively.
+@pytest.mark.parametrize('key', [
+    'picker_page', 'window_title', 'window_title_hint', 'picker_title',
+    'picker_title_hint', 'logo', 'upload_image', 'remove', 'logo_above',
+    'home_icon', 'home_icon_hint',
+    'log_source_app', 'log_source_webhook', 'log_refresh', 'log_follow',
+])
+def test_the_cloud_appearance_and_debug_tabs_look_their_words_up(key):
+    src = open(os.path.join(REPO, 'cloud', 'templates', 'admin.html'),
+               encoding='utf-8').read()
+    assert '{{ t.%s }}' % key in src, f'{key} is not rendered from the panel table'
+    assert key in _panel('en')['cloud']
+
+
+@pytest.mark.parametrize('literal', [
+    'Window Title', 'Home Screen Icon', 'Image above title', 'Upload Image',
+    'App container', 'Deploy webhook',
+])
+def test_the_cloud_panel_no_longer_hard_codes_those_words(literal):
+    """The English still exists — in `panel/en.toml`, where a translator can reach it."""
+    src = open(os.path.join(REPO, 'cloud', 'templates', 'admin.html'),
+               encoding='utf-8').read()
+    assert literal not in src, f'{literal!r} is back in the markup'

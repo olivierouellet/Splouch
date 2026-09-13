@@ -95,6 +95,31 @@ tab_account          = "Compte"
 language_auto        = "Auto (navigateur)"
 
 # ── Panneau des réglages (interface admin serveur) ─────────────────────────
+
+# Picker appearance form and the Debug tab. Both were English-only until now:
+# the markup carried the words as literals rather than looking them up.
+picker_page          = "Page de sélection"
+window_title         = "Titre de la fenêtre"
+window_title_hint    = "onglet du navigateur / titre de l’application"
+picker_title         = "Titre"
+picker_title_hint    = "titre affiché sur la page — laisser vide pour le masquer"
+logo                 = "Logo"
+upload_image         = "Téléverser une image"
+remove               = "Retirer"
+logo_above           = "Image au-dessus du titre"
+home_icon            = "Icône d’écran d’accueil"
+home_icon_hint       = "(PNG carré, 512 ou 1024 px)"
+log_source_app       = "Conteneur de l’application"
+log_source_webhook   = "Webhook de déploiement"
+log_refresh          = "Actualiser"
+log_follow           = "Suivre"
+
+# Shown when /admin cannot reach the deploy webhook (a systemd service
+# outside Docker), in place of the version list.
+webhook_unreachable        = "Webhook de déploiement injoignable"
+webhook_unreachable_hint   = "Sur le serveur : systemctl status deploy-webhook"
+unavailable                = "Indisponible"
+unknown                    = "inconnu"
 [settings]
 
 # Bannière affichée dans les Réglages quand une mise à jour du code exige une réinstallation complète.

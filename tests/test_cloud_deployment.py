@@ -166,8 +166,13 @@ def test_the_admin_page_reports_an_unreachable_webhook():
     assert 'if (!d.ok) return;' not in load, 'the silent early return is back'
     assert 'catch(() => {})' not in load, 'fetch failures are being swallowed again'
     assert 'updateUnavailable' in load, 'loadVersions no longer reports its failures'
+    # The wording lives in the panel table, so it is translated like the rest of the
+    # page; what the markup has to carry is the lookup.
+    assert 't.webhook_unreachable_hint' in src
+    import tomllib
+    panel = tomllib.load(open(os.path.join(REPO, 'shared', 'locales', 'panel', 'en.toml'), 'rb'))
     # Names the service, so the message points at the thing to look at.
-    assert 'systemctl status deploy-webhook' in src
+    assert 'systemctl status deploy-webhook' in panel['cloud']['webhook_unreachable_hint']
 
 
 def test_an_unavailable_update_section_disables_its_button():
@@ -192,7 +197,20 @@ def test_the_unavailable_state_is_what_the_operator_sees():
     import subprocess as _sp
     import tempfile as _tf
 
-    src = open(ADMIN, encoding='utf-8').read()
+    import tomllib
+    from jinja2 import Environment, FileSystemLoader
+    env = Environment(loader=FileSystemLoader(
+        [os.path.join(REPO, 'cloud', 'templates'), os.path.join(REPO, 'shared', 'templates')]))
+    env.globals['url_for'] = lambda n, **kw: '/static/' + kw.get('filename', '')
+    with open(os.path.join(REPO, 'shared', 'locales', 'panel', 'fr.toml'), 'rb') as f:
+        t = tomllib.load(f)['cloud']
+    # Rendered, not raw: the message is `{{ t.… | tojson }}` now, and French proves the
+    # operator gets their own language rather than a hard-coded English sentence.
+    src = env.get_template('admin.html').render(
+        t=t, has_deploy=True, creds_error=None, keys=[], active_meets=[],
+        user_name='Admin', locales=[], current_locale='', ui_lang_cookie='',
+        analytics_enabled=False, picker_window_title_form='', picker_title_form='',
+        picker_logo_above=False, has_picker_logo=False, has_picker_icon=False)
     fn = _re.search(r'^        function updateUnavailable\(reason\) \{.*?^        \}',
                     src, _re.S | _re.M)
     assert fn, 'updateUnavailable is no longer a top-level function in admin.html'
@@ -231,8 +249,9 @@ def test_the_unavailable_state_is_what_the_operator_sees():
 
     assert out['selectDisabled'] is True
     assert out['buttonDisabled'] is True, 'a live button here only fails again, vaguer'
-    assert out['current'] == 'unknown', 'a stale version number would read as current'
     assert out['optionCount'] == 1, 'the select must not keep sitting on "Loading…"'
     assert 'Connection refused' in out['status'], 'the real reason has to reach the page'
     assert 'systemctl status deploy-webhook' in out['status']
+    assert t['webhook_unreachable'] in out['status'], 'not shown in the panel language'
+    assert out['current'] == t['unknown']
     assert 'danger' in out['statusClass'], 'must not read as ordinary secondary text'
