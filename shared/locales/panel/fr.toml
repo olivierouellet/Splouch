@@ -84,12 +84,12 @@ version              = "Version"
 tab_appearance       = "Apparence"
 tab_update           = "Mise à jour & Sauvegarde"
 backup               = "Sauvegarde"
-backup_keys          = "Clés"
+backup_keys                = "Clés et réglages"
 download_backup      = "Télécharger"
 restore_backup       = "Restaurer…"
-restore_keys_note    = "Restaure une sauvegarde de clés. Remplace toutes les clés actuelles."
+restore_keys_note          = "Restaure les clés de relais et les réglages (apparence du sélecteur, statistiques, langue) à partir d’une sauvegarde. L’identifiant administrateur n’est restauré que par une sauvegarde « complète »; une sauvegarde ordinaire laisse le mot de passe actuel inchangé. Une sauvegarde complète contient l’empreinte du mot de passe — gardez-la privée."
 backup_meets         = "Compétitions"
-restore_meets_note   = "Restaure les compétitions conservées (horaires, images, icônes). Remplace toutes les compétitions conservées; les compétitions en direct ne sont pas touchées."
+restore_meets_note         = "Restaure les compétitions conservées (horaires, images, icônes) à partir d’une sauvegarde. Elles s’ajoutent aux compétitions actuelles — rien n’est supprimé, et les compétitions en direct conservent leurs propres données."
 tab_debug            = "Débogage"
 tab_account          = "Compte"
 language_auto        = "Auto (navigateur)"
@@ -123,6 +123,11 @@ unknown                    = "inconnu"
 
 # The release the server is running, in the Update tab.
 current                    = "Actuelle"
+
+# Reached through a t.get() fallback in admin.html, which rendered the English
+# default in every language for want of these two keys.
+change_password            = "Changer le mot de passe"
+download_backup_full       = "Télécharger tout (avec l’identifiant)"
 [settings]
 
 # Bannière affichée dans les Réglages quand une mise à jour du code exige une réinstallation complète.

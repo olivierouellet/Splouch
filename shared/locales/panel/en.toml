@@ -84,12 +84,12 @@ version              = "Version"
 tab_appearance       = "Appearance"
 tab_update           = "Update & Backup"
 backup               = "Backup"
-backup_keys          = "Keys"
+backup_keys                = "Keys & settings"
 download_backup      = "Download"
 restore_backup       = "Restore…"
-restore_keys_note    = "Restore a previously downloaded keys backup. This replaces all current keys."
+restore_keys_note          = "Restore relay keys and settings (picker appearance, analytics, locale) from a backup. The admin login is only restored from a “full” backup; a regular backup leaves the current password unchanged. A full backup contains the password hash — keep it private."
 backup_meets         = "Meets"
-restore_meets_note   = "Restore retained meets (schedules, images, icons). This replaces all current retained meets; live meets are unaffected."
+restore_meets_note         = "Restore retained meets (schedules, images, icons) from a backup. Adds them to the current set — nothing is removed, and currently-live meets keep their own data."
 tab_debug            = "Debug"
 tab_account          = "Account"
 language_auto        = "Auto (browser)"
@@ -125,6 +125,11 @@ unknown                    = "unknown"
 
 # The release the server is running, in the Update tab.
 current                    = "Current"
+
+# Reached through a t.get() fallback in admin.html, which rendered the English
+# default in every language for want of these two keys.
+change_password            = "Change password"
+download_backup_full       = "Download full (incl. login)"
 [settings]
 
 # Banner shown in Settings when a code update needs a full reinstall to apply.

@@ -623,3 +623,52 @@ def test_neither_panel_hard_codes_its_chrome(literal, template):
     src = open(os.path.join(REPO, template), encoding='utf-8').read()
     body = re.sub(r'<script.*?</script>', '', src, flags=re.S)
     assert literal not in body, f'{literal!r} is back in {template}'
+
+
+# ── `t.get(key, 'English')` fallbacks ──────────────────────────────────────────
+#
+# The fallback is the right behaviour at runtime — a locale file that fails to load
+# leaves English rather than a blank button. It is also a perfect hiding place: a key
+# that was never added renders its default in every language and looks translated to
+# anyone who reads English. Two of them sat there for a while, and one pair had drifted
+# far enough apart to contradict each other about whether a restore deletes anything.
+
+_FALLBACK_RE = re.compile(
+    r"""t\.get\(\s*'([a-z0-9_]+)'\s*,\s*(['"])((?:[^'"\\]|\\.)*)\2""", re.S)
+
+
+def _fallbacks(template):
+    src = open(os.path.join(REPO, template), encoding='utf-8').read()
+    return [(m.group(1), m.group(3).replace("\\'", "'")) for m in _FALLBACK_RE.finditer(src)]
+
+
+CLOUD_ADMIN = 'cloud/templates/admin.html'
+
+
+def test_the_cloud_admin_actually_uses_fallbacks():
+    """If this stops being true the two tests below are silently vacuous."""
+    assert len(_fallbacks(CLOUD_ADMIN)) > 20
+
+
+@pytest.mark.parametrize('key,default', _fallbacks(CLOUD_ADMIN),
+                         ids=[k for k, _ in _fallbacks(CLOUD_ADMIN)])
+def test_every_fallback_has_a_real_key(key, default):
+    """Otherwise the English default is what every language renders."""
+    panel = _panel('en')
+    assert key in {**panel['chrome'], **panel['cloud']}, \
+        f'{key} has no entry, so admin.html shows {default!r} in every language'
+
+
+@pytest.mark.parametrize('key,default', _fallbacks(CLOUD_ADMIN),
+                         ids=[k for k, _ in _fallbacks(CLOUD_ADMIN)])
+def test_every_fallback_matches_its_english(key, default):
+    """The two are the same sentence or they are a bug.
+
+    Whichever is stale, the page shows the table and the template reads like the
+    other — which is how `restore_meets_note` came to promise that restoring meets
+    replaces the lot, while the code has always merged and never removed anything.
+    """
+    panel = _panel('en')
+    english = {**panel['chrome'], **panel['cloud']}[key]
+    assert english == default, (
+        f'{key}: en.toml says {english!r}, admin.html falls back to {default!r}')

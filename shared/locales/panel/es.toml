@@ -84,12 +84,12 @@ version              = "Versión"
 tab_appearance       = "Apariencia"
 tab_update           = "Actualización & Copia"
 backup               = "Copia de seguridad"
-backup_keys          = "Claves"
+backup_keys                = "Claves y ajustes"
 download_backup      = "Descargar"
 restore_backup       = "Restaurar…"
-restore_keys_note    = "Restaura una copia de claves. Reemplaza todas las claves actuales."
+restore_keys_note          = "Restaura las claves de relé y los ajustes (apariencia del selector, analíticas, idioma) desde una copia de seguridad. El acceso de administrador solo se restaura desde una copia «completa»; una copia normal deja la contraseña actual sin cambios. Una copia completa contiene el hash de la contraseña — manténgala privada."
 backup_meets         = "Competiciones"
-restore_meets_note   = "Restaura las competiciones conservadas (horarios, imágenes, iconos). Reemplaza todas las competiciones conservadas; las competiciones en vivo no se ven afectadas."
+restore_meets_note         = "Restaura las competiciones conservadas (horarios, imágenes, iconos) desde una copia de seguridad. Se añaden a las actuales — no se elimina nada, y las competiciones en vivo conservan sus propios datos."
 tab_debug            = "Depuración"
 tab_account          = "Cuenta"
 language_auto        = "Auto (navegador)"
@@ -123,6 +123,11 @@ unknown                    = "desconocido"
 
 # The release the server is running, in the Update tab.
 current                    = "Actual"
+
+# Reached through a t.get() fallback in admin.html, which rendered the English
+# default in every language for want of these two keys.
+change_password            = "Cambiar la contraseña"
+download_backup_full       = "Descargar todo (incl. el acceso)"
 [settings]
 
 # Aviso mostrado en Ajustes cuando una actualización de código requiere una reinstalación completa.
