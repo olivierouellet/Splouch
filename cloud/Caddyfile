@@ -1,5 +1,12 @@
-# Replace with your actual domain name.
+# The domain comes from SPLOUCH_DOMAIN in cloud/.env — do not write it in here.
+#
+# This file is tracked by git. A deploy that resets the working tree (the Update
+# button's master and branch modes) reverts anything edited here, so a literal domain
+# would silently go back to the placeholder and Caddy would serve the wrong site — and
+# fail to renew the certificate — from its next restart. `.env` is untracked, so the
+# domain survives every update.
+#
 # Caddy obtains and renews the Let's Encrypt certificate automatically.
-scores.example.com {
+{$SPLOUCH_DOMAIN} {
     reverse_proxy app:5000
 }

@@ -1005,17 +1005,34 @@ EOF
     sudo chmod 0440 /etc/sudoers.d/splouch-webhook
     info "Sudoers rule added: deploy-webhook can self-restart without a password."
 
-    section "Caddyfile domain"
-    _current_domain=$(grep -E '^\S+\s*\{' "$CLOUD_DIR/Caddyfile" | awk '{print $1}')
+    section "Domain"
+    # The domain lives in .env, never in the Caddyfile. That file is tracked, so an
+    # update that resets the working tree would revert a literal domain written there
+    # and leave Caddy serving the placeholder from its next restart.
+    _current_domain=$(sed -n 's/^SPLOUCH_DOMAIN=//p' "$CLOUD_DIR/.env" | tail -1)
+    if [[ -z "$_current_domain" ]]; then
+        # Pre-existing install: lift the domain out of the Caddyfile, where earlier
+        # versions of this script sed-ed it in, so nobody has to retype it.
+        _caddy_domain=$(grep -E '^[^#[:space:]]+[[:space:]]*\{' "$CLOUD_DIR/Caddyfile" \
+                        | awk '{print $1}' | head -1)
+        if [[ "$_caddy_domain" != '{$SPLOUCH_DOMAIN}' && "$_caddy_domain" != "scores.example.com" ]]; then
+            _current_domain="$_caddy_domain"
+            [[ -n "$_current_domain" ]] && info "Recovered domain from Caddyfile: $_current_domain"
+        fi
+    fi
     echo
     echo "  Current domain: ${_current_domain:-not set}"
     read -rp "  Enter domain name (leave blank to keep current): " _domain
-    if [[ -n "$_domain" && "$_domain" != "$_current_domain" ]]; then
-        sed -i "s|^\S\+\s*{|${_domain} {|" "$CLOUD_DIR/Caddyfile"
-        info "Caddyfile updated: $_domain"
-    else
-        info "Domain unchanged: ${_current_domain}"
+    _domain="${_domain:-$_current_domain}"
+    if [[ -z "$_domain" ]]; then
+        warn "No domain set — Caddy cannot obtain a certificate and will refuse to start."
     fi
+    if grep -q '^SPLOUCH_DOMAIN=' "$CLOUD_DIR/.env"; then
+        sed -i "s|^SPLOUCH_DOMAIN=.*|SPLOUCH_DOMAIN=${_domain}|" "$CLOUD_DIR/.env"
+    else
+        echo "SPLOUCH_DOMAIN=${_domain}" >> "$CLOUD_DIR/.env"
+    fi
+    info "Domain set in .env: ${_domain:-<unset>}"
 
     section "Firewall"
     if command -v ufw &>/dev/null; then
@@ -1041,7 +1058,7 @@ EOF
     echo -e "  Install dir  : $INSTALL_DIR"
     echo -e "  Cloud dir    : $CLOUD_DIR"
     echo -e "  Logs         : ${BOLD}cd $CLOUD_DIR && docker compose logs -f${NC}"
-    _final_domain=$(grep -E '^\S+\s*\{' "$CLOUD_DIR/Caddyfile" | awk '{print $1}')
+    _final_domain=$(sed -n 's/^SPLOUCH_DOMAIN=//p' "$CLOUD_DIR/.env" | tail -1)
     echo -e "  Admin UI     : ${BOLD}https://${_final_domain}/admin${NC}"
     echo -e "  Update       : ${BOLD}Update button in /admin${NC}  (or: cd $INSTALL_DIR && git pull && cd cloud && docker compose up -d --build)"
     echo

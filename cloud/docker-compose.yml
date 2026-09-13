@@ -30,6 +30,11 @@ services:
   caddy:
     image: caddy:2-alpine
     restart: unless-stopped
+    environment:
+      # Read from cloud/.env, which compose loads for interpolation. The Caddyfile is
+      # tracked and an update resets it, so the domain cannot live there; passing just
+      # this one key rather than env_file keeps the app's secrets out of Caddy.
+      SPLOUCH_DOMAIN: ${SPLOUCH_DOMAIN:?set SPLOUCH_DOMAIN in cloud/.env}
     ports:
       - "80:80"
       - "443:443"
