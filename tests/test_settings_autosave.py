@@ -191,9 +191,10 @@ def test_the_warning_tracks_the_default_and_the_reset_saves(src):
 
     harness = '''
     var els = {};
-    function mk(id) { var o = { id:id, hidden:false, value:'', dataset:{}, _h:{},
+    function mk(id) { var o = { id:id, value:'', dataset:{}, _h:{}, _cls:{},
       addEventListener:function(e,f){ (this._h[e]=this._h[e]||[]).push(f); },
       dispatchEvent:function(ev){ (this._h[ev.type]||[]).forEach(function(f){f();}); } };
+      o.classList = { toggle: function (c, on) { o._cls[c] = !!on; } };
       els[id]=o; return o; }
     var input = mk('finish_debounce'); input.dataset.default = '3'; input.value = '3.0';
     var warn = mk('finish-debounce-warn'), reset = mk('finish-debounce-reset');
@@ -204,7 +205,9 @@ def test_the_warning_tracks_the_default_and_the_reset_saves(src):
     function autoSave() { return { saveNow: function () { saves++; } }; }
     ''' + blk.group(0) + '''
     var steps = [];
-    function snap(l) { steps.push([l, input.value, warn.hidden]); }
+    // What the browser actually goes by — `hidden` loses to `.d-flex` in Bootstrap.
+    function snap(l) { steps.push([l, input.value,
+                       warn._cls['d-none'] === true && warn._cls['d-flex'] === false]); }
     snap('load');
     input.value = '5';   input.dispatchEvent(new Event('change')); snap('changed');
     input.value = '3.0'; input.dispatchEvent(new Event('change')); snap('back to default');
@@ -277,3 +280,22 @@ def test_a_failed_save_still_speaks(src):
     out = json.loads(res.stdout)
     assert 'HTTP 500' in out['text'], 'the reason has to reach the operator'
     assert 'text-danger' in out['cls']
+
+
+def test_the_warning_is_hidden_by_class_not_by_hidden(src):
+    """`hidden` does not work on this element, and the failure is invisible in a stub.
+
+    Bootstrap's reboot has `[hidden]{display:none!important}` and its utilities have
+    `.d-flex{display:flex!important}` — equal specificity, both important, and
+    `.d-flex` comes later in `bootstrap-5.3.3.min.css`, so it wins and the alert stays
+    on screen however often the script sets `hidden`. The JS toggles the two display
+    utilities instead, and the server renders the right one so the warning is correct
+    before any script runs.
+    """
+    el = re.search(r'<div id="finish-debounce-warn"[^>]*>', src).group(0)
+    assert ' hidden' not in el, 'the hidden attribute is back and does nothing here'
+    assert 'd-none' in el and 'd-flex' in el, 'the start state must come from the server'
+    block = src[src.index("var warn  = document.getElementById('finish-debounce-warn')"):]
+    block = block[:block.index('})();')]
+    assert 'warn.hidden' not in block
+    assert "classList.toggle('d-none'" in block and "classList.toggle('d-flex'" in block

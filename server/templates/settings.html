@@ -421,40 +421,6 @@ function onPasswordInput(form) {
                         </div>
                     </form>
                 </div></div>
-                <div class="card mb-3"><div class="card-body">
-                    <div class="panel-title">{{ t.timing_tuning }}</div>
-                    <form id="timing_tuning_form" action="/settings" method="POST">
-                        <input type="hidden" name="timing_tuning_submit" value="1">
-                        <div class="mb-3">
-                            <label class="form-label mb-1" for="finish_debounce">{{ t.timing_finish_debounce }}</label>
-                            <div class="input-group input-group-sm" style="max-width:220px;">
-                                <input id="finish_debounce" type="number" name="finish_debounce" value="{{ finish_debounce }}"
-                                       min="0.5" max="10" step="0.1" class="form-control"
-                                       data-default="{{ finish_debounce_default }}">
-                                <span class="input-group-text">{{ t.seconds }}</span>
-                            </div>
-                            <div class="form-text">{{ t.timing_finish_debounce_help }}</div>
-                            {# Shown whenever the value is off the default — this one delays every
-                               screen in the building, so drifting off 3s should not be quiet. #}
-                            <div id="finish-debounce-warn" class="alert alert-warning py-2 px-3 mt-2 mb-0 d-flex flex-wrap align-items-center gap-2" hidden>
-                                <span class="small flex-fill">{{ t.timing_finish_debounce_warn }}</span>
-                                <button type="button" id="finish-debounce-reset" class="btn btn-outline-secondary btn-sm">
-                                    {{ t.timing_restore_default }} ({{ finish_debounce_default }}&nbsp;{{ t.seconds }})
-                                </button>
-                            </div>
-                        </div>
-                        <div class="mb-0">
-                            <label class="form-label mb-1" for="split_min_duration">{{ t.timing_split_min }}</label>
-                            <div class="input-group input-group-sm" style="max-width:220px;">
-                                <input id="split_min_duration" type="number" name="split_min_duration" value="{{ split_min_duration }}"
-                                       min="0.5" max="10" step="0.1" class="form-control">
-                                <span class="input-group-text">{{ t.seconds }}</span>
-                            </div>
-                            <div class="form-text">{{ t.timing_split_min_help }}</div>
-                        </div>
-                        <span id="timing-tuning-note" class="small ms-2" role="status" aria-live="polite"></span>
-                    </form>
-                </div></div>
                 <!-- ── Hardware & wiring for the selected console ─────────── -->
                 <div class="accordion mb-3" id="consoleInfoAcc">
                     <div class="accordion-item">
@@ -507,6 +473,45 @@ function onPasswordInput(form) {
                         <span class="fw-bold flex-fill">{{ t.timing_raw_data }}</span>
                         <a href="/console" target="_blank" class="btn btn-secondary btn-sm" title="{{ t.timing_raw_data }}"><i class="bi bi-tv me-1"></i>{{ t.timing_raw_data_btn }}</a>
                     </div>
+                </div></div>
+                <div class="card mt-3"><div class="card-body">
+                    <div class="panel-title">{{ t.timing_tuning }}</div>
+                    <form id="timing_tuning_form" action="/settings" method="POST">
+                        <input type="hidden" name="timing_tuning_submit" value="1">
+                        <div class="mb-3">
+                            <label class="form-label mb-1" for="finish_debounce">{{ t.timing_finish_debounce }}</label>
+                            <div class="input-group input-group-sm" style="max-width:220px;">
+                                <input id="finish_debounce" type="number" name="finish_debounce" value="{{ finish_debounce }}"
+                                       min="0.5" max="10" step="0.1" class="form-control"
+                                       data-default="{{ finish_debounce_default }}">
+                                <span class="input-group-text">{{ t.seconds }}</span>
+                            </div>
+                            <div class="form-text">{{ t.timing_finish_debounce_help }}</div>
+                            {# Shown whenever the value is off the default — this one delays every
+                               screen in the building, so drifting off 3s should not be quiet. #}
+                            {# `hidden` is useless here: Bootstrap's `[hidden]` and `.d-flex`
+                               are both `!important` at equal specificity and `.d-flex` comes
+                               later, so it wins. The two display utilities are toggled
+                               instead, and the server picks the starting one so the warning
+                               is right before any script runs. #}
+                            <div id="finish-debounce-warn" class="alert alert-warning py-2 px-3 mt-2 mb-0 flex-wrap align-items-center gap-2 {% if finish_debounce == finish_debounce_default %}d-none{% else %}d-flex{% endif %}">
+                                <span class="small flex-fill">{{ t.timing_finish_debounce_warn }}</span>
+                                <button type="button" id="finish-debounce-reset" class="btn btn-outline-secondary btn-sm">
+                                    {{ t.timing_restore_default }} ({{ finish_debounce_default }}&nbsp;{{ t.seconds }})
+                                </button>
+                            </div>
+                        </div>
+                        <div class="mb-0">
+                            <label class="form-label mb-1" for="split_min_duration">{{ t.timing_split_min }}</label>
+                            <div class="input-group input-group-sm" style="max-width:220px;">
+                                <input id="split_min_duration" type="number" name="split_min_duration" value="{{ split_min_duration }}"
+                                       min="0.5" max="10" step="0.1" class="form-control">
+                                <span class="input-group-text">{{ t.seconds }}</span>
+                            </div>
+                            <div class="form-text">{{ t.timing_split_min_help }}</div>
+                        </div>
+                        <span id="timing-tuning-note" class="small ms-2" role="status" aria-live="polite"></span>
+                    </form>
                 </div></div>
             </div></div>
         </div>
@@ -1395,7 +1400,10 @@ function onPasswordInput(form) {
 
         function sync() {
             // Compare as numbers: "3" and "3.0" are the same delay.
-            warn.hidden = parseFloat(input.value) === parseFloat(input.dataset.default);
+            var isDefault = parseFloat(input.value) === parseFloat(input.dataset.default);
+            // Both classes, never `hidden`: see the note on the element.
+            warn.classList.toggle('d-none', isDefault);
+            warn.classList.toggle('d-flex', !isDefault);
         }
         input.addEventListener('input', sync);
         input.addEventListener('change', sync);
