@@ -388,12 +388,31 @@ find *their* swimmer among several hundred.
 > every `lane.name` — relay **team** names included, since a spectator may know the
 > team and not one swimmer on it — and every `lane.swimmers[].name`, each carrying its
 > lane's club; then one entry per distinct club. A name in two lanes with different
-> clubs keeps the later one. Match is a substring of the *folded* name — lowercase,
-> NFD-decompose, then drop every non-ASCII codepoint — so `elise` finds `Élise`. The
-> fold is deliberately lossy where a letter does not decompose: `Sørensen` folds to
-> `srensen`, which `sorensen` does not match. Reproduce that rather than improving it;
-> `S-10`'s rows must not depend on which client the spectator is holding. Swimmers
-> sort before clubs, each group by name, and the list is cut to 20.
+> clubs keeps the later one. Match is a substring of the *folded* name, folding both
+> the query and the indexed name, so `elise` finds `Élise`. Swimmers sort before clubs,
+> each group by name, and the list is cut to 20.
+
+> **The fold, in four steps.** Lowercase; NFD-decompose; expand the letters in the
+> table below; drop every codepoint still above `U+007F`. Steps 2 and 4 are what make
+> accents transparent — `é` decomposes to `e` plus a combining acute, and the acute is
+> then swept away.
+>
+> Step 3 is the one that is easy to omit, and must not be. These 17 letters have **no**
+> canonical decomposition, so NFD leaves them whole and step 4 would delete the letter
+> itself, punching a hole in the word. Expanding them after NFD also covers their
+> accented forms for nothing: `ǿ` decomposes to `ø` plus an acute, and the `ø` is then
+> expanded like any other.
+>
+> | | | | | | | | |
+> | --- | --- | --- | --- | --- | --- | --- | --- |
+> | `ß`→`ss` | `æ`→`ae` | `ð`→`d` | `ø`→`o` | `þ`→`th` | `đ`→`d` | `ħ`→`h` | `ı`→`i` |
+> | `ĳ`→`ij` | `ĸ`→`k` | `ŀ`→`l` | `ł`→`l` | `ŉ`→`n` | `ŋ`→`n` | `œ`→`oe` | `ŧ`→`t` |
+> | `ſ`→`s` | | | | | | | |
+>
+> Do not reach for a platform convenience — `String.folding(.diacriticInsensitive)`, or
+> a regex that strips only the combining range `U+0300`–`U+036F`. Both skip step 3, and
+> `Île-des-Sœurs` then indexes as `ile-des-surs`, which nobody will ever type. Fold
+> identically or `S-10`'s rows depend on which client the spectator is holding.
 
 > **`S-16` exists to answer "when does my kid swim next?"** With filters on and All-heats
 > off, the list collapses to only the heats they are in — the common case. Toggled on,

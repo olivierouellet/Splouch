@@ -464,11 +464,27 @@ function esc(s) {
 // not have yet.
 var _suggestIndex = null;
 
-// The servers' fold(), kept verbatim so an accented name stays reachable from plain
-// keys: lowercase, decompose, then drop every non-ASCII codepoint.
+// Lowercase, decompose, expand, then drop what is left above ASCII — so an accented
+// name stays reachable from plain keys. Every client must fold identically or the
+// same query returns different suggestions per platform (docs/app.md `S-09`).
+//
+// The expansion table is the part that is easy to leave out. These 17 letters have no
+// canonical decomposition, so NFD leaves them whole and the sweep below would delete
+// the letter itself: `Sœurs` folded to `surs`, and nobody types `œ` on a phone. They
+// are expanded after NFD, which also covers their accented forms for free — `ǿ`
+// decomposes to `ø` + acute, and the `ø` is then expanded like any other.
+var FOLD_LETTERS = {
+    'ß': 'ss', 'æ': 'ae', 'ð': 'd',  'ø': 'o', 'þ': 'th', 'đ': 'd', 'ħ': 'h',
+    'ı': 'i',  'ĳ': 'ij', 'ĸ': 'k',  'ŀ': 'l', 'ł': 'l',  'ŉ': 'n', 'ŋ': 'n',
+    'œ': 'oe', 'ŧ': 't',  'ſ': 's'
+};
+var FOLD_RE = new RegExp('[' + Object.keys(FOLD_LETTERS).join('') + ']', 'g');
+
 function foldName(s) {
     return String(s == null ? '' : s)
-        .toLowerCase().normalize('NFD').replace(/[^\0-\x7F]/g, '');
+        .toLowerCase().normalize('NFD')
+        .replace(FOLD_RE, function(c) { return FOLD_LETTERS[c]; })
+        .replace(/[^\0-\x7F]/g, '');
 }
 
 function buildSuggestIndex() {
