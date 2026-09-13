@@ -532,11 +532,18 @@
         {% if has_deploy %}
         // ── Version list ──────────────────────────────────────────────────────
         document.addEventListener('DOMContentLoaded', loadVersions);
+        // The list comes from the deploy webhook — a systemd service outside Docker,
+        // reached over host.docker.internal. When it is down (its unit names an absolute
+        // path, so renaming the checkout stops it starting) every failure used to be
+        // swallowed: the select sat on "Loading…", the Update button stayed live, and a
+        // dead webhook was indistinguishable from a server with no releases. Say which.
         function loadVersions() {
             fetch('/admin/versions')
-                .then(r => r.json())
-                .then(d => {
-                    if (!d.ok) return;
+                .then(r => r.json().then(d => ({ status: r.status, d: d })))
+                .then(({ status, d }) => {
+                    if (!d || !d.ok) {
+                        return updateUnavailable((d && d.error) || ('HTTP ' + status));
+                    }
                     const cur = document.getElementById('current-version');
                     if (cur) cur.textContent = d.current || 'untagged';
                     const sel = document.getElementById('update-version');
@@ -561,7 +568,26 @@
                         if (match) match.selected = true;
                     }
                 })
-                .catch(() => {});
+                .catch(e => updateUnavailable(e.message || 'unreachable'));
+        }
+
+        function updateUnavailable(reason) {
+            const sel = document.getElementById('update-version');
+            sel.innerHTML = '';
+            sel.appendChild(Object.assign(document.createElement('option'),
+                { textContent: 'Unavailable', disabled: true, selected: true }));
+            sel.disabled = true;
+            // Nothing to deploy to: leaving the button live only produces a second,
+            // vaguer failure when it is pressed.
+            document.getElementById('update-btn').disabled = true;
+            const cur = document.getElementById('current-version');
+            if (cur) cur.textContent = 'unknown';
+            const status = document.getElementById('update-status');
+            if (status) {
+                status.className = 'small text-danger';
+                status.textContent = 'Deploy webhook unreachable (' + reason
+                    + '). On the server: systemctl status deploy-webhook';
+            }
         }
 
         // ── Update ────────────────────────────────────────────────────────────

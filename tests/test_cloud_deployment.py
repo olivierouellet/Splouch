@@ -122,3 +122,117 @@ def test_it_survives_a_missing_env(deploy):
     (cloud / 'Caddyfile').write_text('splouch.ca {\n}\n', encoding='utf-8')
     dw._preserve_domain()
     assert not (cloud / '.env').exists()
+
+
+# ── The deploy webhook's unit, and how its failure reaches the operator ─────────
+#
+# The webhook is a systemd service outside Docker, and systemd needs absolute paths, so
+# install.sh bakes the install directory into its unit. Rename the checkout and the unit
+# stops starting. That is recoverable; what made it cost an afternoon is that `/admin`
+# swallowed the failure — the version select sat on "Loading…" and the Update button
+# stayed live, so a dead webhook looked exactly like a server with no releases.
+
+SERVICE = os.path.join(REPO, 'cloud', 'deploy_webhook.service')
+ADMIN   = os.path.join(REPO, 'cloud', 'templates', 'admin.html')
+
+
+def test_the_unit_keeps_its_placeholders_for_the_installer():
+    """install.sh substitutes these; a literal path here would ship someone's homedir."""
+    unit = open(SERVICE, encoding='utf-8').read()
+    body = unit[unit.index('[Service]'):]
+    for line in ('WorkingDirectory=', 'ExecStart=', 'EnvironmentFile=', 'Environment=REPO_DIR='):
+        assert line in body, line
+    for key in ('ExecStart', 'EnvironmentFile', 'Environment=REPO_DIR', 'WorkingDirectory'):
+        assert 'YOUR_INSTALL_DIR' in [l for l in body.splitlines() if l.startswith(key)][0], key
+    assert '/home/' not in unit
+
+
+def test_the_unit_says_what_a_rename_costs():
+    """The comment is the only warning at the point someone would move the checkout."""
+    unit = open(SERVICE, encoding='utf-8').read()
+    header = unit[:unit.index('[Unit]')].lower()
+    assert 'renaming' in header or 'rename' in header
+    assert 'install.sh' in header
+
+
+def test_the_admin_page_reports_an_unreachable_webhook():
+    """`/admin/versions` already answers `{ok: false, error}` with a 502; the page used
+    to `return` on it and swallow fetch failures outright."""
+    src = open(ADMIN, encoding='utf-8').read()
+    assert 'function updateUnavailable' in src
+    # Scoped to loadVersions: the ping loop after a deploy swallows its rejections on
+    # purpose, because the server being briefly unreachable is what it is waiting for.
+    load = src[src.index('function loadVersions'):src.index('function updateUnavailable')]
+    assert 'if (!d.ok) return;' not in load, 'the silent early return is back'
+    assert 'catch(() => {})' not in load, 'fetch failures are being swallowed again'
+    assert 'updateUnavailable' in load, 'loadVersions no longer reports its failures'
+    # Names the service, so the message points at the thing to look at.
+    assert 'systemctl status deploy-webhook' in src
+
+
+def test_an_unavailable_update_section_disables_its_button():
+    """Leaving it live only buys a second, vaguer failure when it is pressed."""
+    src = open(ADMIN, encoding='utf-8').read()
+    body = src[src.index('function updateUnavailable'):]
+    body = body[:body.index('// ── Update ──')]
+    assert "getElementById('update-btn').disabled = true" in body
+    assert 'sel.disabled = true' in body
+
+
+@pytest.mark.skipif(not __import__('jsc').HAS_JSC, reason='needs JavaScriptCore (macOS)')
+def test_the_unavailable_state_is_what_the_operator_sees():
+    """Run the page's own `updateUnavailable()` and check what it leaves on screen.
+
+    The whole admin page cannot go through `tests/jsc.py` — it loads htmx, which wants
+    XPath the stub deliberately does not model — so this lifts the one function out and
+    drives it, the way `test_search_suggestions` does with the fold.
+    """
+    import json as _json
+    import re as _re
+    import subprocess as _sp
+    import tempfile as _tf
+
+    src = open(ADMIN, encoding='utf-8').read()
+    fn = _re.search(r'^        function updateUnavailable\(reason\) \{.*?^        \}',
+                    src, _re.S | _re.M)
+    assert fn, 'updateUnavailable is no longer a top-level function in admin.html'
+
+    harness = '''
+    var els = {};
+    function el(id) {
+      if (!els[id]) els[id] = { id: id, innerHTML: '', textContent: '', className: '',
+                                disabled: false, kids: [],
+                                appendChild: function (c) { this.kids.push(c); } };
+      return els[id];
+    }
+    var document = { getElementById: el,
+                     createElement: function (t) { return { tag: t, textContent: '',
+                                                            disabled: false, selected: false }; } };
+    ''' + fn.group(0) + '''
+    updateUnavailable('Connection refused');
+    JSON.stringify({
+      selectDisabled: els['update-version'].disabled,
+      buttonDisabled: els['update-btn'].disabled,
+      current:        els['current-version'].textContent,
+      status:         els['update-status'].textContent,
+      statusClass:    els['update-status'].className,
+      optionCount:    els['update-version'].kids.length
+    })
+    '''
+    with _tf.NamedTemporaryFile('w', suffix='.js', delete=False, encoding='utf-8') as fh:
+        fh.write(harness)
+        path = fh.name
+    try:
+        res = _sp.run(['osascript', '-l', 'JavaScript', path], capture_output=True, text=True)
+    finally:
+        os.remove(path)
+    assert res.returncode == 0, res.stderr
+    out = _json.loads(res.stdout)
+
+    assert out['selectDisabled'] is True
+    assert out['buttonDisabled'] is True, 'a live button here only fails again, vaguer'
+    assert out['current'] == 'unknown', 'a stale version number would read as current'
+    assert out['optionCount'] == 1, 'the select must not keep sitting on "Loading…"'
+    assert 'Connection refused' in out['status'], 'the real reason has to reach the page'
+    assert 'systemctl status deploy-webhook' in out['status']
+    assert 'danger' in out['statusClass'], 'must not read as ordinary secondary text'

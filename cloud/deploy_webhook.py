@@ -265,6 +265,15 @@ class Handler(http.server.BaseHTTPRequestHandler):
 if __name__ == '__main__':
     if not SECRET:
         print('WARNING: DEPLOY_SECRET not set — all requests will be rejected', flush=True)
+    # The systemd unit names an absolute path (install.sh substitutes it), so a moved or
+    # renamed checkout leaves REPO pointing at nothing. Usually the unit fails to start
+    # first and this never runs; it catches the half-repaired case, where the service
+    # file was fixed but REPO_DIR was not, and every deploy would fail deep in git.
+    if not os.path.isdir(os.path.join(REPO, '.git')):
+        print(f'WARNING: REPO_DIR={REPO} is not a git checkout — deploys will fail. '
+              'Fix REPO_DIR in /etc/systemd/system/deploy-webhook.service, or re-run '
+              'install.sh, which rewrites the unit for the current directory.',
+              flush=True)
     server = http.server.HTTPServer(('0.0.0.0', PORT), Handler)
     print(f'deploy webhook listening on 0.0.0.0:{PORT}  repo={REPO}', flush=True)
     server.serve_forever()

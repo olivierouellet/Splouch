@@ -1,9 +1,18 @@
+# Installed by install.sh, which fills in the real paths and user below.
+#
+# systemd needs absolute paths, so the install directory is baked into the three
+# Service lines: **moving or renaming the checkout stops this service starting**, and
+# with it the version list and the Update button in /admin. After such a move, re-run
+# install.sh — it rewrites this unit for the current directory — or edit the paths and:
+#
+#     sudo systemctl daemon-reload && sudo systemctl restart deploy-webhook
 [Unit]
 Description=Splouch deploy webhook
 After=network.target docker.service
 Wants=docker.service
 
 [Service]
+WorkingDirectory=YOUR_INSTALL_DIR/cloud
 ExecStart=/usr/bin/python3 YOUR_INSTALL_DIR/cloud/deploy_webhook.py
 EnvironmentFile=YOUR_INSTALL_DIR/cloud/.env
 Environment=REPO_DIR=YOUR_INSTALL_DIR

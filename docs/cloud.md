@@ -119,6 +119,34 @@ git fetch origin && git checkout -B master origin/master
 
 Caddy and the `data` volume (which stores `keys.json`) are preserved across updates. So is your edited `Caddyfile`, as long as you move between refs with `checkout` rather than `reset --hard` — the domain you set at install time lives in that tracked file and a hard reset would revert it.
 
+## Moving or renaming the install directory
+
+The deploy webhook runs as a systemd unit outside Docker, and systemd needs absolute
+paths, so `install.sh` bakes the install directory into
+`/etc/systemd/system/deploy-webhook.service`. Rename or move the checkout and that unit
+stops starting — which takes the **version list and the Update button** in `/admin` with
+it, since both are served by the webhook.
+
+Re-run `install.sh` after the move (it rewrites the unit for the current directory), or
+repair it by hand:
+
+```bash
+sudo grep -n OLD_NAME /etc/systemd/system/deploy-webhook.service
+sudo sed -i 's|OLD_NAME|NEW_NAME|g' /etc/systemd/system/deploy-webhook.service
+sudo systemctl daemon-reload && sudo systemctl restart deploy-webhook
+systemctl status deploy-webhook --no-pager
+```
+
+Then check nothing else kept the old path:
+
+```bash
+sudo grep -rl OLD_NAME /etc/systemd/system/ /etc/sudoers.d/ 2>/dev/null
+```
+
+Docker is unaffected: the compose project is named after the directory holding the
+compose file (`cloud`), not its parent, so containers and the `data` volume that stores
+`keys.json` survive a rename of the checkout.
+
 ## Logs
 
 ```bash
