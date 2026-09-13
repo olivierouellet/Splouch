@@ -110,6 +110,16 @@ def route_schedule(request: Request):
 
 @router.get('/search_suggestions')
 def route_search_suggestions(request: Request):
+    """**Deprecated** (`docs/api.md` §7) — clients build this list themselves.
+
+    Still served, unchanged, because shipped `Splouch-ios` and `Splouch-android`
+    builds call it. It reads only the start list, every field of which `GET /schedule.json`
+    already carries, so `app.md` `S-09` now specifies a local index instead: the
+    request bought a round-trip per keystroke and a window where this server's start
+    list was ahead of the client's and suggested a swimmer the client could not match.
+
+    Delete once both apps have stopped calling it.
+    """
     import unicodedata
     def fold(s):
         return unicodedata.normalize('NFD', s.lower()).encode('ascii', 'ignore').decode()
@@ -127,12 +137,12 @@ def route_search_suggestions(request: Request):
                 if club:
                     clubs.add(club)
                 name = entry.get('name', '')
-                if name and not entry.get('swimmers'):
-                    swimmers.setdefault(name, club)
+                if name:
+                    swimmers[name] = club
                 for s in entry.get('swimmers', []):
                     sname = s.get('name', '')
                     if sname:
-                        swimmers.setdefault(sname, club)
+                        swimmers[sname] = club
 
     results = []
     for name in sorted(swimmers):

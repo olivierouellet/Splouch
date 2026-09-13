@@ -446,7 +446,6 @@ function splouchVid() {
 }
 
 var activeFilters = [];
-var _searchTimer  = null;
 var currentEvent  = null;
 var currentHeat   = null;
 var needsScroll   = true;
@@ -456,6 +455,58 @@ var showAllHeats  = false;
 function esc(s) {
     return String(s == null ? '' : s)
         .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── Typeahead index (docs/app.md `S-09`) ──
+// Built from HEATS, not fetched. The start list this page already holds carries every
+// name, club and relay member the old /search_suggestions endpoint read, so asking a
+// server could only add latency and a window where it offers a swimmer this list does
+// not have yet.
+var _suggestIndex = null;
+
+// The servers' fold(), kept verbatim so an accented name stays reachable from plain
+// keys: lowercase, decompose, then drop every non-ASCII codepoint.
+function foldName(s) {
+    return String(s == null ? '' : s)
+        .toLowerCase().normalize('NFD').replace(/[^\0-\x7F]/g, '');
+}
+
+function buildSuggestIndex() {
+    // Maps, not objects: a numeric-looking club name would jump the key order.
+    var swimmers = new Map(), clubs = new Map();
+    for (var i = 0; i < HEATS.length; i++) {
+        var lanes = HEATS[i].lanes || [];
+        for (var j = 0; j < lanes.length; j++) {
+            var lane = lanes[j], club = lane.club || '';
+            if (club) clubs.set(club, true);
+            // Relay teams index under their team name too — a spectator who knows only
+            // the team should still find the heat. Members are indexed below (S-14).
+            if (lane.name) swimmers.set(lane.name, club);
+            var members = lane.swimmers || [];
+            for (var k = 0; k < members.length; k++) {
+                if (members[k].name) swimmers.set(members[k].name, club);
+            }
+        }
+    }
+    var out = [];
+    Array.from(swimmers.keys()).sort().forEach(function(name) {
+        out.push({ type: 'swimmer', name: name, club: swimmers.get(name), key: foldName(name) });
+    });
+    Array.from(clubs.keys()).sort().forEach(function(name) {
+        out.push({ type: 'club', name: name, key: foldName(name) });
+    });
+    return out;
+}
+
+function searchSuggestions(q) {
+    if (_suggestIndex === null) _suggestIndex = buildSuggestIndex();
+    var key = foldName(String(q).trim());
+    if (!key) return [];
+    var out = [];
+    for (var i = 0; i < _suggestIndex.length && out.length < 20; i++) {
+        if (_suggestIndex[i].key.indexOf(key) !== -1) out.push(_suggestIndex[i]);
+    }
+    return out;
 }
 
 function laneMatches(lane) {
@@ -607,19 +658,13 @@ function closeFilter() {
     document.getElementById('filter-overlay').classList.add('hidden');
 }
 
+// No debounce: the index is local, so the 220ms wait that used to spare the server
+// would now only lag the sheet (docs/app.md §0.4).
 function onSearchInput() {
-    clearTimeout(_searchTimer);
-    _searchTimer = setTimeout(fetchSuggestions, 220);
+    refreshSuggestions();
 }
-function fetchSuggestions() {
-    var q = document.getElementById('search-input').value.trim();
-    if (!q) { renderSuggestions([]); return; }
-    var url = '/search_suggestions?q=' + encodeURIComponent(q);
-    if (MEET_ID) url += '&meet_id=' + encodeURIComponent(MEET_ID);
-    fetch(url)
-        .then(function(r) { return r.json(); })
-        .then(renderSuggestions)
-        .catch(function() {});
+function refreshSuggestions() {
+    renderSuggestions(searchSuggestions(document.getElementById('search-input').value));
 }
 function renderSuggestions(items) {
     var noEl  = document.getElementById('no-suggestions');
@@ -651,7 +696,7 @@ document.getElementById('suggestions').addEventListener('click', function(e) {
     var item = e.target.closest('.suggestion-item');
     if (!item) return;
     addFilter(item.dataset.type, item.dataset.name);
-    fetchSuggestions();
+    refreshSuggestions();
 });
 
 function highlight() {

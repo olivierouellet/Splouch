@@ -1228,6 +1228,16 @@ def route_meet_schedule(meet_id: str):
 
 @app.get('/search_suggestions', tags=['Public'])
 def route_search_suggestions(request: Request):
+    """**Deprecated** (`docs/api.md` §7) — clients build this list themselves.
+
+    Still served, unchanged, because shipped `Splouch-ios` and `Splouch-android`
+    builds call it. It reads only the start list, every field of which `GET /meet/{id}/schedule`
+    already carries, so `app.md` `S-09` now specifies a local index instead: the
+    request bought a round-trip per keystroke and a window where this server's start
+    list was ahead of the client's and suggested a swimmer the client could not match.
+
+    Delete once both apps have stopped calling it.
+    """
     import unicodedata
     def fold(s):
         return unicodedata.normalize('NFD', s.lower()).encode('ascii', 'ignore').decode()

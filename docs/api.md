@@ -184,7 +184,7 @@ JSON/asset endpoints (everything else the servers expose is HTML for the browser
 | `GET /config` | **display config JSON** — `num_lanes`, `theme_colors`, `theme_fonts`, `show_*` flags, `labels`, `meet_title`, `locale`, `display_strings`, `carousel_images`, `carousel_interval` (§6). Lets the Qt display theme *and translate* itself without a rendered page |
 | `GET /server` | **who this server is** (§5.10) — `kind: "pi"`, its name, and the contract versions this build implements |
 | `GET /schedule.json` | **start list JSON** — `{ "heats": [ … ] }`, the same shape as the cloud's `GET /meet/{id}/schedule` (§5.8) and what the Pi's `/schedule` page embeds. No id in the path: one meet. Empty `heats` when no meet file is loaded |
-| `GET /search_suggestions?q=` | `[{type:"swimmer"\|"club", name, club?}]` — as the cloud's, without `meet_id` |
+| `GET /search_suggestions?q=` | **deprecated** (§7) — `[{type:"swimmer"\|"club", name, club?}]`, as the cloud's without `meet_id`. Still served for shipped apps; new clients build the list from `GET /schedule.json` (`app.md` `S-09`) |
 | `GET /i18n/{lang}` | **client strings for one language** (§5.9). The same body the cloud serves for that language |
 | `GET /locales` | `[{ "code": "fr", "name": "Français" }]` — the languages this server can serve, custom files included |
 | `GET /manifest.json` | PWA manifest (app title, icons) |
@@ -206,7 +206,7 @@ JSON/asset endpoints (everything else the servers expose is HTML for the browser
 | `GET /locales` | as local |
 | `GET /manifest/{meet_id}` | per-meet PWA manifest |
 | `GET /icon/{meet_id}` | meet icon PNG · `GET /picker_image/{meet_id}` picker image PNG |
-| `GET /search_suggestions?meet_id=&q=` | `[{type:"swimmer"|"club", name, club?}]` swimmer/club typeahead |
+| `GET /search_suggestions?meet_id=&q=` | **deprecated** (§7) — swimmer/club typeahead, `[{type:"swimmer"\|"club", name, club?}]`. Still served for shipped apps; new clients build the list from `GET /meet/{id}/schedule` (`app.md` `S-09`) |
 | `GET /mobile/schedule?meet=<id>` | schedule page (HTML embedding the same `heats` list) |
 
 ---
@@ -547,6 +547,19 @@ same `settings` shape, so the two config sources agree.
   with the per-Pi locale file it carried. It was documented as normally absent,
   so a client that read it already treated a missing key as `{}`; one that
   layered it now layers nothing. The `label_style` field beside it is unchanged.
+
+- **Deprecated since v2, the version stands**: `GET /search_suggestions`
+  on both servers (§4). Both still answer, unchanged, and nothing that calls one
+  breaks — it leaves the *contract*, not the build. It read only the start list
+  (`lane.name`, `lane.club`, `lane.swimmers[].name`), all of which `GET /meet/{id}/schedule`
+  and the Pi's `GET /schedule.json` already carry, so the request bought a
+  round-trip per keystroke and a window where the server's start list was ahead of
+  the client's and could suggest a swimmer the client could not then match.
+  `app.md` `S-09` is the replacement and specifies the index. Retiring it also
+  settles a drift: the two implementations were written separately and disagreed on
+  relay entries — the cloud offered the team name, the Pi did not. The Pi now matches
+  the cloud, which is the behaviour `S-09` describes. Delete both routes once
+  `Splouch-ios` and `Splouch-android` have stopped calling them.
 
 - **Stated since v2, nothing on the wire changed**: the Pi's `GET /schedule.json`
   and `GET /search_suggestions?q=` (§4) — the Pi's start list was HTML-only, against

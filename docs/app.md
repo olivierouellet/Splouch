@@ -64,8 +64,7 @@ and nothing else about the session changes:
 | --- | --- | --- |
 | meet config, theme, labels (`P-08`, `T-*`) | `GET /meet/{id}/config` → `settings` | `GET /config` (same keys, flattened) |
 | meet name in the shell | `GET /meet/{id}/config` → `app_window_title`, then `name` | `GET /config` → `meet_title` |
-| start list (`S-01`) | `GET /meet/{id}/schedule` | `GET /schedule.json` |
-| typeahead (`S-09`) | `GET /search_suggestions?meet_id=&q=` | `GET /search_suggestions?q=` |
+| start list (`S-01`, and `S-09`'s index) | `GET /meet/{id}/schedule` | `GET /schedule.json` |
 | strings (`T-05`) | `GET /i18n/{lang}` | `GET /i18n/{lang}` |
 | `join_meet` (`C-02`) | on every connect | **never** — the Pi pushes on connect |
 | `vid` (`C-10`) | one per server | none — nothing receives it |
@@ -97,6 +96,7 @@ the effect, never the mechanism:
 | `<title>`, `apple-mobile-web-app-title`, manifest `name` (`A-08`) | the browser tab, and the installed icon's label | none — the store listing fixes the label (Android may set `TaskDescription`) |
 | parent re-dispatches `resize`; `contentWindow.on_tab_shown()` (`L-14`, `R-10`) | an `<iframe>` is never told it was revealed | the on-appear callback |
 | the `#edgeT` / `#filter-header` 65px alignment contract in `mobile.html` | two documents have to line up as one screen | none — it is one view |
+| the ~220ms debounce on the filter search (`S-09`) | every keystroke was a request to the server for names the page already had | none — the index is local, so the wait is pure lag |
 | one `scrollWidth`/`clientWidth` ratio, applied on a gated frame (`L-17`) | CSS cannot shrink text to fit | `UILabel.adjustsFontSizeToFitWidth`, Android `autoSizeTextType` |
 
 The right-hand column is the requirement. Where the platform does the job better than the
@@ -363,7 +363,7 @@ find *their* swimmer among several hundred.
 | ID | Feature | Driven by | Level |
 | --- | --- | --- | --- |
 | `S-08` | Full-screen filter sheet, opened from a button in the top bar | — | must |
-| `S-09` | Typeahead search over swimmers and clubs, debounced ~220ms | `GET /search_suggestions?meet_id=&q=`; Pi: `?q=` alone | must |
+| `S-09` | Typeahead search over swimmers and clubs, answered locally and without delay | an index built from `S-01`'s `heats[]` — `lane.name`, `lane.club`, `lane.swimmers[].name` | must — see note |
 | `S-10` | Suggestions show type (swimmer/club), name, and club; already-added ones are marked and inert | — | should |
 | `S-11` | Active filters appear as chips; tapping a chip's × removes it | — | must |
 | `S-12` | A count badge on the filter button shows how many filters are active | — | should |
@@ -375,6 +375,26 @@ find *their* swimmer among several hundred.
 | `S-18` | Reset clears filters and both toggles, behind a confirmation | `mobile.reset_confirm` | should |
 | `S-19` | Distinct empty states for "no swimmers match these filters" and "no search results" | — | should |
 | `S-20` | Filters live only for the session — not persisted | — | should |
+
+> **`S-09` builds its own index — do not call `GET /search_suggestions`.** The
+> endpoint still answers, because shipped apps call it, but it is retired from this
+> contract ([`api.md`](api.md) §7) and reads nothing `S-01` has not already given you:
+> every `lane.name`, `lane.club` and `lane.swimmers[].name`. Fetching it costs a
+> round-trip per keystroke and opens a window the local index closes by construction —
+> the server answers from *its* start list, so between a `schedule_update` and the
+> re-fetch it can offer a swimmer this list does not have, and the chip then matches
+> nothing. Build the index from the payload you rendered, and rebuild it with `S-21`.
+
+> **What goes in the index, and how it matches.** One entry per distinct name:
+> every `lane.name` — relay **team** names included, since a spectator may know the
+> team and not one swimmer on it — and every `lane.swimmers[].name`, each carrying its
+> lane's club; then one entry per distinct club. A name in two lanes with different
+> clubs keeps the later one. Match is a substring of the *folded* name — lowercase,
+> NFD-decompose, then drop every non-ASCII codepoint — so `elise` finds `Élise`. The
+> fold is deliberately lossy where a letter does not decompose: `Sørensen` folds to
+> `srensen`, which `sorensen` does not match. Reproduce that rather than improving it;
+> `S-10`'s rows must not depend on which client the spectator is holding. Swimmers
+> sort before clubs, each group by name, and the list is cut to 20.
 
 > **`S-16` exists to answer "when does my kid swim next?"** With filters on and All-heats
 > off, the list collapses to only the heats they are in — the common case. Toggled on,

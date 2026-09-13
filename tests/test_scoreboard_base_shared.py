@@ -288,11 +288,16 @@ def test_schedule_lives_only_in_shared():
 
 
 def test_schedule_joins_a_room_only_on_the_cloud(sched_pi, sched_cloud):
+    """`join_meet` is now the only thing MEET_ID gates.
+
+    It used to also pick up the `&meet_id=` on the typeahead fetch; `S-09` builds
+    its suggestions from the start list the page already holds, so there is no
+    request left to address (`tests/test_search_suggestions.py`).
+    """
     assert "const MEET_ID = ''" in sched_pi
     assert "const MEET_ID = 'abc123'" in sched_cloud
     for html in (sched_pi, sched_cloud):
         assert 'if (MEET_ID) sock.emit' in html
-        assert "if (MEET_ID) url += '&meet_id='" in html
 
 
 def test_both_listen_for_schedule_update(sched_pi, sched_cloud):
