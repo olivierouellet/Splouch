@@ -14,6 +14,9 @@
     <title>{{ picker_window_title or picker_title or 'Splouch' }}</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
+        /* One content column for the whole page: the meet list and the logo share
+           an edge, so a banner lines up with the cards under it. */
+        :root { --column: 800px; }
         body {
             background: #0d0d0d; color: #e0e0e0;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
@@ -22,7 +25,16 @@
             padding: 40px 20px;
         }
         h1 { font-size: 1.4em; font-weight: 400; color: #888; margin-bottom: 32px; letter-spacing: 0.06em; text-transform: uppercase; }
-        .meets { display: flex; flex-wrap: wrap; gap: 16px; justify-content: center; max-width: 800px; }
+        .meets { display: flex; flex-wrap: wrap; gap: 16px; justify-content: center; max-width: var(--column); }
+        /* Sized from the image's own proportions rather than an operator setting —
+           the file already says whether it is a banner or a badge. `contain` is what
+           lets one rule serve both: the box is the column, and a logo that is not
+           wide enough to fill it is centred inside rather than stretched. A banner
+           wider than about 6:1 reaches both edges; a square badge stays 160px. */
+        .picker-logo {
+            display: block; width: 100%; max-width: var(--column); max-height: 160px;
+            object-fit: contain; margin-bottom: 16px; border-radius: 8px;
+        }
         .card {
             background: #1a1a1a; border: 1px solid #2e2e2e; border-radius: 10px;
             padding: 20px 24px; min-width: 260px; max-width: 340px; flex: 1;
@@ -173,13 +185,13 @@
         <button id="a2hs-install-btn" onclick="a2hsInstall()">{{ t.a2hs_install or 'Install' }}</button>
     </div>
     {% if picker_logo and picker_logo_above %}
-    <img src="/picker_logo" style="max-width:200px;max-height:120px;margin-bottom:16px;border-radius:8px;display:block;">
+    <img src="/picker_logo" class="picker-logo" alt="">
     {% endif %}
     {% if picker_title %}
     <h1>{{ picker_title }}</h1>
     {% endif %}
     {% if picker_logo and not picker_logo_above %}
-    <img src="/picker_logo" style="max-width:200px;max-height:120px;margin-bottom:16px;border-radius:8px;display:block;">
+    <img src="/picker_logo" class="picker-logo" alt="">
     {% endif %}
     {% if meets %}
     <div class="meets">

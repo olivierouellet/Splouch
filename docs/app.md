@@ -116,7 +116,7 @@ where the user returns via `A-02`.
 | `P-02` | Per-meet picker image on the card, when the meet supplies one | `settings.picker_image_b64` → `GET /picker_image/{meet_id}` | should |
 | `P-03` | Offline meets stay listed, marked with a dimmed status dot | `offline` = meet retained but no relay connected | must |
 | `P-04` | Empty state when no meets are active | `strings.no_meets` | must |
-| `P-05` | Picker branding: title, logo, logo above or below the title | `GET /picker/config` → `title`, `has_logo`, `logo_above`; image at `GET /picker_logo` — PNG, JPEG, GIF, WebP or SVG, read the response's `Content-Type` rather than assuming | should |
+| `P-05` | Picker branding: title, logo, logo above or below the title | `GET /picker/config` → `title`, `has_logo`, `logo_above`; image at `GET /picker_logo` — PNG, JPEG, GIF, WebP or SVG, read the response's `Content-Type` rather than assuming. Size it from its own aspect ratio: operators upload both wide banners and square badges, so fit it inside the list's content width with a height cap rather than a fixed box | should |
 | `P-06` | Unofficial-results disclaimer under the list | `GET /picker/config` → `strings.results_disclaimer` | **must** — see note |
 | `P-07` | Privacy note, shown whenever attendance counting is on for this server | `strings.privacy_note`, gated on `analytics_enabled` | must |
 | `P-08` | Selecting a meet opens the app shell for it | `GET /meet/{id}/config` | must |
