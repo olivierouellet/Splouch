@@ -342,7 +342,9 @@
                     </form>
                     <div class="form-text">{{ t.get('page_language_hint', 'Default language for the public picker page, used when a visitor’s browser language isn’t available. Each visitor still sees their own browser language when possible.') }}</div>
                 </div>
-                <form id="picker-form" onsubmit="savePickerAppearance(this); return false;" enctype="multipart/form-data">
+                <!-- Applies as you change it; `action` is what autoSave posts to. `onsubmit`
+                     only guards against a stray Enter navigating the page away. -->
+                <form id="picker-form" action="/admin/picker_appearance" onsubmit="return false;" enctype="multipart/form-data">
                     <div class="mb-3">
                         <label class="form-label">{{ t.window_title }}</label>
                         <input type="text" name="picker_window_title" value="{{ picker_window_title_form }}" class="form-control form-control-sm" style="max-width:360px;" placeholder="Splouch">
@@ -385,10 +387,7 @@
                             <img id="picker-icon-preview-img" style="height:60px;width:60px;border-radius:10px;border:1px solid #333;">
                         </div>
                     </div>
-                    <div>
-                        <button type="submit" class="btn btn-secondary btn-sm">{{ t.save }}</button>
-                        <span id="picker-appearance-status" class="small text-body-secondary ms-2"></span>
-                    </div>
+                    <span id="picker-appearance-note" class="small" role="status" aria-live="polite"></span>
                 </form>
             </div></div>
         </div>
@@ -661,17 +660,62 @@
         {% endif %}
 
         // ── Picker appearance ─────────────────────────────────────────────────
-        // Picking a file only *stages* it — nothing reaches the server until Save. The
-        // preview is the whole of the feedback that the pick registered, so it has to
-        // appear; it is hidden with the `hidden` attribute, never an inline
-        // display:none, which this cannot lift.
+        // Applies as you change it, like the Pi's Appearance panel. The Save button
+        // was both the trigger and the receipt, so anything not pressed through
+        // looked saved and was not — and the file fields made that worse, since
+        // picking an image visibly did nothing until the button was found.
+        //
+        // `change`, never `input`. On a text field `change` lands on blur or Enter,
+        // so a title is sent once you mean it rather than once per keystroke; the
+        // 600ms debounce then coalesces a burst, so tabbing through both titles is
+        // one POST. File inputs are bound separately, below.
+        //
+        // Nothing is said on success: the field holds what you typed and the public
+        // page shows it. A failure is not self-evident, so that still speaks.
         const PICKER_MAX_UPLOAD = {{ picker_max_upload }};
+        const PICKER_SAVE_FAILED = {{ t.get('save_failed', 'Could not save.') | tojson }};
+
+        function pickerNote(text) {
+            const note = document.getElementById('picker-appearance-note');
+            note.className = text ? 'small text-danger' : 'small';
+            note.textContent = text || '';
+        }
+
+        const pickerAppearance = (function () {
+            const form = document.getElementById('picker-form');
+            let timer = null, inFlight = false;
+
+            function save() {
+                if (inFlight) { schedule(); return; }   // coalesce onto the next window
+                inFlight = true;
+                pickerNote('');
+                fetch(form.action, { method: 'POST', body: new FormData(form) })
+                    .then(r => r.json())
+                    .then(d => {
+                        if (!d.ok) { pickerNote(d.error || PICKER_SAVE_FAILED); return; }
+                        // Swap a just-sent file's staged preview for the stored image,
+                        // so the thumbnail is what the public page now serves. Both are
+                        // no-ops when this save carried no file.
+                        refreshUploaded(form, 'picker_logo', '/picker_logo', 'picker-logo-current', 'picker-logo-remove-btn', 'picker-logo-preview');
+                        refreshUploaded(form, 'picker_icon', '/picker_icon', 'picker-icon-current', 'picker-icon-remove-btn', 'picker-icon-preview');
+                    })
+                    .catch(() => pickerNote(PICKER_SAVE_FAILED))
+                    .finally(() => { inFlight = false; });
+            }
+            function schedule() { clearTimeout(timer); timer = setTimeout(save, 600); }
+
+            // Everything but the file inputs: a pick is validated first, and a
+            // rejected one must not reach the server or wipe its own message.
+            form.querySelectorAll('input:not([type="file"]), select, textarea')
+                .forEach(el => el.addEventListener('change', schedule));
+            return { saveNow: save };
+        })();
+
         function previewImage(input, previewId, previewImgId) {
             if (!input.files.length) return;
-            const status = document.getElementById('picker-appearance-status');
             const file = input.files[0];
             // The dialog filters on `accept`, but a drag-and-drop does not, and the
-            // server refuses the same two things — say so here rather than at Save.
+            // server refuses the same two things — say so before sending anything.
             const accepted = (input.getAttribute('accept') || '').split(',');
             let bad = '';
             if (accepted.indexOf(file.type) === -1) bad = {{ t.get('image_format_rejected', 'Unsupported image format.') | tojson }};
@@ -679,38 +723,25 @@
             if (bad) {
                 input.value = '';
                 document.getElementById(previewId).hidden = true;
-                status.style.color = '#c55'; status.textContent = bad;
+                pickerNote(bad);
                 return;
             }
-            status.textContent = '';
+            pickerNote('');
             const reader = new FileReader();
             reader.onload = e => {
+                // The upload below may already have landed and cleared the input; the
+                // stored thumbnail is the better picture, so leave it alone.
+                if (!input.files.length) return;
                 document.getElementById(previewImgId).src = e.target.result;
                 document.getElementById(previewId).hidden = false;
             };
             reader.readAsDataURL(file);
+            // Straight away rather than on the debounce: picking a file is an explicit
+            // act, and there is no keystroke burst to wait out.
+            pickerAppearance.saveNow();
         }
         function previewPickerLogo(input) { previewImage(input, 'picker-logo-preview', 'picker-logo-preview-img'); }
         function previewPickerIcon(input) { previewImage(input, 'picker-icon-preview', 'picker-icon-preview-img'); }
-
-        function savePickerAppearance(form) {
-            const status = document.getElementById('picker-appearance-status');
-            status.style.color = '#888'; status.textContent = 'Saving…';
-            fetch('/admin/picker_appearance', { method: 'POST', body: new FormData(form) })
-                .then(r => r.json())
-                .then(d => {
-                    if (d.ok) {
-                        status.style.color = '#4a4'; status.textContent = 'Saved.';
-                        refreshUploaded(form, 'picker_logo', '/picker_logo', 'picker-logo-current', 'picker-logo-remove-btn', 'picker-logo-preview');
-                        refreshUploaded(form, 'picker_icon', '/picker_icon', 'picker-icon-current', 'picker-icon-remove-btn', 'picker-icon-preview');
-                    } else {
-                        // The server says which file it refused and why; 'Error.' alone
-                        // reads as "the save is broken" when one field was rejected.
-                        status.style.color = '#c55'; status.textContent = d.error || 'Error.';
-                    }
-                })
-                .catch(() => { status.style.color = '#c55'; status.textContent = 'Failed.'; });
-        }
 
         function refreshUploaded(form, fieldName, url, curId, removeBtnId, previewId) {
             const input = form.querySelector('input[name="' + fieldName + '"]');
@@ -723,23 +754,20 @@
             input.value = '';
         }
 
+        // Still a button: removing an image is a deletion, and it asks first. The
+        // thumbnail vanishing is the receipt, so only a failure is announced.
         function clearPickerImage(label, clearField, curId, removeBtnId) {
             if (!confirm('Remove the ' + label + '?')) return;
-            const status = document.getElementById('picker-appearance-status');
-            status.style.color = '#888'; status.textContent = 'Removing…';
+            pickerNote('');
             const fd = new FormData(); fd.append(clearField, '1');
             fetch('/admin/picker_appearance', { method: 'POST', body: fd })
                 .then(r => r.json())
                 .then(d => {
-                    if (d.ok) {
-                        document.getElementById(curId).hidden = true;
-                        document.getElementById(removeBtnId).hidden = true;
-                        status.style.color = '#4a4'; status.textContent = 'Removed.';
-                    } else {
-                        status.style.color = '#c55'; status.textContent = 'Error.';
-                    }
+                    if (!d.ok) { pickerNote(d.error || PICKER_SAVE_FAILED); return; }
+                    document.getElementById(curId).hidden = true;
+                    document.getElementById(removeBtnId).hidden = true;
                 })
-                .catch(() => { status.style.color = '#c55'; status.textContent = 'Failed.'; });
+                .catch(() => pickerNote(PICKER_SAVE_FAILED));
         }
         function clearPickerLogo() { clearPickerImage('picker logo image', 'picker_logo_clear', 'picker-logo-current', 'picker-logo-remove-btn'); }
         function clearPickerIcon() { clearPickerImage('home screen icon', 'picker_icon_clear', 'picker-icon-current', 'picker-icon-remove-btn'); }
