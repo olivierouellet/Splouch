@@ -15,6 +15,7 @@ import glob
 import hashlib
 import hmac
 import json
+import mimetypes
 import os
 import queue
 import re
@@ -679,6 +680,18 @@ def _save_creds(creds):
     _atomic_write(CREDS_FILE, json.dumps(creds, indent=2))
 
 
+# What the Appearance tab accepts. The logo is drawn by a browser `<img>`, so the
+# list is the formats every current browser renders; the icon is also fed to the web
+# manifest, which names `image/png` for both sizes, so it stays PNG-only.
+#
+# The cap is small on purpose: both images live base64-encoded inside
+# credentials.json, and `_load_creds()` re-reads and re-parses that file on every
+# request. A few megabytes of logo would be paid for on every page view.
+LOGO_MIME_TYPES = ('image/png', 'image/jpeg', 'image/gif', 'image/webp', 'image/svg+xml')
+ICON_MIME_TYPES = ('image/png',)
+MAX_IMAGE_BYTES = 2 * 1024 * 1024
+
+
 def _picker_appearance():
     creds = _load_creds()
     raw = creds.get('picker_title')
@@ -689,6 +702,7 @@ def _picker_appearance():
         'has_picker_logo':          bool(creds.get('picker_logo_b64', '')),
         'has_picker_icon':          bool(creds.get('picker_icon_b64', '')),
         'picker_logo_above':        creds.get('picker_logo_above', False),
+        'picker_max_upload':        MAX_IMAGE_BYTES,
     }
 
 
@@ -1303,8 +1317,13 @@ def route_picker_logo():
         raise HTTPException(404)
     data = base64.b64decode(logo_b64)
     mime = creds.get('picker_logo_mime', 'image/png')
+    # An SVG logo is a document, not a bitmap: opened directly (rather than through
+    # the `<img>` on the picker page, which already inerts it) it would run its own
+    # script on this origin. The sandbox costs nothing for the other formats.
     return Response(data, media_type=mime,
-                    headers={'Cache-Control': 'public, max-age=300'})
+                    headers={'Cache-Control': 'public, max-age=300',
+                             'Content-Security-Policy': "default-src 'none'; sandbox",
+                             'X-Content-Type-Options': 'nosniff'})
 
 
 @app.get('/picker_icon', tags=['Public'])
@@ -1347,6 +1366,30 @@ def route_picker_manifest():
     return Response(json.dumps(manifest), media_type='application/manifest+json')
 
 
+async def _read_image(upload, allowed):
+    """Bytes + settled MIME type of an uploaded image, or ValueError with the reason.
+
+    The browser's `content_type` is a claim, and an empty one is common enough (some
+    clients send `application/octet-stream` for anything they do not recognise) that
+    the filename extension is a better second opinion than a blanket default. Both
+    have to agree with `allowed` before the bytes are stored — the form's `accept`
+    filters the file dialog and nothing else, so drag-and-drop and any non-browser
+    client arrive here unchecked.
+    """
+    mime = (upload.content_type or '').split(';')[0].strip().lower()
+    if mime in ('', 'application/octet-stream'):
+        mime = (mimetypes.guess_type(upload.filename)[0] or '').lower()
+    if mime == 'image/jpg':          # non-standard, but some tools still send it
+        mime = 'image/jpeg'
+    if mime not in allowed:
+        names = ', '.join(m.split('/')[-1].split('+')[0].upper() for m in allowed)
+        raise ValueError(f'Unsupported image format. Accepted: {names}.')
+    data = await upload.read()
+    if len(data) > MAX_IMAGE_BYTES:
+        raise ValueError(f'Image is too large (max {MAX_IMAGE_BYTES // (1024 * 1024)} MB).')
+    return data, mime
+
+
 @app.post('/admin/picker_appearance', tags=['Admin'], response_model=ActionResult,
           response_model_exclude_none=True, dependencies=[Depends(require_admin)])
 async def route_picker_appearance(request: Request):
@@ -1362,8 +1405,10 @@ async def route_picker_appearance(request: Request):
     else:
         logo = form.get('picker_logo')
         if logo and logo.filename:
-            data = await logo.read()
-            mime = logo.content_type or 'image/png'
+            try:
+                data, mime = await _read_image(logo, LOGO_MIME_TYPES)
+            except ValueError as e:
+                return {'ok': False, 'error': str(e)}
             creds['picker_logo_b64']  = base64.b64encode(data).decode()
             creds['picker_logo_mime'] = mime
     if form.get('picker_icon_clear') == '1':
@@ -1371,7 +1416,11 @@ async def route_picker_appearance(request: Request):
     else:
         icon = form.get('picker_icon')
         if icon and icon.filename:
-            creds['picker_icon_b64'] = base64.b64encode(await icon.read()).decode()
+            try:
+                data, _ = await _read_image(icon, ICON_MIME_TYPES)
+            except ValueError as e:
+                return {'ok': False, 'error': str(e)}
+            creds['picker_icon_b64'] = base64.b64encode(data).decode()
     await run_in_threadpool(_save_creds, creds)
     return {'ok': True}
 

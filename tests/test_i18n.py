@@ -554,7 +554,7 @@ def test_no_panel_language_invents_a_key_english_lacks(code):
 # the fallback form would have hidden a missing key just as effectively.
 @pytest.mark.parametrize('key', [
     'picker_page', 'window_title', 'window_title_hint', 'picker_title',
-    'picker_title_hint', 'logo', 'upload_image', 'remove', 'logo_above',
+    'picker_title_hint', 'logo', 'logo_hint', 'upload_image', 'remove', 'logo_above',
     'home_icon', 'home_icon_hint',
     'log_source_app', 'log_source_webhook', 'log_refresh', 'log_follow',
 ])

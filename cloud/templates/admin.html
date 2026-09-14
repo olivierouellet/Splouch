@@ -354,15 +354,15 @@
                         <div class="form-text">{{ t.picker_title_hint }}</div>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">{{ t.logo }}</label>
+                        <label class="form-label">{{ t.logo }} <span class="text-body-secondary text-lowercase">{{ t.logo_hint }}</span></label>
                         <div class="d-flex flex-wrap gap-2 align-items-center">
                             <label class="btn btn-secondary btn-sm m-0" style="cursor:pointer;">
-                                {{ t.upload_image }}<input type="file" name="picker_logo" accept="image/*" style="display:none;" onchange="previewPickerLogo(this)">
+                                {{ t.upload_image }}<input type="file" name="picker_logo" accept="image/png,image/jpeg,image/gif,image/webp,image/svg+xml" style="display:none;" onchange="previewPickerLogo(this)">
                             </label>
                             <button type="button" class="btn btn-outline-danger btn-sm" id="picker-logo-remove-btn" onclick="clearPickerLogo()" {% if not has_picker_logo %}hidden{% endif %}>{{ t.remove }}</button>
                             <img id="picker-logo-current" src="{{ '/picker_logo' if has_picker_logo else '' }}" style="max-height:36px;max-width:72px;border-radius:4px;border:1px solid #333;flex-shrink:0;" {% if not has_picker_logo %}hidden{% endif %}>
                         </div>
-                        <div id="picker-logo-preview" style="display:none;margin-top:4px;">
+                        <div id="picker-logo-preview" style="margin-top:4px;" hidden>
                             <img id="picker-logo-preview-img" style="max-height:60px;max-width:120px;border-radius:4px;border:1px solid #333;">
                         </div>
                     </div>
@@ -381,7 +381,7 @@
                             <button type="button" class="btn btn-outline-danger btn-sm" id="picker-icon-remove-btn" onclick="clearPickerIcon()" {% if not has_picker_icon %}hidden{% endif %}>{{ t.remove }}</button>
                             <img id="picker-icon-current" src="{{ '/picker_icon' if has_picker_icon else '' }}" style="height:36px;width:36px;border-radius:8px;border:1px solid #333;flex-shrink:0;" {% if not has_picker_icon %}hidden{% endif %}>
                         </div>
-                        <div id="picker-icon-preview" style="display:none;margin-top:4px;">
+                        <div id="picker-icon-preview" style="margin-top:4px;" hidden>
                             <img id="picker-icon-preview-img" style="height:60px;width:60px;border-radius:10px;border:1px solid #333;">
                         </div>
                     </div>
@@ -661,14 +661,34 @@
         {% endif %}
 
         // ── Picker appearance ─────────────────────────────────────────────────
+        // Picking a file only *stages* it — nothing reaches the server until Save. The
+        // preview is the whole of the feedback that the pick registered, so it has to
+        // appear; it is hidden with the `hidden` attribute, never an inline
+        // display:none, which this cannot lift.
+        const PICKER_MAX_UPLOAD = {{ picker_max_upload }};
         function previewImage(input, previewId, previewImgId) {
             if (!input.files.length) return;
+            const status = document.getElementById('picker-appearance-status');
+            const file = input.files[0];
+            // The dialog filters on `accept`, but a drag-and-drop does not, and the
+            // server refuses the same two things — say so here rather than at Save.
+            const accepted = (input.getAttribute('accept') || '').split(',');
+            let bad = '';
+            if (accepted.indexOf(file.type) === -1) bad = {{ t.get('image_format_rejected', 'Unsupported image format.') | tojson }};
+            else if (file.size > PICKER_MAX_UPLOAD) bad = {{ t.get('image_too_large', 'Image is too large.') | tojson }};
+            if (bad) {
+                input.value = '';
+                document.getElementById(previewId).hidden = true;
+                status.style.color = '#c55'; status.textContent = bad;
+                return;
+            }
+            status.textContent = '';
             const reader = new FileReader();
             reader.onload = e => {
                 document.getElementById(previewImgId).src = e.target.result;
                 document.getElementById(previewId).hidden = false;
             };
-            reader.readAsDataURL(input.files[0]);
+            reader.readAsDataURL(file);
         }
         function previewPickerLogo(input) { previewImage(input, 'picker-logo-preview', 'picker-logo-preview-img'); }
         function previewPickerIcon(input) { previewImage(input, 'picker-icon-preview', 'picker-icon-preview-img'); }
@@ -684,7 +704,9 @@
                         refreshUploaded(form, 'picker_logo', '/picker_logo', 'picker-logo-current', 'picker-logo-remove-btn', 'picker-logo-preview');
                         refreshUploaded(form, 'picker_icon', '/picker_icon', 'picker-icon-current', 'picker-icon-remove-btn', 'picker-icon-preview');
                     } else {
-                        status.style.color = '#c55'; status.textContent = 'Error.';
+                        // The server says which file it refused and why; 'Error.' alone
+                        // reads as "the save is broken" when one field was rejected.
+                        status.style.color = '#c55'; status.textContent = d.error || 'Error.';
                     }
                 })
                 .catch(() => { status.style.color = '#c55'; status.textContent = 'Failed.'; });

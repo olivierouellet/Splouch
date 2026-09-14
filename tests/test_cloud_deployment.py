@@ -13,13 +13,19 @@ domain back into the tracked file, and that the migration lifts one out of an in
 made before the change.
 """
 import os
+import re
 import sys
+import tempfile
 
 import pytest
 import yaml
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(REPO, 'cloud'))
+# Importing the module writes credentials.json on first load; keep that out of /data.
+os.environ.setdefault('DATA_DIR', tempfile.mkdtemp(prefix='splouch-cloud-test-'))
+
+import cloud_server as cs        # noqa: E402
 
 CADDYFILE = os.path.join(REPO, 'cloud', 'Caddyfile')
 COMPOSE   = os.path.join(REPO, 'cloud', 'docker-compose.yml')
@@ -210,7 +216,8 @@ def test_the_unavailable_state_is_what_the_operator_sees():
         t=t, has_deploy=True, creds_error=None, keys=[], active_meets=[],
         user_name='Admin', locales=[], current_locale='', ui_lang_cookie='',
         analytics_enabled=False, picker_window_title_form='', picker_title_form='',
-        picker_logo_above=False, has_picker_logo=False, has_picker_icon=False)
+        picker_logo_above=False, has_picker_logo=False, has_picker_icon=False,
+        picker_max_upload=2 * 1024 * 1024)
     fn = _re.search(r'^        function updateUnavailable\(reason\) \{.*?^        \}',
                     src, _re.S | _re.M)
     assert fn, 'updateUnavailable is no longer a top-level function in admin.html'
@@ -255,3 +262,58 @@ def test_the_unavailable_state_is_what_the_operator_sees():
     assert t['webhook_unreachable'] in out['status'], 'not shown in the panel language'
     assert out['current'] == t['unknown']
     assert 'danger' in out['statusClass'], 'must not read as ordinary secondary text'
+
+
+# ── Appearance tab: the logo upload ────────────────────────────────────────────
+#
+# Choosing a file only stages it; nothing reaches the server until Save. The preview
+# is therefore the whole of the feedback that the pick registered — and it never
+# appeared, because the JS reveals it with `hidden = false` while the markup hid it
+# with an inline `display:none` that no attribute can lift. The upload looked broken
+# from the first click, and the working Save button below it went unused.
+
+@pytest.mark.parametrize('pane', ['picker-logo-preview', 'picker-icon-preview'])
+def test_the_upload_previews_are_hidden_the_way_the_script_unhides_them(pane):
+    src = open(ADMIN, encoding='utf-8').read()
+    div = src[src.index('id="%s"' % pane):]
+    div = div[:div.index('>')]
+    assert 'hidden' in div, f'{pane} must use the attribute previewImage() clears'
+    assert 'display:none' not in div.replace(' ', ''), \
+        f'{pane}: an inline display:none outranks `hidden = false`, so it never shows'
+
+
+def test_the_logo_field_names_the_formats_it_takes():
+    """`image/*` offers the operator HEIC and TIFF, which no browser will draw."""
+    src = open(ADMIN, encoding='utf-8').read()
+    field = src[src.index('name="picker_logo"'):]
+    accept = re.search(r'accept="([^"]*)"', field).group(1).split(',')
+    assert accept == list(cs.LOGO_MIME_TYPES), 'the dialog and the server must agree'
+    assert '{{ t.logo_hint }}' in src, 'the accepted formats are not shown on the page'
+
+
+def test_the_icon_field_takes_only_what_the_manifest_promises():
+    """/picker_manifest declares `image/png` for both icon sizes."""
+    src = open(ADMIN, encoding='utf-8').read()
+    field = src[src.index('name="picker_icon"'):]
+    accept = re.search(r'accept="([^"]*)"', field).group(1).split(',')
+    assert accept == list(cs.ICON_MIME_TYPES)
+
+
+def test_the_accepted_formats_in_the_hint_are_the_ones_the_server_stores():
+    """A hint that promises more than the server takes is the bug, rearranged."""
+    import tomllib
+    panel = tomllib.load(open(os.path.join(REPO, 'shared', 'locales', 'panel', 'en.toml'), 'rb'))
+    hint = panel['cloud']['logo_hint'].upper()
+    for mime in cs.LOGO_MIME_TYPES:
+        assert mime.split('/')[-1].split('+')[0].upper() in hint, \
+            f'{mime} is accepted but the operator is never told'
+    assert '%d MB' % (cs.MAX_IMAGE_BYTES // (1024 * 1024)) in panel['cloud']['logo_hint']
+
+
+def test_an_svg_logo_cannot_run_script_on_this_origin():
+    """SVG is a document. The picker's `<img>` inerts it; opening /picker_logo does not."""
+    src = open(os.path.join(REPO, 'cloud', 'cloud_server.py'), encoding='utf-8').read()
+    body = src[src.index('def route_picker_logo'):]
+    body = body[:body.index('@app.get', 1)]
+    assert 'image/svg+xml' in cs.LOGO_MIME_TYPES, 'this test is only needed while SVG is taken'
+    assert 'Content-Security-Policy' in body and 'sandbox' in body
