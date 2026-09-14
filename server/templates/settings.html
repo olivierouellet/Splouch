@@ -1052,10 +1052,14 @@ function onPasswordInput(form) {
                         <!-- Session list -->
                         <div class="d-flex justify-content-between align-items-center mb-2">
                             <span class="fw-bold">{{ t.test_recorded_sessions }}</span>
-                            <div class="file-picker">
-                                <label class="btn btn-secondary btn-sm m-0 text-nowrap" style="cursor:pointer; min-width:70px;">
-                                    {{ t.test_upload }}<input type="file" accept=".cts" style="display:none;" onchange="testUpload(this)">
-                                </label>
+                            <div class="d-flex align-items-center gap-2">
+                                <span id="test-session-status" class="small"></span>
+                                <div class="file-picker">
+                                    <label class="btn btn-secondary btn-sm m-0 text-nowrap" style="cursor:pointer; min-width:70px;">
+                                        {{ t.test_upload }}<input type="file" accept=".cts,.raw,.cap" style="display:none;" onchange="testUpload(this)">
+                                    </label>
+                                    <span class="file-msg small text-body-secondary ms-1"></span>
+                                </div>
                             </div>
                         </div>
                         <div id="test-session-list" class="small" style="min-height:32px;"><span class="text-body-secondary">{{ t.loading }}</span></div>
@@ -1572,7 +1576,22 @@ function onPasswordInput(form) {
         if (!input.files || !input.files[0]) return;
         var fd = new FormData();
         fd.append('session_file', input.files[0]);
-        fetch('/test_session_upload', {method:'POST', body:fd}).then(function(){ _loadTestStatus(); });
+        var status = document.getElementById('test-session-status');
+        _statusColor(status, 'muted');
+        status.textContent = T.loading;
+        fetch('/test_session_upload', {method:'POST', body:fd})
+            .then(function(r){ return r.json(); })
+            .then(function(d){
+                if (d.ok) { status.textContent = ''; _loadTestStatus(); }
+                else { _statusColor(status, 'err'); status.textContent = d.error || T.js_upload_failed; }
+            })
+            .catch(function(){
+                _statusColor(status, 'err'); status.textContent = T.js_upload_failed;
+            });
+        // Cleared so re-picking the same file fires `change` again. Without it a
+        // failed upload could not be retried with the same file — the value never
+        // changes, so the browser never fires the event.
+        input.value = '';
     }
 
     function testRecordToggle() {
@@ -1600,6 +1619,7 @@ function onPasswordInput(form) {
                 status.textContent = d.error || T.js_upload_failed;
             }
         });
+        input.value = '';   // so the same file can be picked again after a failure
     }
 
     document.querySelectorAll('.app-nav .nav-link').forEach(function(link) {
@@ -2067,8 +2087,11 @@ function onPasswordInput(form) {
 
     document.querySelectorAll('.file-picker input[type="file"]').forEach(function(input) {
         input.addEventListener('change', function() {
+            // A wrapper without a span is one that reports through its own status
+            // line instead; it must not throw out of here, because this listener
+            // shares the `change` event with the handler doing the actual upload.
             var msg = this.closest('.file-picker').querySelector('.file-msg');
-            if (this.files && this.files[0]) {
+            if (msg && this.files && this.files[0]) {
                 msg.textContent = this.files[0].name;
                 msg.style.transition = 'none';
                 msg.style.opacity = '1';

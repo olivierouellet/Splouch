@@ -213,19 +213,34 @@ async def route_test_session_delete(body: NameBody):
     return redirect('/settings')
 
 
-@router.post('/test_session_upload', dependencies=[Depends(require_login)])
+# The recording formats a session upload takes. `settings.html` puts the same list in
+# the file dialog's `accept`, and a test pins the two together: they disagreed, so the
+# dialog offered only .cts while the server had always stored all three.
+SESSION_UPLOAD_EXTS = ('.cts', '.raw', '.cap')
+
+
+@router.post('/test_session_upload', response_model=ActionResult,
+             response_model_exclude_none=True, dependencies=[Depends(require_login)])
 async def route_test_session_upload(request: Request):
+    """Store an uploaded console recording, and say so.
+
+    This used to answer a redirect to /settings whether it had saved the file or
+    silently dropped it, and the page reloaded its session list either way — so a
+    wrong extension looked exactly like a successful upload, minus the new row.
+    """
     file = (await request.form()).get('session_file')
-    if file and (file.filename.endswith('.cts') or
-                 file.filename.endswith('.raw') or
-                 file.filename.endswith('.cap')):
-        # Writing the upload is blocking — run it off the event loop so live
-        # scoreboard broadcasts keep flowing (a .cap can be large).
-        await run_in_threadpool(
-            save_upload, file,
-            os.path.join(state.CUSTOM_SESSIONS_FOLDER,
-                         os.path.basename(file.filename)))
-    return redirect('/settings')
+    if not file or not file.filename:
+        return {'ok': False, 'error': 'No file provided'}
+    if not file.filename.lower().endswith(SESSION_UPLOAD_EXTS):
+        named = '%s or %s' % (', '.join(SESSION_UPLOAD_EXTS[:-1]), SESSION_UPLOAD_EXTS[-1])
+        return {'ok': False, 'error': 'File must be ' + named}
+    # Writing the upload is blocking — run it off the event loop so live
+    # scoreboard broadcasts keep flowing (a .cap can be large).
+    await run_in_threadpool(
+        save_upload, file,
+        os.path.join(state.CUSTOM_SESSIONS_FOLDER,
+                     os.path.basename(file.filename)))
+    return {'ok': True}
 
 
 @router.get('/serial_status', response_model=SerialStatus,
