@@ -47,7 +47,11 @@ way, if it is ever needed, is `xxd -r -p session.raw > session.cap`.
 | `real_console6.raw` | 1 · 50m Freestyle | 1 | 8 | — | — | captured, no finish |
 
 **Start list** is the gap between the event announcement — which is what puts names
-on the board — and the first lane going active. It is how long an operator has to
+on the board — and the first lane going active. It only works because the player
+flushes each packet at *its own* timestamp: a packet is otherwise dispatched by the
+arrival of the next one's first byte, which on a live wire is milliseconds and in a
+recording is the whole gap. Every file here opens with its announcement and then
+says nothing until the race, so the names used to arrive with the first dive. It is how long an operator has to
 read a heat before it starts, so it is pinned per file rather than left to whatever
 a regeneration would default to.
 

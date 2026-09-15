@@ -427,6 +427,21 @@ def _play_cts_file(session_file, my_gen):
                 break
             if d.group(1):
                 ts = float(d.group(1))
+                # Dispatch the line just read before pacing to this one. A `.cts`
+                # line is exactly one packet, so it is complete the moment the next
+                # timestamp appears — and this runs *before* the sleep below, so it
+                # lands at its own timestamp rather than this one.
+                #
+                # `_ingest_byte` alone cannot do it: a packet is flushed there by the
+                # arrival of the *next* packet's first byte, which is fine on a live
+                # wire where the next byte is milliseconds away and wrong on a
+                # recording, where it can be the whole gap. The event announcement
+                # sits at the top of every file with nothing after it until the race
+                # starts, so the board showed no event and no names until the first
+                # lane went active — eleven seconds of blank start list.
+                if l:
+                    _handle_packet(l)
+                    l = []
                 if start_time is None:
                     start_time = ts - state.in_speed * time.time()
                 else:
@@ -441,6 +456,9 @@ def _play_cts_file(session_file, my_gen):
                 time.sleep(0.1)
             else:
                 delay += 1 / 720.0
+        # The last packet of the file has no successor to flush it either.
+        if l and state._worker_gen == my_gen:
+            _handle_packet(l)
         if has_timestamps:
             break
 

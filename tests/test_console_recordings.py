@@ -490,3 +490,106 @@ def test_the_start_list_is_on_screen_before_anyone_swims(name):
         assert abs(gap - START_LIST_SECONDS[name]) < 0.01, (
             f'{name} heat {heat}: {gap:.2f}s of start list, '
             f'expected {START_LIST_SECONDS[name]:.2f}s')
+
+
+# ── Playback timing ────────────────────────────────────────────────────────────
+# A packet is normally flushed by the arrival of the *next* packet's first byte
+# (`worker._ingest_byte`). On a live wire that next byte is milliseconds away. On a
+# recording it can be the whole gap — and every file here opens with its event
+# announcement and then says nothing until the race starts. So the announcement sat
+# in the buffer for the entire pre-race window, and the board showed no event and no
+# names until the first lane went active.
+#
+# Driven through `worker._play_cts_file` itself, on a clock that only moves when the
+# player sleeps. An earlier version of this check fed the bytes by hand and missed
+# the bug twice: once by ignoring the timestamps, once by stamping them in the wrong
+# order. The player is the thing under test, so the player is what runs.
+
+class _FrozenClock:
+    """`time` for the player: wall time only advances when it sleeps."""
+
+    def __init__(self):
+        self.t = 0.0
+
+    def time(self):
+        return self.t
+
+    def monotonic(self):
+        return self.t
+
+    def sleep(self, seconds):
+        if seconds > 0:
+            self.t += seconds
+
+
+@pytest.fixture
+def played(monkeypatch):
+    """Play a recording for real and return [(recording time, frame), …]."""
+    def run(name):
+        import bus
+        import relay
+        import state
+        import worker
+        from console_decoders import make_decoder
+        from meet_parsers.lenex_parser import load_lenex
+        import meet_data
+
+        clock = _FrozenClock()
+        frames = []
+        monkeypatch.setattr(worker, 'time', clock)
+        # One patch, not two: `worker.bus` and `meet_data.bus` are the same module
+        # object, so patching both replaced the collector with the second stub and
+        # every frame vanished.
+        monkeypatch.setattr(bus, 'emit',
+                            lambda ch, ev, d=None: frames.append((clock.t, d))
+                            if ev == 'update_scoreboard' else None)
+        monkeypatch.setattr(relay, 'relay_emit', lambda ev, d=None: None)
+        monkeypatch.setattr(worker, '_drain_cmds', lambda: None)
+        monkeypatch.setitem(state.settings, 'num_lanes', 8)
+        monkeypatch.setattr(state, '_worker_gen', 1, raising=False)
+        monkeypatch.setattr(state, 'update', {}, raising=False)
+        monkeypatch.setattr(state, '_running_lanes', set(), raising=False)
+        monkeypatch.setattr(state, '_decoder',
+                            make_decoder('cts_gen6', state.settings), raising=False)
+        state.set_lenex(load_lenex(os.path.join(RECORDINGS, name + '.lxf')))
+
+        worker._play_cts_file(os.path.join(RECORDINGS, name + '.cts'), 1)
+        base = frames[0][0] if frames else 0.0
+        return [(round(t - base, 2), f) for t, f in frames]
+    return run
+
+
+def _first(frames, predicate):
+    return next((t for t, frame in frames if predicate(frame)), None)
+
+
+@pytest.mark.parametrize('name', sorted(AUTHORED))
+def test_the_names_arrive_with_the_announcement_not_with_the_race(name, played):
+    """The symptom an operator sees: an empty board until somebody dives in."""
+    frames = played(name)
+    names = _first(frames, lambda f: f.get('lane_name1'))
+    race = _first(frames, lambda f: any(k.startswith('lane_running') and v
+                                        for k, v in f.items()))
+    assert names is not None, 'no names were ever sent'
+    assert race is not None and race > 1.0, 'the race starts immediately?'
+    assert names < race - 1.0, (
+        f'{name}: names at {names}s, race at {race}s — nothing to read beforehand')
+
+
+@pytest.mark.parametrize('name', sorted(AUTHORED))
+def test_the_event_number_arrives_at_the_announcement(name, played):
+    frames = played(name)
+    assert _first(frames, lambda f: f.get('current_event')) == 0.0
+
+
+@pytest.mark.parametrize('name', sorted(AUTHORED))
+def test_the_start_list_really_is_on_screen_for_as_long_as_it_claims(name, played):
+    """The gap `START_LIST_SECONDS` promises, measured through the player rather
+    than off the file: the two disagreed, and the file was not the one lying."""
+    frames = played(name)
+    names = _first(frames, lambda f: f.get('lane_name1'))
+    race = _first(frames, lambda f: any(k.startswith('lane_running') and v
+                                        for k, v in f.items()))
+    assert abs((race - names) - START_LIST_SECONDS[name]) < 0.2, (
+        f'{name}: {race - names:.2f}s between names and race, '
+        f'expected {START_LIST_SECONDS[name]}s')
