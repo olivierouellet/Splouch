@@ -25,6 +25,9 @@ class FitLabel(QLabel):
         self._max_px = max_px
         self._min_px = min_px
         self._full   = text or ''
+        # What the caller asked for. The vertical pair is ours to adjust — see
+        # _cap_shift — so the two are kept apart rather than read back off the widget.
+        self._margins = (0, 0, 0, 0)
         self.setTextFormat(Qt.PlainText)
 
     def set_max_px(self, px: int):
@@ -67,6 +70,48 @@ class FitLabel(QLabel):
         super().resizeEvent(event)
         self._refit()
 
+    def setContentsMargins(self, *args):   # noqa: N802 — Qt naming
+        """Remember the caller's padding; the vertical half is ours to adjust."""
+        if len(args) == 1:                 # a QMargins
+            box = args[0]
+            self._margins = (box.left(), box.top(), box.right(), box.bottom())
+        else:
+            self._margins = tuple(args)
+        self._apply_margins()
+
+    def _cap_shift(self) -> int:
+        """How far to move this font's text down so its *capitals* sit centred.
+
+        `AlignVCenter` centres the font's line box — ascent plus descent — not the
+        glyphs. That is fine until two fonts share a row, which on this board is
+        everywhere: `EV` beside `12`, a swimmer's name beside a lane number. Overpass
+        Mono reports a 24px descent at 62px and DSEG7 Classic reports **zero**, so
+        Qt centres one of them around a gap under the text that the other does not
+        have, and the word floats six pixels above its number.
+
+        Solved off the font, never off the current string. Ink extents would centre
+        `Roy` and `Zoé` at different heights and make a lane's time bob as the digits
+        changed; the cap band is a property of the face and holds still.
+        """
+        metrics = QFontMetrics(self.font())
+        cap = metrics.capHeight()
+        if cap <= 0:                       # a face that does not report one
+            return 0
+        return round(cap / 2 + metrics.height() / 2 - metrics.ascent())
+
+    def _apply_margins(self):
+        left, top, right, bottom = self._margins
+        # Only for a vertically centred label: with AlignTop or AlignBottom the
+        # caller has asked for an edge, and an edge is not ours to move.
+        if self.alignment() & Qt.AlignVCenter:
+            shift = self._cap_shift()
+            # Padding one side moves the contents rect's centre by half of it.
+            if shift > 0:
+                top += 2 * shift
+            elif shift < 0:
+                bottom += -2 * shift
+        super().setContentsMargins(left, top, right, bottom)
+
     def _refit(self):
         # Every font assignment below goes through `super().setFont`, never
         # `self.setFont` — the override calls straight back in here.
@@ -75,6 +120,7 @@ class FitLabel(QLabel):
         if not text:
             font.setPixelSize(self._max_px)
             super().setFont(font)
+            self._apply_margins()
             super().setText('')
             return
 
@@ -89,6 +135,7 @@ class FitLabel(QLabel):
         font.setPixelSize(self._max_px)
         if QFontMetrics(font).horizontalAdvance(text) <= avail:
             super().setFont(font)
+            self._apply_margins()
             super().setText(text)
             return
 
@@ -104,6 +151,7 @@ class FitLabel(QLabel):
                 hi = mid - 1
         font.setPixelSize(best)
         super().setFont(font)
+        self._apply_margins()
 
         # Even the floor may not fit — a 27-character club in an 8vw column. Qt
         # clips a label to its own rect, so the text would simply be cut through a

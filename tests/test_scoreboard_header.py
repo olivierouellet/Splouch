@@ -258,3 +258,132 @@ def test_the_name_re_fits_when_the_window_changes(qt_app):
         assert _fits(board.name_label), 'it kept a size the smaller window cannot hold'
     finally:
         board.close()
+
+
+# ── Sitting on the same line ───────────────────────────────────────────────────
+# `AlignVCenter` centres a font's *line box* — ascent plus descent — not its glyphs.
+# Two fonts share almost every row on this board (`EV` beside `12`, a swimmer's name
+# beside a lane number), and at 62px Overpass Mono reports a 24px descent while DSEG7
+# Classic reports zero. So Qt centred one of them around a gap under the text that
+# the other did not have, and the word floated six pixels above its number.
+#
+# `FitLabel` centres the *cap band* instead. Off the font, never off the string:
+# ink extents would put `Roy` and `Zoé` at different heights and make a lane's time
+# bob as its digits changed.
+
+def _cap_offset(label):
+    """Where the capital/digit band's centre sits, relative to the widget's."""
+    metrics = QFontMetrics(label.font())
+    geom, contents = label.geometry(), label.contentsRect()
+    baseline = (geom.y() + contents.y()
+                + (contents.height() - metrics.height()) / 2 + metrics.ascent())
+    return (baseline - metrics.capHeight() / 2) - (geom.y() + geom.height() / 2)
+
+
+def _fills(board):
+    board.apply_update({
+        'current_event': '12', 'current_heat': '7',
+        'event_name': 'Girls 13-14 200m Individual Medley', 'running_time': '1:05.23',
+        'lane_running1': True,
+        'lane_name1': 'Roy, Zoé', 'lane_club1': 'CNQ',          # descender + accent
+        'lane_name2': 'NHAM', 'lane_club2': 'AAA',              # neither
+        'lane_time2': '58.00', 'lane_place2': '2',
+        'lane_delta_seconds2': -0.46, 'lane_delta_better2': True})
+    board.cancel_heat_transition()
+    board._apply_col_fraction(1.0)
+
+
+def test_the_word_and_its_number_sit_on_one_line(qt_app):
+    """The complaint: `EV` visibly higher than the `12` beside it."""
+    board = _board(qt_app)
+    try:
+        _fills(board)
+        qt_app.processEvents()
+        for cell in (board.event_cell, board.heat_cell):
+            drift = abs(_cap_offset(cell.label) - _cap_offset(cell.value))
+            assert drift <= 1, f'{drift:.1f}px apart — the word floats'
+    finally:
+        board.close()
+
+
+def test_every_cell_in_the_header_shares_a_centre_line(qt_app):
+    board = _board(qt_app)
+    try:
+        _fills(board)
+        qt_app.processEvents()
+        cells = {'EV word': board.event_cell.label, 'EV number': board.event_cell.value,
+                 'HT word': board.heat_cell.label, 'HT number': board.heat_cell.value,
+                 'name': board.name_label, 'chrono': board.chrono_label,
+                 'wall clock': board.wall_clock}
+        off = {name: _cap_offset(w) for name, w in cells.items()}
+        assert max(off.values()) - min(off.values()) <= 1, off
+    finally:
+        board.close()
+
+
+def test_a_lane_row_shares_one_too(qt_app):
+    """Same mechanism, eight more rows of it: the lane number and the place are in
+    the digits font, everything between them is not."""
+    board = _board(qt_app)
+    try:
+        _fills(board)
+        qt_app.processEvents()
+        row = board.rows[1]
+        off = {n: _cap_offset(w) for n, w in
+               (('lane', row.lane_label), ('name', row.name_label),
+                ('club', row.club_label), ('time', row.time_label),
+                ('delta', row.delta_label), ('place', row.place_label))}
+        assert max(off.values()) - min(off.values()) <= 1, off
+    finally:
+        board.close()
+
+
+def test_a_descender_does_not_move_the_line(qt_app):
+    """Solved off the font, not the string. `Roy, Zoé` has a descender and an accent
+    and `NHAM` has neither; if the two sat at different heights the board would
+    twitch every time a heat changed."""
+    board = _board(qt_app)
+    try:
+        _fills(board)
+        qt_app.processEvents()
+        assert abs(_cap_offset(board.rows[0].name_label)
+                   - _cap_offset(board.rows[1].name_label)) <= 1
+    finally:
+        board.close()
+
+
+def test_nothing_is_pushed_out_of_its_box(qt_app):
+    """The shift is padding, and padding eats height. A cell that centred its
+    capitals by clipping their tops would be a worse bug than the one it fixed."""
+    board = _board(qt_app)
+    try:
+        _fills(board)
+        qt_app.processEvents()
+        row = board.rows[1]
+        for name, label in (('EV word', board.event_cell.label),
+                            ('name', board.name_label),
+                            ('chrono', board.chrono_label),
+                            ('row name', row.name_label),
+                            ('row time', row.time_label),
+                            ('row place', row.place_label)):
+            metrics = QFontMetrics(label.font())
+            contents = label.contentsRect()
+            baseline = (contents.y()
+                        + (contents.height() - metrics.height()) / 2 + metrics.ascent())
+            assert baseline - metrics.ascent() >= -1, f'{name} clipped at the top'
+            assert baseline + metrics.descent() <= label.height() + 1, \
+                f'{name} clipped at the bottom'
+    finally:
+        board.close()
+
+
+def test_a_font_with_no_cap_height_is_left_alone(qt_app):
+    """A face that does not report one gets today's behaviour rather than a shift
+    computed from a zero."""
+    from scoreboard.widgets import FitLabel
+    label = FitLabel('X')
+    label.resize(200, 60)
+    font = label.font()
+    font.setPixelSize(40)
+    label.setFont(font)
+    assert isinstance(label._cap_shift(), int)

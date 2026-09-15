@@ -136,6 +136,17 @@ stopped and the very next frame started it counting again with the pool empty �
 out inline, including its second half: a lane with a time but no place yet is still
 being placed, so the heat is not over and the clock still belongs to it.
 
+**Every cell centres its capitals, not its line box.** `AlignVCenter` centres ascent
+plus descent, and two fonts share almost every row here — `EV` beside `12`, a swimmer's
+name beside a lane number. At 62px Overpass Mono reports a 24px descent and DSEG7
+Classic reports zero, so Qt centred one of them around a gap under the text the other
+did not have and the word floated six pixels above its number. `FitLabel` shifts each
+label by `capHeight/2 + height/2 - ascent`, which lands every face's cap band on the
+row's centre line. Computed from the *font*, never from the current string: ink extents
+would put `Roy` and `Zoé` at different heights and make a lane's time bob as its digits
+changed. The browser needs none of this — CSS line boxes already sit where a reader
+expects, which is why the problem is Qt-only rather than a divergence.
+
 **Header cell padding is half the browser's.** `_HDR_PAD_X` is 1vw against `.header_cell`'s
 2vw. That padding is a fraction of the *window*, so it costs every cell the same however
 narrow: five cells at 2vw a side spend a fifth of the bar on whitespace, which is what left
