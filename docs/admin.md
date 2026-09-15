@@ -148,6 +148,19 @@ should allow. With no meet loaded it is yours to set, and the choice is remember
 When the session ends, every board is wiped of the replay, the meet comes back, the
 cloud link is restored if it was up before, and playback speed returns to 1×.
 
+Starting a session clears the console's idea of which event and heat is on, and
+ending one puts back whatever it was *before* the session. Without that, swapping the
+meet published the previous session's event and heat number against start lists that
+do not contain it — a plausible number over eight blank lanes, until the recording
+announced its own. It read as "only the first recording I play shows the names",
+because the first one after a restart is the only one that finds nothing stale.
+
+The way out restores rather than clears on purpose. A CTS re-announces its event and
+heat several times a second, so forgetting costs it nothing; a Quantum announces once,
+when the heat is readied, so a board told to forget would show no event and no names
+until somebody readied the next one. Running a test session mid-meet therefore costs
+you nothing on either console.
+
 ---
 
 ## Localisation

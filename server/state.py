@@ -412,6 +412,11 @@ _test_relay_was_running = False
 # re-sends this on every reconnect, so without it a replay's results would reach
 # the cloud on the next connect — long after the test was over.
 _test_saved_results     = None
+# The event and heat the console was on before a test session started, put back when
+# it ends. Not cleared: a Quantum announces its heat once, when it is readied, so a
+# board told to forget would have nothing to show until the next one — see
+# worker.restore_current_heat.
+_test_saved_heat        = None
 _overlay_active     = False
 _cols_hidden        = False
 # Is the timing console actually feeding this display? Published to clients as the

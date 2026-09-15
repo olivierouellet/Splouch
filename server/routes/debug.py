@@ -16,7 +16,8 @@ import state
 from meet_data import send_event_info
 from meet_parsers.lenex_parser import load_lenex
 from web import ActionResult, EnabledFlag, redirect, require_login, save_upload
-from worker import _list_sessions, _restart_worker, end_test_session
+from worker import (_list_sessions, _restart_worker, end_test_session,
+                    forget_current_heat)
 
 router = APIRouter(tags=['Debug'])
 
@@ -146,6 +147,11 @@ def _test_play(name, local_only=True):
                 state.set_lenex(load_lenex(companion))
                 state._test_meet_active = True
                 state._test_meet_name   = os.path.basename(companion)
+                # The decoder still holds the previous session's event and heat.
+                # Broadcasting that against this recording's start lists shows its
+                # number over eight empty lanes until the replay announces its own
+                # — see worker.forget_current_heat.
+                forget_current_heat()
                 send_event_info()
             except Exception as e:
                 print(f'[test] Failed to load companion LXF: {e}', flush=True)

@@ -47,6 +47,54 @@ def _load_meet_from_disk(filename):
         return False
 
 
+def forget_current_heat():
+    """Drop the decoder's idea of which event and heat is on.
+
+    `send_event_info` asks the *decoder* what is current and looks the lanes up in
+    whatever meet is loaded *now*. Swapping one meet for another without clearing
+    this publishes the previous meet's event and heat number against a meet that
+    does not contain them — right-looking numbers over eight blank lanes, until the
+    console or the recording says otherwise.
+
+    That is what a test session did on every run but the first after a restart: the
+    board showed the last session's heat with no swimmers in it, and an operator
+    reasonably read that as "the names come up late".
+
+    `(0, 0)` is the "nothing yet" sentinel `send_event_info` already understands, so
+    the header simply stays blank — the same thing it shows on a cold boot. Clearing
+    it also guarantees the next announcement counts as a *change*, so `event_changed`
+    fires and the names load, even when the new recording opens on the same event and
+    heat the old one ended with.
+
+    Safe to clear here because a *recording* always re-announces: every file in
+    `console_recordings/` opens with its event and heat. Coming back out is the other
+    way round — see `restore_current_heat`.
+    """
+    state._test_saved_heat = state._decoder.last_event_sent
+    state._decoder.last_event_sent = (0, 0)
+    state._decoder.reset_lanes()      # for the side effect; the caller repaints
+
+
+def restore_current_heat():
+    """Put back the heat the *console* was on before the test session began.
+
+    Deliberately not a clear. A console is not obliged to repeat itself: a CTS
+    re-announces its event and heat several times a second (verified against
+    `real_console5.raw` — it comes back within 44 packets), but a Quantum sends it
+    exactly once, when the heat is readied (`A='0'`, "ready at start", in its
+    protocol notes). Clearing on the way out would leave that board with no event
+    and no names until somebody readied the next heat — a test session run mid-meet
+    would cost the operator the heat they were on.
+
+    What we knew before the replay started is the console's own last word, and a far
+    better answer than the recording's. The lanes are still reset: those times
+    belonged to the replay.
+    """
+    state._decoder.last_event_sent = state._test_saved_heat or (0, 0)
+    state._test_saved_heat = None
+    state._decoder.reset_lanes()
+
+
 def _cleanup_test_meet():
     """Put the operator's meet back after a test session.
 
@@ -86,7 +134,15 @@ def end_test_session():
     the operator may have stopped it precisely to keep looking at. `reset` is the
     explicit version, sent only once the real meet is back.
     """
+    # Before the meet is restored, so its `send_event_info` publishes the console's
+    # own heat against the operator's own meet rather than the replay's.
+    restore_current_heat()
+    had_test_meet = state._test_meet_active
     _cleanup_test_meet()
+    if not had_test_meet:
+        # No companion, so `_cleanup_test_meet` returned without broadcasting — but
+        # the boards are about to be wiped, and something has to put the names back.
+        send_event_info()
     # Only after the meet is restored, so the boards repaint from the real one.
     bus.emit('/scoreboard', 'test_mode', {'active': False})
     bus.emit('/scoreboard', 'reset', {})

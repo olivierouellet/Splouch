@@ -384,3 +384,147 @@ def test_a_second_play_does_not_lose_the_real_state(rig, cloud, monkeypatch):
 
     assert state._last_results_snapshot == real
     assert cloud.running['on'], 'the cloud never came back'
+
+
+# ── The heat that belonged to the last session ─────────────────────────────────
+# `send_event_info` asks the *decoder* which event and heat is current, then looks
+# the lanes up in whatever meet is loaded now. Swapping the meet without clearing
+# that publishes the previous session's numbers against a meet that does not have
+# them: a plausible-looking EV/HT over eight blank lanes.
+#
+# It showed up as "only the first recording I play shows names". The first one after
+# a restart found the decoder on its `(0, 0)` sentinel and was fine; every one after
+# it opened on the last session's heat, and the names appeared only once the
+# recording announced its own event.
+
+def _decoder(monkeypatch, at=(0, 0)):
+    import state
+    from console_decoders import make_decoder
+    decoder = make_decoder('cts_gen6', {**state.settings, 'num_lanes': 8})
+    decoder.last_event_sent = at
+    monkeypatch.setattr(state, '_decoder', decoder, raising=False)
+    return decoder
+
+
+def _name_frames(rig):
+    """Frames carrying lane names, and whether each one actually has any."""
+    out = []
+    for _, event, data in rig.events:
+        if event == 'update_scoreboard' and any(k.startswith('lane_name') for k in data):
+            out.append(any(v for k, v in data.items() if k.startswith('lane_name')))
+    return out
+
+
+def test_a_second_session_does_not_open_on_the_previous_heat(rig, monkeypatch):
+    """The decoder is left where the last recording finished. This one is a
+    different event, so its number over this meet's lanes is nobody at all."""
+    import state
+    _decoder(monkeypatch, at=(3, 2))          # where 200m_medley_2heats ends
+
+    emitted = []
+    monkeypatch.setattr(debug.bus, 'emit',
+                        lambda ch, ev, d=None: emitted.append((ev, d)))
+    monkeypatch.setattr(debug, 'send_event_info', __import__(
+        'meet_data').send_event_info)
+    monkeypatch.setattr(__import__('meet_data'), 'bus',
+                        type('B', (), {'emit': staticmethod(
+                            lambda ch, ev, d=None: emitted.append((ev, d)))})())
+    monkeypatch.setattr(__import__('meet_data'), 'relay',
+                        type('R', (), {'relay_emit': staticmethod(
+                            lambda ev, d=None: None)})())
+
+    debug._test_play(SESSION)
+
+    assert state._decoder.last_event_sent == (0, 0), (
+        'the decoder still points at the previous session')
+    burst = [d for ev, d in emitted if ev == 'update_scoreboard']
+    assert burst, 'no start-of-session broadcast at all'
+    assert burst[0].get('current_event') == '', (
+        f"published {burst[0].get('current_event')!r} — the last session's event")
+
+
+def test_the_console_gets_its_own_heat_back_when_the_test_ends(rig, monkeypatch):
+    """The way out is not a clear, and the difference matters on real hardware.
+
+    A CTS re-announces its event and heat several times a second, so forgetting
+    costs it nothing. A Quantum announces once, when the heat is readied (`A='0'`,
+    "ready at start") — a board told to forget would sit with no event and no names
+    until somebody readied the next heat, so a test session run mid-meet would cost
+    the operator the heat they were on.
+
+    What the console last said is restored instead; the replay's heat is what goes.
+    """
+    import state
+    _decoder(monkeypatch, at=(7, 3))          # where the console was, mid-meet
+    _load_real_meet(rig)
+
+    debug._test_play(SESSION)
+    assert state._decoder.last_event_sent == (0, 0), 'the replay inherited a heat'
+    state._decoder.last_event_sent = (1, 1)   # where the recording got to
+
+    worker.end_test_session()
+    assert state._decoder.last_event_sent == (7, 3), (
+        'the console lost the heat it was on')
+
+
+def test_the_recording_s_times_do_not_survive_the_restore(rig, monkeypatch):
+    """Keeping the heat must not mean keeping the replay's lanes with it."""
+    import state
+    decoder = _decoder(monkeypatch, at=(7, 3))
+    debug._test_play(SESSION)
+    decoder.lane_times = {1: '1:02.47'} if hasattr(decoder, 'lane_times') else {}
+    decoder._slots[1][2] = 0x2F               # a time in lane 1's buffer
+
+    worker.end_test_session()
+    assert all(not any(slot for slot in decoder._slots[lane][2:8])
+               for lane in range(1, 9)), 'the replay left times in the decoder'
+
+
+def test_nothing_is_carried_over_into_the_next_session(rig, monkeypatch):
+    """The saved heat is consumed, not kept — two sessions in a row must not make
+    the second restore the first one's console state."""
+    import state
+    _decoder(monkeypatch, at=(7, 3))
+    debug._test_play(SESSION)
+    worker.end_test_session()
+    assert state._test_saved_heat is None
+
+    debug._test_play(SESSION)
+    worker.end_test_session()
+    assert state._decoder.last_event_sent == (7, 3)
+
+
+def test_the_next_announcement_always_counts_as_a_change(rig, monkeypatch):
+    """Clearing it does a second job: a recording that opens on the same event and
+    heat the last one ended with would otherwise be *no change* to the decoder, so
+    `event_changed` never fires and the names never load at all."""
+    import state
+    decoder = _decoder(monkeypatch, at=(1, 1))
+    debug._test_play(SESSION)                  # 50m_sprint — announces (1, 1)
+    assert state._decoder.last_event_sent == (0, 0)
+
+    # Feed the recording's own announcement: it must register as a change.
+    updates = {}
+    for packet in _announcement_packets('50m_sprint'):
+        updates = decoder.feed(packet)
+        if 'event_changed' in updates:
+            break
+    assert updates.get('event_changed') == (1, 1), updates
+
+
+def _announcement_packets(name):
+    """The packets of a recording, up to and including its event announcement."""
+    import re
+    path = os.path.join(RECORDINGS, name + '.cts')
+    packets, packet = [], []
+    for match in re.finditer(r'\[[0-9.]+\]\s*|([0-9a-fA-F]{2})', open(path).read()):
+        if not match.group(1):
+            continue
+        byte = int(match.group(1), 16)
+        if byte & 0x80 and packet:
+            packets.append(packet)
+            packet = []
+        packet.append(byte)
+        if len(packets) > 3:
+            break
+    return packets
