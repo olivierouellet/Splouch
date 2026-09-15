@@ -298,7 +298,7 @@ function onPasswordInput(form) {
                     </div>
                     <div class="d-flex align-items-center gap-2 mb-2">
                         <span id="ntp-status" class="flex-fill text-secondary small">—</span>
-                        <button id="btn-time-sync" class="btn btn-secondary btn-sm" style="width:80px;" onclick="timeSync()">{{ t.clock_sync_ntp }}</button>
+                        <button id="btn-time-sync" class="btn btn-secondary btn-sm text-nowrap" style="min-width:80px;" onclick="timeSync()">{{ t.clock_sync_ntp }}</button>
                     </div>
 
                     <hr>
@@ -308,7 +308,7 @@ function onPasswordInput(form) {
                     <div class="d-flex flex-wrap align-items-center gap-1">
                         <input type="text" id="time-set-date" class="form-control form-control-sm" style="flex:1; min-width:130px;" placeholder="YYYY/MM/DD" maxlength="10">
                         <input type="time" id="time-set-time" class="form-control form-control-sm" style="flex:1; min-width:100px;" step="1">
-                        <button class="btn btn-secondary btn-sm" style="width:80px;" onclick="timeSet()">{{ t.clock_set_time }}</button>
+                        <button class="btn btn-secondary btn-sm text-nowrap" style="min-width:80px;" onclick="timeSet()">{{ t.clock_set_time }}</button>
                     </div>
                     <div id="time-set-status" class="mt-2 small"></div>
 
@@ -463,8 +463,8 @@ function onPasswordInput(form) {
                 <div class="card mb-3"><div class="card-body">
                     <div class="d-flex align-items-center gap-2 mb-2">
                         <span class="fw-bold flex-fill">{{ t.timing_serial_monitor }}</span>
-                        <button id="btn-debug-toggle" class="btn btn-secondary btn-sm" style="width:70px;" onclick="debugToggle()">{{ t.btn_enable }}</button>
-                        <button class="btn btn-secondary btn-sm" style="width:70px;" onclick="debugClear()">{{ t.btn_clear }}</button>
+                        <button id="btn-debug-toggle" class="btn btn-secondary btn-sm text-nowrap" style="min-width:70px;" onclick="debugToggle()">{{ t.btn_enable }}</button>
+                        <button class="btn btn-secondary btn-sm text-nowrap" style="min-width:70px;" onclick="debugClear()">{{ t.btn_clear }}</button>
                     </div>
                     <pre id="debug-output" class="border rounded p-2 mb-0" style="background:#111; color:#e0e0e0; font-size:0.8em; height:300px; overflow-y:auto; white-space:pre-wrap; word-break:break-all;"></pre>
                 </div></div>
@@ -836,8 +836,8 @@ function onPasswordInput(form) {
                             <input id="eth-ip-input" type="text" class="form-control form-control-sm" placeholder="10.10.10.10" maxlength="15" style="width:140px; flex:none;">
                             <span class="text-body-secondary">/</span>
                             <input id="eth-prefix-input" type="number" class="form-control form-control-sm" value="24" min="1" max="32" style="width:60px; flex:none;">
-                            <button class="btn btn-secondary btn-sm" style="width:80px;" onclick="setEthIp()">{{ t.net_static }}</button>
-                            <button class="btn btn-secondary btn-sm" style="width:80px;" onclick="setEthDhcp()">{{ t.net_dhcp }}</button>
+                            <button class="btn btn-secondary btn-sm text-nowrap" style="min-width:80px;" onclick="setEthIp()">{{ t.net_static }}</button>
+                            <button class="btn btn-secondary btn-sm text-nowrap" style="min-width:80px;" onclick="setEthDhcp()">{{ t.net_dhcp }}</button>
                         </div>
                         <div id="eth-ip-status" class="small mb-1"></div>
                         <div class="small" style="color:var(--bs-warning-text-emphasis);">{{ t.net_disconnect_warn }}</div>
@@ -849,7 +849,7 @@ function onPasswordInput(form) {
                         <!-- Network list -->
                         <div class="d-flex align-items-center mb-2">
                             <span class="fw-bold flex-fill">{{ t.net_wifi_networks }}</span>
-                            <button class="btn btn-secondary btn-sm" style="width:80px;"
+                            <button class="btn btn-secondary btn-sm text-nowrap" style="min-width:80px;"
                                     hx-get="/wifi_scan" hx-target="#wifi-net-list" hx-disabled-elt="this"
                                     hx-on::before-request="document.getElementById('wifi-net-list').innerHTML = '<span class=&quot;text-body-secondary&quot;>{{ t.net_scanning }}</span>'">{{ t.net_scan }}</button>
                         </div>
@@ -860,7 +860,7 @@ function onPasswordInput(form) {
                         <!-- Connected clients (HTMX-driven) -->
                         <div class="d-flex align-items-center mb-2">
                             <span class="fw-bold flex-fill">{{ t.net_connected_clients }}</span>
-                            <button class="btn btn-secondary btn-sm" hx-get="/clients_fragment" hx-target="#client-list" style="width:80px;">{{ t.btn_refresh }}</button>
+                            <button class="btn btn-secondary btn-sm text-nowrap" hx-get="/clients_fragment" hx-target="#client-list" style="min-width:80px;">{{ t.btn_refresh }}</button>
                         </div>
                         <div id="client-list" class="small" style="min-height:32px;"
                              hx-get="/clients_fragment" hx-trigger="load, every 10s" hx-target="#client-list">
@@ -1039,7 +1039,7 @@ function onPasswordInput(form) {
                         <!-- Playback status bar (shown as flex by JS) -->
                         <div id="test-status-bar" style="display:none; align-items:center; gap:8px; margin-bottom:8px;">
                             <span id="test-status-text" class="flex-fill small text-body-secondary"></span>
-                            <button class="btn btn-danger btn-sm" style="width:70px;" onclick="testStop()">{{ t.test_stop }}</button>
+                            <button class="btn btn-danger btn-sm text-nowrap" style="min-width:70px;" onclick="testStop()">{{ t.test_stop }}</button>
                         </div>
 
                         <hr id="test-status-hr" style="display:none;">
@@ -1091,7 +1091,7 @@ function onPasswordInput(form) {
                         <div class="panel-title">{{ t.test_record_live }}</div>
                         <div class="d-flex align-items-center gap-1">
                             <input id="test-record-name" type="text" class="form-control form-control-sm" placeholder="{{ t.test_session_name_ph }}" style="flex:1;">
-                            <button id="btn-record" class="btn btn-secondary btn-sm" style="width:70px;" onclick="testRecordToggle()">{{ t.test_start }}</button>
+                            <button id="btn-record" class="btn btn-secondary btn-sm text-nowrap" style="min-width:70px;" onclick="testRecordToggle()">{{ t.test_start }}</button>
                             <span id="test-record-status" class="small text-body-secondary"></span>
                         </div>
 
@@ -1549,13 +1549,20 @@ function onPasswordInput(form) {
         var html = '';
         sessions.forEach(function(s) {
             var isPlaying = document.getElementById('test-status-text').textContent === T.js_playing_c + s.name;
-            var W = 'width:70px;';
+            /* min-width, not width: `Reproduciendo` and `Supprimer` are half as
+               long again as `Playing` and `Delete`, and a fixed width wraps them
+               inside the button. */
+            var W = 'min-width:70px;';
             var playBtn = isPlaying
                 ? '<button class="btn btn-success btn-sm text-nowrap" style="' + W + '" disabled>' + T.js_playing + '</button>'
-                : '<button class="btn btn-secondary btn-sm" style="' + W + '" onclick="testPlay(' + JSON.stringify(s.name).replace(/"/g, '&quot;') + ')"' + (anyPlaying ? ' disabled' : '') + '>' + T.js_play + '</button>';
+                : '<button class="btn btn-secondary btn-sm text-nowrap" style="' + W + '" onclick="testPlay(' + JSON.stringify(s.name).replace(/"/g, '&quot;') + ')"' + (anyPlaying ? ' disabled' : '') + '>' + T.js_play + '</button>';
+            /* The placeholder for a built-in session, which has nothing to delete,
+               is the delete button itself made invisible. An empty box of a fixed
+               width only lined up while the button was one too — in French it left
+               every built-in row short by the difference. */
             var delBtn = s.source === 'custom'
-                ? '<button class="btn btn-secondary btn-sm me-1" style="' + W + '" onclick="testDelete(' + JSON.stringify(s.name).replace(/"/g, '&quot;') + ')">' + T.btn_delete + '</button>'
-                : '<span class="me-1" style="display:inline-block; ' + W + '"></span>';
+                ? '<button class="btn btn-secondary btn-sm me-1 text-nowrap" style="' + W + '" onclick="testDelete(' + JSON.stringify(s.name).replace(/"/g, '&quot;') + ')">' + T.btn_delete + '</button>'
+                : '<button class="btn btn-secondary btn-sm me-1 text-nowrap" style="' + W + ' visibility:hidden;" tabindex="-1" aria-hidden="true">' + T.btn_delete + '</button>';
             var badge = s.source === 'builtin'
                 ? '<span class="small text-body-secondary ms-1">' + T.js_builtin + '</span>' : '';
             html += '<div class="d-flex align-items-center border-bottom py-1 gap-1">' +
