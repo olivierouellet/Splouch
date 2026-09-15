@@ -419,11 +419,34 @@ class LaneRow(QFrame):
     def fade_podium_out(self, duration_ms: int):
         """Ease the podium tint back to the row's own stripe.
 
-        Step 1 of the heat transition. The browser gets this free from a CSS
-        `background-color` transition; Qt stylesheets do not animate, so the colour
-        is interpolated and re-applied.
+        Step 1 of the heat transition, and the browser's `clear_podium()`. The
+        browser gets this free from a CSS `background-color` transition — every
+        background change on a `td` is transitioned, whatever removed the class —
+        so Qt interpolates the colour and re-applies it.
         """
         self._fade_bg(self._base_bg, duration_ms)
+
+    def drop_stale_podium(self, duration_ms: int):
+        """Fade off a tint this row is no longer entitled to.
+
+        A tint outlives its place: the console's board reset (`reset_lanes()`)
+        blanks `lane_place<i>` without the heat changing, and the reveal is a
+        one-shot, so nothing else would take the colour off. Removing a tint is
+        not the same as adding one — `highlight_podium` still holds the *reveal*
+        back until the heat is over, which is the rule this must not break.
+
+        Skipped while a fade is already in flight: this runs from `update_from`,
+        so restarting the animation on every frame would leave it converging on
+        the stripe without ever arriving.
+        """
+        if self.podium_key() is not None or self._podium_anim is not None:
+            return
+        # Case-insensitively: `_current_bg` comes back from a fade as QColor.name()
+        # (lower case) while `_base_bg` is whatever the operator typed into the
+        # theme form, so `#202020` and `#202020` could compare unequal.
+        current = getattr(self, '_current_bg', self._base_bg)
+        if current.lower() != self._base_bg.lower():
+            self._fade_bg(self._base_bg, duration_ms)
 
     # ── Lane time ──────────────────────────────────────────────────────────────
 
@@ -505,6 +528,7 @@ class LaneRow(QFrame):
         place = (snapshot.get(f'lane_place{i}', '') or '').strip()
         self._place = place
         self.place_label.setText(place)
+        self.drop_stale_podium(_PODIUM_FADE_MS)
 
 
 class Badge(QLabel):
@@ -1284,6 +1308,28 @@ class BoardWindow(QWidget):
             timer.stop()
         self._podium_timers = []
 
+    def clear_podium(self):
+        """Take the tints off and re-arm the reveal — the browser's `clear_podium()`.
+
+        `_podium_shown` is a latch, because `highlight_podium` is evaluated at the
+        end of every `apply_update` and without it the 400ms stagger would restart
+        on each frame. The browser needs no latch: it runs the reveal only on a
+        state change, and it is idempotent by construction.
+
+        The cost of the latch is that it outlives the heat it was set for unless
+        something clears it, and a heat-key change is not the only way a heat ends.
+        A false start re-swum under the same number, a console board reset, a
+        recording replayed from the top — all reuse the key, and the previous
+        attempt's colours stayed on the rows with the reveal refusing to repaint
+        them, so the new winner could sit in silver while the runner-up held gold.
+
+        Called where the browser calls it: when a race starts (`mode_to_running()`).
+        """
+        self._clear_podium_timers()
+        self._podium_shown = False
+        for row in self.rows:
+            row.fade_podium_out(_PODIUM_FADE_MS)
+
     def begin_heat_transition(self):
         """Results → next heat, in the browser's five steps.
 
@@ -1511,6 +1557,9 @@ class BoardWindow(QWidget):
         if not was_racing and any(row.running for row in self.rows):
             # A race outranks any animation still in flight.
             self.cancel_heat_transition()
+            # The podium on screen belongs to the heat that just ended, not to the
+            # one now in the water — `mode_to_running()` drops it here too.
+            self.clear_podium()
             self.set_columns_visible(True)
 
         if 'current_event' in data:

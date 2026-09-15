@@ -223,7 +223,11 @@ def send_event_info():
         'event_name':    get_event_name_display(ev) if started else '',
         'event_name_parts': get_event_name_parts(ev) if started else None,
     }
-    for i in range(1, 11):
+    # 12, not 10: Settings offers a 12-lane pool and every other producer of these
+    # keys covers 1-12 (`worker._load_heat_names`, each decoder's `reset_lanes`).
+    # Stopping at 10 left lanes 11 and 12 un-named on a reconnect or a `next_heat`,
+    # still showing the previous heat's swimmers while the rest of the board moved on.
+    for i in range(1, 13):
         name, club = get_lane_parts(ev, ht, i)
         u[f'lane_name{i}']          = name
         u[f'lane_club{i}']          = club

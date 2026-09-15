@@ -140,3 +140,18 @@ def test_a_real_event_still_comes_through(monkeypatch):
     u = _header((3, 1), monkeypatch)
     assert u['current_event'] == '3'
     assert u['current_heat'] == '1'
+
+
+def test_every_lane_a_twelve_lane_pool_can_have_is_covered(monkeypatch):
+    """Settings offers a 12-lane pool, and this frame is what a reconnecting client
+    and `next_heat` get.
+
+    Everything else that writes these keys covers 1-12 — `worker._load_heat_names`
+    and every decoder's `reset_lanes()`. This stopped at 10, so lanes 11 and 12 kept
+    the previous heat's swimmers while the rest of the board moved on.
+    """
+    u = _header((3, 1), monkeypatch)
+    for lane in range(1, 13):
+        assert f'lane_name{lane}' in u, f'lane {lane} never gets a name'
+        assert f'lane_club{lane}' in u
+        assert f'lane_delta_seconds{lane}' in u, f'lane {lane} keeps a stale delta'

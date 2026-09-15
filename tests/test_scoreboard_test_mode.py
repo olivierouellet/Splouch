@@ -273,3 +273,68 @@ def test_the_badge_text_defaults_to_the_board_background(qt_app):
     import state
     assert (state.DEFAULT_THEME_COLORS['connection_lost_text']
             == state.DEFAULT_THEME_COLORS['bg'])
+
+
+# ── Starting a session wipes the board ─────────────────────────────────────────
+# `live.html` does `reset_state(); mode_to_intro()` on `test_mode {active: true}`,
+# and it matters more here than there: a recording replays the same event and heat
+# on every run, so on a re-run the heat key never changes, the dissolve never
+# fires, and nothing else would clear what the last run left behind.
+
+class _FakeApp:
+    """Just enough of ScoreboardApp for `_on_frame` — no socket, no config fetch.
+
+    Building a real one needs a listening server (see test_scoreboard_splash.py);
+    this path only touches `self.window`.
+    """
+
+    def __init__(self, window):
+        self.window = window
+
+
+def _finish_a_heat(board, qt_app, event='1', heat='1'):
+    board.apply_update({'current_event': event, 'current_heat': heat,
+                        'lane_name1': 'Roy, Zoé', 'lane_name2': 'Côté, Léa'})
+    board.apply_update({'running_time': '0.00',
+                        'lane_running1': True, 'lane_running2': True})
+    qt_app.processEvents()
+    board.apply_update({'lane_running1': False, 'lane_running2': False,
+                        'lane_time1': '58.12', 'lane_place1': '1',
+                        'lane_time2': '59.03', 'lane_place2': '2'})
+    board.cancel_heat_transition()
+    qt_app.processEvents()
+
+
+def test_the_board_is_wiped_when_a_session_starts(board, qt_app, settle_podium):
+    from scoreboard.app import ScoreboardApp
+
+    _finish_a_heat(board, qt_app)
+    settle_podium(board)
+    assert board.rows[0].time_label.text() == '58.12'
+
+    ScoreboardApp._on_frame(_FakeApp(board), 'test_mode', {'active': True})
+    qt_app.processEvents()
+
+    assert board.test_badge.isVisible(), 'the badge must still go up'
+    assert board.snapshot == {}, 'the previous run is still in the merged state'
+    for row in board.rows:
+        assert row.name_label.text() == ''
+        assert row.time_label.text() == ''
+        assert row.place_label.text() == ''
+        assert row._current_bg.lower() == row._base_bg.lower(), 'a tint survived'
+    assert board._heat_key is None, 'the replay re-runs this heat — it must look new'
+    assert not board._podium_shown
+
+
+def test_stopping_a_session_leaves_the_board_alone(board, qt_app):
+    """Only `active: true` resets, as in the browser. The last heat of a recording
+    is the operator's evidence that the replay worked; wiping it on stop would
+    take that away."""
+    from scoreboard.app import ScoreboardApp
+
+    _finish_a_heat(board, qt_app)
+    ScoreboardApp._on_frame(_FakeApp(board), 'test_mode', {'active': False})
+    qt_app.processEvents()
+
+    assert not board.test_badge.isVisible()
+    assert board.rows[0].time_label.text() == '58.12', 'the results were wiped on stop'

@@ -98,6 +98,13 @@ class SplashOverlay(QWidget):
 
         self._background = QPixmap(_BACKGROUND) if os.path.exists(_BACKGROUND) \
             else QPixmap()
+        # `_background` cropped to the window, kept between paints. The source is
+        # 3840x2160, and a 1080p kiosk would otherwise pay a full smooth downscale
+        # of an 8-megapixel image on every paint — which, with the opacity effect
+        # below repainting the whole overlay on each step of an 800ms fade, is the
+        # one place on this display where a Pi has real work to do per frame.
+        self._background_scaled = QPixmap()
+        self._background_for    = None      # the size `_background_scaled` fits
 
         # Two stacked image layers, cross-faded by swapping their opacities.
         self._layers = []
@@ -162,8 +169,17 @@ class SplashOverlay(QWidget):
                   flush=True)
             return
         self._pixmaps.append(pixmap)
-        if len(self._pixmaps) == 1 and self.isVisible():
+        if not self.isVisible():
+            return
+        if len(self._pixmaps) == 1:
             self._show_pixmap(0, animate=False)
+        elif not self._timer.isActive() and not self._dismissing:
+            # The rest of the carousel arrived after the operator opened it.
+            # `show_splash` can only start the timer for the images it could see
+            # at the time, and a single image has nothing to rotate to — so
+            # without this the overlay sticks on slide one for the whole meet,
+            # recovering only if it is dismissed and raised again.
+            self._timer.start()
 
     # ── Show / hide ────────────────────────────────────────────────────────────
 
@@ -316,8 +332,11 @@ class SplashOverlay(QWidget):
         if self._background.isNull():
             painter.fillRect(self.rect(), QColor(self.cfg.color('bg')))
             return
-        scaled = self._background.scaled(
-            self.size(), Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation)
+        if self._background_for != self.size():
+            self._background_scaled = self._background.scaled(
+                self.size(), Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation)
+            self._background_for = self.size()
+        scaled = self._background_scaled
         x = (scaled.width() - self.width()) // 2
         y = (scaled.height() - self.height()) // 2
         painter.drawPixmap(0, 0, scaled, x, y, self.width(), self.height())

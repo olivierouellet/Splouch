@@ -660,3 +660,89 @@ def test_a_new_theme_colour_reaches_an_existing_delta(board, qt_app):
     qt_app.processEvents()
     assert '#00ff00' in board.rows[0].delta_label.styleSheet()
     assert board.rows[0].delta_label.text() == '-0.46', 'the value must survive too'
+
+
+# ── A podium that outlives its heat ────────────────────────────────────────────
+# `_podium_shown` is a latch, because `highlight_podium` is evaluated at the end of
+# every frame and without one the 400ms stagger would restart on each. The browser
+# needs no latch — it reveals on a state change and is idempotent — so the latch is
+# the one place the two can drift, and it drifts whenever a heat ends without the
+# heat *key* changing. `clear_podium()` is where the two meet again.
+
+def test_a_race_starting_takes_the_previous_podium_off(board, qt_app, settle_podium):
+    """`mode_to_running()` calls `clear_podium()`; so must we.
+
+    A false start re-swum under the same number used to swim under the last
+    attempt's gold and silver — the key never changed, so nothing cleared them.
+    """
+    _finish_a_heat(board, qt_app)
+    settle_podium(board)
+    assert board.rows[0]._current_bg.lower() == board.cfg.color('podium_gold').lower()
+
+    board.apply_update({'lane_running1': True, 'lane_running2': True,
+                        'running_time': '0.00'})
+    settle_podium(board)
+    assert not board._podium_shown, 'the reveal stayed spent into the new race'
+    for row in board.rows[:2]:
+        assert row._current_bg.lower() == row._base_bg.lower(), 'swimming under a stale tint'
+
+
+def test_the_same_heat_re_swum_gets_its_own_podium(board, qt_app, settle_podium):
+    """The sharpest form of it: the places come back in a different order.
+
+    With the reveal latched and the tints never dropped, the new winner inherited
+    silver from whoever finished second last time, and the runner-up held gold.
+    """
+    _finish_a_heat(board, qt_app)
+    settle_podium(board)
+
+    board.apply_update({'lane_running1': True, 'lane_running2': True,
+                        'running_time': '0.00'})
+    qt_app.processEvents()
+    board.apply_update({'lane_running1': False, 'lane_running2': False,
+                        'lane_time1': '57.40', 'lane_place1': '2',
+                        'lane_time2': '56.90', 'lane_place2': '1'})
+    settle_podium(board)
+
+    assert board.rows[0]._current_bg.lower() == board.cfg.color('podium_silver').lower()
+    assert board.rows[1]._current_bg.lower() == board.cfg.color('podium_gold').lower()
+
+
+def test_a_console_board_reset_clears_the_tints(board, qt_app, settle_podium):
+    """The `r` packet — `reset_lanes()` blanks every time and place in one frame.
+
+    No heat change, so the dissolve never runs and `LaneRow.clear()` never fires.
+    The tint has to come off with the place that earned it.
+    """
+    _finish_a_heat(board, qt_app)
+    settle_podium(board)
+
+    reset = {}
+    for lane in range(1, 7):
+        reset[f'lane_time{lane}']    = ''
+        reset[f'lane_place{lane}']   = ' '     # the decoders' blank, not ''
+        reset[f'lane_running{lane}'] = False
+    board.apply_update(reset)
+    settle_podium(board)
+
+    for row in board.rows:
+        assert row._current_bg.lower() == row._base_bg.lower(), 'tint survived the reset'
+
+
+def test_the_reveal_still_waits_for_the_heat_to_be_over(board, qt_app):
+    """Dropping a stale tint must not become tinting from the update handler.
+
+    That was the original bug the reveal was held back to fix: the first finisher's
+    row going gold while the rest of the heat is still in the water.
+    """
+    board.apply_update({'current_event': '4', 'current_heat': '1',
+                        'lane_name1': 'Roy, Zoé', 'lane_name2': 'Côté, Léa'})
+    board.apply_update({'lane_running1': True, 'lane_running2': True,
+                        'running_time': '0.00'})
+    qt_app.processEvents()
+    board.apply_update({'lane_running1': False, 'lane_time1': '58.12',
+                        'lane_place1': '1'})
+    qt_app.processEvents()
+
+    assert not board._podium_shown, 'revealed while lane 2 was still swimming'
+    assert board.rows[0]._current_bg.lower() == board.rows[0]._base_bg.lower()

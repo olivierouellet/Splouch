@@ -347,7 +347,16 @@ class ScoreboardApp:
             # Settings or theme changed — re-fetch config and redraw.
             self.config_loader.request()
         elif event == 'test_mode':
-            self.window.set_test_mode(bool((data or {}).get('active')))
+            active = bool((data or {}).get('active'))
+            # Wipe the board before the badge goes up, as `live.html` does
+            # (`reset_state(); mode_to_intro()`). A recording replays the same
+            # event and heat every run, so on a re-run the heat key never changes
+            # and nothing else would clear the previous run: its times, places and
+            # podium tints would sit under the new start list with the badge on
+            # top saying the whole thing is a test.
+            if active:
+                self.window.reset()
+            self.window.set_test_mode(active)
         elif event == 'display_overlay':
             # The carousel button on /operator. Shows the splash over the board.
             if (data or {}).get('active'):

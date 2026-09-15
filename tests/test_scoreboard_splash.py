@@ -17,7 +17,8 @@ import pytest
 
 pytest.importorskip('PySide6', reason='needs the `scoreboard` extra (PySide6)')
 
-from PySide6.QtGui import QColor, QPixmap          # noqa: E402
+from PySide6.QtCore import QBuffer, QByteArray   # noqa: E402
+from PySide6.QtGui import QColor, QPixmap        # noqa: E402
 
 from scoreboard.board import BoardWindow         # noqa: E402
 from scoreboard.theme import Config              # noqa: E402
@@ -68,6 +69,21 @@ def _pump(qt_app, seconds):
     while time.monotonic() < end:
         qt_app.processEvents()
         time.sleep(0.01)
+
+
+def _png(qt_app, colour='#808080'):
+    """One encoded PNG, for feeding `_on_image` directly.
+
+    The `image_server` fixture covers the real HTTP path; these tests need to
+    control *when* an image lands, which a live download cannot.
+    """
+    pixmap = QPixmap(400, 300)
+    pixmap.fill(QColor(colour))
+    data = QByteArray()
+    buffer = QBuffer(data)
+    buffer.open(QBuffer.WriteOnly)
+    pixmap.save(buffer, 'PNG')
+    return bytes(data)
 
 
 def _config(**overrides):
@@ -170,6 +186,87 @@ def test_a_single_image_does_not_rotate(qt_app, image_server):
     assert not window.splash._timer.isActive()
     window.hide_splash()
     window.close()
+
+
+def test_images_arriving_after_it_opens_still_rotate(qt_app, image_server):
+    """The operator can press the button before the downloads finish.
+
+    `show_splash` can only start the timer for the images it can see at the time,
+    and a lone image has nothing to rotate to — so the overlay used to stick on
+    slide one for the rest of the meet, recovering only if it was dismissed and
+    raised again. The loader emits one signal per image precisely so the first
+    slide can go up while the rest are still coming in; the carousel has to pick
+    them up when they land.
+    """
+    window = BoardWindow(_config())
+    window.resize(1920, 1080)
+    window.show()
+    try:
+        # Up with a single image, as it would be a moment into the downloads.
+        window.splash._on_image('a.png', _png(qt_app))
+        window.show_splash()
+        _pump(qt_app, 0.9)
+        assert not window.splash._timer.isActive(), 'one image has nothing to rotate to'
+
+        window.splash._on_image('b.png', _png(qt_app))
+        _pump(qt_app, 0.1)
+        assert window.splash._timer.isActive(), 'the carousel never started'
+
+        first = window.splash._index
+        _pump(qt_app, 1.3)                  # carousel_interval is 1s
+        assert window.splash._index != first, 'it is running but not advancing'
+    finally:
+        window.hide_splash()
+        window.close()
+
+
+def test_a_late_image_does_not_restart_a_dismissal(qt_app, image_server):
+    """An image landing during the 800ms fade-out must not revive the timer."""
+    window = BoardWindow(_config())
+    window.resize(1920, 1080)
+    window.show()
+    try:
+        window.splash._on_image('a.png', _png(qt_app))
+        window.show_splash()
+        _pump(qt_app, 0.9)
+        window.hide_splash()                # still visible, fading
+
+        window.splash._on_image('b.png', _png(qt_app))
+        assert not window.splash._timer.isActive()
+        _pump(qt_app, 1.0)
+        assert not window.splash_visible
+    finally:
+        window.close()
+
+
+def test_the_background_is_scaled_once_per_size(qt_app):
+    """It is a 3840x2160 PNG, and the overlay repaints on every step of its fade.
+
+    A fresh smooth downscale per paint is the only per-frame work of that size on
+    this display, and the kiosk it would hurt is a Pi.
+    """
+    window = BoardWindow(_config(carousel_images=[]))
+    window.resize(1920, 1080)
+    window.show()
+    try:
+        window.show_splash()
+        _pump(qt_app, 0.9)
+        if window.splash._background.isNull():
+            pytest.skip('scoreboard_bg.png is not in this checkout')
+        assert window.splash._background_for == window.splash.size()
+        cached = window.splash._background_scaled
+        assert not cached.isNull()
+
+        _pump(qt_app, 0.2)                  # more paints, same size
+        assert window.splash._background_scaled is cached, 'rescaled mid-fade'
+
+        window.resize(3840, 2160)
+        _pump(qt_app, 0.2)
+        assert window.splash._background_for == window.splash.size(), \
+            'the cache outlived the size it was built for'
+    finally:
+        window.hide_splash()
+        window.close()
 
 
 def test_no_images_still_shows_title_and_background(qt_app):

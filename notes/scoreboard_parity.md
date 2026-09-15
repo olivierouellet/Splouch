@@ -187,10 +187,21 @@ trade-off `FitLabel` makes everywhere else.
 | order | gold, silver, bronze at 0 / 400 / 800ms | same | match |
 | fade in | 0.5s `background-color` transition | 500ms interpolated `QVariantAnimation` | match |
 | fade out | same transition, at the heat change | `fade_podium_out`, step 1 of the dissolve | match |
+| cleared by | `clear_podium()` from `mode_to_intro()` and `mode_to_running()` | `BoardWindow.clear_podium()` at race start | match |
 | gated by | `SHOW_PODIUM` | `cfg.show_podium` | match |
 
 Qt used to tint from `update_from` on every frame, so the first finisher's row went gold while
 everyone else was still swimming.
+
+Qt needs a latch (`_podium_shown`) that the browser does not: the reveal is evaluated at the end
+of *every* `apply_update`, so without one the 400ms stagger would restart on each frame, while
+the browser reveals only on a state change and is idempotent by construction. The latch has to
+be cleared everywhere a heat can end, and a heat-key change is not the only way — a false start
+re-swum under the same number, a console board reset, a recording replayed from the top. With
+only the heat key clearing it, the previous attempt's colours stayed on the rows and the reveal
+refused to repaint them, so a new winner could sit in silver while the runner-up held gold.
+`clear_podium()` covers the race-start case; `LaneRow.drop_stale_podium` covers the rest, taking
+a tint off a row whose place has gone without ever *adding* one outside the reveal.
 
 ### Lane times
 
@@ -268,6 +279,8 @@ and an empty board skips it, since two seconds of dissolving nothing just looks 
 | — meet title | absent | across the top 12% | **intentional** — a splash with no idea whose meet it is helps nobody |
 | — background | `#000` | `shared/static/img/scoreboard_bg.png`, cropped to cover | **intentional** — sponsor logos are usually transparent PNGs, and what sits behind them is most of what the audience sees |
 | test badge | `.test-overlay` — bottom 2.5vh, `0.6vh 2.5vw`, 2.2vh bold, `0.15em`, radius 6, `row_text` at 75%, `bg` text | same proportions, same 75% | match |
+| — session start | `reset_state(); mode_to_intro()` | `BoardWindow.reset()` from `app._on_frame` | match |
+| — session stop | badge down, board untouched | same | match |
 | cold-boot waiting screen | — | full-screen, opaque, `set_status()` | **Qt only** — the browser has no equivalent; a kiosk with a blank TV needs to say why |
 | link-lost badge | — | a pill, top centre, plus a frozen tinted clock | **Qt only** — `/live` shows stale data silently, which is worse |
 
@@ -277,6 +290,12 @@ board deliberately goes further, because it is the one on the pool deck.
 
 The status overlay must never be used for `test_mode`: it is opaque and full-screen, so it
 would hide the very board the operator is testing.
+
+Starting a session must wipe the board, and it matters more here than in the browser: a
+recording replays the same event and heat on every run, so on a re-run the heat key never
+changes, the dissolve never fires, and nothing else clears what the last run left behind — the
+new start list painted over the old times, places and podium, with the badge on top announcing
+that all of it was a test.
 
 ---
 
