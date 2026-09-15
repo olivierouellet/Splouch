@@ -135,10 +135,34 @@ def test_stop_clock_freezes_everything(board, qt_app):
 
 
 def test_unparseable_running_time_is_shown_verbatim(board, qt_app):
-    """Never blank the header because a console sent something unexpected."""
+    """Never blank the header because a console sent something unexpected.
+
+    Shown in the one state where the chrono is on screen and the ticker does not own
+    it: the heat is unfinished — a lane has touched and is waiting to be placed — but
+    nobody is swimming, so nothing interpolates over what the console said. While a
+    lane *is* running the ticker repaints within the same frame, and a finished heat
+    ignores `running_time` whatever it says (see
+    test_a_late_running_time_does_not_restart_the_header).
+    """
+    board.apply_update({'running_time': '5.00', 'lane_running1': True})
+    qt_app.processEvents()
+    board.apply_update({'lane_running1': False, 'lane_time1': '58.12'})  # no place yet
+    qt_app.processEvents()
+
     board.apply_update({'running_time': '??:??'})
     qt_app.processEvents()
     assert board.chrono_label.text() == '??:??'
+
+
+def test_an_unparseable_value_never_blanks_a_running_clock(board, qt_app):
+    """The guarantee the test above is really protecting. Mid-race the ticker owns
+    the cell, so the garbage lasts less than a frame — but it must not leave a hole
+    in the header on its way past."""
+    board.apply_update({'running_time': '5.00', 'lane_running1': True})
+    qt_app.processEvents()
+    board.apply_update({'running_time': '??:??'})
+    qt_app.processEvents()
+    assert board.chrono_label.text() != '', 'a bad frame blanked the race clock'
 
 
 def test_reset_stops_the_clock(board, qt_app):
@@ -320,3 +344,88 @@ def test_the_width_never_changes_as_it_runs(board, qt_app):
     _pump(qt_app, 0.15)
     running = board.chrono_label.text()
     assert len(running.split('.')[1]) == 2, f'{running!r} dropped a digit'
+
+
+# ── The clock stops when the heat does ─────────────────────────────────────────
+# The console does not stop talking when the last swimmer touches: it keeps
+# streaming `running_time`, counting on past the winning time, until the operator
+# resets it. Every recording in `server/console_recordings/` carries hundreds of
+# those frames — see test_console_recordings_really_do_this below.
+#
+# So clearing the chrono on the last lane's stop is not enough. The board cleared
+# it, the next frame arrived a fraction of a second later, and the header started
+# counting again with the pool empty: `26.00`, `31.90`, `45.80`.
+#
+# `/live` never had this. Its whole `running_time` block sits inside
+# `if (any_running)`, over the same condition `heat_is_done()` expresses here.
+
+def _finish_the_heat(board, qt_app):
+    board.apply_update({'current_event': '3', 'current_heat': '1',
+                        'lane_name1': 'Roy, Zoé', 'lane_name2': 'Côté, Léa'})
+    board.cancel_heat_transition()
+    board.apply_update({'running_time': '10.00',
+                        'lane_running1': True, 'lane_running2': True})
+    qt_app.processEvents()
+    board.apply_update({'lane_running1': False, 'lane_time1': '58.12', 'lane_place1': '1',
+                        'lane_running2': False, 'lane_time2': '59.03', 'lane_place2': '2'})
+    qt_app.processEvents()
+
+
+def test_a_late_running_time_does_not_restart_the_header(board, qt_app):
+    _finish_the_heat(board, qt_app)
+    assert board.chrono_label.text() == '', 'it did not clear in the first place'
+
+    for value in ('59.10', '1:02.40', '1:20.00'):
+        board.apply_update({'running_time': value})
+        qt_app.processEvents()
+        assert board.chrono_label.text() == '', \
+            f'the console said {value} with the pool empty and the board believed it'
+
+
+def test_the_ticker_stays_stopped_too(board, qt_app):
+    """Not just the paint: a re-based clock with no lane to own it would start
+    counting again the moment anything looked like it was running."""
+    _finish_the_heat(board, qt_app)
+    board.apply_update({'running_time': '59.10'})
+    _pump(qt_app, 0.2)
+    assert not board._clock_timer.isActive()
+    assert board.chrono_label.text() == ''
+
+
+def test_a_lane_still_awaiting_its_place_keeps_the_clock(board, qt_app):
+    """The browser's other half: a lane with a time but no place yet is not
+    finished, so the heat is not over and the clock still belongs to it."""
+    board.apply_update({'current_event': '3', 'current_heat': '1'})
+    board.cancel_heat_transition()
+    board.apply_update({'running_time': '10.00', 'lane_running1': True})
+    qt_app.processEvents()
+    # Stops with a time but no place — the console has not placed it yet.
+    board.apply_update({'lane_running1': False, 'lane_time1': '58.12'})
+    board.apply_update({'running_time': '58.30'})
+    qt_app.processEvents()
+    assert board.chrono_label.text() == '58.30', 'gave up on a heat still being placed'
+
+
+def test_the_next_heat_gets_its_clock_back(board, qt_app):
+    """The guard must not be a one-way door."""
+    _finish_the_heat(board, qt_app)
+    board.apply_update({'current_event': '3', 'current_heat': '2',
+                        'lane_name1': 'Nguyen, An'})
+    board.cancel_heat_transition()
+    board.apply_update({'running_time': '0.00', 'lane_running1': True})
+    qt_app.processEvents()
+    assert board.chrono_label.text() == '0.00'
+
+    board.apply_update({'running_time': '4.50'})
+    qt_app.processEvents()
+    assert board.chrono_label.text() == '4.50'
+
+
+def test_an_idle_board_shows_no_clock_at_all(board, qt_app):
+    """Nothing has run yet, so a streaming console clock is not this heat's."""
+    board.apply_update({'current_event': '3', 'current_heat': '1',
+                        'lane_name1': 'Roy, Zoé'})
+    board.cancel_heat_transition()
+    board.apply_update({'running_time': '12.30'})
+    qt_app.processEvents()
+    assert board.chrono_label.text() == ''

@@ -1766,7 +1766,15 @@ class BoardWindow(QWidget):
             self._sync_header_cells()
         if 'event_name' in data:
             self.name_label.setText(data['event_name'])
-        if 'running_time' in data:
+        # `running_time` only means something while the heat is unfinished. The
+        # console keeps streaming its clock long after the last lane touches — every
+        # recording in `server/console_recordings/` carries hundreds of such frames,
+        # counting on past the winning time — so without this the header blanks at
+        # the end of the heat and the very next frame starts it running again.
+        #
+        # `/live` has always guarded this: its `if (any_running)` wraps the whole
+        # block, over the same condition `heat_is_done` expresses here.
+        if 'running_time' in data and not self.heat_is_done():
             # Re-base the local clock on the console's authority. Between these
             # frames the ticker interpolates; it never free-runs for long.
             hundredths = parse_clock(data['running_time'])

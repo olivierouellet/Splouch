@@ -100,6 +100,7 @@ now blank the text rather than removing the cell; `live.html`'s `stop_chrono()` 
 | event name | 2-line `-webkit-line-clamp`, 3vh, centred | one line, `FitLabel`, centred, `_R_VALUE` = 62% of the bar | **intentional** — CSS cannot shrink text to fit; wrapping is its only answer to a long name, and shrink-to-fit is the reason this display exists |
 | race clock | `#live_chrono`, 4.5vh, `time`, digits font | same, `_R_DIGITS` | match |
 | — precision | hundredths, interpolated | **tenths** — `fmt_clock(tenths=True)` | **intentional** — see below |
+| — when it paints | only inside `if (any_running)` | only when `not heat_is_done()` — the same condition | match |
 | — between heats | text blanked, cell kept | text blanked, widget kept | match — a removed cell drops out of the layout and everything to its left slides across |
 | wall clock | `#meet_datetime`, 4.5vh, `header_label`, digits font | same, ticking every 10s (HH:MM only) | match — both moved to the accent blue together |
 
@@ -123,6 +124,17 @@ under the one number the whole hall is watching. `/live` never had the problem: 
 console's own string into the lane cells. It is still two digits (`1:05.20`), because a figure
 that narrows by a character when it stops shifts everything around it. Only the *running*
 clock rounds; a split or a final time is the console's own figure and goes through untouched.
+
+**The clock only paints while the heat is unfinished.** A console does not stop
+talking when the last swimmer touches — it keeps streaming `running_time`, counting on
+past the winning time, until the operator resets it. Every recording in
+`server/console_recordings/` carries a few hundred such frames per heat, which
+`tests/test_console_tail_frames.py` pins. `/live` has always guarded this with
+`if (any_running)`; the Qt board did not, so it cleared the header as the last lane
+stopped and the very next frame started it counting again with the pool empty —
+`26.00`, `31.90`, `45.80`. `heat_is_done()` is the same condition the browser spells
+out inline, including its second half: a lane with a time but no place yet is still
+being placed, so the heat is not over and the clock still belongs to it.
 
 **Header cell padding is half the browser's.** `_HDR_PAD_X` is 1vw against `.header_cell`'s
 2vw. That padding is a fraction of the *window*, so it costs every cell the same however
