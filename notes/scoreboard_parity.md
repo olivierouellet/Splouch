@@ -310,13 +310,18 @@ and an empty board skips it, since two seconds of dissolving nothing just looks 
 | — session stop | badge down, board untouched | same | match |
 | cold-boot waiting screen | — | full-screen, opaque, `set_status()` | **Qt only** — the browser has no equivalent; a kiosk with a blank TV needs to say why |
 | link-lost badge | — | a pill, top centre, plus a frozen tinted clock | **Qt only** — `/live` shows stale data silently, which is worse |
+| operator menu | — | `OperatorMenu`, centred panel on **F1** | **Qt only** — a browser tab has an address bar and a keyboard the user already owns; a kiosk has neither |
 
 `/live` never signals a dropped connection at all: it keeps whatever the last frame
 said on screen indefinitely, with no indication that it is no longer live. The Qt
 board deliberately goes further, because it is the one on the pool deck.
 
 The status overlay must never be used for `test_mode`: it is opaque and full-screen, so it
-would hide the very board the operator is testing.
+would hide the very board the operator is testing. The operator menu is the same rule again:
+a panel over the middle, not a takeover, because a meet does not stop because somebody
+opened a menu. It is modal to the *keyboard* and not to the board — while it is up it
+swallows every key but Ctrl+Q, since letting the unhandled ones through looks harmless
+until F11 resizes the window out from under the panel somebody is reading.
 
 Starting a session must wipe the board, and it matters more here than in the browser: a
 recording replays the same event and heat on every run, so on a re-run the heat key never

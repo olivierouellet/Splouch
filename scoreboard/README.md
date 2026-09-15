@@ -84,9 +84,21 @@ off the board without an SSH session.
 
 | key | effect |
 | --- | --- |
+| **F1** | open the operator menu (`scoreboard/menu.py`) |
 | **Ctrl+Q** | quit to the desktop |
 | **F11** or **Ctrl+F** | toggle fullscreen |
-| **Esc** | leave fullscreen (never quits) |
+| **Esc** | close the menu, else leave fullscreen (never quits) |
+
+**The menu is modal and nothing on it acts mid-race.** While it is up it swallows
+every key but Ctrl+Q — letting the unhandled ones through looks harmless until F11
+resizes the window out from under the panel somebody is reading. And every entry on
+it (update, restart, quit) blanks the TV for a few seconds, which F1-then-a-digit is
+not deliberate enough to authorise with a swimmer in the water. Ctrl+Q keeps its
+exemption because it is two-handed; that is what the two hands buy.
+
+The panel covers the middle of the board rather than the whole screen, for the same
+reason the test badge is a pill and not a curtain: a meet does not stop because
+somebody opened a menu.
 
 Ctrl+Q is deliberately two-handed — a stray keypress must not blank the TV
 mid-meet — and Esc deliberately does *not* quit, only un-fullscreens.

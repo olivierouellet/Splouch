@@ -80,6 +80,36 @@ Append `?test` to any scoreboard URL to show mode control buttons (Splash, Intro
 
 ---
 
+## Updating the displays
+
+Three ways, and which one you reach for depends on what is in front of you.
+
+| From | How | Use when |
+| --- | --- | --- |
+| The server's admin page | Settings → Update → **Update displays** | The usual way. Moves every *registered* display to the ref this server is on. Update the server first. |
+| The display itself | **F1** on the TV's keyboard → *Update to the server's version* | No browser to hand, or the display is too old for the button above to see it. |
+| An SSH session | `bash install.sh kiosk` on the TV Pi | The display will not start, or is so old it does not have the menu. |
+
+All three land on the **same commit the server is running** — never a branch, so
+the two ends cannot drift apart and disagree about the WebSocket contract. The
+server must be on a clean commit that has been pushed; being off a release tag is
+fine, being dirty is not.
+
+> **"Update displays" says no displays are registered, but I can see one.** A
+> display announces itself with a `register` frame, and only the Qt scoreboard
+> sends one — a browser tab does not, and a Chromium kiosk showing `/live` *is* a
+> browser tab. An announced display shows a hostname, a `kiosk` badge and a version
+> in the list; a row with only an IP is a browser, or a kiosk installed before
+> v2026.09.0 when the Qt display replaced Chromium.
+>
+> That older kiosk cannot be rescued remotely: it is too old to announce itself and
+> too old to act on the update it would be sent. Do the first hop at the display —
+> F1 if it has the menu, otherwise `bash install.sh kiosk` — and the remote button
+> works from then on. See also [Upgrading a kiosk from the Chromium
+> display](installation.md#upgrading-a-kiosk-from-the-chromium-display).
+
+---
+
 ## Test sessions
 
 The Test tab replays a recorded console session, so the board behaves exactly as it

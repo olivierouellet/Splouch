@@ -197,7 +197,7 @@ JSON/asset endpoints (everything else the servers expose is HTML for the browser
 ### Local (Pi)
 | method · path | returns |
 | --- | --- |
-| `GET /config` | **display config JSON** — `num_lanes`, `theme_colors`, `theme_fonts`, `show_*` flags, `labels`, `meet_title`, `locale`, `display_strings`, `carousel_images`, `carousel_interval` (§6). Lets the Qt display theme *and translate* itself without a rendered page |
+| `GET /config` | **display config JSON** — `num_lanes`, `theme_colors`, `theme_fonts`, `show_*` flags, `labels`, `meet_title`, `locale`, `display_strings`, `carousel_images`, `carousel_interval`, `server_version` (§6). Lets the Qt display theme *and translate* itself without a rendered page |
 | `GET /server` | **who this server is** (§5.10) — `kind: "pi"`, its name, and the contract versions this build implements |
 | `GET /schedule.json` | **start list JSON** — `{ "heats": [ … ] }`, the same shape as the cloud's `GET /meet/{id}/schedule` (§5.8) and what the Pi's `/schedule` page embeds. No id in the path: one meet. Empty `heats` when no meet file is loaded |
 | `GET /i18n/{lang}` | **client strings for one language** (§5.9). The same body the cloud serves for that language |
@@ -513,6 +513,12 @@ have no template, so config is exposed as JSON — all three additions below are
    renders blank. A native client needs these because it must say something while
    `/config` itself is still unreachable; the Qt display caches the last config on
    disk for exactly that reason.
+
+   `server_version` is the ref this server is running — the same value
+   `/displays_update` broadcasts as `target`, a commit rather than a branch. It lets
+   a display say whether it is in step, and update itself to match from its own
+   operator menu (F1) without a browser on the server. `''` from a server too old to
+   send it, which a client must read as *cannot tell* rather than *no update*.
 2. **Cloud `GET /meet/{meet_id}/config`** — the meet's `settings` block (§5.4) plus
    `name`/`location`/`sport`/`meet_date`/`live`, so a phone can theme and render the
    board without scraping the HTML page.

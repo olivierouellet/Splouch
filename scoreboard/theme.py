@@ -49,6 +49,25 @@ DEFAULT_STRINGS = {
     'connection_lost': '⚠ CONNECTION LOST',
     'retrying':        'retrying',
     'test_session':    '⚠ TEST SESSION',
+    # The operator menu (F1 at the display). Reachable only with a keyboard at the
+    # TV, which is exactly the case where the server's own UI is out of reach — so
+    # these have to work off the cached config, with no server at all.
+    'menu_title':       'Display',
+    'menu_update':      "Update to the server's version",
+    'menu_restart':     'Restart the display',
+    'menu_quit':        'Quit to the desktop',
+    'menu_close':       'Esc to close · ↑↓ to choose · Enter to confirm',
+    'menu_this':        'This display',
+    'menu_server':      'Server',
+    'menu_link':        'Link',
+    'menu_link_up':     'connected',
+    'menu_link_down':   'no connection',
+    'menu_up_to_date':  'up to date',
+    'menu_out_of_date': 'out of date',
+    'menu_unknown':     'unknown',
+    'menu_no_target':   'The server has not said which version to use.',
+    'menu_race_on':     'A race is running — not updating now.',
+    'menu_updating':    'Updating…',
 }
 
 # Column visibility flags, and the header-label flags that are independent of them
@@ -78,6 +97,11 @@ class Config:
         self.fonts      = {**DEFAULT_FONTS,   **(raw.get('theme_fonts')     or {})}
         self.labels     = {**DEFAULT_LABELS,  **(raw.get('labels')          or {})}
         self.strings    = {**DEFAULT_STRINGS, **(raw.get('display_strings') or {})}
+        # The ref the server is running, for the operator menu: what this display
+        # would update itself to, and what it compares its own version against.
+        # '' from a server too old to send it — the menu then says it cannot tell
+        # rather than offering an update with nothing to aim at.
+        self.server_version = raw.get('server_version') or ''
         # Carousel overlay (Settings → Display → Splash Screen).
         self.carousel_images = list(raw.get('carousel_images') or [])
         self.carousel_interval = max(1, int(raw.get('carousel_interval') or 10))

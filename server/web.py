@@ -201,6 +201,11 @@ def display_config():
     except OSError:
         cfg['carousel_images'] = []
     cfg['carousel_interval'] = int(state.settings.get('carousel_interval', 10))
+    # The ref this server is running, so a display can say whether it is in step and
+    # update itself to match without the operator going to a browser. The same value
+    # `/displays_update` broadcasts as `target` — a commit, never a branch, so the
+    # two ends stay pinned together (docs/api.md §2, §6).
+    cfg['server_version'] = state.git_describe()['version']
     return cfg
 
 

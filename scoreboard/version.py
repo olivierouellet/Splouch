@@ -13,6 +13,7 @@ breaking that for. Qt-free, so it can be tested without PySide6.
 import os
 import socket
 import subprocess
+import threading
 
 _REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -48,6 +49,34 @@ def describe() -> dict:
         # on a kiosk that then resists updating.
         'dirty':   bool(status),
     }
+
+
+# describe() memoised, for the operator menu. A checkout's ref cannot change while
+# the app runs — an update restarts it — so this is computed once and read freely.
+_CACHE = {}
+_CACHE_LOCK = threading.Lock()
+
+
+def warm_cache():
+    """Compute :func:`describe` once, for :func:`cached_version` to serve.
+
+    Meant to be run in a daemon thread at startup: three git subprocesses, up to
+    eight seconds each on a cold SD card, and the GUI thread must not wait for them.
+
+    Deliberately takes no arguments and touches nothing outside this module. A
+    worker that captures a Qt object can end up holding the last reference to it,
+    and freeing a QWidget from a non-GUI thread is a crash — see the note in
+    `tests/conftest.py`.
+    """
+    data = describe()
+    with _CACHE_LOCK:
+        _CACHE.update(data)
+
+
+def cached_version() -> str:
+    """This checkout's ref, or ``''`` until :func:`warm_cache` has finished."""
+    with _CACHE_LOCK:
+        return _CACHE.get('version', '')
 
 
 def registration(role: str = 'kiosk') -> dict:

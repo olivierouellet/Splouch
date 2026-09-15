@@ -22,11 +22,12 @@ Four things depart from the browser, deliberately:
 
 ``notes/scoreboard_parity.md`` is the full ledger of what matches and what does not.
 """
+import os
 import re
 import time
 
 from PySide6.QtCore import (QEasingCurve, QPropertyAnimation, Qt, QTimer,
-                          QVariantAnimation)
+                          QVariantAnimation, Signal)
 from PySide6.QtGui import QColor, QFont, QFontMetrics
 from PySide6.QtWidgets import (QApplication, QFrame, QGraphicsOpacityEffect,
                                QHBoxLayout, QLabel, QSizePolicy, QVBoxLayout,
@@ -37,7 +38,9 @@ from PySide6.QtWidgets import (QApplication, QFrame, QGraphicsOpacityEffect,
 QWIDGETSIZE_MAX = 16777215
 
 from .format import fmt_clock, fmt_delta, parse_clock
+from .menu import OperatorMenu
 from .splash import SplashOverlay
+from .version import cached_version
 from .theme import Config
 from .widgets import FitLabel
 
@@ -855,6 +858,12 @@ class BoardWindow(QWidget):
     affected rows redrawn — never replace the dict wholesale.
     """
 
+    #: The operator asked for an update from the menu, with the ref to move to.
+    #: A signal rather than a direct call because the updater belongs to
+    #: :class:`~scoreboard.app.ScoreboardApp`, which also owns the server-driven
+    #: path — both must go through one place or two updates could run at once.
+    update_requested = Signal(str)
+
     def __init__(self, cfg: Config, parent=None):
         super().__init__(parent)
         self.cfg      = cfg
@@ -1016,6 +1025,16 @@ class BoardWindow(QWidget):
         # The carousel overlay, above the board and above the status message.
         self.splash = SplashOverlay(cfg, self)
 
+        # This display's own git ref, for the menu. Read from `version`'s cache,
+        # which a startup thread warms — shelling out to git on the GUI thread for a
+        # string that cannot change while we run is exactly the blocking call this
+        # app is built to avoid.
+        self.own_version = ''
+        # Last of all, so it is above everything including the splash: it is the
+        # one overlay the operator opened deliberately.
+        self.menu = OperatorMenu(cfg, self)
+        self.menu.chosen.connect(self.menu_choose)
+
         self.apply_theme()
 
     # ── Appearance ─────────────────────────────────────────────────────────────
@@ -1070,6 +1089,8 @@ class BoardWindow(QWidget):
         self.header_row.apply_theme()
         for row in self.rows:
             row.apply_theme()
+        if hasattr(self, 'menu'):
+            self.menu.apply_config(cfg)
         # Last, so it wins: both of the loops above repaint the clock and the lane
         # times for a healthy link.
         self._apply_link_tint()
@@ -1090,18 +1111,82 @@ class BoardWindow(QWidget):
           F11 is the Linux-wide convention and the one to reach for; Ctrl+F is a
           second binding for hands used to it. It normally means Find, but this
           app has nothing to search, so the key is free.
-        * **Esc** leaves fullscreen (never quits), the conventional escape hatch.
+        * **Esc** leaves fullscreen (never quits), the conventional escape hatch —
+          but closes the operator menu first when it is open, which is what an
+          operator means by Esc with a panel in front of them.
+        * **F1** opens the operator menu: update, restart, quit, and what version
+          this display and its server are on. It is the only one of these that can
+          *change* anything, so every entry on it refuses a board mid-race — see
+          `menu_choose`.
         """
         key  = event.key()
         ctrl = bool(event.modifiers() & Qt.ControlModifier)
+        # Ctrl+Q is the one key the menu never holds: a wedged update must not be
+        # able to trap the board with no way out.
+        if self.menu.isVisible() and not (ctrl and key == Qt.Key_Q):
+            if key == Qt.Key_Escape and not self.menu.busy:
+                self.menu.close_menu()
+            else:
+                self.menu.handle_key(key)
+            # Modal: nothing else sees a key while the panel is up. Letting the
+            # unhandled ones through looks harmless until F11 resizes the window out
+            # from under the panel an operator is reading.
+            return
         if ctrl and key == Qt.Key_Q:
             QApplication.instance().quit()
+        elif key == Qt.Key_F1:
+            self.open_menu()
         elif key == Qt.Key_F11 or (ctrl and key == Qt.Key_F):
             self.set_fullscreen(not self.isFullScreen())
         elif key == Qt.Key_Escape and self.isFullScreen():
             self.set_fullscreen(False)
         else:
             super().keyPressEvent(event)
+
+    # ── Operator menu ──────────────────────────────────────────────────────────
+
+    def open_menu(self):
+        """Raise the operator menu over the board."""
+        # Read the ref now rather than holding one from startup: the warm-up thread
+        # may still have been running when this window was built.
+        self.own_version = self.own_version or cached_version()
+        self.menu.setGeometry(self.rect())
+        self.menu.open()
+        self.menu.refresh(own_version=self.own_version, link_up=not self.link_lost)
+
+    def menu_choose(self, action: str):
+        """Act on a menu entry, or refuse and say why.
+
+        The refusals live here rather than in the menu so the board's own state —
+        is a lane running, did the server say what version to use — is read in one
+        place. `update` is handed on to whoever owns the updater (app.py); the menu
+        only names the action.
+        """
+        from .menu import MenuAction
+        # Nothing on this menu may take the board down mid-race. Every entry here
+        # blanks the TV for a few seconds at least, and two keys — F1 then a digit —
+        # is nowhere near deliberate enough for that with somebody in the water.
+        # Ctrl+Q is still the unconditional way out: it is two-handed, which is what
+        # earns it the right to ignore this.
+        if self.any_lane_running:
+            self.menu.set_note(self.cfg.strings.get(
+                'menu_race_on', 'A race is running — not updating now.'))
+            return
+        if action == MenuAction.QUIT:
+            QApplication.instance().quit()
+        elif action == MenuAction.RESTART:
+            # Non-zero, so start-scoreboard.sh brings it straight back — the same
+            # contract a finished update uses. Status 0 would leave the TV dark.
+            os._exit(1)
+        elif action == MenuAction.UPDATE:
+            if not self.cfg.server_version:
+                self.menu.set_note(self.cfg.strings.get(
+                    'menu_no_target',
+                    'The server has not said which version to use.'))
+                return
+            self.menu.set_busy(True)
+            self.menu.set_note(self.cfg.strings.get('menu_updating', 'Updating…'))
+            self.update_requested.emit(self.cfg.server_version)
 
     def set_fullscreen(self, fullscreen: bool):
         """Enter or leave fullscreen, remembering the windowed size ourselves.
@@ -1201,6 +1286,8 @@ class BoardWindow(QWidget):
         if self._col_fraction < 1.0:
             self._apply_col_fraction(self._col_fraction)   # widths are width-relative
         self.splash.setGeometry(self.rect())
+        if hasattr(self, 'menu'):
+            self.menu.setGeometry(self.rect())
         for badge in (self.test_badge, self.link_badge):
             if badge.isVisible():
                 badge.place(self.width(), self.height(), self.header.height())

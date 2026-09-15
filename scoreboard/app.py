@@ -16,6 +16,7 @@ not merely a stale one.
 import argparse
 import os
 import sys
+import threading
 import time
 
 from PySide6.QtCore import Qt, QTimer
@@ -27,7 +28,7 @@ from .client import ConfigLoader, ServerLink
 from .fonts import load_app_fonts
 from .theme import Config
 from .updater import Updater
-from .version import registration
+from .version import cached_version, registration, warm_cache
 
 DEFAULT_SERVER = os.environ.get('SPLOUCH_SERVER', 'http://splouch.local')
 
@@ -104,6 +105,8 @@ class ScoreboardApp:
         self.updater = Updater()
         self.updater.line.connect(self._on_update_line)
         self.updater.done.connect(self._on_update_done)
+        self.window.update_requested.connect(self._on_menu_update)
+        self._read_own_version()
 
         self.config_loader = ConfigLoader(server)
         self.config_loader.loaded.connect(self._on_config)
@@ -114,6 +117,25 @@ class ScoreboardApp:
         self._config_timer.timeout.connect(self.config_loader.request)
         self.config_loader.request()
         self.link.start()
+
+    @staticmethod
+    def _read_own_version():
+        """Learn this checkout's git ref for the operator menu, off the GUI thread.
+
+        `describe()` shells out to git three times, up to eight seconds each on a
+        cold SD card. Inline, that is the one thing this file exists to avoid: it
+        would run before the first paint and leave the TV blank for the duration.
+
+        Not taken from the `register` payload, which is the same value — that is
+        only computed once the server answers, and the menu matters most when it
+        never does.
+
+        The thread is handed a bare module function and captures nothing: a worker
+        holding the last reference to a Qt object frees it on the worker's thread
+        when it ends, and `~QWidget` off the GUI thread is a crash, not a warning.
+        The result is read back through `version.cached_version()`.
+        """
+        threading.Thread(target=warm_cache, daemon=True).start()
 
     @staticmethod
     def _show(window, fullscreen: bool):
@@ -201,6 +223,13 @@ class ScoreboardApp:
             # windows keeps the count above zero and the signal unfired.
             old_window  = self.window
             self.window = BoardWindow(new_config)
+            # Carry the things that belong to the display rather than to the old
+            # widget: its git ref, and the menu's way of asking for an update. The
+            # signal was connected to the window we are about to throw away, so
+            # without this F1 → Update silently does nothing after a lane-count
+            # change — the one path with no error to show for it.
+            self.window.own_version = old_window.own_version
+            self.window.update_requested.connect(self._on_menu_update)
             self.window.snapshot.update(snapshot)
             self.window.refresh()
             self.window.set_status(status, detail)
@@ -243,9 +272,28 @@ class ScoreboardApp:
         self.link.send('update_log', {'text': f'Updating to {target}…',
                                       'error': False, 'done': None})
 
+    def _on_menu_update(self, target: str):
+        """The operator asked for an update from the menu on the display itself.
+
+        The same `Updater`, deliberately: `start()` refuses while one is already
+        running, so the menu and the server's button cannot start two at once —
+        whichever gets there first wins and the other is a no-op. The board has
+        already refused a running race and a missing target before emitting.
+        """
+        if not self.updater.start(target):
+            return
+        print(f'[scoreboard] update requested at the display → {target}', flush=True)
+        # Told to the server too, so Settings → Network shows this display updating
+        # even though nobody pressed the button there.
+        self.link.send('update_log', {'text': f'Updating to {target}…',
+                                      'error': False, 'done': None})
+
     def _on_update_line(self, text: str, error: bool):
         print(f'[scoreboard] update: {text}', flush=True)
         self.link.send('update_log', {'text': text, 'error': error, 'done': None})
+        # And on the TV, which is the only progress an operator standing at the
+        # display can see — the server's log is on the other Pi.
+        self.window.menu.add_output(text)
 
     def _on_update_done(self, ok: bool):
         self.link.send('update_log',
@@ -253,6 +301,10 @@ class ScoreboardApp:
                                 else 'Update failed — still on the old version.',
                         'error': not ok, 'done': ok})
         if not ok:
+            # Hand the menu back: the display is still on the old version and the
+            # operator needs to read why before deciding what to do about it.
+            self.window.menu.set_busy(False)
+            self.window.menu.set_note('Update failed — still on the old version.')
             return
         # Exit non-zero so start-scoreboard.sh relaunches us on the new code.
         # Give the frame above a moment to reach the server first, or the operator

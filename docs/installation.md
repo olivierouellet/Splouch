@@ -109,13 +109,33 @@ The script:
 
 | key | effect |
 | --- | --- |
+| **F1** | open the display menu — update, restart, quit, versions |
 | **Ctrl+Q** | quit to the desktop |
 | **F11** or **Ctrl+F** | toggle fullscreen |
-| **Esc** | leave fullscreen (does not quit) |
+| **Esc** | close the menu, else leave fullscreen (never quits) |
 
 Quitting with Ctrl+Q returns you to the desktop and stays there — it is treated as
 deliberate, so nothing relaunches. Double-click the **Scoreboard** icon on the desktop
 to start it again. A **Settings** icon opens the server's admin page in a browser.
+
+### The display menu (F1)
+
+A keyboard plugged into the TV Pi is all this needs, which is the point: it works
+when the server's admin page is not to hand, and when the link to the server is
+down. It shows what version this display and its server are on, whether the two are
+in step, and whether the link is up — then offers to **update to the server's
+version**, **restart the display**, or **quit to the desktop**.
+
+Arrows or `1`–`3` choose, Enter confirms, Esc closes. The update prints its progress
+on the TV and restarts the display when it finishes; if it fails, the display stays
+on the version it was already running and the panel says why.
+
+**Nothing on the menu will act while a race is running.** Every entry blanks the TV
+for a few seconds at least, and F1-then-a-digit is two keystrokes. Ctrl+Q is still
+the unconditional way out.
+
+> This is the third way to update a display, and the only one that works on a kiosk
+> installed before v2026.09.0 — see [Update displays](admin.md#updating-the-displays).
 
 Useful commands on the kiosk:
 
