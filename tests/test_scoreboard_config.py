@@ -136,3 +136,63 @@ def test_every_theme_key_survives_a_round_trip(monkeypatch):
     monkeypatch.setitem(state.settings, 'theme_colors', {})
     state.merge_theme_defaults()
     assert set(state.settings['theme_colors']) == set(state.DEFAULT_THEME_COLORS)
+
+
+# ── The accent blue ────────────────────────────────────────────────────────────
+# `header_label` stopped being a near-white caption colour and became the board's
+# accent: the EV/HT words in the top bar and the wall clock beside them. Two things
+# have to hold for that to look deliberate rather than broken.
+
+def test_the_fallback_palette_matches_the_server():
+    """`scoreboard/theme.py` is what the board paints with for the seconds between
+    the kiosk window opening and `/config` answering. A value that disagrees with
+    the server's makes the board visibly change colour a moment after boot."""
+    import state
+    shared = set(DEFAULT_COLORS) & set(state.DEFAULT_THEME_COLORS)
+    differ = {k: (DEFAULT_COLORS[k], state.DEFAULT_THEME_COLORS[k])
+              for k in shared
+              if DEFAULT_COLORS[k].lower() != state.DEFAULT_THEME_COLORS[k].lower()}
+    assert not differ, f'kiosk fallback disagrees with the server: {differ}'
+
+
+def test_the_cloud_fallback_palette_matches_too():
+    """A third copy, for a relay that has not sent its settings yet. Its own comment
+    says it must match the Pi's — the existing schedule test checks the *keys* are
+    there, which is how the values drifted apart in the first place."""
+    import ast
+    import state
+    repo = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    src = open(os.path.join(repo, 'cloud', 'cloud_server.py'), encoding='utf-8').read()
+    tree = ast.parse(src)
+    cloud = next(ast.literal_eval(node.value)
+                 for node in ast.walk(tree)
+                 if isinstance(node, ast.Assign)
+                 and any(getattr(t, 'id', '') == '_DEFAULT_COLORS' for t in node.targets))
+    differ = {k: (v, state.DEFAULT_THEME_COLORS[k])
+              for k, v in cloud.items()
+              if k in state.DEFAULT_THEME_COLORS
+              and v.lower() != state.DEFAULT_THEME_COLORS[k].lower()}
+    assert not differ, f'cloud fallback disagrees with the Pi: {differ}'
+
+
+def test_an_install_that_never_chose_white_gets_the_blue(monkeypatch):
+    """Every install already stores this key — `merge_theme_defaults` has been
+    writing the whole palette back for releases — so a new default alone would
+    reach only a fresh install and every existing board would keep a colour
+    nobody picked."""
+    import state
+    monkeypatch.setitem(state.settings, 'theme_colors',
+                        {**state.DEFAULT_THEME_COLORS, 'header_label': '#ffffff'})
+    monkeypatch.setitem(state.settings, 'theme_fonts', {})
+    state.merge_theme_defaults()
+    assert state.settings['theme_colors']['header_label'] == state.HEADER_LABEL_BLUE
+
+
+def test_a_colour_the_operator_chose_is_left_alone(monkeypatch):
+    """The migration reads one specific old default, not "anything pale"."""
+    import state
+    monkeypatch.setitem(state.settings, 'theme_colors',
+                        {**state.DEFAULT_THEME_COLORS, 'header_label': '#ff00ff'})
+    monkeypatch.setitem(state.settings, 'theme_fonts', {})
+    state.merge_theme_defaults()
+    assert state.settings['theme_colors']['header_label'] == '#ff00ff'

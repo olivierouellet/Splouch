@@ -152,12 +152,18 @@ html, body {
     color: var(--color-header-value);
 }
 
-/* DSEG7 for the event/heat number digits */
+/* DSEG7 for the event/heat number digits.
+
+   `--color-header-value`, not `--color-header-label`: the label colour is the
+   board's accent blue and belongs to the EVENT/HEAT *words*, which is what tells
+   them apart from their numbers. This used to be the label colour on this page and
+   `header_value` on the Qt board — a divergence that existed only because both were
+   near-identical greys and it made no visible difference. It does now. */
 #current_event, #current_heat {
     font-family: var(--font-digits), monospace;
     font-size: 4.5vh;
     line-height: 1;
-    color: var(--color-header-label);
+    color: var(--color-header-value);
 }
 
 /* Grow the header bar on tall viewports so the Event/Heat digits can

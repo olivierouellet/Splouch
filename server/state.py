@@ -78,9 +78,18 @@ SERVICE_NAME = ('splouch' if os.path.exists('/etc/systemd/system/splouch.service
 
 # ── Theme / locale defaults ────────────────────────────────────────────────────
 
+# The blue the top bar's labels and wall clock take. Shared with `schedule_event`
+# by intent rather than accident: one accent colour across the board reads as a
+# system, and this is the same blue the schedule already uses for event numbers.
+HEADER_LABEL_BLUE = '#3b9eff'
+# What `header_label` was before it became that blue. An install that still stores
+# this never chose it — it is the old default — so `merge_theme_defaults` moves it
+# on. See _migrate_header_label.
+_HEADER_LABEL_WAS = '#ffffff'
+
 DEFAULT_THEME_COLORS = {
     'bg': '#0d0d0d', 'header_bg': '#1a1a1a', 'header_border': '#2e2e2e',
-    'header_label': '#ffffff', 'header_value': '#e0e0e0',
+    'header_label': HEADER_LABEL_BLUE, 'header_value': '#e0e0e0',
     'th_text': '#666666', 'th_bg': '#1a1a1a',
     'row_odd': '#141414', 'row_even': '#202020', 'row_text': '#e0e0e0',
     'time': '#FFD700', 'delta_better': '#4CAF50', 'delta_worse': '#808080',
@@ -184,7 +193,7 @@ settings = {
     'active_theme': 'default',
     'theme_colors': {
         'bg': '#0d0d0d', 'header_bg': '#1a1a1a', 'header_border': '#2e2e2e',
-        'header_label': '#ffffff', 'header_value': '#e0e0e0',
+        'header_label': HEADER_LABEL_BLUE, 'header_value': '#e0e0e0',
         'th_text': '#666666', 'th_bg': '#1a1a1a',
         'row_odd': '#141414', 'row_even': '#202020', 'row_text': '#e0e0e0',
         'time': '#FFD700', 'delta_better': '#4CAF50', 'delta_worse': '#808080',
@@ -836,6 +845,23 @@ def merge_theme_defaults():
                                 **(settings.get('theme_colors') or {})}
     settings['theme_fonts']  = {**DEFAULT_THEME_FONTS,
                                 **(settings.get('theme_fonts') or {})}
+    _migrate_header_label()
+
+
+def _migrate_header_label():
+    """Move `header_label` off the white it used to default to.
+
+    Every install has this key stored — `merge_theme_defaults` has been writing the
+    whole palette back since it was added — so a new default alone would reach only
+    a fresh install, and every existing board would keep a colour nobody chose.
+
+    Storing the old default is the only evidence available that it was never
+    customised, and it is good evidence: the swatch sits in Settings → Theme with a
+    reset button beside it, so an operator who actually wants white is one click from
+    it, while an operator who never opened the tab gets the new look.
+    """
+    if settings['theme_colors'].get('header_label', '').lower() == _HEADER_LABEL_WAS:
+        settings['theme_colors']['header_label'] = HEADER_LABEL_BLUE
 
 
 def load_settings():

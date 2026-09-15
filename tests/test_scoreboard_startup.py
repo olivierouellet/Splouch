@@ -146,10 +146,10 @@ def test_every_theme_colour_reaches_a_widget(qt_app, settle_podium):
         'bg':            w.styleSheet(),
         'header_bg':     w.header.styleSheet(),
         'header_border': w.header.styleSheet(),
-        # `header_label` is the small EVENT/HEAT word; `header_value` is every
-        # other header text — title, the numbers themselves, and the wall clock.
-        'header_label':  w.event_cell.label.styleSheet(),
-        'header_value':  w.event_cell.value.styleSheet() + w.wall_clock.styleSheet(),
+        # `header_label` is the board's accent: the EV/HT words and the wall clock
+        # beside them. `header_value` is the numbers those words name.
+        'header_label':  w.event_cell.label.styleSheet() + w.wall_clock.styleSheet(),
+        'header_value':  w.event_cell.value.styleSheet(),
         'th_bg':         w.header_row.styleSheet(),
         'th_text':       w.header_row.cells['lane'].styleSheet(),
         # rows[0] is lane 1 but holds place 1, so the podium tint overrides its

@@ -2014,7 +2014,9 @@ async def ws_schedule(ws: WebSocket):
 
 _DEFAULT_COLORS = {
     'bg': '#0d0d0d', 'header_bg': '#1a1a1a', 'header_border': '#2e2e2e',
-    'header_label': '#ffffff', 'header_value': '#e0e0e0',
+    # The accent blue, same value as `schedule_event` below and for the same reason
+    # — one accent across the board. Must match server/state.py, as the note there.
+    'header_label': '#3b9eff', 'header_value': '#e0e0e0',
     'th_text': '#666666', 'th_bg': '#1a1a1a',
     'row_odd': '#141414', 'row_even': '#202020', 'row_text': '#e0e0e0',
     'time': '#FFD700', 'delta_better': '#4CAF50', 'delta_worse': '#808080',

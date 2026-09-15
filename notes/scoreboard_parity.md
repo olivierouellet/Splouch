@@ -68,7 +68,7 @@ Geometry first. The bar height is the one number everything else derives from.
 | bottom border | `1px solid header_border` | `1px solid header_border` | match |
 | cell dividers | `border-left: 1px solid header_border`, not on the first | same, on the four cells after the first | match |
 | cell widths | `flex: 0 0` 10 / 10 / 51 / 16 / 13 % | stretch weights 10 / 10 / 51 / 16 / 13 | match — *ported Qt → browser*, see below |
-| cell padding | `.header_cell` `6px 2vw` | 7% of the bar height (6px of 85), 2% of the window width | match |
+| cell padding | `.header_cell` `6px 2vw` | 7% of the bar height (6px of 85), **1%** of the window width | **intentional** — see the cell table below |
 
 **Fixed cell widths were ported the other way.** `/live` sized event/heat/chrono/clock to
 their content and gave the name cell `flex: 1`, so the whole row shifted whenever the event
@@ -89,18 +89,45 @@ now blank the text rather than removing the cell; `live.html`'s `stop_chrono()` 
 | Cell | `/live` | Qt board | Status |
 | --- | --- | --- | --- |
 | meet title | `#header_meet_title` — idle only | absent; it lives on the splash | **intentional** — `live.html` only ever calls `set_header_mode(true)`, which hides its title cell, so the header the kiosk showed never carried one |
-| EVENT / HEAT | small word above a large number, `.header_cell` column flex | `HeaderCell`, a `QVBoxLayout` of two `FitLabel`s | match |
+| EVENT / HEAT | small word **above** a large number, `.header_cell` column flex | `HeaderCell` — the word **beside** the number, one size, placed by hand | **intentional** — see below |
 | — position | after the meet title | first, hard against the left edge | **intentional** — event and heat are what an official glances at first |
 | — text alignment | `align-items: center` | `AlignLeft` | **intentional** — follows from leading the bar |
-| — word colour | `header_label` | `header_label` | match |
-| — number colour | `header_label` (`#current_event`) | `header_value` | **intentional** — the browser leaves the header's four text elements in two near-identical greys for no gain |
-| — word size | 12px in an 85px bar | `_R_LABEL` = 15% of the bar | match |
+| — word colour | `header_label` | `header_label` | match — and it is now the accent blue on both |
+| — number colour | `header_value` (`#current_event`) | `header_value` | match — the browser followed the display here |
+| — word size | 12px in an 85px bar | the number's size, `_R_DIGITS` | **intentional** — see below |
 | — number size | 4.5vh, digits font | `_R_DIGITS` = 57% of the bar, digits font | match |
 | — letter-spacing | `0.08em` on `.header_label` | `PercentageSpacing, 108` | match |
-| event name | 2-line `-webkit-line-clamp`, 3vh, centred | one line, `FitLabel`, centred, `_R_VALUE` = 50% of the bar | **intentional** — CSS cannot shrink text to fit; wrapping is its only answer to a long name, and shrink-to-fit is the reason this display exists |
+| event name | 2-line `-webkit-line-clamp`, 3vh, centred | one line, `FitLabel`, centred, `_R_VALUE` = 62% of the bar | **intentional** — CSS cannot shrink text to fit; wrapping is its only answer to a long name, and shrink-to-fit is the reason this display exists |
 | race clock | `#live_chrono`, 4.5vh, `time`, digits font | same, `_R_DIGITS` | match |
+| — precision | hundredths, interpolated | **tenths** — `fmt_clock(tenths=True)` | **intentional** — see below |
 | — between heats | text blanked, cell kept | text blanked, widget kept | match — a removed cell drops out of the layout and everything to its left slides across |
-| wall clock | `#meet_datetime`, 4.5vh, `header_value`, digits font | same, ticking every 10s (HH:MM only) | match |
+| wall clock | `#meet_datetime`, 4.5vh, `header_label`, digits font | same, ticking every 10s (HH:MM only) | match — both moved to the accent blue together |
+
+**The EVENT/HEAT word is inline and full size.** The browser's 1.8vh caption is 16px on a
+1080p board: readable at a desk, absent across a pool deck, which is the only distance this
+display is ever read at. Inline and equal-sized, `EV 12` reads as one phrase. What the size
+difference used to do — separate the word from its number — the accent blue does instead,
+which is why `header_label` and `header_value` must stay distinguishable in any theme.
+
+Two sizing rules follow, and both broke the obvious implementation. A cell solves **one**
+size for its word and its number together (`HeaderCell._relayout`), because two `FitLabel`s
+in a box each solve for their own share and land a size apart. And EVENT and HEAT then take
+the **smaller** of their two answers (`BoardWindow._sync_header_cells`), because `EVENT 12`
+is a wider phrase than `HEAT 7` and a divider between two different sizes advertises it.
+With the short labels (`EV`, `HT`) both reach the ceiling and the second rule costs nothing.
+
+**The running clock shows tenths.** The console reports its own clock to tenths while a race
+is on — a CTS blanks the hundredths digit and `_time_str` reads the blank back as a zero — so
+on the Qt board the last digit was the interpolation's alone, changing twenty times a second
+under the one number the whole hall is watching. `/live` never had the problem: it writes the
+console's own string into the lane cells. It is still two digits (`1:05.20`), because a figure
+that narrows by a character when it stops shifts everything around it. Only the *running*
+clock rounds; a split or a final time is the console's own figure and goes through untouched.
+
+**Header cell padding is half the browser's.** `_HDR_PAD_X` is 1vw against `.header_cell`'s
+2vw. That padding is a fraction of the *window*, so it costs every cell the same however
+narrow: five cells at 2vw a side spend a fifth of the bar on whitespace, which is what left
+no room for the word beside its number. The dividers already separate the cells.
 | idle state | title takes the event/heat/name share; both clocks in place | event/heat/name blanked; both clocks in place | match — the region differs only by the title, which is intentional above |
 
 The mechanisms differ here and have to. In the browser event/heat/name are `display: none`

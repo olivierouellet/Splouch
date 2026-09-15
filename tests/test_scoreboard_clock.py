@@ -263,3 +263,60 @@ def test_the_next_heat_clears_the_running_grey(board, qt_app):
     board.rows[0].clear()
     assert _TIME_RUNNING not in board.rows[0].time_label.styleSheet().lower()
     assert board.cfg.color('time') in board.rows[0].time_label.styleSheet()
+
+
+# ── Tenths, not hundredths ─────────────────────────────────────────────────────
+# The console reports its own clock to tenths while a race is on — a CTS blanks the
+# hundredths digit and `_time_str` reads the blank back as a zero — so the last
+# digit on a *running* clock was the board's interpolation alone, changing twenty
+# times a second under the one number the whole hall is watching. The browser never
+# had the problem: `/live` writes the console's own string into the lane cells, and
+# the phone board formats to tenths outright (`formatTenths` in scoreboard_base).
+
+def test_the_running_clock_shows_a_still_last_digit(board, qt_app):
+    board.apply_update({'running_time': '12.30', 'lane_running1': True})
+    qt_app.processEvents()
+    seen = set()
+    for _ in range(12):
+        _pump(qt_app, 0.05)
+        seen.add(board.chrono_label.text())
+    assert len(seen) > 1, 'the clock did not run at all'
+    for text in seen:
+        assert text.endswith('0'), f'{text!r} — the hundredths digit is still moving'
+
+
+def test_every_running_lane_shows_the_same_still_digit(board, qt_app):
+    board.apply_update({'running_time': '12.30',
+                        'lane_running1': True, 'lane_running2': True})
+    _pump(qt_app, 0.2)
+    assert board.rows[0].time_label.text() == board.chrono_label.text()
+    assert board.rows[1].time_label.text() == board.chrono_label.text()
+    assert board.chrono_label.text().endswith('0')
+
+
+def test_the_console_frame_is_rounded_too(board, qt_app):
+    """A console that does report hundredths while running would otherwise make the
+    figure jump between its value and the ticker's zero — the flicker, with a step."""
+    board.apply_update({'running_time': '12.37', 'lane_running1': True})
+    qt_app.processEvents()
+    assert board.chrono_label.text() == '12.30'
+
+
+def test_a_finished_time_keeps_its_hundredths(board, qt_app):
+    """Only the *running* clock is rounded. A split or a final time is the console's
+    own figure and is written straight through — that precision is the whole point
+    of the sport."""
+    board.apply_update({'running_time': '12.30', 'lane_running1': True})
+    qt_app.processEvents()
+    board.apply_update({'lane_running1': False, 'lane_time1': '1:02.47'})
+    qt_app.processEvents()
+    assert board.rows[0].time_label.text() == '1:02.47'
+
+
+def test_the_width_never_changes_as_it_runs(board, qt_app):
+    """Two digits either way. A figure that narrows by a character when it stops
+    would shift everything around it — worse than the flicker it replaced."""
+    board.apply_update({'running_time': '9.30', 'lane_running1': True})
+    _pump(qt_app, 0.15)
+    running = board.chrono_label.text()
+    assert len(running.split('.')[1]) == 2, f'{running!r} dropped a digit'

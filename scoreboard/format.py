@@ -24,13 +24,27 @@ def parse_clock(text):
     return int(minutes or 0) * 6000 + int(seconds) * 100 + int(hundredths)
 
 
-def fmt_clock(hundredths: int) -> str:
+def fmt_clock(hundredths: int, *, tenths: bool = False) -> str:
     """Hundredths to a clock string, exactly as ``formatHundredths`` renders it.
 
     Note the asymmetry, which is intentional and matches the browser: seconds are
     zero-padded only once there is a minutes part — `5.23`, but `1:05.23`.
+
+    With *tenths*, the hundredths digit is dropped to a zero — `5.20`, `1:05.20`.
+    Two digits either way, because the width must not change as the clock runs: it
+    is the running clock that asks for this, and a figure that narrows by a digit
+    when it stops is worse than the flicker it was meant to fix.
+
+    Why a *running* clock wants it: the console reports its own clock to tenths
+    while a race is on (a CTS blanks the hundredths digit, which `_time_str` reads
+    back as a zero), so the board's own interpolation is the only thing supplying
+    that last digit — and it supplies a different one twenty times a second. At a
+    desk that is detail. Across a hall it is a digit strobing under the one number
+    everybody in the building is trying to read.
     """
     hundredths = max(0, int(hundredths))
+    if tenths:
+        hundredths -= hundredths % 10
     frac    = hundredths % 100
     seconds = (hundredths // 100) % 60
     minutes = hundredths // 6000

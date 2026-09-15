@@ -13,8 +13,12 @@ Four things depart from the browser, deliberately:
 * Heats dissolve into one another instead of cutting. ``/live`` collapses the
   columns instantly; a fade reads better across a hall at TV distance, where an
   instant cut looks like a glitch. See the README.
-* The event/heat numbers take ``header_value`` rather than the browser's
-  ``header_label``, which leaves the header's text in two near-identical greys.
+* The EVENT/HEAT word sits *inline* with its number at the same size — ``EV 12`` —
+  rather than as a small caption above it. The browser's 1.8vh word is unreadable
+  across a pool deck, which is the only distance this display is ever read at.
+* The running clock shows tenths (``1:05.20``), not hundredths. The console reports
+  its own clock to tenths while a race is on, so the last digit was ours alone and
+  it changed twenty times a second under the number everyone is watching.
 
 ``notes/scoreboard_parity.md`` is the full ledger of what matches and what does not.
 """
@@ -23,7 +27,7 @@ import time
 
 from PySide6.QtCore import (QEasingCurve, QPropertyAnimation, Qt, QTimer,
                           QVariantAnimation)
-from PySide6.QtGui import QColor, QFont
+from PySide6.QtGui import QColor, QFont, QFontMetrics
 from PySide6.QtWidgets import (QApplication, QFrame, QGraphicsOpacityEffect,
                                QHBoxLayout, QLabel, QSizePolicy, QVBoxLayout,
                                QWidget)
@@ -51,21 +55,35 @@ _H_BAR = 0.105
 # Sizing them off a content-derived bar is what made the whole header collapse.
 # Ratios keep the browser's proportions: 12px label under 48px digits in an 85px
 # bar. Raising _H_BAR alone now scales the entire header.
-_R_LABEL  = 0.15    # the small EVENT / HEAT word
-_R_VALUE  = 0.50    # event name
-_R_DIGITS = 0.57    # event/heat numbers, both clocks
+# The EV/HT word sits *inline* with its number at the same size (see HeaderCell),
+# so there is no separate label ratio any more: `EV 12` is one phrase at _R_DIGITS.
+# It used to be 0.15 of the bar — 16px at 1080p — which is legible on a desk and not
+# at all across a pool deck, which is the only place this display is ever read.
+_R_VALUE  = 0.62    # event name
+_R_DIGITS = 0.57    # event/heat cells, both clocks
 
 # Header cell widths, as percentages of the bar. Fixed rather than content-derived,
 # so nothing shifts when the event number gains a digit or the race clock blanks
 # between heats. `.header_cell` in timing_display.css now carries the same five
 # numbers — this is the one place the browser followed the display rather than the
 # other way round. They sum to 100, so the weights are the percentages directly.
-_HW_EVENT, _HW_HEAT, _HW_NAME, _HW_CHRONO, _HW_CLOCK = 10, 10, 51, 16, 13
+# EVENT and HEAT are wider than the browser's because their word now sits beside
+# the number rather than above it; the wall clock gives up what they take, being the
+# one cell nobody reads a race off. Measured, not guessed: at these weights `EV 12`
+# and `HT 7` both reach the full _R_DIGITS size, and the race clock gets *more* room
+# than before (62px against 53px at 1080p).
+_HW_EVENT, _HW_HEAT, _HW_NAME, _HW_CHRONO, _HW_CLOCK = 13, 13, 48, 16, 10
 
 # `.header_cell`'s `6px 2vw` padding, as fractions of the bar height and the window
 # width. 6px in the browser's 85px bar is 7% of it.
 _HDR_PAD_Y = 0.07
-_HDR_PAD_X = 0.02
+# Half the browser's `2vw`. That padding is a fraction of the *window*, so it costs
+# the same on every cell however narrow: five cells at 2vw a side spend a fifth of
+# the bar on whitespace, which is what squeezed the header's text in the first place.
+# The dividers already separate the cells; the whitespace was doing nothing.
+_HDR_PAD_X = 0.01
+# Space between the EV/HT word and its number, as a fraction of their shared size.
+_HDR_INLINE_GAP = 0.45
 
 # Column stretch weights = the vw widths of `/live`, the page the Chromium kiosk
 # actually rendered: `.lane-column` 5vw and `.club-column` 8vw from
@@ -608,12 +626,18 @@ class HeaderBar(QFrame):
 
 
 class HeaderCell(QWidget):
-    """An EVENT/HEAT cell: the word above, the number below.
+    """An EVENT/HEAT cell: the word and the number side by side, at one size.
 
-    Matches `.header_cell` in timing_display.css, which is a *column* flex — the
-    small label sits on top of a much larger value (1.8vh over 4.5vh), and the
-    number is drawn in the digits font. They also take different theme colours,
-    which is why they are two widgets rather than one string.
+    `.header_cell` in the browser is a *column* — a 1.8vh word stacked on a 4.5vh
+    number. At a desk that reads as a caption; across a pool deck the word simply is
+    not there, which is the whole reason this cell diverges. Inline and equal-sized,
+    `EV 12` reads as one phrase at a glance, and the accent colour on the word is
+    what keeps it from reading as one long number.
+
+    The two halves are placed by hand rather than by a layout because they must end
+    up the *same* size. Two FitLabels in a box each solve for their own share and
+    land on different sizes — which is precisely what makes a label look like a
+    mistake instead of a label. So the size is solved once, for the pair.
     """
 
     def __init__(self, cfg: Config, parent=None):
@@ -622,28 +646,25 @@ class HeaderCell(QWidget):
         # `.header_cell` draws a left divider against its neighbour; the first cell
         # in the bar does not (`:first-child { border-left: none }`).
         self.divider = False
+        self._ceiling = 10
+        self._shared_px = None
         # A bare QWidget ignores stylesheet borders unless it is told to paint
         # itself through the style.
         self.setAttribute(Qt.WA_StyledBackground, True)
-        column = QVBoxLayout(self)
-        column.setContentsMargins(0, 0, 0, 0)
-        column.setSpacing(0)
-        self.label = FitLabel()
-        self.label.setAlignment(Qt.AlignLeft | Qt.AlignBottom)
-        self.value = FitLabel()
-        self.value.setAlignment(Qt.AlignLeft | Qt.AlignTop)
+        self.label = FitLabel(parent=self)
+        self.label.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+        self.value = FitLabel(parent=self)
+        self.value.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
         for part in (self.label, self.value):
             part.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Ignored)
             part.setMinimumSize(0, 0)
-        column.addWidget(self.label, 2)
-        column.addWidget(self.value, 5)
         self.apply_theme()
 
     def apply_theme(self):
-        # The small word takes `header_label`; the number takes `header_value`, so
-        # it matches the wall clock. A deliberate divergence: the browser gives
-        # `#current_event` the label colour, which leaves the header's text in two
-        # near-identical greys for no gain.
+        # The word takes `header_label` — the board's accent blue — and the number
+        # keeps `header_value`. Two colours on one line is what separates the two
+        # halves now that they are the same size; the browser's stacked cell got
+        # that separation from the size difference instead.
         #
         # Scoped to the type, so the divider does not propagate down to the two
         # labels — a Qt stylesheet applies to a widget *and* its descendants.
@@ -655,19 +676,80 @@ class HeaderCell(QWidget):
         self.value.setStyleSheet(
             f"color: {self.cfg.color('header_value')}; background: transparent; border: none;")
         # `.header_label`'s `letter-spacing: 0.08em`, which is most of what makes the
-        # small word read as a label rather than as shrunken text.
+        # word read as a label rather than as text that happens to be there.
         word = QFont(self.cfg.family)
         word.setLetterSpacing(QFont.PercentageSpacing, 108)
         self.label.setFont(word)
         self.value.setFont(QFont(self.cfg.digits_family))
+        self._relayout()
 
-    def set_pixel_size(self, label_px: int, value_px: int):
-        self.label.set_max_px(max(9, label_px))
-        self.value.set_max_px(max(10, value_px))
+    def set_pixel_size(self, px: int):
+        """Ceiling for the pair. Both halves get whatever size actually fits."""
+        self._ceiling = max(10, int(px))
+        self._relayout()
+
+    def set_shared_px(self, px):
+        """Take *px* instead of this cell's own answer, or ``None`` to go back to it.
+
+        EVENT and HEAT sit side by side, so what matters is not that each is as
+        large as it can be but that the two agree: `EVENT 12` needs more room than
+        `HEAT 7`, and left to themselves they settle two sizes apart and read as a
+        mistake. BoardWindow hands both the smaller answer — see _sync_header_cells.
+        """
+        self._shared_px = px
+        self._relayout()
+
+    def solve_px(self) -> int:
+        """The largest size at which this cell's word and number both fit."""
+        avail = max(1, self.contentsRect().width())
+        lo, hi, best = 10, self._ceiling, 10
+        while lo <= hi:
+            mid = (lo + hi) // 2
+            if sum(self._widths(mid)) <= avail:
+                best, lo = mid, mid + 1
+            else:
+                hi = mid - 1
+        return best
 
     def set_text(self, label: str, value: str):
-        self.label.setText(label)
+        # A word with no number is not a label, it is a stray `EV` — and at this size
+        # it would be the loudest thing on an idle board. The cell blanks whole.
+        self.label.setText(label if value else '')
         self.value.setText(value)
+        self._relayout()
+
+    def resizeEvent(self, event):     # noqa: N802 — Qt naming
+        super().resizeEvent(event)
+        self._relayout()
+
+    def _widths(self, px: int):
+        """(word, gap, number) advances at *px*, in this cell's two faces."""
+        word = QFont(self.label.font())
+        word.setPixelSize(px)
+        number = QFont(self.value.font())
+        number.setPixelSize(px)
+        return (QFontMetrics(word).horizontalAdvance(self.label.text()),
+                int(px * _HDR_INLINE_GAP) if self.label.text() else 0,
+                QFontMetrics(number).horizontalAdvance(self.value.text()))
+
+    def _relayout(self):
+        """Place the word and the number at whatever size this cell is to use.
+
+        Its own answer normally, the pair's shared one when BoardWindow has set it.
+        The search in `solve_px` is widest-first, the same shape as
+        `FitLabel._refit` — the advance is monotonic in the size, so it is exact.
+        """
+        rect = self.contentsRect()
+        avail = max(1, rect.width())
+        best = self._shared_px if self._shared_px is not None else self.solve_px()
+        word_w, gap, number_w = self._widths(best)
+        # +2px each: FitLabel re-fits against its *contents* rect and would drop a
+        # size on a rounding difference between the advance and the widget width.
+        self.label.set_max_px(best)
+        self.value.set_max_px(best)
+        self.label.setGeometry(rect.x(), rect.y(), word_w + 2, rect.height())
+        self.value.setGeometry(rect.x() + word_w + gap, rect.y(),
+                               max(1, avail - word_w - gap) + 2, rect.height())
 
 
 class HeaderRow(QFrame):
@@ -963,10 +1045,12 @@ class BoardWindow(QWidget):
             f"color: {cfg.color('time')}; background: transparent;"
             f" border: none; {divider}")
         self.chrono_label.setFont(QFont(cfg.digits_family))
-        # Same `header_value` as the event/heat numbers — the race clock is the only
-        # header element that deliberately stands out.
+        # The accent blue, like the EV/HT words — the two ends of the bar then frame
+        # the race clock, which is the one element up here meant to stand out and
+        # keeps the gold `time` to itself. The wall clock is the header's least
+        # urgent text; matching the labels is what stops it competing with the race.
         self.wall_clock.setStyleSheet(
-            f"color: {cfg.color('header_value')}; background: transparent;"
+            f"color: {cfg.color('header_label')}; background: transparent;"
             f" border: none; {divider}")
         self.wall_clock.setFont(QFont(cfg.digits_family))
         self.test_badge.apply_theme(cfg, cfg.color('row_text'))
@@ -1055,6 +1139,7 @@ class BoardWindow(QWidget):
             self.event_cell.set_text('', '')
             self.heat_cell.set_text('', '')
             self.name_label.setText('')
+            self._sync_header_cells()
 
     def _tick_wall_clock(self):
         self.wall_clock.setText(time.strftime('%H:%M'))
@@ -1071,13 +1156,30 @@ class BoardWindow(QWidget):
         self.chrono_label.set_max_px(max(10, int(bar * _R_DIGITS)))
         self.wall_clock.set_max_px(max(10, int(bar * _R_DIGITS)))
         for cell in (self.event_cell, self.heat_cell):
-            cell.set_pixel_size(int(bar * _R_LABEL), int(bar * _R_DIGITS))
+            cell.set_pixel_size(int(bar * _R_DIGITS))
+        self._sync_header_cells()
         # `.header_cell`'s `6px 2vw`, kept proportional so it does not shrink to
         # nothing on a 4K panel.
         pad_x, pad_y = int(self.width() * _HDR_PAD_X), int(bar * _HDR_PAD_Y)
         for widget in (self.event_cell, self.heat_cell, self.name_label,
                        self.chrono_label, self.wall_clock):
             widget.setContentsMargins(pad_x, pad_y, pad_x, pad_y)
+
+    def _sync_header_cells(self):
+        """Give EVENT and HEAT one size — the smaller of what the two can take.
+
+        They sit side by side with a divider between them, so a size difference is
+        read as one of them being wrong rather than as either being as large as it
+        fits. `EVENT 12` is the wider phrase, so it is usually the one setting the
+        size; with the short labels (`EV`, `HT`) both reach the ceiling and this
+        costs nothing.
+        """
+        cells = (self.event_cell, self.heat_cell)
+        for cell in cells:
+            cell.set_shared_px(None)       # ask each for its own answer first
+        shared = min(cell.solve_px() for cell in cells)
+        for cell in cells:
+            cell.set_shared_px(shared)
 
     def resizeEvent(self, event):     # noqa: N802 — Qt naming
         super().resizeEvent(event)
@@ -1462,7 +1564,10 @@ class BoardWindow(QWidget):
         if self._clock_base is None:
             return
         elapsed = int((time.monotonic() - self._clock_at) * 100)
-        text = fmt_clock(self._clock_base + elapsed)
+        # Interpolate in hundredths, show tenths: the extra precision is what keeps
+        # the tenth turning over at the right moment, and showing it is what made
+        # the last digit strobe. See fmt_clock.
+        text = fmt_clock(self._clock_base + elapsed, tenths=True)
         self.chrono_label.setText(text)
         for row in self.rows:
             if row.running:
@@ -1562,12 +1667,16 @@ class BoardWindow(QWidget):
             self.clear_podium()
             self.set_columns_visible(True)
 
-        if 'current_event' in data:
-            self.event_cell.set_text(self.cfg.labels.get('event', 'EVENT'),
-                                     str(data['current_event']))
-        if 'current_heat' in data:
-            self.heat_cell.set_text(self.cfg.labels.get('heat', 'HEAT'),
-                                    str(data['current_heat']))
+        if 'current_event' in data or 'current_heat' in data:
+            if 'current_event' in data:
+                self.event_cell.set_text(self.cfg.labels.get('event', 'EVENT'),
+                                         str(data['current_event']))
+            if 'current_heat' in data:
+                self.heat_cell.set_text(self.cfg.labels.get('heat', 'HEAT'),
+                                        str(data['current_heat']))
+            # An event number gaining a digit changes what fits, and both cells
+            # follow so the pair stays level.
+            self._sync_header_cells()
         if 'event_name' in data:
             self.name_label.setText(data['event_name'])
         if 'running_time' in data:
@@ -1584,7 +1693,12 @@ class BoardWindow(QWidget):
                 # Paint it now. The ticker only runs while a lane is swimming, so
                 # relying on it alone would freeze the header during the seconds
                 # when every lane is paused at a wall.
-                self.chrono_label.setText(fmt_clock(hundredths))
+                #
+                # Tenths here too, and for the same reason the ticker uses them: a
+                # console that does report hundredths while running would otherwise
+                # make the figure jump between its value and the ticker's zero
+                # twenty times a second, which is the flicker with an extra step.
+                self.chrono_label.setText(fmt_clock(hundredths, tenths=True))
 
         # Lane keys are `lane_<field><n>` — the lane is the trailing digits, which
         # is the only part of the name that is stable across fields
