@@ -15,6 +15,10 @@ Two rules keep a failed update from taking the TV down:
   walk to the kiosk, which is the one outcome worse than being out of date.
 * **Never touch a dirty checkout.** Local edits mean `git checkout` would either
   fail or discard someone's work. Report and stop.
+* **Sync the same extras the installer does, then prove Qt still imports.** The
+  kiosk's Qt comes from an optional extra, and `uv sync` removes whatever it was
+  not asked for — so the step that installs the new version is also the step that
+  can uninstall the one thing the app needs to start.
 """
 import os
 import shutil
@@ -124,7 +128,23 @@ class Updater(QObject):
                          _FETCH_TIMEOUT):
             if not self._cmd(['git', 'checkout', target], _FETCH_TIMEOUT):
                 return False
-        if not self._cmd([_find_uv(), 'sync'], _SYNC_TIMEOUT):
+        # `--extra scoreboard`, exactly as `install.sh kiosk` does. `uv sync` is
+        # declarative: it makes the environment match the lockfile for the extras it
+        # was *given*, and removes everything else. A bare sync here therefore
+        # uninstalled PySide6 — the one dependency this app cannot start without —
+        # on every remote update, and the display came back to a stack trace.
+        if not self._cmd([_find_uv(), 'sync', '--extra', 'scoreboard'],
+                         _SYNC_TIMEOUT):
+            return False
+
+        # Prove the display can still start before telling anyone this worked. The
+        # update restarts the app, and `start-scoreboard.sh` only relaunches on a
+        # non-zero exit — so a checkout that cannot import Qt becomes a black TV
+        # and a five-second restart loop, with the failure two steps back.
+        if not self._cmd([os.path.join(_REPO, '.venv', 'bin', 'python'),
+                          '-c', 'import PySide6.QtWidgets'], _FETCH_TIMEOUT):
+            self.line.emit('The new version cannot load Qt — staying on the old one.',
+                           True)
             return False
 
         self.line.emit(f'Updated to {target}. Restarting…', False)

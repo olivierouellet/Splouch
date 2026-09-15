@@ -108,6 +108,21 @@ fine, being dirty is not.
 > works from then on. See also [Upgrading a kiosk from the Chromium
 > display](installation.md#upgrading-a-kiosk-from-the-chromium-display).
 
+> **A display that updated and now will not start.** Versions before this fix ran a
+> bare `uv sync` when they updated themselves. `uv sync` makes the environment match
+> the lockfile for the extras it was *given* and removes everything else, and the
+> kiosk's Qt lives in the optional `scoreboard` extra — so the update uninstalled
+> PySide6 and the app came back to a stack trace. On the Pi:
+>
+> ```bash
+> cd ~/Splouch && uv sync --extra scoreboard
+> install/scripts/start-scoreboard.sh
+> ```
+>
+> Re-running `install.sh kiosk` does the same thing, and from this version the
+> display syncs the extra itself and refuses to restart into a checkout whose Qt
+> will not import.
+
 ---
 
 ## Test sessions

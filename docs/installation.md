@@ -142,7 +142,20 @@ Useful commands on the kiosk:
 ```bash
 ~/Splouch/install/scripts/start-scoreboard.sh                    # run it by hand
 cd ~/Splouch && .venv/bin/python -m scoreboard --windowed         # windowed, for testing
+cd ~/Splouch && uv sync --extra scoreboard                        # reinstall Qt
 ```
+
+> **`--extra scoreboard` is not optional here.** PySide6 is an optional dependency
+> so the server Pi and the cloud VM never pull Qt, and `uv sync` without it will
+> *remove* PySide6 from this venv — after which the display cannot start. If a
+> kiosk ever comes back to a `ModuleNotFoundError: PySide6`, that is what happened;
+> the command above puts it back.
+
+> **"There is no tracking information for the current branch."** A display that has
+> taken a remote update sits on the local branch `display`, pinned to the commit the
+> server was on. That branch tracks a commit, not a branch, so there is nothing for
+> `git pull` to pull from. It is not a broken checkout — `install.sh kiosk` skips the
+> pull and moves to the right ref on its own.
 
 ### Upgrading a kiosk from the Chromium display
 

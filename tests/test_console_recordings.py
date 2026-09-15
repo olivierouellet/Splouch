@@ -377,23 +377,29 @@ def test_it_writes_the_hex_these_files_use(tmp_path):
     assert out == 'b4 0a 17 20\n', repr(out)
 
 
-def test_it_reproduces_a_real_capture_exactly(tmp_path):
-    """The proof that matters: the `.cap` files that used to be tracked here
-    convert back to the `.raw` files that replaced them, byte for byte."""
-    import subprocess
-    tracked = os.path.join(RECORDINGS, 'real_console5.raw')
-    old_cap = subprocess.run(
-        ['git', 'show', 'HEAD:server/console_recordings/real_console5.cap'],
-        cwd=REPO, capture_output=True)
-    if old_cap.returncode != 0:
-        pytest.skip('the .cap is no longer in HEAD — nothing to compare against')
+def _as_binary(name):
+    """A tracked `.raw` back in the binary form a capture tool writes.
 
-    done, _ = _convert(tmp_path, old_cap.stdout)
+    Built here rather than read from git history: the real `.cap` files were
+    deleted, so a test that reached for `HEAD:…cap` passed for one commit and then
+    skipped for good — which looks like coverage and is not.
+    """
+    text = open(os.path.join(RECORDINGS, name + '.raw'), encoding='utf-8').read()
+    return bytes(int(b, 16) for b in re.findall(r'[0-9a-fA-F]{2}', text))
+
+
+@pytest.mark.parametrize('name', ['real_console5', 'real_console6'])
+def test_it_reproduces_a_real_capture_exactly(tmp_path, name):
+    """The proof that matters: a real capture's bytes come back as the very hex
+    this repo tracks. Both recordings, both directions."""
+    done, _ = _convert(tmp_path, _as_binary(name))
     assert done.returncode == 0, done.stderr
+
     converted = re.findall(r'[0-9a-f]{2}',
                            (tmp_path / 'session.raw').read_text(encoding='utf-8'))
     expected = re.findall(r'[0-9a-fA-F]{2}',
-                          open(tracked, encoding='utf-8').read())
+                          open(os.path.join(RECORDINGS, name + '.raw'),
+                               encoding='utf-8').read())
     assert converted == [b.lower() for b in expected]
 
 
@@ -431,24 +437,34 @@ def test_an_empty_or_missing_file_is_refused(tmp_path):
 
 
 def test_the_converted_file_actually_replays(tmp_path):
-    """Hex that the player's own regex accepts, not just hex that looks right."""
-    import subprocess
-    old_cap = subprocess.run(
-        ['git', 'show', 'HEAD:server/console_recordings/real_console6.cap'],
-        cwd=REPO, capture_output=True)
-    if old_cap.returncode != 0:
-        pytest.skip('the .cap is no longer in HEAD')
-    done, _ = _convert(tmp_path, old_cap.stdout)
+    """Hex the player's own regex accepts, not just hex that looks right — and the
+    same race out the far end."""
+    done, _ = _convert(tmp_path, _as_binary('real_console5'))
     assert done.returncode == 0, done.stderr
 
+    import state
     import worker
     from console_decoders import make_decoder
-    import state
-    state._decoder = make_decoder('cts_gen6', {**state.settings, 'num_lanes': 8})
-    seen = []
+    state.settings['num_lanes'] = 8
+    state._decoder = make_decoder('cts_gen6', state.settings)
+    times, packet = {}, []
+
+    def collect(updates):
+        for key, value in (updates or {}).items():
+            if key.startswith('lane_time') and value and value.strip():
+                times[key] = value
+
+    original = worker._emit_scoreboard_update
     text = (tmp_path / 'session.raw').read_text(encoding='utf-8')
-    packet = []
     for match in re.finditer(r'[0-9a-fA-F]{2}', text):
-        packet = worker._ingest_byte(int(match.group(0), 16), packet)
-        seen.append(1)
-    assert len(seen) > 1000, 'the player saw almost nothing'
+        byte = int(match.group(0), 16)
+        if byte & 0x80 and packet:
+            collect(state._decoder.feed(packet))
+            packet = []
+        packet.append(byte)
+    if packet:
+        collect(state._decoder.feed(packet))
+
+    # The 400m that real_console5 actually holds — lane 2 wins in 4:21.25.
+    assert times.get('lane_time2') == '4:21.25', times
+    assert len(times) == 8, f'{len(times)} lanes finished, expected 8'

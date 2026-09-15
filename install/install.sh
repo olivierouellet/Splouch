@@ -165,6 +165,30 @@ configure_static_ip() {
     info "Static IP configured: ${ip%/*}"
 }
 
+# ── Fetching without assuming a tracked branch ────────────────────────────────
+# A display that has taken a remote update is sitting on the local branch
+# `display`, pinned to the commit the server was on (scoreboard/updater.py). That
+# branch has no upstream, because it tracks a *commit* and not a branch — so a bare
+# `git pull` there fails with "There is no tracking information for the current
+# branch", and with `set -e` that aborts the whole install. The one command an
+# operator reaches for when a display is broken was the one that could not run.
+#
+# So: always fetch, and only fast-forward when there is something to fast-forward
+# to. `checkout_version` moves to the right ref immediately afterwards either way.
+fetch_and_ff() {
+    local dir="$1"
+    git -C "$dir" fetch --tags --quiet || true
+    local upstream
+    upstream="$(git -C "$dir" rev-parse --abbrev-ref --symbolic-full-name @{u} 2>/dev/null || true)"
+    if [[ -z "$upstream" ]]; then
+        info "On a branch with no upstream — skipping the pull."
+        return 0
+    fi
+    git -C "$dir" merge --ff-only "$upstream" --quiet 2>/dev/null \
+        || warn "Could not fast-forward onto $upstream — using the on-disk code."
+}
+
+
 # ── Version checkout ───────────────────────────────────────────────────────────
 # Shared by the server and kiosk roles so both resolve $VERSION_CHOICE to the SAME
 # ref. That is what keeps the Qt display and the server speaking the same
@@ -182,9 +206,22 @@ checkout_version() {
             warn "No release tags found — using master."
         fi
     else
+        # `-B … origin/<branch>`, not a bare checkout. A display arriving here has
+        # just skipped its pull (it was on the untracked `display` branch), so its
+        # *local* master is whatever it was when the Pi was last installed — often
+        # months behind the origin/master the operator believes they are choosing.
+        # Falls back to the local branch if there is no remote to point at.
+        local branch
+        for branch in master main; do
+            if git -C "$dir" rev-parse --verify --quiet "origin/$branch" >/dev/null; then
+                git -C "$dir" checkout -B "$branch" "origin/$branch" --quiet
+                info "Version: $branch (origin/$branch)"
+                return 0
+            fi
+        done
         git -C "$dir" checkout master 2>/dev/null \
             || git -C "$dir" checkout main 2>/dev/null || true
-        info "Version: master"
+        info "Version: master (no origin — using the local branch)"
     fi
 }
 
@@ -234,16 +271,14 @@ if [[ "$ROLE" == "server" ]]; then
             git -C "$INSTALL_DIR" checkout HEAD -- uv.lock 2>/dev/null || true
             if [[ -z "$(git -C "$INSTALL_DIR" status --porcelain 2>/dev/null)" ]]; then
                 info "Fetching latest code before reinstalling…"
-                git -C "$INSTALL_DIR" fetch --tags --quiet || true
-                git -C "$INSTALL_DIR" pull --quiet --ff-only 2>/dev/null || true
+                fetch_and_ff "$INSTALL_DIR"
             else
                 warn "Working tree has local changes — reinstalling on-disk code (no pull)."
             fi
         fi
     elif [[ -d "$INSTALL_DIR/.git" ]]; then
         info "Updating existing repo at $INSTALL_DIR"
-        git -C "$INSTALL_DIR" fetch --tags
-        git -C "$INSTALL_DIR" pull
+        fetch_and_ff "$INSTALL_DIR"
     else
         info "Cloning $REPO_URL → $INSTALL_DIR"
         git clone "$REPO_URL" "$INSTALL_DIR"
@@ -664,16 +699,14 @@ if [[ "$ROLE" == "kiosk" ]]; then
             git -C "$INSTALL_DIR" checkout HEAD -- uv.lock 2>/dev/null || true
             if [[ -z "$(git -C "$INSTALL_DIR" status --porcelain 2>/dev/null)" ]]; then
                 info "Fetching latest code before reinstalling…"
-                git -C "$INSTALL_DIR" fetch --tags --quiet || true
-                git -C "$INSTALL_DIR" pull --quiet --ff-only 2>/dev/null || true
+                fetch_and_ff "$INSTALL_DIR"
             else
                 warn "Working tree has local changes — reinstalling on-disk code (no pull)."
             fi
         fi
     elif [[ -d "$INSTALL_DIR/.git" ]]; then
         info "Updating existing repo at $INSTALL_DIR"
-        git -C "$INSTALL_DIR" fetch --tags
-        git -C "$INSTALL_DIR" pull
+        fetch_and_ff "$INSTALL_DIR"
     else
         info "Cloning $REPO_URL → $INSTALL_DIR"
         git clone "$REPO_URL" "$INSTALL_DIR"
@@ -970,7 +1003,7 @@ EOF
     section "Project"
     if [[ -d "$INSTALL_DIR/.git" ]]; then
         info "Updating existing repo at $INSTALL_DIR"
-        git -C "$INSTALL_DIR" pull
+        fetch_and_ff "$INSTALL_DIR"
     else
         info "Cloning $REPO_URL → $INSTALL_DIR"
         git clone "$REPO_URL" "$INSTALL_DIR"
