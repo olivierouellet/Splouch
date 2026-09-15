@@ -1044,9 +1044,17 @@ function onPasswordInput(form) {
 
                         <hr id="test-status-hr" style="display:none;">
 
-                        <!-- Meet-loaded warning (toggled by JS) -->
-                        <div id="test-has-meet-warning" class="alert alert-warning py-2 px-3 small mb-2" style="display:none;">
-                            {{ t.test_meet_loaded_warn | safe }}
+                        <!-- The loaded meet is held for the duration, not deleted (toggled by JS) -->
+                        <div id="test-meet-aside-note" class="alert alert-secondary py-2 px-3 small mb-2" style="display:none;">
+                            {{ t.test_meet_set_aside | safe }}
+                        </div>
+
+                        <!-- Keep the replay off the cloud -->
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="checkbox" id="test-local-only" checked
+                                   onchange="setTestLocalOnly(this.checked)">
+                            <label class="form-check-label" for="test-local-only">{{ t.test_local_only }}</label>
+                            <div id="test-local-only-hint" class="small text-body-secondary">{{ t.test_local_only_hint }}</div>
                         </div>
 
                         <!-- Session list -->
@@ -1487,8 +1495,22 @@ function onPasswordInput(form) {
             btn.disabled    = d.playing;
             document.getElementById('test-record-name').disabled = d.playing;
             document.getElementById('test-record-status').textContent = _recording ? '● Recording' : '';
-            document.getElementById('test-has-meet-warning').style.display = d.has_meet ? '' : 'none';
-            _renderSessions(d.sessions, d.playing, d.has_meet);
+
+            // A loaded meet is held aside for the test and put back afterwards —
+            // the operator no longer has to delete and re-upload it.
+            var aside = document.getElementById('test-meet-aside-note');
+            aside.style.display = (d.has_meet || d.meet_set_aside) ? '' : 'none';
+
+            // Locked on with a meet loaded: a replay must never be published to
+            // the cloud under a live meet's identity. Also locked while a session
+            // is running, since the relay was already stopped (or not) at start.
+            var local = document.getElementById('test-local-only');
+            var hint  = document.getElementById('test-local-only-hint');
+            local.checked  = d.local_only;
+            local.disabled = d.local_only_forced || d.playing;
+            hint.textContent = d.local_only_forced ? T.test_local_only_forced
+                                                   : T.test_local_only_hint;
+            _renderSessions(d.sessions, d.playing);
 
             // Test meet section
             var meetSection   = document.getElementById('test-meet-section');
@@ -1521,7 +1543,7 @@ function onPasswordInput(form) {
         });
     }
 
-    function _renderSessions(sessions, anyPlaying, hasMeet) {
+    function _renderSessions(sessions, anyPlaying) {
         var div = document.getElementById('test-session-list');
         if (!sessions.length) { div.innerHTML = '<span class="text-body-secondary">No sessions found.</span>'; return; }
         var html = '';
@@ -1530,7 +1552,7 @@ function onPasswordInput(form) {
             var W = 'width:70px;';
             var playBtn = isPlaying
                 ? '<button class="btn btn-success btn-sm text-nowrap" style="' + W + '" disabled>' + T.js_playing + '</button>'
-                : '<button class="btn btn-secondary btn-sm" style="' + W + '" onclick="testPlay(' + JSON.stringify(s.name).replace(/"/g, '&quot;') + ')"' + (anyPlaying || hasMeet ? ' disabled' : '') + '>' + T.js_play + '</button>';
+                : '<button class="btn btn-secondary btn-sm" style="' + W + '" onclick="testPlay(' + JSON.stringify(s.name).replace(/"/g, '&quot;') + ')"' + (anyPlaying ? ' disabled' : '') + '>' + T.js_play + '</button>';
             var delBtn = s.source === 'custom'
                 ? '<button class="btn btn-secondary btn-sm me-1" style="' + W + '" onclick="testDelete(' + JSON.stringify(s.name).replace(/"/g, '&quot;') + ')">' + T.btn_delete + '</button>'
                 : '<span class="me-1" style="display:inline-block; ' + W + '"></span>';
@@ -1559,8 +1581,17 @@ function onPasswordInput(form) {
     }
 
     function testPlay(name) {
-        fetch('/test_play', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({name:name})})
+        var localOnly = document.getElementById('test-local-only').checked;
+        fetch('/test_play', {method:'POST', headers:{'Content-Type':'application/json'},
+                             body:JSON.stringify({name:name, local_only:localOnly})})
             .then(function(){ setTimeout(_loadTestStatus, 400); });
+    }
+
+    // The preference for the next session only — a session already running keeps
+    // what it started with, so the checkbox is disabled while one plays.
+    function setTestLocalOnly(on) {
+        fetch('/test_set_local_only', {method:'POST', headers:{'Content-Type':'application/json'},
+                                       body:JSON.stringify({local_only:on})});
     }
 
     function testStop() {

@@ -346,6 +346,11 @@ class ScoreboardApp:
         elif event == 'reload':
             # Settings or theme changed — re-fetch config and redraw.
             self.config_loader.request()
+        elif event == 'reset':
+            # The board is stale and the server knows it — a test session just
+            # ended and the real meet is back. Separate from `test_mode`, which
+            # only means the badge goes up or down.
+            self.window.reset()
         elif event == 'test_mode':
             active = bool((data or {}).get('active'))
             # Wipe the board before the badge goes up, as `live.html` does

@@ -376,7 +376,10 @@ cloud_att_all = "Desde el inicio"
 
 # Prueba
 common_download = "Descargar"
-test_meet_loaded_warn = '''Hay un archivo de competición cargado — ve a Competición y haz clic en <strong>Eliminar</strong> antes de ejecutar sesiones de prueba.'''
+test_meet_set_aside = '''Tu competición sigue cargada. La prueba usa las listas de salida de la grabación, y tu competición vuelve al terminar.'''
+test_local_only = "Mantener esta prueba local"
+test_local_only_hint = "Se reproduce en la pantalla del televisor y en los teléfonos de esta red. No se envía nada a la nube."
+test_local_only_forced = "Siempre activo mientras haya una competición cargada — una prueba nunca debe llegar a la nube como si fuera la carrera real."
 test_recorded_sessions = "Sesiones grabadas"
 test_upload = "Subir"
 test_playback_speed = "Velocidad de reproducción"

@@ -423,6 +423,9 @@ function mode_to_results() {
     var socket = splouchSocket('/ws/scoreboard');
     socket.on('connect', function() { reset_state(); stop_chrono(); });
     socket.on('reload', function() { location.reload(); });
+    /* The server says this board is stale — a test session just ended and the
+       real meet is back. Same pair as `connect` and `test_mode` use. */
+    socket.on('reset', function() { reset_state(); mode_to_intro(); });
     socket.on('display_overlay', function(d) { show_overlay(d.active); });
     socket.on('columns_state', function(d) { if (d.hidden) collapse_cols(); else expand_cols(); });
     socket.on('race_finished', function() {

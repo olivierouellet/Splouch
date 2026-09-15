@@ -15,6 +15,7 @@ from meet_data import (
     get_lane_alt, get_lane_parts,
     get_lane_seed_time, _get_next_heats, _build_results_snapshot, send_event_info,
 )
+from meet_parsers.lenex_parser import load_lenex
 
 
 def _auto_dismiss_overlay():
@@ -23,18 +24,86 @@ def _auto_dismiss_overlay():
         bus.emit('/scoreboard', 'display_overlay', {'active': False})
 
 
+def _load_meet_from_disk(filename):
+    """Re-read a meet file already known to `settings` back into `state.meet`.
+
+    The same two calls `state.load_settings()` makes at boot, and deliberately not
+    `routes/settings._load_meet_file()`: that one rewrites `settings`, re-applies
+    the meet's cloud profile and re-registers with the relay, none of which is
+    wanted for a meet that never actually changed — only the in-memory copy did.
+    """
+    path = os.path.join(state.MEET_FOLDER, filename)
+    if not filename or not os.path.isfile(path):
+        return False
+    try:
+        if path.lower().endswith('.csv'):
+            state.load_event_info(path)
+        else:
+            state.set_lenex(load_lenex(path))
+        return True
+    except Exception:
+        print(f'[test] could not restore {filename}', flush=True)
+        traceback.print_exc()
+        return False
+
+
 def _cleanup_test_meet():
+    """Put the operator's meet back after a test session.
+
+    This used to delete every `.lxf` and `.csv` in MEET_FOLDER. That folder holds
+    the *list* of uploaded meet files with one of them active, so it was deleting
+    meets the test had never touched — survivable only because a test could not
+    start with a meet loaded, which is exactly the restriction being lifted here.
+
+    Nothing is deleted from MEET_FOLDER now, and nothing was ever moved out of it:
+    the test's start lists live in TEST_MEET_FOLDER and only the in-memory
+    `state.meet` was swapped, so restoring is a re-read.
+    """
     if not state._test_meet_active:
         return
-    for f in glob.glob(os.path.join(state.MEET_FOLDER, '*.lxf')) + \
-             glob.glob(os.path.join(state.MEET_FOLDER, '*.csv')):
+    for f in glob.glob(os.path.join(state.TEST_MEET_FOLDER, '*')):
         try:
             os.remove(f)
         except Exception:
             pass
-    state.clear_meet()
+    if not _load_meet_from_disk(state._active_meet_file):
+        state.clear_meet()      # nothing was loaded before the test, or it has gone
     state._test_meet_active = False
+    state._test_meet_name   = ''
     send_event_info()
+
+
+def end_test_session():
+    """Undo everything a test session changed — both endings share this.
+
+    A recording can finish on its own (`_run_test_session`) or be stopped from the
+    Test tab (`routes/debug._test_stop`); the operator should not be able to tell
+    which one they got.
+
+    The board wipe goes out as its own `reset` rather than riding on
+    `test_mode {active: false}`: that frame means "the badge comes down" on both
+    displays, and folding a wipe into it would make stopping a test clear a board
+    the operator may have stopped it precisely to keep looking at. `reset` is the
+    explicit version, sent only once the real meet is back.
+    """
+    _cleanup_test_meet()
+    # Only after the meet is restored, so the boards repaint from the real one.
+    bus.emit('/scoreboard', 'test_mode', {'active': False})
+    bus.emit('/scoreboard', 'reset', {})
+    # A session left at 10x would still be at 10x the next time the real console
+    # feeds the board. It changes nothing live, but the Test tab reads as if it did.
+    state.in_speed = 1.0
+    if state._test_local_only:
+        state._test_local_only = False
+        # Only restore what we interrupted: an operator who had the cloud switched
+        # off before the test must not find it switched on after it.
+        if state._test_saved_results is not None:
+            state._last_results_snapshot = state._test_saved_results
+            state._test_saved_results = None
+        if state._test_relay_was_running:
+            state._test_relay_was_running = False
+            relay.start()
+    bus.emit('/settings', 'test_status', {})
 
 
 def _list_sessions():
@@ -346,9 +415,7 @@ def _run_test_session(session_file, my_gen):
     if state._worker_gen != my_gen:   # superseded — the new worker owns cleanup
         return
     state._test_session = None
-    _cleanup_test_meet()
-    bus.emit('/scoreboard', 'test_mode', {'active': False})
-    bus.emit('/settings', 'test_status', {})
+    end_test_session()
 
 
 def _run_live_serial(my_gen):

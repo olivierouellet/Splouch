@@ -126,8 +126,22 @@ def _picker_image_b64():
 
 # ── Public API ─────────────────────────────────────────────────────────────────
 
+def _local_only():
+    """True while a test session is running that must not reach the cloud.
+
+    The relay is stopped outright for the duration (see `worker.end_test_session`),
+    so in the ordinary case there is no socket to send on and this changes nothing.
+    It is here for the window that stopping cannot close: the relay thread can be
+    mid-reconnect when a test starts, and `_run` sends a registration, a schedule
+    and the last results snapshot the instant it gets a socket.
+    """
+    return state._test_local_only
+
+
 def relay_emit(event, data):
     """Forward an event to the cloud relay. Non-blocking; silently drops if not connected."""
+    if _local_only():
+        return
     with _lock:
         c, ok = _client, _connected
     if c and ok:
@@ -139,6 +153,8 @@ def relay_emit(event, data):
 
 def update_metadata():
     """Re-send registration metadata to the cloud (call after settings change)."""
+    if _local_only():
+        return
     with _lock:
         c, ok = _client, _connected
     if c and ok:
@@ -155,6 +171,8 @@ def send_schedule(client=None):
     Pass `client` directly when calling from inside a connect handler, because
     _client is not yet assigned at that point and relay_emit would silently drop.
     """
+    if _local_only():
+        return
     from meet_data import _build_meet_data
     m = state.meet
     if not (m.start_list or m.event_info.events):
@@ -210,7 +228,10 @@ def _run():
     while not _stop.is_set():
         url = state.settings.get('cloud_relay_url', '').strip()
         key = state.settings.get('cloud_relay_key', '').strip()
-        if not url or not key:
+        if not url or not key or _local_only():
+            # `_local_only` is belt and braces: a local-only test stops this thread
+            # outright, and a thread already inside `create_connection` would
+            # otherwise register the meet and push a schedule on the way out.
             _stop.wait(10)
             continue
 

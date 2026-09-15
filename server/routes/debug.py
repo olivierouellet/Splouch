@@ -1,8 +1,6 @@
-import glob
 import os
 import re
 import select
-import shutil
 import signal
 import struct
 import subprocess
@@ -18,13 +16,22 @@ import state
 from meet_data import send_event_info
 from meet_parsers.lenex_parser import load_lenex
 from web import ActionResult, EnabledFlag, redirect, require_login, save_upload
-from worker import _cleanup_test_meet, _list_sessions, _restart_worker
+from worker import _list_sessions, _restart_worker, end_test_session
 
 router = APIRouter(tags=['Debug'])
 
 
 class NameBody(BaseModel):
     name: str = ''
+
+
+class PlayBody(BaseModel):
+    name: str = ''
+    # Keep this session off the cloud. Defaults on: a replay is for the people in
+    # the building, and the cost of getting it wrong is spectators watching a
+    # recording as if it were the race in front of them. Forced on when a real meet
+    # is loaded — see _test_play.
+    local_only: bool = True
 
 
 class SpeedBody(BaseModel):
@@ -46,6 +53,9 @@ class TestStatus(BaseModel):
     has_meet: bool
     test_meet: bool
     test_meet_name: str
+    local_only: bool        # what a session started now would do, or is doing
+    local_only_forced: bool # a meet is loaded, so the choice is not the operator's
+    meet_set_aside: str     # the meet being held for this session, '' if none
 
 
 class SerialStatus(BaseModel):
@@ -84,55 +94,97 @@ def route_test_status():
         'speed':          state.in_speed,
         'has_meet':       bool(state._active_meet_file) and not state._test_meet_active,
         'test_meet':      state._test_meet_active,
-        'test_meet_name': state._active_meet_file if state._test_meet_active else '',
+        'test_meet_name': state._test_meet_name,
+        'local_only':        (state._test_local_only if state._test_session
+                              else _local_only_default()),
+        'local_only_forced': bool(state._active_meet_file),
+        'meet_set_aside':    state._active_meet_file if state._test_meet_active else '',
     }
+
+
+def _local_only_default() -> bool:
+    """What the checkbox shows for a session not yet started."""
+    if state._active_meet_file:
+        return True                 # not the operator's choice — see _test_play
+    return bool(state.settings.get('test_local_only', True))
 
 
 @router.post('/test_play', response_model=ActionResult,
              dependencies=[Depends(require_login)])
-async def route_test_play(body: NameBody):
-    # Copying + parsing the companion LENEX is blocking — run off the loop.
-    return await run_in_threadpool(_test_play, body.name)
+async def route_test_play(body: PlayBody):
+    # Parsing the companion LENEX is blocking — run off the loop.
+    return await run_in_threadpool(_test_play, body.name, body.local_only)
 
 
-def _test_play(name):
+def _test_play(name, local_only=True):
+    """Start a recorded session.
+
+    The recording's own event and heat numbers only line up with the start lists
+    in the companion `.lxf` beside it, so that is what gets loaded — even when the
+    operator has a real meet open. The real meet's files stay in MEET_FOLDER
+    untouched and `_active_meet_file` still names it; only `state.meet` is swapped,
+    and `worker.end_test_session` reads it back when the session ends. Deleting the
+    meet by hand and re-uploading it afterwards used to be the operator's job.
+    """
     for s in _list_sessions():
-        if s['name'] == name:
-            bus.emit('/scoreboard', 'test_mode', {'active': True})
-            bus.run_bg(_restart_worker, s['path'])
-            companion = os.path.splitext(s['path'])[0] + '.lxf'
-            if os.path.exists(companion):
-                all_companions = {
-                    os.path.basename(os.path.splitext(sess['path'])[0] + '.lxf')
-                    for sess in _list_sessions()
-                }
-                for f in glob.glob(os.path.join(state.MEET_FOLDER, '*.lxf')):
-                    if os.path.basename(f) in all_companions:
-                        try:
-                            os.remove(f)
-                        except Exception:
-                            pass
-                if state._test_meet_active:
-                    state.clear_meet()
-                    state._test_meet_active = False
-                if not state._active_meet_file:
-                    try:
-                        dest = os.path.join(state.MEET_FOLDER, os.path.basename(companion))
-                        shutil.copy2(companion, dest)
-                        state.set_lenex(load_lenex(dest))
-                        send_event_info()
-                        state._test_meet_active = True
-                    except Exception as e:
-                        print(f'[test] Failed to load companion LXF: {e}')
-            return {'ok': True}
+        if s['name'] != name:
+            continue
+        # A replay must never publish under a live meet's identity: the times are
+        # invented and the cloud would show them to spectators as the real race.
+        local_only = bool(local_only) or bool(state._active_meet_file)
+        _begin_local_only(local_only)
+        bus.emit('/scoreboard', 'test_mode', {'active': True})
+        bus.run_bg(_restart_worker, s['path'])
+
+        companion = os.path.splitext(s['path'])[0] + '.lxf'
+        if os.path.exists(companion):
+            try:
+                # In memory only. Not through routes/settings._load_meet_file:
+                # that would rewrite `last_meet_file`, seed a `meet_profiles`
+                # entry for the recording and overwrite the real meet's cloud
+                # title and images — see state.apply_meet_profile.
+                state.set_lenex(load_lenex(companion))
+                state._test_meet_active = True
+                state._test_meet_name   = os.path.basename(companion)
+                send_event_info()
+            except Exception as e:
+                print(f'[test] Failed to load companion LXF: {e}', flush=True)
+        return {'ok': True}
     return JSONResponse({'error': 'Session not found'}, status_code=404)
+
+
+def _begin_local_only(local_only: bool):
+    """Take the cloud out of the picture for the duration of a test session.
+
+    The relay is stopped rather than filtered. The cloud already derives its
+    `meet_live` flag from relay connect/disconnect, so dropping the link gives
+    spectators the offline state it already knows how to show — no new event, and
+    no cloud deploy. It also means there is no socket for a replay frame to escape
+    on, which no amount of filtering can promise.
+    """
+    import relay
+    state._test_local_only = bool(local_only)
+    if not local_only or state._test_saved_results is not None:
+        # Already holding a session's worth of state: a second `_test_play` (the
+        # Play buttons are disabled while one runs, but not from the API) must not
+        # overwrite the *real* snapshot with the first test's, or record the relay
+        # as already-stopped and so never restart it.
+        return
+    # Restored when the session ends: the relay re-sends this snapshot on every
+    # reconnect, so a replay's results would otherwise reach the cloud on the next
+    # connect, long after the test was over.
+    state._test_saved_results = state._last_results_snapshot or {}
+    state._test_relay_was_running = relay.status()['running']
+    if state._test_relay_was_running:
+        relay.stop()
 
 
 @router.post('/test_stop', response_model=ActionResult,
              dependencies=[Depends(require_login)])
 def route_test_stop():
-    _cleanup_test_meet()
-    bus.emit('/scoreboard', 'test_mode', {'active': False})
+    # Restores the meet, wipes the boards and puts the cloud back — the same
+    # ending a recording that runs to its end gets (worker._run_test_session).
+    end_test_session()
     bus.run_bg(_restart_worker, None)
     return {'ok': True}
 
@@ -145,20 +197,23 @@ async def route_test_meet_upload(request: Request):
 
 
 def _test_meet_upload(file):
+    """Start lists for a recording that has no companion `.lxf` beside it.
+
+    Saved to TEST_MEET_FOLDER, never MEET_FOLDER: the operator's own meet files
+    live there and a test must leave them exactly as it found them. The
+    "a real meet file is already loaded" refusal that used to guard this is gone
+    with the rest of the delete-your-meet-first workflow.
+    """
     if state._test_session is None:
         return {'ok': False, 'error': 'No test session is running'}
     if state._test_meet_active:
         return {'ok': False, 'error': 'Test meet already loaded'}
-    meet_files = glob.glob(os.path.join(state.MEET_FOLDER, '*.lxf')) + \
-                 glob.glob(os.path.join(state.MEET_FOLDER, '*.csv'))
-    if meet_files:
-        return {'ok': False, 'error': 'A real meet file is already loaded'}
     if not file or not file.filename:
         return {'ok': False, 'error': 'No file provided'}
     ext = os.path.splitext(file.filename)[1].lower()
     if ext not in ('.csv', '.lxf'):
         return {'ok': False, 'error': 'File must be .lxf or .csv'}
-    dest = os.path.join(state.MEET_FOLDER, os.path.basename(file.filename))
+    dest = os.path.join(state.TEST_MEET_FOLDER, os.path.basename(file.filename))
     save_upload(file, dest)
     try:
         if ext == '.csv':
@@ -167,6 +222,7 @@ def _test_meet_upload(file):
             state.set_lenex(load_lenex(dest))
         send_event_info()
         state._test_meet_active = True
+        state._test_meet_name   = os.path.basename(file.filename)
         return {'ok': True, 'name': os.path.basename(file.filename)}
     except Exception as e:
         try:
@@ -174,6 +230,24 @@ def _test_meet_upload(file):
         except Exception:
             pass
         return {'ok': False, 'error': str(e)}
+
+
+class LocalOnlyBody(BaseModel):
+    local_only: bool = True
+
+
+@router.post('/test_set_local_only', response_model=ActionResult,
+             dependencies=[Depends(require_login)])
+def route_test_set_local_only(body: LocalOnlyBody):
+    """Remember the checkbox between sessions.
+
+    Only the preference for the *next* session — a session already running keeps
+    whatever it started with, since the relay was stopped (or not) at that point
+    and flipping it mid-replay would publish half a test.
+    """
+    state.settings['test_local_only'] = bool(body.local_only)
+    state.save_settings()
+    return {'ok': True}
 
 
 @router.post('/test_set_speed', dependencies=[Depends(require_login)])

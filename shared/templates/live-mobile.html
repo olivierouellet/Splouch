@@ -39,6 +39,10 @@ socket.on('connect', function() {
     if (MEET_ID) socket.emit('join_meet', { meet_id: MEET_ID, vid: splouchVid() });
 });
 socket.on('reload', function() { location.reload(); });
+/* The server says this board is stale — a test session just ended and the real
+   meet is back. The Pi sends it; the cloud never does, since a local-only test
+   never reaches the cloud and one that does is a real session as far as it knows. */
+socket.on('reset', function() { reset_state(); mode_to_intro(); });
 bindLanePulse(socket);
 socket.on('update_scoreboard', applyScoreboardFrame);
 {% endblock %}

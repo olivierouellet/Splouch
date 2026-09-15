@@ -51,6 +51,11 @@ HOME_ICON_PATH         = os.path.join(ICONS_DIR, 'home_icon.png')
 HOME_ICON_512_PATH     = os.path.join(ICONS_DIR, 'home_icon_512.png')
 PICKER_DIR             = os.path.join(SCOREBOARD_DIR, 'picker')
 MEET_FOLDER            = os.path.join(SCOREBOARD_DIR, 'meet')
+# A test session's start lists live here, never in MEET_FOLDER. Keeping the two
+# apart is what lets a test run with the operator's meet still loaded: the real
+# files are never touched, so nothing has to be put back, and a power cut mid-test
+# leaves load_settings() finding the real meet exactly where it always was.
+TEST_MEET_FOLDER       = os.path.join(SCOREBOARD_DIR, 'test_meet')
 LOGS_DIR               = os.path.join(SCOREBOARD_DIR, 'logs')
 THEME_FOLDER           = os.path.join(app_dir, 'themes')
 CUSTOM_THEME_FOLDER    = os.path.join(SCOREBOARD_DIR, 'themes')
@@ -382,7 +387,22 @@ _finish_timer_gen   = 0
 _scoreboard_clients = {}
 # Cap on update-log lines kept per display — see app.ws_scoreboard.
 UPDATE_LOG_MAX = 40
+# A recording's start lists are loaded into `meet` while this is set. The real
+# meet's files, `_active_meet_file` and its cloud profile are untouched throughout,
+# so ending the test only has to reload from disk — see worker._cleanup_test_meet.
 _test_meet_active   = False
+_test_meet_name     = ''   # basename of the start lists the test is using
+# Keep this test session off the cloud: LAN browsers and the Qt display see it,
+# the relay does not. Forced on whenever a real meet is loaded, so a replay can
+# never publish under a live meet's identity — see routes/debug._test_play.
+_test_local_only        = False
+# Whether the relay was running when we stopped it for a local-only test. An
+# operator who had the cloud switched off must not find it switched on afterwards.
+_test_relay_was_running = False
+# The results snapshot from before the test, restored when it ends. The relay
+# re-sends this on every reconnect, so without it a replay's results would reach
+# the cloud on the next connect — long after the test was over.
+_test_saved_results     = None
 _overlay_active     = False
 _cols_hidden        = False
 # Is the timing console actually feeding this display? Published to clients as the
@@ -433,8 +453,8 @@ _rtc_log_done          = None
 # ── Init ───────────────────────────────────────────────────────────────────────
 
 def _ensure_data_dirs():
-    for d in (SCOREBOARD_DIR, MEET_FOLDER, IMAGES_DIR, ICONS_DIR, PICKER_DIR,
-              CUSTOM_SESSIONS_FOLDER, CUSTOM_THEME_FOLDER,
+    for d in (SCOREBOARD_DIR, MEET_FOLDER, TEST_MEET_FOLDER, IMAGES_DIR,
+              ICONS_DIR, PICKER_DIR, CUSTOM_SESSIONS_FOLDER, CUSTOM_THEME_FOLDER,
               CUSTOM_DECODERS_FOLDER):
         os.makedirs(d, exist_ok=True)
     if not os.path.exists(settings_file) and os.path.exists(_settings_default):

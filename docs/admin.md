@@ -55,7 +55,7 @@ Append `?test` to any scoreboard URL to show mode control buttons (Splash, Intro
 | **Theme** | Built-in colour schemes; override individual colours and fonts; save as a custom theme |
 | **Network** | WiFi management; view connected scoreboard clients |
 | **Update & Backup** | Pull latest version from GitHub, sync dependencies, restart; download or restore a backup of `~/SplouchData` |
-| **Test** | Play back pre-recorded sessions; adjust playback speed; record live serial sessions |
+| **Test** | Play back pre-recorded sessions; adjust playback speed; record live serial sessions. Safe to run with a meet loaded — see [Test sessions](#test-sessions) |
 | **Terminal** | In-browser terminal — Shell, raspi-config, Scoreboard logs, dmesg, serial ports |
 | **Cloud** | Cloud relay URL and key; per-meet picker appearance (title, image, home icon, location, sport) |
 | **Power** | Restart the app service, reboot, or shut down the Pi — press-and-hold to confirm |
@@ -73,9 +73,35 @@ Append `?test` to any scoreboard URL to show mode control buttons (Splash, Intro
 | `~/SplouchData/meet/` | Lenex `.lxf` and Hytek `.csv` meet files (uploaded via Meet Setup, or [placed here manually](#manual-and-cli-reference)) |
 | `~/SplouchData/images/` | Sponsor or club logo images for the splash screen |
 | `~/SplouchData/recorded/` | Custom recorded sessions for playback in the Test tab |
+| `~/SplouchData/test_meet/` | Start lists for a running test session — cleared when it ends, never mixed with `meet/` |
 | `~/SplouchData/themes/` | Custom theme `.toml` files |
 | `~/SplouchData/console_decoders/` | Local-only decoder plugins (`.py` files) — loaded at startup, not tracked by git |
 | `~/SplouchData/settings.json` | All admin UI settings |
+
+---
+
+## Test sessions
+
+The Test tab replays a recorded console session, so the board behaves exactly as it
+does during a real race. Two things used to make that awkward, and neither does now.
+
+**Your meet stays loaded.** A recording's event and heat numbers refer to the start
+lists in the companion `.lxf` shipped beside it, so that is what a replay runs
+against. Your own meet is held in place while it does: the files in
+`~/SplouchData/meet/` are never touched, the meet is still the active one, and it is
+reloaded the moment the session ends — whether you press **Stop** or the recording
+simply runs out. Deleting the meet first and re-uploading it afterwards is no longer
+part of the job.
+
+**Keep this test local.** Ticked, the replay reaches the TV display and phones on the
+pool's own network, and nothing else: the cloud link is closed for the duration, so
+spectators watching remotely see the meet as offline rather than a recording dressed
+up as the race in front of them. It is ticked and locked whenever a meet is loaded —
+publishing invented times under a live meet's identity is not something a checkbox
+should allow. With no meet loaded it is yours to set, and the choice is remembered.
+
+When the session ends, every board is wiped of the replay, the meet comes back, the
+cloud link is restored if it was up before, and playback speed returns to 1×.
 
 ---
 

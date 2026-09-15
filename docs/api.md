@@ -60,6 +60,7 @@ On connect the server sends, in order: `test_mode`, `display_overlay`,
 | `display_overlay` | `{ "active": bool }` | fullscreen overlay on/off |
 | `columns_state` | `{ "hidden": bool }` | optional columns collapsed/expanded |
 | `meet_live` | `{ "live": bool }` | is the timing console feeding this display (§2.1) |
+| `reset` | `{}` | what is on the board is stale — clear it (§2.2) |
 | `reload` | `{}` | settings/theme changed — client should re-fetch config and redraw |
 | `update` | `{ "target": "<ref>" }` | move to *ref* and restart (native clients only) |
 
@@ -80,6 +81,21 @@ Only **transitions** are broadcast. A client learns the current value from the
 connect burst above, so a late joiner is never left guessing.
 
 Sent on `/ws/results` too, on connect and on every transition.
+
+#### 2.2 `reset`
+
+*Everything on this board belongs to something that is over — clear it.* Sent when a
+test session ends, once the operator's own meet has been reloaded, so the boards
+repaint from the real meet rather than from the recording's start lists.
+
+Distinct from `test_mode {active: false}` on purpose. That one means only *the badge
+comes down*; an operator who stops a replay to keep studying the last heat still has
+it. `reset` is the explicit wipe, and a client handles it the way it handles a fresh
+connection — `live.html` and the mobile board call `reset_state(); mode_to_intro()`,
+the Qt display calls `BoardWindow.reset()`.
+
+The cloud never sends it: a local-only test never reaches the cloud, and a test that
+is allowed to reach it is a real session as far as the cloud is concerned.
 
 **Client → server**
 | event | data | effect |

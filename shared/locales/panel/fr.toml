@@ -376,7 +376,10 @@ cloud_att_all = "Depuis le début"
 
 # Test
 common_download = "Télécharger"
-test_meet_loaded_warn = '''Un fichier de compétition est chargé — allez dans Compétition et cliquez sur <strong>Supprimer</strong> avant de lancer des sessions de test.'''
+test_meet_set_aside = '''Votre compétition reste chargée. Le test utilise les listes de départ de l'enregistrement, et votre compétition revient à la fin.'''
+test_local_only = "Garder ce test local"
+test_local_only_hint = "Joue sur l'écran TV et sur les téléphones de ce réseau. Rien n'est envoyé au nuage."
+test_local_only_forced = "Toujours actif lorsqu'une compétition est chargée — un test ne doit jamais atteindre le nuage comme s'il s'agissait de la vraie course."
 test_recorded_sessions = "Sessions enregistrées"
 test_upload = "Téléverser"
 test_playback_speed = "Vitesse de lecture"
