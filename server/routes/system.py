@@ -487,9 +487,23 @@ async def route_displays_update():
     if state._running_lanes:
         return JSONResponse({'error': 'A race is running.'}, status_code=409)
 
+    # Only clients that sent `register` (docs/api.md §2). A browser tab never does,
+    # and that includes a Chromium kiosk showing /live — which is exactly what an
+    # operator mid-upgrade is looking at while the list in front of them shows a
+    # connected client. Say so, rather than reporting nothing is there.
     displays = [c for c in state._scoreboard_clients.values() if c.get('role')]
     if not displays:
-        return JSONResponse({'error': 'No displays are registered.'}, status_code=404)
+        others = len(state._scoreboard_clients)
+        if not others:
+            return JSONResponse(
+                {'error': 'No displays are connected.'}, status_code=404)
+        return JSONResponse({'error': (
+            f'{others} client(s) are connected, but none of them is a native '
+            'display. Browser tabs do not count — a Chromium kiosk showing /live '
+            'is a browser tab. A display that identifies itself shows a "kiosk" '
+            'badge and a version in the list; one that does not is either a '
+            'browser or a display too old to announce itself, and has to be '
+            'updated on the Pi itself with install.sh once.')}, status_code=404)
 
     target = state.git_describe()['version']
     # A dirty server has no ref a display could check out. `--dirty` appends a

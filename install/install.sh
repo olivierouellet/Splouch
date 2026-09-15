@@ -77,7 +77,7 @@ if [[ -z "$ROLE" ]]; then
     PS3="Choice: "
     select _choice in \
         "Server  (Pi #1 — pool deck, FastAPI + serial decoder)" \
-        "Kiosk   (Pi #2 — TV display, Chromium fullscreen)" \
+        "Kiosk   (Pi #2 — TV display, native Qt scoreboard)" \
         "Cloud   (Debian VM — public relay server)" \
         "Quit"; do
         case "$_choice" in
@@ -608,6 +608,39 @@ EOF
     confirm "Reboot now to apply group membership and network changes?" && sudo reboot
 fi
 
+# Remove every autostart line this project has ever written, so a re-run replaces
+# the display rather than launching a second one beside it.
+#
+# Three things get dropped, and the first is the one that bites:
+#
+#   * `# Tremplin kiosk` — the pre-rename marker. The rename changed the marker
+#     *before* the Qt display replaced Chromium, so a Pi provisioned back then and
+#     upgraded since still carries that block, still starting Chromium on top of the
+#     Qt board. Two fullscreen apps fight over the TV and the browser usually wins,
+#     because it starts first.
+#   * `# Splouch kiosk` — our own marker, from this installer or the Chromium one
+#     that shipped under the same name.
+#   * A bare `chromium … --kiosk … --app=` line, for one whose marker comment was
+#     edited away. That flag pair is what the old installer wrote and nothing else
+#     here writes, so an unrelated Chromium autostart on this Pi is left alone.
+#
+# awk rather than sed: deleting "a matched line and the one after it" needs GNU
+# `addr,+1`, and matching either marker in one expression needs GNU alternation.
+# Both are fine on the Pi and neither can be tested anywhere else, which is how the
+# Tremplin block survived this long.
+strip_kiosk_autostart() {
+    local file="$1"
+    [[ -f "$file" ]] || return 0
+    awk '
+        skip      { skip = 0; next }
+        /# (Splouch|Tremplin) kiosk/            { skip = 1; next }
+        /chromium.*--kiosk.*--app=/             { next }
+        /start-scoreboard\.sh/                  { next }
+        { print }
+    ' "$file" > "$file.tmp" && mv "$file.tmp" "$file"
+}
+
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # KIOSK (Pi #2)
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -702,7 +735,10 @@ if [[ "$ROLE" == "kiosk" ]]; then
     else
         CONFIG_TXT="/boot/config.txt"
     fi
-    if ! grep -q "# Splouch kiosk" "$CONFIG_TXT"; then
+    # Either marker counts as already-configured: the pre-rename installer wrote the
+    # same three lines under `# Tremplin kiosk`, and appending a second copy would
+    # leave config.txt with the HDMI mode set twice.
+    if ! grep -q "# \(Splouch\|Tremplin\) kiosk" "$CONFIG_TXT"; then
         sudo tee -a "$CONFIG_TXT" > /dev/null <<EOF
 
 # Splouch kiosk — force 1920x1080 HDMI output
@@ -726,9 +762,7 @@ EOF
     LABWC_AUTOSTART="$HOME/.config/labwc/autostart"
     mkdir -p "$(dirname "$LABWC_AUTOSTART")"
     touch "$LABWC_AUTOSTART"
-    # Drop any previous Splouch line (the Chromium kiosk from before the Qt
-    # display) so a re-run replaces it instead of launching both.
-    sed -i '/# Splouch kiosk/,+1d' "$LABWC_AUTOSTART"
+    strip_kiosk_autostart "$LABWC_AUTOSTART"
     printf '\n# Splouch kiosk\n%s &\n' "$KIOSK_CMD" >> "$LABWC_AUTOSTART"
 
     # Older Raspberry Pi OS releases — LXDE / X11 session
