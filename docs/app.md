@@ -89,7 +89,7 @@ the effect, never the mechanism:
 
 | Web mechanism | Why it exists there | Native equivalent |
 | --- | --- | --- |
-| 28px edge strips for the swipe (`A-03`) | a full-width listener would swallow touches meant for the schedule list inside the `<iframe>` tab | the platform's standard pager, full-width and drag-tracking |
+| 28px edge strips for the swipe (`A-03`) | a full-width listener would swallow touches meant for the schedule list inside the `<iframe>` tab | the platform's own gesture for moving between peer sections — a full-width pager that follows the finger where that is the platform's idiom, a swipe that selects the adjacent tab on release where a drag-tracking pager cannot coexist with a tab bar (`A-10`) |
 | `sessionStorage['tab']` (`A-04`) | a browser page restores no state of its own | platform state restoration |
 | 80px pull threshold, rotating indicator (`A-05`) | hand-rolled; the browser has no refresh control | the platform's refresh control |
 | `env(safe-area-inset-*)` (`A-06`) | the only way a page learns where the notch is | safe-area layout guides — free |
@@ -100,8 +100,11 @@ the effect, never the mechanism:
 | one `scrollWidth`/`clientWidth` ratio, applied on a gated frame (`L-17`) | CSS cannot shrink text to fit | `UILabel.adjustsFontSizeToFitWidth`, Android `autoSizeTextType` |
 
 The right-hand column is the requirement. Where the platform does the job better than the
-web can — `A-03`'s pager, `L-17`'s auto-shrink — matching the web is the floor, not the
-target.
+web can — `A-03`'s gesture, `L-17`'s auto-shrink — matching the web is the floor, not the
+target. Where the platform's own idiom is *narrower* than the web's mechanism, the idiom
+is still the requirement: a native equivalent that no platform convention supports is a
+workaround in the other direction, and the row says which half of the behaviour survives
+rather than asking for all of it everywhere.
 
 ---
 
@@ -177,13 +180,32 @@ where the user returns via `A-02`.
 | --- | --- | --- | --- |
 | `A-01` | Three tabs — Scoreboard, Results, Schedule — each with icon and label | `mobile.scoreboard` / `.results` / `.schedule` | must |
 | `A-02` | Back affordance to the meet picker | — | must |
-| `A-03` | Horizontal swipe moves between adjacent tabs, and the movement is visible — the tabs follow the finger and settle on release | web: 28px edge strips only, ≥40px travel, switched on `touchend` with nothing in between | must |
+| `A-03` | A horizontal swipe on the tab's content moves between adjacent tabs | web: 28px edge strips only, ≥40px travel, switched on `touchend` with nothing in between | must — see note |
 | `A-04` | The selected tab survives a relaunch | web: `sessionStorage['tab']` | should |
 | `A-05` | Pull-to-refresh re-fetches config and rejoins the sockets | web: 80px threshold, rotating indicator | should |
 | `A-06` | Content clears notch, Dynamic Island, and home indicator | web: `env(safe-area-inset-*)` | must (free natively) |
 | `A-07` | Portrait stacks label under icon; landscape drops labels to save height | CSS media queries | should |
 | `A-08` | Window and home-screen title is the meet's `app_window_title`, falling back to its `name` | `settings.app_window_title`, then `name`, then `Splouch` | web-only |
 | `A-09` | Meet gone mid-session → return to the picker | cloud: `GET /meet/{id}/config` answers **404**. Re-fetch it on every reconnect, foreground, pull-to-refresh (`A-05`) and `reload` (`C-08`); web: `GET /mobile` 303s to `/` on page load. Pi: n/a (§0.2) | must — see note |
+| `A-10` | The movement is visible: the tabs follow the finger through the drag and settle on release, rather than changing on release alone | — | should — see note |
+
+> **`A-03` is the gesture; `A-10` is how much of it the platform will show.** Moving
+> between peer sections is a gesture every platform has, and each has its own. Where it
+> is a pager — Android's is the Material idiom — the tabs track the drag and both rows
+> are met by one control. Where the platform gives you a tab bar *or* a pager and never
+> both, because swiping between peer sections is not its idiom, the swipe can still
+> select the adjacent tab on release, with the bar's own transition, and the tabs cannot
+> follow the finger without giving up the real tab bar. So the swipe itself is the
+> `must` and the tracking is the `should`: it is the better answer wherever the platform
+> offers it, and a client that forfeits the platform's tab bar to obtain it has paid too
+> much (§0.4).
+>
+> **The leading edge belongs to the system, not to the swipe.** Where the platform owns
+> an edge gesture — an interactive back, typically the leading ~24pt — the tab gesture
+> starts outside that strip and leaves it alone. This is not a detail: a full-width
+> drag-tracking pager claims that edge, and that is precisely why a pager and `A-02`'s
+> back swipe cannot both exist there. One of the two has to yield, and it is not the
+> system's gesture that gives way.
 
 > **`A-09` has no socket signal, on purpose.** `join_meet` for a meet the cloud no
 > longer holds is silently ignored — no reply, no `meet_live`, nothing
@@ -323,7 +345,7 @@ Live lane state during a heat. The busiest screen and the one most worth getting
 
 | ID | Feature | Driven by | Level |
 | --- | --- | --- | --- |
-| `R-01` | Until the first snapshot: an empty grid, with "Waiting for results…" below it wherever there is room to say so | `mobile.waiting_results` | must |
+| `R-01` | Until the first snapshot: "Waiting for results…" in place of the table, not a table of blank rows | `mobile.waiting_results` | must — see note |
 | `R-02` | A disconnect, or `meet_live` going false, **wipes the board** and returns it to that state | `disconnect`, `meet_live` | must |
 | `R-03` | Header shows the snapshot's own event, heat, and event name | `results_snapshot` | must |
 | `R-04` | Same six columns and visibility flags as the Scoreboard tab | shared config | must |
@@ -333,6 +355,17 @@ Live lane state during a heat. The busiest screen and the one most worth getting
 | `R-08` | Long names shrink to fit rather than clipping | — | should — see `L-17` |
 | `R-09` | Final times carry the "locked" styling | `r.time` non-empty | should |
 | `R-10` | Returning to the tab re-joins the meet, reconnecting first if needed | web: `on_tab_shown` | must |
+
+> **`R-01` — the waiting state replaces the table; it does not sit under it.** Blank rows
+> mean something on the Scoreboard: a heat is under way and they fill in as it runs, which
+> is why rows never collapse there (`L-09`). Results before the first snapshot has no heat
+> to fill them. The grid the web draws is there to occupy the page, and a spectator reads
+> nothing from it that the line does not already say — so the line is the screen, and the
+> table appears with the data.
+>
+> The string does not change: `mobile.waiting_results` promises results rather than
+> reporting their absence, which during a meet is the truer of the two. `R-02`'s wipe
+> returns the tab to exactly this state.
 
 ---
 
@@ -505,7 +538,7 @@ of its own.
 | `T-06` | Language defaults to the **meet's** locale and the user may override it | `settings.locale`, then the stored preference | must |
 | `T-07` | Missing theme keys fall back to the documented defaults rather than rendering unstyled | — | must |
 | `T-08` | A language control, per device, applying to every meet opened afterwards | `GET /locales` for the list | should — see note |
-| `T-09` | A short/long control over the EVENT and HEAT headers only, starting from short | `settings.label_style` | should — see note |
+| `T-09` | A short/long control over the EVENT and HEAT headers only, per device, starting from long | the stored preference; the words themselves from `GET /i18n/{lang}` → `labels` | should — see note |
 | `T-10` | A built-in snapshot of the strings is the floor: compiled into the app, refreshed from the server, cached to disk | — | must — see note |
 | `T-11` | The event name follows the chosen language, composed from parts the server sends | `update_scoreboard.event_name_parts` + `GET /i18n/{lang}` → `event_name`; falls back to `event_name` | should — see note |
 
@@ -576,6 +609,25 @@ of its own.
 > This is the server's rule, not the client's: `GET /i18n/{lang}` already returns a
 > `long` table whose narrow columns hold their short words, so a client that simply
 > renders what it is given is correct.
+>
+> **Two options, and it starts from long.** Short and long — there is no third "meet
+> default" row. `settings.label_style` is how the *server* resolves the `labels` it sends
+> (`T-04`); it is not an option the control offers back, and a preference whose third
+> value means "whatever this operator picked" changes meaning when the spectator opens
+> the next meet, which is not a choice anyone can hold in their head. Long is the
+> starting point because `EV` / `HT` are contractions an attendee has to decode, and the
+> header they sit in has room for the word (`L-01`) — it is the operator's fixed-width
+> board that needs the short form, not a phone.
+>
+> **A release may withdraw the control without discarding the choice.** `should` means
+> what §0.3 says it means: shipping with the headers fixed at long and no control at all
+> is within the contract. What is not within it is dropping a preference a user has
+> already set — resolve the stored value through something that answers long while the
+> control is away, so returning the control returns each user's choice rather than
+> resetting everyone to the default. The server side is unaffected either way:
+> `prefs_labels`, `prefs_short` and `prefs_long` stay served and stay in `T-10`'s
+> snapshot, and `settings.label_style` stays in the config whether or not a client
+> consults it.
 
 > **`T-10` — fetch, but never depend on the fetch.** Ship a snapshot of the strings and
 > treat the endpoint as a refresh: read the cache, draw, revalidate in the background,
@@ -646,6 +698,17 @@ Not on any phone client, now or planned:
 ---
 
 ## Changelog
+
+- **v1, revised while the iOS app was built** — three rows that changed rather than
+  clarified: `A-03` splits, keeping the swipe between adjacent tabs a `must` and moving
+  finger-tracking to `A-10` (`should`), with §0.4's native equivalent now the platform's
+  own peer-section gesture rather than a pager everywhere; `R-01` shows the waiting line
+  *instead of* the empty grid; `T-09` drops its third "meet default" option and starts
+  from long rather than short, driven by the device's preference instead of
+  `settings.label_style`. **Deliberately not versioned yet**: a client that shipped
+  `R-01`'s grid or `T-09`'s short default is behind this text rather than broken, so
+  whether this is a `v1` amendment or a `v2` — and therefore a `contract.app` bump that
+  `P-14` would report — is still open.
 
 - **v1, clarified while the iOS app was built** (no bump — nothing a conforming
   client did became wrong): `L-13` states its two exceptions, the running-lane hold
