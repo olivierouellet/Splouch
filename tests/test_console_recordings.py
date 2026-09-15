@@ -1,0 +1,317 @@
+"""The recordings in `server/console_recordings/`, checked as data.
+
+They are the project's only fixture for a real race: the Test tab replays them,
+`test_console_tail_frames.py` reads a protocol fact off them, and an operator
+learning the board sees one before they see a meet. Nothing else checks that what
+they contain is coherent, so a typo in a hand-authored packet would surface as a
+board that misbehaves for reasons nobody could trace back to the data.
+
+The 100m and 200m carry 50m splits: the lane's running bit drops, the packet
+carries the split time, the console holds it for three seconds, then the bit comes
+back. Two properties of that are load-bearing:
+
+* **The split time matches the race clock** at the moment of the touch. They come
+  from different channels, so nothing but care keeps them in step.
+* **A split carries no place.** A place is awarded at the finish, and the board
+  reads "time but no place" as *still being placed* — which is what stops eight
+  lanes resting at the same wall from satisfying `heat_is_done()` and tinting a
+  podium in the middle of a race.
+
+`.raw` and `.cap` are deliberately not covered: they are captures of a real
+console rather than authored data, and `.cap` is byte-for-byte its `.raw`.
+
+Qt-free: the decoder and the worker's framing are driven directly.
+"""
+import os
+import re
+import sys
+
+import pytest
+
+REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, REPO)
+sys.path.insert(0, os.path.join(REPO, 'server'))
+
+RECORDINGS = os.path.join(REPO, 'server', 'console_recordings')
+
+# name -> (event number, heat count, lane count, title in the companion .lxf)
+AUTHORED = {
+    '50m_sprint':         (1, 1, 8, '50m Freestyle'),
+    '50m_sprint_2heats':  (1, 2, 8, '50m Freestyle'),
+    '100m_freestyle':     (2, 1, 6, '100m Freestyle'),
+    '200m_medley_2heats': (3, 2, 8, '200m Medley'),
+}
+# How many 50m splits each race should carry, per lane.
+SPLITS = {'50m_sprint': 0, '50m_sprint_2heats': 0,
+          '100m_freestyle': 1, '200m_medley_2heats': 3}
+
+HOLD = 3.0          # seconds a split stays on the display
+
+
+def _packets(name):
+    """[(timestamp, [bytes])] for one recording."""
+    out = []
+    path = os.path.join(RECORDINGS, name + '.cts')
+    for line in open(path, encoding='utf-8'):
+        match = re.match(r'\[([0-9.]+)\]\s*(.*)', line.strip())
+        if match:
+            out.append((float(match.group(1)),
+                        [int(b, 16) for b in match.group(2).split()]))
+    return out
+
+
+def _digit(byte):
+    value = (byte & 0x0F) ^ 0x0F
+    return ' ' if value > 9 else str(value)
+
+
+def _decode(packet):
+    """(channel, running, {slot: char}) — the wire format, spelled out."""
+    header = packet[0]
+    if header & 0x01:
+        return None, False, {}
+    channel = ((header & 0x3E) >> 1) ^ 0x1F
+    slots = {}
+    for byte in packet[1:]:
+        slots[(byte >> 4) & 0x0F] = _digit(byte)
+    return channel, bool(header & 0x40), slots
+
+
+def _seconds(slots):
+    """Slots 2-7 as seconds, or None when the time is blank."""
+    text = ''.join(slots.get(i, ' ') for i in range(2, 8))
+    if not text.strip():
+        return None
+    mins, secs, hund = text[0:2], text[2:4], text[4:6]
+    return ((int(mins) if mins.strip() else 0) * 60
+            + (int(secs) if secs.strip() else 0)
+            + (int(hund) if hund.strip() else 0) / 100)
+
+
+def _events(name):
+    """Every lane packet and the race clock at that moment."""
+    stops, clock = [], None
+    for ts, packet in _packets(name):
+        channel, running, slots = _decode(packet)
+        if channel == 0:
+            clock = _seconds(slots)
+        elif channel in range(1, 11):
+            stops.append({'at': ts, 'lane': channel, 'running': running,
+                          'time': _seconds(slots), 'place': slots.get(1, ' '),
+                          'clock': clock})
+    return stops
+
+
+def _races(name):
+    """The lane packets of each race, split on the event/heat announcements.
+
+    A two-heat recording is two races, and almost nothing below is true across the
+    boundary — a lane finishes heat 1 with a place and then swims again.
+    """
+    races, current = [], None
+    clock = None
+    for ts, packet in _packets(name):
+        channel, running, slots = _decode(packet)
+        if channel == 12:
+            ev = ''.join(slots.get(i, ' ') for i in range(3)).strip()
+            ht = ''.join(slots.get(i, ' ') for i in range(5, 8)).strip()
+            if ev and ht:
+                current = []
+                races.append(current)
+        elif channel == 0:
+            clock = _seconds(slots)
+        elif channel in range(1, 11) and current is not None:
+            current.append({'at': ts, 'lane': channel, 'running': running,
+                            'time': _seconds(slots), 'place': slots.get(1, ' '),
+                            'clock': clock})
+    return races
+
+
+def _holds(race):
+    """One entry per *touch*, not per packet.
+
+    A console repaints a held split every half second, so the raw stream carries
+    the same time several times over. The touch is the first of them: it is what
+    carries the moment, and the refreshes only keep it on the display.
+    """
+    out, last = [], {}
+    for stop in race:
+        if stop['running']:
+            last.pop(stop['lane'], None)
+            continue
+        if last.get(stop['lane']) == stop['time']:
+            continue                       # a refresh of the hold already recorded
+        last[stop['lane']] = stop['time']
+        out.append(stop)
+    return out
+
+
+def _resume_after(race, hold):
+    """When *hold*'s lane starts running again, or None if that was its finish."""
+    for stop in race:
+        if stop['lane'] == hold['lane'] and stop['at'] > hold['at'] and stop['running']:
+            return stop
+    return None
+
+
+# ── Titles and shape ───────────────────────────────────────────────────────────
+
+@pytest.mark.parametrize('name', sorted(AUTHORED))
+def test_the_recording_matches_its_companion_meet_file(name):
+    """A recording's event and heat numbers only mean anything against the start
+    lists beside it — that pairing is the whole reason a test session loads one."""
+    from meet_parsers.lenex_parser import load_lenex
+    event, heats, lanes, title = AUTHORED[name]
+    meet = load_lenex(os.path.join(RECORDINGS, name + '.lxf'))
+
+    assert meet.event_names.get(event) == title, meet.event_names
+    assert sorted(meet.start_list[event]) == list(range(1, heats + 1))
+    for heat, entries in meet.start_list[event].items():
+        assert len(entries) == lanes, f'heat {heat} has {len(entries)} lanes'
+        for lane, entry in entries.items():
+            assert entry['name'].strip(), f'lane {lane} has no swimmer'
+
+
+@pytest.mark.parametrize('name', sorted(AUTHORED))
+def test_the_packets_announce_that_event_and_those_heats(name):
+    event, heats, _, _ = AUTHORED[name]
+    seen = []
+    for _, packet in _packets(name):
+        channel, _, slots = _decode(packet)
+        if channel == 12:
+            ev = ''.join(slots.get(i, ' ') for i in range(3)).strip()
+            ht = ''.join(slots.get(i, ' ') for i in range(5, 8)).strip()
+            if ev and ht:
+                seen.append((int(ev), int(ht)))
+    assert seen == [(event, h) for h in range(1, heats + 1)], seen
+
+
+@pytest.mark.parametrize('name', sorted(AUTHORED))
+def test_every_lane_in_the_start_list_swims(name):
+    _, heats, lanes, _ = AUTHORED[name]
+    finishes = [s for s in _events(name) if not s['running'] and s['place'] != ' ']
+    assert len(finishes) == heats * lanes
+    assert sorted(s['lane'] for s in finishes) == \
+        sorted(list(range(1, lanes + 1)) * heats)
+
+
+@pytest.mark.parametrize('name', sorted(AUTHORED))
+def test_the_places_agree_with_the_times(name):
+    """A board that showed place 1 beside the third-fastest time would be obeying
+    the data, and nobody would think to look here."""
+    _, heats, lanes, _ = AUTHORED[name]
+    finishes = [s for s in _events(name) if not s['running'] and s['place'] != ' ']
+    for heat in range(heats):
+        batch = finishes[heat * lanes:(heat + 1) * lanes]
+        by_time = sorted(batch, key=lambda s: s['time'])
+        for rank, stop in enumerate(by_time, start=1):
+            assert int(stop['place']) == rank, (
+                f"{name} heat {heat + 1}: lane {stop['lane']} at {stop['time']}s "
+                f"is place {stop['place']}, should be {rank}")
+
+
+# ── The splits ─────────────────────────────────────────────────────────────────
+
+@pytest.mark.parametrize('name', sorted(AUTHORED))
+def test_each_lane_carries_the_splits_it_should(name):
+    _, heats, lanes, _ = AUTHORED[name]
+    races = _races(name)
+    assert len(races) == heats
+    for heat, race in enumerate(races, start=1):
+        per_lane = {}
+        for hold in _holds(race):
+            if hold['place'] == ' ' and hold['time']:
+                per_lane.setdefault(hold['lane'], []).append(hold)
+        if not SPLITS[name]:
+            assert not per_lane, f'{name} heat {heat} should carry no splits'
+            continue
+        assert sorted(per_lane) == list(range(1, lanes + 1))
+        for lane, holds in per_lane.items():
+            assert len(holds) == SPLITS[name], (
+                f'{name} heat {heat} lane {lane}: {len(holds)} splits')
+
+
+@pytest.mark.parametrize('name', ['100m_freestyle', '200m_medley_2heats'])
+def test_a_split_never_carries_a_place(name):
+    """What keeps eight lanes at the same wall from reading as a finished heat: the
+    board treats a time with no place as *still being placed*, so `heat_is_done()`
+    stays false and no podium is tinted in the middle of a race."""
+    for heat, race in enumerate(_races(name), start=1):
+        for hold in _holds(race):
+            if hold['place'] == ' ':
+                continue
+            assert _resume_after(race, hold) is None, (
+                f"{name} heat {heat}: lane {hold['lane']} was placed at "
+                f"{hold['time']}s and then swam on")
+
+
+@pytest.mark.parametrize('name', ['100m_freestyle', '200m_medley_2heats'])
+def test_a_split_time_matches_the_race_clock(name):
+    """They arrive on different channels. Nothing but care keeps them in step, and
+    a split half a second off its own clock is the kind of thing an operator
+    notices on the TV and cannot explain.
+
+    A tenth of tolerance: the clock channel ticks at 10Hz and reports tenths, so the
+    nearest reading is up to one tick behind the touch.
+    """
+    for race in _races(name):
+        for hold in _holds(race):
+            if hold['place'] != ' ' or not hold['time']:
+                continue
+            assert hold['clock'] is not None
+            # In hundredths: these are decimal times read off a wire, and
+            # 30.3 - 30.2 is 0.10000000000000142 in binary floating point.
+            drift = round((hold['time'] - hold['clock']) * 100)
+            assert 0 <= drift <= 10, (
+                f"lane {hold['lane']} split {hold['time']}s against a clock "
+                f"reading {hold['clock']}s")
+
+
+@pytest.mark.parametrize('name', ['100m_freestyle', '200m_medley_2heats'])
+def test_a_split_is_held_for_three_seconds(name):
+    """Long enough to read across a hall, and longer than `split_min_duration`, or
+    the decoder never counts the length behind it."""
+    for race in _races(name):
+        for hold in _holds(race):
+            if hold['place'] != ' ':
+                continue               # a finish is held until the next heat
+            resume = _resume_after(race, hold)
+            assert resume is not None, f"lane {hold['lane']} never resumed"
+            held = resume['at'] - hold['at']
+            assert abs(held - HOLD) < 0.01, (
+                f"lane {hold['lane']} held its split {held:.2f}s, not {HOLD}s")
+
+
+@pytest.mark.parametrize('name', ['100m_freestyle', '200m_medley_2heats'])
+def test_the_splits_run_in_order_and_land_inside_the_race(name):
+    for heat, race in enumerate(_races(name), start=1):
+        per_lane, finals = {}, {}
+        for hold in _holds(race):
+            if hold['place'] == ' ':
+                per_lane.setdefault(hold['lane'], []).append(hold['time'])
+            else:
+                finals[hold['lane']] = hold['time']
+        for lane, times in per_lane.items():
+            assert times == sorted(times), f'heat {heat} lane {lane} out of order'
+            assert times[0] > 0, f'heat {heat} lane {lane} has a split at zero'
+            assert times[-1] < finals[lane], (
+                f'heat {heat} lane {lane} splits past its own final time')
+
+
+@pytest.mark.parametrize('name', ['100m_freestyle', '200m_medley_2heats'])
+def test_the_lanes_reach_the_wall_in_the_order_they_finish(name):
+    """Not a rule of the sport — swimmers do change places — but these are authored
+    files, and a split order that contradicts the finish would be an accident rather
+    than a race."""
+    for race in _races(name):
+        splits, finals = {}, {}
+        for hold in _holds(race):
+            if hold['place'] == ' ':
+                splits.setdefault(hold['lane'], []).append(hold['time'])
+            else:
+                finals[hold['lane']] = hold['time']
+        by_final = sorted(finals, key=lambda ln: finals[ln])
+        for index in range(len(splits[by_final[0]])):
+            by_split = sorted(splits, key=lambda ln: splits[ln][index])
+            assert by_split == by_final, (
+                f'split {index + 1} order {by_split} against finish {by_final}')

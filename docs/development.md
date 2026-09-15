@@ -10,7 +10,8 @@ uv run --with pytest pytest tests/
 
 The server runs from `server/` (its working directory), so its flat modules import each
 other by bare name. `static/` and `locales/` live in the sibling `shared/` dir (shared
-with the cloud relay); `themes/` and bundled `console_recordings/` stay under `server/`.
+with the cloud relay); `themes/` and bundled `console_recordings/` stay under `server/`
+(what is in them, and how `.cts`, `.raw` and `.cap` differ: [`server/console_recordings/README.md`](../server/console_recordings/README.md)).
 
 ## Testing with a live console
 
