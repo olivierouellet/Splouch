@@ -202,3 +202,58 @@ def test_a_registered_display_is_found(clients):
     # Either it dispatched, or it refused for a reason that is not "none found" —
     # a dev checkout is dirty, which the route rightly declines to broadcast.
     assert status != 404, body
+
+
+# ── What "update to the server's version" actually targets ─────────────────────
+# `git describe --tags --always` — a commit, not a branch. A server on master sends
+# something like `v2026.09.0-8-g3ecaa80`, and the display checks *that* out; it does
+# not follow master and will not pick up later commits until the button is pressed
+# again. Pinning to the commit is the point: a branch drifts, and the two ends then
+# disagree about the WebSocket contract with nothing on screen to show for it.
+
+def test_the_target_is_a_commit_not_a_branch(clients, monkeypatch):
+    import state
+    monkeypatch.setattr(state, '_git_describe_cache',
+                        {'version': 'v2026.09.0-8-g3ecaa80', 'commit': '3ecaa80'},
+                        raising=False)
+    clients[1] = {'ip': '10.0.0.42', 'at': '09:15', 'role': 'kiosk'}
+
+    sent = []
+    import routes.system as system
+    monkeypatch.setattr(system.bus, 'emit',
+                        lambda ch, ev, d=None: sent.append((ch, ev, d)))
+    status, body = _update(clients)
+
+    assert status == 200, body
+    assert ('/scoreboard', 'update', {'target': 'v2026.09.0-8-g3ecaa80'}) in sent
+    targets = [d['target'] for _, ev, d in sent if ev == 'update']
+    assert 'master' not in targets and 'main' not in targets, \
+        'a branch would drift out from under the display'
+
+
+def test_a_server_off_a_release_tag_can_still_update_displays(clients, monkeypatch):
+    """Being on master is not a reason to refuse — only being *dirty* is."""
+    import state
+    monkeypatch.setattr(state, '_git_describe_cache',
+                        {'version': 'v2026.09.0-8-g3ecaa80', 'commit': '3ecaa80'},
+                        raising=False)
+    clients[1] = {'ip': '10.0.0.42', 'at': '09:15', 'role': 'kiosk'}
+    import routes.system as system
+    monkeypatch.setattr(system.bus, 'emit', lambda *a, **k: None)
+    status, _ = _update(clients)
+    assert status == 200
+
+
+def test_a_dirty_server_is_refused_and_says_why(clients, monkeypatch):
+    """`--dirty` appends a suffix that is not a real object, so the checkout would
+    fail on every kiosk. The old wording blamed not being on a *released version*,
+    which sent operators looking for a tag they do not need."""
+    import state
+    monkeypatch.setattr(state, '_git_describe_cache',
+                        {'version': 'v2026.09.0-8-g3ecaa80-dirty', 'commit': '3ecaa80'},
+                        raising=False)
+    clients[1] = {'ip': '10.0.0.42', 'at': '09:15', 'role': 'kiosk'}
+    status, body = _update(clients)
+    assert status == 409
+    assert 'uncommitted' in body['error'].lower()
+    assert 'does not have to be a release tag' in body['error']

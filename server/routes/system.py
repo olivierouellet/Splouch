@@ -505,13 +505,25 @@ async def route_displays_update():
             'browser or a display too old to announce itself, and has to be '
             'updated on the Pi itself with install.sh once.')}, status_code=404)
 
+    # `git describe --tags --always` — a *commit*, not a branch: `v2026.09.0-8-g3ecaa80`
+    # off master, or the tag itself on a release. Displays are pinned to the commit
+    # this server is running rather than pointed at a branch, which is what makes
+    # lockstep hold: a branch would drift the moment anything landed on it, and the
+    # two ends would disagree about the WebSocket contract with nothing to show for it
+    # (notes/native_app_strategy.md).
     target = state.git_describe()['version']
-    # A dirty server has no ref a display could check out. `--dirty` appends a
-    # suffix that is not a real object, so this would fail on every kiosk.
-    if not target or target.endswith('-dirty'):
+    # A dirty server has no ref a display could check out. `--dirty` appends a suffix
+    # that is not a real object, so this would fail on every kiosk. Being off a tag is
+    # fine — master works, as long as the commit is clean and pushed.
+    if not target:
         return JSONResponse(
-            {'error': 'This server is not on a clean released version.'},
+            {'error': 'Cannot tell what version this server is running.'},
             status_code=409)
+    if target.endswith('-dirty'):
+        return JSONResponse({'error': (
+            'This server has uncommitted changes, so there is no commit a display '
+            'could check out. Any clean commit works — it does not have to be a '
+            'release tag.')}, status_code=409)
 
     for client in displays:
         client['update_state'] = 'updating'
