@@ -278,9 +278,7 @@ def route_test_record_stop():
 @router.post('/test_session_delete', dependencies=[Depends(require_login)])
 async def route_test_session_delete(body: NameBody):
     path = os.path.join(state.CUSTOM_SESSIONS_FOLDER, body.name)
-    if os.path.isfile(path) and (path.endswith('.cts') or
-                                  path.endswith('.raw') or
-                                  path.endswith('.cap')):
+    if os.path.isfile(path) and path.endswith(SESSION_UPLOAD_EXTS):
         if state._test_session == path:
             bus.run_bg(_restart_worker, None)
         os.remove(path)
@@ -289,8 +287,13 @@ async def route_test_session_delete(body: NameBody):
 
 # The recording formats a session upload takes. `settings.html` puts the same list in
 # the file dialog's `accept`, and a test pins the two together: they disagreed, so the
-# dialog offered only .cts while the server had always stored all three.
-SESSION_UPLOAD_EXTS = ('.cts', '.raw', '.cap')
+# dialog offered only .cts while the server stored more than that.
+#
+# `.cap` was a third, and is gone: it was the same bytes as a `.raw`, in binary rather
+# than hex, so every capture appeared twice in the operator's session list as two rows
+# that played identically. Convert one with
+# `server/console_recordings/cap-to-raw.py` — see that folder's README.
+SESSION_UPLOAD_EXTS = ('.cts', '.raw')
 
 
 @router.post('/test_session_upload', response_model=ActionResult,
@@ -309,7 +312,7 @@ async def route_test_session_upload(request: Request):
         named = '%s or %s' % (', '.join(SESSION_UPLOAD_EXTS[:-1]), SESSION_UPLOAD_EXTS[-1])
         return {'ok': False, 'error': 'File must be ' + named}
     # Writing the upload is blocking — run it off the event loop so live
-    # scoreboard broadcasts keep flowing (a .cap can be large).
+    # scoreboard broadcasts keep flowing (a long capture is not small).
     await run_in_threadpool(
         save_upload, file,
         os.path.join(state.CUSTOM_SESSIONS_FOLDER,

@@ -17,8 +17,8 @@ back. Two properties of that are load-bearing:
   lanes resting at the same wall from satisfying `heat_is_done()` and tinting a
   podium in the middle of a race.
 
-`.raw` and `.cap` are deliberately not covered: they are captures of a real
-console rather than authored data, and `.cap` is byte-for-byte its `.raw`.
+The `.raw` captures are deliberately not covered: they are a console's own output
+rather than authored data, so there is nothing to hold them to beyond what they are.
 
 Qt-free: the decoder and the worker's framing are driven directly.
 """
@@ -315,3 +315,140 @@ def test_the_lanes_reach_the_wall_in_the_order_they_finish(name):
             by_split = sorted(splits, key=lambda ln: splits[ln][index])
             assert by_split == by_final, (
                 f'split {index + 1} order {by_split} against finish {by_final}')
+
+
+# ── The retired binary format ──────────────────────────────────────────────────
+# `.cap` was the same bytes as a `.raw`, binary rather than hex, and every capture
+# was kept as both — so the Test tab listed each one twice, as two rows that played
+# identically, with nothing to tell an operator which was which. The binary copies
+# are gone and so is the player that needed them; `cap-to-raw.py` is the one step a
+# capture straight off a tool now takes before it can be used here.
+
+CONVERTER = os.path.join(RECORDINGS, 'cap-to-raw.py')
+
+
+def test_no_cap_is_offered_anywhere():
+    """Docs, dialog and server have to agree, or an operator picks a file the
+    server drops — the failure this suite was started over."""
+    import routes.debug as debug
+    assert '.cap' not in debug.SESSION_UPLOAD_EXTS
+
+    settings = open(os.path.join(REPO, 'server', 'templates', 'settings.html'),
+                    encoding='utf-8').read()
+    accept = re.search(r'accept="([^"]*)"[^>]*testUpload', settings)
+    assert accept, 'the session upload input moved'
+    assert '.cap' not in accept.group(1)
+    assert sorted(accept.group(1).split(',')) == sorted(debug.SESSION_UPLOAD_EXTS)
+
+    assert not [f for f in os.listdir(RECORDINGS) if f.endswith('.cap')]
+
+    import worker
+    assert not hasattr(worker, '_play_cap_file'), 'the dead player is still here'
+
+
+def test_every_listed_session_is_a_format_we_still_play():
+    import worker
+    for session in worker._list_sessions():
+        assert session['name'].endswith(('.cts', '.raw')), session['name']
+
+
+def test_a_capture_appears_once_in_the_list():
+    """The whole reason `.cap` went: `real_console5` was two rows, not one."""
+    import worker
+    stems = [os.path.splitext(s['name'])[0] for s in worker._list_sessions()]
+    assert len(stems) == len(set(stems)), sorted(stems)
+
+
+# ── The converter ──────────────────────────────────────────────────────────────
+
+def _convert(tmp_path, data, *args):
+    import subprocess
+    source = tmp_path / 'session.cap'
+    source.write_bytes(data)
+    done = subprocess.run([sys.executable, CONVERTER, str(source), *args],
+                          capture_output=True, text=True)
+    return done, source
+
+
+def test_it_writes_the_hex_these_files_use(tmp_path):
+    done, source = _convert(tmp_path, bytes([0xB4, 0x0A, 0x17, 0x20]))
+    assert done.returncode == 0, done.stderr
+    out = (tmp_path / 'session.raw').read_text(encoding='utf-8')
+    assert out == 'b4 0a 17 20\n', repr(out)
+
+
+def test_it_reproduces_a_real_capture_exactly(tmp_path):
+    """The proof that matters: the `.cap` files that used to be tracked here
+    convert back to the `.raw` files that replaced them, byte for byte."""
+    import subprocess
+    tracked = os.path.join(RECORDINGS, 'real_console5.raw')
+    old_cap = subprocess.run(
+        ['git', 'show', 'HEAD:server/console_recordings/real_console5.cap'],
+        cwd=REPO, capture_output=True)
+    if old_cap.returncode != 0:
+        pytest.skip('the .cap is no longer in HEAD — nothing to compare against')
+
+    done, _ = _convert(tmp_path, old_cap.stdout)
+    assert done.returncode == 0, done.stderr
+    converted = re.findall(r'[0-9a-f]{2}',
+                           (tmp_path / 'session.raw').read_text(encoding='utf-8'))
+    expected = re.findall(r'[0-9a-fA-F]{2}',
+                          open(tracked, encoding='utf-8').read())
+    assert converted == [b.lower() for b in expected]
+
+
+def test_it_will_not_overwrite_without_being_told(tmp_path):
+    """A capture is not reproducible. Clobbering one on a typo is not recoverable."""
+    done, _ = _convert(tmp_path, b'\xb4\x0a')
+    assert done.returncode == 0
+    (tmp_path / 'session.raw').write_text('do not lose me\n', encoding='utf-8')
+
+    again, _ = _convert(tmp_path, b'\xb4\x0a')
+    assert again.returncode == 1
+    assert 'exists' in again.stderr
+    assert (tmp_path / 'session.raw').read_text(encoding='utf-8') == 'do not lose me\n'
+
+    forced, _ = _convert(tmp_path, b'\xb4\x0a', '--force')
+    assert forced.returncode == 0
+    assert (tmp_path / 'session.raw').read_text(encoding='utf-8') == 'b4 0a\n'
+
+
+def test_it_says_when_there_is_no_meet_file_beside_it(tmp_path):
+    """A capture carries no start lists, so the replay would run with blank names —
+    which reads as a broken recording rather than a missing companion."""
+    done, _ = _convert(tmp_path, b'\xb4\x0a')
+    assert 'lxf' in done.stderr and 'names' in done.stderr
+
+
+def test_an_empty_or_missing_file_is_refused(tmp_path):
+    import subprocess
+    done, _ = _convert(tmp_path, b'')
+    assert done.returncode == 1 and 'empty' in done.stderr
+
+    missing = subprocess.run([sys.executable, CONVERTER, str(tmp_path / 'nope.cap')],
+                             capture_output=True, text=True)
+    assert missing.returncode == 1 and missing.stderr.strip()
+
+
+def test_the_converted_file_actually_replays(tmp_path):
+    """Hex that the player's own regex accepts, not just hex that looks right."""
+    import subprocess
+    old_cap = subprocess.run(
+        ['git', 'show', 'HEAD:server/console_recordings/real_console6.cap'],
+        cwd=REPO, capture_output=True)
+    if old_cap.returncode != 0:
+        pytest.skip('the .cap is no longer in HEAD')
+    done, _ = _convert(tmp_path, old_cap.stdout)
+    assert done.returncode == 0, done.stderr
+
+    import worker
+    from console_decoders import make_decoder
+    import state
+    state._decoder = make_decoder('cts_gen6', {**state.settings, 'num_lanes': 8})
+    seen = []
+    text = (tmp_path / 'session.raw').read_text(encoding='utf-8')
+    packet = []
+    for match in re.finditer(r'[0-9a-fA-F]{2}', text):
+        packet = worker._ingest_byte(int(match.group(0), 16), packet)
+        seen.append(1)
+    assert len(seen) > 1000, 'the player saw almost nothing'

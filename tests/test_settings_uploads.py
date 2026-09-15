@@ -4,9 +4,10 @@ Every upload on this page is a hidden `<input type="file">` behind a styled labe
 the only thing an operator sees is what the handler puts on screen afterwards. That
 makes silence indistinguishable from success, and all three of these shipped:
 
-* **The dialog and the server disagreed.** `/test_session_upload` has always stored
-  `.cts`, `.raw` and `.cap`; the input offered `.cts`, so two of the three formats
-  could not be picked at all.
+* **The dialog and the server disagreed.** `/test_session_upload` stored more
+  formats than the input offered, so some of them could not be picked at all. The
+  two are pinned together now — `SESSION_UPLOAD_EXTS` and the `accept` attribute —
+  which is what kept them in step when `.cap` was retired.
 * **A refusal looked like a success.** That route answered the same redirect to
   /settings whether it saved the file or dropped it, and the page reloaded its session
   list either way — the upload "worked", the row just never appeared.
@@ -71,7 +72,7 @@ def sessions_dir(monkeypatch, tmp_path):
 
 # ── The session upload route ───────────────────────────────────────────────────
 
-@pytest.mark.parametrize('name', ['rec.cts', 'rec.raw', 'rec.cap', 'REC.CTS'])
+@pytest.mark.parametrize('name', ['rec.cts', 'rec.raw', 'REC.CTS'])
 def test_every_recording_format_is_stored(sessions_dir, name):
     """Upper case too: the check used to be `endswith`, so `.CTS` was dropped."""
     out = asyncio.run(debug.route_test_session_upload(_Req(_Upload(name))))

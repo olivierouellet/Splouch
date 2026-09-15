@@ -110,7 +110,7 @@ def _list_sessions():
     result = []
     for folder, source in [(state.SESSIONS_FOLDER, 'builtin'),
                            (state.CUSTOM_SESSIONS_FOLDER, 'custom')]:
-        for ext in ('*.cts', '*.raw', '*.cap'):
+        for ext in ('*.cts', '*.raw'):
             for path in sorted(glob.glob(os.path.join(folder, ext))):
                 result.append({'name': os.path.basename(path), 'source': source, 'path': path})
     return result
@@ -357,22 +357,6 @@ def _ingest_byte(c, l):
     return l
 
 
-def _play_cap_file(session_file, my_gen):
-    """Loop-play a binary .cap capture until the worker is superseded."""
-    raw_bytes = open(session_file, 'rb').read()
-    delay = 0.0
-    while state._worker_gen == my_gen:
-        l = []
-        for byte in raw_bytes:
-            if state._worker_gen != my_gen:
-                break
-            l = _ingest_byte(byte, l)
-            delay += 1 / 720.0
-            if delay > 0.1:
-                delay = 0
-                time.sleep(0.1)
-
-
 def _play_cts_file(session_file, my_gen):
     """Play a timestamped or looping .cts/.raw session file."""
     text           = open(session_file, 'rt').read()
@@ -407,10 +391,7 @@ def _play_cts_file(session_file, my_gen):
 
 def _run_test_session(session_file, my_gen):
     """Play a recorded session file, then emit cleanup events if it finishes naturally."""
-    if session_file.endswith('.cap'):
-        _play_cap_file(session_file, my_gen)
-    else:
-        _play_cts_file(session_file, my_gen)
+    _play_cts_file(session_file, my_gen)
 
     if state._worker_gen != my_gen:   # superseded — the new worker owns cleanup
         return
