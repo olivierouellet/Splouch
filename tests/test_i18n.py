@@ -509,6 +509,79 @@ def test_both_servers_serve_the_event_name_vocabulary(build):
     assert ev['unit'] and ev['separator']
 
 
+# ── The distance, when it is glued to its unit ────────────────────────────────
+# `100m Freestyle` is how Splash and Hy-Tek export an event, and the distance used
+# to disappear from it entirely: `\b(\d+)\b` cannot match `100` in `100m`, because
+# there is no word boundary between a digit and a letter. The board showed "libre"
+# where it should have shown "100 m libre" — and every test above happened to use
+# the spaced form, `200 Backstroke`, so nothing caught it.
+
+@pytest.mark.parametrize('raw, dist', [
+    ('100m Freestyle',        '100'),
+    ('50m Freestyle',          '50'),
+    ('200m Medley',           '200'),
+    ('1500m Freestyle',      '1500'),
+    ('100 m Freestyle',       '100'),     # spaced — the form that always worked
+    ('100 Freestyle',         '100'),     # no unit at all
+    ('200 metres Butterfly',  '200'),
+    ('200 Meter Backstroke',  '200'),
+])
+def test_a_distance_is_found_however_the_unit_is_written(raw, dist):
+    assert state.parse_event_name(raw)['dist'] == dist
+
+
+@pytest.mark.parametrize('lang, expected', [
+    ('en', '100 m Freestyle'),
+    ('fr', '100 m libre'),
+    ('es', '100 m libre'),
+])
+def test_the_glued_form_renders_with_its_distance(lang, expected):
+    """What an operator actually reported: the TV showed only the stroke."""
+    ev = state.i18n_bundle(lang)['event_name']
+    assert state.translate_event_name('100m Freestyle', ev) == expected
+
+
+def test_the_unit_qualified_number_wins_over_a_bare_one():
+    """`Mixed 13 & Over 4x50m Freestyle Relay` has two numbers in it, and the age
+    band comes first. It used to be read as a 13 metre relay."""
+    parts = state.parse_event_name('Mixed 13 & Over 4x50m Freestyle Relay')
+    assert parts['dist'] == '4x50'
+    assert parts['relay'] is True
+    assert parts['gender'] == 'mixed'
+
+
+@pytest.mark.parametrize('raw, dist', [
+    ('4x50m Freestyle Relay',   '4x50'),
+    ('4 x 100 m Medley Relay', '4x100'),
+    ('4x200 Freestyle Relay',  '4x200'),
+])
+def test_a_relay_distance_survives_its_spacing(raw, dist):
+    assert state.parse_event_name(raw)['dist'] == dist
+
+
+def test_yards_are_not_passed_off_as_metres():
+    """The unit comes from the locale, so a matched `50y` would print "50 m" — a
+    wrong distance reads worse than a missing one. Nothing here renders yards."""
+    parts = state.parse_event_name('50y Freestyle')
+    assert parts['dist'] != '50' or parts['dist'] == '', parts
+
+
+def test_every_shipped_recording_name_keeps_its_distance():
+    """These are the names an operator meets first, through the Test tab."""
+    import os
+    from meet_parsers.lenex_parser import load_lenex
+    folder = os.path.join(REPO, 'server', 'console_recordings')
+    ev = state._locale_section('fr', 'event_name')
+    for name in sorted(f for f in os.listdir(folder) if f.endswith('.lxf')):
+        meet = load_lenex(os.path.join(folder, name))
+        for number, raw in meet.event_names.items():
+            rendered = state.translate_event_name(raw, ev)
+            digits = ''.join(c for c in raw if c.isdigit())
+            if digits:
+                assert any(c.isdigit() for c in rendered), (
+                    f'{name} event {number}: {raw!r} renders as {rendered!r}')
+
+
 def test_composing_survives_a_name_that_parses_into_nothing():
     """Hand-entered names exist. Falling back to the raw string beats a blank header."""
     parts = state.parse_event_name('Club Handicap Final')

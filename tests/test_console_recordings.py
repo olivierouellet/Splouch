@@ -45,6 +45,12 @@ AUTHORED = {
 SPLITS = {'50m_sprint': 0, '50m_sprint_2heats': 0,
           '100m_freestyle': 1, '200m_medley_2heats': 3}
 
+# Seconds between the event announcement — which is what puts names on the board —
+# and the first lane going active. Long enough to read a heat of eight names across
+# a hall, which is most of what an operator is watching a replay to check.
+START_LIST_SECONDS = {'50m_sprint': 8.0, '50m_sprint_2heats': 8.0,
+                      '100m_freestyle': 11.0, '200m_medley_2heats': 8.0}
+
 HOLD = 3.0          # seconds a split stays on the display
 
 
@@ -468,3 +474,19 @@ def test_the_converted_file_actually_replays(tmp_path):
     # The 400m that real_console5 actually holds — lane 2 wins in 4:21.25.
     assert times.get('lane_time2') == '4:21.25', times
     assert len(times) == 8, f'{len(times)} lanes finished, expected 8'
+
+
+# ── Room to read the start list before the race ────────────────────────────────
+
+@pytest.mark.parametrize('name', sorted(AUTHORED))
+def test_the_start_list_is_on_screen_before_anyone_swims(name):
+    """Pinned per file rather than as a floor: these are authored timings, and a
+    regenerated recording that quietly went back to whatever the generator's default
+    was would otherwise pass. The 100m carries longer than the rest on purpose.
+    """
+    announced = [ts for ts, packet in _packets(name) if _decode(packet)[0] == 12]
+    for heat, (start, race) in enumerate(zip(announced, _races(name)), start=1):
+        gap = min(stop['at'] for stop in race if stop['running']) - start
+        assert abs(gap - START_LIST_SECONDS[name]) < 0.01, (
+            f'{name} heat {heat}: {gap:.2f}s of start list, '
+            f'expected {START_LIST_SECONDS[name]:.2f}s')

@@ -729,6 +729,15 @@ def load_theme(code):
 def load_event_translations():
     return _locale_section(settings.get('locale', 'en'), 'event_name')
 
+# Distances, with and without a unit. Metric only: nothing in this project renders
+# yards, and matching `50y` here would print it as "50 m" — a wrong distance reads
+# worse than a missing one.
+_UNITS = r'(?:metres|meters|metre|meter|m)'
+_DIST_WITH_UNIT = re.compile(r'\b(\d+\s*[xX]\s*\d+|\d+)\s*' + _UNITS + r'\b',
+                             re.IGNORECASE)
+_DIST_BARE      = re.compile(r'\b(\d+\s*[xX]\s*\d+|\d+)\b')
+
+
 def parse_event_name(raw):
     """Decompose a raw event name into language-neutral parts.
 
@@ -774,10 +783,22 @@ def parse_event_name(raw):
 
     is_relay = bool(re.search(r'\brelay\b', s_rest, re.IGNORECASE))
 
+    # A distance with its unit attached first — `100m`, `4x50 m`, `200 metres` —
+    # then a bare number as the fallback.
+    #
+    # The unit pass is not a nicety. `\b(\d+)\b` cannot match `100` in `100m`:
+    # there is no word boundary between a digit and a letter, so the whole distance
+    # vanished and `100m Freestyle` rendered as just "Freestyle" ("libre" in
+    # French). Splash and Hy-Tek both export the glued form, so this was every
+    # event at a real meet, not an edge case.
+    #
+    # Trying the unit first also settles which number is the distance when a name
+    # carries more than one: `Mixed 13 & Over 4x50m Freestyle Relay` used to take
+    # the `13` from the age band and call it the distance.
     dist   = ''
-    dist_m = re.search(r'\b(\d+[xX]\d+|\d+)\b', s_rest)
+    dist_m = _DIST_WITH_UNIT.search(s_rest) or _DIST_BARE.search(s_rest)
     if dist_m:
-        dist = dist_m.group(1)
+        dist = re.sub(r'\s+', '', dist_m.group(1))
 
     stroke = ''
     for alias, key in _STROKE_ALIASES:

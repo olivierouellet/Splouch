@@ -36,15 +36,20 @@ way, if it is ever needed, is `xxd -r -p session.raw > session.cap`.
 
 ## What is in them
 
-| File | Event | Heats | Lanes | Splits | Source |
-| --- | --- | --- | --- | --- | --- |
-| `50m_sprint.cts` | 1 · 50m Freestyle | 1 | 8 | — | authored |
-| `50m_sprint_2heats.cts` | 1 · 50m Freestyle | 2 | 8 | — | authored |
-| `100m_freestyle.cts` | 2 · 100m Freestyle | 1 | 6 | 50m | authored |
-| `200m_medley_2heats.cts` | 3 · 200m Medley | 2 | 8 | 50m, 100m, 150m | authored |
-| `real_console.cts` | — | — | — | — | captured, idle console |
-| `real_console5.raw` | 1 · 400m Freestyle | 1 | 8 | — | captured |
-| `real_console6.raw` | 1 · 50m Freestyle | 1 | 8 | — | captured, no finish |
+| File | Event | Heats | Lanes | Splits | Start list | Source |
+| --- | --- | --- | --- | --- | --- | --- |
+| `50m_sprint.cts` | 1 · 50m Freestyle | 1 | 8 | — | 8s | authored |
+| `50m_sprint_2heats.cts` | 1 · 50m Freestyle | 2 | 8 | — | 8s | authored |
+| `100m_freestyle.cts` | 2 · 100m Freestyle | 1 | 6 | 50m | **11s** | authored |
+| `200m_medley_2heats.cts` | 3 · 200m Medley | 2 | 8 | 50m, 100m, 150m | 8s | authored |
+| `real_console.cts` | — | — | — | — | — | captured, idle console |
+| `real_console5.raw` | 1 · 400m Freestyle | 1 | 8 | — | — | captured |
+| `real_console6.raw` | 1 · 50m Freestyle | 1 | 8 | — | — | captured, no finish |
+
+**Start list** is the gap between the event announcement — which is what puts names
+on the board — and the first lane going active. It is how long an operator has to
+read a heat before it starts, so it is pinned per file rather than left to whatever
+a regeneration would default to.
 
 `tests/test_console_recordings.py` checks the authored ones as data: that each
 matches its companion meet file, that places agree with the times, and that the
