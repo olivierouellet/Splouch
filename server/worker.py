@@ -80,7 +80,7 @@ def restore_current_heat():
 
     Deliberately not a clear. A console is not obliged to repeat itself: a CTS
     re-announces its event and heat several times a second (verified against
-    `real_console5.raw` — it comes back within 44 packets), but a Quantum sends it
+    a real capture — it comes back within 44 packets), but a Quantum sends it
     exactly once, when the heat is readied (`A='0'`, "ready at start", in its
     protocol notes). Clearing on the way out would leave that board with no event
     and no names until somebody readied the next heat — a test session run mid-meet

@@ -42,8 +42,6 @@ way, if it is ever needed, is `xxd -r -p session.raw > session.cap`.
 | `50m_sprint_2heats.cts` | 1 · 50m Freestyle | 2 | 8 | — | 8s | authored |
 | `100m_freestyle.cts` | 2 · 100m Freestyle | 1 | 6 | 50m | **11s** | authored |
 | `200m_medley_2heats.cts` | 3 · 200m Medley | 2 | 8 | 50m, 100m, 150m | 8s | authored |
-| `real_console.cts` | — | — | — | — | — | captured, idle console |
-| `real_console5.raw` | 1 · 400m Freestyle | 1 | 8 | — | — | captured |
 | `real_console6.raw` | 1 · 50m Freestyle | 1 | 8 | — | — | captured, no finish |
 
 **Start list** is the gap between the event announcement — which is what puts names
@@ -59,14 +57,13 @@ a regeneration would default to.
 matches its companion meet file, that places agree with the times, and that the
 splits are what they claim to be.
 
-The captured ones are not checked that way — they are a console's own output, so
-there is nothing to hold them to beyond what they are. Two things to know about
-them: `real_console.cts` is an idle console and carries no race at all, and
-`real_console6.raw` is seventeen seconds of starts and resets that never reaches a
-finish, so it shows a running clock and no times. Its companion `.lxf` named the
-event `Event 1` — which is the string `lenex_parser` falls back to when an event
-has neither a name nor a `SWIMSTYLE`, written into the file and then read back as
-though it were a title. Its own seed times are 24.87–25.89, so it is a 50m.
+The captured one is not checked that way — it is a console's own output, so there is
+nothing to hold it to beyond what it is. `real_console6.raw` is seventeen seconds of
+starts and resets that never reaches a finish, so it shows a running clock and no
+times; it is kept for the wire format rather than the race. Its companion `.lxf`
+named the event `Event 1` — the string `lenex_parser` falls back to when an event has
+neither a name nor a `SWIMSTYLE`, written into the file and then read back as though
+it were a title. Its own seed times are 24.87–25.89, so it is a 50m.
 
 ## How a split is written
 

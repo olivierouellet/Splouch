@@ -23,8 +23,8 @@ sys.path.insert(0, REPO)
 sys.path.insert(0, os.path.join(REPO, 'server'))
 
 RECORDINGS = os.path.join(REPO, 'server', 'console_recordings')
-# The CTS recordings with a finished heat in them. `real_console.cts` is a capture
-# of an idle console and has no race, so it has nothing to say here.
+# The CTS recordings with a finished heat in them — the authored ones. The captured
+# `.raw` never reaches a finish, so it has nothing to say here.
 WITH_A_RACE = ['50m_sprint.cts', '100m_freestyle.cts',
                '200m_medley_2heats.cts', '50m_sprint_2heats.cts']
 

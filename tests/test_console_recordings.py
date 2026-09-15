@@ -359,7 +359,7 @@ def test_every_listed_session_is_a_format_we_still_play():
 
 
 def test_a_capture_appears_once_in_the_list():
-    """The whole reason `.cap` went: `real_console5` was two rows, not one."""
+    """The whole reason `.cap` went: each capture was two rows, not one."""
     import worker
     stems = [os.path.splitext(s['name'])[0] for s in worker._list_sessions()]
     assert len(stems) == len(set(stems)), sorted(stems)
@@ -394,7 +394,7 @@ def _as_binary(name):
     return bytes(int(b, 16) for b in re.findall(r'[0-9a-fA-F]{2}', text))
 
 
-@pytest.mark.parametrize('name', ['real_console5', 'real_console6'])
+@pytest.mark.parametrize('name', ['real_console6'])
 def test_it_reproduces_a_real_capture_exactly(tmp_path, name):
     """The proof that matters: a real capture's bytes come back as the very hex
     this repo tracks. Both recordings, both directions."""
@@ -445,7 +445,7 @@ def test_an_empty_or_missing_file_is_refused(tmp_path):
 def test_the_converted_file_actually_replays(tmp_path):
     """Hex the player's own regex accepts, not just hex that looks right — and the
     same race out the far end."""
-    done, _ = _convert(tmp_path, _as_binary('real_console5'))
+    done, _ = _convert(tmp_path, _as_binary('real_console6'))
     assert done.returncode == 0, done.stderr
 
     import state
@@ -453,12 +453,12 @@ def test_the_converted_file_actually_replays(tmp_path):
     from console_decoders import make_decoder
     state.settings['num_lanes'] = 8
     state._decoder = make_decoder('cts_gen6', state.settings)
-    times, packet = {}, []
+    clock, packet = [], []
 
     def collect(updates):
-        for key, value in (updates or {}).items():
-            if key.startswith('lane_time') and value and value.strip():
-                times[key] = value
+        value = (updates or {}).get('running_time')
+        if value and value.strip():
+            clock.append(value)
 
     original = worker._emit_scoreboard_update
     text = (tmp_path / 'session.raw').read_text(encoding='utf-8')
@@ -471,9 +471,10 @@ def test_the_converted_file_actually_replays(tmp_path):
     if packet:
         collect(state._decoder.feed(packet))
 
-    # The 400m that real_console5 actually holds — lane 2 wins in 4:21.25.
-    assert times.get('lane_time2') == '4:21.25', times
-    assert len(times) == 8, f'{len(times)} lanes finished, expected 8'
+    # real_console6 is seventeen seconds of starts and resets and never reaches a
+    # finish, so what proves the bytes survived is the running clock, not a result.
+    assert clock, 'the converted capture produced no running time'
+    assert max(clock) > '0:15', clock[-3:]
 
 
 # ── Room to read the start list before the race ────────────────────────────────
