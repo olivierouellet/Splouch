@@ -73,10 +73,23 @@ input[type="time"]::-webkit-datetime-edit { padding: 0; line-height: 1.4; }
     color: #fff !important;
     background-color: var(--hold-fill, var(--bs-danger)) !important;
     border-color: var(--hold-fill, var(--bs-danger)) !important;
-    background-image: linear-gradient(to right, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0.55));
-    background-repeat: no-repeat;
+    /* !important here too: a higher-specificity rule setting the `background`
+       shorthand resets the gradient, and the hold then shows no progress at all. */
+    background-image: linear-gradient(to right, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0.55)) !important;
+    background-repeat: no-repeat !important;
     background-size: 0% 100%;
     animation: holdfill var(--hold-ms, 1200ms) linear forwards;
 }
 @keyframes holdfill { from { background-size: 0% 100%; } to { background-size: 100% 100%; } }
-[data-hold] { touch-action: none; }
+/* A hold is a long press, which is also the gesture iOS uses to raise the selection
+   callout / Writing Tools and Android uses for text selection — so on a phone the
+   menu came up over the button instead of the hold completing. `touch-action` keeps a
+   scroll from stealing the press; the other three keep the OS from treating the
+   button's glyph as text worth selecting. Needed even on a real <button>: the callout
+   is driven by selectable content, not by the element type. */
+[data-hold] {
+    touch-action: none;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+}

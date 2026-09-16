@@ -576,3 +576,79 @@ def test_clearing_cancels_a_pending_debounce(rig):
     assert state._results_prev_race_finished is False
     assert state._running_lanes == set()
     assert state._finish_timer_gen > gen
+
+
+def test_the_next_heat_is_marked_with_the_same_rectangle_as_the_current_one():
+    """It was a 3px bar down the left edge, which read as a different kind of thing
+    rather than the other half of a pair. Same outline, different colour: the board's
+    yellow for what is on, the schedule's blue for what is up next."""
+    page = _manual_page()
+    for cls, colour in (('heat-current', '--color-time'),
+                        ('heat-next', '--color-schedule-event')):
+        rule = page[page.index('.heat-card.' + cls + ' {'):]
+        rule = rule[:rule.index('}')]
+        assert 'outline: 2px solid var(' + colour + ')' in rule, cls
+        assert 'outline-offset: -2px' in rule, cls
+    assert 'box-shadow: inset' not in page
+
+
+def test_the_clear_button_does_not_reset_the_gradient_the_hold_fills():
+    """`background: none` on an id beat `.btn-holding`'s gradient, so holding Clear
+    changed its colour but showed no progress — the one control with no visible
+    feedback looking like the one control that does nothing."""
+    import re
+    page = _manual_page()
+    rule = page[page.index('#btn-clear {'):]
+    rule = rule[:rule.index('}')]
+    # Declarations only — the comment above them names the shorthand it warns against.
+    decls = re.sub(r'/\*.*?\*/', '', rule, flags=re.S)
+    assert 'background-color: transparent' in decls
+    assert 'background:' not in decls, 'the shorthand resets background-image'
+
+
+def test_the_hold_fill_survives_a_higher_specificity_background_rule():
+    """Belt to the braces above: the gradient and its repeat carry !important in both
+    copies of `.btn-holding`, so no page rule can silently blank the progress bar."""
+    for path in ('shared/static/css/panel.css', 'server/templates/manual.html'):
+        src = open(os.path.join(REPO, path), encoding='utf-8').read()
+        rule = src[src.index('.btn-holding {'):]
+        rule = rule[:rule.index('}')]
+        assert 'background-image: linear-gradient' in rule and rule.count('!important') >= 4, path
+
+
+def test_a_long_press_cannot_raise_the_phones_text_menu():
+    """The hold *is* a long press, which is also how iOS raises the selection callout
+    and Writing Tools — the menu came up over the row arrow and took the press with
+    it. Being a real <button> is not enough; the callout keys off selectable content."""
+    for path in ('shared/static/css/panel.css', 'server/templates/manual.html'):
+        src = open(os.path.join(REPO, path), encoding='utf-8').read()
+        rule = src[src.index('[data-hold] {'):]
+        rule = rule[:rule.index('}')]
+        for prop in ('touch-action: none', '-webkit-touch-callout: none',
+                     '-webkit-user-select: none', 'user-select: none'):
+            assert prop in rule, f'{path} is missing {prop}'
+
+    hold_js = open(os.path.join(REPO, 'shared', 'static', 'js', 'hold.js'),
+                   encoding='utf-8').read()
+    assert "addEventListener('contextmenu'" in hold_js
+
+
+def test_the_event_and_heat_readout_is_centred_and_the_biggest_thing_on_the_page():
+    """It is the one number checked against the board across the pool, at a glance and
+    at arm's length. The name and caption centre with it so the header reads as one
+    block rather than a left column with a centred number dropped into it."""
+    page = _manual_page()
+    jump = page[page.index('#now-jump {'):]
+    jump = jump[:jump.index('}')]
+    assert 'justify-content: center' in jump
+    assert 'text-align: center' in jump
+
+    for block in ('#now-name {', '#now-caption {'):
+        rule = page[page.index(block):]
+        rule = rule[:rule.index('}')]
+        assert 'text-align: center' in rule, block
+
+    value = page[page.index('.now-value {'):]
+    value = value[:value.index('}')]
+    size = float(value.split('font-size:')[1].split('em')[0].strip())
+    assert size >= 2.2, f'the readout is only {size}em'

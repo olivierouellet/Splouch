@@ -74,29 +74,34 @@
            what is on the boards, then the buttons that change it. The buttons get a
            row of their own because at a thumb-friendly width they do not fit beside
            the numbers on a phone. */
-        #now .row1 { display: flex; align-items: center; gap: 12px; }
-        /* Tapping the numbers jumps the list back to the heat that is on. */
+        #now .row1 { display: flex; align-items: center; }
+        /* Centred, and the largest thing on the page: this is the one number the
+           operator checks against the board across the pool, usually at a glance and
+           at arm's length. The name and caption below centre with it — the header
+           reads as one block rather than a left column with a centred number in it.
+           Tapping anywhere in it jumps the list back to the heat that is on. */
         #now-jump {
-            display: flex; align-items: baseline; gap: 18px; flex: 1; min-width: 0;
-            background: none; border: none; padding: 0; text-align: left;
+            display: flex; align-items: baseline; justify-content: center;
+            gap: 28px; flex: 1; min-width: 0;
+            background: none; border: none; padding: 0; text-align: center;
             font-family: inherit; color: inherit;
             -webkit-tap-highlight-color: transparent;
         }
         .now-label {
-            font-size: 0.62em; letter-spacing: 0.12em; text-transform: uppercase;
+            font-size: 0.66em; letter-spacing: 0.12em; text-transform: uppercase;
             color: var(--color-header-label); display: block;
         }
         .now-value {
             font-family: var(--font-digits), monospace;
-            font-size: 1.9em; line-height: 1.05; color: var(--color-header-value);
+            font-size: 2.4em; line-height: 1.05; color: var(--color-header-value);
         }
         #now-name {
-            font-size: 0.88em; color: var(--color-schedule-name);
-            margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+            font-size: 0.92em; color: var(--color-schedule-name); text-align: center;
+            margin-top: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
         }
         #now-caption {
             font-size: 0.58em; letter-spacing: 0.12em; text-transform: uppercase;
-            color: var(--color-header-label); margin-top: 6px;
+            color: var(--color-header-label); margin-top: 6px; text-align: center;
         }
 
         /* ── Prev / Next / Clear, on their own row in the header ── */
@@ -119,7 +124,13 @@
            takes the meet *off* the boards, and it is not part of the walk. */
         #btn-clear {
             flex: 0 0 56px; min-width: 0; font-size: 1.15em;
-            color: var(--color-schedule-club); background: none;
+            color: var(--color-schedule-club);
+            /* The longhand, deliberately. `background: none` here also reset
+               `background-image`, and at ID specificity it beat `.btn-holding`'s
+               gradient — so the button changed colour on a hold but never showed the
+               fill, leaving the one control with no wiring behind it looking like the
+               one control that does nothing. */
+            background-color: transparent;
         }
 
         /* ── Banner: a real console is configured and will overwrite us ── */
@@ -186,8 +197,11 @@
         .heat-card.heat-current .heat-header { background: var(--color-header-border); }
         .heat-card.heat-current { outline: 2px solid var(--color-time); outline-offset: -2px; }
         /* The heat after the current one is expanded too, so it needs to be tellable
-           from it at a glance — a dimmer version of the same marker, not a rival to it. */
-        .heat-card.heat-next { box-shadow: inset 3px 0 0 var(--color-schedule-event); }
+           from it at a glance — the same rectangle, in the schedule's blue rather than
+           the board's yellow, so the pair reads as "on now" and "up next". */
+        .heat-card.heat-next {
+            outline: 2px solid var(--color-schedule-event); outline-offset: -2px;
+        }
         /* Measured from the real header rather than guessed: it is taller when the
            wrong-console banner is up, and a fixed value would either tuck the current
            heat under the header or leave a gap above it. See `syncHeaderHeight`. */
@@ -208,13 +222,27 @@
             color: #fff !important;
             background-color: var(--hold-fill) !important;
             border-color: var(--hold-fill) !important;
-            background-image: linear-gradient(to right, rgba(255,255,255,0.55), rgba(255,255,255,0.55));
-            background-repeat: no-repeat;
+            /* !important on all three: a page rule with higher specificity (an id,
+               say) that sets `background` shorthand would otherwise reset the
+               gradient and leave the hold with no visible progress at all. */
+            background-image: linear-gradient(to right, rgba(255,255,255,0.55), rgba(255,255,255,0.55)) !important;
+            background-repeat: no-repeat !important;
             background-size: 0% 100%;
             animation: holdfill var(--hold-ms, 1200ms) linear forwards;
         }
         @keyframes holdfill { from { background-size: 0% 100%; } to { background-size: 100% 100%; } }
-        [data-hold] { touch-action: none; }
+        /* A hold is a long press, which is also the gesture iOS uses to raise the selection
+           callout / Writing Tools and Android uses for text selection — so on a phone the
+           menu came up over the button instead of the hold completing. `touch-action` keeps a
+           scroll from stealing the press; the other three keep the OS from treating the
+           button's glyph as text worth selecting. Needed even on a real <button>: the callout
+           is driven by selectable content, not by the element type. */
+        [data-hold] {
+            touch-action: none;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
+        }
     </style>
 </head>
 <body>

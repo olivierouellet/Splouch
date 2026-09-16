@@ -46,6 +46,14 @@
     document.addEventListener('click', function (e) {
         if (e.target.closest('[data-hold]')) e.preventDefault();  // no plain-click action
     }, true);
+    /* A long press is also the gesture that raises the context menu — the selection
+       callout and Writing Tools on iOS, the text-selection menu on Android — which
+       came up over the button and took the press with it. The CSS in panel.css stops
+       most of it; this catches what still gets through, and desktop right-click on a
+       hold button, where a menu is equally unwanted. */
+    document.addEventListener('contextmenu', function (e) {
+        if (e.target.closest('[data-hold]')) e.preventDefault();
+    });
     document.addEventListener('pointerdown', function (e) {
         var el = e.target.closest('[data-hold]');
         if (!el || el.disabled || el.classList.contains('disabled')) return;
