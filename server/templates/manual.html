@@ -1,17 +1,13 @@
 {# The manual console — event and heat by hand, for a meet with no timing console.
 
    Phone-first: the operator is standing on the pool deck holding this, not sitting at
-   the admin laptop. Hence the fixed header showing what is actually on the boards, a
-   pair of thumb-sized Prev/Next buttons under it, and the meet's whole running order
-   below as a scrollable list.
+   the admin laptop. Hence the sticky header carrying both what is on the boards and
+   every button that changes it, with the meet's whole running order scrolling below.
 
-   Two ways to change the heat, both deliberate:
-     - Prev / Next, held for 1.5 s (the [data-hold] mechanism the Power tab's Reboot
-       button uses), for the ordinary step between heats.
-     - Tap a row to preview its swimmers, then tap that row's ▸ to commit it, for
-       jumping somewhere else in the meet.
-   A plain tap on a row never changes the board. Changing the heat mid-race is the
-   mistake this page has to be hard to make by accident.
+   Nothing here reaches the boards on a tap. Previous, Next, Clear and each row's ▸
+   all take the same 1.5 s press-and-hold the Power tab's Reboot button uses — one
+   rule for the page, because changing the heat mid-race is the mistake it has to be
+   hard to make by accident. A tap only ever previews a heat's swimmers.
 
    The whole start list is embedded, not fetched: previewing then costs nothing, and
    the page survives a phone that drops off the Wi-Fi between heats. Seed times are
@@ -74,9 +70,10 @@
             padding: 8px 12px calc(8px + env(safe-area-inset-top)) 12px;
             padding-top: calc(8px + env(safe-area-inset-top));
         }
-        /* The header is one row: what is on the boards, then the two buttons that
-           change it. Both live here so neither scrolls away mid-meet — the operator
-           can be anywhere in the running order and still hit Next. */
+        /* Two rows, both inside the sticky header so neither scrolls away mid-meet:
+           what is on the boards, then the buttons that change it. The buttons get a
+           row of their own because at a thumb-friendly width they do not fit beside
+           the numbers on a phone. */
         #now .row1 { display: flex; align-items: center; gap: 12px; }
         /* Tapping the numbers jumps the list back to the heat that is on. */
         #now-jump {
@@ -102,11 +99,13 @@
             color: var(--color-header-label); margin-top: 6px;
         }
 
-        /* ── Prev / Next, in the header ── */
-        #stepper { display: flex; gap: 8px; flex-shrink: 0; }
+        /* ── Prev / Next / Clear, on their own row in the header ── */
+        #stepper { display: flex; gap: 14px; margin-top: 10px; }
         .step-btn {
-            width: 52px; min-height: 52px;
-            font-family: var(--font-family); font-size: 1.3em; line-height: 1;
+            /* flex, not a fixed width: the two steppers split the row between them,
+               so they are as wide as the phone allows and stay a thumb's target. */
+            flex: 1; min-height: 54px; min-width: 110px;
+            font-family: var(--font-family); font-size: 1.35em; line-height: 1;
             color: var(--color-header-value);
             background: var(--color-row-odd);
             border: 1px solid var(--color-header-border); border-radius: 10px;
@@ -116,6 +115,12 @@
             user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent;
         }
         .step-btn[disabled], .step-btn.disabled { opacity: 0.35; }
+        /* Narrower than the steppers and set apart: it is the one button here that
+           takes the meet *off* the boards, and it is not part of the walk. */
+        #btn-clear {
+            flex: 0 0 56px; min-width: 0; font-size: 1.15em;
+            color: var(--color-schedule-club); background: none;
+        }
 
         /* ── Banner: a real console is configured and will overwrite us ── */
         #banner {
@@ -150,9 +155,11 @@
         /* The only thing in the list that changes the board. Its own target, well
            clear of the row, so a mis-tap while scrolling previews instead. */
         .commit-btn {
-            flex-shrink: 0; width: 52px; align-self: stretch; min-height: 52px;
+            flex-shrink: 0; width: 58px; align-self: stretch; min-height: 52px;
             background: none; border: none; border-left: 1px solid var(--color-header-border);
             color: var(--color-schedule-event); font-size: 1.5em;
+            /* Held, not tapped, so the gesture must survive a scroll starting on it. */
+            touch-action: none;
             -webkit-tap-highlight-color: transparent;
         }
         .commit-btn:disabled { opacity: 0.3; }
@@ -178,6 +185,9 @@
 
         .heat-card.heat-current .heat-header { background: var(--color-header-border); }
         .heat-card.heat-current { outline: 2px solid var(--color-time); outline-offset: -2px; }
+        /* The heat after the current one is expanded too, so it needs to be tellable
+           from it at a glance — a dimmer version of the same marker, not a rival to it. */
+        .heat-card.heat-next { box-shadow: inset 3px 0 0 var(--color-schedule-event); }
         /* Measured from the real header rather than guessed: it is taller when the
            wrong-console banner is up, and a fixed value would either tuck the current
            heat under the header or leave a gap above it. See `syncHeaderHeight`. */
@@ -221,22 +231,25 @@
                 <span class="now-value" id="now-heat">&mdash;</span>
             </span>
         </button>
-        {% if has_meet %}
-        {# In the header, not above the list: the operator is usually scrolled well
-           away from the current heat when the next one is called, and a stepper that
-           had scrolled off the top would mean hunting for it between every heat. #}
-        <div id="stepper">
-            <button type="button" class="step-btn" id="btn-prev" aria-label="{{ t.prev }}"
-                    title="{{ t.prev }} &middot; {{ t.hold }}"
-                    data-hold data-hold-ms="1500" data-hold-fn="manualPrev">&#9666;</button>
-            <button type="button" class="step-btn" id="btn-next" aria-label="{{ t.next }}"
-                    title="{{ t.next }} &middot; {{ t.hold }}"
-                    data-hold data-hold-ms="1500" data-hold-fn="manualNext">&#9656;</button>
-        </div>
-        {% endif %}
     </div>
     <div id="now-name"></div>
     <div id="now-caption">{{ t.on_boards }} &middot; {{ t.hold }}</div>
+    {% if has_meet %}
+    {# In the header, not above the list: the operator is usually scrolled well away
+       from the current heat when the next one is called, and a stepper that had
+       scrolled off the top would mean hunting for it between every heat. #}
+    <div id="stepper">
+        <button type="button" class="step-btn" id="btn-prev" aria-label="{{ t.prev }}"
+                title="{{ t.prev }} &middot; {{ t.hold }}"
+                data-hold data-hold-ms="1500" data-hold-fn="manualPrev">&#9666;</button>
+        <button type="button" class="step-btn" id="btn-next" aria-label="{{ t.next }}"
+                title="{{ t.next }} &middot; {{ t.hold }}"
+                data-hold data-hold-ms="1500" data-hold-fn="manualNext">&#9656;</button>
+        <button type="button" class="step-btn" id="btn-clear" aria-label="{{ t.clear_board }}"
+                title="{{ t.clear_board }} &middot; {{ t.hold }}"
+                data-hold data-hold-ms="1500" data-hold-fn="manualClear">&#10005;</button>
+    </div>
+    {% endif %}
 </div>
 
 {% if not manual_active %}
@@ -267,7 +280,8 @@
 
     var HEATS  = {{ heats_json | safe }};
     var LABELS = { event: {{ labels.event | tojson }}, heat: {{ labels.heat | tojson }} };
-    var T      = { commit: {{ (t.commit or 'Set current') | tojson }} };
+    var T      = { commit: {{ (t.commit or 'Set current') | tojson }},
+                   hold:   {{ (t.hold   or 'Hold to change') | tojson }} };
 
     var currentEvent = {{ current_event | tojson }};
     var currentHeat  = {{ current_heat  | tojson }};
@@ -317,16 +331,19 @@
 
     function render() {
         var html = '';
+        var cur  = indexOfCurrent();
         for (var i = 0; i < HEATS.length; i++) {
             var h    = HEATS[i];
             var key  = keyOf(h);
-            /* The heat that is on the boards is always expanded — it is the one the
-               operator is looking up from to check who is behind the blocks, and
-               having to tap it open again after every change is a tap too many.
-               A previewed heat opens alongside it, not instead of it. */
-            var open = key === openKey || isCurrent(h);
+            /* The heat on the boards and the one after it are always expanded: those
+               are the two the operator is actually looking at — who is swimming, and
+               who to call up next. Re-opening them after every change is two taps too
+               many. A previewed heat opens alongside them, not instead of them. */
+            var isNext = cur >= 0 && i === cur + 1;
+            var open   = key === openKey || isCurrent(h) || isNext;
             var cls  = 'heat-card ' + (i % 2 === 0 ? 'heat-even' : 'heat-odd') +
-                       (isCurrent(h) ? ' heat-current' : '') + (open ? ' open' : '');
+                       (isCurrent(h) ? ' heat-current' : '') +
+                       (isNext ? ' heat-next' : '') + (open ? ' open' : '');
             html += '<div class="' + cls + '" data-key="' + esc(key) + '">' +
                       '<div class="heat-header">' +
                         '<span class="heat-time">' + esc(h.time || '') + '</span>' +
@@ -337,7 +354,12 @@
                           '</div>' +
                           '<div class="heat-name">' + esc(eventNameOf(h)) + '</div>' +
                         '</div>' +
+                        /* Held, not tapped, like every other control that reaches the
+                           boards — and the reason this is a `data-hold-fn` rather than
+                           a click: hold.js swallows the plain click on a [data-hold]. */
                         '<button type="button" class="commit-btn" data-commit="' + esc(key) + '"' +
+                          ' data-hold data-hold-ms="1500" data-hold-fn="manualCommit"' +
+                          ' title="' + esc(T.commit) + ' · ' + esc(T.hold) + '"' +
                           ' aria-label="' + esc(T.commit) + '">▸</button>' +
                       '</div>' +
                       (open ? '<div class="swimmer-list">' + swimmerRows(h) + '</div>' : '') +
@@ -387,23 +409,36 @@
     window.manualPrev = function () { if (sock.connected) sock.emit('prev_heat', {}); };
     window.manualNext = function () { if (sock.connected) sock.emit('next_heat', {}); };
 
+    /* Takes the meet off the boards entirely — back to the blank header a cold boot
+       shows. Held like the rest: it is the one control here that shows nothing. */
+    window.manualClear = function () {
+        if (sock.connected) sock.emit('clear_heat', {});
+        openKey = null;
+    };
+
+    /* One handler for every row, reading the heat off whichever arrow was held —
+       hold.js hands the element over for exactly this. */
+    window.manualCommit = function (el) {
+        var parts = (el.getAttribute('data-commit') || '').split('/');
+        if (sock.connected) {
+            sock.emit('goto_heat', { event: parseInt(parts[0], 10),
+                                     heat:  parseInt(parts[1], 10) });
+        }
+        openKey = null;          // committed; the preview has done its job
+        render();
+    };
+
     document.addEventListener('click', function (e) {
         /* The numbers in the header are the "where am I?" button: after scrolling
            down the meet to look something up, one tap comes back to the heat that is
            actually on. Smooth, so it reads as a journey rather than a jump cut. */
         if (e.target.closest('#now-jump')) { scrollToCurrent(true); return; }
 
-        var commit = e.target.closest('[data-commit]');
-        if (commit) {
-            var parts = commit.getAttribute('data-commit').split('/');
-            if (sock.connected) {
-                sock.emit('goto_heat', { event: parseInt(parts[0], 10),
-                                         heat:  parseInt(parts[1], 10) });
-            }
-            openKey = null;          // committed; the preview has done its job
-            render();
-            return;
-        }
+        /* A press on an arrow is a hold in progress, not a tap on the row behind it.
+           hold.js swallows the click but does not stop it bubbling, so without this
+           a too-short press on ▸ would silently toggle the preview instead. */
+        if (e.target.closest('[data-hold]')) return;
+
         var card = e.target.closest('.heat-card');
         if (!card) return;
         var key = card.getAttribute('data-key');

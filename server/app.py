@@ -18,8 +18,8 @@ import bus
 import state
 from meet_data import _get_next_heats, send_event_info
 from web import NotAuthenticated, render, require_login
-from worker import (_worker_adjust_splits, _worker_goto_heat, _worker_next_heat,
-                    _worker_prev_heat, main_thread_worker)
+from worker import (_worker_adjust_splits, _worker_clear_heat, _worker_goto_heat,
+                    _worker_next_heat, _worker_prev_heat, main_thread_worker)
 
 from routes.scoreboard import router as scoreboard_router
 from routes.meet       import router as meet_router
@@ -240,6 +240,8 @@ async def ws_scoreboard(ws: WebSocket):
                 state._worker_cmds.put(_worker_next_heat)
             elif ev == 'prev_heat':
                 state._worker_cmds.put(_worker_prev_heat)
+            elif ev == 'clear_heat':
+                state._worker_cmds.put(_worker_clear_heat)
             elif ev == 'goto_heat':
                 # Unauthenticated LAN input like the rest of this channel: coerce
                 # here, then let the worker check the heat against the loaded meet,

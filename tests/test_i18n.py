@@ -747,3 +747,39 @@ def test_every_fallback_matches_its_english(key, default):
     english = {**panel['chrome'], **panel['cloud']}[key]
     assert english == default, (
         f'{key}: en.toml says {english!r}, admin.html falls back to {default!r}')
+
+
+def test_no_string_a_template_reads_as_t_dot_key_is_shadowed_by_dict():
+    """Jinja resolves `{{ t.clear }}` with getattr *before* getitem, so a key whose
+    name is also a dict method silently renders the bound method — `<built-in method
+    clear of dict object at 0x...>` turned up in a button's tooltip rather than the
+    word it was meant to say, and nothing raised.
+
+    Scoped to keys a template actually dereferences with a dot: `[cloud]` carries a
+    `copy` and an `update` that only ever reach JavaScript through `{{ t | tojson }}`,
+    which serializes the dict itself and is unaffected.
+    """
+    import glob
+    import re
+    import tomllib
+
+    dotted = set()
+    for pattern in ('server/templates/*.html', 'cloud/templates/*.html',
+                    'shared/templates/*.html'):
+        for path in glob.glob(os.path.join(REPO, pattern)):
+            dotted |= set(re.findall(r'\bt\.([a-zA-Z_][a-zA-Z0-9_]*)',
+                                     open(path, encoding='utf-8').read()))
+
+    shadowed = set(dir({}))
+    offenders = []
+    for path in sorted(glob.glob(os.path.join(REPO, 'shared/locales/**/*.toml'),
+                                 recursive=True)):
+        data = tomllib.load(open(path, 'rb'))
+        for section, body in data.items():
+            if not isinstance(body, dict):
+                continue
+            for key in body:
+                if key in shadowed and key in dotted:
+                    offenders.append(f'{os.path.basename(path)} [{section}] {key}')
+    assert not offenders, (
+        'these keys render as a dict method, not their string: ' + ', '.join(offenders))

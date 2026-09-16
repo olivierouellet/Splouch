@@ -411,17 +411,35 @@ def test_the_hold_duration_is_declared_once_and_read_by_both_halves():
         assert 'animation: holdfill var(--hold-ms' in src, f'{css} hardcodes the duration'
 
 
-def test_prev_and_next_need_a_hold_but_picking_a_heat_from_the_list_does_not():
-    """Prev/Next change the board on one press, so they carry the same press-and-hold
-    as Reboot. The list's ▸ is already the second step of a preview, so a hold there
-    would be a third."""
-    page = open(os.path.join(REPO, 'server', 'templates', 'manual.html'),
-                encoding='utf-8').read()
-    assert page.count('data-hold-ms="1500"') == 2, 'both steppers must be held'
-    assert 'data-hold-fn="manualPrev"' in page
-    assert 'data-hold-fn="manualNext"' in page
-    commit = page[page.index('class="commit-btn"'):page.index('class="commit-btn"') + 200]
-    assert 'data-hold' not in commit
+def test_everything_that_reaches_the_boards_is_held_not_tapped():
+    """One rule for the whole page rather than two: Previous, Next, Clear and every
+    row's ▸ all take the same 1.5s press-and-hold the Power tab uses. A tap that
+    changed the heat mid-race is the accident this page exists to make hard."""
+    page = _manual_page()
+    for fn in ('manualPrev', 'manualNext', 'manualClear', 'manualCommit'):
+        assert f'data-hold-fn="{fn}"' in page, f'{fn} is not behind a hold'
+    # Three in the header plus the one on every row of the running order.
+    assert page.count('data-hold-ms="1500"') == 4
+
+
+def test_a_short_press_on_a_row_arrow_does_not_fall_through_to_the_preview():
+    """hold.js swallows the click on a [data-hold] but does not stop it bubbling, so
+    without this guard an abandoned hold on ▸ would silently toggle the row instead —
+    the page quietly doing something other than what was asked of it."""
+    page = _manual_page()
+    assert "if (e.target.closest('[data-hold]')) return;" in page
+
+
+def test_the_row_arrows_read_their_heat_off_the_button_that_was_held():
+    """One handler for every row. hold.js passes the element for exactly this — a
+    per-row closure would mean re-binding on every render."""
+    page = _manual_page()
+    assert "window.manualCommit = function (el)" in page
+    assert "el.getAttribute('data-commit')" in page
+
+    hold_js = open(os.path.join(REPO, 'shared', 'static', 'js', 'hold.js'),
+                   encoding='utf-8').read()
+    assert 'window[fn](el)' in hold_js, 'hold.js must hand the element to the handler'
 
 
 def test_the_preview_shows_swimmers_but_never_seed_times():
@@ -484,3 +502,77 @@ def test_the_current_heat_is_always_expanded():
     opens alongside it rather than instead of it."""
     page = _manual_page()
     assert 'key === openKey || isCurrent(h)' in page
+
+
+def test_the_steppers_are_wide_enough_for_a_thumb_and_set_apart():
+    """They were 52px squares tucked beside the numbers. A stepper the operator hits
+    between every heat, on a wet pool deck, gets the width of the screen."""
+    page = _manual_page()
+    stepper = page[page.index('#stepper {'):page.index('.step-btn[disabled]')]
+    assert 'flex: 1' in stepper, 'the steppers should split the row, not sit at a fixed width'
+    assert 'min-width: 110px' in stepper
+    assert 'gap: 14px' in stepper
+
+
+def test_the_next_heat_is_expanded_alongside_the_current_one():
+    """The two an operator actually looks at: who is swimming, and who to call up."""
+    page = _manual_page()
+    assert 'key === openKey || isCurrent(h) || isNext' in page
+    assert 'i === cur + 1' in page
+    # And tellable apart, since both are now open.
+    assert '.heat-card.heat-next' in page
+
+
+def test_clearing_the_board_puts_the_decoder_back_at_its_sentinel(rig):
+    """Not a new state — (0, 0) is the "nothing announced yet" value a cold boot has,
+    which `send_event_info` already renders as empty strings rather than event 0."""
+    worker._worker_set_heat(3, 1)
+    rig.emitted.clear()
+
+    worker._worker_clear_heat()
+
+    assert rig.decoder.last_event_sent == (0, 0)
+    assert rig.decoder.lane_seed_times == {}
+    board = _boards(rig)
+    assert board['current_event'] == ''
+    assert board['current_heat'] == ''
+    assert board['event_name'] == ''
+    assert board['lane_name1'] == ''
+    # `send_event_info` blanks names and deltas but not these — hence reset_lanes too.
+    assert board['lane_time1'] == ''
+    assert board['lane_place1'] == ' '
+    assert board['lane_splits1'] == 0
+
+
+def test_clearing_the_board_sends_the_upcoming_list_back_to_the_top(rig):
+    """An empty board means nothing has run yet, so the next-heats list says so."""
+    worker._worker_set_heat(3, 2)
+    rig.emitted.clear()
+    worker._worker_clear_heat()
+
+    frames = [d for _, ev, d in rig.emitted if ev == 'next_heats']
+    assert frames, 'clearing did not republish the upcoming heats'
+    first = frames[-1]['heats'][0]
+    assert (first['event'], first['heat']) == meet_data.heat_order()[0]
+
+
+def test_clearing_the_board_reads_as_not_live(rig):
+    """`is_live` is keyed off the sentinel, so an empty board correctly reports the
+    link as idle — there is genuinely nothing on it."""
+    worker._worker_set_heat(1, 1)
+    assert rig.decoder.is_live is True
+    worker._worker_clear_heat()
+    assert rig.decoder.is_live is False
+
+
+def test_clearing_cancels_a_pending_debounce(rig):
+    worker._worker_set_heat(1, 1)
+    state._results_prev_race_finished = True
+    state._running_lanes.add(2)
+    gen = state._finish_timer_gen
+
+    worker._worker_clear_heat()
+
+    assert state._results_prev_race_finished is False
+    assert state._running_lanes == set()
+    assert state._finish_timer_gen > gen

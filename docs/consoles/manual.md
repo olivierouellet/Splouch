@@ -35,20 +35,27 @@ and no podium is ever shown. This is a start-list display, not a timing system.
 
 ## Running a meet
 
-The page has two ways to change the heat, and both are deliberate — putting the wrong
-heat on the board mid-race is the mistake it has to be hard to make.
+**Nothing on this page changes the boards on a tap.** Every control that reaches them
+— Previous, Next, Clear and each row's **▸** — takes a press and hold of about a
+second and a half. The button fills as it goes, the same press-and-hold the Power tab
+uses; let go early and nothing happens. Putting the wrong heat up mid-race is the
+mistake the page has to be hard to make.
 
-**Between heats:** press and hold **Previous** or **Next** for a second and a half.
-The button fills as it goes, the same press-and-hold the Power tab uses; let go early
-and nothing happens. They walk the meet in running order and stop at the ends.
+**Between heats:** hold **◂** or **▸** in the header. They walk the meet in running
+order and stop at the ends, and they stay put while you scroll the list.
 
-**Jumping somewhere else:** tap any heat in the list to expand it and check the
-swimmers, then tap that row's **▸** to put it on the boards. A plain tap only
-previews — it never changes what the boards show.
+**Jumping somewhere else:** tap any heat to expand it and check the swimmers, then
+hold that row's **▸** to put it on the boards. A tap only ever previews.
 
-The heat currently on the boards is outlined and scrolls itself into view. It only
-moves once the server confirms the change, so what the page shows is always what the
-boards show.
+**Clearing the boards:** hold **✕** to take the meet off them entirely, back to the
+blank header a cold boot shows. Useful between sessions — warm-up, or the gap between
+morning and afternoon — where leaving the last heat swum on the TV reads as though it
+is about to happen again.
+
+The heat on the boards is outlined and sits at the top of the list; the heat after it
+is expanded too, so you can see who to call up next. The highlight only moves once the
+server confirms the change, so what the page shows is always what the boards show.
+Tap the event and heat numbers at any time to scroll back to them.
 
 ## Using it with a real console
 

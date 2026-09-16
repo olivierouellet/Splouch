@@ -33,7 +33,10 @@
     function run(el) {
         var fn = el.getAttribute('data-hold-fn');
         var href = el.getAttribute('data-hold-href') || el.getAttribute('href');
-        if (fn && typeof window[fn] === 'function') window[fn]();
+        /* The element is passed so one handler can serve many buttons — /manual has a
+           hold on every row of the running order and reads the heat off the button
+           that was held. Existing handlers take no arguments and ignore it. */
+        if (fn && typeof window[fn] === 'function') window[fn](el);
         else if (href) window.location.href = href;
     }
     function cancel() {

@@ -358,6 +358,40 @@ def _worker_set_heat(ev, ht):
     print(f'[manual] Event {ev} Heat {ht}', flush=True)
 
 
+def _worker_clear_heat():
+    """Take the meet off the boards — back to the blank header a cold boot shows.
+
+    (0, 0) is the decoder's "nothing announced yet" sentinel, which `send_event_info`
+    already renders as empty strings rather than a literal event 0 heat 0, so this
+    needs no new state: it puts the decoder back where it started. `reset_lanes()` on
+    top of it because `send_event_info` blanks the names and the deltas but not the
+    times, places or split counts.
+
+    What it is for is the end of a session — the warm-up before the meet, the gap
+    between morning and afternoon — where leaving the last heat swum up on the TV
+    reads as though it is about to happen again.
+    """
+    state._decoder.last_event_sent = (0, 0)
+    state._decoder.set_seed_times({})
+    updates = state._decoder.reset_lanes()
+
+    state._finish_timer_gen += 1
+    state._results_prev_race_finished = False
+    state._running_lanes.clear()
+
+    bus.emit('/scoreboard', 'update_scoreboard', updates)
+    relay.relay_emit('update_scoreboard', updates)
+    # Blanks the header and every lane name; reads the (0, 0) sentinel itself.
+    send_event_info()
+    # And the upcoming list goes back to the top of the meet, which is what an empty
+    # board means: nothing has run yet.
+    next_heats_data = {'heats': _get_next_heats(
+        num_lanes=int(state.settings.get('num_lanes', 8)))}
+    bus.emit('/results', 'next_heats', next_heats_data)
+    relay.relay_emit('next_heats', next_heats_data)
+    print('[manual] board cleared', flush=True)
+
+
 def _worker_step_heat(delta):
     """Walk `delta` heats along the loaded meet's running order, if there is one."""
     nxt = heat_step(*state._decoder.last_event_sent, delta)

@@ -114,6 +114,7 @@ is allowed to reach it is a real session as far as the cloud is concerned.
 | `next_heat` | `{}` | advance to the next event/heat in the meet's running order (§2.3) |
 | `prev_heat` | `{}` | step back one event/heat (§2.3) |
 | `goto_heat` | `{ "event": int, "heat": int }` | make that event/heat current; ignored unless the loaded meet contains it (§2.3) |
+| `clear_heat` | `{}` | take the meet off the boards — back to the blank header a cold boot shows (§2.3) |
 
 **`register`** is optional but expected of native clients. Browser tabs never send
 it, so `role` is what tells the two apart in Settings → Network. `version` is
@@ -149,6 +150,12 @@ There is **no dedicated acknowledgement**. A commit is confirmed by the ordinary
 plus `next_heats` (§5.3) on `/ws/results` and the relay. A client should therefore
 render the current heat from those frames rather than from its own optimistic guess,
 so what it shows always matches the boards.
+
+`clear_heat` puts the decoder back at its `(0, 0)` sentinel — the value a cold boot
+has — so the header, the lane names, the times and the places all blank, and
+`next_heats` rewinds to the top of the meet. Under a decoder that answers `is_live`
+off that sentinel (the manual console), it also takes `meet_live` false, which is
+correct: an empty board has nothing running on it.
 
 No `results_snapshot` and no `race_finished` ever follow: a manual console carries no
 times, so nothing is ever finished.
