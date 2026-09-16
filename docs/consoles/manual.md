@@ -37,7 +37,7 @@ and no podium is ever shown. This is a start-list display, not a timing system.
 
 **Nothing on this page changes the boards on a tap.** Every control that reaches them
 — Previous, Next, Clear and each row's **▸** — takes a press and hold of about a
-second and a half. The button fills as it goes, the same press-and-hold the Power tab
+second and a half. (**◎**, which only scrolls the list, is a plain tap.) The button fills as it goes, the same press-and-hold the Power tab
 uses; let go early and nothing happens. Putting the wrong heat up mid-race is the
 mistake the page has to be hard to make.
 
@@ -52,10 +52,14 @@ blank header a cold boot shows. Useful between sessions — warm-up, or the gap 
 morning and afternoon — where leaving the last heat swum on the TV reads as though it
 is about to happen again.
 
-The heat on the boards is outlined and sits at the top of the list; the heat after it
-is expanded too, so you can see who to call up next. The highlight only moves once the
-server confirms the change, so what the page shows is always what the boards show.
-Tap the event and heat numbers at any time to scroll back to them.
+**Finding your place:** tap **◎** (or the event and heat numbers in the header) to
+scroll the list back to the heat that is on. It is a plain tap, not a hold — it moves
+the list and nothing else.
+
+The heat on the boards is outlined in the board's yellow and sits at the top of the
+list; the heat after it is outlined in blue and expanded too, so you can see who to
+call up next. The highlight only moves once the server confirms the change, so what
+the page shows is always what the boards show.
 
 ## Using it with a real console
 

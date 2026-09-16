@@ -82,18 +82,24 @@
            Tapping anywhere in it jumps the list back to the heat that is on. */
         #now-jump {
             display: flex; align-items: baseline; justify-content: center;
-            gap: 28px; flex: 1; min-width: 0;
+            gap: 22px; flex: 1; min-width: 0;
             background: none; border: none; padding: 0; text-align: center;
             font-family: inherit; color: inherit;
             -webkit-tap-highlight-color: transparent;
+            /* Label and number share one size, so `clamp` rather than a fixed em:
+               "EVENT 12  HEAT 3" on one line at the size the numbers alone used to be
+               would run off a narrow phone, and a three-digit event number is the
+               case that would do it. This takes as much of the screen as it can and
+               gives the rest back. */
+            --now-size: clamp(1rem, 5.8vw, 1.9rem);
         }
         .now-label {
-            font-size: 0.66em; letter-spacing: 0.12em; text-transform: uppercase;
-            color: var(--color-header-label); display: block;
+            font-size: var(--now-size); letter-spacing: 0.04em; text-transform: uppercase;
+            color: var(--color-header-label); margin-right: 0.35em;
         }
         .now-value {
             font-family: var(--font-digits), monospace;
-            font-size: 2.4em; line-height: 1.05; color: var(--color-header-value);
+            font-size: var(--now-size); line-height: 1.05; color: var(--color-header-value);
         }
         #now-name {
             font-size: 0.92em; color: var(--color-schedule-name); text-align: center;
@@ -104,7 +110,7 @@
             color: var(--color-header-label); margin-top: 6px; text-align: center;
         }
 
-        /* ── Prev / Next / Clear, on their own row in the header ── */
+        /* ── Locate / Prev / Next / Clear, on their own row in the header ── */
         #stepper { display: flex; gap: 14px; margin-top: 10px; }
         .step-btn {
             /* flex, not a fixed width: the two steppers split the row between them,
@@ -120,10 +126,15 @@
             user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent;
         }
         .step-btn[disabled], .step-btn.disabled { opacity: 0.35; }
-        /* Narrower than the steppers and set apart: it is the one button here that
-           takes the meet *off* the boards, and it is not part of the walk. */
+        /* The two narrow ones bracket the walk: find where you are on the left, take
+           the meet off the boards on the right. Same width so the row reads as a pair
+           of wide steppers between a pair of small utilities. */
+        #btn-locate, #btn-clear { flex: 0 0 56px; min-width: 0; font-size: 1.15em; }
+        #btn-locate {
+            color: var(--color-schedule-event);
+            background-color: transparent;
+        }
         #btn-clear {
-            flex: 0 0 56px; min-width: 0; font-size: 1.15em;
             color: var(--color-schedule-club);
             /* The longhand, deliberately. `background: none` here also reset
                `background-image`, and at ID specificity it beat `.btn-holding`'s
@@ -202,6 +213,11 @@
         .heat-card.heat-next {
             outline: 2px solid var(--color-schedule-event); outline-offset: -2px;
         }
+        /* The two are adjacent by definition, so their outlines met at the row border
+           and read as one crossed shape rather than two boxes. The margins collapse
+           between them into a single 5px gap, which is all it takes to separate them.
+           On the outer edges it sets the pair apart from the ordinary rows too. */
+        .heat-card.heat-current, .heat-card.heat-next { margin: 5px 0; }
         /* Measured from the real header rather than guessed: it is taller when the
            wrong-console banner is up, and a fixed value would either tuck the current
            heat under the header or leave a gap above it. See `syncHeaderHeight`. */
@@ -249,7 +265,7 @@
 
 <div id="now">
     <div class="row1">
-        <button type="button" id="now-jump" title="{{ t.on_boards }}">
+        <button type="button" id="now-jump" aria-label="{{ t.locate }}">
             <span>
                 <span class="now-label">{{ labels.event }}</span>
                 <span class="now-value" id="now-event">&mdash;</span>
@@ -261,12 +277,19 @@
         </button>
     </div>
     <div id="now-name"></div>
-    <div id="now-caption">{{ t.on_boards }} &middot; {{ t.hold }}</div>
+    <div id="now-caption">{{ t.hold }}</div>
     {% if has_meet %}
     {# In the header, not above the list: the operator is usually scrolled well away
        from the current heat when the next one is called, and a stepper that had
        scrolled off the top would mean hunting for it between every heat. #}
     <div id="stepper">
+        {# No hold on this one: it scrolls the list and touches nothing on the boards,
+           so there is nothing here to do by accident. #}
+        {# `aria-label` and no `title`: the glyph is the whole button, so a screen
+           reader needs a name for it, but a tooltip on hover is just noise on a page
+           meant for a thumb. #}
+        <button type="button" class="step-btn" id="btn-locate" aria-label="{{ t.locate }}"
+                onclick="manualLocate()">&#9678;</button>
         <button type="button" class="step-btn" id="btn-prev" aria-label="{{ t.prev }}"
                 title="{{ t.prev }} &middot; {{ t.hold }}"
                 data-hold data-hold-ms="1500" data-hold-fn="manualPrev">&#9666;</button>
@@ -436,6 +459,10 @@
 
     window.manualPrev = function () { if (sock.connected) sock.emit('prev_heat', {}); };
     window.manualNext = function () { if (sock.connected) sock.emit('next_heat', {}); };
+
+    /* Scrolls; sends nothing. Same job as tapping the numbers in the header, given a
+       button of its own because the header is a readout first and not obviously one. */
+    window.manualLocate = function () { scrollToCurrent(true); };
 
     /* Takes the meet off the boards entirely — back to the blank header a cold boot
        shows. Held like the rest: it is the one control here that shows nothing. */

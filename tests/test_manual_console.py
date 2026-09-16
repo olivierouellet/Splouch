@@ -598,7 +598,8 @@ def test_the_clear_button_does_not_reset_the_gradient_the_hold_fills():
     feedback looking like the one control that does nothing."""
     import re
     page = _manual_page()
-    rule = page[page.index('#btn-clear {'):]
+    # The standalone rule, not the shared `#btn-locate, #btn-clear` sizing line above it.
+    rule = page[page.index('\n        #btn-clear {'):]
     rule = rule[:rule.index('}')]
     # Declarations only — the comment above them names the shorthand it warns against.
     decls = re.sub(r'/\*.*?\*/', '', rule, flags=re.S)
@@ -633,22 +634,70 @@ def test_a_long_press_cannot_raise_the_phones_text_menu():
     assert "addEventListener('contextmenu'" in hold_js
 
 
-def test_the_event_and_heat_readout_is_centred_and_the_biggest_thing_on_the_page():
+def test_the_event_and_heat_readout_is_centred_and_reads_as_one_line():
     """It is the one number checked against the board across the pool, at a glance and
-    at arm's length. The name and caption centre with it so the header reads as one
-    block rather than a left column with a centred number dropped into it."""
+    at arm's length. Label and number sit on one line at one size — so the size is a
+    `clamp`, because "EVENT 12  HEAT 3" at the size the numbers alone could take would
+    run off a narrow phone, and a three-digit event is the case that would do it."""
     page = _manual_page()
     jump = page[page.index('#now-jump {'):]
     jump = jump[:jump.index('}')]
     assert 'justify-content: center' in jump
     assert 'text-align: center' in jump
+    assert '--now-size: clamp(' in jump
 
     for block in ('#now-name {', '#now-caption {'):
         rule = page[page.index(block):]
         rule = rule[:rule.index('}')]
         assert 'text-align: center' in rule, block
 
-    value = page[page.index('.now-value {'):]
-    value = value[:value.index('}')]
-    size = float(value.split('font-size:')[1].split('em')[0].strip())
-    assert size >= 2.2, f'the readout is only {size}em'
+    # One size for both, and the label no longer stacked above its number.
+    for block in ('.now-label {', '.now-value {'):
+        rule = page[page.index(block):]
+        rule = rule[:rule.index('}')]
+        assert 'font-size: var(--now-size)' in rule, block
+        assert 'display: block' not in rule, block
+
+    ceiling = float(jump.split('--now-size: clamp(')[1].split(')')[0]
+                        .split(',')[2].strip().rstrip('rem'))
+    assert ceiling >= 1.8, f'the readout tops out at {ceiling}rem'
+
+
+def test_the_locate_button_is_a_plain_tap_and_matches_the_clear_button():
+    """It scrolls the list and touches nothing on the boards, so there is nothing here
+    to do by accident and nothing to guard with a hold. Same width as Clear so the row
+    reads as two wide steppers bracketed by two small utilities."""
+    page = _manual_page()
+    btn = page[page.index('id="btn-locate"') - 60:]
+    btn = btn[:btn.index('</button>')]
+    assert 'onclick="manualLocate()"' in btn
+    assert 'data-hold' not in btn, 'locating does not change the boards; no hold'
+    # A name for a screen reader, but no tooltip: the page is meant for a thumb.
+    assert 'aria-label' in btn and 'title=' not in btn
+
+    sizing = page[page.index('#btn-locate, #btn-clear {'):]
+    sizing = sizing[:sizing.index('}')]
+    assert 'flex: 0 0 56px' in sizing, 'locate and clear must share one width'
+
+    assert 'window.manualLocate = function () { scrollToCurrent(true); };' in page
+
+
+def test_the_two_outlined_heats_do_not_touch():
+    """Current and next are adjacent by definition, so their outlines met at the row
+    border and read as one crossed shape instead of two boxes."""
+    page = _manual_page()
+    rule = page[page.index('.heat-card.heat-current, .heat-card.heat-next {'):]
+    rule = rule[:rule.index('}')]
+    gap = float(rule.split('margin:')[1].split('px')[0].strip())
+    assert gap > 0, 'the outlines have nothing between them'
+
+
+def test_the_caption_says_only_how_to_use_the_buttons():
+    """"On the boards" labelled the numbers, but the row below it is buttons — the two
+    read as one sentence about the wrong thing. The hold hint is the part that has to
+    be there, because nothing else tells you a tap will not do."""
+    page = _manual_page()
+    caption = page[page.index('id="now-caption"'):]
+    caption = caption[:caption.index('</div>')]
+    assert '{{ t.hold }}' in caption
+    assert 'on_boards' not in page, 'the string is gone; nothing should still ask for it'

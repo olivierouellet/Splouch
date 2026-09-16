@@ -48,7 +48,7 @@ _HEATS = ('[{"event":3,"heat":1,"event_name":"50 Libre",'
           '"swimmers":[{"pos":1,"name":"Élise Roy","first":"Élise"}]}]}]')
 _VOCAB = {'unit': 'm', 'freestyle': 'Libre', 'separator': ' — '}
 _MANUAL_T = {'title': 'Console manuelle', 'prev': 'Précédente', 'next': 'Suivante',
-             'on_boards': 'Sur les tableaux', 'commit': 'Afficher cette série',
+             'commit': 'Afficher cette série', 'locate': 'Aller à la série en cours',
              'hold': 'Maintenir pour changer', 'no_meet': 'Aucun fichier',
              'not_active': 'Une console est sélectionnée.',
              'open_settings': 'Réglages', 'reconnecting': 'Reconnexion…'}
