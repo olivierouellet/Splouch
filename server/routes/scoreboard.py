@@ -1,8 +1,11 @@
+import json
 import os
 
 from fastapi import APIRouter, Request
 
 import state
+from console_decoders import console_info_for
+from meet_data import build_heats
 from web import client_strings, display_config, redirect, remember_prefs, render
 
 router = APIRouter(tags=['Scoreboard'])
@@ -80,6 +83,42 @@ def route_operator(request: Request):
     return render(request, 'operator.html',
                   num_lanes=int(state.settings.get('num_lanes', 8)),
                   split_step=split_step)
+
+
+@router.get('/manual')
+def route_manual(request: Request):
+    """The manual console — drive event and heat by hand when the meet has none.
+
+    The whole start list is server-rendered, exactly what `/schedule` embeds, so
+    previewing a heat costs no round trip and the page keeps working on a phone that
+    drops off the Wi-Fi between heats. The socket then carries only what is genuinely
+    live: which heat is on now, and the operator's three commands.
+
+    Not login-gated, like `/operator`. That would be theatre while `/ws/scoreboard`
+    accepts `next_heat` from any client on the LAN; locking it down means authing the
+    whole channel, which is a larger change than this page.
+    """
+    heats   = build_heats()
+    ev, ht  = state._decoder.last_event_sent
+    started = (ev, ht) != (0, 0)
+    console = console_info_for(state.settings.get('console_type', 'cts_gen6')) or {}
+    return render(request, 'manual.html',
+                  heats_json=json.dumps(heats),
+                  has_meet=bool(heats),
+                  current_event=str(ev) if started else '',
+                  current_heat=str(ht) if started else '',
+                  # False when a real console is configured: the page still works, but
+                  # the console will re-announce over it within a packet or two, so it
+                  # says so rather than letting the operator wonder.
+                  manual_active=not state._decoder.requires_serial,
+                  console_label=console.get('label', ''),
+                  meet_name=(state.meet.meet_info.get('name') or
+                             state.settings.get('meet_title') or ''),
+                  theme_colors={**state.DEFAULT_THEME_COLORS,
+                                **state.settings.get('theme_colors', {})},
+                  theme_fonts={**state.DEFAULT_THEME_FONTS,
+                               **state.settings.get('theme_fonts', {})},
+                  t=state.manual_strings())
 
 
 @router.get('/console')

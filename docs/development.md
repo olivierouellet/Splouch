@@ -66,6 +66,14 @@ The file must define `CONSOLE_OPTIONS` and `DECODERS` at module level:
 from console_decoders.base import ConsoleDecoder, SerialConfig
 
 class MyDecoder(ConsoleDecoder):
+    def __init__(self, cfg):
+        # Required by the app layer and declared by nothing: send_event_info,
+        # _build_results_snapshot and _add_lane_deltas read these straight off
+        # state._decoder. (0, 0) is the "nothing announced yet" sentinel.
+        self.last_event_sent = (0, 0)
+        self.lane_seed_times = {}
+        self.configure(cfg)
+
     @property
     def serial_config(self):
         return SerialConfig(baud=9600, bytesize=8, parity='N', stopbits=1)
@@ -94,6 +102,13 @@ DECODERS = {
     'my_console': MyDecoder,
 }
 ```
+
+Two optional members change how the app treats the decoder:
+
+| member | default | meaning |
+| --- | --- | --- |
+| `requires_serial` | `True` | A **plain class attribute**, not a property — Settings → Timing reads it off the class before any decoder has been built. Set it `False` and no port is opened: the worker runs `_run_manual` instead, which only drains the command queue, and the Timing pane drops its port picker, Connection badge and Serial Monitor. See `console_decoders/manual.py`. |
+| `is_live` | `None` | Whether the link is up, when packet arrival is the wrong measure. `None` means "ask the packet clock" (`docs/api.md` §2.1) and is right for any console on a wire. |
 
 The decoder appears in **Settings → Timing → Console type** immediately after saving or reopening the page. Keys already registered by the built-in decoders are silently skipped, so naming collisions are harmless.
 

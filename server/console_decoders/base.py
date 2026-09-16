@@ -18,11 +18,32 @@ class ConsoleDecoder(ABC):
     No web-framework, transport, or app-layer dependencies belong here.
     """
 
+    #: Does this decoder need a serial port opened for it?
+    #:
+    #: False for a decoder the operator drives by hand rather than off a wire (see
+    #: manual.py). The worker reads it to decide whether to open a port at all, and
+    #: Settings → Timing reads it *off the class* — via console_info_for() — to decide
+    #: whether a port picker and a Connection badge mean anything for this console.
+    #: A plain attribute rather than a property for exactly that reason: it has to be
+    #: answerable before any decoder for the console has been built.
+    requires_serial: bool = True
+
     @property
     @abstractmethod
     def serial_config(self) -> SerialConfig:
         """Serial port parameters required by this console."""
         ...
+
+    @property
+    def is_live(self) -> bool | None:
+        """Whether the link is up, when the decoder knows better than packet arrival.
+
+        None — the default, and the right answer for every wired console — means
+        "ask the packet clock", i.e. `app._meet_live_watchdog` falls back to
+        `state._last_packet_at`. Override only when packets are the wrong measure:
+        a manually driven console has none at all, yet is not dead.
+        """
+        return None
 
     @abstractmethod
     def is_packet_start(self, byte: int, buffer: list[int]) -> bool:

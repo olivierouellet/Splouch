@@ -32,6 +32,7 @@ CTS serial protocol documentation by [hwbrill/vsCTS](https://github.com/hwbrill/
 | Daktronics Omnisport 2000 | ⚠️ Untested | [omnisport-2000.md](docs/consoles/omnisport-2000.md) |
 | Swiss Timing Omega — Ares 21 | ⚠️ Untested | [ares-21.md](docs/consoles/ares-21.md) |
 | Swiss Timing Omega — Quantum | ⚠️ Untested | [quantum.md](docs/consoles/quantum.md) |
+| Manual — no timing console | ✅ Tested | [manual.md](docs/consoles/manual.md) |
 
 ---
 

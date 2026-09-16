@@ -224,8 +224,17 @@ def _settings_view(request, form):
                     changed = True
                     modified = True
             if changed:
-                state._decoder = make_decoder(state.settings.get('console_type', 'cts_gen6'),
-                                              state.settings)
+                prev = state._decoder
+                state._decoder_console_type = state.settings.get('console_type', 'cts_gen6')
+                state._decoder = make_decoder(state._decoder_console_type, state.settings)
+                # Keep the heat the boards are already showing. `make_decoder` builds
+                # a blank decoder, so without this, changing the serial port — or
+                # switching to or from the manual console mid-meet — silently drops
+                # the event and heat off every board until something re-announces it.
+                # A console eventually does; the manual one never will, since there is
+                # no console there to re-announce.
+                state._decoder.last_event_sent = getattr(prev, 'last_event_sent', (0, 0))
+                state._decoder.set_seed_times(getattr(prev, 'lane_seed_times', {}))
                 _restart_worker()
 
         if 'timing_tuning_submit' in form:
@@ -509,6 +518,11 @@ def _settings_view(request, form):
         console_type=state.settings.get('console_type', 'cts_gen6'),
         console_options=[(key, label) for key, label, _ in CONSOLE_OPTIONS],
         console_info=console_info_for(state.settings.get('console_type', 'cts_gen6')),
+        # Whether this console has a wire at all. Gates the serial-port picker, the
+        # Connection badge and the Serial Monitor: a manually driven console has
+        # nothing to open, nothing to connect to and no packets to watch. Read off
+        # the live decoder so a portless local-only plugin gets the same treatment.
+        console_requires_serial=state._decoder.requires_serial,
         user_name=state.settings['username'],
         splash_url_list=splash_url_list,
         splash_url=state.settings.get('splash_url', ''),

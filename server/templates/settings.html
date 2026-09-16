@@ -105,6 +105,10 @@ function onPasswordInput(form) {
                         <a href="/live"     target="_blank" class="btn btn-secondary">{{ t.quick_live }}</a>
                         <a href="/operator" target="_blank" class="btn btn-secondary">{{ t.quick_operator }}</a>
                         <a href="/mobile"   target="_blank" class="btn btn-secondary">{{ t.quick_mobile }}</a>
+                        {# Always offered, like /operator: the page itself says when a
+                           real console is configured, and an operator on a console
+                           that does not transmit event/heat needs it too. #}
+                        <a href="/manual"   target="_blank" class="btn btn-secondary">{{ t.quick_manual }}</a>
                     </div>
                 </div>
                 <hr>
@@ -411,6 +415,11 @@ function onPasswordInput(form) {
                             {% endfor %}
                             </select>
                         </div>
+                        {# A console with no wire has no port to pick and nothing to
+                           connect to, so the picker, the Connection badge and the
+                           Serial Monitor below are all hidden rather than sitting
+                           there reporting "—" forever. What it has instead is a page. #}
+                        {% if console_requires_serial %}
                         <div>
                             <label for="serial_port" class="form-label">{{ t.timing_serial_port }}</label>
                             <select id="serial_port" name="serial_port" class="form-select form-select-sm" style="max-width:360px;" onchange="_fsubmit(this.form)">
@@ -419,7 +428,14 @@ function onPasswordInput(form) {
                             {% endfor %}
                             </select>
                         </div>
+                        {% endif %}
                     </form>
+                    {% if not console_requires_serial %}
+                    <div class="d-flex align-items-center gap-3 flex-wrap mt-1">
+                        <p class="small text-body-secondary mb-0 flex-fill" style="min-width:220px;">{{ t.timing_manual_hint }}</p>
+                        <a href="/manual" target="_blank" class="btn btn-primary btn-sm text-nowrap"><i class="bi bi-hand-index me-1"></i>{{ t.timing_manual_open }}</a>
+                    </div>
+                    {% endif %}
                 </div></div>
                 <!-- ── Hardware & wiring for the selected console ─────────── -->
                 <div class="accordion mb-3" id="consoleInfoAcc">
@@ -448,11 +464,14 @@ function onPasswordInput(form) {
                                 {% else %}
                                 <p class="small text-body-secondary mb-1">{{ t.timing_no_notes }}</p>
                                 {% endif %}
+                                {% if console_requires_serial %}
                                 <div class="form-text mt-2">{{ t.timing_no_times_hint | safe }}</div>
+                                {% endif %}
                             </div>
                         </div>
                     </div>
                 </div>
+                {% if console_requires_serial %}
                 <div class="card mb-3"><div class="card-body">
                     <div class="d-flex align-items-center gap-2 mb-2">
                         <span class="fw-bold flex-fill">{{ t.timing_connection }}</span>
@@ -474,6 +493,7 @@ function onPasswordInput(form) {
                         <a href="/console" target="_blank" class="btn btn-secondary btn-sm" title="{{ t.timing_raw_data }}"><i class="bi bi-tv me-1"></i>{{ t.timing_raw_data_btn }}</a>
                     </div>
                 </div></div>
+                {% endif %}
                 <div class="card mt-3"><div class="card-body">
                     <div class="panel-title">{{ t.timing_tuning }}</div>
                     <form id="timing_tuning_form" action="/settings" method="POST">
@@ -1165,6 +1185,8 @@ function onPasswordInput(form) {
 </div><!-- container-fluid -->
     <script src="/static/js/bootstrap.bundle-5.3.3.min.js"></script>
     <!-- Shared operator-panel behaviour (also used by cloud admin). Single canonical copy: shared/static/js/panel.js. -->
+    <!-- hold.js carries the [data-hold] press-and-hold; it is separate because /manual uses it without the rest of the panel. -->
+    <script src="/static/js/hold.js"></script>
     <script src="/static/js/panel.js"></script>
     <script src="/static/js/htmx-2.0.4.min.js"></script>
     <script src="/static/js/ws.js"></script>
@@ -2440,8 +2462,10 @@ function onPasswordInput(form) {
     function _applySerialStatus(d) {
         var badge = document.getElementById('serial-status-badge');
         if (!badge) return;
-        var labels   = {idle: '—', opening: T.js_opening, open: T.js_connected, error: T.js_error};
-        var variants = {idle: 'text-bg-secondary', opening: 'text-bg-warning', open: 'text-bg-success', error: 'text-bg-danger'};
+        var labels   = {idle: '—', opening: T.js_opening, open: T.js_connected, error: T.js_error,
+                        manual: T.js_manual};
+        var variants = {idle: 'text-bg-secondary', opening: 'text-bg-warning', open: 'text-bg-success', error: 'text-bg-danger',
+                        manual: 'text-bg-info'};
         badge.textContent = labels[d.state] || d.state;
         badge.className = 'badge rounded-pill ' + (variants[d.state] || 'text-bg-secondary');
         if (d.msg) {

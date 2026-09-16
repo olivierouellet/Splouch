@@ -18,7 +18,8 @@ import bus
 import state
 from meet_data import _get_next_heats, send_event_info
 from web import NotAuthenticated, render, require_login
-from worker import _worker_adjust_splits, _worker_next_heat, main_thread_worker
+from worker import (_worker_adjust_splits, _worker_goto_heat, _worker_next_heat,
+                    _worker_prev_heat, main_thread_worker)
 
 from routes.scoreboard import router as scoreboard_router
 from routes.meet       import router as meet_router
@@ -39,9 +40,17 @@ async def _meet_live_watchdog():
     while its port is open, so a dead port would never report itself dead. Only
     transitions are broadcast — a client learns the current value from the burst
     ws_scoreboard sends on connect.
+
+    Packet arrival is the measure for every wired console, but it is the wrong one
+    for a console that has no packets. A decoder may therefore answer for itself via
+    `is_live`; None means "ask the packet clock" and is what all five wired decoders
+    return. During a test session the recording is the source, so the packet clock
+    rules again whatever console happens to be configured.
     """
     while True:
-        live = (time.monotonic() - state._last_packet_at) < state.MEET_LIVE_STALE
+        declared = None if state._test_session else state._decoder.is_live
+        live = (declared if declared is not None else
+                (time.monotonic() - state._last_packet_at) < state.MEET_LIVE_STALE)
         if live != state._meet_live:
             state._meet_live = live
             for channel in ('/scoreboard', '/results'):
@@ -229,6 +238,18 @@ async def ws_scoreboard(ws: WebSocket):
                     state._worker_cmds.put(lambda l=lane, dl=delta: _worker_adjust_splits(l, dl))
             elif ev == 'next_heat':
                 state._worker_cmds.put(_worker_next_heat)
+            elif ev == 'prev_heat':
+                state._worker_cmds.put(_worker_prev_heat)
+            elif ev == 'goto_heat':
+                # Unauthenticated LAN input like the rest of this channel: coerce
+                # here, then let the worker check the heat against the loaded meet,
+                # where it can read `state.meet` and the decoder together.
+                try:
+                    tgt = (int(d.get('event', 0)), int(d.get('heat', 0)))
+                except (TypeError, ValueError):
+                    tgt = None
+                if tgt:
+                    state._worker_cmds.put(lambda t=tgt: _worker_goto_heat(*t))
             elif ev == 'ping':
                 await bus.manager.send(ws, 'pong')
     except WebSocketDisconnect:

@@ -11,8 +11,9 @@
      - Colour theme toggle (Light / Dark / Auto), key "cts_theme".
      - Sidebar tab switcher window.panelShowTab(target); also dispatches a
        'panel:tab-shown' CustomEvent (detail.target) for optional per-tab init.
-     - Press-and-hold confirmation for [data-hold] elements.
      - window.copyKey(btn, text) copy-to-clipboard with feedback.
+   Press-and-hold confirmation for [data-hold] lives in its own hold.js, which every
+   page loading this file must load too (it is shared with /manual).
    The anti-flash pre-paint theme snippet stays inline in each <head>.
    ========================================================================== */
 (function () {
@@ -80,50 +81,9 @@
     });
 
     /* ── Press-and-hold confirmation for destructive actions ──
-       Any [data-hold] element needs a ~1.2 s press-and-hold instead of a click
-       (it fills red as feedback). On completion it runs data-hold-fn (a global
-       function name) else navigates to data-hold-href / href. Delegated, so it
-       also covers dynamically-added buttons. */
-    (function () {
-        var HOLD_MS = 1200;
-        var active = null, timer = null, origLabel = null;
-        function reset(el) {
-            el.classList.remove('btn-holding');
-            if (origLabel !== null) { el.textContent = origLabel; origLabel = null; }
-        }
-        function run(el) {
-            var fn = el.getAttribute('data-hold-fn');
-            var href = el.getAttribute('data-hold-href') || el.getAttribute('href');
-            if (fn && typeof window[fn] === 'function') window[fn]();
-            else if (href) window.location.href = href;
-        }
-        function cancel() {
-            if (timer) { clearTimeout(timer); timer = null; }
-            if (active) { reset(active); active = null; }
-        }
-        document.addEventListener('click', function (e) {
-            if (e.target.closest('[data-hold]')) e.preventDefault();  // no plain-click action
-        }, true);
-        document.addEventListener('pointerdown', function (e) {
-            var el = e.target.closest('[data-hold]');
-            if (!el || el.disabled || el.classList.contains('disabled')) return;
-            e.preventDefault();
-            active = el;
-            el.classList.add('btn-holding');
-            var lbl = el.getAttribute('data-hold-label');
-            if (lbl !== null) { origLabel = el.textContent; el.textContent = lbl; }
-            timer = setTimeout(function () {
-                timer = null;
-                var el2 = active; active = null;
-                if (el2) { reset(el2); run(el2); }
-            }, HOLD_MS);
-        });
-        document.addEventListener('pointerup', cancel);
-        document.addEventListener('pointercancel', cancel);
-        document.addEventListener('pointermove', function (e) {
-            if (active && e.target.closest('[data-hold]') !== active) cancel();
-        });
-    })();
+       Now in shared/static/js/hold.js, loaded alongside this file: /manual needs the
+       same behaviour without the rest of the panel shell, and one copy is the point.
+       See that file for the [data-hold] attributes. */
 
     /* ── Copy to clipboard (with "copied!" feedback) ── */
     window.copyKey = function (btn, text) {

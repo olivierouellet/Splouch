@@ -164,6 +164,7 @@ quick_open      = "Open"
 quick_live      = "Live"
 quick_operator  = "Operator"
 quick_mobile    = "Mobile"
+quick_manual    = "Manual"
 account_change_pw = "Change password"
 account_logout  = "Sign out"
 
@@ -245,6 +246,8 @@ timing_connection = "Connection"
 timing_serial_monitor = "Serial Monitor"
 timing_raw_data = "Raw data on a scoreboard"
 timing_raw_data_btn = "Raw data Scoreboard"
+timing_manual_hint = "No console is wired to this server. Open the manual console on a phone to set which event and heat is on the boards."
+timing_manual_open = "Open the manual console"
 
 # Flow
 seconds = "seconds"
@@ -475,6 +478,7 @@ js_failed_to_start = "Failed to start"
 js_disable = "Disable"
 js_opening = "Opening…"
 js_connected = "Connected"
+js_manual = "Manual"
 js_disconnect = "Disconnect"
 js_disconnected = "Disconnected"
 js_playing = "Playing"
@@ -509,3 +513,20 @@ theme          = "Theme"
 theme_light    = "Light"
 theme_dark     = "Dark"
 theme_auto     = "Auto (follow system)"
+
+
+[manual]
+# The /manual page — the operator drives event and heat by hand when the meet
+# has no timing console. Its own section rather than more [settings] keys: it is
+# a page, not part of the settings panel, and a translator should see it whole.
+title          = "Manual console"
+prev           = "Previous"
+next           = "Next"
+on_boards      = "On the boards"
+commit         = "Put this heat on the boards"
+hold           = "Hold to change"
+no_meet        = "No meet file loaded"
+not_active     = "A timing console is selected — it will override anything you set here."
+open_settings  = "Change it in Timing settings"
+reconnecting   = "Reconnecting…"
+no_console     = "—"

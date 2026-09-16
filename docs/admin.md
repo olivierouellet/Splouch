@@ -19,6 +19,7 @@ Change these in **Settings → Account** before deploying at a meet.
 | `/` | Redirects to `/live` |
 | `/live` | The scoreboard (lane count from Meet Setup settings) — the reference display, and what the Qt board mirrors |
 | `/operator` | Operator control view |
+| `/manual` | Manual heat control — set the current event and heat by hand ([guide](consoles/manual.md)) |
 | `/mobile` | Mobile shell — three-tab view (Scoreboard, Results, Schedule) |
 | `/results` | Results after each heat |
 | `/schedule` | Meet schedule with start times and heat entry lists |
@@ -41,6 +42,17 @@ Append `?test` to any scoreboard URL to show mode control buttons (Splash, Intro
 > Prefer the command line? See [Manual and CLI reference](#manual-and-cli-reference) for
 > placing meet files directly in `~/SplouchData/meet/`.
 
+### No timing console?
+
+Set **Settings → Timing → Console type** to **Manual — no timing console** and drive
+the meet from `/manual` on a phone: hold Previous/Next to step through the heats, or
+tap a heat to preview its swimmers and commit it with **▸**. The boards then show the
+event, the heat, the event name, the heat time and every swimmer — everything but the
+times, which need a console. Full guide: [manual.md](consoles/manual.md).
+
+Worth knowing even with a console: a Daktronics Omnisport 2000 times races but sends
+no event or heat number at all, so `/manual` is how you supply it.
+
 ---
 
 ## Settings tabs
@@ -48,7 +60,7 @@ Append `?test` to any scoreboard URL to show mode control buttons (Splash, Intro
 | Tab | Description |
 | --- | --- |
 | **Meet Setup** | Upload Lenex `.lxf` / Hytek `.csv` meet files; pool length, touchpads, lane count |
-| **Timing** | Serial port, console type, connection status, serial monitor (raw hex packets) |
+| **Timing** | Console type and serial port, connection status, serial monitor (raw hex packets). Choosing **Manual — no timing console** drops the port, badge and monitor and links to `/manual` |
 | **Clock** | Sync with NTP; set date and time manually when offline; install/remove Adafruit PiRTC (DS3231) hardware clock |
 | **Flow** | Intro, results, and server-update timeouts; finish debounce |
 | **Display** | Show/hide column headers and columns (Name, Club, Delta, Position); podium highlighting |

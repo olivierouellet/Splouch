@@ -615,6 +615,15 @@ def load_locale(style=None):
 def load_preview_strings():
     return _panel_section(settings.get('locale', 'en'), 'preview')
 
+def manual_strings(code=None):
+    """Words on /manual — an operator page, so `panel/`, not the served bundle.
+
+    Follows the scoreboard `locale` rather than the per-device `ui_lang` cookie: the
+    operator is standing at the pool reading the same event names the boards show,
+    and `labels` and `event_vocab` on that page already come from the meet's language.
+    """
+    return _panel_section(code or settings.get('locale', 'en'), 'manual')
+
 def _mobile_strings():
     return _locale_section(settings.get('locale', 'en'), 'mobile')
 
@@ -909,7 +918,30 @@ def load_settings():
             set_lenex(load_lenex(max(lxf_files, key=os.path.getmtime)))
         except Exception:
             pass
-    _decoder.configure(settings)
+    _apply_console_type()
+
+
+def _apply_console_type():
+    """Rebuild `_decoder` if the saved console is not the one that got built at import.
+
+    `_decoder` is created at module scope, which runs *before* `load_settings()` has
+    read settings.json — so it is always built from the in-module default, and every
+    boot came up as a CTS whatever the operator had chosen. It went unnoticed because
+    the Settings form rebuilds the decoder itself on save, so the right decoder
+    appeared the moment anyone touched the page and survived until the next restart.
+
+    A manual console is where that stops being survivable: the saved choice decides
+    whether a serial port is opened at all, so a Pi rebooting into `cts_gen6` would
+    sit retrying a port that is not there while /manual's buttons did nothing —
+    `_run_live_serial` only drains the command queue once a port is actually open.
+    """
+    global _decoder, _decoder_console_type
+    want = settings.get('console_type', 'cts_gen6')
+    if want != _decoder_console_type:
+        _decoder = make_decoder(want, settings)
+        _decoder_console_type = want
+    else:
+        _decoder.configure(settings)
 
 
 def save_settings():
@@ -928,4 +960,5 @@ def save_settings():
 
 # ── Decoder (initialized after settings dict is defined) ──────────────────────
 
-_decoder = make_decoder(settings.get('console_type', 'cts_gen6'), settings)
+_decoder_console_type = settings.get('console_type', 'cts_gen6')
+_decoder = make_decoder(_decoder_console_type, settings)

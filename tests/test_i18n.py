@@ -162,8 +162,10 @@ def test_the_served_file_holds_only_what_a_spectator_reads():
     operator string, and the served bundle cannot grow a panel string by accident."""
     assert set(_served('en')) == {'meta', 'labels', 'event_name', 'aliases', 'mobile', 'display'}
     # `chrome` is the fourth because both operator pages draw the same sidebar and
-    # theme switcher; its words live once rather than once per page.
-    assert set(_panel('en')) == {'preview', 'cloud', 'settings', 'chrome'}
+    # theme switcher; its words live once rather than once per page. `manual` is the
+    # fifth: /manual is a page of its own, not part of the settings panel, so a
+    # translator sees it whole instead of hunting its keys out of [settings].
+    assert set(_panel('en')) == {'preview', 'cloud', 'settings', 'chrome', 'manual'}
 
 
 @pytest.mark.parametrize('style', ['short', 'long'])

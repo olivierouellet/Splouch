@@ -36,6 +36,10 @@ from jsc import HAS_JSC          # noqa: E402
 
 SETTINGS = os.path.join(REPO, 'server', 'templates', 'settings.html')
 PANEL_JS = os.path.join(REPO, 'shared', 'static', 'js', 'panel.js')
+# The [data-hold] mechanism moved out of panel.js into its own file so /manual could
+# use it without the rest of the operator-panel shell. Same code, same behaviour —
+# this test follows it rather than re-testing the half that stayed behind.
+HOLD_JS = os.path.join(REPO, 'shared', 'static', 'js', 'hold.js')
 
 pytestmark = pytest.mark.skipif(not HAS_JSC, reason='needs JavaScriptCore (macOS)')
 
@@ -139,9 +143,9 @@ def test_reboot_and_shutdown_still_hold_the_same_way(src, label):
 # ── panel.js honours what the button now asks for ──────────────────────────────
 
 def test_a_held_button_runs_its_function_and_a_tapped_one_does_not():
-    """Driven through `panel.js` itself: the attribute is read at press time, which
+    """Driven through `hold.js` itself: the attribute is read at press time, which
     is what lets it be added and removed as the toggle flips."""
-    panel = open(PANEL_JS, encoding='utf-8').read()
+    panel = open(HOLD_JS, encoding='utf-8').read()
     program = f'''
 var __ran = [], __timers = [];
 function setTimeout(fn, ms) {{ __timers.push([fn, ms]); return __timers.length; }}
@@ -152,6 +156,9 @@ function _btn(attrs) {{
     return {{ _a: attrs, disabled: false, textContent: 'x',
               classList: {{ add: function () {{}}, remove: function () {{}},
                             contains: function () {{ return false; }} }},
+              style: {{ _p: {{}},
+                        setProperty: function (k, v) {{ this._p[k] = v; }},
+                        removeProperty: function (k) {{ delete this._p[k]; }} }},
               getAttribute: function (k) {{ return k in this._a ? this._a[k] : null; }},
               hasAttribute: function (k) {{ return k in this._a; }},
               closest: function (sel) {{

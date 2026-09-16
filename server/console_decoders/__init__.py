@@ -6,6 +6,7 @@ from .base import ConsoleDecoder, SerialConfig
 from .swiss_timing_ares21 import Ares21Decoder
 from .cts_gen6 import CTSGen6Decoder
 from .cts_gen7 import CTSGen7Decoder
+from .manual import ManualDecoder
 from .omnisport_2000 import Omnisport2000Decoder
 from .quantum import QuantumDecoder
 
@@ -20,6 +21,9 @@ CONSOLE_OPTIONS: list[tuple[str, str, str]] = [
     ('dak_2000',        'Omnisport 2000 (Daktronics)',               'dak_2000'),
     ('omega_ares21',    'Ares 21 (Swiss Timing Omega)',              'omega_ares21'),
     ('omega_quantum',   'Quantum (Swiss Timing Omega)',              'omega_quantum'),
+    # Last, after every real console: not a console at all, but the answer for a meet
+    # that has none — the operator sets event and heat by hand from /manual.
+    ('manual',          'Manual — no timing console',                'manual'),
 ]
 
 DECODERS: dict[str, type[ConsoleDecoder]] = {
@@ -28,6 +32,7 @@ DECODERS: dict[str, type[ConsoleDecoder]] = {
     'dak_2000':        Omnisport2000Decoder,
     'omega_ares21':    Ares21Decoder,
     'omega_quantum':   QuantumDecoder,
+    'manual':          ManualDecoder,
 }
 
 # Base URL for the full per-console setup guides on GitHub.
@@ -72,6 +77,13 @@ CONSOLE_INFO: dict[str, dict] = {
         'tested':   False,
         'doc':      'quantum.md',
     },
+    'manual': {
+        'adapter':  'None',
+        'wiring':   'Nothing is connected to the server',
+        'protocol': 'None — event and heat are set by hand from /manual',
+        'tested':   True,
+        'doc':      'manual.md',
+    },
 }
 
 
@@ -92,7 +104,13 @@ def console_info_for(console_type: str) -> dict | None:
     info = CONSOLE_INFO.get(decoder_key)
     if info is None:
         return None
-    return {**info, 'label': label, 'doc_url': DOCS_BASE_URL + info['doc']}
+    # Read off the class, not an instance: Settings needs to know whether this console
+    # has a wire before any decoder for it has been built, and the flag lives on the
+    # decoder so a local-only plugin gets the same treatment without touching this
+    # table. Default True for a plugin written against the older contract.
+    cls = DECODERS.get(decoder_key)
+    return {**info, 'label': label, 'doc_url': DOCS_BASE_URL + info['doc'],
+            'requires_serial': getattr(cls, 'requires_serial', True)}
 
 
 def load_custom_decoders(folder: str) -> None:

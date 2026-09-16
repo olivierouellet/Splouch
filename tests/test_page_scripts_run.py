@@ -47,6 +47,11 @@ _HEATS = ('[{"event":3,"heat":1,"event_name":"50 Libre",'
           '{"lane":5,"name":"Relais A","club":"CAMO","seed_time":"",'
           '"swimmers":[{"pos":1,"name":"Élise Roy","first":"Élise"}]}]}]')
 _VOCAB = {'unit': 'm', 'freestyle': 'Libre', 'separator': ' — '}
+_MANUAL_T = {'title': 'Console manuelle', 'prev': 'Précédente', 'next': 'Suivante',
+             'on_boards': 'Sur les tableaux', 'commit': 'Afficher cette série',
+             'hold': 'Maintenir pour changer', 'no_meet': 'Aucun fichier',
+             'not_active': 'Une console est sélectionnée.',
+             'open_settings': 'Réglages', 'reconnecting': 'Reconnexion…'}
 
 
 def _render(own_dir, template, **extra):
@@ -71,6 +76,10 @@ PAGES = [
     ('schedule-cloud',   'cloud/templates',  'schedule.html',
      {'heats_json': _HEATS, 'has_meet': True, 'meet_name': 'Coupe', 't': _SCHED_T,
       'meet_id': 'abc123'}),
+    ('manual-pi',        'server/templates', 'manual.html',
+     {'heats_json': _HEATS, 'has_meet': True, 'meet_name': 'Coupe', 't': _MANUAL_T,
+      'current_event': '3', 'current_heat': '1', 'manual_active': True,
+      'console_label': 'Manual — no timing console'}),
     ('shell-pi',         'server/templates', 'mobile.html', {'app_title': 'Coupe', 't': _TABS}),
     ('shell-cloud',      'cloud/templates',  'mobile.html',
      {'app_title': 'Coupe', 't': _TABS, 'meet_id': 'abc123'}),
@@ -87,6 +96,26 @@ def test_the_schedule_page_with_no_meet_also_runs():
     """The `S-07` empty state is a different branch of the template."""
     run_page(_render('server/templates', 'schedule.html',
                      heats_json='[]', has_meet=False, meet_name='', t=_SCHED_T))
+
+
+def test_the_manual_page_with_no_meet_also_runs():
+    """No meet loaded means no stepper and no list — a different branch, and the one
+    an operator hits first, before they have uploaded anything."""
+    run_page(_render('server/templates', 'manual.html',
+                     heats_json='[]', has_meet=False, meet_name='', t=_MANUAL_T,
+                     current_event='', current_heat='', manual_active=True,
+                     console_label=''))
+
+
+def test_the_manual_page_warns_when_a_real_console_is_configured():
+    """The banner branch: the page still works, but a console will overwrite it."""
+    html = _render('server/templates', 'manual.html',
+                   heats_json=_HEATS, has_meet=True, meet_name='Coupe', t=_MANUAL_T,
+                   current_event='3', current_heat='1', manual_active=False,
+                   console_label='System 6 (Colorado Timing System)')
+    run_page(html)
+    assert 'System 6 (Colorado Timing System)' in html
+    assert _MANUAL_T['not_active'] in html
 
 
 def test_the_harness_notices_a_page_that_throws():

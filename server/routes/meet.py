@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel
 
 import state
-from meet_data import _build_meet_data, send_event_info
+from meet_data import _build_meet_data, build_heats, send_event_info
 from web import client_strings, redirect, render, require_login
 
 router = APIRouter(tags=['Meet'])
@@ -39,45 +39,6 @@ def route_full_schedule(request: Request):
                   theme_fonts={**state.DEFAULT_THEME_FONTS,
                                **state.settings.get('theme_fonts', {})},
                   **data)
-
-
-def build_heats():
-    """The start list as the phone Schedule tab consumes it — every heat in running
-    order, each with its lanes. One builder for the HTML page and the JSON endpoint,
-    so the two cannot drift (docs/app.md §0.2); the shape is the cloud's
-    `GET /meet/{id}/schedule` (docs/api.md §5.8)."""
-    data           = _build_meet_data()
-    events_grouped = data.get('events_grouped', [])
-    start_list     = data.get('start_list', {})
-    event_names    = data.get('event_names', {})
-    name_parts     = data.get('event_name_parts', {})
-    heat_times     = data.get('heat_times', {})
-
-    heats_out = []
-    for ev, heats in events_grouped:
-        for ht in heats:
-            lanes_out = []
-            for lane in sorted(start_list.get(ev, {}).get(ht, {})):
-                entry = start_list[ev][ht][lane]
-                lanes_out.append({
-                    'lane':      lane,
-                    'name':      entry.get('name', ''),
-                    'club':      entry.get('club', ''),
-                    'seed_time': entry.get('seed_time', ''),
-                    'swimmers':  [{'pos': s.get('pos', 0),
-                                   'name': s.get('name', ''),
-                                   'first': s.get('first', '')}
-                                  for s in entry.get('swimmers', [])],
-                })
-            heats_out.append({
-                'event':      ev,
-                'heat':       ht,
-                'event_name': event_names.get(ev, ''),
-                'event_name_parts': name_parts.get(ev),
-                'time':       heat_times.get(ev, {}).get(ht, ''),
-                'lanes':      lanes_out,
-            })
-    return heats_out
 
 
 @router.get('/schedule.json')

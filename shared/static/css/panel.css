@@ -63,16 +63,20 @@ input[type="time"]::-webkit-datetime-edit { padding: 0; line-height: 1.4; }
     #app-sidebar { min-height: calc(100vh - 57px); flex: 0 0 auto; }
 }
 
-/* Hold-to-confirm: the button fills red as a progress bar during the ~1.2 s hold.
-   !important beats BS5's :active state so it shows identically on solid + outline. */
+/* Hold-to-confirm: the button fills as a progress bar for the length of the hold.
+   !important beats BS5's :active state so it shows identically on solid + outline.
+   --hold-ms is written by hold.js from data-hold-ms and MUST match its timer, or the
+   bar finishes at a different moment than the action. --hold-fill is red because
+   every button using this in the panel is destructive; /manual overrides it, since
+   changing which heat is on the board is not. */
 .btn-holding {
     color: #fff !important;
-    background-color: var(--bs-danger) !important;
-    border-color: var(--bs-danger) !important;
+    background-color: var(--hold-fill, var(--bs-danger)) !important;
+    border-color: var(--hold-fill, var(--bs-danger)) !important;
     background-image: linear-gradient(to right, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0.55));
     background-repeat: no-repeat;
     background-size: 0% 100%;
-    animation: holdfill 1.2s linear forwards;
+    animation: holdfill var(--hold-ms, 1200ms) linear forwards;
 }
 @keyframes holdfill { from { background-size: 0% 100%; } to { background-size: 100% 100%; } }
 [data-hold] { touch-action: none; }

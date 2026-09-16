@@ -1,0 +1,409 @@
+{# The manual console — event and heat by hand, for a meet with no timing console.
+
+   Phone-first: the operator is standing on the pool deck holding this, not sitting at
+   the admin laptop. Hence the fixed header showing what is actually on the boards, a
+   pair of thumb-sized Prev/Next buttons under it, and the meet's whole running order
+   below as a scrollable list.
+
+   Two ways to change the heat, both deliberate:
+     - Prev / Next, held for 1.5 s (the [data-hold] mechanism the Power tab's Reboot
+       button uses), for the ordinary step between heats.
+     - Tap a row to preview its swimmers, then tap that row's ▸ to commit it, for
+       jumping somewhere else in the meet.
+   A plain tap on a row never changes the board. Changing the heat mid-race is the
+   mistake this page has to be hard to make by accident.
+
+   The whole start list is embedded, not fetched: previewing then costs nothing, and
+   the page survives a phone that drops off the Wi-Fi between heats. Seed times are
+   deliberately left out of the preview — this page is about who is in the water, and
+   there are no times here to compare them against. #}
+<!DOCTYPE html>
+<html lang="{{ lang | default('en', true) }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>{{ t.title or 'Manual console' }}</title>
+    <style>
+        @font-face { font-family: 'Overpass Mono';   font-style: normal; font-weight: 400; font-display: swap; src: url('/static/fonts/OverpassMono-Regular.woff2')   format('woff2'); }
+        @font-face { font-family: 'DSEG7Classic';    font-style: normal; font-weight: 400; font-display: swap; src: url('/static/fonts/DSEG7Classic-Regular.woff2')    format('woff2'); }
+        @font-face { font-family: 'DSEG14Classic';   font-style: normal; font-weight: 400; font-display: swap; src: url('/static/fonts/DSEG14Classic-Regular.woff2')   format('woff2'); }
+        @font-face { font-family: 'Share Tech Mono'; font-style: normal; font-weight: 400; font-display: swap; src: url('/static/fonts/ShareTechMono-Regular.woff2')   format('woff2'); }
+        @font-face { font-family: 'Orbitron';        font-style: normal; font-weight: 400; font-display: swap; src: url('/static/fonts/Orbitron-Regular.woff2')        format('woff2'); }
+        @font-face { font-family: 'Roboto Mono';     font-style: normal; font-weight: 400; font-display: swap; src: url('/static/fonts/RobotoMono-Regular.woff2')      format('woff2'); }
+
+        :root {
+            --color-bg:            {{ theme_colors.bg }};
+            --color-header-bg:     {{ theme_colors.header_bg }};
+            --color-header-border: {{ theme_colors.header_border }};
+            --color-header-label:  {{ theme_colors.header_label }};
+            --color-header-value:  {{ theme_colors.header_value }};
+            --color-th-text:       {{ theme_colors.th_text }};
+            --color-row-odd:       {{ theme_colors.row_odd }};
+            --color-row-even:      {{ theme_colors.row_even }};
+            --color-row-text:      {{ theme_colors.row_text }};
+            --color-time:          {{ theme_colors.time }};
+            --color-schedule-event: {{ theme_colors.schedule_event }};
+            --color-schedule-time:  {{ theme_colors.schedule_time }};
+            --color-schedule-name:  {{ theme_colors.schedule_name }};
+            --color-schedule-club:  {{ theme_colors.schedule_club }};
+            --font-family:         '{{ theme_fonts.family }}', monospace;
+            --font-digits:         '{{ theme_fonts.digits }}', monospace;
+            --font-timing:         '{{ theme_fonts.timing }}', monospace;
+
+            /* Read by hold.js / .btn-holding. Not the panel's danger red: putting a
+               heat on the board is not destructive, only worth being sure about. */
+            --hold-fill: {{ theme_colors.schedule_event }};
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            background: var(--color-bg);
+            color: var(--color-row-text);
+            font-family: var(--font-family);
+            overflow-x: hidden;
+            -webkit-text-size-adjust: 100%;
+            padding-bottom: env(safe-area-inset-bottom);
+        }
+
+        /* ── What is on the boards right now ── */
+        #now {
+            position: sticky; top: 0; z-index: 20;
+            background: var(--color-header-bg);
+            border-bottom: 2px solid var(--color-header-border);
+            padding: 8px 12px calc(8px + env(safe-area-inset-top)) 12px;
+            padding-top: calc(8px + env(safe-area-inset-top));
+        }
+        #now .row1 { display: flex; align-items: baseline; gap: 18px; }
+        .now-label {
+            font-size: 0.62em; letter-spacing: 0.12em; text-transform: uppercase;
+            color: var(--color-header-label); display: block;
+        }
+        .now-value {
+            font-family: var(--font-digits), monospace;
+            font-size: 1.9em; line-height: 1.05; color: var(--color-header-value);
+        }
+        #now-name {
+            font-size: 0.88em; color: var(--color-schedule-name);
+            margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        #now-caption {
+            font-size: 0.58em; letter-spacing: 0.12em; text-transform: uppercase;
+            color: var(--color-header-label); margin-top: 6px;
+        }
+
+        /* ── Prev / Next ── */
+        #stepper {
+            position: sticky; top: 0; z-index: 15;
+            display: flex; gap: 10px; padding: 10px 12px;
+            background: var(--color-bg);
+            border-bottom: 1px solid var(--color-header-border);
+        }
+        .step-btn {
+            flex: 1; min-height: 58px;
+            font-family: var(--font-family); font-size: 1em;
+            color: var(--color-header-value);
+            background: var(--color-row-odd);
+            border: 1px solid var(--color-header-border); border-radius: 10px;
+            display: flex; align-items: center; justify-content: center; gap: 8px;
+            /* hold.js needs the gesture, or a scroll-start cancels every press. */
+            touch-action: none;
+            user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent;
+        }
+        .step-btn[disabled], .step-btn.disabled { opacity: 0.35; }
+        .step-hint {
+            text-align: center; font-size: 0.62em; letter-spacing: 0.1em;
+            text-transform: uppercase; color: var(--color-header-label);
+            padding: 0 12px 8px 12px; background: var(--color-bg);
+        }
+
+        /* ── Banner: a real console is configured and will overwrite us ── */
+        #banner {
+            padding: 9px 12px; font-size: 0.78em; line-height: 1.35;
+            background: #4a3a10; color: #ffd98a;
+            border-bottom: 1px solid var(--color-header-border);
+        }
+        #banner a { color: #ffd98a; }
+
+        /* ── The running order. Same class names as the Schedule page on purpose:
+              this is a sibling of it, and it should look like one. ── */
+        .heat-card { background: var(--color-bg); border-bottom: 1px solid var(--color-header-border); }
+        .heat-card.heat-odd  { background: var(--color-row-odd); }
+        .heat-card.heat-even { background: var(--color-row-even); }
+        .heat-header {
+            display: flex; align-items: center; gap: 8px;
+            padding: 0 0 0 10px; min-height: 52px;
+        }
+        .heat-meta { flex: 1; min-width: 0; padding: 6px 0; }
+        .heat-title {
+            font-size: 0.78em; color: var(--color-schedule-event);
+            text-transform: uppercase; letter-spacing: 0.06em;
+        }
+        .heat-time {
+            color: var(--color-schedule-time); font-family: var(--font-timing), monospace;
+            flex-shrink: 0; width: 3.6em;
+        }
+        .heat-name {
+            font-size: 0.88em; color: var(--color-header-value);
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        /* The only thing in the list that changes the board. Its own target, well
+           clear of the row, so a mis-tap while scrolling previews instead. */
+        .commit-btn {
+            flex-shrink: 0; width: 52px; align-self: stretch; min-height: 52px;
+            background: none; border: none; border-left: 1px solid var(--color-header-border);
+            color: var(--color-schedule-event); font-size: 1.5em;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .commit-btn:disabled { opacity: 0.3; }
+        .swimmer-list { display: none; }
+        .heat-card.open .swimmer-list { display: block; }
+        .swimmer-row {
+            display: flex; align-items: center; padding: 5px 10px; gap: 6px;
+            border-top: 1px solid var(--color-header-border); font-size: 0.9em;
+        }
+        .lane-num {
+            width: 1.6em; text-align: center; color: var(--color-th-text);
+            flex-shrink: 0; font-size: 0.85em;
+        }
+        .swimmer-name {
+            flex: 1; min-width: 0; white-space: nowrap; overflow: hidden;
+            text-overflow: ellipsis; color: var(--color-schedule-name);
+        }
+        .swimmer-club {
+            color: var(--color-schedule-club); white-space: nowrap; flex-shrink: 0;
+            padding-left: 0.5em; font-size: 0.85em;
+        }
+        .empty-heat { padding: 8px 10px 8px 42px; font-size: 0.85em; color: var(--color-th-text); }
+
+        .heat-card.heat-current .heat-header { background: var(--color-header-border); }
+        .heat-card.heat-current { outline: 2px solid var(--color-time); outline-offset: -2px; }
+        .heat-card { scroll-margin-top: 190px; }
+
+        #no-meet { padding: 40px 20px; text-align: center; color: var(--color-th-text); }
+        #link-lost {
+            display: none; padding: 7px 12px; font-size: 0.75em;
+            background: var(--color-header-border); color: var(--color-header-label);
+            text-align: center;
+        }
+        body.offline #link-lost { display: block; }
+        body.offline #stepper .step-btn { opacity: 0.35; }
+
+        /* The hold fill, lifted from panel.css so this page needs no Bootstrap.
+           --hold-ms is written by hold.js and must match its timer. */
+        .btn-holding {
+            color: #fff !important;
+            background-color: var(--hold-fill) !important;
+            border-color: var(--hold-fill) !important;
+            background-image: linear-gradient(to right, rgba(255,255,255,0.55), rgba(255,255,255,0.55));
+            background-repeat: no-repeat;
+            background-size: 0% 100%;
+            animation: holdfill var(--hold-ms, 1200ms) linear forwards;
+        }
+        @keyframes holdfill { from { background-size: 0% 100%; } to { background-size: 100% 100%; } }
+        [data-hold] { touch-action: none; }
+    </style>
+</head>
+<body>
+
+<div id="now">
+    <div class="row1">
+        <div>
+            <span class="now-label">{{ labels.event }}</span>
+            <span class="now-value" id="now-event">—</span>
+        </div>
+        <div>
+            <span class="now-label">{{ labels.heat }}</span>
+            <span class="now-value" id="now-heat">—</span>
+        </div>
+    </div>
+    <div id="now-name"></div>
+    <div id="now-caption">{{ t.on_boards }}</div>
+</div>
+
+{% if not manual_active %}
+<div id="banner">
+    {{ t.not_active }}{% if console_label %} <strong>{{ console_label }}</strong>{% endif %}
+    &middot; <a href="/settings">{{ t.open_settings }}</a>
+</div>
+{% endif %}
+
+<div id="link-lost">{{ t.reconnecting }}</div>
+
+{% if has_meet %}
+<div id="stepper">
+    <button type="button" class="step-btn" id="btn-prev"
+            data-hold data-hold-ms="1500" data-hold-fn="manualPrev">&#9666; {{ t.prev }}</button>
+    <button type="button" class="step-btn" id="btn-next"
+            data-hold data-hold-ms="1500" data-hold-fn="manualNext">{{ t.next }} &#9656;</button>
+</div>
+<div class="step-hint">{{ t.hold }}</div>
+<div id="heats"></div>
+{% else %}
+<div id="no-meet">{{ t.no_meet }}</div>
+{% endif %}
+
+<script>
+    /* eventNameOf() composes each heat's name from event_name_parts against this
+       vocabulary, so the page speaks the meet's language (docs/app.md `T-11`). */
+    window.EVENT_VOCAB = {{ event_vocab | tojson }};
+</script>
+<script src="/static/js/ws.js"></script>
+<script src="/static/js/hold.js"></script>
+<script>
+(function () {
+    'use strict';
+
+    var HEATS  = {{ heats_json | safe }};
+    var LABELS = { event: {{ labels.event | tojson }}, heat: {{ labels.heat | tojson }} };
+    var T      = { commit: {{ (t.commit or 'Set current') | tojson }} };
+
+    var currentEvent = {{ current_event | tojson }};
+    var currentHeat  = {{ current_heat  | tojson }};
+    var openKey      = null;   // the previewed heat, or null
+
+    function esc(s) {
+        return String(s === null || s === undefined ? '' : s)
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    }
+    function keyOf(h) { return String(h.event) + '/' + String(h.heat); }
+    function isCurrent(h) {
+        return String(h.event) === currentEvent && String(h.heat) === currentHeat;
+    }
+    function indexOfCurrent() {
+        for (var i = 0; i < HEATS.length; i++) if (isCurrent(HEATS[i])) return i;
+        return -1;
+    }
+
+    /* ── The list ── */
+
+    function swimmerRows(h) {
+        if (!h.lanes || !h.lanes.length) {
+            return '<div class="empty-heat">&mdash;</div>';
+        }
+        var out = '';
+        for (var j = 0; j < h.lanes.length; j++) {
+            var lane = h.lanes[j], name;
+            /* A relay lane names its swimmers; an individual one names the entry.
+               Same rule the Schedule page uses, so the two never disagree. */
+            if (lane.swimmers && lane.swimmers.length > 0) {
+                var firsts = lane.swimmers.map(function (s) { return s.first || s.name; })
+                                          .filter(Boolean);
+                name = firsts.join(' · ') || lane.name || '—';
+            } else {
+                name = lane.name || '—';
+            }
+            out += '<div class="swimmer-row">' +
+                     '<div class="lane-num">' + esc(lane.lane) + '</div>' +
+                     '<div class="swimmer-name">' + esc(name) + '</div>' +
+                     (lane.club ? '<span class="swimmer-club">' + esc(lane.club) + '</span>' : '') +
+                   '</div>';
+            /* No seed time here on purpose — this page carries no times at all. */
+        }
+        return out;
+    }
+
+    function render() {
+        var html = '';
+        for (var i = 0; i < HEATS.length; i++) {
+            var h    = HEATS[i];
+            var key  = keyOf(h);
+            var open = key === openKey;
+            var cls  = 'heat-card ' + (i % 2 === 0 ? 'heat-even' : 'heat-odd') +
+                       (isCurrent(h) ? ' heat-current' : '') + (open ? ' open' : '');
+            html += '<div class="' + cls + '" data-key="' + esc(key) + '">' +
+                      '<div class="heat-header">' +
+                        '<span class="heat-time">' + esc(h.time || '') + '</span>' +
+                        '<div class="heat-meta">' +
+                          '<div class="heat-title">' +
+                            esc(LABELS.event) + ' ' + esc(h.event) + ' · ' +
+                            esc(LABELS.heat) + ' ' + esc(h.heat) +
+                          '</div>' +
+                          '<div class="heat-name">' + esc(eventNameOf(h)) + '</div>' +
+                        '</div>' +
+                        '<button type="button" class="commit-btn" data-commit="' + esc(key) + '"' +
+                          ' aria-label="' + esc(T.commit) + '">▸</button>' +
+                      '</div>' +
+                      (open ? '<div class="swimmer-list">' + swimmerRows(h) + '</div>' : '') +
+                    '</div>';
+        }
+        document.getElementById('heats').innerHTML = html;
+        syncStepper();
+    }
+
+    function syncStepper() {
+        var i    = indexOfCurrent();
+        var prev = document.getElementById('btn-prev');
+        var next = document.getElementById('btn-next');
+        if (!prev || !next) return;
+        /* An unknown current heat (nothing committed yet) leaves both live: Next
+           lands on the first heat and Prev on the last, which is what the server
+           does with it too. */
+        prev.classList.toggle('disabled', i === 0);
+        next.classList.toggle('disabled', i >= 0 && i === HEATS.length - 1);
+    }
+
+    function scrollToCurrent() {
+        var el = document.querySelector('.heat-card.heat-current');
+        if (el) el.scrollIntoView({ block: 'center' });
+    }
+
+    /* ── Commands. Nothing here updates the header optimistically: the highlight
+          moves when the server says it moved, so what this page shows is always
+          what the boards show. ── */
+
+    var sock = splouchSocket('/ws/scoreboard');
+
+    window.manualPrev = function () { if (sock.connected) sock.emit('prev_heat', {}); };
+    window.manualNext = function () { if (sock.connected) sock.emit('next_heat', {}); };
+
+    document.addEventListener('click', function (e) {
+        var commit = e.target.closest('[data-commit]');
+        if (commit) {
+            var parts = commit.getAttribute('data-commit').split('/');
+            if (sock.connected) {
+                sock.emit('goto_heat', { event: parseInt(parts[0], 10),
+                                         heat:  parseInt(parts[1], 10) });
+            }
+            openKey = null;          // committed; the preview has done its job
+            render();
+            return;
+        }
+        var card = e.target.closest('.heat-card');
+        if (!card) return;
+        var key = card.getAttribute('data-key');
+        openKey = (openKey === key) ? null : key;   // one preview open at a time
+        render();
+    });
+
+    sock.on('update_scoreboard', function (d) {
+        var changed = false;
+        if ('current_event' in d) { currentEvent = String(d.current_event).trim(); changed = true; }
+        if ('current_heat'  in d) { currentHeat  = String(d.current_heat).trim();  changed = true; }
+        if ('event_name' in d || 'event_name_parts' in d) {
+            document.getElementById('now-name').textContent = eventNameOf(d);
+        }
+        if (!changed) return;
+        document.getElementById('now-event').textContent = currentEvent || '—';
+        document.getElementById('now-heat').textContent  = currentHeat  || '—';
+        render();
+        scrollToCurrent();
+    });
+
+    sock.on('connect',    function () { document.body.classList.remove('offline'); });
+    sock.on('disconnect', function () { document.body.classList.add('offline'); });
+    sock.on('reload',     function () { location.reload(); });
+
+    /* A meet loaded or swapped while this page was open — the running order below is
+       now the wrong meet's. Same response the Schedule page gives. */
+    var sockSchedule = splouchSocket('/ws/schedule');
+    sockSchedule.on('schedule_update', function () { location.reload(); });
+
+    document.getElementById('now-event').textContent = currentEvent || '—';
+    document.getElementById('now-heat').textContent  = currentHeat  || '—';
+    if (document.getElementById('heats')) { render(); scrollToCurrent(); }
+})();
+</script>
+</body>
+</html>

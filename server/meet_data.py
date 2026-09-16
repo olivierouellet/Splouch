@@ -93,13 +93,52 @@ def get_lane_alt(event_num, heat_num, lane):
         return ''
 
 
+def heat_order():
+    """Every (event, heat) in the loaded meet, in running order.
+
+    The one place that knows the difference between a Lenex meet (`start_list`) and a
+    Hytek one (`event_info.events`). Three callers wanted this list and two of them
+    grew their own half of it: `_get_next_heats` read `start_list` and returned []
+    for a CSV meet, while `worker._worker_next_heat` read `event_info.events` and was
+    blind to a Lenex one — so on any `.lxf` meet, the only meet most clubs have, the
+    Next Heat button silently jumped to the (0, 0) sentinel and blanked the board.
+    """
+    m = state.meet
+    if m.start_list:
+        return [(ev, ht)
+                for ev in sorted(m.start_list)
+                for ht in sorted(m.start_list[ev])]
+    return sorted(m.event_info.events.keys())
+
+
+def heat_step(event_num, heat_num, delta=1):
+    """The heat `delta` positions along from (event_num, heat_num), or None.
+
+    None means *do not move*: either no meet is loaded, or the operator is already at
+    the first or last heat. A current heat the loaded meet does not contain — the
+    (0, 0) sentinel on a cold start, or a heat left over from the previous meet file
+    — lands on the first heat going forward and the last going back, so Next always
+    does something useful rather than nothing.
+    """
+    order = heat_order()
+    if not order:
+        return None
+    try:
+        i = order.index((event_num, heat_num))
+    except ValueError:
+        return order[0] if delta > 0 else order[-1]
+    j = i + delta
+    return order[j] if 0 <= j < len(order) else None
+
+
+def has_heat(event_num, heat_num):
+    """Is this heat in the loaded meet? The validation gate for a hand-picked heat."""
+    return (event_num, heat_num) in heat_order()
+
+
 def _get_next_heats(after_event=0, after_heat=0, n=3, num_lanes=8):
     m = state.meet
-    if not m.start_list:
-        return []
-    ordered = [(ev, ht)
-               for ev in sorted(m.start_list)
-               for ht in sorted(m.start_list[ev])]
+    ordered = heat_order()
     start = 0
     if after_event:
         for i, (ev, ht) in enumerate(ordered):
@@ -108,16 +147,14 @@ def _get_next_heats(after_event=0, after_heat=0, n=3, num_lanes=8):
                 break
     result = []
     for ev, ht in ordered[start:start + n]:
-        lanes_data = m.start_list[ev][ht]
         swimmers = []
         for ln in range(1, num_lanes + 1):
-            if ln in lanes_data:
-                swimmers.append({'lane': ln,
-                                 'name': lanes_data[ln].get('name', ''),
-                                 'club': lanes_data[ln].get('club', ''),
-                                 'alt':  get_lane_alt(ev, ht, ln)})
-            else:
-                swimmers.append({'lane': ln, 'name': '', 'club': '', 'alt': ''})
+            # Via the accessors rather than `start_list[ev][ht]` directly: they fall
+            # back to `event_info`, which is what makes this list appear at all on a
+            # Hytek CSV meet. It never used to — the function returned [] for one.
+            name, club = get_lane_parts(ev, ht, ln)
+            swimmers.append({'lane': ln, 'name': name, 'club': club,
+                             'alt': get_lane_alt(ev, ht, ln)})
         result.append({
             'event':      ev,
             'heat':       ht,
@@ -209,6 +246,51 @@ def _build_meet_data():
         return dict(events_grouped=events_grouped,
                     event_names=dict(info.event_names),
                     start_list=start_list, heat_times={}, meet_info={})
+
+
+def build_heats():
+    """The start list as the phone Schedule tab consumes it — every heat in running
+    order, each with its lanes. One builder for the HTML page and the JSON endpoint,
+    so the two cannot drift (docs/app.md §0.2); the shape is the cloud's
+    `GET /meet/{id}/schedule` (docs/api.md §5.8).
+
+    Lives here beside `_build_meet_data`, which it is a thin shaping layer over,
+    rather than in `routes/meet.py` where it started: `/manual` needs the same list,
+    and a route module importing another route module to get at meet logic is the
+    wrong direction.
+    """
+    data           = _build_meet_data()
+    events_grouped = data.get('events_grouped', [])
+    start_list     = data.get('start_list', {})
+    event_names    = data.get('event_names', {})
+    name_parts     = data.get('event_name_parts', {})
+    heat_times     = data.get('heat_times', {})
+
+    heats_out = []
+    for ev, heats in events_grouped:
+        for ht in heats:
+            lanes_out = []
+            for lane in sorted(start_list.get(ev, {}).get(ht, {})):
+                entry = start_list[ev][ht][lane]
+                lanes_out.append({
+                    'lane':      lane,
+                    'name':      entry.get('name', ''),
+                    'club':      entry.get('club', ''),
+                    'seed_time': entry.get('seed_time', ''),
+                    'swimmers':  [{'pos': s.get('pos', 0),
+                                   'name': s.get('name', ''),
+                                   'first': s.get('first', '')}
+                                  for s in entry.get('swimmers', [])],
+                })
+            heats_out.append({
+                'event':      ev,
+                'heat':       ht,
+                'event_name': event_names.get(ev, ''),
+                'event_name_parts': name_parts.get(ev),
+                'time':       heat_times.get(ev, {}).get(ht, ''),
+                'lanes':      lanes_out,
+            })
+    return heats_out
 
 
 def send_event_info():

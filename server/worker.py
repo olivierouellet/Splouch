@@ -12,7 +12,7 @@ import relay
 import state
 from meet_data import (
     delta_fields, get_event_name_display, get_event_name_parts,
-    get_lane_alt, get_lane_parts,
+    get_lane_alt, get_lane_parts, has_heat, heat_step,
     get_lane_seed_time, _get_next_heats, _build_results_snapshot, send_event_info,
 )
 from meet_parsers.lenex_parser import load_lenex
@@ -326,14 +326,63 @@ def _worker_adjust_splits(lane, delta):
     bus.emit('/scoreboard', 'update_scoreboard', {f'lane_splits{lane}': new_val})
 
 
+def _worker_set_heat(ev, ht):
+    """Make (ev, ht) the current heat by hand — the packet path minus the packet.
+
+    Deliberately not `send_event_info()`, which is the smaller thing it looks like:
+    that one carries no heat time and no split count, and leaves the previous heat's
+    times and places sitting on the board. What a console actually does at the top of
+    a heat is reset its lanes and raise `event_changed`, so that is what this does —
+    the same `reset_lanes()`, the same `current_event`/`current_heat` pair, and the
+    same `_on_event_changed` that a decoder's `event_changed` key triggers. Names,
+    clubs, relay first names, heat time, expected splits, seed times and `next_heats`
+    then all load exactly as they do under a CTS, and every client — the kiosk, the
+    phones, the cloud — hears about it over the contract it already speaks.
+    """
+    state._decoder.last_event_sent = (ev, ht)
+    updates = {'current_event': str(ev), 'current_heat': str(ht)}
+    updates.update(state._decoder.reset_lanes())
+    _on_event_changed(updates, ev, ht)
+
+    # Cancel any finish or reset debounce still pending from the heat being left, and
+    # forget its race state. Under a manual console `race_finished()` is always False,
+    # so a True left behind by a console we have just switched away from would never
+    # be cleared — and the pending `_do_board_reset` would land on top of the wipe
+    # this function has already done.
+    state._finish_timer_gen += 1
+    state._results_prev_race_finished = False
+    state._running_lanes.clear()
+
+    state.update.update(updates)
+    _emit_scoreboard_update()
+    print(f'[manual] Event {ev} Heat {ht}', flush=True)
+
+
+def _worker_step_heat(delta):
+    """Walk `delta` heats along the loaded meet's running order, if there is one."""
+    nxt = heat_step(*state._decoder.last_event_sent, delta)
+    if nxt:
+        _worker_set_heat(*nxt)
+
+
 def _worker_next_heat():
-    event_list = sorted(state.meet.event_info.events.keys())
-    try:
-        event_tuple = event_list[event_list.index(state._decoder.last_event_sent) + 1]
-    except Exception:
-        event_tuple = event_list[0] if event_list else (0, 0)
-    state._decoder.last_event_sent = event_tuple
-    send_event_info()
+    _worker_step_heat(1)
+
+
+def _worker_prev_heat():
+    _worker_step_heat(-1)
+
+
+def _worker_goto_heat(ev, ht):
+    """Jump to a heat the operator picked out of the list.
+
+    Validated here rather than in the WS handler because `state.meet` and the decoder
+    are both read on this thread — and because the frame arrived over an
+    unauthenticated LAN socket, so a heat that is not in the loaded meet is simply
+    ignored rather than published as an empty board.
+    """
+    if has_heat(ev, ht):
+        _worker_set_heat(ev, ht)
 
 
 def _do_board_reset(gen):
@@ -473,12 +522,29 @@ def _run_test_session(session_file, my_gen):
     end_test_session()
 
 
+def _set_serial_status(st, msg=''):
+    state._serial_status = {'state': st, 'msg': msg}
+    bus.emit('/settings', 'serial_log', {'state': st, 'msg': msg})
+
+
+def _run_manual(my_gen):
+    """No wire to read — the operator is the console (see /manual).
+
+    The loop exists only to *own the decoder*. Every heat change arrives as a command
+    on `state._worker_cmds` and has to run on this thread, the decoder's sole owner,
+    exactly the way `adjust_splits` and the debounced board reset already do under a
+    live console. With no worker running there would be nobody to drain that queue,
+    and the buttons on /manual would do nothing at all.
+    """
+    _set_serial_status('manual', 'Manual console — nothing is wired to this server')
+    while state._worker_gen == my_gen:
+        _drain_cmds()
+        time.sleep(0.05)
+    _set_serial_status('idle', '')
+
+
 def _run_live_serial(my_gen):
     """Read from the configured serial port until superseded, retrying on error."""
-    def _set_serial_status(st, msg=''):
-        state._serial_status = {'state': st, 'msg': msg}
-        bus.emit('/settings', 'serial_log', {'state': st, 'msg': msg})
-
     port = state.settings['serial_port']
 
     while state._worker_gen == my_gen:
@@ -546,7 +612,14 @@ def main_thread_worker():
     my_gen = state._worker_gen
     try:
         if state._test_session:
+            # First, deliberately: a replay still plays under a manual console, so an
+            # operator can try a recording without changing the console back.
             _run_test_session(state._test_session, my_gen)
+        elif not state._decoder.requires_serial:
+            # Asks the decoder, never `settings['console_type'] == 'manual'` — a
+            # local-only plugin in ~/SplouchData/console_decoders/ can declare itself
+            # portless and get the same treatment for free.
+            _run_manual(my_gen)
         else:
             _run_live_serial(my_gen)
     finally:

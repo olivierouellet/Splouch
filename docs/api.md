@@ -77,6 +77,12 @@ Qt display's own `_STALE` (`scoreboard/client.py`) so the TV and the phones give
 at the same moment instead of contradicting each other. Test-session playback counts
 as live.
 
+A decoder may override that measure by answering `is_live` for itself; `None`, which
+every wired console returns, means "ask the packet clock". The manual console
+(§2.3) has no packets at all, so it reads dead until the operator commits a first
+heat and live from then on — otherwise `/results` would go to its waiting state eight
+seconds into every manually run meet and stay there, taking `next_heats` with it.
+
 Only **transitions** are broadcast. A client learns the current value from the
 connect burst above, so a late joiner is never left guessing.
 
@@ -105,7 +111,9 @@ is allowed to reach it is a real session as far as the cloud is concerned.
 | `set_overlay` | `{ "active": bool }` | toggle overlay (rebroadcast as `display_overlay`) |
 | `set_columns` | `{ "hidden": bool }` | toggle columns (rebroadcast as `columns_state`) |
 | `adjust_splits` | `{ "lane": 1‑12, "delta": int }` | nudge a lane's split count; server replies `update_scoreboard {"lane_splits<n>": v}` |
-| `next_heat` | `{}` | advance to the next event/heat (Hytek/manual mode) |
+| `next_heat` | `{}` | advance to the next event/heat in the meet's running order (§2.3) |
+| `prev_heat` | `{}` | step back one event/heat (§2.3) |
+| `goto_heat` | `{ "event": int, "heat": int }` | make that event/heat current; ignored unless the loaded meet contains it (§2.3) |
 
 **`register`** is optional but expected of native clients. Browser tabs never send
 it, so `role` is what tells the two apart in Settings → Network. `version` is
@@ -121,6 +129,29 @@ it while any lane is running, and a display refuses to act on it for the same
 reason: finishing an update means restarting. A display must report failure rather
 than restarting into a broken checkout, and must refuse outright if its own
 checkout has local changes.
+
+#### 2.3 Driving the meet with no console
+
+`next_heat`, `prev_heat` and `goto_heat` set which event and heat is current without
+a timing console — the Pi's `/manual` page, and the reason the **Manual — no timing
+console** decoder exists. `next_heat` predates the other two and is unchanged.
+
+All three walk the loaded meet's running order, Lenex or Hytek. The ends of the meet
+are hard stops: stepping past either changes nothing rather than wrapping. `goto_heat`
+is checked against the loaded meet and **silently ignored** if the heat is not in it —
+this channel takes unauthenticated LAN input, and a heat number that belongs to no
+meet would publish an event over blank lanes.
+
+There is **no dedicated acknowledgement**. A commit is confirmed by the ordinary
+`update_scoreboard` burst it causes — `current_event`, `current_heat`, `event_name`,
+`heat_time`, `expected_splits`, every `lane_name<i>` / `lane_club<i>` /
+`lane_name_alt<i>`, and blanked `lane_time<i>` / `lane_place<i>` / `lane_splits<i>` —
+plus `next_heats` (§5.3) on `/ws/results` and the relay. A client should therefore
+render the current heat from those frames rather than from its own optimistic guess,
+so what it shows always matches the boards.
+
+No `results_snapshot` and no `race_finished` ever follow: a manual console carries no
+times, so nothing is ever finished.
 
 ### `/ws/results`
 On connect the server sends `meet_live` (§2.1), then the last `results_snapshot`
