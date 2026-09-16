@@ -74,7 +74,17 @@
             padding: 8px 12px calc(8px + env(safe-area-inset-top)) 12px;
             padding-top: calc(8px + env(safe-area-inset-top));
         }
-        #now .row1 { display: flex; align-items: baseline; gap: 18px; }
+        /* The header is one row: what is on the boards, then the two buttons that
+           change it. Both live here so neither scrolls away mid-meet — the operator
+           can be anywhere in the running order and still hit Next. */
+        #now .row1 { display: flex; align-items: center; gap: 12px; }
+        /* Tapping the numbers jumps the list back to the heat that is on. */
+        #now-jump {
+            display: flex; align-items: baseline; gap: 18px; flex: 1; min-width: 0;
+            background: none; border: none; padding: 0; text-align: left;
+            font-family: inherit; color: inherit;
+            -webkit-tap-highlight-color: transparent;
+        }
         .now-label {
             font-size: 0.62em; letter-spacing: 0.12em; text-transform: uppercase;
             color: var(--color-header-label); display: block;
@@ -92,30 +102,20 @@
             color: var(--color-header-label); margin-top: 6px;
         }
 
-        /* ── Prev / Next ── */
-        #stepper {
-            position: sticky; top: 0; z-index: 15;
-            display: flex; gap: 10px; padding: 10px 12px;
-            background: var(--color-bg);
-            border-bottom: 1px solid var(--color-header-border);
-        }
+        /* ── Prev / Next, in the header ── */
+        #stepper { display: flex; gap: 8px; flex-shrink: 0; }
         .step-btn {
-            flex: 1; min-height: 58px;
-            font-family: var(--font-family); font-size: 1em;
+            width: 52px; min-height: 52px;
+            font-family: var(--font-family); font-size: 1.3em; line-height: 1;
             color: var(--color-header-value);
             background: var(--color-row-odd);
             border: 1px solid var(--color-header-border); border-radius: 10px;
-            display: flex; align-items: center; justify-content: center; gap: 8px;
+            display: flex; align-items: center; justify-content: center;
             /* hold.js needs the gesture, or a scroll-start cancels every press. */
             touch-action: none;
             user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent;
         }
         .step-btn[disabled], .step-btn.disabled { opacity: 0.35; }
-        .step-hint {
-            text-align: center; font-size: 0.62em; letter-spacing: 0.1em;
-            text-transform: uppercase; color: var(--color-header-label);
-            padding: 0 12px 8px 12px; background: var(--color-bg);
-        }
 
         /* ── Banner: a real console is configured and will overwrite us ── */
         #banner {
@@ -178,7 +178,10 @@
 
         .heat-card.heat-current .heat-header { background: var(--color-header-border); }
         .heat-card.heat-current { outline: 2px solid var(--color-time); outline-offset: -2px; }
-        .heat-card { scroll-margin-top: 190px; }
+        /* Measured from the real header rather than guessed: it is taller when the
+           wrong-console banner is up, and a fixed value would either tuck the current
+           heat under the header or leave a gap above it. See `syncHeaderHeight`. */
+        .heat-card { scroll-margin-top: var(--header-h, 120px); }
 
         #no-meet { padding: 40px 20px; text-align: center; color: var(--color-th-text); }
         #link-lost {
@@ -208,17 +211,32 @@
 
 <div id="now">
     <div class="row1">
-        <div>
-            <span class="now-label">{{ labels.event }}</span>
-            <span class="now-value" id="now-event">—</span>
+        <button type="button" id="now-jump" title="{{ t.on_boards }}">
+            <span>
+                <span class="now-label">{{ labels.event }}</span>
+                <span class="now-value" id="now-event">&mdash;</span>
+            </span>
+            <span>
+                <span class="now-label">{{ labels.heat }}</span>
+                <span class="now-value" id="now-heat">&mdash;</span>
+            </span>
+        </button>
+        {% if has_meet %}
+        {# In the header, not above the list: the operator is usually scrolled well
+           away from the current heat when the next one is called, and a stepper that
+           had scrolled off the top would mean hunting for it between every heat. #}
+        <div id="stepper">
+            <button type="button" class="step-btn" id="btn-prev" aria-label="{{ t.prev }}"
+                    title="{{ t.prev }} &middot; {{ t.hold }}"
+                    data-hold data-hold-ms="1500" data-hold-fn="manualPrev">&#9666;</button>
+            <button type="button" class="step-btn" id="btn-next" aria-label="{{ t.next }}"
+                    title="{{ t.next }} &middot; {{ t.hold }}"
+                    data-hold data-hold-ms="1500" data-hold-fn="manualNext">&#9656;</button>
         </div>
-        <div>
-            <span class="now-label">{{ labels.heat }}</span>
-            <span class="now-value" id="now-heat">—</span>
-        </div>
+        {% endif %}
     </div>
     <div id="now-name"></div>
-    <div id="now-caption">{{ t.on_boards }}</div>
+    <div id="now-caption">{{ t.on_boards }} &middot; {{ t.hold }}</div>
 </div>
 
 {% if not manual_active %}
@@ -231,13 +249,6 @@
 <div id="link-lost">{{ t.reconnecting }}</div>
 
 {% if has_meet %}
-<div id="stepper">
-    <button type="button" class="step-btn" id="btn-prev"
-            data-hold data-hold-ms="1500" data-hold-fn="manualPrev">&#9666; {{ t.prev }}</button>
-    <button type="button" class="step-btn" id="btn-next"
-            data-hold data-hold-ms="1500" data-hold-fn="manualNext">{{ t.next }} &#9656;</button>
-</div>
-<div class="step-hint">{{ t.hold }}</div>
 <div id="heats"></div>
 {% else %}
 <div id="no-meet">{{ t.no_meet }}</div>
@@ -309,7 +320,11 @@
         for (var i = 0; i < HEATS.length; i++) {
             var h    = HEATS[i];
             var key  = keyOf(h);
-            var open = key === openKey;
+            /* The heat that is on the boards is always expanded — it is the one the
+               operator is looking up from to check who is behind the blocks, and
+               having to tap it open again after every change is a tap too many.
+               A previewed heat opens alongside it, not instead of it. */
+            var open = key === openKey || isCurrent(h);
             var cls  = 'heat-card ' + (i % 2 === 0 ? 'heat-even' : 'heat-odd') +
                        (isCurrent(h) ? ' heat-current' : '') + (open ? ' open' : '');
             html += '<div class="' + cls + '" data-key="' + esc(key) + '">' +
@@ -344,9 +359,23 @@
         next.classList.toggle('disabled', i >= 0 && i === HEATS.length - 1);
     }
 
-    function scrollToCurrent() {
+    /* The sticky header's real height, published for `.heat-card`'s scroll-margin.
+       Re-measured on resize and on rotate, and after the event name lands — a long
+       one wraps and makes the header taller than it was at first paint. */
+    function syncHeaderHeight() {
+        var now = document.getElementById('now');
+        if (!now) return;
+        document.documentElement.style.setProperty('--header-h', now.offsetHeight + 8 + 'px');
+    }
+
+    /* To the top of the list, not the middle: what the operator wants next is the
+       heats *after* this one, so the current heat sits just under the header and the
+       rest of the meet runs down the screen below it. */
+    function scrollToCurrent(smooth) {
         var el = document.querySelector('.heat-card.heat-current');
-        if (el) el.scrollIntoView({ block: 'center' });
+        if (!el) return;
+        syncHeaderHeight();
+        el.scrollIntoView({ block: 'start', behavior: smooth ? 'smooth' : 'auto' });
     }
 
     /* ── Commands. Nothing here updates the header optimistically: the highlight
@@ -359,6 +388,11 @@
     window.manualNext = function () { if (sock.connected) sock.emit('next_heat', {}); };
 
     document.addEventListener('click', function (e) {
+        /* The numbers in the header are the "where am I?" button: after scrolling
+           down the meet to look something up, one tap comes back to the heat that is
+           actually on. Smooth, so it reads as a journey rather than a jump cut. */
+        if (e.target.closest('#now-jump')) { scrollToCurrent(true); return; }
+
         var commit = e.target.closest('[data-commit]');
         if (commit) {
             var parts = commit.getAttribute('data-commit').split('/');
@@ -388,7 +422,10 @@
         document.getElementById('now-event').textContent = currentEvent || '—';
         document.getElementById('now-heat').textContent  = currentHeat  || '—';
         render();
-        scrollToCurrent();
+        /* After the header has been re-measured with this event's name in it, or the
+           new current heat lands half under it. */
+        syncHeaderHeight();
+        scrollToCurrent(true);
     });
 
     sock.on('connect',    function () { document.body.classList.remove('offline'); });
@@ -400,8 +437,12 @@
     var sockSchedule = splouchSocket('/ws/schedule');
     sockSchedule.on('schedule_update', function () { location.reload(); });
 
+    window.addEventListener('resize', syncHeaderHeight);
+    window.addEventListener('orientationchange', syncHeaderHeight);
+
     document.getElementById('now-event').textContent = currentEvent || '—';
     document.getElementById('now-heat').textContent  = currentHeat  || '—';
+    syncHeaderHeight();
     if (document.getElementById('heats')) { render(); scrollToCurrent(); }
 })();
 </script>

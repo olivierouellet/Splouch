@@ -431,3 +431,56 @@ def test_the_preview_shows_swimmers_but_never_seed_times():
                 encoding='utf-8').read()
     assert 'swimmer-name' in page and 'swimmer-club' in page
     assert 'seed_time' not in page and 'seed-time' not in page
+
+
+# ── The page's layout rules ────────────────────────────────────────────────────
+
+def _manual_page():
+    return open(os.path.join(REPO, 'server', 'templates', 'manual.html'),
+                encoding='utf-8').read()
+
+
+def test_the_steppers_live_in_the_sticky_header():
+    """Above the list they scrolled away. The operator is usually well down the
+    running order when the next heat is called, so a stepper that had scrolled off
+    the top meant hunting for it between every heat."""
+    page = _manual_page()
+    header = page[page.index('<div id="now">'):page.index('{% if not manual_active %}')]
+    assert 'id="stepper"' in header, 'the steppers are not inside the sticky header'
+    assert 'data-hold-fn="manualPrev"' in header
+    assert 'data-hold-fn="manualNext"' in header
+    # And nothing sticky is left behind above the list to compete with it.
+    assert page.count('position: sticky') == 1
+
+
+def test_tapping_the_numbers_returns_to_the_heat_that_is_on():
+    page = _manual_page()
+    assert 'id="now-jump"' in page
+    assert "closest('#now-jump')" in page
+    assert 'scrollToCurrent(true)' in page, 'the jump should be smooth, not a cut'
+
+
+def test_the_current_heat_lands_at_the_top_of_the_list_not_its_middle():
+    """What the operator wants next is the heats *after* this one, so the current
+    heat sits under the header with the rest of the meet running down below it."""
+    page = _manual_page()
+    assert "block: 'start'" in page
+    assert "block: 'center'" not in page
+
+
+def test_the_scroll_offset_is_measured_rather_than_hardcoded():
+    """The header is taller with the wrong-console banner up, and taller again when a
+    long event name wraps — a fixed offset either tucks the current heat under the
+    header or leaves a gap above it."""
+    page = _manual_page()
+    assert 'scroll-margin-top: var(--header-h' in page
+    assert "setProperty('--header-h'" in page
+    assert 'syncHeaderHeight' in page
+
+
+def test_the_current_heat_is_always_expanded():
+    """It is the one the operator is looking up from to check who is behind the
+    blocks; re-opening it after every change is a tap too many. A previewed heat
+    opens alongside it rather than instead of it."""
+    page = _manual_page()
+    assert 'key === openKey || isCurrent(h)' in page

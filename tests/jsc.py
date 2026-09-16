@@ -38,7 +38,14 @@ function __node(tag) {
   var n = {
     tagName: (tag || 'div').toUpperCase(),
     innerHTML: '', textContent: '', value: '', hidden: false, checked: false,
-    dataset: {}, style: {}, children: [], parentNode: null,
+    // `style` is a CSSStyleDeclaration, not a plain bag: a page setting a custom
+    // property (`--header-h`) calls setProperty on it, and an object literal would
+    // throw where every real browser works.
+    dataset: {}, children: [], parentNode: null,
+    style: { _p: {},
+      setProperty: function (k, v) { this._p[k] = v; },
+      removeProperty: function (k) { delete this._p[k]; },
+      getPropertyValue: function (k) { return this._p[k] || ''; } },
     offsetWidth: 320, offsetHeight: 40, scrollWidth: 320, clientWidth: 320,
     scrollTop: 0, scrollHeight: 800, clientHeight: 600,
     classList: { _s: {},
