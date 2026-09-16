@@ -825,7 +825,7 @@ function onPasswordInput(form) {
                         <div class="d-flex align-items-center gap-2">
                             <span class="text-body-secondary small" style="min-width:70px;">{{ t.net_wifi }}</span>
                             <span id="wifi-status-text" class="flex-fill small"></span>
-                            <button id="btn-wifi-toggle" class="btn btn-secondary btn-sm text-nowrap" disabled style="touch-action:none;">…</button>
+                            <button id="btn-wifi-toggle" class="btn btn-secondary btn-sm text-nowrap" type="button" disabled style="touch-action:none;" data-hold-fn="toggleWifi">…</button>
                         </div>
                     </div></div>
 
@@ -1686,6 +1686,23 @@ function onPasswordInput(form) {
         var eip   = document.getElementById('eth-ip-text');
         btn.disabled = false;
         btn.textContent = d.enabled ? T.js_disable_wifi : T.js_enable_wifi;
+        // Turning WiFi *off* can drop the operator's own connection to this page, so
+        // it takes the same press-and-hold as Reboot and Shutdown. Turning it on is
+        // harmless and stays a plain tap, so `data-hold` comes and goes with the
+        // state — panel.js reads the attribute at press time, so a delegated handler
+        // picks that up with no re-binding.
+        //
+        // Driven by `d.enabled`, never by the label: this used to sniff the button's
+        // text for "Disable", which is a word that only appears in English. In French
+        // and Spanish the hold never armed and the button fired on a single tap —
+        // exactly the press it was there to prevent.
+        if (d.enabled) {
+            btn.setAttribute('data-hold', '');
+            btn.setAttribute('data-hold-label', T.js_hold_disable);
+        } else {
+            btn.removeAttribute('data-hold');
+            btn.removeAttribute('data-hold-label');
+        }
         if (!d.enabled) {
             _statusColor(wtext, 'muted');
             wtext.textContent = T.js_disabled;
@@ -1766,48 +1783,11 @@ function onPasswordInput(form) {
         });
     }
 
-    // WiFi toggle safety: enabling is a plain tap, but *disabling* (which can drop
-    // the operator's own connection) requires a ~1.2 s press-and-hold to confirm.
-    (function setupWifiToggleHold() {
-        var btn = document.getElementById('btn-wifi-toggle');
-        if (!btn) return;
-        var HOLD_MS = 1200;
-        var timer = null, armed = false, isDisable = false, origLabel = '';
-
-        // We drive the button via pointer events; suppress the synthetic click.
-        btn.addEventListener('click', function(e) { e.preventDefault(); });
-
-        btn.addEventListener('pointerdown', function(e) {
-            if (btn.disabled) return;
-            e.preventDefault();
-            armed = true;
-            isDisable = /Disable/.test(btn.textContent);
-            if (isDisable) {
-                origLabel = btn.textContent;
-                btn.classList.add('btn-holding');
-                btn.textContent = T.js_hold_disable;
-                timer = setTimeout(function() {
-                    timer = null; armed = false; isDisable = false; origLabel = '';
-                    btn.classList.remove('btn-holding');
-                    toggleWifi();                 // fires only after the full hold
-                }, HOLD_MS);
-            }
-        });
-
-        function release(fired) {
-            if (timer) { clearTimeout(timer); timer = null; }
-            if (isDisable && origLabel) {         // aborted hold — restore label
-                btn.classList.remove('btn-holding');
-                btn.textContent = origLabel;
-            } else if (armed && !isDisable && fired) {
-                toggleWifi();                     // enabling: plain tap
-            }
-            armed = false; isDisable = false; origLabel = '';
-        }
-        btn.addEventListener('pointerup',     function() { release(true); });
-        btn.addEventListener('pointerleave',  function() { release(false); });
-        btn.addEventListener('pointercancel', function() { release(false); });
-    })();
+    // Enabling is a plain tap. `panel.js` swallows the click on anything carrying
+    // `data-hold`, so this only ever fires in the state where the attribute is off.
+    document.getElementById('btn-wifi-toggle').addEventListener('click', function () {
+        if (!this.hasAttribute('data-hold')) toggleWifi();
+    });
 
     // WiFi network list is HTMX-driven: the Scan button does hx-get="/wifi_scan"
     // (renders partials/wifi_networks.html into #wifi-net-list). The "Connect"
