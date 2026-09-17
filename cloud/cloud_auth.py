@@ -51,7 +51,9 @@ def load_creds():
             return json.load(f)
     except (FileNotFoundError, json.JSONDecodeError):
         pass
-    # First run — migrate from env vars and persist
+    # First run on a new install: seed from the environment the installer set, then
+    # own the value from here on so a password changed in /admin survives a redeploy.
+    # Not a migration — this is the only path by which an admin login is ever created.
     user     = os.environ.get('ADMIN_USER', 'admin')
     password = os.environ.get('ADMIN_PASSWORD', '')
     pw_hash, salt = hash_password(password)

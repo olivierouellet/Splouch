@@ -47,7 +47,7 @@ from starlette.concurrency import run_in_threadpool
 # which is exactly why `cloud_server.py` is named that way too.
 import cloud_bus
 import cloud_paths
-from cloud_paths import (DATA_DIR, KEYS_FILE, CREDS_FILE, MEETS_FILE, RETAINED_DIR,
+from cloud_paths import (DATA_DIR, KEYS_FILE, CREDS_FILE, RETAINED_DIR,
                          ANALYTICS_FILE, LOCALES_DIR, STATIC_DIR,
                          SHARED_TEMPLATES_DIR, _HERE,
                          atomic_write as _atomic_write)

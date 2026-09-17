@@ -8,9 +8,10 @@ time, the site kept working until Caddy next restarted and then served the wrong
 with no certificate it could renew.
 
 The domain now lives in `cloud/.env`, which is untracked (and, since this was noticed,
-ignored). These tests pin that arrangement from both ends: that nothing puts a literal
-domain back into the tracked file, and that the migration lifts one out of an install
-made before the change.
+ignored). These tests pin that arrangement: nothing may put a literal domain back into
+the tracked file, compose must pass it through, and the template must keep documenting
+it. The one-time rescue that lifted a domain out of an old Caddyfile has been removed
+along with its tests — every install has long since been deployed past it.
 """
 import os
 import re
@@ -70,73 +71,7 @@ def test_the_env_file_is_ignored_but_its_template_is_not():
     assert not ignored('cloud/.env.example')
 
 
-# ── The one-time migration ─────────────────────────────────────────────────────
-
-@pytest.fixture
-def deploy(monkeypatch, tmp_path):
-    """`deploy_webhook` with REPO pointed at a throwaway checkout."""
-    os.environ.setdefault('DEPLOY_SECRET', 'test')
-    import deploy_webhook as dw
-    cloud = tmp_path / 'cloud'
-    cloud.mkdir()
-    monkeypatch.setattr(dw, 'REPO', str(tmp_path))
-    return dw, cloud
-
-
-def _run(deploy, caddyfile, env):
-    dw, cloud = deploy
-    (cloud / 'Caddyfile').write_text(caddyfile, encoding='utf-8')
-    (cloud / '.env').write_text(env, encoding='utf-8')
-    dw._preserve_domain()
-    return (cloud / '.env').read_text(encoding='utf-8')
-
-
-def test_it_lifts_a_domain_out_of_an_old_caddyfile(deploy):
-    """The install that predates the change — the one a deploy would have broken."""
-    out = _run(deploy, 'splouch.ca {\n    reverse_proxy app:5000\n}\n',
-               'SECRET_KEY=x\n')
-    assert 'SPLOUCH_DOMAIN=splouch.ca\n' in out
-
-
-def test_it_appends_cleanly_to_an_env_with_no_trailing_newline(deploy):
-    out = _run(deploy, 'splouch.ca {\n}\n', 'SECRET_KEY=x')
-    assert out.endswith('SPLOUCH_DOMAIN=splouch.ca\n')
-    assert 'SECRET_KEY=x\n' in out
-
-
-def test_it_leaves_an_already_migrated_env_alone(deploy):
-    out = _run(deploy, '{$SPLOUCH_DOMAIN} {\n}\n',
-               'SPLOUCH_DOMAIN=splouch.ca\nSECRET_KEY=x\n')
-    assert out.count('SPLOUCH_DOMAIN=') == 1
-
-
-def test_it_does_not_migrate_the_placeholder(deploy):
-    """Never configured, so there is nothing to save — let compose say so."""
-    out = _run(deploy, 'scores.example.com {\n}\n', 'SECRET_KEY=x\n')
-    assert 'SPLOUCH_DOMAIN' not in out
-
-
-def test_it_ignores_the_comment_block_above_the_site(deploy):
-    """The current Caddyfile leads with several `#` lines that contain braces."""
-    out = _run(deploy, open(CADDYFILE, encoding='utf-8').read(), 'SECRET_KEY=x\n')
-    assert 'SPLOUCH_DOMAIN' not in out, 'read a domain out of the comments'
-
-
-def test_it_survives_a_missing_env(deploy):
-    """A fresh install has no .env yet; the migration must not create one."""
-    dw, cloud = deploy
-    (cloud / 'Caddyfile').write_text('splouch.ca {\n}\n', encoding='utf-8')
-    dw._preserve_domain()
-    assert not (cloud / '.env').exists()
-
-
 # ── The deploy webhook's unit, and how its failure reaches the operator ─────────
-#
-# The webhook is a systemd service outside Docker, and systemd needs absolute paths, so
-# install.sh bakes the install directory into its unit. Rename the checkout and the unit
-# stops starting. That is recoverable; what made it cost an afternoon is that `/admin`
-# swallowed the failure — the version select sat on "Loading…" and the Update button
-# stayed live, so a dead webhook looked exactly like a server with no releases.
 
 SERVICE = os.path.join(REPO, 'cloud', 'deploy_webhook.service')
 ADMIN   = os.path.join(REPO, 'cloud', 'templates', 'admin.html')

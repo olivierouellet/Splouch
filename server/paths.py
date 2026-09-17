@@ -5,10 +5,9 @@ loader, the route handlers — do not have to import the meet, the decoder and t
 worker's runtime flags with it. Nothing here reads ``settings``: these paths are
 what ``settings`` is *loaded from*, so the dependency only runs one way.
 
-Importing this module creates the data directory (migrating the pre-Splouch one
-if it is still there). That happens on import because every other module assumes
-the directories are already present, and doing it here means it happens exactly
-once however the app is started.
+Importing this module creates the data directory. That happens on import because
+every other module assumes the directories are already present, and doing it here
+means it happens exactly once however the app is started.
 """
 import os
 import secrets

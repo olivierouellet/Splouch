@@ -248,18 +248,6 @@ if [[ "$ROLE" == "server" ]]; then
     section "Project"
     SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-install.sh}")" 2>/dev/null && pwd)" || SCRIPT_DIR=""
 
-    # Migrate from previous install directory name if needed
-    for _old_dir in "$HOME/CTS_Scoreboard_Rpi" "$HOME/CTS_Scoreboard" "$HOME/Scoreboard_Pi"; do
-        if [[ ! -d "$INSTALL_DIR" && -d "$_old_dir/.git" ]]; then
-            info "Found old installation at $_old_dir — migrating to $INSTALL_DIR"
-            sudo systemctl stop scoreboard 2>/dev/null || true
-            mv "$_old_dir" "$INSTALL_DIR"
-            git -C "$INSTALL_DIR" remote set-url origin "$REPO_URL"
-            info "Directory renamed and git remote updated."
-            break
-        fi
-    done
-
     if [[ -n "$SCRIPT_DIR" && -f "$SCRIPT_DIR/../server/app.py" ]]; then
         INSTALL_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
         info "Running from project directory: $INSTALL_DIR"
@@ -316,7 +304,6 @@ EOF
     fi
 
     section "Data folders"
-    # Migrate the pre-Splouch data dir if present (the app also does this on start).
     as_user mkdir -p "$TARGET_HOME/SplouchData/meet" "$TARGET_HOME/SplouchData/images" \
                      "$TARGET_HOME/SplouchData/icons" "$TARGET_HOME/SplouchData/recorded"
     info "~/SplouchData/{meet,images,icons,recorded} created."

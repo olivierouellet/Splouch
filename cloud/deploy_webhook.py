@@ -50,50 +50,6 @@ def _update_config():
     return (cfg.get('extra_branches') or [], int(cfg.get('max_versions') or 0))
 
 
-def _preserve_domain():
-    """Move a literal domain out of the tracked Caddyfile and into .env, once.
-
-    The domain used to be written into `cloud/Caddyfile` by install.sh. That file is
-    tracked, so the master and branch deploys below — which `git reset --hard` — would
-    revert it, and Caddy would come back on the placeholder domain at its next restart,
-    serving the wrong site and unable to renew the certificate. It fails quietly: the
-    Caddyfile is bind-mounted, so nothing restarts Caddy at deploy time and the damage
-    only shows up later.
-
-    Installs made since keep the domain in `.env`, which git cannot touch. This lifts
-    the ones made before, and runs before every deploy because the first deploy after
-    the change is executing this file's *previous* version and cannot have done it.
-    """
-    env_path   = os.path.join(REPO, 'cloud', '.env')
-    caddy_path = os.path.join(REPO, 'cloud', 'Caddyfile')
-    try:
-        env = open(env_path, encoding='utf-8').read()
-    except OSError:
-        return                                  # no .env: a fresh install, nothing to save
-    for line in env.splitlines():
-        if line.startswith('SPLOUCH_DOMAIN=') and line.split('=', 1)[1].strip():
-            return                              # already migrated
-    try:
-        caddy = open(caddy_path, encoding='utf-8').read()
-    except OSError:
-        return
-    domain = ''
-    for line in caddy.splitlines():
-        line = line.strip()
-        if line.startswith('#') or '{' not in line:
-            continue
-        candidate = line.rsplit('{', 1)[0].strip()
-        if candidate and not candidate.startswith('{$'):
-            domain = candidate
-        break
-    if not domain or domain == 'scores.example.com':
-        return                                  # never configured; let compose complain
-    with open(env_path, 'a', encoding='utf-8') as f:
-        if not env.endswith('\n'):
-            f.write('\n')
-        f.write('SPLOUCH_DOMAIN=%s\n' % domain)
-
-
 def _run_deploy(cmd):
     """Run the deploy command, stream output to LOG_FILE, self-restart when done."""
     log = open(LOG_FILE, 'wb', buffering=0)
@@ -133,7 +89,6 @@ class Handler(http.server.BaseHTTPRequestHandler):
         self._reply(200, b'deploy started')
 
         extra_refs, _ = _update_config()
-        _preserve_domain()
         if version == 'master':
             cmd = f'cd {REPO} && git fetch origin && git reset --hard origin/master'
         elif version in extra_refs and _REF_RE.match(version):

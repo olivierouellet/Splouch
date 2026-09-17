@@ -119,16 +119,6 @@ def _delete_meet_files(meet_id):
 def _load_retained():
     """Load every per-meet file back into one in-memory dict of full records."""
     os.makedirs(cloud_paths.RETAINED_DIR, exist_ok=True)
-    # One-time migration from the legacy single-file meets.json.
-    if os.path.exists(cloud_paths.MEETS_FILE):
-        try:
-            with open(cloud_paths.MEETS_FILE) as f:
-                legacy = json.load(f)
-            for mid, rec in legacy.items():
-                _write_meet_files(mid, rec, True, True)
-            os.replace(cloud_paths.MEETS_FILE, cloud_paths.MEETS_FILE + '.migrated')
-        except (json.JSONDecodeError, OSError):
-            pass
     store = {}
     for path in glob.glob(os.path.join(cloud_paths.RETAINED_DIR, '*.json')):
         if path.endswith('.schedule.json'):
