@@ -1,0 +1,140 @@
+                <div class="tab-pane" id="tab-cloud">
+                    <div class="row"><div class="col-lg-8">
+                    <form id="cloud_settings_form" action="/settings" method="post">
+                    <input type="hidden" name="cloud_settings_submit" value="1">
+                        <div class="card mb-3"><div class="card-body">
+                            <div class="d-flex align-items-center gap-2 mb-3">
+                                <span class="text-body-secondary small" style="min-width:70px;">{{ t.net_status }}</span>
+                                <span id="cloud-status-text" class="flex-fill small"></span>
+                                <button id="btn-cloud-toggle" class="btn btn-secondary btn-sm text-nowrap" onclick="toggleCloud(); return false;" disabled>…</button>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">{{ t.cloud_server_url }}</label>
+                                <input type="url" name="cloud_relay_url" value="{{ cloud_relay_url }}"
+                                       class="form-control form-control-sm" placeholder="https://scores.example.com">
+                                <div class="form-text">{{ t.cloud_url_hint }}</div>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">{{ t.cloud_relay_key }}</label>
+                                <input type="password" name="cloud_relay_key" value="{{ cloud_relay_key }}"
+                                       class="form-control form-control-sm" placeholder="{{ t.cloud_relay_key_ph }}">
+                            </div>
+                            <div class="text-end">
+                                <button id="btn-update-cloud" type="submit" class="btn btn-secondary btn-sm">{{ t.btn_save }}</button>
+                            </div>
+                        </div></div>
+                    </form>
+
+                        <!-- Attendance counts, pushed back from the cloud (analytics is opt-in there) -->
+                        <div id="cloud-attendance-card" class="card mb-3" style="display:none;">
+                            <div class="card-body">
+                                <label class="form-label fw-bold mb-2">{{ t.cloud_attendance_title }}</label>
+                                <div id="cloud-attendance-body"></div>
+                            </div>
+                        </div>
+
+                        <!-- Per-meet cloud appearance (moved from Meet Setup) -->
+            {% if active_meet_file %}
+            <div class="card mt-3"><div class="card-body">
+                <form id="cloud_appearance_form" action="/settings" method="post" enctype="multipart/form-data">
+                <input type="hidden" name="meet_appearance_submit" value="1">
+                <div class="d-flex justify-content-between align-items-center mb-1">
+                    <label class="form-label fw-bold mb-0">{{ t.cloud_appearance_title }}</label>
+                    <button id="btn-update-meet" type="submit" class="btn btn-secondary btn-sm">{{ t.btn_save }}</button>
+                </div>
+                <p class="small text-body-secondary mb-2">{{ t.cloud_appearance_desc }}</p>
+
+                <div class="mb-2">
+                    <label class="form-label mb-1">{{ t.cloud_picker_title }}</label>
+                    <input type="text" name="cloud_meet_title" id="cloud_meet_title" value="{{ cloud_meet_title }}"
+                           class="form-control form-control-sm" placeholder="{{ meet_title or 'Meet title' }}">
+                </div>
+                <div class="mb-2">
+                    <label class="form-label mb-1">{{ t.cloud_location }}</label>
+                    <input type="text" name="meet_location" value="{{ meet_location }}"
+                           class="form-control form-control-sm" placeholder="{{ t.cloud_location_ph }}">
+                </div>
+                <div class="mb-2">
+                    <label class="form-label mb-1">{{ t.cloud_sport }}</label>
+                    <input type="text" name="meet_sport" value="{{ meet_sport }}"
+                           class="form-control form-control-sm" placeholder="{{ t.cloud_sport_ph }}">
+                </div>
+                <div class="mb-2">
+                    <label class="form-label mb-1">{{ t.cloud_app_title }}</label>
+                    <input type="text" name="app_window_title" id="app_window_title" value="{{ app_window_title }}"
+                           class="form-control form-control-sm" placeholder="{{ t.cloud_app_title_ph }}">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label mb-1">{{ t.cloud_col_label_style }}</label>
+                    <select name="cloud_label_style" class="form-select form-select-sm" style="width:auto;">
+                        <option value="short" {% if cloud_label_style == 'short' %}selected{% endif %}>{{ t.cloud_label_short }}</option>
+                        <option value="long"  {% if cloud_label_style == 'long'  %}selected{% endif %}>{{ t.cloud_label_long }}</option>
+                    </select>
+                </div>
+
+                <!-- Picker image -->
+                <label class="form-label mb-1">{{ t.cloud_picker_image }} <small class="text-body-secondary">{{ t.cloud_picker_image_note }}</small></label>
+                {% if picker_image_error %}<p class="text-danger small mb-1">{{ picker_image_error }}</p>{% endif %}
+                <select name="selected_picker_image" class="form-select form-select-sm mb-1" onchange="_fsubmit(this.closest('form'))">
+                    <option value="" {% if not active_picker_image %}selected{% endif %}>{{ t.cloud_none }}</option>
+                    {% for img in picker_image_list %}
+                    <option value="{{ img }}" {% if img == active_picker_image %}selected{% endif %}>{{ img }}</option>
+                    {% endfor %}
+                </select>
+                <div class="d-flex flex-wrap align-items-center gap-1 mb-3">
+                    <div class="file-picker flex-shrink-0">
+                        <label class="btn btn-secondary btn-sm m-0" style="cursor:pointer;">
+                            {{ t.disp_add_image }}
+                            <input type="file" name="picker_image" accept="image/*" style="display:none;"
+                                   onchange="var m=this.closest('.file-picker').querySelector('.file-msg');m.style.opacity='1';m.style.transition='none';m.textContent='{{ t.cloud_uploading }}';_fsubmit(this.closest('form'))">
+                        </label>
+                        <span class="file-msg small text-body-secondary ms-1"></span>
+                    </div>
+                    {% if active_picker_image %}
+                    <a href="/picker_image_delete?file={{ active_picker_image }}" class="btn btn-outline-danger btn-sm flex-shrink-0" onclick="return confirm('Delete {{ active_picker_image }}?')">{{ t.btn_delete }}</a>
+                    {% endif %}
+                    {% if picker_image_list %}
+                    <a href="/picker_image_delete_all" class="btn btn-outline-danger btn-sm flex-shrink-0" data-hold data-hold-label="{{ t.hold_delete_all }}">{{ t.btn_delete_all }}</a>
+                    {% endif %}
+                    {% if active_picker_image %}
+                    <img src="/picker_image" style="height:28px; border-radius:4px; border:1px solid #ccc; flex-shrink:0;">
+                    {% endif %}
+                </div>
+
+                <!-- Home screen icon -->
+                <label class="form-label mb-1">{{ t.cloud_home_icon }} <small class="text-body-secondary">{{ t.cloud_home_icon_note }}</small></label>
+                {% if icon_error %}<p class="text-danger small mb-1">{{ icon_error }}</p>{% endif %}
+                <select name="selected_home_icon" class="form-select form-select-sm mb-1" onchange="_fsubmit(this.closest('form'))">
+                    <option value="" {% if not active_home_icon %}selected{% endif %}>{{ t.cloud_none }}</option>
+                    {% for icon in icon_list %}
+                    <option value="{{ icon }}" {% if icon == active_home_icon %}selected{% endif %}>{{ icon }}</option>
+                    {% endfor %}
+                </select>
+                <div class="d-flex flex-wrap align-items-center gap-1">
+                    <div class="file-picker flex-shrink-0">
+                        <label class="btn btn-secondary btn-sm m-0" style="cursor:pointer;">
+                            {{ t.cloud_add_icon }}
+                            <input type="file" name="home_icon" accept="image/png" style="display:none;"
+                                   onchange="var m=this.closest('.file-picker').querySelector('.file-msg');m.style.opacity='1';m.style.transition='none';m.textContent='{{ t.cloud_resizing }}';_fsubmit(this.closest('form'))">
+                        </label>
+                        <span class="file-msg small text-body-secondary ms-1"></span>
+                    </div>
+                    {% if active_home_icon %}
+                    <a href="/icon_delete?file={{ active_home_icon }}" class="btn btn-outline-danger btn-sm flex-shrink-0" onclick="return confirm('Delete {{ active_home_icon }}?')">{{ t.btn_delete }}</a>
+                    {% endif %}
+                    {% if icon_list %}
+                    <a href="/icon_delete_all" class="btn btn-outline-danger btn-sm flex-shrink-0" data-hold data-hold-label="{{ t.hold_delete_all }}">{{ t.btn_delete_all }}</a>
+                    {% endif %}
+                    {% if has_home_icon %}
+                    <img src="/home_icon" style="height:28px; width:28px; border-radius:6px; border:1px solid #ccc; flex-shrink:0;">
+                    {% endif %}
+                </div>
+                </form>
+            </div></div>
+            {% else %}
+            <div class="card mt-3"><div class="card-body text-body-secondary small">
+                {{ t.cloud_load_meet_hint }}
+            </div></div>
+            {% endif %}
+                    </div></div>
+                </div>

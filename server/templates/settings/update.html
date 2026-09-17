@@ -1,0 +1,64 @@
+        <div class="tab-pane" id="tab-update">
+            <div class="row"><div class="col-lg-8">
+                <div class="card"><div class="card-body">
+                    <div class="d-flex align-items-center gap-2 mb-2">
+                        <span class="text-secondary small">{{ t.update_current_version }}</span>
+                        <span id="current-version" class="small" style="font-family:monospace;">—</span>
+                        <button class="btn btn-secondary btn-sm ms-1" onclick="loadVersions()">{{ t.btn_refresh }}</button>
+                    </div>
+                    <div class="d-flex align-items-center gap-2 mb-2">
+                        <select id="version-select" class="form-select form-select-sm" style="flex:1;">
+                            <option value="">{{ t.loading }}</option>
+                        </select>
+                        <button id="btn-run-update" class="btn btn-secondary btn-sm" onclick="startUpdate()">{{ t.btn_install }}</button>
+                        <span id="update-status" class="text-secondary small"></span>
+                    </div>
+                    <pre id="update-output" class="border rounded p-2" style="display:none; background:#111; color:#e0e0e0; min-height:80px; max-height:360px; overflow-y:auto; font-size:0.8em; margin:0;"></pre>
+
+                    {# Only appears once an update has actually stopped on a dirty
+                       checkout — it discards work, so it stays out of sight until it
+                       is the answer. The output goes to the pane above, like the
+                       update's own. #}
+                    <div id="repair-row" class="d-none align-items-center gap-2 mt-2">
+                        <button id="btn-repair-checkout" class="btn btn-warning btn-sm"
+                                onclick="repairCheckout()">{{ t.update_repair }}</button>
+                        <span class="text-body-secondary small">{{ t.update_repair_hint }}</span>
+                    </div>
+
+                    <hr>
+
+                    {# Registered displays. No version picker here on purpose: the
+                       displays follow whatever this server is on, which is the
+                       whole point — see routes/system.route_displays_update. #}
+                    <div class="d-flex align-items-center gap-2 mb-1">
+                        <button id="btn-update-displays" class="btn btn-secondary btn-sm"
+                                onclick="startDisplaysUpdate()">{{ t.update_displays }}</button>
+                        <span id="displays-update-status" class="text-secondary small"></span>
+                    </div>
+                    <div class="text-body-secondary small mb-2">{{ t.update_displays_hint }}</div>
+                    <div id="displays-list" hx-get="/clients_fragment" hx-trigger="load, every 5s"
+                         hx-swap="innerHTML"></div>
+
+                    <hr>
+
+                    <div class="d-flex align-items-center gap-2 mb-2">
+                        <button id="btn-os-update" class="btn btn-secondary btn-sm" onclick="startOsUpdate()">{{ t.update_update_os }}</button>
+                        <span id="os-update-status" class="text-secondary small"></span>
+                    </div>
+                    <pre id="os-update-output" class="border rounded p-2" style="display:none; background:#111; color:#e0e0e0; min-height:80px; max-height:360px; overflow-y:auto; font-size:0.8em; margin:0;"></pre>
+
+                    <hr>
+
+                    <p class="text-secondary small mb-2">{{ t.update_backup_desc }}</p>
+                    <div class="d-flex flex-wrap align-items-center gap-2">
+                        <a href="/backup_download" class="btn btn-secondary btn-sm">{{ t.update_download_backup }}</a>
+                        <div class="file-picker">
+                            <label class="btn btn-secondary btn-sm m-0" style="cursor:pointer;">
+                                {{ t.update_restore_backup }}<input type="file" accept=".tar.gz" style="display:none;" onchange="restoreBackup(this)">
+                            </label>
+                        </div>
+                        <span id="restore-status" class="text-secondary small"></span>
+                    </div>
+                </div></div>
+            </div></div>
+        </div>

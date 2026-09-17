@@ -24,6 +24,8 @@ import tempfile
 import pytest
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+from conftest import settings_markup  # noqa: E402
 SETTINGS = os.path.join(REPO, 'server', 'templates', 'settings.html')
 
 needs_js = pytest.mark.skipif(not shutil.which('osascript'),
@@ -32,7 +34,7 @@ needs_js = pytest.mark.skipif(not shutil.which('osascript'),
 
 @pytest.fixture(scope='module')
 def src():
-    return open(SETTINGS, encoding='utf-8').read()
+    return settings_markup()
 
 
 @pytest.mark.parametrize('form_id,note_id', [

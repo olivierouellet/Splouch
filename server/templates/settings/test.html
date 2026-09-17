@@ -1,0 +1,80 @@
+                <div class="tab-pane active" id="tab-test">
+                <div class="row"><div class="col-lg-8">
+                    <div class="card"><div class="card-body">
+
+                        <!-- Playback status bar (shown as flex by JS) -->
+                        <div id="test-status-bar" style="display:none; align-items:center; gap:8px; margin-bottom:8px;">
+                            <span id="test-status-text" class="flex-fill small text-body-secondary"></span>
+                            <button class="btn btn-danger btn-sm text-nowrap" style="min-width:70px;" onclick="testStop()">{{ t.test_stop }}</button>
+                        </div>
+
+                        <hr id="test-status-hr" style="display:none;">
+
+                        <!-- The loaded meet is held for the duration, not deleted (toggled by JS) -->
+                        <div id="test-meet-aside-note" class="alert alert-secondary py-2 px-3 small mb-2" style="display:none;">
+                            {{ t.test_meet_set_aside | safe }}
+                        </div>
+
+                        <!-- Keep the replay off the cloud -->
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="checkbox" id="test-local-only" checked
+                                   onchange="setTestLocalOnly(this.checked)">
+                            <label class="form-check-label" for="test-local-only">{{ t.test_local_only }}</label>
+                            <div id="test-local-only-hint" class="small text-body-secondary">{{ t.test_local_only_hint }}</div>
+                        </div>
+
+                        <!-- Session list -->
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="fw-bold">{{ t.test_recorded_sessions }}</span>
+                            <div class="d-flex align-items-center gap-2">
+                                <span id="test-session-status" class="small"></span>
+                                <div class="file-picker">
+                                    <label class="btn btn-secondary btn-sm m-0 text-nowrap" style="cursor:pointer; min-width:70px;">
+                                        {{ t.test_upload }}<input type="file" accept=".cts,.raw" style="display:none;" onchange="testUpload(this)">
+                                    </label>
+                                    <span class="file-msg small text-body-secondary ms-1"></span>
+                                </div>
+                            </div>
+                        </div>
+                        <div id="test-session-list" class="small" style="min-height:32px;"><span class="text-body-secondary">{{ t.loading }}</span></div>
+
+                        <hr>
+
+                        <!-- Speed -->
+                        <div class="d-flex align-items-center gap-2 mb-2">
+                            <span class="fw-bold" style="min-width:110px;">{{ t.test_playback_speed }}</span>
+                            <div class="d-flex gap-1">
+                                <button class="btn btn-secondary btn-sm speed-btn" onclick="setSpeed(1)">1×</button>
+                                <button class="btn btn-secondary btn-sm speed-btn" onclick="setSpeed(2)">2×</button>
+                                <button class="btn btn-secondary btn-sm speed-btn" onclick="setSpeed(4)">4×</button>
+                                <button class="btn btn-secondary btn-sm speed-btn" onclick="setSpeed(10)">10×</button>
+                            </div>
+                        </div>
+
+                        <hr>
+
+                        <!-- Record -->
+                        <div class="panel-title">{{ t.test_record_live }}</div>
+                        <div class="d-flex align-items-center gap-1">
+                            <input id="test-record-name" type="text" class="form-control form-control-sm" placeholder="{{ t.test_session_name_ph }}" style="flex:1;">
+                            <button id="btn-record" class="btn btn-secondary btn-sm text-nowrap" style="min-width:70px;" onclick="testRecordToggle()">{{ t.test_start }}</button>
+                            <span id="test-record-status" class="small text-body-secondary"></span>
+                        </div>
+
+                        <!-- Test meet file — only shown when test is playing and no real meet is loaded -->
+                        <div id="test-meet-section" style="display:none;">
+                            <hr>
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span class="fw-bold">{{ t.test_meet_file }}</span>
+                                <div id="test-meet-upload-btn">
+                                    <label class="btn btn-secondary btn-sm m-0 text-nowrap" style="cursor:pointer; min-width:70px;">
+                                        {{ t.test_load }}<input type="file" accept=".csv,.lxf" style="display:none;" onchange="testMeetUpload(this)">
+                                    </label>
+                                </div>
+                            </div>
+                            <div id="test-meet-status" class="small text-body-secondary">{{ t.test_no_meet_hint }}</div>
+                        </div>
+
+                    </div></div>
+                </div></div>
+                </div>

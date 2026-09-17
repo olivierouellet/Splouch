@@ -167,12 +167,12 @@ def route_wifi_scan(request: Request):
                 net['active'] = net['active'] or ('*' in active)
         networks = sorted(by_ssid.values(),
                           key=lambda n: n['signal'], reverse=True)
-        return render(request, 'partials/wifi_networks.html', networks=networks)
+        return render(request, 'settings/fetched/wifi_networks.html', networks=networks)
     except FileNotFoundError:
-        return render(request, 'partials/wifi_networks.html',
+        return render(request, 'settings/fetched/wifi_networks.html',
                       error='WiFi not available (nmcli not found).')
     except Exception as e:
-        return render(request, 'partials/wifi_networks.html', error=str(e))
+        return render(request, 'settings/fetched/wifi_networks.html', error=str(e))
 
 
 @router.post('/wifi_toggle', response_model=EnabledFlag,
@@ -285,7 +285,7 @@ async def route_clients_fragment(request: Request):
     # the Network tab. async so it runs on the event loop — the same context that
     # mutates _scoreboard_clients (the WS connect/disconnect handlers) — so this
     # snapshot can't be preempted mid-iteration by a connect/disconnect.
-    return render(request, 'partials/clients.html',
+    return render(request, 'settings/fetched/clients.html',
                   clients=list(state._scoreboard_clients.values()),
                   server_version=state.git_describe()['version'],
                   t=state.settings_strings(state.ui_locale(request)))

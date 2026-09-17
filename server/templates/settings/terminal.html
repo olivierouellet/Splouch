@@ -1,0 +1,26 @@
+                <div class="tab-pane" id="tab-terminal">
+                    <div class="card mb-3" style="max-width:860px;"><div class="card-body">
+                        <div class="d-flex align-items-center gap-2 flex-wrap">
+                            <span style="position:relative; display:inline-block;">
+                                <button type="button" class="btn btn-secondary btn-sm" onclick="toggleLogMenu(event)">{{ t.term_save_logs }}</button>
+                                <div id="log-menu" style="display:none; position:absolute; left:0; top:100%; margin-top:4px; background:var(--bs-tertiary-bg); border:1px solid var(--bs-border-color); border-radius:4px; z-index:50; min-width:150px; box-shadow:0 2px 8px rgba(0,0,0,0.4);">
+                                    <button type="button" class="btn btn-secondary btn-sm" style="display:block; width:100%; text-align:left; border:none; border-radius:0;" onclick="downloadLogs()">{{ t.common_download }}</button>
+                                    <button type="button" class="btn btn-secondary btn-sm" style="display:block; width:100%; text-align:left; border:none; border-radius:0;" onclick="saveLogsToPi()">{{ t.term_save_to_pi }}</button>
+                                </div>
+                            </span>
+                            <span id="log-save-status" class="small text-body-secondary"></span>
+                        </div>
+                    </div></div>
+                    <div class="card" style="max-width:860px;"><div class="card-body">
+                        <div class="d-flex align-items-center gap-1 mb-2 flex-wrap">
+                            <button class="btn btn-secondary btn-sm" onclick="termLaunch('bash')">{{ t.term_shell }}</button>
+                            <button class="btn btn-secondary btn-sm" onclick="termLaunch('raspi-config')">raspi-config</button>
+                            <button class="btn btn-secondary btn-sm" onclick="termLaunch('logs')">{{ t.term_scoreboard_logs }}</button>
+                            <button class="btn btn-secondary btn-sm" onclick="termLaunch('dmesg-tty')">dmesg tty</button>
+                            <button class="btn btn-secondary btn-sm" onclick="termLaunch('serial-ports')">{{ t.term_serial_ports }}</button>
+                            <span class="flex-fill"></span>
+                            <button id="btn-term-stop" class="btn btn-danger btn-sm" style="display:none;" onclick="termStop()">{{ t.test_stop }}</button>
+                        </div>
+                        <div id="terminal-container"></div>
+                    </div></div>
+                </div>

@@ -95,7 +95,7 @@ def test_git_describe_is_cached(monkeypatch):
 def _render(clients, server_version='v2026.08.1'):
     from jinja2 import Environment, FileSystemLoader
     env = Environment(loader=FileSystemLoader(TEMPLATE_DIR))
-    return env.get_template('partials/clients.html').render(
+    return env.get_template('settings/fetched/clients.html').render(
         clients=clients, server_version=server_version,
         t=state.settings_strings('en'))
 

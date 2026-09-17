@@ -29,6 +29,8 @@ import sys
 import pytest
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+from conftest import settings_markup  # noqa: E402
 sys.path.insert(0, REPO)
 sys.path.insert(0, os.path.join(REPO, 'server'))
 
@@ -339,8 +341,7 @@ def test_no_cap_is_offered_anywhere():
     import routes.debug as debug
     assert '.cap' not in debug.SESSION_UPLOAD_EXTS
 
-    settings = open(os.path.join(REPO, 'server', 'templates', 'settings.html'),
-                    encoding='utf-8').read()
+    settings = settings_markup()
     accept = re.search(r'accept="([^"]*)"[^>]*testUpload', settings)
     assert accept, 'the session upload input moved'
     assert '.cap' not in accept.group(1)

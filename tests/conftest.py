@@ -93,3 +93,23 @@ def settle_podium(qt_app):
                 row._podium_anim.setCurrentTime(row._podium_anim.duration())
         qt_app.processEvents()
     return run
+
+
+def settings_markup():
+    """The Settings page's markup: `settings.html` plus every tab partial.
+
+    The page used to be one 2594-line file, and a dozen tests grep it for a class
+    name, a form field or a hold-to-confirm attribute. Its tab panes now live in
+    `templates/settings/`, so "the settings markup" is a template and the
+    files it includes — this joins them so those greps keep asking the question
+    they were written to ask.
+
+    Reading the source rather than a rendered page is deliberate in those tests:
+    they check what the template *says*, including the branches a single render
+    would not take.
+    """
+    import glob
+    base = os.path.join(REPO, 'server', 'templates')
+    paths = [os.path.join(base, 'settings.html')]
+    paths += sorted(glob.glob(os.path.join(base, 'settings', '*.html')))
+    return '\n'.join(open(p, encoding='utf-8').read() for p in paths)

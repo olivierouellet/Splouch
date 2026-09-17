@@ -28,6 +28,8 @@ import tempfile
 import pytest
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+from conftest import settings_markup  # noqa: E402
 sys.path.insert(0, REPO)
 sys.path.insert(0, os.path.join(REPO, 'server'))
 
@@ -46,7 +48,7 @@ pytestmark = pytest.mark.skipif(not HAS_JSC, reason='needs JavaScriptCore (macOS
 
 @pytest.fixture(scope='module')
 def src():
-    return open(SETTINGS, encoding='utf-8').read()
+    return settings_markup()
 
 
 def _run(program):

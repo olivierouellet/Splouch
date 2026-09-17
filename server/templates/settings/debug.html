@@ -1,0 +1,142 @@
+        <div class="tab-pane" id="tab-debug">
+            <div class="row"><div class="col-lg-8">
+                <div class="card mb-3"><div class="card-body">
+                    <form id="timing_form" action="/settings" method="POST">
+                        <input type="hidden" name="timing_settings_submit" value="1">
+                        <div class="mb-3">
+                            <label for="console_type" class="form-label">{{ t.timing_equipment }}</label>
+                            <select id="console_type" name="console_type" class="form-select form-select-sm" style="max-width:360px;" onchange="_fsubmit(this.form)">
+                            {% for key, label in console_options %}
+                                <option value="{{key}}" {% if key == console_type %}selected{% endif %}>{{label}}</option>
+                            {% endfor %}
+                            </select>
+                        </div>
+                        {# A console with no wire has no port to pick and nothing to
+                           connect to, so the picker, the Connection badge and the
+                           Serial Monitor below are all hidden rather than sitting
+                           there reporting "—" forever. What it has instead is a page. #}
+                        {% if console_requires_serial %}
+                        <div>
+                            <label for="serial_port" class="form-label">{{ t.timing_serial_port }}</label>
+                            <select id="serial_port" name="serial_port" class="form-select form-select-sm" style="max-width:360px;" onchange="_fsubmit(this.form)">
+                            {% for port, desc in serial_port_list %}
+                                <option value="{{port}}" {% if port == serial_port %}selected{% endif %}>{{desc}}</option>
+                            {% endfor %}
+                            </select>
+                        </div>
+                        {% endif %}
+                    </form>
+                    {% if not console_requires_serial %}
+                    <div class="d-flex align-items-center gap-3 flex-wrap mt-1">
+                        <p class="small text-body-secondary mb-0 flex-fill" style="min-width:220px;">{{ t.timing_manual_hint }}</p>
+                        <a href="/manual" target="_blank" class="btn btn-primary btn-sm text-nowrap"><i class="bi bi-hand-index me-1"></i>{{ t.timing_manual_open }}</a>
+                    </div>
+                    {% endif %}
+                </div></div>
+                <!-- ── Hardware & wiring for the selected console ─────────── -->
+                <div class="accordion mb-3" id="consoleInfoAcc">
+                    <div class="accordion-item">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#consoleInfo" aria-expanded="false" aria-controls="consoleInfo">
+                                <i class="bi bi-plug me-2"></i>{{ t.timing_hw_wiring }}{% if console_info %} — {{ console_info.label }}{% endif %}
+                            </button>
+                        </h2>
+                        <div id="consoleInfo" class="accordion-collapse collapse" data-bs-parent="#consoleInfoAcc">
+                            <div class="accordion-body">
+                                {% if console_info %}
+                                <div class="mb-2">
+                                    {% if console_info.tested %}
+                                    <span class="badge text-bg-success">{{ t.timing_tested }}</span>
+                                    {% else %}
+                                    <span class="badge text-bg-warning">{{ t.timing_not_tested }}</span>
+                                    {% endif %}
+                                </div>
+                                <dl class="row mb-2 small">
+                                    <dt class="col-sm-3 text-body-secondary">{{ t.timing_adapter }}</dt><dd class="col-sm-9">{{ console_info.adapter }}</dd>
+                                    <dt class="col-sm-3 text-body-secondary">{{ t.timing_wiring }}</dt><dd class="col-sm-9">{{ console_info.wiring }}</dd>
+                                    <dt class="col-sm-3 text-body-secondary">{{ t.timing_protocol }}</dt><dd class="col-sm-9">{{ console_info.protocol }}</dd>
+                                </dl>
+                                <a href="{{ console_info.doc_url }}" target="_blank" rel="noopener">{{ t.timing_full_guide }} <i class="bi bi-box-arrow-up-right ms-1"></i></a>
+                                {% else %}
+                                <p class="small text-body-secondary mb-1">{{ t.timing_no_notes }}</p>
+                                {% endif %}
+                                {% if console_requires_serial %}
+                                <div class="form-text mt-2">{{ t.timing_no_times_hint | safe }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% if console_requires_serial %}
+                <div class="card mb-3"><div class="card-body">
+                    <div class="d-flex align-items-center gap-2 mb-2">
+                        <span class="fw-bold flex-fill">{{ t.timing_connection }}</span>
+                        <span id="serial-status-badge" class="badge rounded-pill text-bg-secondary">—</span>
+                    </div>
+                    <pre id="serial-log" class="border rounded p-2 mb-0" style="background:#111; color:#ccc; font-size:0.78em; height:90px; overflow-y:auto; white-space:pre-wrap; word-break:break-all;"></pre>
+                </div></div>
+                <div class="card mb-3"><div class="card-body">
+                    <div class="d-flex align-items-center gap-2 mb-2">
+                        <span class="fw-bold flex-fill">{{ t.timing_serial_monitor }}</span>
+                        <button id="btn-debug-toggle" class="btn btn-secondary btn-sm text-nowrap" style="min-width:70px;" onclick="debugToggle()">{{ t.btn_enable }}</button>
+                        <button class="btn btn-secondary btn-sm text-nowrap" style="min-width:70px;" onclick="debugClear()">{{ t.btn_clear }}</button>
+                    </div>
+                    <pre id="debug-output" class="border rounded p-2 mb-0" style="background:#111; color:#e0e0e0; font-size:0.8em; height:300px; overflow-y:auto; white-space:pre-wrap; word-break:break-all;"></pre>
+                </div></div>
+                <div class="card"><div class="card-body">
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="fw-bold flex-fill">{{ t.timing_raw_data }}</span>
+                        <a href="/console" target="_blank" class="btn btn-secondary btn-sm" title="{{ t.timing_raw_data }}"><i class="bi bi-tv me-1"></i>{{ t.timing_raw_data_btn }}</a>
+                    </div>
+                </div></div>
+                {% endif %}
+                <div class="card mt-3"><div class="card-body">
+                    <div class="panel-title">{{ t.timing_tuning }}</div>
+                    <form id="timing_tuning_form" action="/settings" method="POST">
+                        <input type="hidden" name="timing_tuning_submit" value="1">
+                        <div class="mb-3">
+                            <label class="form-label mb-1" for="finish_debounce">{{ t.timing_finish_debounce }}</label>
+                            <div class="input-group input-group-sm" style="max-width:220px;">
+                                <input id="finish_debounce" type="number" name="finish_debounce" value="{{ finish_debounce }}"
+                                       min="0.5" max="10" step="0.1" class="form-control"
+                                       data-default="{{ finish_debounce_default }}">
+                                <span class="input-group-text">{{ t.seconds }}</span>
+                            </div>
+                            <div class="form-text">{{ t.timing_finish_debounce_help }}</div>
+                            {# Shown whenever the value is off the default — this one delays every
+                               screen in the building, so drifting off 3s should not be quiet. #}
+                            {# `hidden` is useless here: Bootstrap's `[hidden]` and `.d-flex`
+                               are both `!important` at equal specificity and `.d-flex` comes
+                               later, so it wins. The two display utilities are toggled
+                               instead, and the server picks the starting one so the warning
+                               is right before any script runs. #}
+                            <div id="finish-debounce-warn" class="alert alert-warning py-2 px-3 mt-2 mb-0 flex-wrap align-items-center gap-2 {% if finish_debounce == finish_debounce_default %}d-none{% else %}d-flex{% endif %}">
+                                <span class="small flex-fill">{{ t.timing_finish_debounce_warn }}</span>
+                                <button type="button" id="finish-debounce-reset" class="btn btn-outline-secondary btn-sm">
+                                    {{ t.timing_restore_default }} ({{ finish_debounce_default }}&nbsp;{{ t.seconds }})
+                                </button>
+                            </div>
+                        </div>
+                        <div class="mb-0">
+                            <label class="form-label mb-1" for="split_min_duration">{{ t.timing_split_min }}</label>
+                            <div class="input-group input-group-sm" style="max-width:220px;">
+                                <input id="split_min_duration" type="number" name="split_min_duration" value="{{ split_min_duration }}"
+                                       min="0.5" max="10" step="0.1" class="form-control"
+                                       data-default="{{ split_min_duration_default }}">
+                                <span class="input-group-text">{{ t.seconds }}</span>
+                            </div>
+                            <div class="form-text">{{ t.timing_split_min_help }}</div>
+                            {# Same class-toggle as the debounce above: `hidden` loses to
+                               `.d-flex`, and the server picks the starting one. #}
+                            <div id="split-min-warn" class="alert alert-warning py-2 px-3 mt-2 mb-0 flex-wrap align-items-center gap-2 {% if split_min_duration == split_min_duration_default %}d-none{% else %}d-flex{% endif %}">
+                                <span class="small flex-fill">{{ t.timing_split_min_warn }}</span>
+                                <button type="button" id="split-min-reset" class="btn btn-outline-secondary btn-sm">
+                                    {{ t.timing_restore_default }} ({{ split_min_duration_default }}&nbsp;{{ t.seconds }})
+                                </button>
+                            </div>
+                        </div>
+                        <span id="timing-tuning-note" class="small ms-2" role="status" aria-live="polite"></span>
+                    </form>
+                </div></div>
+            </div></div>
+        </div>

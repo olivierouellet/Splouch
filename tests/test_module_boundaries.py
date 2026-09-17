@@ -22,6 +22,7 @@ that reads no settings is one that can move to `shared/` and be used by both
 """
 import ast
 import os
+import re
 import sys
 import tempfile
 
@@ -318,3 +319,94 @@ def test_the_image_ships_the_shared_module():
     its own COPY the container imports fine in tests and dies on boot."""
     dockerfile = open(os.path.join(CLOUD, 'Dockerfile'), encoding='utf-8').read()
     assert 'COPY shared/py/' in dockerfile
+
+
+# ── The Settings page's tab files ────────────────────────────────────────────
+# `settings.html` was 2594 lines: fifteen tab panes of markup, then one inline
+# <script>. The panes now live one-per-file in `templates/settings/`,
+# named for the tab they draw, with the three grouped tabs including their own
+# children so the files mirror what the sidebar shows.
+
+SETTINGS_DIR = os.path.join(REPO, 'server', 'templates', 'settings')
+
+
+def _settings_sources():
+    import glob
+    base = os.path.join(REPO, 'server', 'templates')
+    return [os.path.join(base, 'settings.html')] + \
+           sorted(glob.glob(os.path.join(SETTINGS_DIR, '**', '*.html'), recursive=True))
+
+
+def test_every_tab_pane_lives_in_its_own_partial():
+    """A pane added back into settings.html would work, and would start the file
+    growing again — the reason this split happened."""
+    parent = open(os.path.join(REPO, 'server', 'templates', 'settings.html'),
+                  encoding='utf-8').read()
+    panes = re.findall(r'<div class="tab-pane[^"]*" id="tab-([a-z-]+)"', parent)
+    assert not panes, f'these panes are still inline in settings.html: {panes}'
+
+
+def test_each_partial_is_named_for_the_tab_it_draws():
+    """`fetched/` is excluded: those are route responses, not tab panes."""
+    import glob
+    for path in sorted(glob.glob(os.path.join(SETTINGS_DIR, '*.html'))):
+        name = os.path.splitext(os.path.basename(path))[0]
+        body = open(path, encoding='utf-8').read()
+        # A group wrapper holds only includes; a leaf opens its own pane.
+        if '{% include' in body and 'tab-pane' in body:
+            assert f'id="tab-{name}"' in body, f'{name}.html does not open #tab-{name}'
+        elif 'tab-pane' in body:
+            assert body.lstrip().startswith(f'<div class="tab-pane'), name
+            assert f'id="tab-{name}"' in body, f'{name}.html does not open #tab-{name}'
+
+
+def test_the_include_tags_start_at_column_zero():
+    """Whitespace before a Jinja tag is literal output, emitted on top of the
+    partial's own indentation — an indented include silently double-indents the
+    pane's opening line. The render is byte-identical only because they are flush
+    left, so this is worth a test rather than a comment alone."""
+    for path in _settings_sources():
+        for n, line in enumerate(open(path, encoding='utf-8'), 1):
+            if '{% include' in line:
+                assert line.startswith('{% include'), \
+                    f'{os.path.basename(path)}:{n} indents an include tag'
+
+
+def test_no_jinja_block_straddles_a_partial():
+    """Each file has to stand on its own: an `{% if %}` opened in one and closed
+    in another renders today and breaks the moment either is edited."""
+    opener = re.compile(r'\{%-?\s*(if|for|with|macro)\b')
+    closer = re.compile(r'\{%-?\s*end(if|for|with|macro)\b')
+    for path in _settings_sources():
+        body = open(path, encoding='utf-8').read()
+        assert len(opener.findall(body)) == len(closer.findall(body)), \
+            f'{os.path.basename(path)} has an unbalanced Jinja block'
+
+
+def test_the_fetched_fragments_are_not_included_anywhere():
+    """`settings/fetched/` holds the two HTMX targets the Settings page
+    pulls in after load — `clients.html` (Network *and* Update tabs) and
+    `wifi_networks.html`. They are rendered as standalone responses with their own
+    context, so an `{% include %}` of one would render blanks rather than fail.
+    The subdirectory is what keeps that distinction visible; this keeps it true.
+    """
+    import glob
+    fetched = {os.path.basename(p) for p in
+               glob.glob(os.path.join(SETTINGS_DIR, 'fetched', '*.html'))}
+    assert fetched == {'clients.html', 'wifi_networks.html'}
+    for path in _settings_sources():
+        body = open(path, encoding='utf-8').read()
+        for name in fetched:
+            assert f'include \'settings/fetched/{name}' not in body, \
+                f'{os.path.basename(path)} includes a fetched fragment'
+
+
+def test_every_fetched_fragment_has_a_route_that_renders_it():
+    """The other half: a fragment nothing serves is dead markup."""
+    import glob
+    routes = ''.join(open(os.path.join(REPO, 'server', 'routes', f), encoding='utf-8').read()
+                     for f in os.listdir(os.path.join(REPO, 'server', 'routes'))
+                     if f.endswith('.py'))
+    for path in glob.glob(os.path.join(SETTINGS_DIR, 'fetched', '*.html')):
+        name = os.path.basename(path)
+        assert f'settings/fetched/{name}' in routes, f'nothing renders {name}'

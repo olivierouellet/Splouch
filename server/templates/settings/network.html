@@ -1,0 +1,70 @@
+                <div class="tab-pane active" id="tab-network">
+                <div class="row"><div class="col-lg-8">
+                    <!-- Status block -->
+                    <div class="card mb-3"><div class="card-body">
+                        <div class="panel-title">{{ t.net_status }}</div>
+                        <div class="d-flex align-items-center gap-2 mb-2">
+                            <span class="text-body-secondary small" style="min-width:70px;">{{ t.net_ethernet }}</span>
+                            <span id="eth-ip-text" class="flex-fill small"></span>
+                        </div>
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="text-body-secondary small" style="min-width:70px;">{{ t.net_wifi }}</span>
+                            <span id="wifi-status-text" class="flex-fill small"></span>
+                            <button id="btn-wifi-toggle" class="btn btn-secondary btn-sm text-nowrap" type="button" disabled style="touch-action:none;" data-hold-fn="toggleWifi">…</button>
+                        </div>
+                    </div></div>
+
+                    <!-- Ethernet block -->
+                    <div class="card mb-3"><div class="card-body">
+                        <div class="panel-title">{{ t.net_eth_static_ip }}</div>
+                        <div class="d-flex flex-wrap align-items-center gap-1 mb-2">
+                            <input id="eth-ip-input" type="text" class="form-control form-control-sm" placeholder="10.10.10.10" maxlength="15" style="width:140px; flex:none;">
+                            <span class="text-body-secondary">/</span>
+                            <input id="eth-prefix-input" type="number" class="form-control form-control-sm" value="24" min="1" max="32" style="width:60px; flex:none;">
+                            <button class="btn btn-secondary btn-sm text-nowrap" style="min-width:80px;" onclick="setEthIp()">{{ t.net_static }}</button>
+                            <button class="btn btn-secondary btn-sm text-nowrap" style="min-width:80px;" onclick="setEthDhcp()">{{ t.net_dhcp }}</button>
+                        </div>
+                        <div id="eth-ip-status" class="small mb-1"></div>
+                        <div class="small" style="color:var(--bs-warning-text-emphasis);">{{ t.net_disconnect_warn }}</div>
+                    </div></div>
+
+                    <!-- WiFi block -->
+                    <div class="card"><div class="card-body">
+
+                        <!-- Network list -->
+                        <div class="d-flex align-items-center mb-2">
+                            <span class="fw-bold flex-fill">{{ t.net_wifi_networks }}</span>
+                            <button class="btn btn-secondary btn-sm text-nowrap" style="min-width:80px;"
+                                    hx-get="/wifi_scan" hx-target="#wifi-net-list" hx-disabled-elt="this"
+                                    hx-on::before-request="document.getElementById('wifi-net-list').innerHTML = '<span class=&quot;text-body-secondary&quot;>{{ t.net_scanning }}</span>'">{{ t.net_scan }}</button>
+                        </div>
+                        <div id="wifi-net-list" class="small" style="min-height:32px;"><span class="text-body-secondary">{{ t.net_click_scan }}</span></div>
+
+                        <hr>
+
+                        <!-- Connected clients (HTMX-driven) -->
+                        <div class="d-flex align-items-center mb-2">
+                            <span class="fw-bold flex-fill">{{ t.net_connected_clients }}</span>
+                            <button class="btn btn-secondary btn-sm text-nowrap" hx-get="/clients_fragment" hx-target="#client-list" style="min-width:80px;">{{ t.btn_refresh }}</button>
+                        </div>
+                        <div id="client-list" class="small" style="min-height:32px;"
+                             hx-get="/clients_fragment" hx-trigger="load, every 10s" hx-target="#client-list">
+                            <span class="text-body-secondary">—</span>
+                        </div>
+
+                        <!-- Inline connect form -->
+                        <div id="wifi-join-form" class="mt-2 p-2 rounded border" style="display:none;">
+                            <div class="fw-bold mb-1" id="wifi-join-ssid"></div>
+                            <form class="d-flex flex-wrap gap-1" onsubmit="connectWifi(); return false;">
+                                <input type="password" id="wifi-join-pw" class="form-control form-control-sm"
+                                       autocomplete="current-password" placeholder="{{ t.net_password_ph }}" style="flex:1; min-width:120px;"
+                                       onkeydown="if(event.key==='Enter') connectWifi();">
+                                <button class="btn btn-primary btn-sm" onclick="connectWifi()">{{ t.net_connect }}</button>
+                                <button class="btn btn-secondary btn-sm" onclick="cancelJoin()">{{ t.net_cancel }}</button>
+                            </form>
+                            <div id="wifi-join-status" class="mt-1 small"></div>
+                        </div>
+
+                    </div></div>
+                </div></div>
+                </div>

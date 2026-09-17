@@ -1,0 +1,14 @@
+        <div class="tab-pane" id="tab-power">
+            <div class="row"><div class="col-lg-8">
+                <div class="card"><div class="card-body">
+                    <p class="text-body-secondary small mb-3">{{ t.power_intro | safe }}</p>
+                    <div class="d-flex flex-column align-items-start gap-2">
+                        <button type="button" class="btn btn-secondary" data-hold data-hold-fn="serviceRestart" data-hold-label="{{ t.power_hold_restart }}"><i class="bi bi-arrow-clockwise me-2"></i>{{ t.power_restart_service }}</button>
+                        <button type="button" class="btn btn-warning" data-hold data-hold-fn="systemReboot" data-hold-label="{{ t.power_hold_reboot }}"><i class="bi bi-arrow-repeat me-2"></i>{{ t.power_reboot }}</button>
+                        <button type="button" class="btn btn-danger" data-hold data-hold-fn="systemShutdown" data-hold-label="{{ t.power_hold_shutdown }}"><i class="bi bi-power me-2"></i>{{ t.power_shutdown }}</button>
+                    </div>
+                    <div id="system-power-status" class="small text-body-secondary mt-2"></div>
+                    <p class="small text-body-secondary mt-3 mb-0">{{ t.power_note | safe }}</p>
+                </div></div>
+            </div></div>
+        </div>

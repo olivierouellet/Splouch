@@ -1,0 +1,172 @@
+                <div class="tab-pane" id="tab-theme">
+                <div class="row"><div class="col-lg-8">
+                    <div class="card"><div class="card-body">
+                            <form id="theme_update_form" action="/settings" method="POST" enctype="multipart/form-data">
+                                <input type="hidden" name="theme_update_submit" value="1">
+                                <div class="row g-3 mb-1">
+                                    <div class="col-md-6">
+                                        <label for="theme_select" class="form-label">{{ t.theme_select_label }}</label>
+                                        <select id="theme_select" name="theme_select" class="form-select form-select-sm mb-1">
+                                        {% for code, tname in theme_list %}
+                                            <option value="{{ code }}" {% if code == active_theme %}selected{% endif %}>{{ tname }}</option>
+                                        {% endfor %}
+                                        {% if custom_theme_list %}
+                                            <optgroup label="Custom">
+                                            {% for code, tname in custom_theme_list %}
+                                                <option value="{{ code }}" {% if code == active_theme %}selected{% endif %}>{{ tname }}</option>
+                                            {% endfor %}
+                                            </optgroup>
+                                        {% endif %}
+                                        </select>
+                                        <div class="d-flex flex-wrap gap-1">
+                                            {% if active_theme in custom_theme_codes %}
+                                            <a href="/theme_delete" class="btn btn-outline-danger btn-sm">{{ t.btn_delete }}</a>
+                                            {% endif %}
+                                            {% if custom_theme_list %}
+                                            <a href="/theme_delete_all" class="btn btn-outline-danger btn-sm" data-hold data-hold-label="{{ t.hold_delete_all }}">{{ t.theme_delete_all_customs }}</a>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label d-none d-md-block">&nbsp;</label>
+                                        <div class="d-flex gap-1 align-items-start">
+                                            <div class="file-picker">
+                                                <label class="btn btn-secondary btn-sm m-0" style="cursor:pointer;">
+                                                    {{ t.theme_add }}<input name="theme_file" type="file" accept=".toml" style="display:none;">
+                                                </label>
+                                                <span class="file-msg small text-body-secondary d-block mt-1"></span>
+                                            </div>
+                                            <button type="button" class="btn btn-secondary btn-sm" onclick="saveCustomTheme()">{{ t.theme_save_custom }}</button>
+                                        </div>
+                                    </div>
+                                </div>
+                                <hr>
+                                <div class="panel-title">{{ t.theme_custom_overrides }}</div>
+
+                                <div class="mb-3">
+                                    <div class="panel-eyebrow">{{ t.th_grp_background }}</div>
+                                    <div class="color-grid">
+                                        <div class="cs"><input type="color" class="form-control form-control-color form-control-sm" name="color_bg" value="{{ theme_colors.bg }}" data-default="{{ theme_color_defaults.bg }}"><span class="cs-name small">{{ t.th_background }}</span><button type="button" class="cs-reset" title="{{ t.theme_reset_default }}" aria-label="{{ t.theme_reset_default }}">↺</button></div>
+                                    </div>
+                                </div>
+                                <div class="mb-3">
+                                    <div class="panel-eyebrow">{{ t.th_grp_header }}</div>
+                                    <div class="color-grid">
+                                        <div class="cs"><input type="color" class="form-control form-control-color form-control-sm" name="color_header_bg" value="{{ theme_colors.header_bg }}" data-default="{{ theme_color_defaults.header_bg }}"><span class="cs-name small">{{ t.th_background }}</span><button type="button" class="cs-reset" title="{{ t.theme_reset_default }}" aria-label="{{ t.theme_reset_default }}">↺</button></div>
+                                        <div class="cs"><input type="color" class="form-control form-control-color form-control-sm" name="color_header_border" value="{{ theme_colors.header_border }}" data-default="{{ theme_color_defaults.header_border }}"><span class="cs-name small">{{ t.th_border }}</span><button type="button" class="cs-reset" title="{{ t.theme_reset_default }}" aria-label="{{ t.theme_reset_default }}">↺</button></div>
+                                        <div class="cs"><input type="color" class="form-control form-control-color form-control-sm" name="color_header_label" value="{{ theme_colors.header_label }}" data-default="{{ theme_color_defaults.header_label }}"><span class="cs-name small">{{ t.th_label }}</span><button type="button" class="cs-reset" title="{{ t.theme_reset_default }}" aria-label="{{ t.theme_reset_default }}">↺</button></div>
+                                        <div class="cs"><input type="color" class="form-control form-control-color form-control-sm" name="color_header_value" value="{{ theme_colors.header_value }}" data-default="{{ theme_color_defaults.header_value }}"><span class="cs-name small">{{ t.th_value }}</span><button type="button" class="cs-reset" title="{{ t.theme_reset_default }}" aria-label="{{ t.theme_reset_default }}">↺</button></div>
+                                    </div>
+                                </div>
+                                <div class="mb-3">
+                                    <div class="panel-eyebrow">{{ t.th_grp_table_header }}</div>
+                                    <div class="color-grid">
+                                        <div class="cs"><input type="color" class="form-control form-control-color form-control-sm" name="color_th_bg" value="{{ theme_colors.th_bg }}" data-default="{{ theme_color_defaults.th_bg }}"><span class="cs-name small">{{ t.th_background }}</span><button type="button" class="cs-reset" title="{{ t.theme_reset_default }}" aria-label="{{ t.theme_reset_default }}">↺</button></div>
+                                        <div class="cs"><input type="color" class="form-control form-control-color form-control-sm" name="color_th_text" value="{{ theme_colors.th_text }}" data-default="{{ theme_color_defaults.th_text }}"><span class="cs-name small">{{ t.th_text }}</span><button type="button" class="cs-reset" title="{{ t.theme_reset_default }}" aria-label="{{ t.theme_reset_default }}">↺</button></div>
+                                    </div>
+                                </div>
+                                <div class="mb-3">
+                                    <div class="panel-eyebrow">{{ t.th_grp_rows }}</div>
+                                    <div class="color-grid">
+                                        <div class="cs"><input type="color" class="form-control form-control-color form-control-sm" name="color_row_odd" value="{{ theme_colors.row_odd }}" data-default="{{ theme_color_defaults.row_odd }}"><span class="cs-name small">{{ t.th_odd }}</span><button type="button" class="cs-reset" title="{{ t.theme_reset_default }}" aria-label="{{ t.theme_reset_default }}">↺</button></div>
+                                        <div class="cs"><input type="color" class="form-control form-control-color form-control-sm" name="color_row_even" value="{{ theme_colors.row_even }}" data-default="{{ theme_color_defaults.row_even }}"><span class="cs-name small">{{ t.th_even }}</span><button type="button" class="cs-reset" title="{{ t.theme_reset_default }}" aria-label="{{ t.theme_reset_default }}">↺</button></div>
+                                        <div class="cs"><input type="color" class="form-control form-control-color form-control-sm" name="color_row_text" value="{{ theme_colors.row_text }}" data-default="{{ theme_color_defaults.row_text }}"><span class="cs-name small">{{ t.th_text }}</span><button type="button" class="cs-reset" title="{{ t.theme_reset_default }}" aria-label="{{ t.theme_reset_default }}">↺</button></div>
+                                    </div>
+                                </div>
+                                <div class="mb-3">
+                                    <div class="panel-eyebrow">{{ t.th_grp_timing }}</div>
+                                    <div class="color-grid">
+                                        <div class="cs"><input type="color" class="form-control form-control-color form-control-sm" name="color_time" value="{{ theme_colors.time }}" data-default="{{ theme_color_defaults.time }}"><span class="cs-name small">{{ t.th_time }}</span><button type="button" class="cs-reset" title="{{ t.theme_reset_default }}" aria-label="{{ t.theme_reset_default }}">↺</button></div>
+                                        <div class="cs"><input type="color" class="form-control form-control-color form-control-sm" name="color_delta_better" value="{{ theme_colors.delta_better }}" data-default="{{ theme_color_defaults.delta_better }}"><span class="cs-name small">{{ t.th_faster }}</span><button type="button" class="cs-reset" title="{{ t.theme_reset_default }}" aria-label="{{ t.theme_reset_default }}">↺</button></div>
+                                        <div class="cs"><input type="color" class="form-control form-control-color form-control-sm" name="color_delta_worse" value="{{ theme_colors.delta_worse }}" data-default="{{ theme_color_defaults.delta_worse }}"><span class="cs-name small">{{ t.th_slower }}</span><button type="button" class="cs-reset" title="{{ t.theme_reset_default }}" aria-label="{{ t.theme_reset_default }}">↺</button></div>
+                                    </div>
+                                </div>
+                                <div class="mb-3">
+                                    <div class="panel-eyebrow">{{ t.th_grp_podium }}</div>
+                                    <div class="color-grid">
+                                        <div class="cs"><input type="color" class="form-control form-control-color form-control-sm" name="color_podium_gold" value="{{ theme_colors.podium_gold }}" data-default="{{ theme_color_defaults.podium_gold }}"><span class="cs-name small">{{ t.th_gold }}</span><button type="button" class="cs-reset" title="{{ t.theme_reset_default }}" aria-label="{{ t.theme_reset_default }}">↺</button></div>
+                                        <div class="cs"><input type="color" class="form-control form-control-color form-control-sm" name="color_podium_silver" value="{{ theme_colors.podium_silver }}" data-default="{{ theme_color_defaults.podium_silver }}"><span class="cs-name small">{{ t.th_silver }}</span><button type="button" class="cs-reset" title="{{ t.theme_reset_default }}" aria-label="{{ t.theme_reset_default }}">↺</button></div>
+                                        <div class="cs"><input type="color" class="form-control form-control-color form-control-sm" name="color_podium_bronze" value="{{ theme_colors.podium_bronze }}" data-default="{{ theme_color_defaults.podium_bronze }}"><span class="cs-name small">{{ t.th_bronze }}</span><button type="button" class="cs-reset" title="{{ t.theme_reset_default }}" aria-label="{{ t.theme_reset_default }}">↺</button></div>
+                                    </div>
+                                </div>
+                                {# Its own group: this one is not part of the board's
+                                   normal look. It only ever appears on the TV
+                                   display, when the console has stopped talking. #}
+                                <div class="mb-3">
+                                    <div class="panel-eyebrow">{{ t.th_grp_status }}</div>
+                                    <div class="color-grid">
+                                        <div class="cs"><input type="color" class="form-control form-control-color form-control-sm" name="color_connection_lost" value="{{ theme_colors.connection_lost }}" data-default="{{ theme_color_defaults.connection_lost }}"><span class="cs-name small">{{ t.th_connection_lost }}</span><button type="button" class="cs-reset" title="{{ t.theme_reset_default }}" aria-label="{{ t.theme_reset_default }}">↺</button></div>
+                                        <div class="cs"><input type="color" class="form-control form-control-color form-control-sm" name="color_connection_lost_text" value="{{ theme_colors.connection_lost_text }}" data-default="{{ theme_color_defaults.connection_lost_text }}"><span class="cs-name small">{{ t.th_text }}</span><button type="button" class="cs-reset" title="{{ t.theme_reset_default }}" aria-label="{{ t.theme_reset_default }}">↺</button></div>
+                                    </div>
+                                </div>
+                                <div class="panel-eyebrow mb-2">{{ t.th_grp_schedule }}</div>
+                                <div class="mb-3">
+                                    <div class="panel-eyebrow">{{ t.th_grp_event }}</div>
+                                    <div class="color-grid">
+                                        <div class="cs"><input type="color" class="form-control form-control-color form-control-sm" name="color_schedule_event" value="{{ theme_colors.schedule_event }}" data-default="{{ theme_color_defaults.schedule_event }}"><span class="cs-name small">{{ t.th_text }}</span><button type="button" class="cs-reset" title="{{ t.theme_reset_default }}" aria-label="{{ t.theme_reset_default }}">↺</button></div>
+                                    </div>
+                                </div>
+                                <div class="mb-3">
+                                    <div class="panel-eyebrow">{{ t.th_grp_time }}</div>
+                                    <div class="color-grid">
+                                        <div class="cs"><input type="color" class="form-control form-control-color form-control-sm" name="color_schedule_time" value="{{ theme_colors.schedule_time }}" data-default="{{ theme_color_defaults.schedule_time }}"><span class="cs-name small">{{ t.th_text }}</span><button type="button" class="cs-reset" title="{{ t.theme_reset_default }}" aria-label="{{ t.theme_reset_default }}">↺</button></div>
+                                    </div>
+                                </div>
+                                <div class="mb-3">
+                                    <div class="panel-eyebrow">{{ t.th_grp_swimmer }}</div>
+                                    <div class="color-grid">
+                                        <div class="cs"><input type="color" class="form-control form-control-color form-control-sm" name="color_schedule_name" value="{{ theme_colors.schedule_name }}" data-default="{{ theme_color_defaults.schedule_name }}"><span class="cs-name small">{{ t.lbl_name }}</span><button type="button" class="cs-reset" title="{{ t.theme_reset_default }}" aria-label="{{ t.theme_reset_default }}">↺</button></div>
+                                        <div class="cs"><input type="color" class="form-control form-control-color form-control-sm" name="color_schedule_club" value="{{ theme_colors.schedule_club }}" data-default="{{ theme_color_defaults.schedule_club }}"><span class="cs-name small">{{ t.lbl_club }}</span><button type="button" class="cs-reset" title="{{ t.theme_reset_default }}" aria-label="{{ t.theme_reset_default }}">↺</button></div>
+                                    </div>
+                                </div>
+                                <hr style="margin:6px 0;">
+                                <div class="row g-3 mb-1">
+                                    <div class="col-md-4">
+                                        <label class="form-label">{{ t.theme_font }}</label>
+                                        <select name="font_family" id="sel-font-family" class="form-select form-select-sm" onchange="updateFontPreview(this,'prev-font-family')">
+                                            <option value="Overpass Mono"   {% if theme_fonts.family == 'Overpass Mono'   %}selected{% endif %}>Overpass Mono</option>
+                                            <option value="Roboto Mono"     {% if theme_fonts.family == 'Roboto Mono'     %}selected{% endif %}>Roboto Mono</option>
+                                            <option value="Share Tech Mono" {% if theme_fonts.family == 'Share Tech Mono' %}selected{% endif %}>Share Tech Mono</option>
+                                            <option value="Orbitron"        {% if theme_fonts.family == 'Orbitron'        %}selected{% endif %}>Orbitron</option>
+                                            <option value="Arial"           {% if theme_fonts.family == 'Arial'           %}selected{% endif %}>Arial</option>
+                                            <option value="Helvetica"       {% if theme_fonts.family == 'Helvetica'       %}selected{% endif %}>Helvetica</option>
+                                            <option value="Courier New"     {% if theme_fonts.family == 'Courier New'     %}selected{% endif %}>Courier New</option>
+                                            <option value="monospace"       {% if theme_fonts.family == 'monospace'       %}selected{% endif %}>monospace</option>
+                                        </select>
+                                        <div id="prev-font-family" style="font-family:var(--font-family),monospace; margin-top:4px; padding:3px 8px; background:var(--color-row-odd); border:1px solid #2e2e2e; border-radius:3px; font-size:1em; color:var(--color-row-text); white-space:nowrap; overflow:hidden;">0:58.21 — Tremblay Sophie</div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label">{{ t.theme_digit_font }}</label>
+                                        <select name="font_digits" id="sel-font-digits" class="form-select form-select-sm" onchange="updateFontPreview(this,'prev-font-digits')">
+                                            <option value="DSEG7Classic"    {% if theme_fonts.digits == 'DSEG7Classic'    %}selected{% endif %}>DSEG7Classic</option>
+                                            <option value="DSEG14Classic"   {% if theme_fonts.digits == 'DSEG14Classic'   %}selected{% endif %}>DSEG14Classic</option>
+                                            <option value="Overpass Mono"   {% if theme_fonts.digits == 'Overpass Mono'   %}selected{% endif %}>Overpass Mono</option>
+                                            <option value="Roboto Mono"     {% if theme_fonts.digits == 'Roboto Mono'     %}selected{% endif %}>Roboto Mono</option>
+                                            <option value="Share Tech Mono" {% if theme_fonts.digits == 'Share Tech Mono' %}selected{% endif %}>Share Tech Mono</option>
+                                            <option value="Orbitron"        {% if theme_fonts.digits == 'Orbitron'        %}selected{% endif %}>Orbitron</option>
+                                            <option value="Arial"           {% if theme_fonts.digits == 'Arial'           %}selected{% endif %}>Arial</option>
+                                            <option value="monospace"       {% if theme_fonts.digits == 'monospace'       %}selected{% endif %}>monospace</option>
+                                        </select>
+                                        <div id="prev-font-digits" style="font-family:var(--font-digits),monospace; margin-top:4px; padding:3px 8px; background:var(--color-row-odd); border:1px solid #2e2e2e; border-radius:3px; font-size:1em; color:var(--color-time); white-space:nowrap; overflow:hidden;">1:02.34</div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label">{{ t.theme_timing_font }}</label>
+                                        <select name="font_timing" id="sel-font-timing" class="form-select form-select-sm" onchange="updateFontPreview(this,'prev-font-timing')">
+                                            <option value="DSEG7Classic"    {% if theme_fonts.timing == 'DSEG7Classic'    %}selected{% endif %}>DSEG7Classic</option>
+                                            <option value="DSEG14Classic"   {% if theme_fonts.timing == 'DSEG14Classic'   %}selected{% endif %}>DSEG14Classic</option>
+                                            <option value="Overpass Mono"   {% if theme_fonts.timing == 'Overpass Mono'   %}selected{% endif %}>Overpass Mono</option>
+                                            <option value="Share Tech Mono" {% if theme_fonts.timing == 'Share Tech Mono' %}selected{% endif %}>Share Tech Mono</option>
+                                            <option value="Roboto Mono"     {% if theme_fonts.timing == 'Roboto Mono'     %}selected{% endif %}>Roboto Mono</option>
+                                        </select>
+                                        <div id="prev-font-timing" style="font-family:var(--font-timing),monospace; margin-top:4px; padding:3px 8px; background:var(--color-row-odd); border:1px solid #2e2e2e; border-radius:3px; font-size:1em; color:var(--color-time); white-space:nowrap; overflow:hidden;">18:34.56  +1:23.45</div>
+                                    </div>
+                                </div>
+                            </form>
+                            <form id="theme_save_form" action="/settings" method="POST" style="display:none;">
+                                <input type="hidden" name="theme_save_submit" value="1">
+                                <input type="hidden" id="theme_save_name" name="theme_name" value="">
+                            </form>
+                            <span id="theme-save-note" class="small ms-2" role="status" aria-live="polite"></span>
+                    </div></div>
+                </div></div>
+                </div>

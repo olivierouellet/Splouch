@@ -1,0 +1,102 @@
+        <div class="tab-pane active" id="tab-meet">
+            <div class="row"><div class="col-lg-8">
+                <div class="accordion mb-3" id="meetHowToAcc">
+                    <div class="accordion-item">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#meetHowTo" aria-expanded="false" aria-controls="meetHowTo">
+                                <i class="bi bi-info-circle me-2"></i>{{ t.meet_howto_title }}
+                            </button>
+                        </h2>
+                        <div id="meetHowTo" class="accordion-collapse collapse" data-bs-parent="#meetHowToAcc">
+                            <div class="accordion-body">
+                                <ol class="mb-0 ps-3" style="line-height:1.8;">
+                                    <li>{{ t.meet_howto_1 | safe }}</li>
+                                    <li>{{ t.meet_howto_2 | safe }}</li>
+                                    <li>{{ t.meet_howto_3 | safe }}</li>
+                                    <li>{{ t.meet_howto_4 }}</li>
+                                </ol>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div id="meet-test-warning" class="alert alert-warning py-2 px-3 small" style="display:none;">
+                    {{ t.meet_test_warning }}
+                </div>
+                <div class="card"><div class="card-body">
+                    <!-- Two non-nested forms: one for loading/unloading, one for uploading -->
+                    <form id="meet_load_form" action="/settings" method="post">
+                        <input type="hidden" name="meet_file_load_submit" value="1">
+                    </form>
+                    <form id="meet_upload_form" action="/settings" method="POST" enctype="multipart/form-data">
+                        <input type="hidden" name="meet_setup_submit" value="1">
+                    </form>
+                    <label class="form-label">{{ t.meet_files }}</label>
+                    <select form="meet_load_form" id="meet-file-select" name="meet_file_select" class="form-select form-select-sm mb-1" onchange="_fsubmit(document.getElementById('meet_load_form'))">
+                        <option value="" {% if not active_meet_file %}selected{% endif %}>{{ t.meet_no_file }}</option>
+                        {% for f in meet_file_list %}
+                        <option value="{{ f }}" {% if f == active_meet_file %}selected{% endif %}>{{ f }}</option>
+                        {% endfor %}
+                    </select>
+                    <div class="d-flex flex-wrap align-items-center gap-1">
+                        <div class="file-picker flex-shrink-0">
+                            <label class="btn btn-secondary btn-sm m-0" style="cursor:pointer; white-space:nowrap;">
+                                {{ t.meet_add_file }}<input form="meet_upload_form" id="meet_file" name="meet_file" type="file" accept=".csv,.lxf" style="display:none;" onchange="_fsubmit(document.getElementById('meet_upload_form'))">
+                            </label>
+                            <span class="file-msg small text-body-secondary ms-1"></span>
+                        </div>
+                        <div id="meet-file-actions" style="display:contents;">
+                            {% if active_meet_file %}
+                            <a id="meet-preview-btn" href="{{ '/hytek_preview' if active_meet_file.endswith('.csv') else '/lenex_preview' }}" class="btn btn-secondary btn-sm flex-shrink-0">{{ t.btn_preview }}</a>
+                            <label class="btn btn-secondary btn-sm m-0 flex-shrink-0" style="cursor:pointer; white-space:nowrap;">
+                                {{ t.meet_update_file_btn }}<input id="meet_update_file" type="file" accept=".csv,.lxf" style="display:none;" onchange="updateMeetFile(this)">
+                            </label>
+                            <button class="btn btn-outline-danger btn-sm flex-shrink-0" type="button" onclick="var f=document.getElementById('meet-file-select').value;if(f&&confirm('Delete '+f+'?'))location.href='/meet_delete?file='+encodeURIComponent(f);">{{ t.btn_delete }}</button>
+                            <button class="btn btn-outline-danger btn-sm flex-shrink-0" type="button" data-hold data-hold-href="/meet_clear" data-hold-label="{{ t.hold_delete_all }}">{{ t.btn_delete_all }}</button>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="form-text">{{ t.meet_no_names_hint | safe }}</div>
+                    {% if active_meet_file %}
+                    <div id="meet-update-msg" class="small mt-2" style="display:none;"></div>
+                    <p class="small text-body-secondary mt-1 mb-0">{{ t.meet_update_hint | safe }}</p>
+                    {% endif %}
+                </div></div>
+            <div class="card mt-3"><div class="card-body">
+                <form id="pool_setup_form" action="/settings" method="POST">
+                    <input type="hidden" name="pool_setup_submit" value="1">
+                    <div class="mb-3">
+                        <label for="num_lanes" class="form-label mb-1">{{ t.pool_num_lanes }}</label>
+                        <select id="num_lanes" name="num_lanes" class="form-select form-select-sm" style="width:auto;" onchange="_fsubmit(this.form)">
+                            <option value="12" {% if num_lanes == 12 %}selected{% endif %}>12 {{ t.pool_lanes }}</option>
+                            <option value="10" {% if num_lanes == 10 %}selected{% endif %}>10 {{ t.pool_lanes }}</option>
+                            <option value="8"  {% if num_lanes == 8  %}selected{% endif %}>8 {{ t.pool_lanes }}</option>
+                            <option value="6"  {% if num_lanes == 6  %}selected{% endif %}>6 {{ t.pool_lanes }}</option>
+                            <option value="4"  {% if num_lanes == 4  %}selected{% endif %}>4 {{ t.pool_lanes }}</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label mb-1">{{ t.pool_length }}</label>
+                        <select name="pool_length" class="form-select form-select-sm" style="width:auto;" onchange="_fsubmit(this.form)">
+                            <option value="25" {% if pool_length == 25 %}selected{% endif %}>25 m</option>
+                            <option value="33" {% if pool_length == 33 %}selected{% endif %}>33 m</option>
+                            <option value="50" {% if pool_length == 50 %}selected{% endif %}>50 m</option>
+                        </select>
+                        <div class="form-text">{{ t.pool_length_hint }}</div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label mb-1">{{ t.pool_touchpads }}</label>
+                        <select name="touchpad_sides" class="form-select form-select-sm" style="width:auto;" onchange="_fsubmit(this.form)">
+                            <option value="2" {% if touchpad_sides == 2 %}selected{% endif %}>{{ t.touchpads_both }}</option>
+                            <option value="1" {% if touchpad_sides == 1 %}selected{% endif %}>{{ t.touchpads_one }}</option>
+                        </select>
+                        <div class="form-text">{{ t.touchpads_hint }}</div>
+                    </div>
+                    {% if lenex_pool_length and lenex_pool_length != pool_length %}
+                    <div class="alert alert-warning py-1 px-2 mb-0 small">
+                        {{ t.lenex_pool_warning.format(lenex=lenex_pool_length, pool=pool_length) }}
+                    </div>
+                    {% endif %}
+                </form>
+            </div></div>
+        </div></div>
+        </div>

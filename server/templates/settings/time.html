@@ -1,0 +1,43 @@
+        <div class="tab-pane" id="tab-time">
+            <div class="row"><div class="col-lg-8">
+                <div class="card"><div class="card-body">
+
+                    <div class="panel-title">{{ t.clock_current_time }}</div>
+                    <div class="d-flex align-items-center gap-2 mb-2">
+                        <span id="time-display" class="flex-fill" style="font-size:1.4em; font-family:monospace;">—</span>
+                        <span id="time-tz" class="text-secondary small"></span>
+                    </div>
+                    <div class="d-flex align-items-center gap-2 mb-2">
+                        <span id="ntp-status" class="flex-fill text-secondary small">—</span>
+                        <button id="btn-time-sync" class="btn btn-secondary btn-sm text-nowrap" style="min-width:80px;" onclick="timeSync()">{{ t.clock_sync_ntp }}</button>
+                    </div>
+
+                    <hr>
+
+                    <div class="panel-title mb-1">{{ t.clock_set_manual }}</div>
+                    <p class="text-secondary small mb-2">{{ t.clock_disables_ntp }}</p>
+                    <div class="d-flex flex-wrap align-items-center gap-1">
+                        <input type="text" id="time-set-date" class="form-control form-control-sm" style="flex:1; min-width:130px;" placeholder="YYYY/MM/DD" maxlength="10">
+                        <input type="time" id="time-set-time" class="form-control form-control-sm" style="flex:1; min-width:100px;" step="1">
+                        <button class="btn btn-secondary btn-sm text-nowrap" style="min-width:80px;" onclick="timeSet()">{{ t.clock_set_time }}</button>
+                    </div>
+                    <div id="time-set-status" class="mt-2 small"></div>
+
+                    <hr>
+
+                    <div class="panel-title mb-1">{{ t.clock_rtc_title }}</div>
+                    <p class="text-secondary small mb-2">{{ t.clock_rtc_desc | safe }}</p>
+                    <div class="d-flex align-items-center gap-2 mb-2">
+                        <span id="rtc-status" class="flex-fill text-secondary small">—</span>
+                        <button id="btn-rtc-install" class="btn btn-secondary btn-sm" onclick="startRtcInstall()">{{ t.btn_install }}</button>
+                        <button id="btn-rtc-remove" class="btn btn-secondary btn-sm" onclick="startRtcRemove()">{{ t.btn_remove }}</button>
+                    </div>
+                    <pre id="rtc-output" class="border rounded p-2" style="display:none; background:#111; color:#e0e0e0; min-height:80px; max-height:240px; overflow-y:auto; font-size:0.8em; margin:0 0 8px;"></pre>
+                    <div id="rtc-reboot-row" style="display:none; align-items:center; gap:8px;">
+                        <button class="btn btn-warning btn-sm" onclick="rtcReboot()">{{ t.clock_reboot_now }}</button>
+                        <span class="text-secondary small">{{ t.clock_reboot_required }}</span>
+                    </div>
+
+                </div></div>
+            </div></div>
+        </div>

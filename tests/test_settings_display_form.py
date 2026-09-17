@@ -22,7 +22,7 @@ import bus                                     # noqa: E402
 import state                                   # noqa: E402
 from routes.settings import route_settings     # noqa: E402
 
-TEMPLATE = os.path.join(REPO, 'server', 'templates', 'settings.html')
+from conftest import settings_markup  # noqa: E402
 
 
 class _FakeRequest:
@@ -65,7 +65,7 @@ def settings(monkeypatch):
 # ── The form the input lives in ────────────────────────────────────────────────
 
 def _form_body(form_id):
-    html = open(TEMPLATE, encoding='utf-8').read()
+    html = settings_markup()
     return html.split(f'id="{form_id}"')[1].split('</form>')[0]
 
 
