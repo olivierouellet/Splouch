@@ -1,0 +1,67 @@
+        <div class="tab-pane" id="tab-appearance">
+            <!-- The admin-panel language is per-device (sidebar). This box's language
+                 selector is the server-wide default for the PUBLIC picker page. -->
+            <div class="card"><div class="card-body">
+                <h2 class="panel-eyebrow mb-3">{{ t.picker_page }}</h2>
+                <div class="mb-3">
+                    <label class="form-label">{{ t.get('page_language', 'Public page language') }}</label>
+                    <form method="post" id="locale-form">
+                        <input type="hidden" name="action" value="change_locale">
+                        <select name="locale" class="form-select form-select-sm" style="max-width:280px;" onchange="this.form.submit()">
+                            <option value="" {% if not current_locale %}selected{% endif %}>{{ t.language_auto }}</option>
+                            {% for code, name in locales %}
+                            <option value="{{ code }}" {% if current_locale == code %}selected{% endif %}>{{ name }}</option>
+                            {% endfor %}
+                        </select>
+                    </form>
+                    <div class="form-text">{{ t.get('page_language_hint', 'Default language for the public picker page, used when a visitor’s browser language isn’t available. Each visitor still sees their own browser language when possible.') }}</div>
+                </div>
+                <!-- Applies as you change it; `action` is what autoSave posts to. `onsubmit`
+                     only guards against a stray Enter navigating the page away. -->
+                <form id="picker-form" action="/admin/picker_appearance" onsubmit="return false;" enctype="multipart/form-data">
+                    <div class="mb-3">
+                        <label class="form-label">{{ t.window_title }}</label>
+                        <input type="text" name="picker_window_title" value="{{ picker_window_title_form }}" class="form-control form-control-sm" style="max-width:360px;" placeholder="Splouch">
+                        <div class="form-text">{{ t.window_title_hint }}</div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">{{ t.picker_title }}</label>
+                        <input type="text" name="picker_title" value="{{ picker_title_form }}" class="form-control form-control-sm" style="max-width:360px;" placeholder="Splouch">
+                        <div class="form-text">{{ t.picker_title_hint }}</div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">{{ t.logo }} <span class="text-body-secondary text-lowercase">{{ t.logo_hint }}</span></label>
+                        <div class="d-flex flex-wrap gap-2 align-items-center">
+                            <label class="btn btn-secondary btn-sm m-0" style="cursor:pointer;">
+                                {{ t.upload_image }}<input type="file" name="picker_logo" accept="image/png,image/jpeg,image/gif,image/webp,image/svg+xml" style="display:none;" onchange="previewPickerLogo(this)">
+                            </label>
+                            <button type="button" class="btn btn-outline-danger btn-sm" id="picker-logo-remove-btn" onclick="clearPickerLogo()" {% if not has_picker_logo %}hidden{% endif %}>{{ t.remove }}</button>
+                            <img id="picker-logo-current" src="{{ '/picker_logo' if has_picker_logo else '' }}" style="max-height:36px;max-width:72px;border-radius:4px;border:1px solid #333;flex-shrink:0;" {% if not has_picker_logo %}hidden{% endif %}>
+                        </div>
+                        <div id="picker-logo-preview" style="margin-top:4px;" hidden>
+                            <img id="picker-logo-preview-img" style="max-height:60px;max-width:120px;border-radius:4px;border:1px solid #333;">
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="picker_logo_above" name="picker_logo_above" value="1" {% if picker_logo_above %}checked{% endif %}>
+                            <label class="form-check-label" for="picker_logo_above">{{ t.logo_above }}</label>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">{{ t.home_icon }} <span class="text-body-secondary text-lowercase">{{ t.home_icon_hint }}</span></label>
+                        <div class="d-flex flex-wrap gap-2 align-items-center">
+                            <label class="btn btn-secondary btn-sm m-0" style="cursor:pointer;">
+                                {{ t.upload_image }}<input type="file" name="picker_icon" accept="image/png" style="display:none;" onchange="previewPickerIcon(this)">
+                            </label>
+                            <button type="button" class="btn btn-outline-danger btn-sm" id="picker-icon-remove-btn" onclick="clearPickerIcon()" {% if not has_picker_icon %}hidden{% endif %}>{{ t.remove }}</button>
+                            <img id="picker-icon-current" src="{{ '/picker_icon' if has_picker_icon else '' }}" style="height:36px;width:36px;border-radius:8px;border:1px solid #333;flex-shrink:0;" {% if not has_picker_icon %}hidden{% endif %}>
+                        </div>
+                        <div id="picker-icon-preview" style="margin-top:4px;" hidden>
+                            <img id="picker-icon-preview-img" style="height:60px;width:60px;border-radius:10px;border:1px solid #333;">
+                        </div>
+                    </div>
+                    <span id="picker-appearance-note" class="small" role="status" aria-live="polite"></span>
+                </form>
+            </div></div>
+        </div>

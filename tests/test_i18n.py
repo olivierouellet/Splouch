@@ -28,6 +28,7 @@ os.environ.setdefault('DATA_DIR', tempfile.mkdtemp(prefix='splouch-i18n-test-'))
 sys.path.insert(0, os.path.join(REPO, 'cloud'))
 
 import paths                     # noqa: E402
+from conftest import admin_source  # noqa: E402
 import cloud_i18n                # noqa: E402
 import cloud_paths               # noqa: E402
 import state                     # noqa: E402
@@ -639,8 +640,7 @@ def test_no_panel_language_invents_a_key_english_lacks(code):
     'log_source_app', 'log_source_webhook', 'log_refresh', 'log_follow',
 ])
 def test_the_cloud_appearance_and_debug_tabs_look_their_words_up(key):
-    src = open(os.path.join(REPO, 'cloud', 'templates', 'admin.html'),
-               encoding='utf-8').read()
+    src = admin_source()
     assert '{{ t.%s }}' % key in src, f'{key} is not rendered from the panel table'
     assert key in _panel('en')['cloud']
 
@@ -651,8 +651,7 @@ def test_the_cloud_appearance_and_debug_tabs_look_their_words_up(key):
 ])
 def test_the_cloud_panel_no_longer_hard_codes_those_words(literal):
     """The English still exists — in `panel/en.toml`, where a translator can reach it."""
-    src = open(os.path.join(REPO, 'cloud', 'templates', 'admin.html'),
-               encoding='utf-8').read()
+    src = admin_source()
     assert literal not in src, f'{literal!r} is back in the markup'
 
 
@@ -717,12 +716,15 @@ _FALLBACK_RE = re.compile(
     r"""t\.get\(\s*'([a-z0-9_]+)'\s*,\s*(['"])((?:[^'"\\]|\\.)*)\2""", re.S)
 
 
-def _fallbacks(template):
-    src = open(os.path.join(REPO, template), encoding='utf-8').read()
+def _fallbacks(src):
+    """Every `t.get('key', 'English default')` pair in some page's source."""
     return [(m.group(1), m.group(3).replace("\\'", "'")) for m in _FALLBACK_RE.finditer(src)]
 
 
-CLOUD_ADMIN = 'cloud/templates/admin.html'
+# The admin page is a template plus its six tab files, and most of these pairs
+# live in the tab files — reading admin.html alone would leave both tests below
+# checking nine of them and silently passing on the rest.
+CLOUD_ADMIN = admin_source()
 
 
 def test_the_cloud_admin_actually_uses_fallbacks():
@@ -736,7 +738,7 @@ def test_every_fallback_has_a_real_key(key, default):
     """Otherwise the English default is what every language renders."""
     panel = _panel('en')
     assert key in {**panel['chrome'], **panel['cloud']}, \
-        f'{key} has no entry, so admin.html shows {default!r} in every language'
+        f'{key} has no entry, so the admin page shows {default!r} in every language'
 
 
 @pytest.mark.parametrize('key,default', _fallbacks(CLOUD_ADMIN),
@@ -751,7 +753,7 @@ def test_every_fallback_matches_its_english(key, default):
     panel = _panel('en')
     english = {**panel['chrome'], **panel['cloud']}[key]
     assert english == default, (
-        f'{key}: en.toml says {english!r}, admin.html falls back to {default!r}')
+        f'{key}: en.toml says {english!r}, the admin page falls back to {default!r}')
 
 
 def test_no_string_a_template_reads_as_t_dot_key_is_shadowed_by_dict():

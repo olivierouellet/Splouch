@@ -1,0 +1,148 @@
+        <div class="tab-pane active" id="tab-meets">
+
+            <!-- Attendance counting (opt-in) -->
+            <div class="card mb-3"><div class="card-body">
+                <div class="d-flex align-items-center justify-content-between gap-3 flex-wrap">
+                    <div>
+                        <h2 class="panel-eyebrow mb-1">{{ t.get('analytics_title', 'Attendance counting') }}</h2>
+                        <p class="small text-body-secondary mb-0" style="max-width:420px;">{{ t.get('analytics_desc', 'Count unique visitors per meet over a chosen period. Anonymous: a random per-device id is stored, never names or IP addresses.') }}</p>
+                    </div>
+                    <div class="d-flex align-items-center gap-2 flex-shrink-0">
+                        <span class="badge rounded-pill {{ 'text-bg-info' if analytics_enabled else 'text-bg-secondary' }}">{{ (t.get('analytics_on', 'On') if analytics_enabled else t.get('analytics_off', 'Off')) }}</span>
+                        <form method="post" class="m-0">
+                            <input type="hidden" name="action" value="set_analytics">
+                            <input type="hidden" name="analytics_enabled" value="{{ '0' if analytics_enabled else '1' }}">
+                            <button type="submit" class="btn btn-sm {{ 'btn-outline-danger' if analytics_enabled else 'btn-secondary' }}">{{ (t.get('analytics_disable', 'Disable') if analytics_enabled else t.get('analytics_enable', 'Enable')) }}</button>
+                        </form>
+                    </div>
+                </div>
+                <details class="mt-3">
+                    <summary class="text-warning-emphasis" style="cursor:pointer;font-size:0.82em;">{{ t.get('analytics_legal_summary', '⚠ Where this is legal — read before enabling') }}</summary>
+                    <div class="text-body-secondary" style="font-size:0.8em;line-height:1.55;margin-top:10px;">
+                        <p style="margin:0 0 10px;">{{ t.get('analytics_legal_intro', 'You are responsible for how attendance data is collected where your meet takes place. This feature is built to be privacy-friendly (anonymous, first-party, aggregate only, no cross-site tracking), but the law differs by region:') }}</p>
+                        <p style="margin:0 0 8px;"><b>{{ t.get('analytics_legal_ca_h', 'Canada') }}</b> — {{ t.get('analytics_legal_ca', 'Generally permitted. No consent pop-up is required for anonymous, first-party audience counting, but PIPEDA and Quebec Law 25 require that you inform visitors (the app shows a short privacy note) and that you do not use the id to identify, locate, or profile anyone. Keep it aggregate only.') }}</p>
+                        <p style="margin:0 0 8px;"><b>{{ t.get('analytics_legal_us_h', 'United States') }}</b> — {{ t.get('analytics_legal_us', 'Generally permitted with a privacy notice. State laws (e.g. California CCPA/CPRA) focus on selling or sharing personal data, which this feature does not do. Disclosing it in a privacy notice is the safe practice.') }}</p>
+                        <p style="margin:0 0 8px;"><b>{{ t.get('analytics_legal_eu_h', 'Europe (EU / UK)') }}</b> — {{ t.get('analytics_legal_eu', 'Stricter. Storing an id on a visitor\'s device normally requires consent under the ePrivacy Directive, unless it qualifies for the audience-measurement exemption that some regulators (e.g. France\'s CNIL, UK ICO) allow for anonymous first-party analytics. If you have EU/UK visitors, confirm you meet those conditions or add a consent banner before enabling.') }}</p>
+                        <p class="text-body-secondary" style="margin:10px 0 0;">{{ t.get('analytics_legal_disclaimer', 'This is general information, not legal advice. When in doubt, check with whoever handles your compliance.') }}</p>
+                    </div>
+                </details>
+            </div></div>
+
+            {% if analytics_enabled %}
+            <div class="d-flex align-items-center gap-2 mb-2">
+                <label for="att-window" class="mb-0 small text-body-secondary">{{ t.get('col_attendees', 'Attendees') }}</label>
+                <select id="att-window" class="form-select form-select-sm w-auto" onchange="refreshAllAttendees()">
+                    <option value="1h">{{ t.get('win_1h', 'Last hour') }}</option>
+                    <option value="3h">{{ t.get('win_3h', 'Last 3 hours') }}</option>
+                    <option value="12h">{{ t.get('win_12h', 'Last 12 hours') }}</option>
+                    <option value="24h" selected>{{ t.get('win_24h', 'Last 24 hours') }}</option>
+                    <option value="7d">{{ t.get('win_7d', 'Last 7 days') }}</option>
+                    <option value="all">{{ t.get('win_all', 'Whole meet') }}</option>
+                </select>
+            </div>
+            {% endif %}
+
+            <div class="table-responsive d-none d-sm-block">
+            <table class="table table-sm align-middle">
+                <thead><tr><th>{{ t.col_meet }}</th><th>{{ t.col_location }}</th><th>{{ t.col_sport }}</th><th>{{ t.col_organizer }}</th><th>{{ t.col_language }}</th><th>{{ t.get('col_console', 'Console') }}</th>{% if analytics_enabled %}<th>{{ t.get('col_attendees', 'Attendees') }}</th>{% endif %}<th>{{ t.col_status or 'Status' }}</th><th></th></tr></thead>
+                <tbody>
+                {% if active_meets %}
+                    {% for m in active_meets %}
+                    <tr>
+                        <td>{{ m.name or '—' }}</td>
+                        <td>{{ m.location or '—' }}</td>
+                        <td>{{ m.sport or '—' }}</td>
+                        <td>{{ m.organizer }}</td>
+                        <td>{{ m.language or '—' }}</td>
+                        <td class="text-nowrap">{% if m.console %}{{ m.console }}{% if m.console_timed is sameas false %}<br><span class="small text-body-secondary">{{ t.get('console_untimed', 'no times') }}</span>{% endif %}{% else %}—{% endif %}</td>
+                        {% if analytics_enabled %}
+                        <td class="text-nowrap">
+                            <span class="att-count fw-bold" data-meet="{{ m.id }}">…</span>
+                        </td>
+                        {% endif %}
+                        {% if m.live %}
+                        <td><span class="badge rounded-pill text-bg-info">{{ t.badge_live }}</span><br><span class="small text-body-secondary">{{ t.col_since or 'since' }} {{ m.connected_at }}</span></td>
+                        <td></td>
+                        {% else %}
+                        <td><span class="badge rounded-pill text-bg-warning">{{ t.badge_retained or 'Offline' }}</span><br><span class="small text-body-secondary">{{ t.expires_label or 'until' }} {{ m.expires_display }}</span></td>
+                        <td class="text-nowrap">
+                            <form method="post" class="d-inline-flex gap-1 align-items-center">
+                                <input type="hidden" name="action" value="set_expiry">
+                                <input type="hidden" name="meet_id" value="{{ m.id }}">
+                                <input type="datetime-local" name="expires_at" value="{{ m.expires_input }}" class="form-control form-control-sm d-inline-block w-auto">
+                                <button type="submit" class="btn btn-secondary btn-sm">{{ t.set_expiry or 'Set' }}</button>
+                            </form>
+                            <form method="post" class="d-inline ms-1" onsubmit="return confirm('{{ t.confirm_delete_meet or 'Remove this meet now?' }}');">
+                                <input type="hidden" name="action" value="delete_meet">
+                                <input type="hidden" name="meet_id" value="{{ m.id }}">
+                                <button type="submit" class="btn btn-outline-danger btn-sm">{{ t.delete or 'Delete' }}</button>
+                            </form>
+                        </td>
+                        {% endif %}
+                    </tr>
+                    {% endfor %}
+                {% else %}
+                    <tr><td colspan="{{ 9 if analytics_enabled else 8 }}" class="text-body-secondary fst-italic">{{ t.no_meets_admin }}</td></tr>
+                {% endif %}
+                </tbody>
+            </table>
+            </div>
+
+            <!-- Phone view (<576px): one accordion item per meet. -->
+            <div class="accordion d-sm-none" id="meetAcc">
+            {% if active_meets %}
+                {% for m in active_meets %}
+                <div class="accordion-item">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed py-2" type="button" data-bs-toggle="collapse" data-bs-target="#meet-{{ m.id }}" aria-expanded="false" aria-controls="meet-{{ m.id }}">
+                            <div class="w-100 pe-2">
+                                <div class="d-flex justify-content-between align-items-center gap-2">
+                                    <span class="fw-semibold text-truncate">{{ m.name or '—' }}</span>
+                                    {% if m.live %}
+                                    <span class="badge rounded-pill text-bg-info flex-shrink-0">{{ t.badge_live }}</span>
+                                    {% else %}
+                                    <span class="badge rounded-pill text-bg-warning flex-shrink-0">{{ t.badge_retained or 'Offline' }}</span>
+                                    {% endif %}
+                                </div>
+                                <div class="d-flex justify-content-between align-items-center gap-2 small text-body-secondary mt-1">
+                                    <span class="text-truncate">{{ m.location or '—' }}</span>
+                                    {% if analytics_enabled %}
+                                    <span class="flex-shrink-0">{{ t.get('col_attendees', 'Attendees') }}: <span class="att-count fw-bold" data-meet="{{ m.id }}">…</span></span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </button>
+                    </h2>
+                    <div id="meet-{{ m.id }}" class="accordion-collapse collapse">
+                        <div class="accordion-body">
+                            <dl class="row mb-2 small">
+                                <dt class="col-5 text-body-secondary fw-normal">{{ t.col_organizer }}</dt><dd class="col-7 mb-1">{{ m.organizer }}</dd>
+                                <dt class="col-5 text-body-secondary fw-normal">{{ t.col_sport }}</dt><dd class="col-7 mb-1">{{ m.sport or '—' }}</dd>
+                                <dt class="col-5 text-body-secondary fw-normal">{{ t.col_language }}</dt><dd class="col-7 mb-1">{{ m.language or '—' }}</dd>
+                                <dt class="col-5 text-body-secondary fw-normal">{{ t.get('col_console', 'Console') }}</dt>
+                                <dd class="col-7 mb-1">{% if m.console %}{{ m.console }}{% if m.console_timed is sameas false %} <span class="text-body-secondary">({{ t.get('console_untimed', 'no times') }})</span>{% endif %}{% else %}—{% endif %}</dd>
+                                <dt class="col-5 text-body-secondary fw-normal">{{ t.col_status or 'Status' }}</dt>
+                                <dd class="col-7 mb-1">{% if m.live %}{{ t.col_since or 'since' }} {{ m.connected_at }}{% else %}{{ t.expires_label or 'until' }} {{ m.expires_display }}{% endif %}</dd>
+                            </dl>
+                            {% if not m.live %}
+                            <form method="post" class="d-flex flex-wrap gap-1 align-items-center mb-2">
+                                <input type="hidden" name="action" value="set_expiry">
+                                <input type="hidden" name="meet_id" value="{{ m.id }}">
+                                <input type="datetime-local" name="expires_at" value="{{ m.expires_input }}" class="form-control form-control-sm w-auto">
+                                <button type="submit" class="btn btn-secondary btn-sm">{{ t.set_expiry or 'Set' }}</button>
+                            </form>
+                            <form method="post" onsubmit="return confirm('{{ t.confirm_delete_meet or 'Remove this meet now?' }}');">
+                                <input type="hidden" name="action" value="delete_meet">
+                                <input type="hidden" name="meet_id" value="{{ m.id }}">
+                                <button type="submit" class="btn btn-outline-danger btn-sm">{{ t.delete or 'Delete' }}</button>
+                            </form>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="text-body-secondary fst-italic">{{ t.no_meets_admin }}</div>
+            {% endif %}
+            </div>
+        </div>

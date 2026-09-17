@@ -464,3 +464,59 @@ def test_the_island_is_set_before_the_script_loads():
     parent = open(os.path.join(REPO, 'server', 'templates', 'settings.html'),
                   encoding='utf-8').read()
     assert parent.index('var T = {{ t | tojson }}') < parent.index('/static/js/settings.js')
+
+
+# ── The cloud admin's tab files ──────────────────────────────────────────────
+# `admin.html` was 859 lines. Its six tab panes now live in `cloud/templates/admin/`,
+# the relay's half of the arrangement `server/templates/settings/` uses on the Pi.
+#
+# Its script is still inline, unlike the Pi's: it carries `{% if creds_error %}` and
+# `{% if has_deploy %}` blocks that gate whole sections of JS on server state, and
+# those have to become runtime conditions before the file can move.
+
+ADMIN_DIR = os.path.join(REPO, 'cloud', 'templates', 'admin')
+
+
+def test_every_admin_tab_pane_lives_in_its_own_file():
+    parent = open(os.path.join(REPO, 'cloud', 'templates', 'admin.html'),
+                  encoding='utf-8').read()
+    panes = re.findall(r'<div class="tab-pane[^"]*" id="tab-([a-z-]+)"', parent)
+    assert not panes, f'these panes are still inline in admin.html: {panes}'
+
+
+def test_each_admin_file_is_named_for_the_tab_it_draws():
+    import glob
+    for path in sorted(glob.glob(os.path.join(ADMIN_DIR, '*.html'))):
+        name = os.path.splitext(os.path.basename(path))[0]
+        body = open(path, encoding='utf-8').read()
+        assert f'id="tab-{name}"' in body, f'admin/{name}.html does not open #tab-{name}'
+
+
+def test_the_admin_include_tags_start_at_column_zero():
+    """Same trap as the Pi's: whitespace before a tag is literal output, emitted on
+    top of the file's own indentation, which double-indents its opening line."""
+    import glob
+    for path in [os.path.join(REPO, 'cloud', 'templates', 'admin.html')] + \
+                sorted(glob.glob(os.path.join(ADMIN_DIR, '*.html'))):
+        for n, line in enumerate(open(path, encoding='utf-8'), 1):
+            if '{% include' in line:
+                assert line.startswith('{% include'), \
+                    f'{os.path.basename(path)}:{n} indents an include tag'
+
+
+def test_no_jinja_block_straddles_an_admin_file():
+    import glob
+    opener = re.compile(r'\{%-?\s*(if|for|with|macro)\b')
+    closer = re.compile(r'\{%-?\s*end(if|for|with|macro)\b')
+    for path in [os.path.join(REPO, 'cloud', 'templates', 'admin.html')] + \
+                sorted(glob.glob(os.path.join(ADMIN_DIR, '*.html'))):
+        body = open(path, encoding='utf-8').read()
+        assert len(opener.findall(body)) == len(closer.findall(body)), \
+            f'{os.path.basename(path)} has an unbalanced Jinja block'
+
+
+def test_the_image_ships_the_admin_tab_files():
+    """`COPY cloud/templates/` takes the tree, so the subdirectory rides along — but
+    a narrowing of that line would break /admin in the container only."""
+    dockerfile = open(os.path.join(CLOUD, 'Dockerfile'), encoding='utf-8').read()
+    assert 'COPY cloud/templates/ templates/' in dockerfile

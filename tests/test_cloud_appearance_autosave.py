@@ -28,7 +28,7 @@ import tempfile
 import pytest
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-ADMIN = os.path.join(REPO, 'cloud', 'templates', 'admin.html')
+from conftest import admin_source  # noqa: E402
 
 needs_js = pytest.mark.skipif(not shutil.which('osascript'),
                               reason='needs JavaScriptCore (macOS)')
@@ -36,7 +36,7 @@ needs_js = pytest.mark.skipif(not shutil.which('osascript'),
 
 @pytest.fixture(scope='module')
 def src():
-    return open(ADMIN, encoding='utf-8').read()
+    return admin_source()
 
 
 @pytest.fixture(scope='module')

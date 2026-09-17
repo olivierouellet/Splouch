@@ -95,6 +95,24 @@ def settle_podium(qt_app):
     return run
 
 
+def admin_source():
+    """Everything the cloud's /admin page is made of: template plus its tab files.
+
+    The relay's twin of :func:`settings_source`. Its six tab panes now live in
+    `cloud/templates/admin/`, so a test grepping for a form field or a button finds
+    it here rather than in one 859-line file.
+
+    Its script is still inline — unlike the Pi's, it carries `{% if %}` blocks that
+    have to become runtime conditions before it can move — so there is no separate
+    .js file to join yet.
+    """
+    import glob
+    base = os.path.join(REPO, 'cloud', 'templates')
+    paths = [os.path.join(base, 'admin.html')]
+    paths += sorted(glob.glob(os.path.join(base, 'admin', '*.html')))
+    return '\n'.join(open(p, encoding='utf-8').read() for p in paths)
+
+
 def settings_source():
     """Everything the Settings page is made of: template, tab files, and its script.
 

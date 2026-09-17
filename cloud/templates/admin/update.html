@@ -1,0 +1,55 @@
+        <div class="tab-pane" id="tab-update">
+            {% if has_deploy %}
+            <div class="card"><div class="card-body">
+                <h2 class="panel-eyebrow mb-3">{{ t.get('update', 'Update') }}</h2>
+                <div class="d-flex align-items-center gap-2 mb-2">
+                    <span class="small text-body-secondary" style="min-width:90px;">{{ t.current }}</span>
+                    <span id="current-version" class="small text-body-secondary" style="font-family:monospace;">—</span>
+                </div>
+                <div class="mb-2" style="max-width:400px;">
+                    <label class="form-label">{{ t.get('version', 'Version') }}</label>
+                    <select id="update-version" class="form-select form-select-sm">
+                        <option value="">{{ t.loading }}</option>
+                    </select>
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                    <button id="update-btn" onclick="triggerUpdate()" class="btn btn-primary btn-sm">{{ t.get('update', 'Update') }}</button>
+                    <span id="update-status" class="small text-body-secondary"></span>
+                </div>
+                <pre id="update-output" class="border rounded p-2 mt-2" style="display:none;background:#111;color:#e0e0e0;min-height:80px;max-height:360px;overflow-y:auto;font-size:0.8em;white-space:pre-wrap;word-break:break-all;"></pre>
+            </div></div>
+            {% endif %}
+            <div class="card mt-3"><div class="card-body">
+                <h2 class="panel-eyebrow mb-3">{{ t.get('backup', 'Backup') }}</h2>
+                <div class="mb-3">
+                    <div class="small text-body-secondary mb-1">{{ t.get('backup_keys', 'Keys & settings') }}</div>
+                    <div class="d-flex flex-wrap gap-2">
+                        <a id="backup-download-btn" href="/admin/backup/keys" class="btn btn-secondary btn-sm">{{ t.get('download_backup', 'Download') }}</a>
+                        <a id="backup-download-full-btn" href="/admin/backup/keys?full=1" class="btn btn-secondary btn-sm">{{ t.get('download_backup_full', 'Download full (incl. login)') }}</a>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <p class="small text-body-secondary mb-2">{{ t.get('restore_keys_note', 'Restore relay keys and settings (picker appearance, analytics, locale) from a backup. The admin login is only restored from a “full” backup; a regular backup leaves the current password unchanged. A full backup contains the password hash — keep it private.') }}</p>
+                    <div class="d-flex flex-wrap gap-2 align-items-center">
+                        <label class="btn btn-secondary btn-sm m-0" style="cursor:pointer;">
+                            {{ t.get('restore_backup', 'Restore…') }}<input type="file" accept=".json" style="display:none;" onchange="restoreKeys(this)">
+                        </label>
+                        <span id="restore-status" class="small text-body-secondary"></span>
+                    </div>
+                </div>
+                <hr>
+                <div class="mb-3">
+                    <div class="small text-body-secondary mb-1">{{ t.get('backup_meets', 'Meets') }}</div>
+                    <a id="backup-meets-btn" href="/admin/backup/meets" class="btn btn-secondary btn-sm">{{ t.get('download_backup', 'Download') }}</a>
+                </div>
+                <div>
+                    <p class="small text-body-secondary mb-2">{{ t.get('restore_meets_note', 'Restore retained meets (schedules, images, icons) from a backup. Adds them to the current set — nothing is removed, and currently-live meets keep their own data.') }}</p>
+                    <div class="d-flex flex-wrap gap-2 align-items-center">
+                        <label class="btn btn-secondary btn-sm m-0" style="cursor:pointer;">
+                            {{ t.get('restore_backup', 'Restore…') }}<input type="file" accept=".json" style="display:none;" onchange="restoreMeets(this)">
+                        </label>
+                        <span id="restore-meets-status" class="small text-body-secondary"></span>
+                    </div>
+                </div>
+            </div></div>
+        </div>

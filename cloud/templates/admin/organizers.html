@@ -1,0 +1,94 @@
+        <div class="tab-pane" id="tab-organizers">
+            <div class="table-responsive d-none d-sm-block">
+            <table class="table table-sm align-middle">
+                <thead><tr><th>{{ t.col_organizer }}</th><th>{{ t.col_key }}</th><th>{{ t.col_created }}</th><th>{{ t.col_status }}</th><th></th></tr></thead>
+                <tbody>
+                {% if keys %}
+                    {% for key, info in keys.items() %}
+                    <tr>
+                        <td>{{ info.organizer }}</td>
+                        <td>
+                            <span class="font-monospace small text-body-secondary text-break">{{ key[:12] }}…</span>
+                            <button class="btn btn-outline-secondary btn-sm copy" data-copied="{{ t['copied'] }}" onclick="copyKey(this, '{{ key }}')">{{ t['copy'] }}</button>
+                        </td>
+                        <td>{{ info.created }}</td>
+                        <td><span class="badge rounded-pill {{ 'text-bg-success' if info.active else 'text-bg-secondary' }}">{{ t.badge_active if info.active else t.badge_revoked }}</span></td>
+                        <td class="text-nowrap">
+                            {% if info.active %}
+                            <form method="post" class="d-inline">
+                                <input type="hidden" name="action" value="revoke">
+                                <input type="hidden" name="key" value="{{ key }}">
+                                <button type="submit" class="btn btn-outline-danger btn-sm">{{ t.revoke }}</button>
+                            </form>
+                            {% endif %}
+                            <form method="post" class="d-inline ms-1">
+                                <input type="hidden" name="action" value="delete">
+                                <input type="hidden" name="key" value="{{ key }}">
+                                <button type="submit" class="btn btn-outline-danger btn-sm">{{ t.delete }}</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                {% else %}
+                    <tr><td colspan="5" class="text-body-secondary fst-italic">{{ t.no_organizers }}</td></tr>
+                {% endif %}
+                </tbody>
+            </table>
+            </div>
+
+            <!-- Phone view (<576px): one accordion item per organizer key. -->
+            <div class="accordion d-sm-none" id="orgAcc">
+            {% if keys %}
+                {% for key, info in keys.items() %}
+                <div class="accordion-item">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed py-2" type="button" data-bs-toggle="collapse" data-bs-target="#org-{{ loop.index }}" aria-expanded="false" aria-controls="org-{{ loop.index }}">
+                            <div class="w-100 pe-2">
+                                <div class="d-flex justify-content-between align-items-center gap-2">
+                                    <span class="fw-semibold text-truncate">{{ info.organizer }}</span>
+                                    <span class="badge rounded-pill {{ 'text-bg-success' if info.active else 'text-bg-secondary' }} flex-shrink-0">{{ t.badge_active if info.active else t.badge_revoked }}</span>
+                                </div>
+                                <div class="d-flex justify-content-between align-items-center gap-2 small text-body-secondary mt-1">
+                                    <span class="text-truncate">{{ t.col_created }}: {{ info.created }}</span>
+                                </div>
+                            </div>
+                        </button>
+                    </h2>
+                    <div id="org-{{ loop.index }}" class="accordion-collapse collapse">
+                        <div class="accordion-body">
+                            <div class="small text-body-secondary mb-1">{{ t.col_key }}</div>
+                            <div class="d-flex align-items-center gap-2 flex-wrap mb-3">
+                                <span class="font-monospace small text-body-secondary text-break">{{ key[:12] }}…</span>
+                                <button class="btn btn-outline-secondary btn-sm copy" data-copied="{{ t['copied'] }}" onclick="copyKey(this, '{{ key }}')">{{ t['copy'] }}</button>
+                            </div>
+                            <div class="d-flex flex-wrap gap-1">
+                                {% if info.active %}
+                                <form method="post" class="d-inline">
+                                    <input type="hidden" name="action" value="revoke">
+                                    <input type="hidden" name="key" value="{{ key }}">
+                                    <button type="submit" class="btn btn-outline-danger btn-sm">{{ t.revoke }}</button>
+                                </form>
+                                {% endif %}
+                                <form method="post" class="d-inline">
+                                    <input type="hidden" name="action" value="delete">
+                                    <input type="hidden" name="key" value="{{ key }}">
+                                    <button type="submit" class="btn btn-outline-danger btn-sm">{{ t.delete }}</button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="text-body-secondary fst-italic">{{ t.no_organizers }}</div>
+            {% endif %}
+            </div>
+
+            <h2 class="panel-eyebrow mt-2">{{ t.add_organizer }}</h2>
+            <form method="post" class="d-flex flex-wrap gap-2" style="max-width:480px;">
+                <input type="hidden" name="action" value="add">
+                <input type="text" name="organizer" class="form-control form-control-sm" style="flex:1; min-width:180px;" placeholder="{{ t.org_placeholder }}" required autocomplete="off">
+                <button type="submit" class="btn btn-success btn-sm">{{ t.generate_key }}</button>
+            </form>
+            <p class="small text-body-secondary mt-2">{{ t.key_note }}</p>
+        </div>

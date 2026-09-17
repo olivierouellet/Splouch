@@ -74,7 +74,7 @@ def test_the_env_file_is_ignored_but_its_template_is_not():
 # ── The deploy webhook's unit, and how its failure reaches the operator ─────────
 
 SERVICE = os.path.join(REPO, 'cloud', 'deploy_webhook.service')
-ADMIN   = os.path.join(REPO, 'cloud', 'templates', 'admin.html')
+from conftest import admin_source  # noqa: E402
 
 
 def test_the_unit_keeps_its_placeholders_for_the_installer():
@@ -99,7 +99,7 @@ def test_the_unit_says_what_a_rename_costs():
 def test_the_admin_page_reports_an_unreachable_webhook():
     """`/admin/versions` already answers `{ok: false, error}` with a 502; the page used
     to `return` on it and swallow fetch failures outright."""
-    src = open(ADMIN, encoding='utf-8').read()
+    src = admin_source()
     assert 'function updateUnavailable' in src
     # Scoped to loadVersions: the ping loop after a deploy swallows its rejections on
     # purpose, because the server being briefly unreachable is what it is waiting for.
@@ -118,7 +118,7 @@ def test_the_admin_page_reports_an_unreachable_webhook():
 
 def test_an_unavailable_update_section_disables_its_button():
     """Leaving it live only buys a second, vaguer failure when it is pressed."""
-    src = open(ADMIN, encoding='utf-8').read()
+    src = admin_source()
     body = src[src.index('function updateUnavailable'):]
     body = body[:body.index('// ── Update ──')]
     assert "getElementById('update-btn').disabled = true" in body
@@ -209,7 +209,7 @@ def test_the_unavailable_state_is_what_the_operator_sees():
 
 @pytest.mark.parametrize('pane', ['picker-logo-preview', 'picker-icon-preview'])
 def test_the_upload_previews_are_hidden_the_way_the_script_unhides_them(pane):
-    src = open(ADMIN, encoding='utf-8').read()
+    src = admin_source()
     div = src[src.index('id="%s"' % pane):]
     div = div[:div.index('>')]
     assert 'hidden' in div, f'{pane} must use the attribute previewImage() clears'
@@ -219,7 +219,7 @@ def test_the_upload_previews_are_hidden_the_way_the_script_unhides_them(pane):
 
 def test_the_logo_field_names_the_formats_it_takes():
     """`image/*` offers the operator HEIC and TIFF, which no browser will draw."""
-    src = open(ADMIN, encoding='utf-8').read()
+    src = admin_source()
     field = src[src.index('name="picker_logo"'):]
     accept = re.search(r'accept="([^"]*)"', field).group(1).split(',')
     assert accept == list(cs.LOGO_MIME_TYPES), 'the dialog and the server must agree'
@@ -228,7 +228,7 @@ def test_the_logo_field_names_the_formats_it_takes():
 
 def test_the_icon_field_takes_only_what_the_manifest_promises():
     """/picker_manifest declares `image/png` for both icon sizes."""
-    src = open(ADMIN, encoding='utf-8').read()
+    src = admin_source()
     field = src[src.index('name="picker_icon"'):]
     accept = re.search(r'accept="([^"]*)"', field).group(1).split(',')
     assert accept == list(cs.ICON_MIME_TYPES)

@@ -1,0 +1,18 @@
+        <div class="tab-pane" id="tab-debug">
+            <div class="card"><div class="card-body">
+                <div class="d-flex gap-2 align-items-center mb-3 flex-wrap">
+                    <select id="log-source" class="form-select form-select-sm w-auto" onchange="loadLogs()">
+                        <option value="app">{{ t.log_source_app }}</option>
+                        <option value="caddy">Caddy</option>
+                        <option value="webhook">{{ t.log_source_webhook }}</option>
+                    </select>
+                    <button onclick="loadLogs()" class="btn btn-secondary btn-sm">{{ t.log_refresh }}</button>
+                    <div class="form-check m-0">
+                        <input class="form-check-input" type="checkbox" id="log-follow" onchange="toggleFollow()">
+                        <label class="form-check-label" for="log-follow">{{ t.log_follow }}</label>
+                    </div>
+                    <span id="log-status" class="small text-body-secondary ms-auto"></span>
+                </div>
+                <pre id="log-output" class="border rounded p-2 mb-0" style="background:#111;color:#e0e0e0;height:480px;overflow-y:auto;font-size:0.78em;white-space:pre-wrap;word-break:break-all;"></pre>
+            </div></div>
+        </div>
