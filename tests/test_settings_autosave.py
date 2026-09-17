@@ -25,7 +25,7 @@ import pytest
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-from conftest import settings_markup  # noqa: E402
+from conftest import settings_source  # noqa: E402
 SETTINGS = os.path.join(REPO, 'server', 'templates', 'settings.html')
 
 needs_js = pytest.mark.skipif(not shutil.which('osascript'),
@@ -34,7 +34,7 @@ needs_js = pytest.mark.skipif(not shutil.which('osascript'),
 
 @pytest.fixture(scope='module')
 def src():
-    return settings_markup()
+    return settings_source()
 
 
 @pytest.mark.parametrize('form_id,note_id', [
@@ -86,7 +86,7 @@ def test_reverting_a_swatch_reaches_the_server(src):
 @needs_js
 def test_autosave_debounces_and_reports(src):
     """Run the page's own `autoSave` and check what it does with one change."""
-    fn = re.search(r'^    function autoSave\(form, noteId, opts\) \{.*?^    \}',
+    fn = re.search(r'^function autoSave\(form, noteId, opts\) \{.*?^\}',
                    src, re.S | re.M)
     assert fn, 'autoSave is no longer a top-level function'
 
@@ -186,7 +186,7 @@ def test_the_default_comes_from_the_server(src):
 def test_the_warning_tracks_the_default_and_the_reset_saves(src):
     """`3` and `3.0` are the same delay, so the comparison has to be numeric — and
     the reset sets the value from script, which fires no event by itself."""
-    blk = re.search(r'^    function defaultWarning\(inputId, warnId, resetId\) \{.*?^    \}',
+    blk = re.search(r'^function defaultWarning\(inputId, warnId, resetId\) \{.*?^\}',
                     src, re.S | re.M)
     assert blk, 'defaultWarning is no longer a top-level function'
 
@@ -239,7 +239,7 @@ def test_a_failed_save_still_speaks(src):
     A change that never reached the server looks exactly like one that did — the
     field still holds what you typed — so this is the one case the note exists for.
     """
-    fn = re.search(r'^    function autoSave\(form, noteId, opts\) \{.*?^    \}',
+    fn = re.search(r'^function autoSave\(form, noteId, opts\) \{.*?^\}',
                    src, re.S | re.M)
     assert fn
     harness = '''
@@ -295,7 +295,7 @@ def test_the_warning_is_hidden_by_class_not_by_hidden(src):
         el = re.search(r'<div id="%s"[^>]*>' % warn_id, src).group(0)
         assert ' hidden' not in el, f'{warn_id}: hidden is back and does nothing here'
         assert 'd-none' in el and 'd-flex' in el, f'{warn_id}: start state must be server-side'
-    block = re.search(r'^    function defaultWarning\(.*?^    \}', src, re.S | re.M).group(0)
+    block = re.search(r'^function defaultWarning\(.*?^\}', src, re.S | re.M).group(0)
     assert 'warn.hidden' not in block
     assert "classList.toggle('d-none'" in block and "classList.toggle('d-flex'" in block
 
@@ -329,7 +329,7 @@ def test_the_defaults_are_named_once(src):
 @needs_js
 def test_the_shared_warning_helper_works_for_the_split_field(src):
     """One helper, two fields — so the second is not a copy that drifts."""
-    blk = re.search(r'^    function defaultWarning\(inputId, warnId, resetId\) \{.*?^    \}',
+    blk = re.search(r'^function defaultWarning\(inputId, warnId, resetId\) \{.*?^\}',
                     src, re.S | re.M)
     assert blk
     harness = '''

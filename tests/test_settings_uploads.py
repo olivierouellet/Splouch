@@ -33,7 +33,7 @@ import pytest
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-from conftest import settings_markup  # noqa: E402
+from conftest import settings_source  # noqa: E402
 sys.path.insert(0, REPO)
 sys.path.insert(0, os.path.join(REPO, 'server'))
 
@@ -48,7 +48,7 @@ needs_js = pytest.mark.skipif(not shutil.which('osascript'),
 
 @pytest.fixture(scope='module')
 def src():
-    return settings_markup()
+    return settings_source()
 
 
 class _Upload:
@@ -137,7 +137,7 @@ def test_the_filename_listener_survives_a_picker_with_no_message_span(src):
     own. One of them, the Test tab's, ran *after* its upload handler with the files
     still attached, and threw a TypeError on every pick.
     """
-    blk = re.search(r"^    document\.querySelectorAll\('\.file-picker input.*?^    \}\);",
+    blk = re.search(r"^document\.querySelectorAll\('\.file-picker input.*?^\}\);",
                     src, re.S | re.M)
     assert blk, 'the shared .file-picker listener has moved'
     harness = '''

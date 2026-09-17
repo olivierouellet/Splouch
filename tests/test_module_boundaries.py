@@ -410,3 +410,57 @@ def test_every_fetched_fragment_has_a_route_that_renders_it():
     for path in glob.glob(os.path.join(SETTINGS_DIR, 'fetched', '*.html')):
         name = os.path.basename(path)
         assert f'settings/fetched/{name}' in routes, f'nothing renders {name}'
+
+
+# ── The Settings page's script ───────────────────────────────────────────────
+# The last 1389 lines of settings.html were one inline <script>. Exactly one thing
+# in it was server-rendered — the `T` strings table — so that stayed in the page as
+# a data island and the rest became `shared/static/js/settings.js`.
+
+SETTINGS_JS = os.path.join(REPO, 'shared', 'static', 'js', 'settings.js')
+
+
+def test_the_page_carries_no_behaviour_inline():
+    """A function creeping back into the template is how the file grew the first
+    time, and it would not be caught by anything else."""
+    parent = open(os.path.join(REPO, 'server', 'templates', 'settings.html'),
+                  encoding='utf-8').read()
+    inline = re.findall(r'<script>(.*?)</script>', parent, re.S)
+    for block in inline:
+        # The pre-paint theme applier is the one exception: it sets data-bs-theme
+        # from localStorage before first paint, and an external file — deferred by
+        # definition — would show a flash of the wrong theme on every load.
+        if 'before first paint' in block:
+            continue
+        assert 'function ' not in block, 'a function is back inline in settings.html'
+    # The island that is allowed, and the reason it has to be.
+    assert any('var T = {{ t | tojson }}' in b for b in inline)
+
+
+def test_the_script_is_static_with_no_template_syntax():
+    """If a `{{ … }}` ever lands in here it will ship to the browser verbatim —
+    the file is served by StaticFiles, which does not render templates."""
+    js = open(SETTINGS_JS, encoding='utf-8').read()
+    for marker in ('{{', '{%'):
+        assert marker not in js, f'settings.js contains Jinja syntax ({marker})'
+
+
+def test_the_script_tag_is_cache_busted():
+    """This Pi updates itself. Without a changing query string a browser can hold a
+    cached settings.js against markup deployed since, and the mismatch looks like a
+    bug in the page rather than a stale file."""
+    parent = open(os.path.join(REPO, 'server', 'templates', 'settings.html'),
+                  encoding='utf-8').read()
+    assert re.search(r'src="/static/js/settings\.js\?v=\{\{\s*server_version\s*\}\}"', parent), \
+        'settings.js is loaded without a version key'
+
+    import web
+    assert 'server_version' in web._globals(), \
+        '_globals() no longer supplies server_version, so the key renders empty'
+
+
+def test_the_island_is_set_before_the_script_loads():
+    """`T` is a global the script reads at parse time; the order is load-bearing."""
+    parent = open(os.path.join(REPO, 'server', 'templates', 'settings.html'),
+                  encoding='utf-8').read()
+    assert parent.index('var T = {{ t | tojson }}') < parent.index('/static/js/settings.js')

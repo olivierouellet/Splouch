@@ -95,21 +95,22 @@ def settle_podium(qt_app):
     return run
 
 
-def settings_markup():
-    """The Settings page's markup: `settings.html` plus every tab partial.
+def settings_source():
+    """Everything the Settings page is made of: template, tab files, and its script.
 
-    The page used to be one 2594-line file, and a dozen tests grep it for a class
-    name, a form field or a hold-to-confirm attribute. Its tab panes now live in
-    `templates/settings/`, so "the settings markup" is a template and the
-    files it includes — this joins them so those greps keep asking the question
-    they were written to ask.
+    It used to be one 2594-line file, and a dozen tests grep it for a class name, a
+    form field, a hold-to-confirm attribute or the function that wires one up. The
+    tab panes now live in `templates/settings/` and the behaviour in
+    `shared/static/js/settings.js`, so the page is three kinds of file — this joins
+    them so those greps keep asking the question they were written to ask.
 
     Reading the source rather than a rendered page is deliberate in those tests:
-    they check what the template *says*, including the branches a single render
-    would not take.
+    they check what the page *says*, including the branches a single render would
+    not take.
     """
     import glob
     base = os.path.join(REPO, 'server', 'templates')
     paths = [os.path.join(base, 'settings.html')]
-    paths += sorted(glob.glob(os.path.join(base, 'settings', '*.html')))
+    paths += sorted(glob.glob(os.path.join(base, 'settings', '**', '*.html'), recursive=True))
+    paths += [os.path.join(REPO, 'shared', 'static', 'js', 'settings.js')]
     return '\n'.join(open(p, encoding='utf-8').read() for p in paths)

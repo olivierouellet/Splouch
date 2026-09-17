@@ -101,6 +101,11 @@ def _globals():
         theme_colors={**state.DEFAULT_THEME_COLORS, **state.settings.get('theme_colors', {})},
         theme_fonts={**state.DEFAULT_THEME_FONTS,  **state.settings.get('theme_fonts',  {})},
         provision_stale=state.provisioning_stale(),
+        # Cache key for the page's own static JS. This Pi updates itself, so a
+        # browser can hold a cached script against markup deployed since; the ref
+        # changes with every update and `git_describe()` is cached, so this costs
+        # nothing per render.
+        server_version=state.git_describe()['version'],
         # Shown as a banner on the settings panel until the login is changed off
         # the one every install ships with (and that the docs print).
         default_credentials=state.using_default_credentials(),
