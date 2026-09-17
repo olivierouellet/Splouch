@@ -8,6 +8,7 @@ This is the test the Schedule tab needed and did not have: `ws.js` was loaded af
 the block that called `eventNameOf()`, so the page threw on load and rendered an empty
 list, while every substring assertion in `test_scoreboard_base_shared.py` still passed.
 """
+import json
 import os
 import sys
 
@@ -39,13 +40,16 @@ _SCHED_T = {'schedule': 'Horaire', 'search_placeholder': 'Ajouter…',
 
 # Real-looking data, accents included: the index folds every name at build time, so a
 # page that renders with ASCII only would not exercise it.
-_HEATS = ('[{"event":3,"heat":1,"event_name":"50 Libre",'
-          '"event_name_parts":{"raw":"50 Free","dist":"50","stroke":"freestyle",'
-          '"relay":false,"gender":"","age":"","age_key":""},"time":"10:42",'
-          '"lanes":[{"lane":4,"name":"Sørensen, Åse","club":"Île-des-Sœurs",'
-          '"seed_time":"0:27.10","swimmers":[]},'
-          '{"lane":5,"name":"Relais A","club":"CAMO","seed_time":"",'
-          '"swimmers":[{"pos":1,"name":"Élise Roy","first":"Élise"}]}]}]')
+# The routes hand the template the list itself and let Jinja's `tojson` encode it
+# (that filter escapes `<`, so a name cannot close the <script> it sits in).
+_HEATS = json.loads(
+    '[{"event":3,"heat":1,"event_name":"50 Libre",'
+    '"event_name_parts":{"raw":"50 Free","dist":"50","stroke":"freestyle",'
+    '"relay":false,"gender":"","age":"","age_key":""},"time":"10:42",'
+    '"lanes":[{"lane":4,"name":"Sørensen, Åse","club":"Île-des-Sœurs",'
+    '"seed_time":"0:27.10","swimmers":[]},'
+    '{"lane":5,"name":"Relais A","club":"CAMO","seed_time":"",'
+    '"swimmers":[{"pos":1,"name":"Élise Roy","first":"Élise"}]}]}]')
 _VOCAB = {'unit': 'm', 'freestyle': 'Libre', 'separator': ' — '}
 _MANUAL_T = {'title': 'Console manuelle', 'prev': 'Précédente', 'next': 'Suivante',
              'commit': 'Afficher cette série', 'locate': 'Aller à la série en cours',
@@ -72,12 +76,12 @@ PAGES = [
     ('results-pi',       'server/templates', 'results.html',  {'t': _LABELS}),
     ('results-cloud',    'cloud/templates',  'results.html',  {'t': _LABELS, 'meet_id': 'abc123'}),
     ('schedule-pi',      'server/templates', 'schedule.html',
-     {'heats_json': _HEATS, 'has_meet': True, 'meet_name': 'Coupe', 't': _SCHED_T}),
+     {'heats': _HEATS, 'has_meet': True, 'meet_name': 'Coupe', 't': _SCHED_T}),
     ('schedule-cloud',   'cloud/templates',  'schedule.html',
-     {'heats_json': _HEATS, 'has_meet': True, 'meet_name': 'Coupe', 't': _SCHED_T,
+     {'heats': _HEATS, 'has_meet': True, 'meet_name': 'Coupe', 't': _SCHED_T,
       'meet_id': 'abc123'}),
     ('manual-pi',        'server/templates', 'manual.html',
-     {'heats_json': _HEATS, 'has_meet': True, 'meet_name': 'Coupe', 't': _MANUAL_T,
+     {'heats': _HEATS, 'has_meet': True, 'meet_name': 'Coupe', 't': _MANUAL_T,
       'current_event': '3', 'current_heat': '1', 'manual_active': True,
       'console_label': 'Manual — no timing console'}),
     ('shell-pi',         'server/templates', 'mobile.html', {'app_title': 'Coupe', 't': _TABS}),
@@ -100,14 +104,14 @@ def test_the_page_runs_without_throwing(page_id, own_dir, template, extra):
 def test_the_schedule_page_with_no_meet_also_runs():
     """The `S-07` empty state is a different branch of the template."""
     run_page(_render('server/templates', 'schedule.html',
-                     heats_json='[]', has_meet=False, meet_name='', t=_SCHED_T))
+                     heats=[], has_meet=False, meet_name='', t=_SCHED_T))
 
 
 def test_the_manual_page_with_no_meet_also_runs():
     """No meet loaded means no stepper and no list — a different branch, and the one
     an operator hits first, before they have uploaded anything."""
     run_page(_render('server/templates', 'manual.html',
-                     heats_json='[]', has_meet=False, meet_name='', t=_MANUAL_T,
+                     heats=[], has_meet=False, meet_name='', t=_MANUAL_T,
                      current_event='', current_heat='', manual_active=True,
                      console_label=''))
 
@@ -115,7 +119,7 @@ def test_the_manual_page_with_no_meet_also_runs():
 def test_the_manual_page_warns_when_a_real_console_is_configured():
     """The banner branch: the page still works, but a console will overwrite it."""
     html = _render('server/templates', 'manual.html',
-                   heats_json=_HEATS, has_meet=True, meet_name='Coupe', t=_MANUAL_T,
+                   heats=_HEATS, has_meet=True, meet_name='Coupe', t=_MANUAL_T,
                    current_event='3', current_heat='1', manual_active=False,
                    console_label='System 6 (Colorado Timing System)')
     run_page(html)

@@ -12,6 +12,7 @@ the native apps. Neither wants chrome, and both want the screen to match the las
 frame received. Re-adding any of it, or letting the two servers drift apart again,
 is what these guard against.
 """
+import json
 import os
 import re
 import sys
@@ -262,12 +263,13 @@ def test_shell_and_pages_agree_on_the_header_height(shell_pi, pi):
 _SCHED_T = {'schedule': 'Horaire', 'search_placeholder': 'Add…',
             'upcoming_only': 'Upcoming', 'show_all_heats': 'All heats',
             'reset_filters': 'Reset', 'reset_confirm': 'Clear?', 'no_meet': 'No meet'}
-_HEATS = ('[{"event":3,"heat":1,"event_name":"50 Libre","time":"10:42",'
-          '"lanes":[{"lane":4,"name":"T, A","club":"CNL","seed_time":"0:27.10","swimmers":[]}]}]')
+_HEATS = json.loads(
+    '[{"event":3,"heat":1,"event_name":"50 Libre","time":"10:42",'
+    '"lanes":[{"lane":4,"name":"T, A","club":"CNL","seed_time":"0:27.10","swimmers":[]}]}]')
 
 
 def _sched(own_dir, **extra):
-    return _render(own_dir, 'schedule.html', heats_json=_HEATS, has_meet=True,
+    return _render(own_dir, 'schedule.html', heats=_HEATS, has_meet=True,
                    meet_name='Coupe', t=_SCHED_T, **extra)
 
 
@@ -336,7 +338,7 @@ def test_schedule_palette_comes_from_the_server(sched_pi, sched_cloud):
 @pytest.mark.parametrize('template, extra', [
     ('mobile.html',      {'app_title': 'Coupe', 't': _TABS}),
     ('live-mobile.html', {}),
-    ('schedule.html',    {'heats_json': _HEATS, 'has_meet': True,
+    ('schedule.html',    {'heats': _HEATS, 'has_meet': True,
                           'meet_name': 'Coupe', 't': _SCHED_T}),
 ])
 @pytest.mark.parametrize('code', ['fr', 'es', 'en'])

@@ -1,4 +1,3 @@
-import json
 import os
 
 from fastapi import APIRouter, Request
@@ -106,7 +105,7 @@ def route_manual(request: Request):
     started = (ev, ht) != (0, 0)
     console = console_info_for(state.settings.get('console_type', 'cts_gen6')) or {}
     return render(request, 'manual.html',
-                  heats_json=json.dumps(heats),
+                  heats=heats,
                   has_meet=bool(heats),
                   current_event=str(ev) if started else '',
                   current_heat=str(ht) if started else '',

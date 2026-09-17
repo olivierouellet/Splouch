@@ -1,5 +1,4 @@
 import glob
-import json
 import os
 
 from fastapi import APIRouter, Depends, Request
@@ -59,7 +58,7 @@ def route_schedule(request: Request):
                  state.settings.get('meet_title') or '')
 
     return render(request, 'schedule.html',
-                  heats_json=json.dumps(heats_out),
+                  heats=heats_out,
                   has_meet=bool(heats_out),
                   meet_name=meet_name,
                   theme_colors={**state.DEFAULT_THEME_COLORS,

@@ -3,6 +3,7 @@ import asyncio
 import datetime
 import glob
 import os
+import secrets
 import time
 import traceback
 from contextlib import asynccontextmanager
@@ -17,7 +18,8 @@ from starlette.middleware.sessions import SessionMiddleware
 import bus
 import state
 from meet_data import _get_next_heats, send_event_info
-from web import NotAuthenticated, render, require_login
+from web import (CrossSiteRequest, NotAuthenticated, render, require_login,
+                 ws_guard)
 from worker import (_worker_adjust_splits, _worker_clear_heat, _worker_goto_heat,
                     _worker_next_heat, _worker_prev_heat, main_thread_worker)
 
@@ -30,7 +32,11 @@ from routes.network    import router as network_router
 from routes.appearance import router as appearance_router
 from routes.i18n       import router as i18n_router
 
-SECRET_KEY = 'rimnqiuqnewiornhf7nfwenjmqvliwynhtmlfnlsklrmqwe'
+# Per-install, generated into the data dir on first run — never a constant here.
+# This repo is public, so a literal key would be the same published key on every
+# Pi, and `require_login` trusts nothing but the signature: knowing it is enough
+# to mint an admin session on any install without the password.
+SECRET_KEY = state.session_secret()
 
 
 async def _meet_live_watchdog():
@@ -103,6 +109,14 @@ async def _redirect_to_login(request: Request, exc: NotAuthenticated):
     return RedirectResponse('/login', status_code=303)
 
 
+@app.exception_handler(CrossSiteRequest)
+async def _refuse_cross_site(request: Request, exc: CrossSiteRequest):
+    # Not a redirect: following one would be the same request again from the same
+    # place. The operator sees this only if another site sent them here.
+    return JSONResponse({'ok': False, 'error': 'Cross-site request refused.'},
+                        status_code=403)
+
+
 @app.exception_handler(RequestValidationError)
 async def _on_validation_error(request: Request, exc: RequestValidationError):
     """Return request-body validation failures in the app's ``{ok, error}`` shape.
@@ -162,13 +176,31 @@ async def route_login_form(request: Request):
     return render(request, 'login.html')
 
 
+def _safe_next(target: str) -> str:
+    """`?next=` reduced to a path on this server, or '/'.
+
+    Anything else — an absolute URL, or the protocol-relative `//evil.example`
+    that a browser reads as one — would turn the login page into an open
+    redirect: a link that shows this Pi's sign-in form and lands somewhere else
+    afterwards.
+    """
+    if target.startswith('/') and not target.startswith('//'):
+        return target
+    return '/'
+
+
 @app.post('/login', tags=['Auth'])
 async def route_login(request: Request,
                       username: str = Form(''), password: str = Form('')):
-    if (username == state.settings['username'] and
-            password == state.settings['password']):
+    # compare_digest, not ==: a plain comparison returns as soon as two characters
+    # differ, which over enough tries measures out the password one character at a
+    # time. Both halves are evaluated so the timing does not leak the username either.
+    ok_user = secrets.compare_digest(username, str(state.settings['username']))
+    ok_pass = secrets.compare_digest(password, str(state.settings['password']))
+    if ok_user and ok_pass:
         request.session['user'] = username
-        return RedirectResponse(request.query_params.get('next') or '/', status_code=303)
+        return RedirectResponse(_safe_next(request.query_params.get('next') or '/'),
+                                status_code=303)
     resp = render(request, 'login.html', login_failed=True)
     resp.status_code = 401
     return resp
@@ -184,6 +216,12 @@ async def route_logout(request: Request):
 
 @app.websocket('/ws/scoreboard')
 async def ws_scoreboard(ws: WebSocket):
+    # Deliberately open to the LAN (this channel carries `next_heat` and friends
+    # from the ungated /operator and /manual pages), but "the LAN" has to mean the
+    # LAN: without an origin check, any web page a phone at the meet happens to open
+    # could drive the board from the far side of the internet.
+    if not await ws_guard(ws):
+        return
     await bus.manager.connect(ws, '/scoreboard')
     state._scoreboard_clients[id(ws)] = {
         'ip': ws.client.host if ws.client else '',
@@ -263,6 +301,8 @@ async def ws_scoreboard(ws: WebSocket):
 
 @app.websocket('/ws/results')
 async def ws_results(ws: WebSocket):
+    if not await ws_guard(ws):
+        return
     await bus.manager.connect(ws, '/results')
     await bus.manager.send(ws, 'meet_live', {'live': state._meet_live})
     if state._last_results_snapshot:
@@ -288,6 +328,8 @@ async def ws_schedule(ws: WebSocket):
     meet file is loaded so an open Schedule tab re-fetches instead of showing the
     previous meet's heats. Mirrors the cloud channel of the same name so the phone
     page is identical against either server (docs/api.md §2)."""
+    if not await ws_guard(ws):
+        return
     await bus.manager.connect(ws, '/schedule')
     try:
         while True:
@@ -302,6 +344,9 @@ async def ws_schedule(ws: WebSocket):
 
 @app.websocket('/ws/settings')
 async def ws_settings(ws: WebSocket):
+    # Settings-page channel: login-gated like the page that opens it.
+    if not await ws_guard(ws, login_required=True):
+        return
     await bus.manager.connect(ws, '/settings')
     if state.main_thread is None and state._test_session is None:
         state.main_thread = bus.run_bg(main_thread_worker)

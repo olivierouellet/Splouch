@@ -223,10 +223,13 @@ def _wifi_connect(ssid, password):
         # otherwise reuses an existing profile (e.g. from a previous attempt
         # on an open network) that lacks 802-11-wireless-security.key-mgmt,
         # which then fails validation once a password is supplied.
-        subprocess.run(['sudo', 'nmcli', 'connection', 'delete', ssid],
+        # `--` first: an SSID is attacker-chosen text off the air, and one
+        # beginning with `-` would otherwise be parsed as an nmcli option rather
+        # than as the name of a connection.
+        subprocess.run(['sudo', 'nmcli', 'connection', 'delete', '--', ssid],
                        capture_output=True, timeout=8)
 
-        cmd = ['dev', 'wifi', 'connect', ssid]
+        cmd = ['dev', 'wifi', 'connect', '--', ssid]
         if password:
             cmd += ['password', password]
         r = _nmcli(*cmd, timeout=30)

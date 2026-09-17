@@ -75,6 +75,5 @@ def test_json_and_page_are_the_same_list(loaded_meet, monkeypatch):
     monkeypatch.setattr(meet_routes, 'render', fake_render)
     monkeypatch.setattr(meet_routes, 'client_strings', lambda request: {})
     meet_routes.route_schedule(request=None)
-    assert json.loads(captured['heats_json']) == \
-        json.loads(json.dumps(meet_routes.route_schedule_json()['heats']))
+    assert captured['heats'] == meet_routes.route_schedule_json()['heats']
     assert captured['has_meet'] is True

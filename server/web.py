@@ -6,6 +6,7 @@ every render), the login dependency, and small shared helpers (``redirect``,
 """
 import os
 import shutil
+from urllib.parse import urlparse
 
 from fastapi import Request
 from fastapi.responses import RedirectResponse
@@ -218,6 +219,10 @@ def redirect(url: str, status_code: int = 303):
     return RedirectResponse(url, status_code=status_code)
 
 
+class CrossSiteRequest(Exception):
+    """Raised by :func:`require_login` for a request another site set off."""
+
+
 def require_login(request: Request):
     """FastAPI dependency: allow the request only when a session user is set.
 
@@ -225,9 +230,55 @@ def require_login(request: Request):
     exception handler turns into a redirect to /login (browser navigations follow
     it; XHR endpoints are only ever hit from the already-authenticated settings
     page).
+
+    Cross-site requests are refused even when the session is valid. Several
+    destructive endpoints here are plain GETs (`/meet_clear`, `/theme_delete_all`,
+    …), and the session cookie is SameSite=Lax, which still attaches it to a
+    top-level navigation — so a link handed to a signed-in operator was enough to
+    wipe the meet files. `Sec-Fetch-Site` is set by the browser, cannot be
+    overridden by the page, and is absent on every non-browser client (the Qt
+    display, curl, the native apps), which is why absence has to mean allow.
     """
+    if request.headers.get('sec-fetch-site') == 'cross-site':
+        raise CrossSiteRequest()
     if not request.session.get('user'):
         raise NotAuthenticated()
+
+
+def same_origin(ws) -> bool:
+    """True unless this WebSocket handshake came from another site.
+
+    The same-origin policy does not cover WebSockets: any page, anywhere, may open
+    a socket to this Pi, and the browser attaches our cookies to the handshake. So
+    the check every other request gets for free has to be made by hand here, or a
+    visitor's browser becomes a bridge from the open internet onto the pool-deck
+    LAN — see `/ws/terminal`, which carries a live shell.
+
+    A missing Origin is allowed on purpose: only browsers send one. The Qt display
+    and the native clients (docs/api.md §2) do not, and they are the reason this is
+    a check on mismatch rather than a requirement.
+    """
+    origin = ws.headers.get('origin')
+    if origin is None:
+        return True
+    try:
+        netloc = urlparse(origin).netloc
+    except ValueError:
+        return False
+    return bool(netloc) and netloc == ws.headers.get('host', '')
+
+
+async def ws_guard(ws, login_required: bool = False) -> bool:
+    """Close a WebSocket that fails the origin (and optionally session) check.
+
+    Returns True when the handler may go on to accept the socket. Closes with 1008
+    (policy violation) rather than accepting-then-closing, so a rejected client
+    never sees a single frame.
+    """
+    if not same_origin(ws) or (login_required and not ws.session.get('user')):
+        await ws.close(code=1008)
+        return False
+    return True
 
 
 def save_upload(upload, dest: str):

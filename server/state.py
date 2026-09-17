@@ -6,6 +6,7 @@ import os
 import os.path
 import queue
 import re
+import secrets
 import subprocess
 import sys
 
@@ -68,6 +69,14 @@ CUSTOM_DECODERS_FOLDER = os.path.join(SCOREBOARD_DIR, 'console_decoders')
 # install/scripts/refresh-service.sh.
 PROVISION_VERSION_FILE = os.path.join(os.path.dirname(app_dir), 'install', 'PROVISION_VERSION')
 PROVISIONED_MARKER     = os.path.join(SCOREBOARD_DIR, '.provisioned_version')
+
+# Signing key for the admin session cookie. In the data dir, never in the repo:
+# this file is what makes one Pi's cookies worthless on another, so a key living
+# in a tracked source file would be the same key on every install ever made — and
+# published, since the repo is public. The update path (`git pull`, and the
+# cloud's `git reset --hard`) also wipes the working tree, so the repo could not
+# hold it across an update even if it were secret.
+SESSION_KEY_FILE       = os.path.join(SCOREBOARD_DIR, '.session_key')
 
 # The systemd unit is named `splouch` once a full (post-rename) reinstall has run;
 # until then the legacy `tremplin` unit is still in place. Detect by unit-file
@@ -490,6 +499,34 @@ def _migrate_data_dir():
 
 _migrate_data_dir()
 _ensure_data_dirs()
+
+
+def session_secret():
+    """This install's own session-cookie signing key, created on first run.
+
+    Read (or generated) once per process at startup. Anyone holding the key can
+    mint a cookie that `require_login` accepts without ever seeing the password,
+    so the value has to be unique per Pi and unreadable by other local accounts —
+    hence 0600, and a fresh `token_hex` rather than anything derived from the
+    settings, which are world-readable and change.
+
+    Losing the file is harmless: the next start writes a new one and every open
+    session simply has to sign in again.
+    """
+    try:
+        with open(SESSION_KEY_FILE) as f:
+            key = f.read().strip()
+        if key:
+            return key
+    except OSError:
+        pass
+    key = secrets.token_hex(32)
+    # Create with the mode already set — writing first and chmod'ing after leaves
+    # the key world-readable for the moment in between.
+    fd = os.open(SESSION_KEY_FILE, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, 'w') as f:
+        f.write(key)
+    return key
 
 # ── Locale / theme utilities ───────────────────────────────────────────────────
 
@@ -954,7 +991,12 @@ def save_settings():
     """
     data = json.dumps(dict(settings), sort_keys=True, indent=4)
     tmp = settings_file + '.tmp'
-    with open(tmp, 'wt') as f:
+    # 0600: this file holds the admin password and the cloud relay key in clear
+    # text, and the default umask would leave both readable by every account on
+    # the Pi. Set on the temp file, before the rename, so the finished file is
+    # never briefly world-readable.
+    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, 'wt') as f:
         f.write(data)
     os.replace(tmp, settings_file)
 

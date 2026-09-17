@@ -431,7 +431,7 @@
 <script>
 // Empty on the Pi: one meet, no rooms, and nothing to count (docs/api.md §2).
 const MEET_ID = '{{ meet_id | default('', true) }}';
-const HEATS   = {{ heats_json | safe }};
+const HEATS   = {{ heats | tojson }};
 const LABELS  = {{ labels | tojson }};
 // Suggestion-row type words, from the same [mobile] table as the rest of the sheet.
 const TYPE_LABELS = {{ {'swimmer': t.swimmer or 'Swimmer', 'club': t.club or 'Club'} | tojson }};

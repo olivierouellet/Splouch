@@ -4,6 +4,44 @@ from collections import namedtuple
 
 LenexData = namedtuple('LenexData', ['event_names', 'start_list', 'heat_times', 'meet_info', 'event_distances'])
 
+# Biggest inner XML we will read out of a .lxf. A real meet's start list is a few
+# hundred KB; this is room for an unusually large one and a hard stop well before
+# a crafted archive can exhaust the Pi's memory. `ZipFile.open` streams, so an
+# archive that claims a small size and then expands (a zip bomb) is caught by
+# reading through this cap rather than by trusting the header.
+MAX_XML_BYTES = 64 * 1024 * 1024
+
+
+def _check_no_doctype(data):
+    """Refuse a document type declaration before handing bytes to the parser.
+
+    ElementTree expands entities defined in an internal DTD, so a file carrying
+    the classic nested definitions ("billion laughs") expands to gigabytes during
+    the parse and takes the server down with it — from an upload, on the machine
+    running the meet. No Lenex exporter emits a DOCTYPE, so refusing one removes
+    the whole class of attack rather than reasoning about which entity forms are
+    safe.
+
+    Checked on the bytes rather than through a parser hook: the accelerated
+    XMLParser exposes no handler to install, and XML requires the declaration to
+    sit in the prolog, ahead of the root element, where a scan can see it.
+    """
+    i = 0
+    while i < len(data):
+        i = data.find(b'<', i)
+        if i < 0:
+            return                       # no element at all; let the parser complain
+        if data.startswith(b'<!DOCTYPE', i):
+            raise ValueError('Lenex file contains a DOCTYPE declaration; '
+                             'refusing to parse it.')
+        if data[i + 1:i + 2] not in (b'?', b'!'):
+            return                       # root element reached — the prolog is clean
+        # A processing instruction, comment or other declaration: step over it.
+        end = data.find(b'>', i)
+        if end < 0:
+            return
+        i = end + 1
+
 
 def _open_lenex_xml(path):
     """Return the parsed XML tree for a Lenex file at *path*.
@@ -26,9 +64,25 @@ def _open_lenex_xml(path):
                     f'No Lenex XML (.lef) found inside {path}; '
                     f'archive contains: {", ".join(names) or "(empty)"}'
                 )
-            return ET.parse(z.open(xml_name))
+            with z.open(xml_name) as fh:
+                data = fh.read(MAX_XML_BYTES + 1)
+            if len(data) > MAX_XML_BYTES:
+                raise ValueError(
+                    f'Lenex XML inside {path} is larger than '
+                    f'{MAX_XML_BYTES // (1024 * 1024)} MB; refusing to parse it.'
+                )
+            _check_no_doctype(data)
+            return ET.ElementTree(ET.fromstring(data))
     # Not a zip — assume a raw .lef/.xml Lenex document.
-    return ET.parse(path)
+    with open(path, 'rb') as fh:
+        data = fh.read(MAX_XML_BYTES + 1)
+    if len(data) > MAX_XML_BYTES:
+        raise ValueError(
+            f'{path} is larger than {MAX_XML_BYTES // (1024 * 1024)} MB; '
+            f'refusing to parse it.'
+        )
+    _check_no_doctype(data)
+    return ET.ElementTree(ET.fromstring(data))
 
 
 def load_lenex(path):

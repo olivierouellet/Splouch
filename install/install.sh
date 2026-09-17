@@ -68,6 +68,11 @@ ensure_https_apt_sources() {
         /etc/apt/sources.list.d/*.sources 2>/dev/null || true
 }
 
+# The blanket NOPASSWD grant the cloud role needs while it installs, in a file
+# named for its lifetime. Defined here so the code that writes it and the cleanup
+# that removes it can never drift onto different names again.
+TEMP_SUDOERS_FILE="/etc/sudoers.d/splouch-install-temp"
+
 # ── Role selection ─────────────────────────────────────────────────────────────
 ROLE="${1:-}"
 if [[ -z "$ROLE" && "${SPLOUCH_NONINTERACTIVE:-}" == "1" ]]; then ROLE="server"; fi
@@ -944,9 +949,12 @@ if [[ "$ROLE" == "cloud" ]]; then
             warn "Passwords did not match or were empty — try again."
         done
 
-        # Passwordless sudo only for the duration of the install
-        echo "$TREMPLIN_USER ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/splouch
-        chmod 0440 /etc/sudoers.d/splouch
+        # Passwordless sudo only for the duration of the install. Its own file,
+        # named for what it is: the cleanup at the end of this role deletes it by
+        # name, and a grant this broad must not be able to hide behind a filename
+        # that looks like a permanent part of the install.
+        echo "$TREMPLIN_USER ALL=(ALL) NOPASSWD:ALL" > "$TEMP_SUDOERS_FILE"
+        chmod 0440 "$TEMP_SUDOERS_FILE"
         info "Temporary NOPASSWD sudo granted for install."
 
         # Copy root's SSH authorized_keys so the server stays reachable
@@ -1024,22 +1032,48 @@ EOF
     CLOUD_DIR="$INSTALL_DIR/cloud"
 
     section "Environment file"
+    # Rewrite one KEY=value line without sed: the admin password is user input, and
+    # in a sed replacement a `/` ends the expression while `&` expands to the whole
+    # match — so a perfectly good password could be silently mangled into a
+    # different one, or corrupt the file. python does the substitution literally.
+    _set_env() {
+        python3 - "$CLOUD_DIR/.env" "$1" "$2" <<'PYEOF'
+import sys
+path, key, value = sys.argv[1], sys.argv[2], sys.argv[3]
+lines = open(path, encoding='utf-8').read().splitlines()
+out, done = [], False
+for line in lines:
+    if line.startswith(key + '='):
+        out.append(key + '=' + value); done = True
+    else:
+        out.append(line)
+if not done:
+    out.append(key + '=' + value)
+open(path, 'w', encoding='utf-8').write('\n'.join(out) + '\n')
+PYEOF
+    }
+
     if [[ ! -f "$CLOUD_DIR/.env" ]]; then
-        cp "$CLOUD_DIR/.env.example" "$CLOUD_DIR/.env"
+        # Create it empty and locked down *before* any secret goes in. Copying the
+        # template first would leave the file at the umask default (world-readable)
+        # for the window in which SECRET_KEY, ADMIN_PASSWORD and DEPLOY_SECRET are
+        # written into it.
+        install -m 600 /dev/null "$CLOUD_DIR/.env"
+        cat "$CLOUD_DIR/.env.example" > "$CLOUD_DIR/.env"
         SECRET=$(python3 -c "import secrets; print(secrets.token_hex(32))")
-        sed -i "s/^SECRET_KEY=.*/SECRET_KEY=${SECRET}/" "$CLOUD_DIR/.env"
+        _set_env SECRET_KEY "$SECRET"
 
         echo
         read -rp "Set the admin username for the /admin panel [admin]: " _au
         _au="${_au:-admin}"
-        sed -i "s/^ADMIN_USER=.*/ADMIN_USER=${_au}/" "$CLOUD_DIR/.env"
+        _set_env ADMIN_USER "$_au"
         info "ADMIN_USER set to '${_au}'."
 
         while true; do
             read -rsp "Set the admin password for the /admin panel: " _ap1; echo
             read -rsp "Confirm admin password: " _ap2; echo
             if [[ "$_ap1" == "$_ap2" && -n "$_ap1" ]]; then
-                sed -i "s/^ADMIN_PASSWORD=.*/ADMIN_PASSWORD=${_ap1}/" "$CLOUD_DIR/.env"
+                _set_env ADMIN_PASSWORD "$_ap1"
                 info "ADMIN_PASSWORD set."
                 unset _ap1 _ap2
                 break
@@ -1051,6 +1085,9 @@ EOF
     else
         info ".env already exists — skipping."
     fi
+    # Also repairs an .env from an earlier install, which was created by `cp` and
+    # left at 0644 with three secrets in it.
+    chmod 600 "$CLOUD_DIR/.env"
 
     section "Deploy webhook"
     if grep -q "^DEPLOY_SECRET=change_me" "$CLOUD_DIR/.env" 2>/dev/null || \
@@ -1143,7 +1180,30 @@ EOF
     echo
     echo
 
-    # Remove the temporary NOPASSWD rule — sudo now requires the password set above
-    sudo rm -f /etc/sudoers.d/tremplin
-    info "Temporary NOPASSWD sudo rule removed."
+    # Remove the temporary NOPASSWD rule — sudo now requires the password set above.
+    #
+    # /etc/sudoers.d/tremplin is the pre-rename name. Installs made between the
+    # rename and this fix wrote the rule to .../splouch and deleted .../tremplin, so
+    # the grant survived every install while the line below reported it gone. All
+    # three names are handled, and the result is checked rather than announced.
+    #
+    # One `sudo` for the whole thing, on purpose: it is the grant being removed that
+    # makes these commands passwordless, so a second call after the file is gone
+    # would sit at a password prompt at the very end of an unattended install. The
+    # check on .../splouch matches on content because that filename holds the
+    # *legitimate* restricted grant on a server-role machine.
+    if sudo sh -c '
+            rm -f "$1" /etc/sudoers.d/tremplin
+            if grep -qs "NOPASSWD:ALL" /etc/sudoers.d/splouch; then
+                rm -f /etc/sudoers.d/splouch
+                echo "removed-legacy"
+            fi
+            ! grep -rqs "NOPASSWD:ALL" /etc/sudoers.d/
+        ' _ "$TEMP_SUDOERS_FILE"; then
+        info "Temporary NOPASSWD sudo rule removed."
+    else
+        warn "Could not remove the temporary NOPASSWD sudo rule. Remove it by hand,"
+        warn "after checking that '$TREMPLIN_USER' can still sudo with its password:"
+        warn "  sudo rm -f $TEMP_SUDOERS_FILE /etc/sudoers.d/splouch"
+    fi
 fi

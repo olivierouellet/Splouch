@@ -329,7 +329,7 @@
 (function () {
     'use strict';
 
-    var HEATS  = {{ heats_json | safe }};
+    var HEATS  = {{ heats | tojson }};
     var LABELS = { event: {{ labels.event | tojson }}, heat: {{ labels.heat | tojson }} };
     var T      = { commit: {{ (t.commit or 'Set current') | tojson }},
                    hold:   {{ (t.hold   or 'Hold to change') | tojson }} };

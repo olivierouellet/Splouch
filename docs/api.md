@@ -47,6 +47,14 @@ There are **two servers** with distinct roles:
 The Qt display connects directly to the Pi. There is exactly one meet, so there is
 no join step — the server starts pushing on connect.
 
+**Handshake rules.** A client sending an `Origin` header must send one whose host
+matches the `Host` it connected to; anything else is closed with 1008. Browsers set
+`Origin` and cannot override it, so this is what keeps another website from opening
+a socket onto the pool LAN through a visitor's browser — the same-origin policy does
+not apply to WebSockets. Native clients (the Qt display, iOS/Android) send no
+`Origin` and are unaffected. `/ws/settings` and `/ws/terminal` additionally require
+the admin session cookie.
+
 ### `/ws/scoreboard`
 On connect the server sends, in order: `test_mode`, `display_overlay`,
 `columns_state`, `meet_live`, then an `update_scoreboard` snapshot.

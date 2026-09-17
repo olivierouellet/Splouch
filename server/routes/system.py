@@ -278,9 +278,17 @@ def _run_update(target=None):
             # fetch above.
             cmds  = [['git', 'checkout', '-B', target, f'origin/{target}'], [_UV, 'sync']]
             label = f'Branch {target} installed'
-        else:
+        elif _VERSION_RE.match(target):
             cmds  = [['git', 'checkout', target], [_UV, 'sync']]
             label = f'Version {target} installed'
+        else:
+            # Anything not a release tag or an allowlisted branch stops here. The
+            # dropdown only ever offers those two, so a value that reaches this
+            # branch was hand-sent — and `git checkout <ref>` would take any commit
+            # in the repo, including one whose code has never been reviewed.
+            emit(f'\nUnknown version "{target}".\n', error=True)
+            state._update_log_done = False
+            return
 
         for cmd in cmds:
             emit('$ ' + ' '.join(cmd) + '\n')
@@ -720,15 +728,15 @@ def _restore_backup(data):
     try:
         buf = io.BytesIO(data)
         with tarfile.open(fileobj=buf, mode='r:gz') as tar:
-            members = tar.getmembers()
-            # Validate all paths stay within home dir (no path traversal)
             home = os.path.expanduser('~')
-            for m in members:
-                dest = os.path.normpath(os.path.join(home, m.name))
-                if not dest.startswith(home):
-                    return JSONResponse({'ok': False, 'error': 'Invalid archive path'},
-                                        status_code=400)
-            tar.extractall(path=home)
+            # `filter='data'` is what actually contains the extraction: it refuses
+            # absolute and `..` paths, links pointing outside the destination, and
+            # device/setuid entries. The hand-rolled check this replaces read only
+            # `m.name`, so an archive could ship a symlink to anywhere writable and
+            # then a file "inside" it — and `startswith(home)` let a sibling like
+            # /home/pi-evil through as well. The service user can write the
+            # checkout it runs from, so that was a route to running code.
+            tar.extractall(path=home, filter='data')
     except Exception as e:
         return JSONResponse({'ok': False, 'error': str(e)}, status_code=500)
     # Restart after a short delay so the response can be sent first

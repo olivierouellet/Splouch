@@ -15,7 +15,8 @@ import bus
 import state
 from meet_data import send_event_info
 from meet_parsers.lenex_parser import load_lenex
-from web import ActionResult, EnabledFlag, redirect, require_login, save_upload
+from web import (ActionResult, EnabledFlag, redirect, require_login, save_upload,
+                 ws_guard)
 from worker import (_list_sessions, _restart_worker, end_test_session,
                     forget_current_heat)
 
@@ -449,6 +450,14 @@ def _terminal_resize(data):
 
 @router.websocket('/ws/terminal')
 async def ws_terminal(ws: WebSocket):
+    # The only privileged channel on this server, and the one place the LAN-open
+    # model of the other sockets does not hold: `_pty_reader` broadcasts every byte
+    # the operator's shell prints to everyone subscribed here, and an `input` frame
+    # is a keystroke into that shell. `/terminal_start` has always been login-gated;
+    # without the same gate on the socket itself, the gate only decided who could
+    # *open* the terminal, not who could then read and drive it.
+    if not await ws_guard(ws, login_required=True):
+        return
     await bus.manager.connect(ws, '/terminal')
     try:
         while True:
