@@ -22,149 +22,35 @@ try:
 except ImportError:
     _PTY_AVAILABLE = False
 
-# ── Paths ──────────────────────────────────────────────────────────────────────
+# ── Re-exports ─────────────────────────────────────────────────────────────────
+# Where things live now: `paths` for the filesystem layout, `i18n` for anything
+# that needs only a language code. Both used to be sections of this module, and
+# almost every caller reaches them as `state.X`, so the names stay available here.
+#
+# Patch the owning module, not this one, when a test needs to redirect a
+# directory: `i18n` reads `paths.LOCALES_DIR` at call time, so a name rebound on
+# `state` alone would be read by nobody.
+import i18n
+import paths
+from paths import (app_dir, REPO_DIR, SHARED_DIR, STATIC_DIR, LOCALES_DIR,
+                   PANEL_LOCALES_DIR, SCOREBOARD_DIR, settings_file, _settings_default,
+                   SESSIONS_FOLDER, CUSTOM_SESSIONS_FOLDER, IMAGES_DIR, ICONS_DIR,
+                   HOME_ICON_PATH, HOME_ICON_512_PATH, PICKER_DIR, MEET_FOLDER,
+                   TEST_MEET_FOLDER, LOGS_DIR, THEME_FOLDER, CUSTOM_THEME_FOLDER,
+                   CUSTOM_DECODERS_FOLDER, PROVISION_VERSION_FILE,
+                   PROVISIONED_MARKER, SESSION_KEY_FILE, SERVICE_NAME,
+                   session_secret)
+from i18n import (HEADER_LABEL_BLUE, DEFAULT_THEME_COLORS, DEFAULT_THEME_FONTS,
+                  STYLED_LABEL_KEYS, resolve_labels, available_locales,
+                  list_locales, list_builtin_themes, list_custom_themes,
+                  load_theme, parse_event_name, compose_event_name,
+                  translate_event_name)
+# Underscored, but reached from outside — keep them resolving off `state`.
+_locale_section = i18n.locale_section
+_panel_section  = i18n.panel_section
+_FALLBACK_LABELS = i18n._FALLBACK_LABELS
+_HEADER_LABEL_WAS = i18n._HEADER_LABEL_WAS
 
-app_dir           = os.path.dirname(os.path.abspath(__file__))
-# The git checkout itself, one level up from server/. Every git command must run
-# from here, not from app_dir: a git *pathspec* resolves relative to the working
-# directory, so `git checkout -- uv.lock` from server/ silently fails with
-# "pathspec did not match any file(s)" while non-pathspec commands like `git pull`
-# quietly succeed by walking up to the repo root. That mismatch let the update's
-# uv.lock guard fail unnoticed until a release actually changed uv.lock.
-REPO_DIR          = os.path.dirname(app_dir)
-# Cross-component assets (static/, locales/) live in the sibling `shared/` dir,
-# one level up from server/ — they are also consumed by the cloud relay's build.
-SHARED_DIR        = os.path.join(REPO_DIR, 'shared')
-STATIC_DIR        = os.path.join(SHARED_DIR, 'static')
-LOCALES_DIR       = os.path.join(SHARED_DIR, 'locales')
-# Operator-facing strings, one optional file per language, English-merged per key.
-PANEL_LOCALES_DIR = os.path.join(LOCALES_DIR, 'panel')
-SCOREBOARD_DIR    = os.path.expanduser('~/SplouchData')
-_LEGACY_DATA_DIR  = os.path.expanduser('~/TremplinData')  # pre-Splouch; migrated on first run
-settings_file     = os.path.join(SCOREBOARD_DIR, 'settings.json')
-_settings_default = os.path.join(app_dir, 'settings.default.json')
-
-SESSIONS_FOLDER        = os.path.join(app_dir, 'console_recordings')
-CUSTOM_SESSIONS_FOLDER = os.path.join(SCOREBOARD_DIR, 'recorded')
-IMAGES_DIR             = os.path.join(SCOREBOARD_DIR, 'images')
-ICONS_DIR              = os.path.join(SCOREBOARD_DIR, 'icons')
-HOME_ICON_PATH         = os.path.join(ICONS_DIR, 'home_icon.png')
-HOME_ICON_512_PATH     = os.path.join(ICONS_DIR, 'home_icon_512.png')
-PICKER_DIR             = os.path.join(SCOREBOARD_DIR, 'picker')
-MEET_FOLDER            = os.path.join(SCOREBOARD_DIR, 'meet')
-# A test session's start lists live here, never in MEET_FOLDER. Keeping the two
-# apart is what lets a test run with the operator's meet still loaded: the real
-# files are never touched, so nothing has to be put back, and a power cut mid-test
-# leaves load_settings() finding the real meet exactly where it always was.
-TEST_MEET_FOLDER       = os.path.join(SCOREBOARD_DIR, 'test_meet')
-LOGS_DIR               = os.path.join(SCOREBOARD_DIR, 'logs')
-THEME_FOLDER           = os.path.join(app_dir, 'themes')
-CUSTOM_THEME_FOLDER    = os.path.join(SCOREBOARD_DIR, 'themes')
-CUSTOM_DECODERS_FOLDER = os.path.join(SCOREBOARD_DIR, 'console_decoders')
-
-# Provisioning version. install.sh records the version it fully provisioned into
-# PROVISIONED_MARKER; the app compares it with PROVISION_VERSION_FILE (shipped in
-# the repo) to nudge for a reinstall when an update pulled a change needing
-# privileges/steps the in-app update can't self-apply. See
-# install/scripts/refresh-service.sh.
-PROVISION_VERSION_FILE = os.path.join(os.path.dirname(app_dir), 'install', 'PROVISION_VERSION')
-PROVISIONED_MARKER     = os.path.join(SCOREBOARD_DIR, '.provisioned_version')
-
-# Signing key for the admin session cookie. In the data dir, never in the repo:
-# this file is what makes one Pi's cookies worthless on another, so a key living
-# in a tracked source file would be the same key on every install ever made — and
-# published, since the repo is public. The update path (`git pull`, and the
-# cloud's `git reset --hard`) also wipes the working tree, so the repo could not
-# hold it across an update even if it were secret.
-SESSION_KEY_FILE       = os.path.join(SCOREBOARD_DIR, '.session_key')
-
-# The systemd unit is named `splouch` once a full (post-rename) reinstall has run;
-# until then the legacy `tremplin` unit is still in place. Detect by unit-file
-# existence so the app restarts the right service and matches the sudoers grant
-# during the Tremplin→Splouch transition.
-SERVICE_NAME = ('splouch' if os.path.exists('/etc/systemd/system/splouch.service')
-                else 'tremplin')
-
-# ── Theme / locale defaults ────────────────────────────────────────────────────
-
-# The blue the top bar's labels and wall clock take. Shared with `schedule_event`
-# by intent rather than accident: one accent colour across the board reads as a
-# system, and this is the same blue the schedule already uses for event numbers.
-HEADER_LABEL_BLUE = '#3b9eff'
-# What `header_label` was before it became that blue. An install that still stores
-# this never chose it — it is the old default — so `merge_theme_defaults` moves it
-# on. See _migrate_header_label.
-_HEADER_LABEL_WAS = '#ffffff'
-
-DEFAULT_THEME_COLORS = {
-    'bg': '#0d0d0d', 'header_bg': '#1a1a1a', 'header_border': '#2e2e2e',
-    'header_label': HEADER_LABEL_BLUE, 'header_value': '#e0e0e0',
-    'th_text': '#666666', 'th_bg': '#1a1a1a',
-    'row_odd': '#141414', 'row_even': '#202020', 'row_text': '#e0e0e0',
-    'time': '#FFD700', 'delta_better': '#4CAF50', 'delta_worse': '#808080',
-    'podium_gold': '#545454', 'podium_silver': '#424242', 'podium_bronze': '#343434',
-    # The board's one warning colour: the link-lost badge and the frozen race
-    # clock behind it. Not used by any browser page — only the Qt display can
-    # tell that the console has stopped talking to it.
-    'connection_lost': '#ef5350',
-    # Text on that badge. Defaults to the board background, which is what makes
-    # a pill read as punched out of the board — but the pill behind it is a
-    # warning colour, not a board colour, so it gets its own swatch.
-    'connection_lost_text': '#0d0d0d',
-    'schedule_event': '#3b9eff', 'schedule_time': '#FFD700',
-    'schedule_name': '#e0e0e0', 'schedule_club': '#666666',
-}
-DEFAULT_THEME_FONTS = {'family': 'Overpass Mono', 'digits': 'DSEG7Classic', 'timing': 'Overpass Mono'}
-
-_FALLBACK_LABELS = {
-    'event': 'EVENT', 'heat': 'HEAT', 'lane': 'LN',
-    'place': 'PL', 'time': 'TIME', 'name': 'NAME', 'club': 'CLUB',
-    'chrono': 'CHRONO',
-}
-
-# Only these columns have a long form worth showing. The lane and place columns are
-# the two narrow ones on every board we ship: a long word there either clips or
-# shrinks the whole row to fit it, so they resolve short whatever `label_style` says
-# (docs/app.md `T-09`). Keep this list and the cloud's copy in step.
-STYLED_LABEL_KEYS = frozenset({'event', 'heat'})
-
-
-def resolve_labels(labels, style):
-    """Flatten a `[labels]` table to one string per key, in `style`.
-
-    `style` reaches only STYLED_LABEL_KEYS; every other key resolves short. A custom
-    file may define one form and not the other, so each key falls back to whatever it
-    does have rather than serving an empty header.
-    """
-    out = {}
-    for key, val in labels.items():
-        if not isinstance(val, dict):
-            continue
-        want = style if key in STYLED_LABEL_KEYS else 'short'
-        out[key] = val.get(want) or val.get('long') or val.get('short') or ''
-    return out
-
-_STROKE_ALIASES = [
-    ('individual medley', 'medley'),
-    ('breaststroke',      'breaststroke'),
-    ('backstroke',        'backstroke'),
-    ('butterfly',         'butterfly'),
-    ('freestyle',         'freestyle'),
-    ('medley',            'medley'),
-    ('breast',            'breaststroke'),
-    ('back',              'backstroke'),
-    ('free',              'freestyle'),
-    ('fly',               'butterfly'),
-    ('im',                'medley'),
-]
-
-_GENDER_PATTERNS = [
-    (r"\bwomen(?:'s)?\b", 'women'),
-    (r"\bgirls?(?:'s)?\b", 'girls'),
-    (r"\bmen(?:'s)?\b", 'men'),
-    (r"\bboys?(?:'s)?\b", 'boys'),
-    (r"\bmixed\b", 'mixed'),
-]
 
 # ── Settings ───────────────────────────────────────────────────────────────────
 
@@ -473,62 +359,8 @@ _rtc_in_progress       = False
 _rtc_log_lines         = []
 _rtc_log_done          = None
 
-# ── Init ───────────────────────────────────────────────────────────────────────
 
-def _ensure_data_dirs():
-    for d in (SCOREBOARD_DIR, MEET_FOLDER, TEST_MEET_FOLDER, IMAGES_DIR,
-              ICONS_DIR, PICKER_DIR, CUSTOM_SESSIONS_FOLDER, CUSTOM_THEME_FOLDER,
-              CUSTOM_DECODERS_FOLDER):
-        os.makedirs(d, exist_ok=True)
-    if not os.path.exists(settings_file) and os.path.exists(_settings_default):
-        import shutil
-        shutil.copy2(_settings_default, settings_file)
-
-def _migrate_data_dir():
-    """One-time rename of the pre-Splouch data dir (~/TremplinData → ~/SplouchData).
-
-    Zero-privilege (the user owns it) and content-preserving — keeps settings,
-    meets, recordings, custom themes/decoders across the rebrand. Runs before the
-    dirs are (re)created so the destination doesn't yet exist.
-    """
-    if not os.path.exists(SCOREBOARD_DIR) and os.path.isdir(_LEGACY_DATA_DIR):
-        try:
-            os.rename(_LEGACY_DATA_DIR, SCOREBOARD_DIR)
-        except OSError:
-            pass
-
-_migrate_data_dir()
-_ensure_data_dirs()
-
-
-def session_secret():
-    """This install's own session-cookie signing key, created on first run.
-
-    Read (or generated) once per process at startup. Anyone holding the key can
-    mint a cookie that `require_login` accepts without ever seeing the password,
-    so the value has to be unique per Pi and unreadable by other local accounts —
-    hence 0600, and a fresh `token_hex` rather than anything derived from the
-    settings, which are world-readable and change.
-
-    Losing the file is harmless: the next start writes a new one and every open
-    session simply has to sign in again.
-    """
-    try:
-        with open(SESSION_KEY_FILE) as f:
-            key = f.read().strip()
-        if key:
-            return key
-    except OSError:
-        pass
-    key = secrets.token_hex(32)
-    # Create with the mode already set — writing first and chmod'ing after leaves
-    # the key world-readable for the moment in between.
-    fd = os.open(SESSION_KEY_FILE, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-    with os.fdopen(fd, 'w') as f:
-        f.write(key)
-    return key
-
-# ── Locale / theme utilities ───────────────────────────────────────────────────
+# ── This server's identity, and the language it reads in ─────────────────────────────
 
 _git_describe_cache = None
 
@@ -561,96 +393,28 @@ def git_describe():
     return _git_describe_cache
 
 
-def available_locales():
-    """``(code, display name)`` for every language this server serves.
+# The language this server reads in unless a caller names another one. Every
+# wrapper below is the same shape: fill in the meet's language, then hand off to
+# `i18n`, which knows nothing about settings.
 
-    One file in ``shared/locales/`` is one language (docs/admin.md "Localisation").
-    ``panel/`` is not a language list: it holds the operator-facing strings, and a
-    language may omit its panel file and read English there.
-    """
-    found = {}
-    for path in sorted(glob.glob(os.path.join(LOCALES_DIR, '*.toml'))):
-        code = os.path.splitext(os.path.basename(path))[0]
-        try:
-            with open(path, 'rb') as f:
-                data = tomllib.load(f)
-        except Exception:
-            continue
-        found[code] = data.get('meta', {}).get('name', code)
-    return sorted(found.items())
-
-
-def _toml_section(path, section):
-    try:
-        with open(path, 'rb') as f:
-            return tomllib.load(f).get(section, {})
-    except Exception:
-        return {}
-
-
-def _locale_section(code, section):
-    """One section of a served language file, as shipped."""
-    return _toml_section(os.path.join(LOCALES_DIR, code + '.toml'), section)
-
-
-def _panel_section(code, section):
-    """One section of a language's operator-panel file, English-merged per key.
-
-    The panel is the operator's console, not what a spectator reads, so a language
-    may ship without one: every key then renders in English, and a partial file
-    degrades word by word (docs/admin.md "Localisation").
-    """
-    base = _toml_section(os.path.join(PANEL_LOCALES_DIR, 'en.toml'), section)
-    if code == 'en':
-        return dict(base)
-    return {**base, **_toml_section(os.path.join(PANEL_LOCALES_DIR, code + '.toml'), section)}
-
-
-def i18n_bundle(code=None):
-    """Client-facing strings for one language — ``GET /i18n/{lang}``, api.md §5.9.
-
-    Everything a client renders itself: its own chrome (``[mobile]``, ``[display]``)
-    and both label styles, so language and short/long are one fetch rather than two
-    axes the client has to reassemble. English-merged per key, the rule
-    :func:`display_strings` already follows — a half-translated locale falls back
-    word by word instead of rendering blank.
-
-    The shipped table only: there is no per-Pi wording, so the Pi and the cloud
-    serve the same body for the same language and a client may cache either.
-    """
-    code = code or settings.get('locale', 'en')
-    if code not in dict(available_locales()):
-        code = 'en'
-
-    def merged(section):
-        base = _locale_section('en', section)
-        return dict(base) if code == 'en' else {**base, **_locale_section(code, section)}
-
-    labels = merged('labels')
-    return {
-        'lang':    code,
-        'mobile':  merged('mobile'),
-        'display': merged('display'),
-        # The vocabulary an event name is composed from, so a client that took
-        # `event_name_parts` can render it in this language (api.md §5.1, §5.9).
-        'event_name': merged('event_name'),
-        # Both styles, so language and short/long are one fetch. `long` differs from
-        # `short` only for STYLED_LABEL_KEYS; the narrow columns are short in both.
-        'labels': {style: resolve_labels(labels, style)
-                   for style in ('short', 'long')},
-    }
+def _locale():
+    return settings.get('locale', 'en')
 
 
 def load_locale(style=None):
-    code  = settings.get('locale', 'en')
-    style = style or settings.get('label_style', 'long')
-    labels = _locale_section(code, 'labels')
-    if not labels:
-        return dict(_FALLBACK_LABELS)
-    return resolve_labels(labels, style)
+    """Column headers in the meet's language and this server's label style."""
+    return i18n.labels_for(_locale(), style or settings.get('label_style', 'long'))
+
+def i18n_bundle(code=None):
+    """`GET /i18n/{lang}` (api.md §5.9), defaulting to the meet's language."""
+    return i18n.i18n_bundle(code or _locale())
+
+def load_event_translations():
+    """The `[event_name]` vocabulary, in the meet's language."""
+    return i18n.event_translations(_locale())
 
 def load_preview_strings():
-    return _panel_section(settings.get('locale', 'en'), 'preview')
+    return i18n.panel_section(_locale(), 'preview')
 
 def manual_strings(code=None):
     """Words on /manual — an operator page, so `panel/`, not the served bundle.
@@ -659,23 +423,19 @@ def manual_strings(code=None):
     operator is standing at the pool reading the same event names the boards show,
     and `labels` and `event_vocab` on that page already come from the meet's language.
     """
-    return _panel_section(code or settings.get('locale', 'en'), 'manual')
+    return i18n.panel_section(code or _locale(), 'manual')
 
 def _mobile_strings():
-    return _locale_section(settings.get('locale', 'en'), 'mobile')
+    return i18n.locale_section(_locale(), 'mobile')
 
 def display_strings(code=None):
     """Status strings for the native TV display, English-merged.
 
-    Same fallback rule as :func:`settings_strings`: an untranslated key falls back
-    to English rather than rendering blank on the TV. Driven by the ``locale``
-    setting (Settings → Display → Scoreboard language), so the display follows the
-    same language as the board it replaces.
+    An untranslated key falls back to English rather than rendering blank on the
+    TV. Driven by the ``locale`` setting (Settings → Display → Scoreboard
+    language), so the display follows the same language as the board it replaces.
     """
-    code = code or settings.get('locale', 'en')
-
-    base = _locale_section('en', 'display')
-    return base if code == 'en' else {**base, **_locale_section(code, 'display')}
+    return i18n.display_strings(code or _locale())
 
 def settings_strings(code=None):
     """UI strings for the operator Settings panel, English-merged so any
@@ -686,8 +446,7 @@ def settings_strings(code=None):
     and in the cloud's ``/admin``, so their words live in one section both pages read.
     ``[settings]`` wins on a clash, so a page-specific override stays possible.
     """
-    code = code or settings.get('locale', 'en')
-    return {**_panel_section(code, 'chrome'), **_panel_section(code, 'settings')}
+    return i18n.panel_strings(code or _locale(), 'chrome', 'settings')
 
 def ui_locale(request):
     """Resolve the Settings-panel UI language.
@@ -709,20 +468,6 @@ def ui_locale(request):
         return cookie
     code = settings.get('locale', 'en')
     return code if code in installed else 'en'
-
-def _read_locale_name(path, fallback):
-    try:
-        with open(path, 'rb') as f:
-            return tomllib.load(f).get('meta', {}).get('name', fallback)
-    except Exception:
-        return fallback
-
-def list_locales():
-    result = []
-    for path in sorted(glob.glob(os.path.join(LOCALES_DIR, '*.toml'))):
-        code = os.path.splitext(os.path.basename(path))[0]
-        result.append((code, _read_locale_name(path, code)))
-    return result
 
 
 def provisioning_stale():
@@ -784,159 +529,6 @@ def using_default_credentials():
         return False
     return (settings.get('username') == user and
             settings.get('password') == password)
-
-def _read_theme_name(path, fallback):
-    try:
-        with open(path, 'rb') as f:
-            return tomllib.load(f).get('name', fallback)
-    except Exception:
-        return fallback
-
-def list_builtin_themes():
-    return [(os.path.splitext(os.path.basename(p))[0],
-             _read_theme_name(p, os.path.splitext(os.path.basename(p))[0]))
-            for p in sorted(glob.glob(os.path.join(THEME_FOLDER, '*.toml')))]
-
-def list_custom_themes():
-    return [(os.path.splitext(os.path.basename(p))[0],
-             _read_theme_name(p, os.path.splitext(os.path.basename(p))[0]))
-            for p in sorted(glob.glob(os.path.join(CUSTOM_THEME_FOLDER, '*.toml')))]
-
-def load_theme(code):
-    path = os.path.join(CUSTOM_THEME_FOLDER, code + '.toml')
-    if not os.path.exists(path):
-        path = os.path.join(THEME_FOLDER, code + '.toml')
-    try:
-        with open(path, 'rb') as f:
-            data = tomllib.load(f)
-        colors = {**DEFAULT_THEME_COLORS, **data.get('colors', {})}
-        fonts  = {**DEFAULT_THEME_FONTS,  **data.get('fonts',  {})}
-        return colors, fonts
-    except Exception:
-        return dict(DEFAULT_THEME_COLORS), dict(DEFAULT_THEME_FONTS)
-
-def load_event_translations():
-    return _locale_section(settings.get('locale', 'en'), 'event_name')
-
-# Distances, with and without a unit. Metric only: nothing in this project renders
-# yards, and matching `50y` here would print it as "50 m" — a wrong distance reads
-# worse than a missing one.
-_UNITS = r'(?:metres|meters|metre|meter|m)'
-_DIST_WITH_UNIT = re.compile(r'\b(\d+\s*[xX]\s*\d+|\d+)\s*' + _UNITS + r'\b',
-                             re.IGNORECASE)
-_DIST_BARE      = re.compile(r'\b(\d+\s*[xX]\s*\d+|\d+)\b')
-
-
-def parse_event_name(raw):
-    """Decompose a raw event name into language-neutral parts.
-
-    Keys, not words: ``stroke``, ``gender`` and ``age_key`` name entries in a
-    locale's ``[event_name]`` table, so one parse renders in every language the
-    server ships. That is what lets a spectator reading in Spanish at a French meet
-    get a Spanish event name (docs/app.md `T-04`, `T-06`) — the alternative is three
-    client repos re-implementing the regexes below and drifting.
-
-    ``age`` carries a numeric band verbatim (``< 12``, ``12-13``) because a number
-    needs no translation; ``age_key`` carries ``open`` / ``senior``, which do.
-    """
-    if not raw:
-        return None
-    s = raw.strip()
-
-    gender = ''
-    for pat, key in _GENDER_PATTERNS:
-        if re.search(pat, s, re.IGNORECASE):
-            gender = key
-            break
-
-    age, age_key = '', ''
-    s_rest = s
-    age_m = re.search(
-        r'\b(\d+)\s*(?:[Uu](?:nder)?|&\s*[Uu]nder|[Aa]nd\s+[Uu]nder)\b'
-        r'|\b[Uu](\d+)\b', s)
-    if age_m:
-        num    = age_m.group(1) or age_m.group(2)
-        age    = '< ' + num
-        s_rest = s[:age_m.start()] + s[age_m.end():]
-    else:
-        range_m = re.search(r'\b(\d{1,2}-\d{1,2})\b', s)
-        if range_m:
-            age    = range_m.group(1)
-            s_rest = s[:range_m.start()] + s[range_m.end():]
-        elif re.search(r'\bopen\b', s, re.IGNORECASE):
-            age_key = 'open'
-            s_rest  = re.sub(r'\bopen\b', '', s, flags=re.IGNORECASE)
-        elif re.search(r'\bsenior\b', s, re.IGNORECASE):
-            age_key = 'senior'
-            s_rest  = re.sub(r'\bsenior\b', '', s, flags=re.IGNORECASE)
-
-    is_relay = bool(re.search(r'\brelay\b', s_rest, re.IGNORECASE))
-
-    # A distance with its unit attached first — `100m`, `4x50 m`, `200 metres` —
-    # then a bare number as the fallback.
-    #
-    # The unit pass is not a nicety. `\b(\d+)\b` cannot match `100` in `100m`:
-    # there is no word boundary between a digit and a letter, so the whole distance
-    # vanished and `100m Freestyle` rendered as just "Freestyle" ("libre" in
-    # French). Splash and Hy-Tek both export the glued form, so this was every
-    # event at a real meet, not an edge case.
-    #
-    # Trying the unit first also settles which number is the distance when a name
-    # carries more than one: `Mixed 13 & Over 4x50m Freestyle Relay` used to take
-    # the `13` from the age band and call it the distance.
-    dist   = ''
-    dist_m = _DIST_WITH_UNIT.search(s_rest) or _DIST_BARE.search(s_rest)
-    if dist_m:
-        dist = re.sub(r'\s+', '', dist_m.group(1))
-
-    stroke = ''
-    for alias, key in _STROKE_ALIASES:
-        if re.search(r'\b' + re.escape(alias) + r'\b', s_rest, re.IGNORECASE):
-            stroke = key
-            break
-
-    return {'raw': raw, 'dist': dist, 'stroke': stroke, 'relay': is_relay,
-            'gender': gender, 'age': age, 'age_key': age_key}
-
-
-def compose_event_name(parts, ev):
-    """Render parsed parts with one locale's ``[event_name]`` vocabulary.
-
-    The other half of :func:`parse_event_name`, and the only half a client needs: a
-    lookup and a join, no parsing. An unknown key renders as itself rather than
-    blank, the same floor `T-10` sets for every other string.
-    """
-    if not parts:
-        return ''
-    if not ev:
-        return parts.get('raw', '')
-    unit = ev.get('unit', 'm')
-    sep  = ev.get('separator', '  \u2014  ')
-
-    left_parts = []
-    if parts.get('dist'):
-        left_parts.append(parts['dist'] + ' ' + unit)
-    if parts.get('stroke'):
-        left_parts.append(ev.get(parts['stroke'], parts['stroke']))
-    if parts.get('relay') and ev.get('relay'):
-        left_parts.append(ev['relay'])
-    left = ' '.join(left_parts)
-
-    age = parts.get('age') or (ev.get(parts['age_key'], parts['age_key'])
-                               if parts.get('age_key') else '')
-    gender = ev.get(parts['gender'], parts['gender']) if parts.get('gender') else ''
-    right = ' '.join(p for p in [gender, age] if p)
-
-    if left and right:
-        return left + sep + right
-    return left or right or parts.get('raw', '')
-
-
-def translate_event_name(raw, ev):
-    """One raw name rendered in one locale — ``compose(parse(raw))``."""
-    if not ev or not raw:
-        return raw
-    return compose_event_name(parse_event_name(raw), ev)
 
 
 # ── Settings loader ────────────────────────────────────────────────────────────

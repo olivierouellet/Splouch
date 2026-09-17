@@ -105,20 +105,22 @@ def test_no_session_key_is_committed_in_the_source():
 
 
 def test_the_session_key_is_per_install_and_unreadable_by_others(tmp_path, monkeypatch):
-    import state
+    import paths
     key_file = tmp_path / '.session_key'
-    monkeypatch.setattr(state, 'SESSION_KEY_FILE', str(key_file))
+    # `paths`, not `state`: `session_secret()` lives there now and reads its own
+    # module global, so a name rebound on `state` alone would be read by nobody.
+    monkeypatch.setattr(paths, 'SESSION_KEY_FILE', str(key_file))
 
-    first = state.session_secret()
+    first = paths.session_secret()
     assert len(first) >= 32
     assert first != _PUBLISHED_KEY
     # Stable across restarts, or every restart would sign everyone out.
-    assert state.session_secret() == first
+    assert paths.session_secret() == first
     assert oct(key_file.stat().st_mode & 0o777) == '0o600'
 
     # A second install gets a different key, which is the whole point.
-    monkeypatch.setattr(state, 'SESSION_KEY_FILE', str(tmp_path / 'other'))
-    assert state.session_secret() != first
+    monkeypatch.setattr(paths, 'SESSION_KEY_FILE', str(tmp_path / 'other'))
+    assert paths.session_secret() != first
 
 
 # ── WebSockets: origin checked, terminal gated ────────────────────────────────

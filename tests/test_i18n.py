@@ -27,6 +27,7 @@ sys.path.insert(0, os.path.join(REPO, 'server'))
 os.environ.setdefault('DATA_DIR', tempfile.mkdtemp(prefix='splouch-i18n-test-'))
 sys.path.insert(0, os.path.join(REPO, 'cloud'))
 
+import paths                     # noqa: E402
 import state                     # noqa: E402
 import web                       # noqa: E402
 import cloud_server as cs        # noqa: E402
@@ -110,7 +111,7 @@ def half_translated(monkeypatch, tmp_path):
         '[meta]\nname = "Test"\n'
         '[mobile]\nscoreboard = "Tableau ZZ"\n'
         '[labels]\nlane = { short = "ZL", long = "ZLANE" }\n', encoding='utf-8')
-    monkeypatch.setattr(state, 'LOCALES_DIR', str(tmp_path))
+    monkeypatch.setattr(paths, 'LOCALES_DIR', str(tmp_path))
     return tmp_path
 
 
@@ -127,7 +128,7 @@ def test_a_style_a_locale_omits_falls_back_to_the_other(monkeypatch, tmp_path):
     """A file may define one form; an empty header is the worse answer."""
     (tmp_path / 'en.toml').write_text(
         '[labels]\nlane = { long = "LANE" }\n', encoding='utf-8')
-    monkeypatch.setattr(state, 'LOCALES_DIR', str(tmp_path))
+    monkeypatch.setattr(paths, 'LOCALES_DIR', str(tmp_path))
     assert state.i18n_bundle('en')['labels']['short']['lane'] == 'LANE'
 
 
@@ -187,7 +188,7 @@ def test_a_language_without_a_panel_file_reads_the_panel_in_english(monkeypatch,
     """Adding a language is the served file alone (docs/admin.md)."""
     (tmp_path / 'en.toml').write_text('[settings]\nsave = "Save"\n[preview]\nmeet = "Meet"\n',
                                       encoding='utf-8')
-    monkeypatch.setattr(state, 'PANEL_LOCALES_DIR', str(tmp_path))
+    monkeypatch.setattr(paths, 'PANEL_LOCALES_DIR', str(tmp_path))
     assert state.settings_strings('zz') == {'save': 'Save'}
     assert state._panel_section('zz', 'preview') == {'meet': 'Meet'}
 
@@ -196,7 +197,7 @@ def test_a_partial_panel_file_degrades_word_by_word(monkeypatch, tmp_path):
     (tmp_path / 'en.toml').write_text('[settings]\nsave = "Save"\ncancel = "Cancel"\n',
                                       encoding='utf-8')
     (tmp_path / 'zz.toml').write_text('[settings]\nsave = "Sauver"\n', encoding='utf-8')
-    monkeypatch.setattr(state, 'PANEL_LOCALES_DIR', str(tmp_path))
+    monkeypatch.setattr(paths, 'PANEL_LOCALES_DIR', str(tmp_path))
     assert state.settings_strings('zz') == {'save': 'Sauver', 'cancel': 'Cancel'}
 
 

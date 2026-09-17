@@ -13,6 +13,23 @@ other by bare name. `static/` and `locales/` live in the sibling `shared/` dir (
 with the cloud relay); `themes/` and bundled `console_recordings/` stay under `server/`
 (what is in them, and how `.cts` and `.raw` differ: [`server/console_recordings/README.md`](../server/console_recordings/README.md)).
 
+Three of those modules have one direction of travel between them, and
+`tests/test_module_boundaries.py` fails if that is ever reversed:
+
+| Module | Holds | Imports |
+| --- | --- | --- |
+| [`paths.py`](../server/paths.py) | where files live; creates the data dir on import | nothing of ours |
+| [`i18n.py`](../server/i18n.py) | languages, labels, themes, event names — anything answerable from a language code alone | `paths` |
+| [`state.py`](../server/state.py) | this server's runtime: settings, the loaded meet, the decoder, the worker's flags | both |
+
+`state` re-exports what it no longer defines, so `state.MEET_FOLDER` and
+`state.load_locale()` keep working from anywhere. Two consequences worth knowing:
+a test redirecting a directory must patch the module that *reads* it (`paths`,
+not `state`), and `i18n` deliberately reads no settings — every function there
+takes a language code, and `state` holds the wrappers that fill it in from the
+meet. That is what would let `i18n` move to `shared/` and end the cloud relay's
+duplicate copy (see [`notes/cloud_parity.md`](../notes/cloud_parity.md)).
+
 ## Testing with a live console
 
 Upload a recorded `.cts` or `.raw` session via the **Test** tab in the admin UI to replay timing data without a live console.
