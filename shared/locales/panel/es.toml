@@ -139,6 +139,11 @@ download_backup_full       = "Descargar todo (incl. el acceso)"
 # Aviso mostrado en Ajustes cuando una actualización de código requiere una reinstalación completa.
 reinstall_banner = '''<strong>La actualización necesita una reinstalación.</strong> Una actualización reciente cambió la configuración del sistema que el actualizador integrado no puede aplicar por sí solo. Vuelve a ejecutar el instalador en este dispositivo — el acceso directo <strong>Reinstalar</strong> del escritorio, o <code>bash install/install.sh server</code> desde el repositorio por SSH.'''
 
+# Aviso mostrado en Ajustes mientras el acceso de administración siga siendo el de fábrica.
+default_password_banner = '''<strong>Este servidor todavía usa su contraseña predeterminada.</strong> El usuario y la contraseña con los que se instala Splouch están publicados en la documentación, así que cualquiera en esta red puede abrir estos ajustes, leer los archivos de la competición y llegar a la terminal. Cámbialos antes del día de la competición —'''
+default_password_banner_action = "abrir la pestaña Cuenta"
+
+
 # Barra lateral
 ui_panel_lang   = "Idioma del panel"
 ui_lang_auto    = "Auto (idioma del navegador)"

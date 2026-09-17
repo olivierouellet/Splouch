@@ -747,6 +747,44 @@ def provisioning_stale():
     want = _read(PROVISION_VERSION_FILE)
     return want > 0 and want > _read(PROVISIONED_MARKER)
 
+
+def _shipped_credentials():
+    """The username/password `settings.default.json` ships with.
+
+    Read from that file rather than restated here, so this stays true if the
+    shipped defaults ever change. Read once — it is a file in the repo, and
+    `using_default_credentials()` is consulted on every settings render.
+    """
+    global _SHIPPED_CREDS
+    if _SHIPPED_CREDS is None:
+        try:
+            with open(_settings_default) as f:
+                d = json.load(f)
+            _SHIPPED_CREDS = (d.get('username', ''), d.get('password', ''))
+        except (OSError, ValueError):
+            _SHIPPED_CREDS = ('', '')
+    return _SHIPPED_CREDS
+
+
+_SHIPPED_CREDS = None
+
+
+def using_default_credentials():
+    """True while the admin login is still the one every install ships with.
+
+    These are in the README and in docs/admin.md, so until they are changed the
+    password protects nothing — the settings panel says so rather than leaving it
+    to a line in the documentation that an operator reads once.
+
+    Empty shipped values read as False: that means the defaults file could not be
+    read, and a banner shown on a guess would be worse than none.
+    """
+    user, password = _shipped_credentials()
+    if not user and not password:
+        return False
+    return (settings.get('username') == user and
+            settings.get('password') == password)
+
 def _read_theme_name(path, fallback):
     try:
         with open(path, 'rb') as f:

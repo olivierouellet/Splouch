@@ -144,6 +144,11 @@ download_backup_full       = "Download full (incl. login)"
 # Banner shown in Settings when a code update needs a full reinstall to apply.
 reinstall_banner = '''<strong>Update needs a reinstall to finish.</strong> A recent update changed system setup the in-app updater can't apply on its own. Run the installer again on this device — the <strong>Reinstall</strong> desktop shortcut, or <code>bash install/install.sh server</code> from the repo over SSH.'''
 
+# Banner shown in Settings while the admin login is still the shipped default.
+default_password_banner = '''<strong>This server still uses its default password.</strong> The username and password every Splouch install ships with are printed in the documentation, so anyone on this network can open these settings, read the meet files and reach the terminal. Change them before meet day —'''
+default_password_banner_action = "open the Account tab"
+
+
 # Sidebar chrome
 ui_panel_lang   = "Panel language"
 ui_lang_auto    = "Auto (follow browser)"

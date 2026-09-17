@@ -101,6 +101,9 @@ def _globals():
         theme_colors={**state.DEFAULT_THEME_COLORS, **state.settings.get('theme_colors', {})},
         theme_fonts={**state.DEFAULT_THEME_FONTS,  **state.settings.get('theme_fonts',  {})},
         provision_stale=state.provisioning_stale(),
+        # Shown as a banner on the settings panel until the login is changed off
+        # the one every install ships with (and that the docs print).
+        default_credentials=state.using_default_credentials(),
     )
 
 

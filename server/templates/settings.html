@@ -151,6 +151,16 @@ function onPasswordInput(form) {
                 <div>{{ t.reinstall_banner | safe }}</div>
             </div>
             {% endif %}
+            {% if default_credentials %}
+            <div class="alert alert-danger d-flex align-items-start gap-2 mb-3" role="alert">
+                <i class="bi bi-shield-exclamation mt-1"></i>
+                <div>
+                    {{ t.default_password_banner | safe }}
+                    <a href="#" class="alert-link"
+                       onclick="panelShowTab('#tab-account'); return false;">{{ t.default_password_banner_action }}</a>
+                </div>
+            </div>
+            {% endif %}
             <div class="tab-content">
 
         <!-- ── Meet Setup ──────────────────────────────────────────── -->

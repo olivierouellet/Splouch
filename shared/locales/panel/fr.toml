@@ -139,6 +139,11 @@ download_backup_full       = "Télécharger tout (avec l’identifiant)"
 # Bannière affichée dans les Réglages quand une mise à jour du code exige une réinstallation complète.
 reinstall_banner = '''<strong>La mise à jour nécessite une réinstallation.</strong> Une mise à jour récente a modifié la configuration système que le programme de mise à jour intégré ne peut pas appliquer seul. Relancez l'installateur sur cet appareil — le raccourci <strong>Réinstaller</strong> du bureau, ou <code>bash install/install.sh server</code> depuis le dépôt via SSH.'''
 
+# Bannière affichée dans les Réglages tant que l'identifiant d'administration est celui d'origine.
+default_password_banner = '''<strong>Ce serveur utilise encore son mot de passe par défaut.</strong> L'identifiant et le mot de passe livrés avec chaque installation de Splouch figurent dans la documentation : n'importe qui sur ce réseau peut donc ouvrir ces réglages, lire les fichiers de la rencontre et accéder au terminal. Changez-les avant le jour de la rencontre —'''
+default_password_banner_action = "ouvrir l'onglet Compte"
+
+
 # Barre latérale
 ui_panel_lang   = "Langue du panneau"
 ui_lang_auto    = "Auto (langue du navigateur)"

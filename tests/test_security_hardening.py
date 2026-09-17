@@ -334,6 +334,67 @@ def test_the_admin_panel_locks_out_a_password_guesser(monkeypatch, tmp_path):
     assert status('correct-horse', ip='198.51.100.4') == 200   # per-address
 
 
+# ── The shipped login announces itself until it is changed ────────────────────
+
+def test_the_panel_warns_while_the_shipped_login_is_still_in_use(monkeypatch):
+    """`score`/`swimming` are printed in the README and docs/admin.md, so until
+    they are changed the password protects nothing. Now that the session key is
+    per-install, that password is what is actually holding the door."""
+    import state
+
+    monkeypatch.setitem(state.settings, 'username', 'score')
+    monkeypatch.setitem(state.settings, 'password', 'swimming')
+    assert state.using_default_credentials() is True
+
+    # Changing either half is enough to clear it.
+    monkeypatch.setitem(state.settings, 'password', 'a-real-password')
+    assert state.using_default_credentials() is False
+    monkeypatch.setitem(state.settings, 'password', 'swimming')
+    monkeypatch.setitem(state.settings, 'username', 'timing')
+    assert state.using_default_credentials() is False
+
+
+def test_the_warning_is_read_from_the_defaults_file_not_restated(monkeypatch):
+    """Hard-coding 'score'/'swimming' in the check would leave it silently wrong
+    the day the shipped defaults change."""
+    import json as _json
+    import state
+
+    monkeypatch.setattr(state, '_SHIPPED_CREDS', None)
+    shipped = _json.load(open(os.path.join(REPO, 'server', 'settings.default.json')))
+    assert state._shipped_credentials() == (shipped['username'], shipped['password'])
+
+
+def test_the_banner_is_rendered_only_while_the_login_is_the_default(monkeypatch):
+    import state
+    import web
+
+    monkeypatch.setitem(state.settings, 'username', 'score')
+    monkeypatch.setitem(state.settings, 'password', 'swimming')
+    assert web._globals()['default_credentials'] is True
+
+    monkeypatch.setitem(state.settings, 'password', 'a-real-password')
+    assert web._globals()['default_credentials'] is False
+
+    body = open(os.path.join(REPO, 'server', 'templates', 'settings.html'),
+                encoding='utf-8').read()
+    assert '{% if default_credentials %}' in body
+    assert 't.default_password_banner' in body
+
+
+@pytest.mark.parametrize('code', ['en', 'fr', 'es'])
+def test_every_panel_language_has_the_warning(code):
+    """A half-translated banner would fall back to English mid-sentence."""
+    import state
+    t = state.settings_strings(code)
+    assert t['default_password_banner'].strip()
+    assert t['default_password_banner_action'].strip()
+    if code != 'en':
+        en = state.settings_strings('en')
+        assert t['default_password_banner'] != en['default_password_banner'], \
+            f'{code} banner is still the English text'
+
+
 # ── The installer removes the sudo rule it says it removes ────────────────────
 
 def test_the_temporary_sudo_rule_is_removed_under_the_name_it_was_written():
