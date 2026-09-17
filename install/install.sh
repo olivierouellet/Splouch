@@ -983,7 +983,17 @@ if [[ "$ROLE" == "cloud" ]]; then
         install -m 755 -o "$TREMPLIN_USER" -g "$TREMPLIN_USER" \
             "$_script_src" "$_script_dst"
         info "Re-running install as '$TREMPLIN_USER'…"
-        exec sudo -H -u "$TREMPLIN_USER" bash "$_script_dst" cloud "$VERSION_CHOICE"
+        # SPLOUCH_TARGET_USER is not optional here. The re-exec'd run resolves the
+        # target user again at the top of this script, and by then `SUDO_USER` names
+        # the user who *invoked* sudo — root — not the one sudo switched to. Without
+        # this, the second run computes TARGET_HOME=/root and tries to clone into
+        # /root/Splouch as an unprivileged user: "could not create work tree dir".
+        #
+        # Passed through `env` rather than as `sudo VAR=value`, which sudo refuses
+        # unless the sudoers entry carries `setenv`.
+        exec sudo -H -u "$TREMPLIN_USER" \
+            env SPLOUCH_TARGET_USER="$TREMPLIN_USER" \
+            bash "$_script_dst" cloud "$VERSION_CHOICE"
     fi
     # ──────────────────────────────────────────────────────────────────────────
 
