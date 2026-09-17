@@ -162,7 +162,9 @@ def test_the_cloud_fallback_palette_matches_too():
     import ast
     import state
     repo = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    src = open(os.path.join(repo, 'cloud', 'cloud_server.py'), encoding='utf-8').read()
+    # The cloud palette lives in cloud_i18n.py now, beside the rest of the
+    # presentation defaults it is duplicated from.
+    src = open(os.path.join(repo, 'cloud', 'cloud_i18n.py'), encoding='utf-8').read()
     tree = ast.parse(src)
     cloud = next(ast.literal_eval(node.value)
                  for node in ast.walk(tree)

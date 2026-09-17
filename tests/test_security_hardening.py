@@ -309,11 +309,18 @@ def test_the_admin_panel_locks_out_a_password_guesser(monkeypatch, tmp_path):
     monkeypatch.setenv('DATA_DIR', str(tmp_path))
     monkeypatch.setenv('ADMIN_USER', 'admin')
     monkeypatch.setenv('ADMIN_PASSWORD', 'correct-horse')
+    import cloud_auth
+    import cloud_paths
     import cloud_server as cs
     from fastapi import HTTPException
 
-    cs.CREDS_FILE = str(tmp_path / 'credentials.json')
-    cs._admin_fails.clear()
+    # `cloud_paths`, not `cloud_server`: `load_creds()` lives in `cloud_auth` and
+    # reads the constant off `cloud_paths`, so a name rebound on the app module
+    # alone would be read by nobody and this would authenticate against the real
+    # /data/credentials.json.
+    monkeypatch.setattr(cloud_paths, 'CREDS_FILE', str(tmp_path / 'credentials.json'))
+    monkeypatch.setattr(cloud_auth, '_admin_fails', {})
+    cs._admin_fails = cloud_auth._admin_fails
 
     class Req:
         def __init__(self, pw, ip='203.0.113.9'):

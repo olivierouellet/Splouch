@@ -28,6 +28,8 @@ os.environ.setdefault('DATA_DIR', tempfile.mkdtemp(prefix='splouch-i18n-test-'))
 sys.path.insert(0, os.path.join(REPO, 'cloud'))
 
 import paths                     # noqa: E402
+import cloud_i18n                # noqa: E402
+import cloud_paths               # noqa: E402
 import state                     # noqa: E402
 import web                       # noqa: E402
 import cloud_server as cs        # noqa: E402
@@ -207,8 +209,10 @@ def test_the_cloud_admin_reads_the_panel_file_the_same_way(monkeypatch, tmp_path
                                                 encoding='utf-8')
     (tmp_path / 'panel' / 'fr.toml').write_text('[cloud]\nlogout = "Déconnexion"\n',
                                                 encoding='utf-8')
-    monkeypatch.setattr(cs, 'LOCALES_DIR', str(tmp_path))
-    monkeypatch.setattr(cs, '_panel_cache', {})
+    # `cloud_paths`/`cloud_i18n`, not `cloud_server`: the reader moved out of the
+    # app module and looks the directory up on `cloud_paths` at call time.
+    monkeypatch.setattr(cloud_paths, 'LOCALES_DIR', str(tmp_path))
+    monkeypatch.setattr(cloud_i18n, '_panel_cache', {})
     assert cs._panel_strings('fr', 'cloud') == {'logout': 'Déconnexion', 'save': 'Save'}
     assert cs._panel_strings('de', 'cloud') == {'logout': 'Log out', 'save': 'Save'}
 

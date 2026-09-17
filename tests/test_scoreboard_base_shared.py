@@ -325,7 +325,7 @@ def test_schedule_palette_comes_from_the_server(sched_pi, sched_cloud):
     """The cloud template used to hard-code fallback hexes because its
     `_DEFAULT_COLORS` lacked the schedule_* keys. They live in the palette now, so
     a partial theme still themes the page and the values exist in one place."""
-    src = open(os.path.join(REPO, 'cloud', 'cloud_server.py')).read()
+    src = open(os.path.join(REPO, 'cloud', 'cloud_i18n.py')).read()
     for key in ('schedule_event', 'schedule_time', 'schedule_name', 'schedule_club'):
         assert key in state.DEFAULT_THEME_COLORS, f'{key} missing from the Pi palette'
         assert f"'{key}'" in src,                 f'{key} missing from the cloud palette'

@@ -117,3 +117,65 @@ def test_the_wrappers_still_default_to_the_meets_language(monkeypatch):
 
     # An explicit code still wins over the setting.
     assert state.display_strings('es') == i18n.display_strings('es')
+
+
+# ── The cloud relay's modules ─────────────────────────────────────────────────
+# `cloud_server.py` was one 2117-line file. It is now several flat modules with
+# the same one-way dependency rule as `server/`:
+#
+#     cloud_paths ──► cloud_auth ──► cloud_analytics
+#                 ──► cloud_bus
+#                          all ──► cloud_server
+#
+# The `cloud_` prefix is load-bearing rather than decorative: `server/` and
+# `cloud/` are both flat on sys.path when this suite runs, so a plain `bus.py` in
+# `cloud/` would shadow the Pi's and the failure would look like nonsense in an
+# unrelated test. It is also what the Dockerfile globs on.
+
+CLOUD = os.path.join(REPO, 'cloud')
+CLOUD_MODULES = ('cloud_paths', 'cloud_bus', 'cloud_auth', 'cloud_analytics')
+
+
+def _cloud_imports(module):
+    tree = ast.parse(open(os.path.join(CLOUD, module + '.py'), encoding='utf-8').read())
+    found = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            found.update(a.name.split('.')[0] for a in node.names)
+        elif isinstance(node, ast.ImportFrom) and node.module and node.level == 0:
+            found.add(node.module.split('.')[0])
+    return found
+
+
+def test_cloud_paths_depends_on_nothing_of_ours():
+    assert not (_cloud_imports('cloud_paths') & set(CLOUD_MODULES + ('cloud_server',)))
+
+
+@pytest.mark.parametrize('module', CLOUD_MODULES)
+def test_no_cloud_module_imports_the_app_back(module):
+    """`cloud_server` may import all of them; none may import it."""
+    assert 'cloud_server' not in _cloud_imports(module)
+
+
+def test_every_cloud_module_carries_the_prefix():
+    """A module here without it would shadow the Pi's same-named one."""
+    stray = [f for f in os.listdir(CLOUD)
+             if f.endswith('.py') and not f.startswith('cloud_')
+             and f != 'deploy_webhook.py']
+    assert not stray, f'{stray} would collide with server/ on sys.path'
+
+
+def test_the_dockerfile_ships_every_cloud_module():
+    """The image used to copy one file. A module added without a Dockerfile edit
+    would import fine in tests and crash the container on boot."""
+    dockerfile = open(os.path.join(CLOUD, 'Dockerfile'), encoding='utf-8').read()
+    assert 'COPY cloud/cloud_*.py' in dockerfile, \
+        'the image no longer globs the cloud modules — check every one is copied'
+    # And the host-only webhook stays out of the image.
+    assert 'COPY cloud/deploy_webhook.py' not in dockerfile
+
+
+def test_the_container_entrypoint_still_names_a_real_app():
+    dockerfile = open(os.path.join(CLOUD, 'Dockerfile'), encoding='utf-8').read()
+    assert 'cloud_server:app' in dockerfile
+    assert os.path.exists(os.path.join(CLOUD, 'cloud_server.py'))

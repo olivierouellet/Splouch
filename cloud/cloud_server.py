@@ -37,6 +37,51 @@ from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 from starlette.concurrency import run_in_threadpool
 
+# ── Re-exports ─────────────────────────────────────────────────────────────────
+# Where things live now. Both used to be sections of this module, and the tests
+# and route handlers reach many of these names directly, so they stay resolvable
+# here. Patch the owning module, not this one, when redirecting a path in a test:
+# the code that reads `CREDS_FILE` now lives in `paths`.
+# The `cloud_` prefix is not decoration: `server/` and `cloud/` are both flat on
+# sys.path when the suite runs, so a plain `bus.py` here would shadow the Pi's —
+# which is exactly why `cloud_server.py` is named that way too.
+import cloud_bus
+import cloud_paths
+from cloud_paths import (DATA_DIR, KEYS_FILE, CREDS_FILE, MEETS_FILE, RETAINED_DIR,
+                         ANALYTICS_FILE, LOCALES_DIR, STATIC_DIR,
+                         SHARED_TEMPLATES_DIR, _HERE,
+                         atomic_write as _atomic_write)
+from cloud_bus import ConnectionManager, manager
+_ch = cloud_bus.ch
+import cloud_analytics
+import cloud_auth
+from cloud_auth import require_admin
+from cloud_analytics import (log_connection as _log_connection,
+                             analytics_enabled as _analytics_enabled,
+                             attendee_count as _attendee_count,
+                             attendee_counts as _attendee_counts,
+                             analytics_flush_loop as _analytics_flush_loop,
+                             analytics_prune as _analytics_prune,
+                             flush_analytics as _flush_analytics)
+_ANALYTICS_WINDOWS = cloud_analytics._ANALYTICS_WINDOWS
+# Names the routes and the tests still reach for directly.
+_load_keys      = cloud_auth.load_keys
+_save_keys      = cloud_auth.save_keys
+_load_creds     = cloud_auth.load_creds
+_save_creds     = cloud_auth.save_creds
+_hash_password  = cloud_auth.hash_password
+_check_admin    = cloud_auth.check_admin
+_ADMIN_FAIL_MAX = cloud_auth._ADMIN_FAIL_MAX
+_admin_fails    = cloud_auth._admin_fails
+import cloud_i18n
+from cloud_i18n import (STYLED_LABEL_KEYS, _DEFAULT_COLORS, _DEFAULT_FONTS)
+_available_locales = cloud_i18n.available_locales
+_strings           = cloud_i18n.strings
+_panel_strings     = cloud_i18n.panel_strings
+_resolve_labels    = cloud_i18n.resolve_labels
+_i18n_bundle       = cloud_i18n.i18n_bundle
+_locale_name       = cloud_i18n.locale_name
+
 
 class ActionResult(BaseModel):
     """Success/failure body for admin actions (error only present on failure)."""
@@ -56,81 +101,6 @@ class StatsResult(BaseModel):
     enabled: bool
     count: int | None = None
 
-DATA_DIR    = os.environ.get('DATA_DIR', '/data')
-KEYS_FILE   = os.path.join(DATA_DIR, 'keys.json')
-CREDS_FILE  = os.path.join(DATA_DIR, 'credentials.json')
-MEETS_FILE  = os.path.join(DATA_DIR, 'meets.json')   # legacy single-file store (migrated on load)
-RETAINED_DIR = os.path.join(DATA_DIR, 'retained')    # per-meet files: <id>.json + blobs
-ANALYTICS_FILE = os.path.join(DATA_DIR, 'analytics.db')
-_HERE       = os.path.dirname(__file__)
-# Locales and static assets are the single canonical copies in the sibling
-# shared/ dir (also used by the Pi server). The Docker image copies them next to
-# cloud_server.py (COPY shared/locales/ locales/, COPY shared/static/ static/),
-# so in-container they sit at _HERE/{locales,static}; running from source they
-# live at ../shared/. Use whichever exists so cloud can be run/tested without Docker.
-LOCALES_DIR = next(
-    (p for p in (os.path.join(_HERE, 'locales'),
-                 os.path.join(_HERE, os.pardir, 'shared', 'locales'))
-     if os.path.isdir(p)),
-    os.path.join(_HERE, 'locales'),
-)
-STATIC_DIR = next(
-    (p for p in (os.path.join(_HERE, 'static'),
-                 os.path.join(_HERE, os.pardir, 'shared', 'static'))
-     if os.path.isdir(p)),
-    os.path.join(_HERE, 'static'),
-)
-# scoreboard_base.html lives in shared/ because the Pi's live-mobile.html extends
-# the same file — see notes/cloud_parity.md. Same in-container/from-source dance as
-# above (COPY shared/templates/ templates_shared/).
-SHARED_TEMPLATES_DIR = next(
-    (p for p in (os.path.join(_HERE, 'templates_shared'),
-                 os.path.join(_HERE, os.pardir, 'shared', 'templates'))
-     if os.path.isdir(p)),
-    os.path.join(_HERE, 'templates_shared'),
-)
-
-_locale_cache = {}
-
-def _available_locales():
-    locales = []
-    for path in sorted(glob.glob(os.path.join(LOCALES_DIR, '*.toml'))):
-        code = os.path.splitext(os.path.basename(path))[0]
-        with open(path, 'rb') as f:
-            name = tomllib.load(f).get('meta', {}).get('name', code)
-        locales.append((code, name))
-    return locales
-
-def _strings(lang, section):
-    """One section of a served language file (`shared/locales/{lang}.toml`)."""
-    available = {code for code, _ in _available_locales()}
-    if lang not in available:
-        lang = 'en'
-    if lang not in _locale_cache:
-        with open(os.path.join(LOCALES_DIR, f'{lang}.toml'), 'rb') as f:
-            _locale_cache[lang] = tomllib.load(f)
-    return _locale_cache[lang].get(section, {})
-
-
-_panel_cache = {}
-
-def _panel_strings(lang, section):
-    """One section of a language's operator-panel file, English-merged per key.
-
-    `panel/{lang}.toml` is optional: the admin page is not what a spectator reads,
-    so a language shipped without one renders it in English (docs/admin.md).
-    """
-    def load(code):
-        if code not in _panel_cache:
-            path = os.path.join(LOCALES_DIR, 'panel', f'{code}.toml')
-            try:
-                with open(path, 'rb') as f:
-                    _panel_cache[code] = tomllib.load(f)
-            except OSError:
-                _panel_cache[code] = {}
-        return _panel_cache[code].get(section, {})
-    base = load('en')
-    return dict(base) if lang == 'en' else {**base, **load(lang)}
 
 
 # The visitor's choice, per device and per server (docs/app.md `T-08`): the picker
@@ -163,52 +133,6 @@ def _remember_prefs(request, response):
             response.set_cookie(PREF_COOKIES[name], value, max_age=PREF_MAX_AGE,
                                 samesite='lax')
     return response
-
-# Only these columns have a long form worth showing — the lane and place columns are
-# too narrow for one on every board we ship (docs/app.md `T-09`). The Pi says the same
-# thing in `state.STYLED_LABEL_KEYS`; the two deployables share no code, so both carry
-# it and both must move together.
-STYLED_LABEL_KEYS = frozenset({'event', 'heat'})
-
-
-def _resolve_labels(labels, style):
-    """Flatten a `[labels]` table to one string per key, in `style`.
-
-    `style` reaches only STYLED_LABEL_KEYS; every other key resolves short.
-    """
-    out = {}
-    for key, val in labels.items():
-        if not isinstance(val, dict):
-            continue
-        want = style if key in STYLED_LABEL_KEYS else 'short'
-        out[key] = val.get(want) or val.get('long') or val.get('short') or ''
-    return out
-
-
-def _i18n_bundle(lang):
-    """Client-facing strings for one language — ``GET /i18n/{lang}``, api.md §5.9.
-
-    The same body the Pi serves for the same language — there is no per-Pi wording
-    — English-merged per key so a half-translated locale degrades word by word.
-    """
-    if lang not in {code for code, _ in _available_locales()}:
-        lang = 'en'
-
-    def merged(section):
-        base = _strings('en', section)
-        return dict(base) if lang == 'en' else {**base, **_strings(lang, section)}
-
-    labels = merged('labels')
-    return {
-        'lang':    lang,
-        'mobile':  merged('mobile'),
-        'display': merged('display'),
-        # The vocabulary an event name is composed from, so a client that took
-        # `event_name_parts` can render it in this language (api.md §5.1, §5.9).
-        'event_name': merged('event_name'),
-        'labels': {style: _resolve_labels(labels, style)
-                   for style in ('short', 'long')},
-    }
 
 
 def _client_lang(request, meet):
@@ -313,12 +237,6 @@ def _load_cloud_strings(request):
 def _meet_lang(meet):
     return meet.get('settings', {}).get('locale') or 'en'
 
-def _locale_name(code):
-    for c, name in _available_locales():
-        if c == code:
-            return name
-    return code
-
 
 @asynccontextmanager
 async def lifespan(app):
@@ -352,48 +270,6 @@ def render(request, name, **ctx):
     return templates.TemplateResponse(request, name, ctx)
 
 
-# ── Realtime (plain WebSocket) ─────────────────────────────────────────────────
-
-class ConnectionManager:
-    """Attendee WebSockets grouped into per-meet channels."""
-
-    def __init__(self):
-        self.channels: dict[str, set] = {}
-
-    def join(self, ws, channel):
-        self.channels.setdefault(channel, set()).add(ws)
-
-    def leave_all(self, ws):
-        for conns in self.channels.values():
-            conns.discard(ws)
-
-    async def send(self, ws, event, data=None):
-        try:
-            await ws.send_json({'event': event, 'data': data})
-        except Exception:
-            pass
-
-    async def broadcast(self, channel, event, data=None):
-        targets = list(self.channels.get(channel, ()))
-        if not targets:
-            return
-        frame = {'event': event, 'data': data}
-        # Send to every attendee concurrently so one slow/backed-up client can't
-        # delay delivery to the rest (still one loop — this overlaps the I/O waits,
-        # it is not parallelism). return_exceptions keeps one failure from
-        # cancelling the others; failed sockets are dropped.
-        results = await asyncio.gather(*(ws.send_json(frame) for ws in targets),
-                                       return_exceptions=True)
-        for ws, result in zip(targets, results):
-            if isinstance(result, Exception):
-                self.leave_all(ws)
-
-
-manager = ConnectionManager()
-
-
-def _ch(ns, meet_id):
-    return f'{ns}:{meet_id}'
 
 
 # ── Per-meet state ─────────────────────────────────────────────────────────────
@@ -438,21 +314,6 @@ _CLOCK_SYNC_SECS = 2.0
 def _meet_file(meet_id, suffix):
     return os.path.join(RETAINED_DIR, meet_id + suffix)
 
-
-def _atomic_write(path, text):
-    """Write text to path atomically (temp file + os.replace). Blocking I/O."""
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-    fd, tmp = tempfile.mkstemp(dir=os.path.dirname(path), suffix='.tmp')
-    try:
-        with os.fdopen(fd, 'w') as f:
-            f.write(text)
-        os.replace(tmp, path)   # atomic — no torn file on crash
-    except BaseException:
-        try:
-            os.remove(tmp)
-        except OSError:
-            pass
-        raise
 
 
 def _write_blob(path, text):
@@ -636,53 +497,6 @@ def _merged_meets():
     merged = dict(_retained)
     merged.update(_meets)
     return merged
-
-
-# ── Key management ─────────────────────────────────────────────────────────────
-
-def _load_keys():
-    try:
-        with open(KEYS_FILE) as f:
-            return json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError):
-        return {}
-
-
-def _save_keys(keys):
-    _atomic_write(KEYS_FILE, json.dumps(keys, indent=2))
-
-
-# ── Admin credentials ──────────────────────────────────────────────────────────
-
-def _hash_password(password, salt=None):
-    if salt is None:
-        salt = os.urandom(16).hex()
-    dk = hashlib.pbkdf2_hmac('sha256', password.encode(), salt.encode(), 100_000)
-    return base64.b64encode(dk).decode(), salt
-
-
-def _load_creds():
-    try:
-        with open(CREDS_FILE) as f:
-            return json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError):
-        pass
-    # First run — migrate from env vars and persist
-    user     = os.environ.get('ADMIN_USER', 'admin')
-    password = os.environ.get('ADMIN_PASSWORD', '')
-    pw_hash, salt = _hash_password(password)
-    creds = {'user': user, 'password_hash': pw_hash, 'salt': salt}
-    _save_creds(creds)
-    return creds
-
-
-def _save_creds(creds):
-    _atomic_write(CREDS_FILE, json.dumps(creds, indent=2))
-
-
-# What the Appearance tab accepts. The logo is drawn by a browser `<img>`, so the
-# list is the formats every current browser renders; the icon is also fed to the web
-# manifest, which names `image/png` for both sizes, so it stays PNG-only.
 #
 # The cap is small on purpose: both images live base64-encoded inside
 # credentials.json, and `_load_creds()` re-reads and re-parses that file on every
@@ -744,91 +558,6 @@ def _admin_meet_list():
     return out
 
 
-# Failed-sign-in throttle. This panel is on the open internet behind one password
-# and nothing else — fail2ban here only watches sshd — so without a limit an
-# attacker gets unlimited guesses at it. The window is generous enough that an
-# operator mistyping a password on meet day never notices.
-#
-# It also caps a second cost: every guess runs PBKDF2 at 100k iterations, so an
-# unauthenticated flood of them is a CPU exhaustion attack on the box serving the
-# meet. Locked-out requests are refused *before* the hash is computed.
-_ADMIN_FAIL_MAX    = 10
-_ADMIN_FAIL_WINDOW = datetime.timedelta(minutes=15).total_seconds()
-_admin_fails       = {}                 # ip -> [count, first_failure_monotonic]
-_admin_fails_lock  = threading.Lock()
-
-
-def _admin_client_ip(request):
-    """The caller's address. uvicorn rewrites this from X-Forwarded-For for the
-    proxies named in FORWARDED_ALLOW_IPS (see docker-compose.yml), so behind Caddy
-    it is the real client rather than the compose bridge."""
-    return request.client.host if request.client else '?'
-
-
-def _admin_locked(ip):
-    with _admin_fails_lock:
-        entry = _admin_fails.get(ip)
-        if not entry:
-            return False
-        count, first = entry
-        if time.monotonic() - first > _ADMIN_FAIL_WINDOW:
-            del _admin_fails[ip]          # window elapsed — start clean
-            return False
-        return count >= _ADMIN_FAIL_MAX
-
-
-def _admin_note_failure(ip):
-    now = time.monotonic()
-    with _admin_fails_lock:
-        entry = _admin_fails.get(ip)
-        if entry and now - entry[1] <= _ADMIN_FAIL_WINDOW:
-            entry[0] += 1
-        else:
-            _admin_fails[ip] = [1, now]
-        # Bound the dict: an attacker rotating source addresses must not be able to
-        # grow it without end. Drop whatever has aged out of the window.
-        if len(_admin_fails) > 1024:
-            for k in [k for k, v in _admin_fails.items()
-                      if now - v[1] > _ADMIN_FAIL_WINDOW]:
-                del _admin_fails[k]
-
-
-def _admin_note_success(ip):
-    with _admin_fails_lock:
-        _admin_fails.pop(ip, None)
-
-
-def _check_admin(request):
-    hdr = request.headers.get('Authorization', '')
-    if not hdr.startswith('Basic '):
-        return False
-    try:
-        user, _, pw = base64.b64decode(hdr[6:]).decode().partition(':')
-    except Exception:
-        return False
-    creds = _load_creds()
-    # compare_digest on the username too: `!=` returns on the first differing
-    # character, which given enough attempts reveals it.
-    ok_user = hmac.compare_digest(user, creds['user'])
-    pw_hash, _ = _hash_password(pw, creds['salt'])
-    ok_pw = hmac.compare_digest(pw_hash, creds['password_hash'])
-    return ok_user and ok_pw
-
-
-def require_admin(request: Request):
-    ip = _admin_client_ip(request)
-    if _admin_locked(ip):
-        # 429, not 401: a browser answers 401 by re-prompting, which would walk the
-        # operator into retrying against a lock that only their waiting clears.
-        raise HTTPException(status_code=429,
-                            detail='Too many failed sign-in attempts. Try again later.',
-                            headers={'Retry-After': str(int(_ADMIN_FAIL_WINDOW))})
-    if not _check_admin(request):
-        _admin_note_failure(ip)
-        raise HTTPException(status_code=401, detail='Authentication required',
-                            headers={'WWW-Authenticate': 'Basic realm="Splouch Admin"'})
-    _admin_note_success(ip)
-
 
 # ── API docs (admin-gated) ─────────────────────────────────────────────────────
 # 401 → the browser prompts for admin Basic-auth credentials, which it then also
@@ -848,124 +577,6 @@ async def route_docs():
 @app.get('/redoc', include_in_schema=False, dependencies=[Depends(require_admin)])
 async def route_redoc():
     return get_redoc_html(openapi_url='/openapi.json', title='Splouch Cloud API docs')
-
-
-# ── Attendee analytics (opt-in) ────────────────────────────────────────────────
-# When the admin enables it, each attendee `join_meet` is logged as one row keyed
-# by a random per-device id the mobile page stores in localStorage. "How many
-# people in the last X" is then COUNT(DISTINCT visitor_id) over that window. No IP
-# or personal data is ever stored. Off by default — see the legal note in the
-# admin panel. Lives in its own SQLite file inside the existing /data volume.
-
-_ANALYTICS_RETENTION_DAYS = 120
-_ANALYTICS_FLUSH_SECS     = 5      # how often the background task drains the queue
-_analytics_lock  = threading.Lock()
-_analytics_db    = None
-_analytics_queue = queue.Queue()   # pending joins, flushed to the DB off the loop
-
-# window key -> timedelta; 'all' means since the beginning of time.
-_ANALYTICS_WINDOWS = {
-    '1h':  datetime.timedelta(hours=1),
-    '3h':  datetime.timedelta(hours=3),
-    '12h': datetime.timedelta(hours=12),
-    '24h': datetime.timedelta(hours=24),
-    '7d':  datetime.timedelta(days=7),
-}
-
-
-def _get_analytics_db():
-    """Lazily open the analytics DB. Caller holds _analytics_lock."""
-    global _analytics_db
-    if _analytics_db is None:
-        os.makedirs(DATA_DIR, exist_ok=True)
-        db = sqlite3.connect(ANALYTICS_FILE, check_same_thread=False)
-        db.execute('CREATE TABLE IF NOT EXISTS connections ('
-                   'meet_id TEXT, visitor_id TEXT, ts INTEGER, namespace TEXT)')
-        db.execute('CREATE INDEX IF NOT EXISTS idx_conn_meet_ts '
-                   'ON connections (meet_id, ts)')
-        db.commit()
-        _analytics_db = db
-    return _analytics_db
-
-
-def _analytics_enabled():
-    return bool(_load_creds().get('analytics_enabled'))
-
-
-def _log_connection(meet_id, visitor_id, namespace):
-    """Queue one attendee join. Called from the WS connect handlers on the event
-    loop, so it does no I/O — just a non-blocking in-memory enqueue. The
-    background flush task batches these off the loop and drops them if analytics
-    is disabled (so a reconnect storm can't stall the loop with per-join commits)."""
-    if not meet_id or not visitor_id:
-        return
-    _analytics_queue.put((meet_id, str(visitor_id)[:64],
-                          int(datetime.datetime.now().timestamp()), namespace))
-
-
-def _flush_analytics():
-    """Drain queued joins into the DB in one transaction. Blocking (disk I/O) —
-    run off the loop. Rows are discarded when analytics is disabled."""
-    rows = []
-    try:
-        while True:
-            rows.append(_analytics_queue.get_nowait())
-    except queue.Empty:
-        pass
-    if not rows or not _analytics_enabled():
-        return
-    with _analytics_lock:
-        db = _get_analytics_db()
-        db.executemany('INSERT INTO connections VALUES (?, ?, ?, ?)', rows)
-        db.commit()
-
-
-async def _analytics_flush_loop():
-    """Periodically flush queued analytics joins to the DB, off the event loop."""
-    while True:
-        await asyncio.sleep(_ANALYTICS_FLUSH_SECS)
-        try:
-            await run_in_threadpool(_flush_analytics)
-        except Exception as e:
-            # A transient DB error (locked, disk full) must not kill the loop —
-            # that would stop all future flushes and grow the queue unbounded.
-            print(f'[cloud] analytics flush failed: {e}', flush=True)
-
-
-def _attendee_count(meet_id, since_ts):
-    """Distinct visitors of a meet since `since_ts` (unix seconds)."""
-    with _analytics_lock:
-        db = _get_analytics_db()
-        row = db.execute('SELECT COUNT(DISTINCT visitor_id) FROM connections '
-                         'WHERE meet_id = ? AND ts >= ?', (meet_id, since_ts)).fetchone()
-    return row[0] if row else 0
-
-
-def _attendee_counts(meet_id):
-    """Distinct-visitor counts for a meet across every analytics window plus
-    all-time, computed under a single lock so the relay gets one consistent
-    snapshot. Blocking (disk I/O) — run off the loop."""
-    now     = datetime.datetime.now()
-    windows = {k: int((now - d).timestamp()) for k, d in _ANALYTICS_WINDOWS.items()}
-    windows['all'] = 0
-    out = {}
-    with _analytics_lock:
-        db = _get_analytics_db()
-        for key, since in windows.items():
-            row = db.execute('SELECT COUNT(DISTINCT visitor_id) FROM connections '
-                             'WHERE meet_id = ? AND ts >= ?', (meet_id, since)).fetchone()
-            out[key] = row[0] if row else 0
-    return out
-
-
-def _analytics_prune():
-    """Drop rows past the retention window so the DB stays small."""
-    cutoff = int((datetime.datetime.now()
-                  - datetime.timedelta(days=_ANALYTICS_RETENTION_DAYS)).timestamp())
-    with _analytics_lock:
-        db = _get_analytics_db()
-        db.execute('DELETE FROM connections WHERE ts < ?', (cutoff,))
-        db.commit()
 
 
 # ── Routes ─────────────────────────────────────────────────────────────────────
@@ -2086,28 +1697,6 @@ async def ws_schedule(ws: WebSocket):
         pass
     finally:
         manager.leave_all(ws)
-
-
-# ── Theme defaults (fallback when Pi hasn't sent settings yet) ─────────────────
-
-_DEFAULT_COLORS = {
-    'bg': '#0d0d0d', 'header_bg': '#1a1a1a', 'header_border': '#2e2e2e',
-    # The accent blue, same value as `schedule_event` below and for the same reason
-    # — one accent across the board. Must match server/state.py, as the note there.
-    'header_label': '#3b9eff', 'header_value': '#e0e0e0',
-    'th_text': '#666666', 'th_bg': '#1a1a1a',
-    'row_odd': '#141414', 'row_even': '#202020', 'row_text': '#e0e0e0',
-    'time': '#FFD700', 'delta_better': '#4CAF50', 'delta_worse': '#808080',
-    'podium_gold': '#545454', 'podium_silver': '#424242', 'podium_bronze': '#343434',
-    # Schedule tab. Must match server/state.py's DEFAULT_THEME_COLORS: the page is
-    # shared, so a key missing here would render an empty CSS variable on the cloud
-    # for any relay that sends a partial palette.
-    'schedule_event': '#3b9eff', 'schedule_time': '#FFD700',
-    'schedule_name': '#e0e0e0', 'schedule_club': '#666666',
-}
-_DEFAULT_FONTS = {
-    'family': 'Overpass Mono', 'digits': 'DSEG7Classic', 'timing': 'Overpass Mono',
-}
 
 
 # ── Entry point ────────────────────────────────────────────────────────────────
