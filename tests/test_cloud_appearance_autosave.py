@@ -104,7 +104,13 @@ def rendered():
 
 @pytest.fixture(scope='module')
 def script(rendered):
-    return rendered[rendered.index('const PICKER_MAX_UPLOAD'):
+    """The picker-appearance block, from its first statement to the next section.
+
+    Starts at `pickerNote` now rather than at `const PICKER_MAX_UPLOAD`: the
+    server-rendered values moved up into the page's data island, so the block
+    itself begins with code.
+    """
+    return rendered[rendered.index('function pickerNote('):
                     rendered.index('function clearPickerLogo()')]
 
 
@@ -132,7 +138,7 @@ def test_a_valid_pick_uploads_without_waiting_for_the_debounce(script):
 
 
 def test_success_is_silent_and_failure_is_not(script):
-    assert 'PICKER_SAVE_FAILED' in script
+    assert 'T.saveFailed' in script, 'the failure notice no longer reads a string'
     for gone in ("'Saving…'", "'Saved.'", "textContent = 'Saved"):
         assert gone not in script, f'{gone} is back: a receipt on every blur is noise'
 
@@ -141,6 +147,12 @@ def test_success_is_silent_and_failure_is_not(script):
 def test_the_whole_thing_behaves_when_driven(script):
     """Run the real block against a stub DOM and check what it actually does."""
     harness = r'''
+    // The page hands its server-rendered strings to the script as `T` (the data
+    // island at the top of admin.html); this block reads them from it.
+    var T = { saveFailed: 'Could not save.',
+              imageFormatRejected: 'Unsupported image format.',
+              imageTooLarge: 'Image is too large.' };
+    var PICKER_MAX_UPLOAD = 2 * 1024 * 1024;
     var els = {}, posted = [], timers = [], nextTimer = 1, FAIL = false;
     function el(id) { if (!els[id]) els[id] = { id: id, hidden: true, src: '',
                                                 textContent: '', className: '' };

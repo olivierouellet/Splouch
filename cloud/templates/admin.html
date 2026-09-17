@@ -117,6 +117,27 @@
     <script src="/static/js/panel.js"></script>
     <script src="/static/js/htmx-2.0.4.min.js"></script>
     <script>
+    // Everything the script below takes from the server, in one place. Keeping the
+    // interpolations here rather than scattered through the logic means the body of
+    // that script is plain JavaScript — readable, and lintable, without mentally
+    // rendering a template first. The Pi's settings page does the same with `T`.
+    //
+    // `t.get(key, default)` and not `T.key || default`: the English fallback beside
+    // its key is what `tests/test_i18n.py` checks against `en.toml`, and a fallback
+    // that has quietly drifted from the table it mirrors is the bug that check
+    // exists for.
+    const T = {
+        unavailable:             {{ t.unavailable | tojson }},
+        unknown:                 {{ t.unknown | tojson }},
+        webhookUnreachable:      {{ t.webhook_unreachable | tojson }},
+        webhookUnreachableHint:  {{ t.webhook_unreachable_hint | tojson }},
+        saveFailed:              {{ t.get('save_failed', 'Could not save.') | tojson }},
+        imageFormatRejected:     {{ t.get('image_format_rejected', 'Unsupported image format.') | tojson }},
+        imageTooLarge:           {{ t.get('image_too_large', 'Image is too large.') | tojson }},
+    };
+    const PICKER_MAX_UPLOAD = {{ picker_max_upload }};
+    </script>
+    <script>
         // Shared shell (theme toggle, tab switcher window.panelShowTab, hold-to-confirm,
         // copyKey) lives in /static/js/panel.js. Page-specific logic follows.
 
@@ -196,18 +217,18 @@
             const sel = document.getElementById('update-version');
             sel.innerHTML = '';
             sel.appendChild(Object.assign(document.createElement('option'),
-                { textContent: {{ t.unavailable | tojson }}, disabled: true, selected: true }));
+                { textContent: T.unavailable, disabled: true, selected: true }));
             sel.disabled = true;
             // Nothing to deploy to: leaving the button live only produces a second,
             // vaguer failure when it is pressed.
             document.getElementById('update-btn').disabled = true;
             const cur = document.getElementById('current-version');
-            if (cur) cur.textContent = {{ t.unknown | tojson }};
+            if (cur) cur.textContent = T.unknown;
             const status = document.getElementById('update-status');
             if (status) {
                 status.className = 'small text-danger';
-                status.textContent = {{ t.webhook_unreachable | tojson }}
-                    + ' (' + reason + '). ' + {{ t.webhook_unreachable_hint | tojson }};
+                status.textContent = T.webhookUnreachable
+                    + ' (' + reason + '). ' + T.webhookUnreachableHint;
             }
         }
 
@@ -294,8 +315,6 @@
         //
         // Nothing is said on success: the field holds what you typed and the public
         // page shows it. A failure is not self-evident, so that still speaks.
-        const PICKER_MAX_UPLOAD = {{ picker_max_upload }};
-        const PICKER_SAVE_FAILED = {{ t.get('save_failed', 'Could not save.') | tojson }};
 
         function pickerNote(text) {
             const note = document.getElementById('picker-appearance-note');
@@ -314,14 +333,14 @@
                 fetch(form.action, { method: 'POST', body: new FormData(form) })
                     .then(r => r.json())
                     .then(d => {
-                        if (!d.ok) { pickerNote(d.error || PICKER_SAVE_FAILED); return; }
+                        if (!d.ok) { pickerNote(d.error || T.saveFailed); return; }
                         // Swap a just-sent file's staged preview for the stored image,
                         // so the thumbnail is what the public page now serves. Both are
                         // no-ops when this save carried no file.
                         refreshUploaded(form, 'picker_logo', '/picker_logo', 'picker-logo-current', 'picker-logo-remove-btn', 'picker-logo-preview');
                         refreshUploaded(form, 'picker_icon', '/picker_icon', 'picker-icon-current', 'picker-icon-remove-btn', 'picker-icon-preview');
                     })
-                    .catch(() => pickerNote(PICKER_SAVE_FAILED))
+                    .catch(() => pickerNote(T.saveFailed))
                     .finally(() => { inFlight = false; });
             }
             function schedule() { clearTimeout(timer); timer = setTimeout(save, 600); }
@@ -340,8 +359,8 @@
             // server refuses the same two things — say so before sending anything.
             const accepted = (input.getAttribute('accept') || '').split(',');
             let bad = '';
-            if (accepted.indexOf(file.type) === -1) bad = {{ t.get('image_format_rejected', 'Unsupported image format.') | tojson }};
-            else if (file.size > PICKER_MAX_UPLOAD) bad = {{ t.get('image_too_large', 'Image is too large.') | tojson }};
+            if (accepted.indexOf(file.type) === -1) bad = T.imageFormatRejected;
+            else if (file.size > PICKER_MAX_UPLOAD) bad = T.imageTooLarge;
             if (bad) {
                 input.value = '';
                 document.getElementById(previewId).hidden = true;
@@ -385,11 +404,11 @@
             fetch('/admin/picker_appearance', { method: 'POST', body: fd })
                 .then(r => r.json())
                 .then(d => {
-                    if (!d.ok) { pickerNote(d.error || PICKER_SAVE_FAILED); return; }
+                    if (!d.ok) { pickerNote(d.error || T.saveFailed); return; }
                     document.getElementById(curId).hidden = true;
                     document.getElementById(removeBtnId).hidden = true;
                 })
-                .catch(() => pickerNote(PICKER_SAVE_FAILED));
+                .catch(() => pickerNote(T.saveFailed));
         }
         function clearPickerLogo() { clearPickerImage('picker logo image', 'picker_logo_clear', 'picker-logo-current', 'picker-logo-remove-btn'); }
         function clearPickerIcon() { clearPickerImage('home screen icon', 'picker_icon_clear', 'picker-icon-current', 'picker-icon-remove-btn'); }

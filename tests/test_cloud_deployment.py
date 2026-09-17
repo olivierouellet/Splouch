@@ -157,7 +157,13 @@ def test_the_unavailable_state_is_what_the_operator_sees():
                     src, _re.S | _re.M)
     assert fn, 'updateUnavailable is no longer a top-level function in admin.html'
 
-    harness = '''
+    # `T` as the page itself renders it — lifted out of the data island rather than
+    # written here, so this still proves the operator's own language reaches the
+    # status line instead of proving that a hard-coded stub does.
+    island = _re.search(r'const T = \{.*?\};', src, _re.S)
+    assert island, 'the data island has moved; the harness below supplies T from it'
+
+    harness = island.group(0) + '''
     var els = {};
     function el(id) {
       if (!els[id]) els[id] = { id: id, innerHTML: '', textContent: '', className: '',
