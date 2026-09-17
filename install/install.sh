@@ -1067,6 +1067,46 @@ PYEOF
     # left at 0644 with three secrets in it.
     chmod 600 "$CLOUD_DIR/.env"
 
+    section "Domain"
+    # The domain lives in .env, never in the Caddyfile. That file is tracked, so an
+    # update that resets the working tree would revert a literal domain written there
+    # and leave Caddy serving the placeholder from its next restart.
+    #
+    # Asked here, before the deploy webhook below is enabled, and not at the end where
+    # it used to sit: systemd reads that unit's EnvironmentFile=.../cloud/.env once, at
+    # start, and `docker compose` gives the environment it inherits precedence over the
+    # .env file it reads itself. A domain written after the unit had started was
+    # therefore overridden by the placeholder on the very first Update — the other half
+    # of this is _deploy_env() in cloud/deploy_webhook.py.
+    _current_domain=$(sed -n 's/^SPLOUCH_DOMAIN=//p' "$CLOUD_DIR/.env" | tail -1)
+    # .env.example ships the placeholder, so a fresh .env arrives with the key already
+    # set. Treat it as unset: otherwise the prompt offers to "keep current" and a bare
+    # Enter has Caddy ask Let's Encrypt for scores.example.com.
+    [[ "$_current_domain" == "scores.example.com" ]] && _current_domain=""
+    if [[ -z "$_current_domain" ]]; then
+        # Pre-existing install: lift the domain out of the Caddyfile, where earlier
+        # versions of this script sed-ed it in, so nobody has to retype it.
+        _caddy_domain=$(grep -E '^[^#[:space:]]+[[:space:]]*\{' "$CLOUD_DIR/Caddyfile" \
+                        | awk '{print $1}' | head -1)
+        if [[ "$_caddy_domain" != '{$SPLOUCH_DOMAIN}' && "$_caddy_domain" != "scores.example.com" ]]; then
+            _current_domain="$_caddy_domain"
+            [[ -n "$_current_domain" ]] && info "Recovered domain from Caddyfile: $_current_domain"
+        fi
+    fi
+    echo
+    echo "  Current domain: ${_current_domain:-not set}"
+    read -rp "  Enter domain name (leave blank to keep current): " _domain
+    _domain="${_domain:-$_current_domain}"
+    if [[ -z "$_domain" ]]; then
+        warn "No domain set — Caddy cannot obtain a certificate and will refuse to start."
+    fi
+    if grep -q '^SPLOUCH_DOMAIN=' "$CLOUD_DIR/.env"; then
+        sed -i "s|^SPLOUCH_DOMAIN=.*|SPLOUCH_DOMAIN=${_domain}|" "$CLOUD_DIR/.env"
+    else
+        echo "SPLOUCH_DOMAIN=${_domain}" >> "$CLOUD_DIR/.env"
+    fi
+    info "Domain set in .env: ${_domain:-<unset>}"
+
     section "Deploy webhook"
     if grep -q "^DEPLOY_SECRET=change_me" "$CLOUD_DIR/.env" 2>/dev/null || \
        ! grep -q "^DEPLOY_SECRET=" "$CLOUD_DIR/.env" 2>/dev/null; then
@@ -1099,34 +1139,6 @@ PYEOF
     sudo chmod 0440 /etc/sudoers.d/splouch-webhook
     info "Sudoers rule added: deploy-webhook can self-restart without a password."
 
-    section "Domain"
-    # The domain lives in .env, never in the Caddyfile. That file is tracked, so an
-    # update that resets the working tree would revert a literal domain written there
-    # and leave Caddy serving the placeholder from its next restart.
-    _current_domain=$(sed -n 's/^SPLOUCH_DOMAIN=//p' "$CLOUD_DIR/.env" | tail -1)
-    if [[ -z "$_current_domain" ]]; then
-        # Pre-existing install: lift the domain out of the Caddyfile, where earlier
-        # versions of this script sed-ed it in, so nobody has to retype it.
-        _caddy_domain=$(grep -E '^[^#[:space:]]+[[:space:]]*\{' "$CLOUD_DIR/Caddyfile" \
-                        | awk '{print $1}' | head -1)
-        if [[ "$_caddy_domain" != '{$SPLOUCH_DOMAIN}' && "$_caddy_domain" != "scores.example.com" ]]; then
-            _current_domain="$_caddy_domain"
-            [[ -n "$_current_domain" ]] && info "Recovered domain from Caddyfile: $_current_domain"
-        fi
-    fi
-    echo
-    echo "  Current domain: ${_current_domain:-not set}"
-    read -rp "  Enter domain name (leave blank to keep current): " _domain
-    _domain="${_domain:-$_current_domain}"
-    if [[ -z "$_domain" ]]; then
-        warn "No domain set — Caddy cannot obtain a certificate and will refuse to start."
-    fi
-    if grep -q '^SPLOUCH_DOMAIN=' "$CLOUD_DIR/.env"; then
-        sed -i "s|^SPLOUCH_DOMAIN=.*|SPLOUCH_DOMAIN=${_domain}|" "$CLOUD_DIR/.env"
-    else
-        echo "SPLOUCH_DOMAIN=${_domain}" >> "$CLOUD_DIR/.env"
-    fi
-    info "Domain set in .env: ${_domain:-<unset>}"
 
     section "Firewall"
     if command -v ufw &>/dev/null; then

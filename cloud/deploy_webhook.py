@@ -34,6 +34,34 @@ PORT     = int(os.environ.get('DEPLOY_PORT', '9000'))
 # any local account could pre-create it as a symlink and have this process — which
 # opens it 'wb' on every deploy — truncate a file of their choosing.
 LOG_FILE = os.path.join(REPO, 'cloud', '.deploy.log')
+ENV_FILE = os.path.join(REPO, 'cloud', '.env')
+
+
+def _deploy_env():
+    """os.environ minus every key cloud/.env defines, for the deploy subprocess.
+
+    systemd hands this process `EnvironmentFile=.../cloud/.env`, read once when the
+    unit started, and `docker compose` gives the environment it inherits precedence
+    over the .env file it reads itself. So a deploy re-applied whatever those values
+    were at service start, however long ago, and silently beat the file on disk:
+    change the domain in .env, press Update, and Caddy came back asking Let's Encrypt
+    for the placeholder from the install (scores.example.com), certificate and all.
+
+    Dropping those keys here leaves the file as the single source compose reads.
+    REPO_DIR and DEPLOY_PORT come from `Environment=` lines instead, so they survive.
+    """
+    env = os.environ.copy()
+    try:
+        with open(ENV_FILE, encoding='utf-8') as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith('#') or '=' not in line:
+                    continue
+                key = line.split('=', 1)[0].removeprefix('export ').strip()
+                env.pop(key, None)
+    except OSError:
+        pass                      # no .env: nothing inherited from it to drop
+    return env
 
 
 def _update_config():
@@ -58,6 +86,7 @@ def _run_deploy(cmd):
         ['bash', '-c', cmd],
         stdout=log, stderr=subprocess.STDOUT,
         start_new_session=True,
+        env=_deploy_env(),
     )
 
     def _wait():

@@ -71,6 +71,59 @@ def test_the_env_file_is_ignored_but_its_template_is_not():
     assert not ignored('cloud/.env.example')
 
 
+# ── The domain a deploy re-applies ─────────────────────────────────────────────
+# Same failure as above from the other direction: the domain was in .env, untouched by
+# the deploy, and Caddy still came up on the placeholder. `docker compose` prefers the
+# environment it inherits over the .env file it reads, and the webhook inherits
+# `EnvironmentFile=cloud/.env` as systemd read it when the unit started — at install
+# time, before the installer had asked for the domain at all.
+
+INSTALL_SH = os.path.join(REPO, 'install', 'install.sh')
+
+
+def test_the_deploy_subprocess_does_not_carry_stale_env_values():
+    """Every key .env defines is dropped, so the file on disk is what compose reads."""
+    import deploy_webhook as dw
+    with tempfile.TemporaryDirectory() as d:
+        env_file = os.path.join(d, '.env')
+        with open(env_file, 'w', encoding='utf-8') as f:
+            f.write('# comment\n\nSPLOUCH_DOMAIN=scores.example.com\nADMIN_PASSWORD=x\n')
+        old_file, old_environ = dw.ENV_FILE, os.environ.copy()
+        dw.ENV_FILE = env_file
+        try:
+            os.environ['SPLOUCH_DOMAIN'] = 'scores.example.com'
+            os.environ['ADMIN_PASSWORD'] = 'x'
+            env = dw._deploy_env()
+        finally:
+            dw.ENV_FILE = old_file
+            os.environ.clear()
+            os.environ.update(old_environ)
+    assert 'SPLOUCH_DOMAIN' not in env
+    assert 'ADMIN_PASSWORD' not in env
+    # Set by `Environment=` lines in the unit, not by .env — the deploy needs them.
+    assert 'PATH' in env
+
+
+def test_the_deploy_runs_with_that_environment():
+    """A plain Popen inherits os.environ, which is the whole bug."""
+    src = open(os.path.join(REPO, 'cloud', 'deploy_webhook.py'), encoding='utf-8').read()
+    body = src[src.index('def _run_deploy'):src.index('class Handler')]
+    assert 'env=_deploy_env()' in body
+
+
+def test_the_installer_asks_for_the_domain_before_starting_the_webhook():
+    """The unit reads .env once, at start; anything set after that is ignored by it."""
+    sh = open(INSTALL_SH, encoding='utf-8').read()
+    assert sh.index('section "Domain"') < sh.index('systemctl enable --now deploy-webhook')
+
+
+def test_the_installer_does_not_offer_the_placeholder_as_the_current_domain():
+    """.env.example ships it, so a fresh .env has it set and Enter would accept it."""
+    sh = open(INSTALL_SH, encoding='utf-8').read()
+    domain = sh[sh.index('section "Domain"'):sh.index('Enter domain name')]
+    assert '_current_domain=""' in domain and 'scores.example.com' in domain
+
+
 # ── The deploy webhook's unit, and how its failure reaches the operator ─────────
 
 SERVICE = os.path.join(REPO, 'cloud', 'deploy_webhook.service')
