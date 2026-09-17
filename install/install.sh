@@ -1159,24 +1159,13 @@ PYEOF
     sg docker -c "docker compose --env-file .env up -d --build"
     info "Cloud server started."
 
-    section "Done — Cloud server"
-    echo
-    echo -e "  Install dir  : $INSTALL_DIR"
-    echo -e "  Cloud dir    : $CLOUD_DIR"
-    echo -e "  Logs         : ${BOLD}cd $CLOUD_DIR && docker compose logs -f${NC}"
-    _final_domain=$(sed -n 's/^SPLOUCH_DOMAIN=//p' "$CLOUD_DIR/.env" | tail -1)
-    echo -e "  Admin UI     : ${BOLD}https://${_final_domain}/admin${NC}"
-    echo -e "  Update       : ${BOLD}Update button in /admin${NC}  (or: cd $INSTALL_DIR && git pull && cd cloud && docker compose up -d --build)"
-    echo
-    echo
-
     # Remove the temporary NOPASSWD rule — sudo now requires the password set above.
     # The result is checked rather than announced: an earlier version of this deleted
     # a file that was never written and reported success either way.
     #
     # One `sudo` for the whole thing, on purpose: it is the grant being removed that
     # makes these commands passwordless, so a second call after the file is gone
-    # would sit at a password prompt at the very end of an unattended install. The
+    # would sit at a password prompt in the middle of an unattended install. The
     # check on .../splouch matches on content because that filename holds the
     # *legitimate* restricted grant on a server-role machine.
     if sudo sh -c '
@@ -1190,7 +1179,18 @@ PYEOF
         info "Temporary NOPASSWD sudo rule removed."
     else
         warn "Could not remove the temporary NOPASSWD sudo rule. Remove it by hand,"
-        warn "after checking that '$CLOUD_USER' can still sudo with its password:"
+        warn "after checking that '${CLOUD_USER:-splouch}' can still sudo with its password:"
         warn "  sudo rm -f $TEMP_SUDOERS_FILE /etc/sudoers.d/splouch"
     fi
+
+    section "Done — Cloud server"
+    echo
+    echo -e "  Install dir  : $INSTALL_DIR"
+    echo -e "  Cloud dir    : $CLOUD_DIR"
+    echo -e "  Logs         : ${BOLD}cd $CLOUD_DIR && docker compose logs -f${NC}"
+    _final_domain=$(sed -n 's/^SPLOUCH_DOMAIN=//p' "$CLOUD_DIR/.env" | tail -1)
+    echo -e "  Admin UI     : ${BOLD}https://${_final_domain}/admin${NC}"
+    echo -e "  Update       : ${BOLD}Update button in /admin${NC}  (or: cd $INSTALL_DIR && git pull && cd cloud && docker compose up -d --build)"
+    echo
+    echo
 fi
