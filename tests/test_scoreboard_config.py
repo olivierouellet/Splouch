@@ -173,24 +173,25 @@ def test_the_cloud_fallback_palette_is_the_same_object():
     assert state.DEFAULT_THEME_FONTS is splouch_i18n.DEFAULT_THEME_FONTS
 
 
-def test_an_install_that_never_chose_white_gets_the_blue(monkeypatch):
-    """Every install already stores this key — `merge_theme_defaults` has been
-    writing the whole palette back for releases — so a new default alone would
-    reach only a fresh install and every existing board would keep a colour
-    nobody picked."""
+@pytest.mark.parametrize('stored', ['#ff00ff', '#ffffff'])
+def test_a_stored_colour_is_left_alone(monkeypatch, stored):
+    """`merge_theme_defaults` fills in missing keys; it never overwrites a stored one.
+
+    `#ffffff` is in here because it used to be the exception: a migration moved that
+    one value onto the new blue, on the reasoning that storing the old default was
+    evidence nobody had chosen it. That migration is gone, so white is now just a
+    colour like any other — an install still storing it keeps it, and the reset
+    button in Settings → Theme is how an operator takes the new default.
+    """
     import state
     monkeypatch.setitem(state.settings, 'theme_colors',
-                        {**state.DEFAULT_THEME_COLORS, 'header_label': '#ffffff'})
+                        {**state.DEFAULT_THEME_COLORS, 'header_label': stored})
     monkeypatch.setitem(state.settings, 'theme_fonts', {})
     state.merge_theme_defaults()
-    assert state.settings['theme_colors']['header_label'] == state.HEADER_LABEL_BLUE
+    assert state.settings['theme_colors']['header_label'] == stored
 
 
-def test_a_colour_the_operator_chose_is_left_alone(monkeypatch):
-    """The migration reads one specific old default, not "anything pale"."""
+def test_a_fresh_install_gets_the_blue():
+    """The default itself, now that nothing rewrites it after the fact."""
     import state
-    monkeypatch.setitem(state.settings, 'theme_colors',
-                        {**state.DEFAULT_THEME_COLORS, 'header_label': '#ff00ff'})
-    monkeypatch.setitem(state.settings, 'theme_fonts', {})
-    state.merge_theme_defaults()
-    assert state.settings['theme_colors']['header_label'] == '#ff00ff'
+    assert state.DEFAULT_THEME_COLORS['header_label'] == '#3b9eff'

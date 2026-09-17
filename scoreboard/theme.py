@@ -13,9 +13,10 @@ from .fonts import resolve_family
 
 DEFAULT_COLORS = {
     'bg': '#0d0d0d', 'header_bg': '#1a1a1a', 'header_border': '#2e2e2e',
-    # The accent blue: the EV/HT words and the wall clock. Mirrors
-    # `state.HEADER_LABEL_BLUE` — this file is the fallback for the seconds before
-    # `/config` answers, so the two must agree or the board changes colour on boot.
+    # The accent blue: the EV/HT words and the wall clock. Mirrors `header_label`
+    # in `shared/py/splouch_i18n.py` — this file is the fallback for the seconds
+    # before `/config` answers, so the two must agree or the board changes colour
+    # on boot.
     'header_label': '#3b9eff', 'header_value': '#e0e0e0',
     'th_text': '#666666', 'th_bg': '#1a1a1a',
     'row_odd': '#141414', 'row_even': '#202020', 'row_text': '#e0e0e0',

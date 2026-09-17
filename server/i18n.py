@@ -28,9 +28,8 @@ import splouch_i18n
 # The half both servers share, re-exported so `state` and the routes keep reaching
 # for `i18n.X` as they always have. The readers below bind this server's locales
 # directory; the relay's copy binds its own.
-from splouch_i18n import (HEADER_LABEL_BLUE, _HEADER_LABEL_WAS, DEFAULT_THEME_COLORS,
-                          DEFAULT_THEME_FONTS, _FALLBACK_LABELS, STYLED_LABEL_KEYS,
-                          resolve_labels)
+from splouch_i18n import (DEFAULT_THEME_COLORS, DEFAULT_THEME_FONTS,
+                          _FALLBACK_LABELS, STYLED_LABEL_KEYS, resolve_labels)
 
 
 def available_locales():

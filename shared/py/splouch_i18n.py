@@ -19,18 +19,13 @@ import glob
 import os
 import tomllib
 
-# The blue the top bar's labels and wall clock take. Shared with `schedule_event`
-# by intent rather than accident: one accent colour across the board reads as a
-# system, and this is the same blue the schedule already uses for event numbers.
-HEADER_LABEL_BLUE = '#3b9eff'
-# What `header_label` was before it became that blue. An install that still stores
-# this never chose it — it is the old default — so `merge_theme_defaults` moves it
-# on. See _migrate_header_label.
-_HEADER_LABEL_WAS = '#ffffff'
-
 DEFAULT_THEME_COLORS = {
     'bg': '#0d0d0d', 'header_bg': '#1a1a1a', 'header_border': '#2e2e2e',
-    'header_label': HEADER_LABEL_BLUE, 'header_value': '#e0e0e0',
+    # The accent blue: the top bar's labels and the wall clock. The same value as
+    # `schedule_event` below by intent rather than accident — one accent colour
+    # across the board reads as a system. `scoreboard/theme.py` carries it too, as
+    # the fallback for the seconds before `/config` answers.
+    'header_label': '#3b9eff', 'header_value': '#e0e0e0',
     'th_text': '#666666', 'th_bg': '#1a1a1a',
     'row_odd': '#141414', 'row_even': '#202020', 'row_text': '#e0e0e0',
     'time': '#FFD700', 'delta_better': '#4CAF50', 'delta_worse': '#808080',

@@ -40,7 +40,7 @@ from paths import (app_dir, REPO_DIR, SHARED_DIR, STATIC_DIR, LOCALES_DIR,
                    CUSTOM_DECODERS_FOLDER, PROVISION_VERSION_FILE,
                    PROVISIONED_MARKER, SESSION_KEY_FILE, SERVICE_NAME,
                    session_secret)
-from i18n import (HEADER_LABEL_BLUE, DEFAULT_THEME_COLORS, DEFAULT_THEME_FONTS,
+from i18n import (DEFAULT_THEME_COLORS, DEFAULT_THEME_FONTS,
                   STYLED_LABEL_KEYS, resolve_labels, available_locales,
                   list_locales, list_builtin_themes, list_custom_themes,
                   load_theme, parse_event_name, compose_event_name,
@@ -49,7 +49,6 @@ from i18n import (HEADER_LABEL_BLUE, DEFAULT_THEME_COLORS, DEFAULT_THEME_FONTS,
 _locale_section = i18n.locale_section
 _panel_section  = i18n.panel_section
 _FALLBACK_LABELS = i18n._FALLBACK_LABELS
-_HEADER_LABEL_WAS = i18n._HEADER_LABEL_WAS
 
 
 # ── Settings ───────────────────────────────────────────────────────────────────
@@ -88,7 +87,7 @@ settings = {
     'active_theme': 'default',
     'theme_colors': {
         'bg': '#0d0d0d', 'header_bg': '#1a1a1a', 'header_border': '#2e2e2e',
-        'header_label': HEADER_LABEL_BLUE, 'header_value': '#e0e0e0',
+        'header_label': '#3b9eff', 'header_value': '#e0e0e0',
         'th_text': '#666666', 'th_bg': '#1a1a1a',
         'row_odd': '#141414', 'row_even': '#202020', 'row_text': '#e0e0e0',
         'time': '#FFD700', 'delta_better': '#4CAF50', 'delta_worse': '#808080',
@@ -547,23 +546,6 @@ def merge_theme_defaults():
                                 **(settings.get('theme_colors') or {})}
     settings['theme_fonts']  = {**DEFAULT_THEME_FONTS,
                                 **(settings.get('theme_fonts') or {})}
-    _migrate_header_label()
-
-
-def _migrate_header_label():
-    """Move `header_label` off the white it used to default to.
-
-    Every install has this key stored — `merge_theme_defaults` has been writing the
-    whole palette back since it was added — so a new default alone would reach only
-    a fresh install, and every existing board would keep a colour nobody chose.
-
-    Storing the old default is the only evidence available that it was never
-    customised, and it is good evidence: the swatch sits in Settings → Theme with a
-    reset button beside it, so an operator who actually wants white is one click from
-    it, while an operator who never opened the tab gets the new look.
-    """
-    if settings['theme_colors'].get('header_label', '').lower() == _HEADER_LABEL_WAS:
-        settings['theme_colors']['header_label'] = HEADER_LABEL_BLUE
 
 
 def load_settings():
