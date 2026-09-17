@@ -400,17 +400,16 @@ def test_every_panel_language_has_the_warning(code):
 # ── The installer removes the sudo rule it says it removes ────────────────────
 
 def test_the_temporary_sudo_rule_is_removed_under_the_name_it_was_written():
-    """It was written to /etc/sudoers.d/splouch and the cleanup deleted
-    /etc/sudoers.d/tremplin — the pre-rename name — so every cloud VM kept
-    `NOPASSWD:ALL` while the installer printed that it had been removed."""
+    """It was written under one filename and the cleanup deleted another, so every
+    cloud VM kept `NOPASSWD:ALL` while the installer printed that it had been
+    removed. Hence the single constant, and the check on the result."""
     body = open(os.path.join(REPO, 'install', 'install.sh'), encoding='utf-8').read()
 
     assert 'TEMP_SUDOERS_FILE=' in body
     write = [ln for ln in body.splitlines() if 'NOPASSWD:ALL' in ln and 'echo' in ln]
     assert write and all('"$TEMP_SUDOERS_FILE"' in ln for ln in write), \
         'the blanket rule is written somewhere the cleanup does not look'
-    assert 'rm -f "$1" /etc/sudoers.d/tremplin' in body, \
-        'the cleanup no longer removes the temporary file'
+    assert 'rm -f "$1"' in body, 'the cleanup no longer removes the temporary file'
     # It verifies rather than announcing: the success message is on the true branch
     # of a check that no blanket grant is left anywhere in /etc/sudoers.d.
     assert '! grep -rqs "NOPASSWD:ALL" /etc/sudoers.d/' in body

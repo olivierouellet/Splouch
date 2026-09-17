@@ -24,7 +24,7 @@ INSTALL_DIR="$TARGET_HOME/Splouch"          # default for fresh installs; existi
 SERVER_IP="10.10.10.10/24"
 KIOSK_GATEWAY="10.0.0.1"
 SERVER_HOSTNAME="splouch"                   # broadcasts as splouch.local on the network
-MDNS_ALIASES="tableau.local marcador.local tremplin.local"  # translated aliases + legacy name for old bookmarks
+MDNS_ALIASES="tableau.local marcador.local"  # the board's name in each language it ships
 SCOREBOARD_URL="http://${SERVER_HOSTNAME}.local"
 SERIAL_PORT="/dev/ttyUSB0"
 # ──────────────────────────────────────────────────────────────────────────────
@@ -252,7 +252,7 @@ if [[ "$ROLE" == "server" ]]; then
     for _old_dir in "$HOME/CTS_Scoreboard_Rpi" "$HOME/CTS_Scoreboard" "$HOME/Scoreboard_Pi"; do
         if [[ ! -d "$INSTALL_DIR" && -d "$_old_dir/.git" ]]; then
             info "Found old installation at $_old_dir — migrating to $INSTALL_DIR"
-            sudo systemctl stop tremplin 2>/dev/null || sudo systemctl stop scoreboard 2>/dev/null || true
+            sudo systemctl stop scoreboard 2>/dev/null || true
             mv "$_old_dir" "$INSTALL_DIR"
             git -C "$INSTALL_DIR" remote set-url origin "$REPO_URL"
             info "Directory renamed and git remote updated."
@@ -305,7 +305,6 @@ if [[ "$ROLE" == "server" ]]; then
 $TARGET_USER ALL=(ALL) NOPASSWD: /usr/bin/timedatectl, /usr/bin/systemctl restart systemd-timesyncd, /usr/bin/nmcli, /usr/bin/apt-get, /usr/bin/systemctl restart splouch, /usr/sbin/reboot, /usr/sbin/poweroff, $INSTALL_DIR/install/scripts/rtc_setup.sh *, $INSTALL_DIR/install/scripts/refresh-service.sh, $INSTALL_DIR/install/scripts/web-reinstall.sh *
 EOF
     sudo chmod 0440 "$SUDOERS_FILE"
-    sudo rm -f /etc/sudoers.d/tremplin        # retire the pre-rename grant
     info "Sudoers rules written to $SUDOERS_FILE"
 
     section "Serial port access"
@@ -318,10 +317,6 @@ EOF
 
     section "Data folders"
     # Migrate the pre-Splouch data dir if present (the app also does this on start).
-    if [[ ! -d "$TARGET_HOME/SplouchData" && -d "$TARGET_HOME/TremplinData" ]]; then
-        as_user mv "$TARGET_HOME/TremplinData" "$TARGET_HOME/SplouchData"
-        info "Migrated ~/TremplinData → ~/SplouchData."
-    fi
     as_user mkdir -p "$TARGET_HOME/SplouchData/meet" "$TARGET_HOME/SplouchData/images" \
                      "$TARGET_HOME/SplouchData/icons" "$TARGET_HOME/SplouchData/recorded"
     info "~/SplouchData/{meet,images,icons,recorded} created."
@@ -351,7 +346,6 @@ EOF
 
     section "Desktop shortcuts"
     mkdir -p "$TARGET_HOME/Desktop"
-    rm -f "$TARGET_HOME/Desktop/Tremplin.desktop"   # retire the pre-rename launcher
 
     cat > "$TARGET_HOME/Desktop/Splouch.desktop" <<EOF
 [Desktop Entry]
@@ -569,8 +563,6 @@ WALLEOF
     # Translated aliases are published at the live interface IP, re-detected at
     # service start by mdns-aliases.sh — so they resolve on a DHCP setup instead
     # of the old install-time-baked static 10.10.10.10.
-    sudo systemctl disable --now tremplin-mdns-aliases 2>/dev/null || true   # retire pre-rename unit
-    sudo rm -f /etc/systemd/system/tremplin-mdns-aliases.service
     sudo tee /etc/systemd/system/splouch-mdns-aliases.service > /dev/null <<EOF
 [Unit]
 Description=mDNS aliases for Splouch
@@ -612,8 +604,6 @@ EOF
     info "Discoverable as _splouch._tcp on port 5000"
 
     section "Port 80 redirect"
-    sudo systemctl disable --now tremplin-redirect 2>/dev/null || true   # retire pre-rename unit
-    sudo rm -f /etc/systemd/system/tremplin-redirect.service
     sudo tee /etc/systemd/system/splouch-redirect.service > /dev/null <<EOF
 [Unit]
 Description=Splouch port 80 to 5000 redirect
@@ -665,11 +655,6 @@ fi
 #
 # Three things get dropped, and the first is the one that bites:
 #
-#   * `# Tremplin kiosk` — the pre-rename marker. The rename changed the marker
-#     *before* the Qt display replaced Chromium, so a Pi provisioned back then and
-#     upgraded since still carries that block, still starting Chromium on top of the
-#     Qt board. Two fullscreen apps fight over the TV and the browser usually wins,
-#     because it starts first.
 #   * `# Splouch kiosk` — our own marker, from this installer or the Chromium one
 #     that shipped under the same name.
 #   * A bare `chromium … --kiosk … --app=` line, for one whose marker comment was
@@ -677,15 +662,13 @@ fi
 #     here writes, so an unrelated Chromium autostart on this Pi is left alone.
 #
 # awk rather than sed: deleting "a matched line and the one after it" needs GNU
-# `addr,+1`, and matching either marker in one expression needs GNU alternation.
-# Both are fine on the Pi and neither can be tested anywhere else, which is how the
-# Tremplin block survived this long.
+# `addr,+1`, which is fine on the Pi but cannot be tested anywhere else.
 strip_kiosk_autostart() {
     local file="$1"
     [[ -f "$file" ]] || return 0
     awk '
         skip      { skip = 0; next }
-        /# (Splouch|Tremplin) kiosk/            { skip = 1; next }
+        /# Splouch kiosk/                       { skip = 1; next }
         /chromium.*--kiosk.*--app=/             { next }
         /start-scoreboard\.sh/                  { next }
         { print }
@@ -785,10 +768,8 @@ if [[ "$ROLE" == "kiosk" ]]; then
     else
         CONFIG_TXT="/boot/config.txt"
     fi
-    # Either marker counts as already-configured: the pre-rename installer wrote the
-    # same three lines under `# Tremplin kiosk`, and appending a second copy would
-    # leave config.txt with the HDMI mode set twice.
-    if ! grep -q "# \(Splouch\|Tremplin\) kiosk" "$CONFIG_TXT"; then
+    # Appending a second copy would leave config.txt with the HDMI mode set twice.
+    if ! grep -q "# Splouch kiosk" "$CONFIG_TXT"; then
         sudo tee -a "$CONFIG_TXT" > /dev/null <<EOF
 
 # Splouch kiosk — force 1920x1080 HDMI output
@@ -924,25 +905,25 @@ if [[ "$ROLE" == "cloud" ]]; then
     # ── User bootstrap (runs once as root on a fresh server) ──────────────────
     if [[ "$(id -u)" == "0" ]]; then
         section "User setup"
-        TREMPLIN_USER="splouch"
+        CLOUD_USER="splouch"
 
-        if ! id "$TREMPLIN_USER" &>/dev/null; then
-            useradd -m -s /bin/bash "$TREMPLIN_USER"
-            info "User '$TREMPLIN_USER' created."
+        if ! id "$CLOUD_USER" &>/dev/null; then
+            useradd -m -s /bin/bash "$CLOUD_USER"
+            info "User '$CLOUD_USER' created."
         else
-            info "User '$TREMPLIN_USER' already exists."
+            info "User '$CLOUD_USER' already exists."
         fi
 
-        usermod -aG sudo "$TREMPLIN_USER"
+        usermod -aG sudo "$CLOUD_USER"
 
         # Set a password so splouch can use sudo normally after the install
         echo
         while true; do
-            read -rsp "Set a password for '$TREMPLIN_USER': " _pw1; echo
+            read -rsp "Set a password for '$CLOUD_USER': " _pw1; echo
             read -rsp "Confirm password: " _pw2; echo
             if [[ "$_pw1" == "$_pw2" && -n "$_pw1" ]]; then
-                echo "$TREMPLIN_USER:$_pw1" | chpasswd
-                info "Password set for '$TREMPLIN_USER'."
+                echo "$CLOUD_USER:$_pw1" | chpasswd
+                info "Password set for '$CLOUD_USER'."
                 unset _pw1 _pw2
                 break
             fi
@@ -953,20 +934,20 @@ if [[ "$ROLE" == "cloud" ]]; then
         # named for what it is: the cleanup at the end of this role deletes it by
         # name, and a grant this broad must not be able to hide behind a filename
         # that looks like a permanent part of the install.
-        echo "$TREMPLIN_USER ALL=(ALL) NOPASSWD:ALL" > "$TEMP_SUDOERS_FILE"
+        echo "$CLOUD_USER ALL=(ALL) NOPASSWD:ALL" > "$TEMP_SUDOERS_FILE"
         chmod 0440 "$TEMP_SUDOERS_FILE"
         info "Temporary NOPASSWD sudo granted for install."
 
         # Copy root's SSH authorized_keys so the server stays reachable
         if [[ -f /root/.ssh/authorized_keys ]]; then
-            install -d -m 700 -o "$TREMPLIN_USER" -g "$TREMPLIN_USER" \
-                "/home/$TREMPLIN_USER/.ssh"
-            install -m 600 -o "$TREMPLIN_USER" -g "$TREMPLIN_USER" \
+            install -d -m 700 -o "$CLOUD_USER" -g "$CLOUD_USER" \
+                "/home/$CLOUD_USER/.ssh"
+            install -m 600 -o "$CLOUD_USER" -g "$CLOUD_USER" \
                 /root/.ssh/authorized_keys \
-                "/home/$TREMPLIN_USER/.ssh/authorized_keys"
-            info "SSH authorized_keys copied from root → '$TREMPLIN_USER' can log in via SSH."
+                "/home/$CLOUD_USER/.ssh/authorized_keys"
+            info "SSH authorized_keys copied from root → '$CLOUD_USER' can log in via SSH."
         else
-            warn "No /root/.ssh/authorized_keys — configure SSH access for '$TREMPLIN_USER' manually."
+            warn "No /root/.ssh/authorized_keys — configure SSH access for '$CLOUD_USER' manually."
         fi
 
         # Harden root access
@@ -979,10 +960,10 @@ if [[ "$ROLE" == "cloud" ]]; then
 
         # Copy this script to splouch's home and re-exec as that user
         _script_src="$(realpath "${BASH_SOURCE[0]}")"
-        _script_dst="/home/$TREMPLIN_USER/install.sh"
-        install -m 755 -o "$TREMPLIN_USER" -g "$TREMPLIN_USER" \
+        _script_dst="/home/$CLOUD_USER/install.sh"
+        install -m 755 -o "$CLOUD_USER" -g "$CLOUD_USER" \
             "$_script_src" "$_script_dst"
-        info "Re-running install as '$TREMPLIN_USER'…"
+        info "Re-running install as '$CLOUD_USER'…"
         # SPLOUCH_TARGET_USER is not optional here. The re-exec'd run resolves the
         # target user again at the top of this script, and by then `SUDO_USER` names
         # the user who *invoked* sudo — root — not the one sudo switched to. Without
@@ -991,8 +972,8 @@ if [[ "$ROLE" == "cloud" ]]; then
         #
         # Passed through `env` rather than as `sudo VAR=value`, which sudo refuses
         # unless the sudoers entry carries `setenv`.
-        exec sudo -H -u "$TREMPLIN_USER" \
-            env SPLOUCH_TARGET_USER="$TREMPLIN_USER" \
+        exec sudo -H -u "$CLOUD_USER" \
+            env SPLOUCH_TARGET_USER="$CLOUD_USER" \
             bash "$_script_dst" cloud "$VERSION_CHOICE"
     fi
     # ──────────────────────────────────────────────────────────────────────────
@@ -1191,11 +1172,8 @@ PYEOF
     echo
 
     # Remove the temporary NOPASSWD rule — sudo now requires the password set above.
-    #
-    # /etc/sudoers.d/tremplin is the pre-rename name. Installs made between the
-    # rename and this fix wrote the rule to .../splouch and deleted .../tremplin, so
-    # the grant survived every install while the line below reported it gone. All
-    # three names are handled, and the result is checked rather than announced.
+    # The result is checked rather than announced: an earlier version of this deleted
+    # a file that was never written and reported success either way.
     #
     # One `sudo` for the whole thing, on purpose: it is the grant being removed that
     # makes these commands passwordless, so a second call after the file is gone
@@ -1203,7 +1181,7 @@ PYEOF
     # check on .../splouch matches on content because that filename holds the
     # *legitimate* restricted grant on a server-role machine.
     if sudo sh -c '
-            rm -f "$1" /etc/sudoers.d/tremplin
+            rm -f "$1"
             if grep -qs "NOPASSWD:ALL" /etc/sudoers.d/splouch; then
                 rm -f /etc/sudoers.d/splouch
                 echo "removed-legacy"
@@ -1213,7 +1191,7 @@ PYEOF
         info "Temporary NOPASSWD sudo rule removed."
     else
         warn "Could not remove the temporary NOPASSWD sudo rule. Remove it by hand,"
-        warn "after checking that '$TREMPLIN_USER' can still sudo with its password:"
+        warn "after checking that '$CLOUD_USER' can still sudo with its password:"
         warn "  sudo rm -f $TEMP_SUDOERS_FILE /etc/sudoers.d/splouch"
     fi
 fi

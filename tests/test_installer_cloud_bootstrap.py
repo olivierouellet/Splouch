@@ -40,10 +40,10 @@ def test_the_script_is_valid_bash(installer):
 
 def test_the_re_exec_passes_the_target_user(installer):
     """The one line that was missing."""
-    exec_line = re.search(r'exec sudo -H -u "\$TREMPLIN_USER".*?cloud "\$VERSION_CHOICE"',
+    exec_line = re.search(r'exec sudo -H -u "\$CLOUD_USER".*?cloud "\$VERSION_CHOICE"',
                           installer, re.S)
     assert exec_line, 'the cloud re-exec changed shape — check this still applies'
-    assert 'SPLOUCH_TARGET_USER="$TREMPLIN_USER"' in exec_line.group(0), \
+    assert 'SPLOUCH_TARGET_USER="$CLOUD_USER"' in exec_line.group(0), \
         're-exec does not pass SPLOUCH_TARGET_USER; the second run will resolve to root'
     assert re.search(r'\benv SPLOUCH_TARGET_USER=', exec_line.group(0)), \
         'pass it via `env`: `sudo VAR=value` needs setenv in sudoers'
@@ -72,7 +72,7 @@ def test_the_resolution_line_still_prefers_the_explicit_variable(installer):
     # The in-app Reinstall, which always passed the variable and always worked.
     ('in-app reinstall',     'splouch', '',     'root',    'splouch'),
     # An existing VM, installer run directly by the account that owns the checkout.
-    ('run as the owner',     '',        '',     'tremplin', 'tremplin'),
+    ('run as the owner',     '',        '',     'splouch', 'splouch'),
     # Ordinary `sudo bash install.sh` from a login shell: provision for the human.
     ('sudo from a login',    '',        'olivier', 'root',  'olivier'),
 ])
@@ -92,7 +92,7 @@ def test_the_bootstrap_hardens_ssh_before_it_re_execs(installer):
     has to confirm the new account's key works before dropping their session."""
     cloud = installer.split("if [[ \"$ROLE\" == \"cloud\" ]]; then", 1)[1]
     lockdown = cloud.index('passwd -l root')
-    reexec = cloud.index('exec sudo -H -u "$TREMPLIN_USER"')
+    reexec = cloud.index('exec sudo -H -u "$CLOUD_USER"')
     assert lockdown < reexec
     # And the key copy has to come before the lockdown, or there is no way back in.
     assert cloud.index('authorized_keys') < lockdown

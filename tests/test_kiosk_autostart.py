@@ -4,19 +4,22 @@ The TV Pi boots to a desktop session and starts the display from an autostart fi
 That file is appended to, not rewritten, so every installer this project has shipped
 has left a line in it — and two of those lines start a *fullscreen* app.
 
-The one that bit: the Tremplin→Splouch rename changed the marker comment
-(`# Tremplin kiosk` → `# Splouch kiosk`) in one release, and the Chromium kiosk was
-replaced by the Qt display in a later one. The cleanup only ever knew the new
-marker, so a Pi provisioned before the rename and upgraded since still carried the
-old block and still launched Chromium on `/live` on top of the Qt board. Two
-fullscreen apps fight over the TV and the browser tends to win, because it starts
-first — so the display looked like it had simply not been updated.
+The one that bit: the marker comment changed in one release and the Chromium kiosk
+was replaced by the Qt display in a later one, so a Pi carried a block the cleanup
+no longer recognised and still launched Chromium on `/live` on top of the Qt board.
+Two fullscreen apps fight over the TV and the browser tends to win, because it
+starts first — so the display looked like it had simply not been updated.
+
+That is why the third rule matters more than the marker: any `chromium … --kiosk …
+--app=` line goes whatever comment sits above it. A marker this installer has never
+heard of leaves an orphan comment behind, which is cosmetic; the command it names
+is still removed. The tests below cover that case, since it is the one that keeps
+working when a marker is retired.
 
 `strip_kiosk_autostart` is read out of `install/install.sh` and run for real here.
 It is awk rather than sed precisely so that it *can* be: deleting a matched line
-plus the one after it (`addr,+1`) and matching either marker in one expression are
-both GNU extensions, fine on the Pi and untestable anywhere else, which is how the
-Tremplin block survived as long as it did.
+plus the one after it (`addr,+1`) is a GNU extension, fine on the Pi and untestable
+anywhere else.
 """
 import os
 import re
@@ -58,11 +61,15 @@ def _run(helper, tmp_path, contents, times=1):
 
 # ── The upgrade that was broken ────────────────────────────────────────────────
 
-def test_a_pre_rename_chromium_kiosk_is_removed(helper, tmp_path):
-    """The actual file a Pi provisioned before the rename is carrying."""
-    out = _run(helper, tmp_path, f'\n# Tremplin kiosk\n{OLD_CHROMIUM}\n')
+def test_a_chromium_kiosk_under_a_retired_marker_is_removed(helper, tmp_path):
+    """A block whose marker this installer no longer knows about.
+
+    The comment is left behind — harmless — but the command must go, or the Pi
+    starts a browser over the Qt board. This is what protects a Pi carrying a
+    marker from any past release without the cleanup having to list them all.
+    """
+    out = _run(helper, tmp_path, f'\n# Some retired kiosk\n{OLD_CHROMIUM}\n')
     assert 'chromium' not in out, 'Chromium still starts on top of the Qt display'
-    assert 'Tremplin' not in out, 'the stale marker was left behind'
     assert out.count(KIOSK_CMD) == 1
 
 
@@ -74,9 +81,9 @@ def test_a_post_rename_chromium_kiosk_is_removed(helper, tmp_path):
 
 
 def test_both_generations_at_once(helper, tmp_path):
-    """A Pi that went Tremplin → Splouch → Qt has collected one of each."""
+    """A Pi upgraded across both changes has collected one block of each."""
     out = _run(helper, tmp_path,
-               f'\n# Tremplin kiosk\n{OLD_CHROMIUM}\n'
+               f'\n# Some retired kiosk\n{OLD_CHROMIUM}\n'
                f'\n# Splouch kiosk\n{KIOSK_CMD} &\n')
     assert 'chromium' not in out
     assert out.count(KIOSK_CMD) == 1, 'the display would start twice'
@@ -95,7 +102,7 @@ def test_unrelated_autostart_lines_survive(helper, tmp_path):
     out = _run(helper, tmp_path,
                '/usr/bin/nm-applet &\n'
                'wlr-randr --output HDMI-A-1 --transform 90 &\n'
-               f'\n# Tremplin kiosk\n{OLD_CHROMIUM}\n')
+               f'\n# Some retired kiosk\n{OLD_CHROMIUM}\n')
     assert 'nm-applet' in out
     assert 'wlr-randr' in out
 
@@ -104,7 +111,7 @@ def test_someone_elses_chromium_kiosk_survives(helper, tmp_path):
     """`--kiosk --app=` is the flag pair the old installer wrote; a Chromium
     autostart that belongs to another project on this Pi is not ours to delete."""
     other = 'chromium-browser --kiosk https://dashboard.example.org &'
-    out = _run(helper, tmp_path, f'{other}\n\n# Tremplin kiosk\n{OLD_CHROMIUM}\n')
+    out = _run(helper, tmp_path, f'{other}\n\n# Splouch kiosk\n{OLD_CHROMIUM}\n')
     assert other in out, 'deleted a Chromium kiosk that was not ours'
     assert 'splouch.local' not in out, 'but ours had to go'
 
@@ -138,13 +145,11 @@ def test_the_installer_no_longer_offers_a_chromium_kiosk():
 
 
 def test_the_hdmi_block_is_not_appended_twice():
-    """Same dual-marker problem, lower stakes: the pre-rename installer wrote the
-    same three lines under its own marker, so checking only for the new one appends
-    a second copy on every re-run."""
+    """Re-running the installer must not set the HDMI mode a second time."""
     src = open(INSTALLER, encoding='utf-8').read()
     guard = re.search(r'if ! grep -q "([^"]*kiosk[^"]*)" "\$CONFIG_TXT"', src)
     assert guard, 'the config.txt guard moved'
-    assert 'Tremplin' in guard.group(1), guard.group(1)
+    assert 'Splouch kiosk' in guard.group(1), guard.group(1)
 
 
 # ── "No displays are registered" ───────────────────────────────────────────────

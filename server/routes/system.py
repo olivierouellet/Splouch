@@ -308,8 +308,8 @@ def _run_update(target=None):
         state._update_log_done = True
         time.sleep(2)
         # Self-heal the systemd unit to match the just-updated code before the
-        # restart. Non-interactive (sudo -n): installs that predate the sudoers
-        # grant simply skip this and fall back to the Tremplin.py compat shim.
+        # restart. Non-interactive (sudo -n): an install predating the sudoers grant
+        # skips this and is told to re-run the installer.
         if os.path.isfile(_REFRESH_SCRIPT):
             emit('$ sudo -n install/scripts/refresh-service.sh\n')
             r = subprocess.run(['sudo', '-n', _REFRESH_SCRIPT],

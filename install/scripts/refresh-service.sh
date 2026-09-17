@@ -24,16 +24,9 @@ fi
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 INSTALL_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
-# Service base-name. install.sh passes the canonical name ("splouch") to switch a
-# legacy install over; the in-app update calls this with no argument, so we refresh
-# whichever unit is already in place (legacy "tremplin" until the migrating reinstall
-# has run) rather than prematurely creating a second, conflicting unit.
-NAME="${1:-}"
-if [[ -z "$NAME" ]]; then
-    if   [[ -f /etc/systemd/system/splouch.service  ]]; then NAME=splouch
-    elif [[ -f /etc/systemd/system/tremplin.service ]]; then NAME=tremplin
-    else NAME=splouch; fi
-fi
+# Service base-name. Optional: install.sh passes it explicitly, the in-app update
+# calls this with no argument.
+NAME="${1:-splouch}"
 
 # The service runs as the owner of the repo checkout. Prefer $SUDO_USER (the user
 # who invoked sudo — the installer or the running service account); fall back to
@@ -56,13 +49,6 @@ RestartSec=5
 [Install]
 WantedBy=multi-user.target
 EOF
-
-# When switching to splouch, retire the pre-rename tremplin unit so the two don't
-# both enable and fight over port 5000.
-if [[ "$NAME" == splouch && -f /etc/systemd/system/tremplin.service ]]; then
-    systemctl disable --now tremplin.service 2>/dev/null || true
-    rm -f /etc/systemd/system/tremplin.service
-fi
 
 systemctl daemon-reload
 systemctl enable "${NAME}.service" >/dev/null 2>&1 || true

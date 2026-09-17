@@ -160,15 +160,12 @@ cd ~/Splouch && uv sync --extra scoreboard                        # reinstall Qt
 ### Upgrading a kiosk from the Chromium display
 
 Re-run `bash install.sh kiosk`. The script removes every autostart line this project has
-written — both the `# Splouch kiosk` marker and the pre-rename `# Tremplin kiosk` one —
-before adding the Qt launcher, so there is nothing to uninstall first. Chromium itself is
-left installed; it is simply no longer started.
+written before adding the Qt launcher, so there is nothing to uninstall first. Chromium
+itself is left installed; it is simply no longer started.
 
-> **If the TV still shows the old web page after an update**, the Pi was provisioned before
-> the Tremplin→Splouch rename and is starting Chromium *as well as* the Qt display. Only the
-> new marker used to be cleaned up, so the old block survived every re-run; the browser
-> starts faster and ends up on top. Re-running the installer now clears it. To check by
-> hand:
+> **If the TV still shows the old web page after an update**, the Pi is starting Chromium
+> *as well as* the Qt display; the browser starts faster and ends up on top. Re-running the
+> installer clears it. To check by hand:
 >
 > ```bash
 > grep -n -e kiosk -e chromium ~/.config/labwc/autostart

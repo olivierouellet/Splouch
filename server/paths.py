@@ -29,7 +29,6 @@ LOCALES_DIR       = os.path.join(SHARED_DIR, 'locales')
 # Operator-facing strings, one optional file per language, English-merged per key.
 PANEL_LOCALES_DIR = os.path.join(LOCALES_DIR, 'panel')
 SCOREBOARD_DIR    = os.path.expanduser('~/SplouchData')
-_LEGACY_DATA_DIR  = os.path.expanduser('~/TremplinData')  # pre-Splouch; migrated on first run
 settings_file     = os.path.join(SCOREBOARD_DIR, 'settings.json')
 _settings_default = os.path.join(app_dir, 'settings.default.json')
 
@@ -67,12 +66,10 @@ PROVISIONED_MARKER     = os.path.join(SCOREBOARD_DIR, '.provisioned_version')
 # hold it across an update even if it were secret.
 SESSION_KEY_FILE       = os.path.join(SCOREBOARD_DIR, '.session_key')
 
-# The systemd unit is named `splouch` once a full (post-rename) reinstall has run;
-# until then the legacy `tremplin` unit is still in place. Detect by unit-file
-# existence so the app restarts the right service and matches the sudoers grant
-# during the Tremplin→Splouch transition.
-SERVICE_NAME = ('splouch' if os.path.exists('/etc/systemd/system/splouch.service')
-                else 'tremplin')
+# The systemd unit this server runs under. Written by
+# install/scripts/refresh-service.sh, and named in the sudoers grant that lets the
+# app restart itself.
+SERVICE_NAME = 'splouch'
 
 
 # ── First-run setup ───────────────────────────────────────────────────────────
@@ -86,20 +83,6 @@ def _ensure_data_dirs():
         import shutil
         shutil.copy2(_settings_default, settings_file)
 
-def _migrate_data_dir():
-    """One-time rename of the pre-Splouch data dir (~/TremplinData → ~/SplouchData).
-
-    Zero-privilege (the user owns it) and content-preserving — keeps settings,
-    meets, recordings, custom themes/decoders across the rebrand. Runs before the
-    dirs are (re)created so the destination doesn't yet exist.
-    """
-    if not os.path.exists(SCOREBOARD_DIR) and os.path.isdir(_LEGACY_DATA_DIR):
-        try:
-            os.rename(_LEGACY_DATA_DIR, SCOREBOARD_DIR)
-        except OSError:
-            pass
-
-_migrate_data_dir()
 _ensure_data_dirs()
 
 

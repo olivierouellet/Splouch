@@ -3,10 +3,10 @@
 # at the Pi's CURRENT primary-interface IP, re-detected every time the service
 # starts. This replaces the old install-time-baked static 10.10.10.10, so the
 # aliases resolve correctly on a DHCP setup (i.e. when the static IP was
-# declined). Run by tremplin-mdns-aliases.service; aliases are passed as args,
+# declined). Run by splouch-mdns-aliases.service; aliases are passed as args,
 # falling back to the built-in localized set.
 #
-# tremplin.local itself comes from the hostname (avahi advertises it
+# splouch.local itself comes from the hostname (avahi advertises it
 # automatically) — this only handles the extra translated aliases.
 set -euo pipefail
 
