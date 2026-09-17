@@ -19,7 +19,7 @@ sys.path.insert(0, os.path.join(REPO, 'server'))
 
 import bus                                          # noqa: E402
 import state                                        # noqa: E402
-from routes.system import route_displays_update     # noqa: E402
+from routes.update import route_displays_update     # noqa: E402
 
 
 @pytest.fixture

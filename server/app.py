@@ -28,6 +28,7 @@ from routes.meet       import router as meet_router
 from routes.settings   import router as settings_router
 from routes.debug      import router as debug_router
 from routes.system     import router as system_router
+from routes.update     import router as update_router
 from routes.network    import router as network_router
 from routes.appearance import router as appearance_router
 from routes.i18n       import router as i18n_router
@@ -100,6 +101,7 @@ app.include_router(meet_router)
 app.include_router(settings_router)
 app.include_router(debug_router)
 app.include_router(system_router)
+app.include_router(update_router)
 app.include_router(network_router)
 app.include_router(appearance_router)
 

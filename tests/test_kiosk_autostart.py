@@ -175,7 +175,7 @@ def clients(monkeypatch):
 def _update(clients):
     import asyncio
 
-    import routes.system as system
+    import routes.update as system
     result = asyncio.run(system.route_displays_update())
     if hasattr(result, 'body'):
         import json
@@ -224,7 +224,7 @@ def test_the_target_is_a_commit_not_a_branch(clients, monkeypatch):
     clients[1] = {'ip': '10.0.0.42', 'at': '09:15', 'role': 'kiosk'}
 
     sent = []
-    import routes.system as system
+    import routes.update as system
     monkeypatch.setattr(system.bus, 'emit',
                         lambda ch, ev, d=None: sent.append((ch, ev, d)))
     status, body = _update(clients)
@@ -243,7 +243,7 @@ def test_a_server_off_a_release_tag_can_still_update_displays(clients, monkeypat
                         {'version': 'v2026.09.0-8-g3ecaa80', 'commit': '3ecaa80'},
                         raising=False)
     clients[1] = {'ip': '10.0.0.42', 'at': '09:15', 'role': 'kiosk'}
-    import routes.system as system
+    import routes.update as system
     monkeypatch.setattr(system.bus, 'emit', lambda *a, **k: None)
     status, _ = _update(clients)
     assert status == 200

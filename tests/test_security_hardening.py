@@ -230,15 +230,15 @@ def test_an_arbitrary_ref_is_not_checked_out(monkeypatch):
     """`git checkout <target>` took any string, so any commit in the repo — code
     that no release ever went through — could be put on the Pi."""
     import state
-    from routes import system as system_routes
+    from routes import update as update_routes
 
     ran = []
-    monkeypatch.setattr(system_routes, '_run_cmd_blocking',
+    monkeypatch.setattr(update_routes, 'run_cmd_blocking',
                         lambda cmd, cwd=None: (ran.append(cmd), ('', 0))[1])
-    monkeypatch.setattr(system_routes, '_update_config', lambda: ([], 0))
+    monkeypatch.setattr(update_routes, '_update_config', lambda: ([], 0))
     monkeypatch.setattr(state, '_update_log_lines', [])
 
-    system_routes._run_update('some-attacker-branch')
+    update_routes._run_update('some-attacker-branch')
 
     assert not any('checkout' in c and 'some-attacker-branch' in c
                    for c in (' '.join(x) for x in ran))
@@ -247,17 +247,17 @@ def test_an_arbitrary_ref_is_not_checked_out(monkeypatch):
 
 def test_a_real_release_tag_is_still_accepted(monkeypatch):
     import state
-    from routes import system as system_routes
+    from routes import update as update_routes
 
     ran = []
-    monkeypatch.setattr(system_routes, '_run_cmd_blocking',
+    monkeypatch.setattr(update_routes, 'run_cmd_blocking',
                         lambda cmd, cwd=None: (ran.append(cmd), ('', 0))[1])
-    monkeypatch.setattr(system_routes, '_update_config', lambda: ([], 0))
-    monkeypatch.setattr(system_routes, 'time', type('T', (), {'sleep': staticmethod(lambda n: None)}))
-    monkeypatch.setattr(system_routes.subprocess, 'run', lambda *a, **k: None)
+    monkeypatch.setattr(update_routes, '_update_config', lambda: ([], 0))
+    monkeypatch.setattr(update_routes, 'time', type('T', (), {'sleep': staticmethod(lambda n: None)}))
+    monkeypatch.setattr(update_routes.subprocess, 'run', lambda *a, **k: None)
     monkeypatch.setattr(state, '_update_log_lines', [])
 
-    system_routes._run_update('v2026.09.1')
+    update_routes._run_update('v2026.09.1')
 
     assert ['git', 'checkout', 'v2026.09.1'] in ran
 

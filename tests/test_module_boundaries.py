@@ -520,3 +520,57 @@ def test_the_image_ships_the_admin_tab_files():
     a narrowing of that line would break /admin in the container only."""
     dockerfile = open(os.path.join(CLOUD, 'Dockerfile'), encoding='utf-8').read()
     assert 'COPY cloud/templates/ templates/' in dockerfile
+
+
+# ── The updater, split out of routes/system ──────────────────────────────────
+# `routes/system.py` was 747 lines, and one of its three sections was not about
+# the machine at all. Reading a clock, installing an RTC, rebooting, saving a log
+# — those are operations on hardware that happen to be reachable over HTTP. The
+# app rewriting itself is a different subject, and it is now `routes/update.py`.
+#
+# `run_cmd_blocking` stayed in `routes/system` because the RTC installer drives
+# its long job the same way, so it sits above both users rather than travelling
+# with either. That makes the dependency one-way: update imports system, never
+# the reverse.
+
+
+def test_the_updater_does_not_live_in_the_machine_module():
+    body = open(os.path.join(SERVER, 'routes', 'system.py'), encoding='utf-8').read()
+    for name in ('_run_update', '_run_repair', 'route_version_list',
+                 'route_update_start', 'route_displays_update'):
+        assert f'def {name}' not in body, f'{name} is back in routes/system.py'
+
+
+def test_system_does_not_import_the_updater():
+    """One-way, or the two become one module again with extra steps."""
+    body = open(os.path.join(SERVER, 'routes', 'system.py'), encoding='utf-8').read()
+    assert 'routes.update' not in body and 'from routes import update' not in body
+
+
+def test_the_shared_runner_has_one_home():
+    """Defined in system, imported by update — not copied into both."""
+    system = open(os.path.join(SERVER, 'routes', 'system.py'), encoding='utf-8').read()
+    update = open(os.path.join(SERVER, 'routes', 'update.py'), encoding='utf-8').read()
+    assert 'def run_cmd_blocking' in system
+    assert 'def run_cmd_blocking' not in update
+    assert 'from routes.system import run_cmd_blocking' in update
+
+
+def test_the_log_models_are_shared_not_duplicated():
+    """Three panels poll a long job the same way — the app update, the OS update
+    and the RTC install — so `LogTail` belongs with the other shared response
+    models rather than in whichever route file happened to define it."""
+    import web
+    assert hasattr(web, 'LogTail') and hasattr(web, 'LogLine')
+    for mod in ('system', 'update'):
+        body = open(os.path.join(SERVER, 'routes', f'{mod}.py'), encoding='utf-8').read()
+        assert 'class LogTail' not in body, f'routes/{mod}.py redefines LogTail'
+        assert 'LogTail' in body, f'routes/{mod}.py no longer uses the shared model'
+
+
+def test_the_update_router_is_registered():
+    """A router that exists and is never included serves nothing, and every test
+    that drives the handlers directly would still pass."""
+    body = open(os.path.join(SERVER, 'app.py'), encoding='utf-8').read()
+    assert 'from routes.update' in body
+    assert 'app.include_router(update_router)' in body

@@ -33,6 +33,26 @@ class EnabledFlag(BaseModel):
     enabled: bool
 
 
+class LogLine(BaseModel):
+    """One line of a long-running job's output, as the panel renders it."""
+    text: str
+    error: bool
+
+
+class LogTail(BaseModel):
+    """What a log-polling endpoint returns: the lines so far, and whether it ended.
+
+    Shared by the app update, the OS update and the RTC install — three panels that
+    poll the same way, which is why this lives here rather than with any one of them.
+    """
+    lines: list[LogLine]
+    done: bool | None = None
+    # Only the app-update log sets this: the run stopped on a dirty checkout, so the
+    # panel should offer "Repair checkout". Defaulted, so the OS-update and RTC logs
+    # that share this model are unaffected.
+    repair: bool = False
+
+
 class NotAuthenticated(Exception):
     """Raised by :func:`require_login` when no session user is set.
 

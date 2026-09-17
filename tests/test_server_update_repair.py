@@ -23,7 +23,7 @@ sys.path.insert(0, REPO)
 sys.path.insert(0, os.path.join(REPO, 'server'))
 
 import state                            # noqa: E402
-import routes.system as system          # noqa: E402
+import routes.update as system          # noqa: E402
 
 
 def _git(repo, *args):
@@ -155,14 +155,14 @@ def test_a_failed_repair_keeps_the_button_on_screen(checkout, monkeypatch):
     """The tree is still dirty, so repair is still the answer — clearing the flag
     would hide the only button that can retry it."""
     (checkout / 'app.py').write_text('edited\n')
-    real = system._run_cmd_blocking
+    real = system.run_cmd_blocking
 
     def only_reset_fails(cmd, cwd=None):
         if cmd[:2] == ['git', 'reset']:
             return ('error: unable to unlink app.py: Permission denied\n', 1)
         return real(cmd, cwd=cwd)
 
-    monkeypatch.setattr(system, '_run_cmd_blocking', only_reset_fails)
+    monkeypatch.setattr(system, 'run_cmd_blocking', only_reset_fails)
     system._run_repair()
 
     assert state._update_log_done is False
