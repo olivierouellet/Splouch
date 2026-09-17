@@ -17,6 +17,11 @@ RUN pip install --no-cache-dir --require-hashes -r requirements.txt
 # does not match, and it should not — it runs on the host, beside docker, not in
 # this container.
 COPY cloud/cloud_*.py ./
+# Python shared with the Pi server — splouch_i18n, the single copy of the label,
+# locale and palette rules both servers answer from. Flat beside the cloud modules
+# so a plain `import splouch_i18n` finds it; cloud_paths adds the from-source
+# location instead when running outside the image.
+COPY shared/py/ ./
 COPY cloud/templates/ templates/
 COPY shared/templates/ templates_shared/
 COPY shared/locales/ locales/

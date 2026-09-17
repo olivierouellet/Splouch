@@ -12,6 +12,7 @@ once however the app is started.
 """
 import os
 import secrets
+import sys
 
 app_dir           = os.path.dirname(os.path.abspath(__file__))
 # The git checkout itself, one level up from server/. Every git command must run
@@ -26,6 +27,13 @@ REPO_DIR          = os.path.dirname(app_dir)
 SHARED_DIR        = os.path.join(REPO_DIR, 'shared')
 STATIC_DIR        = os.path.join(SHARED_DIR, 'static')
 LOCALES_DIR       = os.path.join(SHARED_DIR, 'locales')
+# Python shared with the cloud relay — `splouch_i18n`, the one copy of the label,
+# locale and palette rules both servers answer from. Put on the path here, in the
+# module whose job is knowing where things are, so neither server has to do
+# sys.path surgery of its own at import time.
+SHARED_PY_DIR     = os.path.join(SHARED_DIR, 'py')
+if SHARED_PY_DIR not in sys.path:
+    sys.path.insert(0, SHARED_PY_DIR)
 # Operator-facing strings, one optional file per language, English-merged per key.
 PANEL_LOCALES_DIR = os.path.join(LOCALES_DIR, 'panel')
 SCOREBOARD_DIR    = os.path.expanduser('~/SplouchData')

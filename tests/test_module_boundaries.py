@@ -244,3 +244,77 @@ def test_the_store_holds_no_web_framework_import():
     boundary has started to blur."""
     imports = _cloud_imports('cloud_store')
     assert not (imports & {'fastapi', 'starlette'}), imports
+
+
+# ── The one copy both servers share ──────────────────────────────────────────
+# `shared/py/splouch_i18n.py` is the label-style rule, the locale readers, the
+# `GET /i18n/{lang}` body and the shipped palette — once, for the Pi and the relay
+# both. Each side keeps a thin module (`server/i18n.py`, `cloud/cloud_i18n.py`)
+# holding what is genuinely its own: the Pi re-reads locale files so an operator
+# editing one sees it immediately; the relay caches, serving one fixed set baked
+# into its image to many phones.
+
+SHARED_PY = os.path.join(REPO, 'shared', 'py')
+
+
+def test_the_shared_module_knows_nothing_about_either_server():
+    """The property that lets one file serve both. An import of `paths`,
+    `cloud_paths`, `state` or `settings` here would tie it back to one of them."""
+    tree = ast.parse(open(os.path.join(SHARED_PY, 'splouch_i18n.py'), encoding='utf-8').read())
+    imported = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            imported.update(a.name.split('.')[0] for a in node.names)
+        elif isinstance(node, ast.ImportFrom) and node.module:
+            imported.add(node.module.split('.')[0])
+    assert imported <= {'glob', 'os', 'tomllib'}, f'reaches outside the stdlib: {imported}'
+
+    names = {n.id for n in ast.walk(tree)
+             if isinstance(n, ast.Name) and isinstance(n.ctx, ast.Load)}
+    assert not (names & {'settings', 'paths', 'cloud_paths', 'state'})
+
+
+def test_both_servers_resolve_to_the_same_shared_module():
+    import cloud_i18n
+    import i18n
+    import splouch_i18n
+    assert i18n.splouch_i18n is splouch_i18n
+    assert cloud_i18n.splouch_i18n is splouch_i18n
+
+
+@pytest.mark.parametrize('name', ['DEFAULT_THEME_COLORS', 'DEFAULT_THEME_FONTS',
+                                  'STYLED_LABEL_KEYS', 'resolve_labels'])
+def test_the_shared_values_are_one_object_not_two(name):
+    """Identity, not equality: two equal copies is the state this move ended."""
+    import i18n
+    import splouch_i18n
+    assert getattr(i18n, name) is getattr(splouch_i18n, name)
+
+
+@pytest.mark.parametrize('lang', ['en', 'fr', 'es', 'zz'])
+def test_the_two_servers_serve_an_identical_bundle(lang):
+    """docs/api.md §5.9 promises a client may cache either server's answer. It used
+    to be two implementations that happened to agree; now it is one, and `zz` (a
+    language neither ships) checks they still fall back to English together."""
+    import json
+
+    import cloud_i18n
+    import state
+    assert json.dumps(state.i18n_bundle(lang), sort_keys=True) == \
+           json.dumps(cloud_i18n.i18n_bundle(lang), sort_keys=True)
+
+
+def test_the_relay_still_caches_and_the_pi_still_does_not():
+    """The deliberate difference. If the Pi started caching, an operator editing a
+    locale file would need a restart to see it."""
+    import cloud_i18n
+    import i18n
+    assert hasattr(cloud_i18n, '_locale_cache')
+    assert not hasattr(i18n, '_locale_cache')
+
+
+def test_the_image_ships_the_shared_module():
+    """It is outside cloud/, so the `cloud_*.py` glob does not reach it. Without
+    its own COPY the container imports fine in tests and dies on boot."""
+    dockerfile = open(os.path.join(CLOUD, 'Dockerfile'), encoding='utf-8').read()
+    assert 'COPY shared/py/' in dockerfile

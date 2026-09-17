@@ -37,6 +37,30 @@ kiosk keeps its own version of the behaviour.
 
 ---
 
+## One copy of the language rules
+
+The Pi and the relay used to carry a copy each of the label-style rule, the locale
+readers, the `GET /i18n/{lang}` body and the shipped palette. They agreed only
+because someone kept them agreeing: a test existed purely to compare the two
+palettes, and the values had already drifted once before it was written.
+
+They now share `shared/py/splouch_i18n.py`. Each side keeps a thin module for what
+is genuinely its own:
+
+| | `server/i18n.py` | `cloud/cloud_i18n.py` |
+| --- | --- | --- |
+| Locale files | re-read on every call | parsed once and cached |
+| Why | an operator can edit one on the Pi and expects the next page to show it | one fixed set, baked into the image, served to many phones |
+
+That difference is why the shared `i18n_bundle` takes the section reader as an
+argument rather than doing the reading itself. It is the only behavioural
+divergence left in this area, and it is deliberate.
+
+Still Pi-only, and correctly so: reading themes off the machine, and decomposing an
+event name into parts. The relay forwards those parts; it never parses a name.
+
+---
+
 ## Chronometer
 
 The Pi sends `running_time` as part of `update_scoreboard` at high frequency during a race (every timing tick). Forwarding that to every attendee of every meet is a large share of the relay's event traffic, so the cloud used to strip the field outright.

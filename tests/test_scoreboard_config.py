@@ -155,26 +155,22 @@ def test_the_fallback_palette_matches_the_server():
     assert not differ, f'kiosk fallback disagrees with the server: {differ}'
 
 
-def test_the_cloud_fallback_palette_matches_too():
-    """A third copy, for a relay that has not sent its settings yet. Its own comment
-    says it must match the Pi's — the existing schedule test checks the *keys* are
-    there, which is how the values drifted apart in the first place."""
-    import ast
+def test_the_cloud_fallback_palette_is_the_same_object():
+    """It used to be a third hand-kept copy, for a relay whose Pi has not sent its
+    settings yet, and the values had already drifted once. Both sides now import
+    `shared/py/splouch_i18n.py`, so this asserts identity rather than comparing two
+    literals — there is nothing left to drift."""
+    import sys
     import state
     repo = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    # The cloud palette lives in cloud_i18n.py now, beside the rest of the
-    # presentation defaults it is duplicated from.
-    src = open(os.path.join(repo, 'cloud', 'cloud_i18n.py'), encoding='utf-8').read()
-    tree = ast.parse(src)
-    cloud = next(ast.literal_eval(node.value)
-                 for node in ast.walk(tree)
-                 if isinstance(node, ast.Assign)
-                 and any(getattr(t, 'id', '') == '_DEFAULT_COLORS' for t in node.targets))
-    differ = {k: (v, state.DEFAULT_THEME_COLORS[k])
-              for k, v in cloud.items()
-              if k in state.DEFAULT_THEME_COLORS
-              and v.lower() != state.DEFAULT_THEME_COLORS[k].lower()}
-    assert not differ, f'cloud fallback disagrees with the Pi: {differ}'
+    sys.path.insert(0, os.path.join(repo, 'cloud'))
+    import cloud_i18n
+    import splouch_i18n
+
+    assert cloud_i18n._DEFAULT_COLORS is splouch_i18n.DEFAULT_THEME_COLORS
+    assert state.DEFAULT_THEME_COLORS is splouch_i18n.DEFAULT_THEME_COLORS
+    assert cloud_i18n._DEFAULT_FONTS is splouch_i18n.DEFAULT_THEME_FONTS
+    assert state.DEFAULT_THEME_FONTS is splouch_i18n.DEFAULT_THEME_FONTS
 
 
 def test_an_install_that_never_chose_white_gets_the_blue(monkeypatch):

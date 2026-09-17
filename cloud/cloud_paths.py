@@ -10,6 +10,7 @@ Each constant resolves whichever exists, so the relay can be run and tested
 without building an image.
 """
 import os
+import sys
 import tempfile
 
 
@@ -40,6 +41,18 @@ STATIC_DIR = next(
 # scoreboard_base.html lives in shared/ because the Pi's live-mobile.html extends
 # the same file — see notes/cloud_parity.md. Same in-container/from-source dance as
 # above (COPY shared/templates/ templates_shared/).
+# Python shared with the Pi server — `splouch_i18n`. The image copies shared/py/
+# flat into /app beside this file; from source it is two levels up. Same
+# in-container/from-source dance as the assets above, and put on the path here so
+# `cloud_i18n` can just import it.
+SHARED_PY_DIR = next(
+    (p for p in (_HERE, os.path.join(_HERE, os.pardir, 'shared', 'py'))
+     if os.path.isfile(os.path.join(p, 'splouch_i18n.py'))),
+    _HERE,
+)
+if SHARED_PY_DIR not in sys.path:
+    sys.path.insert(0, SHARED_PY_DIR)
+
 SHARED_TEMPLATES_DIR = next(
     (p for p in (os.path.join(_HERE, 'templates_shared'),
                  os.path.join(_HERE, os.pardir, 'shared', 'templates'))

@@ -7,10 +7,12 @@ the settings-aware wrappers (``load_locale()``, ``display_strings()`` …) that 
 routes and templates already call, and supplies the default from ``settings``
 there.
 
-The cloud relay carries its own copy of roughly this file (``cloud_server.py``
-says so at its ``STYLED_LABEL_KEYS``). Nothing here reads ``settings``, a serial
-port or a meet, so this is the module to move into ``shared/`` the day the two
-deployables are made to share code — see notes/cloud_parity.md.
+What both servers agree on — the label-style rule, the locale file readers, the
+`GET /i18n/{lang}` body, the shipped palette — now lives once in
+``shared/py/splouch_i18n.py`` and is re-exported below. What stays here is what
+only a Pi does: reading themes off this machine, and decomposing an event name
+into the parts a client renders (the relay forwards those parts, it never parses
+them). See notes/cloud_parity.md.
 
 Not to be confused with ``routes/i18n.py``, which is the HTTP endpoint that serves
 :func:`i18n_bundle` to clients.
@@ -20,64 +22,45 @@ import os
 import re
 import tomllib
 
-import paths
+import paths          # noqa: F401  — its import puts shared/py on sys.path
+import splouch_i18n
 
-# The blue the top bar's labels and wall clock take. Shared with `schedule_event`
-# by intent rather than accident: one accent colour across the board reads as a
-# system, and this is the same blue the schedule already uses for event numbers.
-HEADER_LABEL_BLUE = '#3b9eff'
-# What `header_label` was before it became that blue. An install that still stores
-# this never chose it — it is the old default — so `merge_theme_defaults` moves it
-# on. See _migrate_header_label.
-_HEADER_LABEL_WAS = '#ffffff'
-
-DEFAULT_THEME_COLORS = {
-    'bg': '#0d0d0d', 'header_bg': '#1a1a1a', 'header_border': '#2e2e2e',
-    'header_label': HEADER_LABEL_BLUE, 'header_value': '#e0e0e0',
-    'th_text': '#666666', 'th_bg': '#1a1a1a',
-    'row_odd': '#141414', 'row_even': '#202020', 'row_text': '#e0e0e0',
-    'time': '#FFD700', 'delta_better': '#4CAF50', 'delta_worse': '#808080',
-    'podium_gold': '#545454', 'podium_silver': '#424242', 'podium_bronze': '#343434',
-    # The board's one warning colour: the link-lost badge and the frozen race
-    # clock behind it. Not used by any browser page — only the Qt display can
-    # tell that the console has stopped talking to it.
-    'connection_lost': '#ef5350',
-    # Text on that badge. Defaults to the board background, which is what makes
-    # a pill read as punched out of the board — but the pill behind it is a
-    # warning colour, not a board colour, so it gets its own swatch.
-    'connection_lost_text': '#0d0d0d',
-    'schedule_event': '#3b9eff', 'schedule_time': '#FFD700',
-    'schedule_name': '#e0e0e0', 'schedule_club': '#666666',
-}
-DEFAULT_THEME_FONTS = {'family': 'Overpass Mono', 'digits': 'DSEG7Classic', 'timing': 'Overpass Mono'}
-
-_FALLBACK_LABELS = {
-    'event': 'EVENT', 'heat': 'HEAT', 'lane': 'LN',
-    'place': 'PL', 'time': 'TIME', 'name': 'NAME', 'club': 'CLUB',
-    'chrono': 'CHRONO',
-}
-
-# Only these columns have a long form worth showing. The lane and place columns are
-# the two narrow ones on every board we ship: a long word there either clips or
-# shrinks the whole row to fit it, so they resolve short whatever `label_style` says
-# (docs/app.md `T-09`). Keep this list and the cloud's copy in step.
-STYLED_LABEL_KEYS = frozenset({'event', 'heat'})
+# The half both servers share, re-exported so `state` and the routes keep reaching
+# for `i18n.X` as they always have. The readers below bind this server's locales
+# directory; the relay's copy binds its own.
+from splouch_i18n import (HEADER_LABEL_BLUE, _HEADER_LABEL_WAS, DEFAULT_THEME_COLORS,
+                          DEFAULT_THEME_FONTS, _FALLBACK_LABELS, STYLED_LABEL_KEYS,
+                          resolve_labels)
 
 
-def resolve_labels(labels, style):
-    """Flatten a `[labels]` table to one string per key, in `style`.
+def available_locales():
+    """``(code, display name)`` for every language this server serves."""
+    return splouch_i18n.available_locales(paths.LOCALES_DIR)
 
-    `style` reaches only STYLED_LABEL_KEYS; every other key resolves short. A custom
-    file may define one form and not the other, so each key falls back to whatever it
-    does have rather than serving an empty header.
+
+def locale_section(code, section):
+    """One section of a served language file, as shipped."""
+    return splouch_i18n.locale_section(paths.LOCALES_DIR, code, section)
+
+
+def panel_section(code, section):
+    """One section of a language's operator-panel file, English-merged per key."""
+    return splouch_i18n.panel_section(paths.PANEL_LOCALES_DIR, code, section)
+
+
+def i18n_bundle(code):
+    """`GET /i18n/{lang}` (api.md §5.9) for this server's locale files.
+
+    Read fresh, not cached: an operator editing a locale file on this Pi sees the
+    change on the next request. The relay caches instead — it serves one fixed set
+    of files to many phones — which is why the reader is the caller's to supply.
     """
-    out = {}
-    for key, val in labels.items():
-        if not isinstance(val, dict):
-            continue
-        want = style if key in STYLED_LABEL_KEYS else 'short'
-        out[key] = val.get(want) or val.get('long') or val.get('short') or ''
-    return out
+    return splouch_i18n.i18n_bundle(
+        code,
+        read_section=locale_section,
+        available=dict(available_locales()),
+    )
+
 
 _STROKE_ALIASES = [
     ('individual medley', 'medley'),
@@ -102,83 +85,8 @@ _GENDER_PATTERNS = [
 ]
 
 
-def available_locales():
-    """``(code, display name)`` for every language this server serves.
-
-    One file in ``shared/locales/`` is one language (docs/admin.md "Localisation").
-    ``panel/`` is not a language list: it holds the operator-facing strings, and a
-    language may omit its panel file and read English there.
-    """
-    found = {}
-    for path in sorted(glob.glob(os.path.join(paths.LOCALES_DIR, '*.toml'))):
-        code = os.path.splitext(os.path.basename(path))[0]
-        try:
-            with open(path, 'rb') as f:
-                data = tomllib.load(f)
-        except Exception:
-            continue
-        found[code] = data.get('meta', {}).get('name', code)
-    return sorted(found.items())
 
 
-def _toml_section(path, section):
-    try:
-        with open(path, 'rb') as f:
-            return tomllib.load(f).get(section, {})
-    except Exception:
-        return {}
-
-
-def locale_section(code, section):
-    """One section of a served language file, as shipped."""
-    return _toml_section(os.path.join(paths.LOCALES_DIR, code + '.toml'), section)
-
-
-def panel_section(code, section):
-    """One section of a language's operator-panel file, English-merged per key.
-
-    The panel is the operator's console, not what a spectator reads, so a language
-    may ship without one: every key then renders in English, and a partial file
-    degrades word by word (docs/admin.md "Localisation").
-    """
-    base = _toml_section(os.path.join(paths.PANEL_LOCALES_DIR, 'en.toml'), section)
-    if code == 'en':
-        return dict(base)
-    return {**base, **_toml_section(os.path.join(paths.PANEL_LOCALES_DIR, code + '.toml'), section)}
-
-
-def i18n_bundle(code):
-    """Client-facing strings for one language — ``GET /i18n/{lang}``, api.md §5.9.
-
-    Everything a client renders itself: its own chrome (``[mobile]``, ``[display]``)
-    and both label styles, so language and short/long are one fetch rather than two
-    axes the client has to reassemble. English-merged per key, the rule
-    :func:`display_strings` already follows — a half-translated locale falls back
-    word by word instead of rendering blank.
-
-    The shipped table only: there is no per-Pi wording, so the Pi and the cloud
-    serve the same body for the same language and a client may cache either.
-    """
-    if code not in dict(available_locales()):
-        code = 'en'
-
-    def merged(section):
-        base = locale_section('en', section)
-        return dict(base) if code == 'en' else {**base, **locale_section(code, section)}
-
-    labels = merged('labels')
-    return {
-        'lang':    code,
-        'mobile':  merged('mobile'),
-        'display': merged('display'),
-        # The vocabulary an event name is composed from, so a client that took
-        # `event_name_parts` can render it in this language (api.md §5.1, §5.9).
-        'event_name': merged('event_name'),
-        # Both styles, so language and short/long are one fetch. `long` differs from
-        # `short` only for STYLED_LABEL_KEYS; the narrow columns are short in both.
-        'labels': {style: resolve_labels(labels, style)
-                   for style in ('short', 'long')},
-    }
 
 
 def labels_for(code, style):
