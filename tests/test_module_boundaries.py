@@ -23,12 +23,19 @@ that reads no settings is one that can move to `shared/` and be used by both
 import ast
 import os
 import sys
+import tempfile
 
 import pytest
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SERVER = os.path.join(REPO, 'server')
 sys.path.insert(0, SERVER)
+
+# The cloud modules read DATA_DIR at import time, so it has to be pointed
+# somewhere disposable before the first import — and `cloud/` has to be on the
+# path here rather than relied on from whichever test file happened to run first.
+os.environ.setdefault('DATA_DIR', tempfile.mkdtemp(prefix='splouch-boundaries-'))
+sys.path.insert(0, os.path.join(REPO, 'cloud'))
 
 
 def _imports(module):
@@ -179,3 +186,61 @@ def test_the_container_entrypoint_still_names_a_real_app():
     dockerfile = open(os.path.join(CLOUD, 'Dockerfile'), encoding='utf-8').read()
     assert 'cloud_server:app' in dockerfile
     assert os.path.exists(os.path.join(CLOUD, 'cloud_server.py'))
+
+
+# ── The relay's meet store ────────────────────────────────────────────────────
+# `cloud_store` owns `_meets`, `_retained`, `_relay_sids` and the lock over them.
+# `cloud_server` imports the objects, not copies: they are bound once and only ever
+# mutated in place, which is what lets ~30 `with _lock:` blocks and ~43 `_meets` /
+# `_retained` accesses in the routes stay exactly as they were.
+#
+# That contract is invisible in the source. Rebinding one of them in `cloud_store`
+# — `_retained = {}` in a reset helper, say — would leave `cloud_server` holding the
+# old dict, and the relay would serve meets that registrations no longer reach. No
+# other test would notice, so these check it directly.
+
+STORE_OBJECTS = ('_meets', '_retained', '_relay_sids', '_lock')
+
+
+@pytest.mark.parametrize('name', STORE_OBJECTS)
+def test_the_store_is_shared_by_reference_not_copied(name):
+    import cloud_server
+    import cloud_store
+    assert getattr(cloud_server, name) is getattr(cloud_store, name), (
+        f'cloud_server.{name} is a different object from cloud_store.{name} — '
+        'something rebound it instead of mutating it')
+
+
+def test_a_write_through_one_name_is_seen_through_the_other():
+    import cloud_server
+    import cloud_store
+
+    cloud_server._meets['__probe__'] = {'name': 'probe'}
+    try:
+        assert cloud_store._meets.get('__probe__') == {'name': 'probe'}
+    finally:
+        cloud_store._meets.pop('__probe__', None)
+    assert '__probe__' not in cloud_server._meets
+
+
+def test_cloud_store_never_rebinds_its_own_containers():
+    """The source-level guard for the two tests above: after the initial binding,
+    these names must only ever be subscripted, never assigned."""
+    src = open(os.path.join(CLOUD, 'cloud_store.py'), encoding='utf-8').read()
+    tree = ast.parse(src)
+    rebinds = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Assign):
+            for target in node.targets:
+                if isinstance(target, ast.Name) and target.id in STORE_OBJECTS:
+                    # The one binding at module level is the definition itself.
+                    if node.col_offset != 0:
+                        rebinds.append((target.id, node.lineno))
+    assert not rebinds, f'rebound inside a function: {rebinds}'
+
+
+def test_the_store_holds_no_web_framework_import():
+    """It is a data layer. A Request or a route decorator turning up here means the
+    boundary has started to blur."""
+    imports = _cloud_imports('cloud_store')
+    assert not (imports & {'fastapi', 'starlette'}), imports
