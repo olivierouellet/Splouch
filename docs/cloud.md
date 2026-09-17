@@ -53,7 +53,14 @@ The `/admin` page (HTTP basic auth with the credentials from `.env`) lets you:
 - **Add an organizer** — enter an organization name; a cryptographically random 32-byte key is generated automatically.
 - **Revoke a key** — the Pi with that key will be disconnected and refused on next connect.
 - **Delete a key** — removes it from the list entirely.
-- **View active meets** — shows every Pi currently connected with its meet name, location, sport, organizer, and connection time.
+- **View active meets** — shows every Pi currently connected with its meet name, location, sport, organizer, console, and connection time.
+
+The **Console** column is the console key the Pi reports (`cts_gen6`, `manual`, a plugin's
+own key), so a support question — *which console was that meet running on?* — is answered
+without phoning the operator. A meet whose console produces no times at all is marked
+*no times* underneath: its spectators get no Results tab, by design
+([No timing console?](admin.md#no-timing-console)). A Pi running a version from before the
+console was reported shows `—`.
 
 Share the generated key with the organizer. They paste it into their Pi's **Settings → Cloud** tab.
 

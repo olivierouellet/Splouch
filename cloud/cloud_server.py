@@ -719,6 +719,12 @@ def _admin_meet_list():
                     disp = datetime.datetime.fromisoformat(exp).strftime('%Y-%m-%d %H:%M')
                 except ValueError:
                     disp = exp
+            # Which console the operator is running on, straight off the relay's
+            # `settings` block (docs/api.md §6). `key` is diagnostic — *which console
+            # did this meet run on* — and the admin table is exactly the support
+            # screen it was published for. A relay too old to send one leaves both
+            # None: the table says so rather than guessing a console for it.
+            console = m.get('settings', {}).get('console') or {}
             out.append({
                 'id':              mid,
                 'name':            m.get('name', ''),
@@ -727,6 +733,8 @@ def _admin_meet_list():
                 'organizer':       m.get('organizer', ''),
                 'connected_at':    m.get('connected_at', ''),
                 'language':        _locale_name(_meet_lang(m)),
+                'console':         console.get('key', ''),
+                'console_timed':   console.get('timed'),
                 'live':            live,
                 'expires_at':      exp,
                 'expires_display': disp,

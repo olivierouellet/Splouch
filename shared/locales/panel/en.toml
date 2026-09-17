@@ -23,6 +23,11 @@ col_sport       = "Sport"
 col_organizer   = "Organizer"
 col_since       = "Since"
 col_language    = "Language"
+col_console     = "Console"
+# The console the operator picked, straight off the relay. Shown as the key it
+# travels as (`cts_gen6`, `manual`, a plugin's own) — the human label stays on
+# the Pi, and this line answers a support question, not a spectator's.
+console_untimed = "no times"
 no_meets_admin  = "No meets connected"
 badge_live      = "live"
 badge_retained  = "offline"

@@ -309,3 +309,103 @@ def test_the_cloud_shell_follows_the_meet(cloud, settings, expected):
     finally:
         cloud._meets.pop('m-shell', None)
     assert ('id="frame1"' in html) is expected
+
+
+# ── The operator's own screen (the cloud admin table) ──────────────────────────
+#
+# `timed` is what a spectator's phone acts on; `key` had no reader at all until here.
+# The admin's Active Meets table is the support screen it was published for: *which
+# console is that Pi running on*, answered without phoning the operator or opening
+# the Pi's Settings. Nothing on the cloud decodes it — the key is passed through as
+# it arrived, plugin keys and all.
+
+def _admin_row(cloud, settings, live=True, mid='m-admin'):
+    store = cloud._meets if live else cloud._retained
+    store[mid] = {'name': 'Coupe', 'organizer': 'Club', 'settings': settings}
+    if not live:
+        store[mid]['expires_at'] = '2026-01-01T00:00:00'
+    try:
+        return next(r for r in cloud._admin_meet_list() if r['id'] == mid)
+    finally:
+        store.pop(mid, None)
+
+
+def test_the_admin_table_names_the_console(cloud):
+    row = _admin_row(cloud, {'console': {'key': 'cts_gen6', 'timed': True}})
+    assert row['console'] == 'cts_gen6'
+    assert row['console_timed'] is True
+
+
+def test_a_plugin_key_reaches_the_table_as_it_arrived(cloud):
+    """The cloud has no console registry and must not grow one: a key it has never
+    heard of is exactly the one a support question is about."""
+    row = _admin_row(cloud, {'console': {'key': 'club_stopwatch', 'timed': False}})
+    assert row['console'] == 'club_stopwatch'
+    assert row['console_timed'] is False
+
+
+def test_a_relay_too_old_to_say_is_left_unknown(cloud):
+    """`route_mobile` defaults the *tab* to shown, because a board is better than a
+    missing one. A diagnostic line has no such excuse — it says nothing rather than
+    naming a console this Pi never reported."""
+    row = _admin_row(cloud, {})
+    assert row['console'] == ''
+    assert row['console_timed'] is None
+
+
+def test_an_offline_meet_still_says_what_it_ran_on(cloud):
+    """The retained record keeps the whole `settings` block, and 'which console was
+    that meet on?' is asked after the Pi has gone home more often than during."""
+    row = _admin_row(cloud, {'console': {'key': 'manual', 'timed': False}}, live=False)
+    assert row['live'] is False
+    assert row['console'] == 'manual'
+
+
+def _admin_html(rows):
+    """The real admin template, rendered around one meet list."""
+    import tomllib
+
+    env = Environment(loader=FileSystemLoader(
+        [os.path.join(REPO, 'cloud', 'templates'),
+         os.path.join(REPO, 'shared', 'templates')]))
+    env.globals['url_for'] = lambda n, **kw: '/static/' + kw.get('filename', '')
+    with open(os.path.join(REPO, 'shared', 'locales', 'panel', 'en.toml'), 'rb') as f:
+        t = tomllib.load(f)
+    return env.get_template('admin.html').render(
+        t={**t['chrome'], **t['cloud']}, has_deploy=True, creds_error=None, keys=[],
+        active_meets=rows, user_name='Admin', locales=[], current_locale='',
+        ui_lang_cookie='', analytics_enabled=False, picker_window_title_form='',
+        picker_title_form='', picker_logo_above=False, has_picker_logo=False,
+        has_picker_icon=False, picker_max_upload=2 * 1024 * 1024)
+
+
+def _row(**over):
+    base = {'id': 'm1', 'name': 'Coupe', 'location': 'Laval', 'sport': 'Swimming',
+            'organizer': 'Club', 'connected_at': '10:00', 'language': 'English',
+            'console': 'cts_gen6', 'console_timed': True, 'live': True,
+            'expires_at': None, 'expires_display': '', 'expires_input': ''}
+    return {**base, **over}
+
+
+def test_the_column_renders_the_key(cloud):
+    assert 'cts_gen6' in _admin_html([_row()])
+
+
+def test_an_untimed_console_is_marked_as_such(cloud):
+    """Otherwise 'manual' reads as a console choice rather than as the reason a
+    spectator on this meet has no Results tab at all (docs/app.md `A-11`)."""
+    html = _admin_html([_row(console='manual', console_timed=False)])
+    assert 'no times' in html
+    assert 'no times' not in _admin_html([_row()])
+
+
+def test_an_unknown_console_renders_a_dash_not_a_guess(cloud):
+    html = _admin_html([_row(console='', console_timed=None)])
+    assert 'no times' not in html, 'unknown is not the same as untimed'
+
+
+def test_the_empty_table_still_spans_every_column(cloud):
+    """A colspan left behind by a new column draws a short grey row under the table."""
+    head = _admin_html([])
+    head = head[head.index('<thead>'):head.index('</thead>')]
+    assert 'colspan="{}"'.format(head.count('<th>')) in _admin_html([])
