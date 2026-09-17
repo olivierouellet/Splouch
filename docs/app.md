@@ -188,6 +188,7 @@ where the user returns via `A-02`.
 | `A-08` | Window and home-screen title is the meet's `app_window_title`, falling back to its `name` | `settings.app_window_title`, then `name`, then `Splouch` | web-only |
 | `A-09` | Meet gone mid-session → return to the picker | cloud: `GET /meet/{id}/config` answers **404**. Re-fetch it on every reconnect, foreground, pull-to-refresh (`A-05`) and `reload` (`C-08`); web: `GET /mobile` 303s to `/` on page load. Pi: n/a (§0.2) | must — see note |
 | `A-10` | The movement is visible: the tabs follow the finger through the drag and settle on release, rather than changing on release alone | — | should — see note |
+| `A-11` | A meet run with **no timing console** has no Results tab at all — not an empty one | `settings.console.timed` false (cloud: `GET /meet/{id}/config`; Pi: `GET /config`) | must — see note |
 
 > **`A-03` is the gesture; `A-10` is how much of it the platform will show.** Moving
 > between peer sections is a gesture every platform has, and each has its own. Where it
@@ -215,6 +216,30 @@ where the user returns via `A-02`.
 > silent is **not** the signal — it is also what a live meet between frames looks
 > like. Any other status, or no answer, is a network fault (`C-03`), not a missing
 > meet.
+
+> **`A-11` — the tab goes, not its contents.** Some meets have no timing console: a
+> club time trial, or a console whose cable never turned up. The operator drives the
+> boards by hand from the Pi's `/manual` page, and the meet runs — names, heats, the
+> whole schedule — but nothing is ever timed, so no `results_snapshot` is ever sent
+> ([`api.md`](api.md) §2.3). A Results tab there is not empty for a while; it is empty
+> for the entire meet, and `R-01`'s "waiting for results…" turns from a status into a
+> falsehood. So the tab is removed, and a spectator is never offered a screen that
+> cannot fill.
+>
+> The flag comes from the config fetch the client already makes (§0.2), so this costs
+> no request. **Re-evaluate it wherever that fetch is repeated** — reconnect,
+> foreground, pull-to-refresh, `reload` (`C-08`) — because the operator can switch
+> consoles mid-meet, in either direction. When the tab count changes under a selected
+> tab, keep the spectator on a tab that still exists rather than on an index (`A-04`
+> stores a choice, not a number).
+>
+> Read `console.timed`; do not match on `console.key`. The server derives `timed` from
+> the decoder itself, so a console added as a local plugin and driven by hand is
+> covered too ([`api.md`](api.md) §5.4). A server too old to send `console` is a server
+> with a console: default to showing the tab.
+>
+> Nothing else is conditional on this. The Scoreboard tab is exactly as useful — it is
+> what the operator is driving — and the Schedule tab is the full start list either way.
 
 ---
 
@@ -342,6 +367,9 @@ Live lane state during a heat. The busiest screen and the one most worth getting
 ---
 
 ## 4. Results tab (`R`)
+
+The whole tab is absent for a meet with no timing console (`A-11`); everything below
+describes it where it exists.
 
 | ID | Feature | Driven by | Level |
 | --- | --- | --- | --- |
@@ -698,6 +726,12 @@ Not on any phone client, now or planned:
 ---
 
 ## Changelog
+
+- **Added since v1** — `A-11`: no Results tab for a meet with no timing console,
+  driven by `settings.console` in [`api.md`](api.md) §5.4. No bump: nothing a
+  conforming client did became wrong — it shows a tab that never fills, which is what
+  every client did before the flag existed, and a server that does not send it is a
+  server with a console.
 
 - **v1, revised while the iOS app was built** — three rows that changed rather than
   clarified: `A-03` splits, keeping the swipe between adjacent tabs a `must` and moving

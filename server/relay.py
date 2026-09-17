@@ -79,6 +79,10 @@ def _get_metadata():
             # client offering the choice knows where to start (api.md §5.4). The
             # kiosk's `label_style` is a separate setting and stays out of this.
             'label_style':          state.settings.get('cloud_label_style', 'short'),
+            # The console this meet is run on, and whether it times anything
+            # (api.md §5.4). A meet driven by hand never produces a result, so a
+            # phone hides its Results tab instead of waiting all meet for one.
+            'console':              state.console_state(),
         },
     }
     icon = _icon_b64()

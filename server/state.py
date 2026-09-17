@@ -962,3 +962,28 @@ def save_settings():
 
 _decoder_console_type = settings.get('console_type', 'cts_gen6')
 _decoder = make_decoder(_decoder_console_type, settings)
+
+
+def console_state():
+    """Which console is driving this meet, for the clients that must gate on it.
+
+    Rides on `/config` and on the relay's `settings` block (docs/api.md §5.4, §6),
+    so a native attendee learns it the same way from either server.
+
+    `timed` is the load-bearing half: false means no time and no place will ever
+    arrive for this meet, so a Results screen there is a promise the meet cannot
+    keep — a phone disables it rather than sitting on "waiting for results" from
+    the first heat to the last. It is read off the decoder, never off
+    `console_type == 'manual'`, for the reason `worker` gives at its own check: a
+    local plugin console driven by hand answers `requires_serial` False too, and
+    would otherwise be published as timed.
+
+    `key` is the console the operator chose. No client behaviour hangs on it —
+    it is there so a support screen or a log can say which console a meet ran on
+    without the operator reading it off the Pi. The human label stays behind:
+    `CONSOLE_OPTIONS` carries it in English only, and no spectator reads it.
+    """
+    return {
+        'key':   settings.get('console_type', 'cts_gen6'),
+        'timed': bool(getattr(_decoder, 'requires_serial', True)),
+    }

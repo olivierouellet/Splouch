@@ -235,7 +235,7 @@ JSON/asset endpoints (everything else the servers expose is HTML for the browser
 ### Local (Pi)
 | method · path | returns |
 | --- | --- |
-| `GET /config` | **display config JSON** — `num_lanes`, `theme_colors`, `theme_fonts`, `show_*` flags, `labels`, `meet_title`, `locale`, `display_strings`, `carousel_images`, `carousel_interval`, `server_version` (§6). Lets the Qt display theme *and translate* itself without a rendered page |
+| `GET /config` | **display config JSON** — `num_lanes`, `theme_colors`, `theme_fonts`, `show_*` flags, `labels`, `meet_title`, `locale`, `display_strings`, `carousel_images`, `carousel_interval`, `server_version`, `console` (§6). Lets the Qt display theme *and translate* itself without a rendered page |
 | `GET /server` | **who this server is** (§5.10) — `kind: "pi"`, its name, and the contract versions this build implements |
 | `GET /schedule.json` | **start list JSON** — `{ "heats": [ … ] }`, the same shape as the cloud's `GET /meet/{id}/schedule` (§5.8) and what the Pi's `/schedule` page embeds. No id in the path: one meet. Empty `heats` when no meet file is loaded |
 | `GET /i18n/{lang}` | **client strings for one language** (§5.9). The same body the cloud serves for that language |
@@ -359,18 +359,38 @@ row by lane (blank gaps) or by finishing place. `delta` is browser HTML;
                 "show_position": true, "show_podium": true, "show_*_header": true,
                 "theme_colors": { … }, "theme_fonts": { … }, "locale": "fr",
                 "labels": { … }, "label_style": "short",
+                "console": { "key": "manual", "timed": false },
                 "home_icon_b64": "…?", "picker_image_b64": "…?" } }
 ```
 This `settings` block is the meet's display config — the same values a native
 attendee needs to render the board (lane count, visible columns, theme, labels).
 
-`label_style` is additive: a client that ignores it behaves exactly as before it
-existed.
+`label_style` and `console` are additive: a client that ignores either behaves
+exactly as before it existed.
 
 | field | meaning |
 | --- | --- |
 | `labels` | as now — resolved for the meet's `locale` and the operator's style. The default a client renders before any user preference, and the whole story for a client that wants no more than that |
 | `label_style` | `"short"` or `"long"` — *which* of the two the operator picked, so a client offering the choice knows where to start. The Pi's phone style is `cloud_label_style`, separate from the kiosk's `label_style` |
+| `console` | which console is driving this meet: `key` is the operator's choice (`"cts_gen6"`, `"manual"`, a plugin's own key), `timed` is whether it produces times at all |
+
+**`console.timed` is the half a client acts on.** False means *no time and no place
+will ever arrive for this meet* — the operator is driving it by hand from `/manual`
+(§2.3) — so a Results screen there is a promise the meet cannot keep, and a client
+takes it down rather than showing "waiting for results…" from the first heat to the
+last (`app.md` `A-11`). Everything else still works: the board carries the heat and
+the swimmers, and the schedule is the whole meet.
+
+Read `timed`, never `key == "manual"`. The Pi reads it off the decoder, so a local
+plugin console that is also driven by hand answers it correctly; a client matching on
+the key would call that one timed. `key` is for a diagnostic line or a support
+question — *which console did this meet run on* — and no behaviour hangs on it. The
+console's human label does not travel: it exists in English only, and no spectator
+reads it.
+
+A relay too old to send `console` sends nothing in its place, and the absent field
+means what it has always meant — there is a console, and it times. A client defaults
+to `timed: true` for exactly that reason.
 
 The full label table does **not** travel here. It is the same for every meet on a
 server and would be duplicated per meet, persisted per meet, and re-sent to every
@@ -552,6 +572,11 @@ have no template, so config is exposed as JSON — all three additions below are
    `/config` itself is still unreachable; the Qt display caches the last config on
    disk for exactly that reason.
 
+   `console` is the same `{key, timed}` block the relay sends (§5.4), so a client
+   connecting straight to a Pi gates its Results screen on the same fact a cloud
+   attendee does. Absent from a server too old to send it, which reads as *there is
+   a console*.
+
    `server_version` is the ref this server is running — the same value
    `/displays_update` broadcasts as `target`, a commit rather than a branch. It lets
    a display say whether it is in step, and update itself to match from its own
@@ -595,8 +620,9 @@ same `settings` shape, so the two config sources agree.
   interpolate, do not render.
 
 - **Added since v2, all additive so the version stands**: `GET /i18n/{lang}` and
-  `GET /locales` (§5.9), `settings.label_style` (§5.4), and `GET /server` /
-  `GET /servers` (§5.10–5.11) with the Pi's `_splouch._tcp` mDNS record. A v2
+  `GET /locales` (§5.9), `settings.label_style` (§5.4), `GET /server` /
+  `GET /servers` (§5.10–5.11) with the Pi's `_splouch._tcp` mDNS record, and
+  `settings.console` on the relay and on the Pi's `GET /config` (§5.4, §6). A v2
   client ignores all of it and is unaffected; `app.md` is what consumes them.
   `GET /i18n/{lang}` → `mobile` later gained the picker chrome and filter-sheet
   keys (§5.9), also additive.

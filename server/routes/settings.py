@@ -171,6 +171,7 @@ def _settings_view(request, form):
     if request.method == 'POST':
         modified = False
         icon_error = None
+        console_changed = False
         # Snapshot for the generic sweep near the end of this function: it must
         # not touch anything a typed handler above has already dealt with.
         before = dict(state.settings)
@@ -223,6 +224,7 @@ def _settings_view(request, form):
                     state.settings[key] = val
                     changed = True
                     modified = True
+                    console_changed = console_changed or key == 'console_type'
             if changed:
                 prev = state._decoder
                 state._decoder_console_type = state.settings.get('console_type', 'cts_gen6')
@@ -473,8 +475,18 @@ def _settings_view(request, form):
             # title, the carousel image list and its interval — a native display
             # only re-reads them on `reload`, so without this it would keep showing
             # the old title and rotate a stale set of images.
+            # A console change belongs here for the same reason: `/config` and the
+            # relay's `settings` block both carry which console this is and whether
+            # it times anything (docs/api.md §5.4, §6), and a client that has
+            # already fetched either only re-reads it on `reload`. Switching to the
+            # manual console mid-meet is exactly when a phone has to be told — it is
+            # the moment its Results screen stops being able to fill (`app.md`
+            # `A-11`). Re-register first, so the config the reload sends them back
+            # for is the new one.
+            if console_changed:
+                relay.update_metadata()
             if ('display_settings_submit' in form or 'theme_update_submit' in form
-                    or 'splash_settings_submit' in form):
+                    or 'splash_settings_submit' in form or console_changed):
                 bus.emit('/scoreboard', 'reload')
                 bus.emit('/results', 'reload')
                 relay.relay_emit('reload', {})

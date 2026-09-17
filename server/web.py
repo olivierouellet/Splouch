@@ -201,6 +201,10 @@ def display_config():
     except OSError:
         cfg['carousel_images'] = []
     cfg['carousel_interval'] = int(state.settings.get('carousel_interval', 10))
+    # Which console is feeding this server, and whether it produces times at all
+    # (docs/api.md §6). The cloud's twin of this is the relay `settings` block, so a
+    # client connecting straight to a Pi gates its Results screen on the same fact.
+    cfg['console'] = state.console_state()
     # The ref this server is running, so a display can say whether it is in step and
     # update itself to match without the operator going to a browser. The same value
     # `/displays_update` broadcasts as `target` — a commit, never a branch, so the

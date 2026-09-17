@@ -38,7 +38,14 @@ socket.on('connect', function() {
        pushes on connect, so it renders MEET_ID as "" (docs/api.md §2 vs §3). */
     if (MEET_ID) socket.emit('join_meet', { meet_id: MEET_ID, vid: splouchVid() });
 });
-socket.on('reload', function() { location.reload(); });
+/* The shell around this page is server-rendered too — the tab bar, and whether it
+   has a Results tab at all (app.md `A-11`) — and it holds no socket of its own. So
+   inside the shell this reloads the shell, which brings the three tabs back with
+   it; standalone it reloads this page, as before. One tab does it, the one that is
+   always present, so a config change is not three reloads. */
+socket.on('reload', function() {
+    (window.parent !== window ? window.parent : window).location.reload();
+});
 /* The server says this board is stale — a test session just ended and the real
    meet is back. The Pi sends it; the cloud never does, since a local-only test
    never reaches the cloud and one that does is a real session as far as it knows. */

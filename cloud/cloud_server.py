@@ -1077,6 +1077,11 @@ def route_mobile(request: Request):
                   app_title=(meet.get('app_window_title') or meet['name'] or 'Splouch'),
                   t=_strings(_client_lang(request, meet), 'mobile'),
                   lang=_client_lang(request, meet),
+                  # No Results tab for a meet run by hand: nothing will ever fill it
+                  # (docs/app.md `A-11`). True for a relay too old to say, which is
+                  # what every relay before this said by having a console at all.
+                  show_results=meet.get('settings', {})
+                                  .get('console', {}).get('timed', True),
                   # Passed down to the tab iframes so one choice covers all three.
                   ui_style=_client_style(request, meet)))
 

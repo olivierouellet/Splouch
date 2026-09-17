@@ -83,6 +83,11 @@ PAGES = [
     ('shell-pi',         'server/templates', 'mobile.html', {'app_title': 'Coupe', 't': _TABS}),
     ('shell-cloud',      'cloud/templates',  'mobile.html',
      {'app_title': 'Coupe', 't': _TABS, 'meet_id': 'abc123'}),
+    # The shell a meet with no timing console gets: two tabs, not three (app.md
+    # `A-11`). Its tab bar is built from what was rendered, so it is a different
+    # path through the same script.
+    ('shell-untimed',    'cloud/templates',  'mobile.html',
+     {'app_title': 'Coupe', 't': _TABS, 'meet_id': 'abc123', 'show_results': False}),
 ]
 
 

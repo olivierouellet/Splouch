@@ -62,6 +62,9 @@ def route_mobile(request: Request):
     app_title = (state.settings.get('app_window_title') or
                  state.settings.get('meet_title') or 'Splouch')
     return remember_prefs(request, render(request, 'mobile.html', app_title=app_title,
+                                          # No Results tab under a console that times
+                                          # nothing — see the template (app.md `A-11`).
+                                          show_results=state.console_state()['timed'],
                                           **client_strings(request)))
 
 

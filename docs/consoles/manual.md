@@ -24,6 +24,13 @@ all of it to spectators' phones.
 with. The race clock never runs, the Results page stays on its waiting state all meet,
 and no podium is ever shown. This is a start-list display, not a timing system.
 
+**Spectators are told, rather than left waiting.** The server publishes which console
+a meet is run on, and whether it times anything, to the phones — so the Splouch app
+and the web phone view drop their Results tab for the whole meet instead of offering
+a screen that can never fill. Scoreboard and Schedule are unaffected. Switching the
+console type in Settings takes effect on the phones without anyone reloading
+anything. (`docs/api.md` §5.4, `docs/app.md` `A-11`.)
+
 ## Setting it up
 
 1. **Settings → Meet Setup** — load your `.lxf` or `.csv` meet file as usual.

@@ -1,9 +1,12 @@
-{# The phone shell — three tabs in iframes, served by both servers.
+{# The phone shell — the meet's tabs in iframes, served by both servers.
 
    The Pi renders it for operators; the cloud renders it for spectators falling
    back from the native apps. `meet_id` is the only difference: the cloud routes
    by room and offers a way back to the meet list, the Pi serves one meet and
    renders it as "".
+
+   Three tabs, or two: a meet run with no timing console has no Results tab, because
+   nothing will ever fill it (app.md `A-11`).
 
    The tabs are iframes because each is an independent page with its own socket.
    They are same-origin, so this shell drives them directly — dispatching resize,
@@ -116,13 +119,24 @@
    choice against the meet's defaults, so the tabs inherit rather than re-deriving
    it (app.md `T-06`, `T-09`). #}
 {%- set ui = '&lang=' ~ lang ~ '&style=' ~ (ui_style or 'short') %}
+{# `show_results` is false when the meet is run with no timing console: no time and
+   no place will ever arrive, so the tab would wait for the whole meet (app.md
+   `A-11`). It comes off the meet's own config on both servers, and the tabs below
+   are read out of the DOM rather than numbered, so dropping one takes the frame,
+   the button and the swipe stop with it. Default true — a server that does not
+   send it has a console. #}
+{%- set with_results = show_results is not defined or show_results %}
     {% if meet_id %}
     <iframe id="frame0" class="active" src="/mobile/live?meet={{ meet_id }}{{ ui }}"></iframe>
+    {% if with_results %}
     <iframe id="frame1"               src="/mobile/results?meet={{ meet_id }}{{ ui }}"></iframe>
+    {% endif %}
     <iframe id="frame2"               src="/mobile/schedule?meet={{ meet_id }}{{ ui }}"></iframe>
     {% else %}
     <iframe id="frame0" class="active" src="/live-mobile?{{ ui[1:] }}"></iframe>
+    {% if with_results %}
     <iframe id="frame1"               src="/results?{{ ui[1:] }}"></iframe>
+    {% endif %}
     <iframe id="frame2"               src="/schedule?{{ ui[1:] }}"></iframe>
     {% endif %}
 
@@ -136,15 +150,17 @@
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
         </a>
         {% endif %}
-        <button class="active" id="tab0" onclick="show(0)">
+        <button class="active" id="tab0">
             <img src="/static/icons/swimming.svg" style="width:22px;height:22px;filter:invert(1);vertical-align:middle;margin-right:5px;">
             <span class="tab-label">{{ t.scoreboard or 'Scoreboard' }}</span>
         </button>
-        <button id="tab1" onclick="show(1)">
+        {% if with_results %}
+        <button id="tab1">
             <img src="/static/icons/award.svg" style="width:22px;height:22px;filter:invert(1);vertical-align:middle;margin-right:5px;">
             <span class="tab-label">{{ t.results or 'Results' }}</span>
         </button>
-        <button id="tab2" onclick="show(2)">
+        {% endif %}
+        <button id="tab2">
             <img src="/static/icons/clipboard-list.svg" style="width:22px;height:22px;filter:invert(1);vertical-align:middle;margin-right:5px;">
             <span class="tab-label">{{ t.schedule or 'Schedule' }}</span>
         </button>
@@ -152,9 +168,21 @@
 
     <script>
         // ── Tab navigation ────────────────────────────────────────────────────
-        const frames = [0,1,2].map(i => document.getElementById('frame' + i));
-        const tabs   = [0,1,2].map(i => document.getElementById('tab'   + i));
+        // Whichever of the three the server actually rendered, in order: a meet with
+        // no timing console has no Results tab, and everything below — the swipe, the
+        // restore, the buttons — then follows from how many there are rather than
+        // assuming three. A frame and its tab are dropped together, so the two arrays
+        // stay aligned and one index still names both.
+        const RENDERED = [['frame0', 'tab0', 'scoreboard'],
+                          ['frame1', 'tab1', 'results'],
+                          ['frame2', 'tab2', 'schedule']]
+                         .filter(t => document.getElementById(t[0]));
+        const frames = RENDERED.map(t => document.getElementById(t[0]));
+        const tabs   = RENDERED.map(t => document.getElementById(t[1]));
+        const names  = RENDERED.map(t => t[2]);
+        const last   = frames.length - 1;
         let current = 0;
+        tabs.forEach((b, i) => b.addEventListener('click', () => show(i)));
 
         function show(idx) {
             if (idx === current) return;
@@ -167,7 +195,10 @@
             current = idx;
             frames[current].classList.add('active');
             tabs[current].classList.add('active');
-            try { sessionStorage.setItem('tab', idx); } catch(e) {}
+            // The tab's name, not its position: a meet that loses its Results tab
+            // between two visits would otherwise restore a spectator who was on
+            // Schedule to whatever now sits at index 2 (app.md `A-04`, `A-11`).
+            try { sessionStorage.setItem('tab', names[idx]); } catch(e) {}
             // Let the newly-visible page re-run layout that fired while it was hidden.
             try { frames[current].contentWindow.dispatchEvent(new Event('resize')); } catch(e) {}
             try { frames[current].contentWindow.on_timer(); } catch(e) {}
@@ -176,14 +207,16 @@
 
         // Restore the tab this session was last on, before anything paints.
         (function() {
-            let saved = NaN;
-            try { saved = parseInt(sessionStorage.getItem('tab'), 10); } catch(e) {}
-            if (saved > 0 && saved <= 2) {
+            let saved = '';
+            try { saved = sessionStorage.getItem('tab') || ''; } catch(e) {}
+            // -1 for a tab this meet no longer has, which leaves the Scoreboard up.
+            const idx = names.indexOf(saved);
+            if (idx > 0) {
                 frames[0].classList.remove('active');
                 tabs[0].classList.remove('active');
-                current = saved;
-                frames[saved].classList.add('active');
-                tabs[saved].classList.add('active');
+                current = idx;
+                frames[idx].classList.add('active');
+                tabs[idx].classList.add('active');
             }
         })();
 
@@ -195,7 +228,7 @@
             const dx = e.changedTouches[0].clientX - swipeStartX;
             swipeStartX = null;
             if (Math.abs(dx) < 40) return;
-            show(dx < 0 ? Math.min(current + 1, 2) : Math.max(current - 1, 0));
+            show(dx < 0 ? Math.min(current + 1, last) : Math.max(current - 1, 0));
         }
         ['edgeL','edgeR'].forEach(id => {
             const el = document.getElementById(id);
