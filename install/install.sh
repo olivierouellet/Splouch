@@ -516,7 +516,19 @@ WALLEOF
     sudo ufw default allow outgoing
     sudo ufw allow in on eth0
     sudo ufw allow in on wlan0
+
+    # Browsers upgrade a typed `splouch.local` to https and only fall back to http
+    # when the https attempt fails *fast* — a TCP reset, i.e. connection refused.
+    # Nothing here serves TLS, so the fast failure is what we want; the trap is that
+    # ufw's `deny` policy is a silent DROP. On eth0/wlan0 the rules above let the SYN
+    # through and the kernel resets it, but reached over any other path (a router, a
+    # USB WiFi dongle that enumerates as wlxXXXX rather than wlan0) the SYN is dropped,
+    # the browser hangs, and the server looks dead. `reject` sends the reset instead.
+    # Ordered after the interface allows on purpose: those still match first for
+    # pool-deck traffic, and the outcome is the same reset either way.
+    sudo ufw reject 443/tcp comment "no TLS here — reset fast so browsers fall back to http"
     info "Firewall enabled — all incoming traffic allowed on eth0 and wlan0"
+    info "Port 443 refused (not dropped) — https://${SERVER_HOSTNAME}.local falls back to http"
 
     section "Hostname"
     sudo hostnamectl set-hostname "$SERVER_HOSTNAME"

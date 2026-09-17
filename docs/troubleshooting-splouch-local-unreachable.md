@@ -83,10 +83,67 @@ Then flush the client's DNS/mDNS cache and reload `http://splouch.local/`:
 > to clear the browser cache or fully quit and reopen the browser (on Safari,
 > ⌘Q, or Develop → Empty Caches).
 
+## A second cause: the browser is trying https
+
+### How it looks
+
+- `http://splouch.local/` typed **with the `http://` prefix** loads fine.
+- Typing just `splouch.local` hangs, or the address bar shows `https://` and the
+  page never arrives.
+
+### Why it happens
+
+Chrome, Safari and Firefox upgrade a typed hostname to `https://` before trying
+`http://`. Nothing on the Pi serves TLS, and it never will by default — a
+Let's Encrypt certificate needs a public domain, which no pool-deck LAN has.
+
+That upgrade is normally harmless: the browsers fall back to http as soon as the
+https attempt fails **fast** (a TCP reset — "connection refused"). The trap is
+that ufw's `deny` policy **drops** packets silently instead of resetting them.
+When the SYN is dropped, nothing comes back, the browser waits, and the server
+looks dead.
+
+On `eth0`/`wlan0` the blanket `ufw allow in on …` rules let the SYN through and
+the kernel resets it, so the fallback works. The hang shows up on any other
+path — the Pi reached through a router, or a USB WiFi dongle that enumerates as
+`wlxXXXXXXXX` rather than `wlan0`, so the allow rule never matches it.
+
+> There is no way for the server to redirect an https request to http, or to
+> serve a "no https here" warning page. An HTTP response travels *inside* the TLS
+> session, so sending one requires a certificate the browser already trusts. The
+> only thing the Pi can do is fail fast enough that the browser retries on http
+> by itself.
+
+### The fix
+
+Make port 443 refuse connections instead of swallowing them:
+
+```bash
+sudo ufw reject 443/tcp comment "no TLS here — reset fast so browsers fall back to http"
+sudo ufw status numbered | grep 443
+```
+
+Then confirm the reset arrives promptly — this should return
+`Connection refused` immediately, not hang:
+
+```bash
+curl -sS --max-time 5 https://splouch.local/ ; echo "exit=$?"
+```
+
+Remaining cases that this cannot fix, because only a trusted certificate can:
+
+- A bookmark or link saved as `https://splouch.local/` — the explicit scheme
+  disables the fallback. Re-save it as `http://splouch.local/`.
+- Firefox with **HTTPS-Only Mode** switched on. Add an exception for the site,
+  or turn the mode off.
+
 ## Notes
 
-- This is handled automatically by `install.sh` (in the **mDNS aliases**
-  section) for new installs.
+- Both fixes are handled automatically by `install.sh` for new installs — the
+  IPv6 one in the **mDNS aliases** section, the port 443 reject in the
+  **Firewall** section. Existing Pis are nudged to reinstall by the provisioning
+  version check (`install/PROVISION_VERSION`), since the in-app update cannot
+  change firewall rules itself.
 - Disabling IPv6 in avahi is safe for this LAN scoreboard use case — all
   clients reach the Pi over IPv4.
 - If the page is still unreachable after this and **even direct IP fails from
