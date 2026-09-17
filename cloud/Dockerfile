@@ -3,7 +3,7 @@ FROM python:3.13-slim
 WORKDIR /app
 
 COPY cloud/requirements.txt requirements.txt
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir --require-hashes -r requirements.txt
 
 # Cloud server code, templates, and shared locales
 COPY cloud/cloud_server.py .
