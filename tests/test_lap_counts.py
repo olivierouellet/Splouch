@@ -170,6 +170,12 @@ def phone():
 
 
 @pytest.fixture(scope='module')
+def phone_down():
+    return _render('server/templates', 'live-mobile.html', show_laps=True,
+                   lap_direction='down')
+
+
+@pytest.fixture(scope='module')
 def kiosk():
     return _render('server/templates', 'live.html',
                    show_laps=True, nosplash=True, test_background=False,
@@ -211,11 +217,25 @@ def test_counting_down_needs_a_total(boards):
     countdown from an unknown total would run to a number nobody can reach.
     """
     for name, html in boards.items():
+        guard = html[html.index('function countingDown('):]
+        guard = guard[:guard.index('\n}')]
+        assert 'expected_splits > 0' in guard, f'{name} counts down from an unknown total'
+        assert "LAP_DIRECTION === 'down'" in guard, f'{name} ignores the setting'
         body = html[html.index('function lapText('):]
         body = body[:body.index('\n}')]
-        assert 'expected_splits > 0' in body, f'{name} counts down from an unknown total'
         assert 'Math.max(0' in body, f'{name} can show a negative lap'
-        assert "LAP_DIRECTION === 'down'" in body, f'{name} ignores the setting'
+        assert 'lane_splits_n[i] || 0' in body, f'{name} can render NaN before the first touch'
+
+
+def test_the_countdown_shows_from_the_start_of_the_heat(boards):
+    """Counting up waits for the first wall; counting down has the whole race to
+    report and says so from the moment the heat loads. It needs a swimmer in the
+    lane — an empty lane in a short heat must not advertise lengths nobody swims."""
+    for name, html in boards.items():
+        body = html[html.index('function lapVisible('):]
+        body = body[:body.index('\n}')]
+        assert 'countingDown()' in body, f'{name} still needs a split to show anything'
+        assert 'lane_name_blank' in body, f'{name} would count down an empty lane'
 
 
 def test_a_place_ends_the_lap(boards):
@@ -312,6 +332,58 @@ def test_the_setting_off_means_no_lap_at_all():
                           expected_splits: 8, split_step: 1});
     applyScoreboardFrame({lane_splits1: 3, lane_running1: true});
     assert(cell(1) === '', 'laps drawn with the setting off: ' + JSON.stringify(cell(1)));
+    ''')
+
+
+@pytest.mark.skipif(not HAS_JSC, reason='needs JavaScriptCore via osascript (macOS)')
+def test_the_whole_race_shows_before_anyone_has_swum(phone_down):
+    """The heat loads, nobody has touched a wall, and every lane already reads 8."""
+    _drive(phone_down, r'''
+    var heat = {current_event: '5', current_heat: '1',
+                expected_splits: 8, split_step: 1};
+    for (var i = 1; i <= 6; i++) {
+        heat['lane_name' + i]    = 'SWIMMER ' + i;
+        heat['lane_splits' + i]  = 0;
+        heat['lane_place' + i]   = ' ';
+        heat['lane_delta' + i]   = '';
+        heat['lane_running' + i] = false;
+    }
+    applyScoreboardFrame(heat);
+    assert(cell(1) === '8', 'lane 1 should read 8 before the gun, got ' + JSON.stringify(cell(1)));
+    ''')
+
+
+@pytest.mark.skipif(not HAS_JSC, reason='needs JavaScriptCore via osascript (macOS)')
+def test_an_empty_lane_counts_down_nothing(phone_down):
+    """A six-swimmer heat in eight lanes must not advertise eight lengths in the two
+    lanes nobody is in."""
+    _drive(phone_down, r'''
+    var heat = {current_event: '5', current_heat: '1',
+                expected_splits: 8, split_step: 1};
+    for (var i = 1; i <= 6; i++) { heat['lane_name' + i] = 'SWIMMER ' + i; }
+    heat['lane_name7'] = ''; heat['lane_name8'] = '';
+    for (var i = 1; i <= 8; i++) {
+        heat['lane_splits' + i] = 0; heat['lane_place' + i] = ' ';
+        heat['lane_delta' + i] = '';
+    }
+    applyScoreboardFrame(heat);
+    assert(cell(1) === '8', 'a swum lane should count down: ' + JSON.stringify(cell(1)));
+    assert(cell(7) === '', 'an empty lane must stay blank: ' + JSON.stringify(cell(7)));
+    ''')
+
+
+@pytest.mark.skipif(not HAS_JSC, reason='needs JavaScriptCore via osascript (macOS)')
+def test_counting_up_still_waits_for_the_first_wall(phone):
+    """Unchanged: a column of noughts under a start list is noise."""
+    _drive(phone, r'''
+    var heat = {current_event: '5', current_heat: '1',
+                expected_splits: 8, split_step: 1};
+    for (var i = 1; i <= 6; i++) {
+        heat['lane_name' + i] = 'SWIMMER ' + i; heat['lane_splits' + i] = 0;
+        heat['lane_place' + i] = ' '; heat['lane_delta' + i] = '';
+    }
+    applyScoreboardFrame(heat);
+    assert(cell(1) === '', 'counting up should stay blank at 0: ' + JSON.stringify(cell(1)));
     ''')
 
 
@@ -528,3 +600,36 @@ def test_qt_drops_the_lap_on_a_heat_change(qt_board, qt_app):
     qt_board.apply_update({'current_event': '5', 'current_heat': '2'})
     qt_app.processEvents()
     assert 'lane_splits1' not in qt_board.snapshot
+
+
+def test_qt_counts_down_from_the_start_of_the_heat(qt_app):
+    """The heat loads, nobody has swum, and a lane with a swimmer already reads 8 —
+    while an empty lane stays blank and counting up still waits for the first wall."""
+    from scoreboard.board import BoardWindow
+    from scoreboard.theme import Config
+
+    def board(direction):
+        w = BoardWindow(Config({'num_lanes': 8, 'show_laps': True,
+                                'lap_direction': direction}))
+        heat = {'current_event': '5', 'current_heat': '1',
+                'expected_splits': 8, 'split_step': 1}
+        for i in range(1, 9):
+            heat[f'lane_name{i}']   = f'SWIMMER {i}' if i <= 6 else ''
+            heat[f'lane_splits{i}'] = 0
+            heat[f'lane_place{i}']  = ' '
+        w.apply_update(heat)
+        qt_app.processEvents()
+        return w
+
+    down = board('down')
+    try:
+        assert down.rows[0].delta_label.text() == '8', 'no countdown before the gun'
+        assert down.rows[6].delta_label.text() == '', 'an empty lane counts down nothing'
+    finally:
+        down.stop_clock(); down.close()
+
+    up = board('up')
+    try:
+        assert up.rows[0].delta_label.text() == '', 'counting up must wait for a wall'
+    finally:
+        up.stop_clock(); up.close()

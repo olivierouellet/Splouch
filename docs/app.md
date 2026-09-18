@@ -288,7 +288,7 @@ Live lane state during a heat. The busiest screen and the one most worth getting
 > | condition | why |
 > | --- | --- |
 > | `settings.show_laps` | off by default; not every console's count is exact |
-> | `lane_splits<i> > 0` | every lane starts a heat at 0, and a column of noughts under a start list is noise |
+> | `lane_splits<i> > 0`, **or** counting down in a lane that has a swimmer | counting up waits for the first wall — a column of noughts under a start list is noise. Counting down has the whole race to report, so it shows from the moment the heat loads; an empty lane in a short heat must not advertise lengths nobody swims |
 > | the lane has no place | the finish ends the lap, whatever the delta is doing — a swimmer with no seed time never gets a delta at all |
 > | the delta is empty | belt and braces for the frame where both arrive together |
 >

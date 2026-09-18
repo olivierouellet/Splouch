@@ -387,9 +387,22 @@ var split_step      = 1;       /* lengths one counted split is worth            
    would leave the lap sitting under a finished swim for the rest of the heat. */
 function lapVisible(i) {
     if (!SHOW_LAPS) return false;
-    if (!(lane_splits_n[i] > 0)) return false;
     if (!((lane_delta_html[i] || '').trim() === '')) return false;
-    return !(i in lane_place_blank) || lane_place_blank[i];
+    if ((i in lane_place_blank) && !lane_place_blank[i]) return false;
+    if (lane_splits_n[i] > 0) return true;
+    /* Nothing swum yet, and here the two directions part company. Counting up has
+       nothing to say — a column of noughts under a start list is noise. Counting
+       down has the whole race to report, so it shows from the moment the heat
+       loads rather than waiting for the first wall. It needs a swimmer in the lane
+       to say it about: an empty lane in a short heat must not advertise eight
+       lengths nobody is swimming. */
+    return countingDown() && (i in lane_name_blank) && !lane_name_blank[i];
+}
+
+/* Counting down needs a total to count down from. `expected_splits` is 0 for any
+   event whose meet file carries no distance, and the count falls back to up. */
+function countingDown() {
+    return LAP_DIRECTION === 'down' && expected_splits > 0;
 }
 
 /* What the cell shows for lane `i`. Counting down is `expected - done`, clamped at
@@ -399,9 +412,11 @@ function lapVisible(i) {
    picked the direction once and the board is not the place to argue about a
    missing meet file. */
 function lapText(i) {
-    var done = lane_splits_n[i];
-    if (LAP_DIRECTION === 'down' && expected_splits > 0)
-        return String(Math.max(0, expected_splits - done));
+    /* `|| 0`: before the first touch a lane has no `lane_splits<i>` at all, and
+       `expected - undefined` is NaN. Unreachable while the count needed a split to
+       show; the countdown's start-of-heat number is exactly that case. */
+    var done = lane_splits_n[i] || 0;
+    if (countingDown()) return String(Math.max(0, expected_splits - done));
     return String(done);
 }
 
