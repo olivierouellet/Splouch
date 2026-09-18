@@ -397,25 +397,32 @@ table.timing-table tbody td:first-child,
 
 /* ── Seed-time delta ─────────────────────────────────────────────────────── */
 
-.td_delta { font-size: 5vh; padding-right: 0.5vw; font-family: var(--font-timing), monospace; }
+/* Centred, like every other timing column. It was right-aligned while the delta
+   was its only tenant; a lap count is one or two digits, and right-aligning that
+   pushed it against the place column, where a bare `3` sat a glyph away from a
+   `#3` and read as a rank. */
+.td_delta { font-size: 5vh; text-align: center; font-family: var(--font-timing), monospace; }
 .delta-better { color: var(--color-delta-better); }
 .delta-worse  { color: var(--color-delta-worse); }
 
 /* ── Lap count (shares the delta cell) ────────────────────────────────────────
    While a lane is swimming the delta cell carries the lengths it has completed;
-   at the finish the delta takes the cell back. A lap is not a time, so it takes
-   the row's own colour — the one the swimmer's name is in — while the delta keeps
-   its better/worse colours. That contrast is what makes the swap legible without
-   the column header ever moving. Both boards render this (`renderDelta` in
-   scoreboard_base.html and live.html), so the rule lives here rather than twice. */
-.td_delta.lap-count { color: var(--color-row-text); }
-@keyframes lap-last-pulse {
-    0%, 100% { color: var(--color-row-text); }
-    50%      { color: var(--color-time); }
-}
-/* The last length before the finish. Begins and ends on the row colour, so the
-   swap to the delta can never catch it mid-cycle on an off colour. */
-.td_delta.lap-count.lap-last { animation: lap-last-pulse 1s ease-in-out infinite; }
+   at the finish the delta takes the cell back. A lap is not a time and not a
+   result, so it takes the header's accent blue — the colour this board already
+   uses for "this is a label, not a number you race against" — while the delta
+   keeps its better/worse green and grey. That contrast is what makes the swap
+   legible without the column header ever moving. Both boards render this
+   (`renderDelta` in scoreboard_base.html and live.html), so the rule lives here
+   rather than twice. */
+.td_delta.lap-count { color: var(--color-header-label); }
+/* The final stretch: the same number, in the timing colour the stopped chrono
+   takes. Not an animation — the number is already the information, and this only
+   has to say "this one is the last". It necessarily holds until the finish: once
+   `splits + split_step >= expected_splits` the next thing the console reports *is*
+   the finish, so no further split can change the cell. With touchpads at one end
+   only that covers the last two lengths, because the swimmer is not seen in
+   between. */
+.td_delta.lap-count.lap-final { color: var(--color-time); }
 
 /* ── Podium highlight ─────────────────────────────────────────────────────── */
 

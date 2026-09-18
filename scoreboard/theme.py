@@ -117,6 +117,11 @@ class Config:
             setattr(self, flag, bool(raw.get(flag, True)))
         for flag in _SHOW_FLAGS_OFF:
             setattr(self, flag, bool(raw.get(flag, False)))
+        # Which way the lap count runs. Normalised against the pair rather than
+        # taken as given: a server too old to send it, or one sending something
+        # unknown, must land on the direction the column has always had.
+        self.lap_direction = (raw.get('lap_direction')
+                              if raw.get('lap_direction') in ('up', 'down') else 'up')
 
     def color(self, key: str) -> str:
         return self.colors.get(key) or DEFAULT_COLORS.get(key, '#ffffff')

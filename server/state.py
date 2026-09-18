@@ -88,6 +88,11 @@ settings = {
     # put on a public board, and the CTS Gen6 count is inferred from touchpad
     # stops. Turn it on once you know which console the venue has.
     'show_laps': False,
+    # Which way the lap count runs: 'up' counts lengths completed, 'down' counts
+    # lengths remaining. Up is the console's own number and the safer default —
+    # counting down needs `expected_splits`, which is 0 for any event whose meet
+    # file carries no distance, and a countdown from an unknown total is a lie.
+    'lap_direction': 'up',
     'results_sort': 'lane',
     'active_theme': 'default',
     'theme_colors': {

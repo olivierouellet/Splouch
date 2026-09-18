@@ -42,7 +42,16 @@
                         <div class="mb-3">
                             <div class="panel-eyebrow">{{ t.disp_features }}</div>
                             <div class="form-check form-check-inline"><input class="form-check-input" type="checkbox" id="cb_podium" name="show_podium" value="1" {% if show_podium %}checked{% endif %}><label class="form-check-label" for="cb_podium">{{ t.disp_podium_colors }}</label></div>
-                            <div class="form-check form-check-inline"><input class="form-check-input" type="checkbox" id="cb_laps" name="show_laps" value="1" {% if show_laps %}checked{% endif %}><label class="form-check-label" for="cb_laps">{{ t.disp_lap_counts }}</label></div>
+                            {# Its own line, not inline beside the podium switch: it owns a
+                               direction menu, and a select wrapped onto the next line under
+                               a checkbox it does not belong to read as the podium's. #}
+                            <div class="mt-2 d-flex align-items-center gap-2 flex-wrap">
+                                <div class="form-check mb-0"><input class="form-check-input" type="checkbox" id="cb_laps" name="show_laps" value="1" {% if show_laps %}checked{% endif %}><label class="form-check-label" for="cb_laps">{{ t.disp_lap_counts }}</label></div>
+                                <select id="lap_direction" name="lap_direction" class="form-select form-select-sm" style="width:auto;">
+                                    <option value="up"   {% if lap_direction == 'up'   %}selected{% endif %}>{{ t.disp_laps_up }}</option>
+                                    <option value="down" {% if lap_direction == 'down' %}selected{% endif %}>{{ t.disp_laps_down }}</option>
+                                </select>
+                            </div>
                             <div class="form-text">{{ t.disp_lap_counts_help }}</div>
                         </div>
                         <div class="mb-3">

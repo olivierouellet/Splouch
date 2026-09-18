@@ -13,9 +13,8 @@ spread is the whole reason these tests exist:
   ever raises the count, or a number survives a heat change.
 * `split_step` belongs to the **pool**, not the console: a swimmer who does not
   touch a pad is invisible to every console on the market, so pads at one end mean
-  four observations in a 200m whatever brand is on the deck. Everything that asks
-  "is this the last length?" is `splits + step >= expected`, so a board that assumed
-  1 would never pulse on the very setup that needs it most.
+  four observations in a 200m whatever brand is on the deck. It is what tells a
+  board how far through the race a count of 6 actually is.
 * The delta column has two tenants and one writer. Both boards render it the same
   way — see `notes/scoreboard_parity.md` — and the Qt board is a third
   implementation of the same rule.
@@ -78,9 +77,8 @@ def test_counting_decoders_really_move_the_count(key):
 def test_one_sided_touchpads_count_in_twos():
     """Pads at one end mean the swimmer is only *seen* every second length.
 
-    This is what `splits + split_step >= expected_splits` is for: with a step of 2
-    the count goes 2, 4, 6 and never equals `expected - 1`, so a board testing
-    `+ 1` would never find the last length.
+    With a step of 2 the count goes 2, 4, 6: it never lands on an odd length,
+    because no swimmer is ever seen at one.
     """
     assert split_step(1) == 2
     assert split_step(2) == 1
@@ -91,8 +89,8 @@ def test_the_step_is_the_pool_not_the_console():
 
     A swimmer who does not touch a pad is invisible to every console on the market;
     there are four observations in a 200m in a one-sided pool whatever is on the
-    deck. When this lived on the decoder, a Quantum in that pool published a step of
-    1 and its last length never pulsed.
+    deck. When this lived on the decoder, a Quantum in that pool published a step
+    of 1 and misdescribed its own count.
     """
     assert not any(hasattr(make_decoder(key, {'num_lanes': 8}), 'split_step')
                    for key in _ALL), 'split_step must not be a decoder property'
@@ -100,8 +98,7 @@ def test_the_step_is_the_pool_not_the_console():
 
 def test_a_missing_or_odd_setting_reads_as_one_sided():
     """`touchpad_sides` ships as 1, and anything unset must not read as 2-sided:
-    over-counting the last length is a pulse one length early, under-counting is no
-    pulse at all."""
+    the step is how a board reads the count it is given."""
     assert split_step(None) == 2
     assert split_step(0) == 2
     assert split_step('1') == 2
@@ -184,7 +181,7 @@ def boards(phone, kiosk):
     return {'phone': phone, 'kiosk': kiosk}
 
 
-@pytest.mark.parametrize('fn', ['renderDelta', 'lapVisible', 'lapIsLast'])
+@pytest.mark.parametrize('fn', ['renderDelta', 'lapVisible', 'lapText'])
 def test_both_boards_carry_the_same_renderer(boards, fn):
     """The kiosk predates the shared base and keeps its own frame handler, so the
     lap rule exists twice. Neither copy may quietly lose a piece of it."""
@@ -207,17 +204,18 @@ def test_the_delta_cell_has_exactly_one_writer(boards):
         assert 'lane_delta' not in valid, f'{name}: the delta cell has two writers'
 
 
-def test_the_pulse_test_uses_the_step_not_one(boards):
-    """`splits + split_step >= expected_splits`, never `splits + 1`.
+def test_counting_down_needs_a_total(boards):
+    """`down` is `expected - done`, and falls back to counting up at 0.
 
-    The one-sided-touchpad count moves in twos, so a `+ 1` test never fires on the
-    setup where the last length is hardest to judge from the deck.
+    `expected_splits` is 0 for any event whose meet file carries no distance, and a
+    countdown from an unknown total would run to a number nobody can reach.
     """
     for name, html in boards.items():
-        body = html[html.index('function lapIsLast('):]
+        body = html[html.index('function lapText('):]
         body = body[:body.index('\n}')]
-        assert 'split_step' in body, f'{name} ignores the step'
-        assert 'expected_splits' in body, f'{name} ignores the expected count'
+        assert 'expected_splits > 0' in body, f'{name} counts down from an unknown total'
+        assert 'Math.max(0' in body, f'{name} can show a negative lap'
+        assert "LAP_DIRECTION === 'down'" in body, f'{name} ignores the setting'
 
 
 def test_a_place_ends_the_lap(boards):
@@ -337,12 +335,79 @@ def test_a_heat_change_takes_the_lap_off_the_board(phone):
 
 def test_the_lap_colour_is_shared_between_the_boards():
     """One CSS file, so the kiosk and the phone cannot drift on what a lap looks
-    like — the row's own colour, and the timing colour on the last length."""
+    like — the header's accent blue, the same key the EVENT/HEAT words take."""
     css = open(os.path.join(REPO, 'shared', 'static', 'css',
                             'timing_display.css')).read()
-    assert '.td_delta.lap-count' in css
-    assert '@keyframes lap-last-pulse' in css
-    assert 'var(--color-row-text)' in css[css.index('.td_delta.lap-count'):]
+    rule = css[css.index('.td_delta.lap-count'):]
+    assert 'var(--color-header-label)' in rule[:rule.index('}')]
+
+
+def test_the_delta_column_is_centred():
+    """It was right-aligned while the delta was its only tenant. A one-digit lap
+    right-aligned sat against the place column, where a bare `3` a glyph from a
+    `#3` reads as a rank."""
+    css = open(os.path.join(REPO, 'shared', 'static', 'css',
+                            'timing_display.css')).read()
+    # Anchored at the line start: `.timing-table.hide-delta .td_delta { display:
+    # none }` contains the same substring and comes first in the file.
+    rule = re.search(r'^\.td_delta \{([^}]*)\}', css, re.M)
+    assert rule, 'no base .td_delta rule'
+    assert 'text-align: center' in rule.group(1), rule.group(1)
+    assert 'padding-right' not in rule.group(1), 'a right padding shifts a centred cell'
+
+
+def test_no_board_still_pulses():
+    """The last-length pulse was cut and replaced by a plain colour change. It lived
+    in three places, so all three have to forget it."""
+    css = open(os.path.join(REPO, 'shared', 'static', 'css',
+                            'timing_display.css')).read()
+    board = open(os.path.join(REPO, 'scoreboard', 'board.py')).read()
+    lap_rules = css[css.index('.td_delta.lap-count'):]
+    lap_rules = lap_rules[:lap_rules.index('/* ── Podium')]
+    # Comments stripped first: the prose there says why there is no animation.
+    lap_rules = re.sub(r'/\*.*?\*/', '', lap_rules, flags=re.S)
+    assert 'lap-last' not in css
+    assert 'animation' not in lap_rules, lap_rules
+    assert '_LAP_PULSE_MS' not in board and '_lap_anim' not in board
+
+
+def test_the_final_stretch_is_the_timing_colour():
+    """Same number, the colour a stopped chrono takes. One CSS file, so the two
+    browser boards cannot drift; the Qt board reads the same theme key."""
+    css = open(os.path.join(REPO, 'shared', 'static', 'css',
+                            'timing_display.css')).read()
+    rule = css[css.index('.td_delta.lap-count.lap-final'):]
+    assert 'var(--color-time)' in rule[:rule.index('}')]
+    board = open(os.path.join(REPO, 'scoreboard', 'board.py')).read()
+    assert "self.cfg.color('time' if final else 'header_label')" in board
+
+
+@pytest.mark.parametrize('fn', ['lapIsFinal'])
+def test_both_boards_know_the_final_stretch(boards, fn):
+    """`+ split_step`, never `+ 1`: with one-end pads the count arrives in twos, so
+    a `+ 1` test would never fire on the setup where the deck can least easily tell.
+    """
+    for name, html in boards.items():
+        body = html[html.index('function %s(' % fn):]
+        body = body[:body.index('\n}')]
+        assert 'split_step' in body, f'{name} ignores the step'
+        assert 'expected_splits' in body, f'{name} ignores the expected count'
+
+
+def test_the_diff_title_goes_away_with_lap_counts():
+    """For most of a heat the column holds lengths, and a `DELTA` over a column of
+    small integers reads as a claim about them. The column stays, only the title
+    goes — and it stays gone through the results, or the header would move."""
+    on  = _render('server/templates', 'live.html', meet_title='C', show_laps=True,
+                  nosplash=True, test_background=False, carousel_images=[],
+                  carousel_interval=10)
+    off = _render('server/templates', 'live.html', meet_title='C', show_laps=False,
+                  nosplash=True, test_background=False, carousel_images=[],
+                  carousel_interval=10)
+    assert 'hide-delta-header' in on,  'title still shown with laps on'
+    assert 'hide-delta-header' not in off, 'title hidden with laps off'
+    # The cells must not follow the title out — `hide-delta` is the column itself.
+    assert 'hide-delta ' not in on and not on.rstrip().endswith('hide-delta')
 
 
 # ── The Qt board ───────────────────────────────────────────────────────────────
@@ -396,19 +461,44 @@ def test_qt_hands_the_cell_back_at_the_finish(qt_board, qt_app):
     assert better in qt_board.rows[0].delta_label.styleSheet()
 
 
-def test_qt_pulses_only_on_the_last_length(qt_board, qt_app):
-    """`+ split_step`, not `+ 1`: with two-a-side counting the pulse belongs on 6
-    of 8, because the next touch is the finish."""
-    qt_board.apply_update({'current_event': '5', 'current_heat': '1',
-                           'expected_splits': 8, 'split_step': 2})
-    qt_board.apply_update({'lane_splits1': 4, 'lane_running1': True})
-    qt_app.processEvents()
-    assert qt_board.rows[0].lap_for(qt_board.snapshot) == (4, False)
+def test_qt_counts_down_when_asked(qt_app):
+    """`down` shows what is left, clamped at 0, and falls back to up with no total."""
+    from scoreboard.board import BoardWindow
+    from scoreboard.theme import Config
+    window = BoardWindow(Config({'num_lanes': 6, 'show_laps': True,
+                                 'lap_direction': 'down'}))
+    try:
+        row = window.rows[0]
+        window.apply_update({'current_event': '5', 'current_heat': '1',
+                             'expected_splits': 8, 'split_step': 2})
+        window.apply_update({'lane_splits1': 2, 'lane_running1': True})
+        qt_app.processEvents()
+        assert row.lap_for(window.snapshot) == ('6', False), 'eight lengths, two done'
+        assert row.delta_label.text() == '6'
 
-    qt_board.apply_update({'lane_splits1': 6})
+        # An over-count must not go negative — an inferred count can drift past.
+        window.apply_update({'lane_splits1': 99})
+        qt_app.processEvents()
+        assert row.lap_for(window.snapshot)[0] == '0'
+
+        # No total to count down from: show what the console gave.
+        window.apply_update({'expected_splits': 0, 'lane_splits1': 3})
+        qt_app.processEvents()
+        assert row.lap_for(window.snapshot) == ('3', False), 'no total, no final'
+    finally:
+        window.stop_clock()
+        window.close()
+
+
+def test_qt_paints_the_lap_in_the_header_blue(qt_board, qt_app):
+    """`header_label`, the key the EVENT/HEAT words take — not a result colour."""
+    qt_board.apply_update({'current_event': '5', 'current_heat': '1',
+                           'expected_splits': 8, 'split_step': 1})
+    qt_board.apply_update({'lane_splits1': 3, 'lane_running1': True})
     qt_app.processEvents()
-    assert qt_board.rows[0].lap_for(qt_board.snapshot) == (6, True)
-    assert qt_board.rows[0]._lap_anim is not None, 'the last length does not pulse'
+    row = qt_board.rows[0]
+    assert row.delta_label.text() == '3'
+    assert qt_board.cfg.color('header_label') in row.delta_label.styleSheet()
 
 
 def test_qt_draws_no_lap_with_the_setting_off(qt_app):

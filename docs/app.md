@@ -270,7 +270,7 @@ Live lane state during a heat. The busiest screen and the one most worth getting
 | `L-12` | Every running lane's time cell shows the **race clock**: one value for the heat, re-based by the server every couple of seconds and ticked by the device in between | `running_time` (throttled by the relay) + `lane_running<i>` + `meet_live` — see note | **must** |
 | `L-13` | Event or heat change blanks all times, deltas, and places — **unless** a lane was running on the previous frame, in which case the times stay on screen as results. The first event and heat seen after a connect are a baseline, not a change | `current_event` / `current_heat` change, compared as strings | must — see note |
 | `L-14` | Returning to the tab re-runs layout and refreshes the clock | web: parent re-dispatches `resize` | must (native: on-appear) |
-| `L-23` | While a lane is swimming the **delta cell** carries the lengths it has completed, in the row's own text colour; the delta takes the cell back at the finish, in its better/worse colour. The column header never changes | `lane_splits<i>`, gated on meet `settings.show_laps` | should — see note |
+| `L-23` | While a lane is swimming the **delta cell** carries that lane's lengths, centred, in the header's accent colour; the delta takes the cell back at the finish, in its better/worse colour. The column header never changes | `lane_splits<i>`, gated on meet `settings.show_laps`; direction from `settings.lap_direction` | should — see note |
 
 > **`L-23` — one cell, two tenants.** (`L-15`–`L-22` are spoken for further down and
 > §0.1 says never renumber, so the next free ID lands out of sequence here. The rule
@@ -292,11 +292,17 @@ Live lane state during a heat. The busiest screen and the one most worth getting
 > | the lane has no place | the finish ends the lap, whatever the delta is doing — a swimmer with no seed time never gets a delta at all |
 > | the delta is empty | belt and braces for the frame where both arrive together |
 >
-> **The last length pulses**: `lane_splits<i> + split_step >= expected_splits`, with
-> both values from §5.1. It is `+ split_step`, not `+ 1` — in a pool with touchpads
-> at one end only the swimmer is only *seen* every second length, so the count
-> arrives in twos and a `+ 1` test would never fire on the setup where the deck can
-> least easily tell. Both numbers describe the venue, so neither varies by console.
+> **Which way it counts** is `settings.lap_direction`: `up` shows the lengths a lane
+> has completed — the console's own number — and `down` shows `expected_splits`
+> minus that, clamped at 0 so an over-count reads as the last length rather than a
+> negative one. `expected_splits` is 0 for any event whose meet file carries no
+> distance, and there is nothing to count down from, so `down` falls back to `up`
+> there rather than running to a number nobody reaches.
+>
+> Note `split_step` (§5.1) when reading the count: in a pool with touchpads at one
+> end only the swimmer is seen every *second* length, so the number arrives in twos
+> and never lands on an odd length. Both numbers describe the venue, so neither
+> varies by console.
 >
 > **Accuracy varies by console** (§5.1): exact from a Quantum or an Omnisport 2000,
 > inferred from touchpad stops on a CTS Gen6, absent on a Gen7 or an ARES 21. The

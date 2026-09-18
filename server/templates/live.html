@@ -31,6 +31,8 @@ var labels = {{ labels | tojson }};
 var NUM_LANES   = {{ num_lanes }};
 /* Lap counts in the delta column while a lane swims (Settings → Display). */
 var SHOW_LAPS   = {{ show_laps | default(false) | tojson }};
+/* Which way the count runs: 'up' = lengths done, 'down' = lengths left. */
+var LAP_DIRECTION    = {{ lap_direction | default('up', true) | tojson }};
 var SHOW_PODIUM = {{ show_podium | tojson }};
 var lane_running = {};
 var lane_place_blank = {};
@@ -311,13 +313,29 @@ function lapVisible(i) {
     return !(i in lane_place_blank) || lane_place_blank[i];
 }
 
-/* The last length: `+ split_step`, not `+ 1`. A pool with touchpads at one end only
-   is seen once every two lengths, so its count arrives in twos and a `+ 1` test
-   would never fire (docs/api.md §5.1). */
-function lapIsLast(i) {
+/* What the cell shows for lane `i`. Counting down is `expected - done`, clamped at
+   0 so a console that over-counts (a stray touch on an inferred count) shows the
+   last length rather than a negative one. With no expected total there is nothing
+   to count down from, so it counts up instead — silently, because the operator
+   picked the direction once and the board is not the place to argue about a
+   missing meet file. */
+function lapText(i) {
+    var done = lane_splits_n[i];
+    if (LAP_DIRECTION === 'down' && expected_splits > 0)
+        return String(Math.max(0, expected_splits - done));
+    return String(done);
+}
+
+/* On the final stretch — the number stays, the colour moves to the timing gold.
+   Necessarily true until the finish once it fires: `+ split_step` is what the
+   console reports next, and that is the finish, so no later split can take it
+   back. With touchpads at one end only it covers the last *two* lengths, because
+   the swimmer is not seen in between (docs/api.md §5.1). */
+function lapIsFinal(i) {
     return expected_splits > 0 &&
            (lane_splits_n[i] + split_step) >= expected_splits;
 }
+
 
 function renderDelta(i) {
     var el = document.getElementById('lane_delta' + i);
@@ -325,17 +343,17 @@ function renderDelta(i) {
     var delta = lane_delta_html[i] || '';
     if (delta.trim() !== '') {
         el.innerHTML = delta;
-        el.classList.remove('lap-count', 'lap-last');
+        el.classList.remove('lap-count', 'lap-final');
         return;
     }
     if (lapVisible(i)) {
-        el.textContent = String(lane_splits_n[i]);
+        el.textContent = lapText(i);
         el.classList.add('lap-count');
-        el.classList.toggle('lap-last', lapIsLast(i));
+        el.classList.toggle('lap-final', lapIsFinal(i));
         return;
     }
     el.textContent = '';
-    el.classList.remove('lap-count', 'lap-last');
+    el.classList.remove('lap-count', 'lap-final');
 }
 
 function set_header_mode(active) {
@@ -454,7 +472,7 @@ function mode_to_results() {
     <!-- Scoreboard table -->
     <div class="timing-content" id="scoreboard">
         <div id="timing-bg" aria-hidden="true"></div>
-        <table id="timing-board" class="timing-table{% if not show_lane_header %} hide-lane-header{% endif %}{% if not show_name_header %} hide-name-header{% endif %}{% if not show_club_header %} hide-club-header{% endif %}{% if not show_time_header %} hide-time-header{% endif %}{% if not show_delta_header %} hide-delta-header{% endif %}{% if not show_position_header %} hide-position-header{% endif %}{% if not show_name %} hide-name{% endif %}{% if not show_club %} hide-club{% endif %}{% if not show_delta %} hide-delta{% endif %}{% if not show_position %} hide-position{% endif %}">
+        <table id="timing-board" class="timing-table{% if not show_lane_header %} hide-lane-header{% endif %}{% if not show_name_header %} hide-name-header{% endif %}{% if not show_club_header %} hide-club-header{% endif %}{% if not show_time_header %} hide-time-header{% endif %}{% if not show_delta_header or show_laps %} hide-delta-header{% endif %}{% if not show_position_header %} hide-position-header{% endif %}{% if not show_name %} hide-name{% endif %}{% if not show_club %} hide-club{% endif %}{% if not show_delta %} hide-delta{% endif %}{% if not show_position %} hide-position{% endif %}">
             <thead>
                 <tr class="timing-header">
                     <th class="lane-column" style="text-align:center;">{{ labels.lane }}</th>
@@ -472,7 +490,7 @@ function mode_to_results() {
                     <td class="lane-name-cell"><span id="lane_name{{ i }}" class="name-primary"></span><span id="lane_name_alt{{ i }}" class="name-sub"></span></td>
                     <td id="lane_club{{ i }}" style="text-align:left;"></td>
                     <td class="td_time" style="text-align:center;"><span id="lane_time{{ i }}"></span></td>
-                    <td class="td_delta" id="lane_delta{{ i }}" style="text-align:right;"></td>
+                    <td class="td_delta" id="lane_delta{{ i }}"></td>
                     <td id="lane_place{{ i }}" style="text-align:center;"></td>
                 </tr>
                 {% endfor %}

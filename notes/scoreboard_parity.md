@@ -289,9 +289,9 @@ fills only at the finish, so it was free.
 
 | Aspect | `/live` | Qt board | Status |
 | --- | --- | --- | --- |
-| lap colour | `.td_delta.lap-count { color: var(--color-row-text) }` | `_style_lap` → `cfg.color('row_text')` | match — the swimmer's own name colour, from the theme, not a new key |
-| last-length pulse | `@keyframes lap-last-pulse`, 1s `ease-in-out`, row → `time` → row | `QVariantAnimation` with the same three stops, `InOutSine`, `setLoopCount(-1)` | match |
-| when it pulses | `lane_splits<i> + split_step >= expected_splits` | `LaneRow.lap_for()`, same test | match — `+ split_step`, never `+ 1`; the step is the pool's, from `touchpad_sides` (`docs/app.md` `L-23`) |
+| lap colour | `.td_delta.lap-count { color: var(--color-header-label) }` | `_style_lap` → `cfg.color('header_label')` | match — the accent blue the EVENT/HEAT words take, from the theme, not a new key |
+| cell alignment | `.td_delta { text-align: center }` | `delta_label` `AlignCenter`, no right padding | match — centred once the cell gained a second tenant; a right-aligned single digit sat against the place column |
+| direction | `lapText()` — `LAP_DIRECTION`, `expected - done` clamped at 0 | `LaneRow.lap_for()`, same rule from `cfg.lap_direction` | match — both fall back to counting up when `expected_splits` is 0 |
 | when it shows | `lapVisible()`: setting on, count > 0, no place, no delta | `LaneRow.lap_for()`, same four | match |
 | who writes the cell | `renderDelta()` only — `lane_delta<i>` is out of `VALID_FIELDS` | `update_from` writes the delta, then `set_lap` overwrites | match — one writer per side |
 | reset | `reset_state()` and `mode_to_intro()` clear the remembered state | `LaneRow.clear()`; `_drop_stale_timing` forgets `lane_splits` | match |

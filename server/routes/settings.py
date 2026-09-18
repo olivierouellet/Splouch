@@ -279,6 +279,13 @@ def _settings_view(request, form):
             if sort_val in ('lane', 'place') and sort_val != state.settings.get('results_sort', 'lane'):
                 state.settings['results_sort'] = sort_val
                 modified = True
+            # Validated against the pair rather than stored as given: this reaches
+            # every board through the relay's settings block, and an unknown value
+            # would leave a client choosing its own meaning for the column.
+            dir_val = form.get('lap_direction', 'up')
+            if dir_val in ('up', 'down') and dir_val != state.settings.get('lap_direction', 'up'):
+                state.settings['lap_direction'] = dir_val
+                modified = True
             for key in ('locale', 'label_style'):
                 if key in form and state.settings.get(key) != form.get(key):
                     state.settings[key] = form.get(key)
@@ -555,6 +562,7 @@ def _settings_view(request, form):
         show_delta=state.settings.get('show_delta', True),
         show_position=state.settings.get('show_position', True),
         show_laps=state.settings.get('show_laps', False),
+        lap_direction=state.settings.get('lap_direction', 'up'),
         results_sort=state.settings.get('results_sort', 'lane'),
         active_theme=state.settings.get('active_theme', 'default'),
         theme_list=state.list_builtin_themes(),

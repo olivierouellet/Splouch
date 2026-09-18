@@ -588,6 +588,7 @@ def route_live(request: Request):
         # Live-board only — the Results tab has no running lanes to count lengths
         # for, so `results.html` does not take this.
         show_laps=s.get('show_laps', False),
+        lap_direction=s.get('lap_direction', 'up'),
         # Merge over the defaults rather than falling back wholesale: a relay that
         # sends a partial theme_colors would otherwise leave every unlisted CSS
         # variable empty. Matches route_results and route_schedule.

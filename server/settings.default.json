@@ -18,6 +18,7 @@
     "show_delta": true,
     "show_position": true,
     "show_laps": false,
+    "lap_direction": "up",
     "active_theme": "default",
     "theme_colors": {
         "bg": "#0d0d0d",
