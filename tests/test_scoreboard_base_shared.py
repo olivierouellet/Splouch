@@ -695,3 +695,58 @@ def test_the_schedule_page_only_calls_ws_js_helpers_it_has_loaded(sched_pi):
     # Everything used has to sit after the tag that defines it, which is what the
     # slice above proves; this pins the set so a new helper gets the same thought.
     assert used <= {'splouchSocket', 'eventNameOf', 'composeEventName'}, used
+
+
+# ── EVENT / HEAT, inline (matches the Qt board) ────────────────────────────────
+
+def _shared_css():
+    """`timing_display.css` itself — not the `_css(html)` above, which strips a
+    rendered page's inline <style> block."""
+    return open(os.path.join(REPO, 'shared', 'static', 'css',
+                             'timing_display.css'), encoding='utf-8').read()
+
+
+def test_the_event_heat_word_sits_beside_its_number():
+    """It used to be a 12px caption stacked over a 48px number — readable at a desk,
+    absent across a pool deck. The Qt board put the two on one line at one size
+    (`HeaderCell`); this is the browser's copy of that rule, scoped to the only two
+    cells that have a word at all."""
+    css = _shared_css()
+    rule = css[css.index('#header_event_cell,'):]
+    rule = rule[:rule.index('}')]
+    assert 'flex-direction: row' in rule, rule
+
+
+def test_the_word_and_the_number_are_one_size():
+    """Two sizes in one phrase reads as a mistake rather than as a label, which is
+    why Qt solves the size once for the pair. Here they read one variable, so a
+    media query cannot move one without the other."""
+    css = _shared_css()
+    label = css[css.index('#header_event_cell .header_label'):]
+    label = label[:label.index('}')]
+    assert 'var(--header-num-size)' in label, label
+    number = css[css.index('#current_event, #current_heat'):]
+    number = number[:number.index('}')]
+    assert 'var(--header-num-size)' in number, number
+
+
+def test_the_pair_shrinks_to_fit_and_agrees(pi, cloud):
+    """`--header-num-size` is a ceiling, not an answer: the kiosk pins these cells to
+    10% of the bar and `EVENT 12` does not fit that at full size. CSS cannot shrink
+    text, so it is measured — and both cells take the *smaller* ratio, the way
+    `BoardWindow._sync_header_cells` hands the Qt pair one shared answer."""
+    for html in (pi, cloud):
+        body = html[html.index('function fitHeaderCells('):]
+        body = body[:body.index('\n}')]
+        assert 'Math.min' in body, 'the two cells do not agree on a size'
+        assert 'clientWidth / ' in body and 'scrollWidth' in body
+        assert "setProperty('--header-num-size'" in body
+
+
+def test_the_word_keeps_the_accent_and_the_number_does_not(pi, cloud):
+    """The colour is what separates the two halves now that the size does not."""
+    css = _shared_css()
+    label = css[css.index('.header_label {'):]
+    assert 'var(--color-header-label)' in label[:label.index('}')]
+    number = css[css.index('#current_event, #current_heat'):]
+    assert 'var(--color-header-value)' in number[:number.index('}')]

@@ -65,6 +65,10 @@
     --color-podium-gold:   #545454;
     --color-podium-silver: #424242;
     --color-podium-bronze: #343434;
+    /* EVENT/HEAT are one phrase at one size (see `#header_event_cell` below),
+       so the word and the number read from a single variable. `fitHeaderCells()`
+       overrides it per cell when a long label would not fit. */
+    --header-num-size:     4.5vh;
     --font-family:         'Overpass Mono';
     --font-digits:         'DSEG7Classic';
     --font-timing:         'Overpass Mono';
@@ -118,9 +122,6 @@ html, body {
 
 .header_cell:first-child { border-left: none; }
 
-#header_event_cell,
-#header_heat_cell { justify-content: center; }
-
 /* meet-title and event-name cells expand to fill remaining space */
 .header_cell_grow { flex: 1; align-items: flex-start; }
 .header_cell_name { flex: 1; min-width: 0; background-color: var(--color-header-bg); align-items: center; overflow: hidden; }
@@ -161,9 +162,34 @@ html, body {
    near-identical greys and it made no visible difference. It does now. */
 #current_event, #current_heat {
     font-family: var(--font-digits), monospace;
-    font-size: 4.5vh;
+    font-size: var(--header-num-size);
     line-height: 1;
     color: var(--color-header-value);
+}
+
+/* ── EVENT / HEAT: the word beside its number ─────────────────────────────────
+   The Qt board's `HeaderCell`, in CSS. This cell used to be a *column* — a 12px
+   word stacked over a 48px number — which reads as a caption at a desk and is
+   simply not there across a pool deck, the only distance this board is read at.
+   Inline and equal-sized, `EV 12` reads as one phrase.
+
+   What the size difference used to do — separate the word from its number — the
+   accent blue does instead, which is why `header_label` and `header_value` must
+   stay distinguishable in any theme. Both colours are already the ones Qt uses.
+
+   The gap is `0.45em` of the shared size, matching `_HDR_INLINE_GAP`. Centring
+   stays the browser's: the Qt cell leads its bar and is left-aligned for that
+   reason, while this one sits after the meet-title cell (notes/scoreboard_parity.md). */
+#header_event_cell,
+#header_heat_cell {
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+}
+#header_event_cell .header_label,
+#header_heat_cell  .header_label {
+    font-size: var(--header-num-size);
+    margin-right: 0.45em;
 }
 
 /* Grow the header bar on tall viewports so the Event/Heat digits can
@@ -171,7 +197,6 @@ html, body {
 @media (min-height: 700px) {
     .timing-header-bar   { height: 85px; }
     .header_cell         { padding: 6px 2vw; }
-    .header_label        { font-size: 12px; }
 }
 
 /* ── Fixed header cell widths — `/live` only ──────────────────────────────────

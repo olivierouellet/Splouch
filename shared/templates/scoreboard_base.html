@@ -102,9 +102,10 @@
    Switch to vw-based sizing for screens shorter than 500px. Desktop/TV
    (height ≥ 768px) are unaffected and keep the original vh values. */
 @media (orientation: landscape) and (max-height: 500px) {
-    .header_label                  { font-size: 1.5vw; }
+    /* The EVENT/HEAT word follows its number through `--header-num-size`; setting
+       `.header_label` here would split the pair back into two sizes. */
+    :root                          { --header-num-size: 3.5vw; }
     .header_value                  { font-size: 3.2vw; }
-    #current_event, #current_heat  { font-size: 3.5vw; }
     #meet_datetime                 { font-size: 3.5vw !important; }
     .timing-header-bar             { height: max(65px, 7vw); }
 }
@@ -161,7 +162,10 @@ function fitNameFontSize() {
         cell.style.fontSize = (basePx * ratio * 0.97).toFixed(2) + 'px';
     });
 }
-window.addEventListener('resize', function() { requestAnimationFrame(fitNameFontSize); });
+window.addEventListener('resize', function() {
+    requestAnimationFrame(fitNameFontSize);
+    requestAnimationFrame(fitHeaderCells);
+});
 
 /* ── Race clock ───────────────────────────────────────────────────────────────
    `running_time` is one clock for the heat, not one per lane, and every running
@@ -317,6 +321,37 @@ function setLanePlace(i, value) {
     var v = (value === null || value === undefined) ? '' : String(value).trim();
     el.textContent = v;
     el.classList.toggle('has-place', v !== '');
+}
+
+/* ── EVENT / HEAT: one size for the pair ──────────────────────────────────────
+   `--header-num-size` is a ceiling, not an answer. The kiosk pins these cells to
+   10% of the bar each, and `EVENT 12` at the full size does not fit that — nor
+   does `ÉPREUVE`, which is what `label_style: long` gives in French. CSS cannot
+   shrink text to fit, so the ratio is measured here, exactly as `fitNameFontSize`
+   does for a swimmer's name.
+
+   Both cells then take the *smaller* ratio. They sit side by side with a divider
+   between them, so a size difference reads as one of them being wrong rather than
+   as either being as large as it fits — `BoardWindow._sync_header_cells` hands the
+   Qt pair the same shared answer for the same reason. */
+function fitHeaderCells() {
+    var cells = [document.getElementById('header_event_cell'),
+                 document.getElementById('header_heat_cell')].filter(Boolean);
+    if (!cells.length) return;
+    cells.forEach(function(c) { c.style.removeProperty('--header-num-size'); });
+    var ratio = 1;
+    cells.forEach(function(cell) {
+        /* The cell is `white-space: nowrap`, so scrollWidth is the phrase's natural
+           width and clientWidth is what the cell will actually give it. */
+        if (cell.scrollWidth > cell.clientWidth && cell.scrollWidth > 0)
+            ratio = Math.min(ratio, cell.clientWidth / cell.scrollWidth);
+    });
+    if (ratio >= 1) return;
+    var base = parseFloat(window.getComputedStyle(cells[0])
+                          .getPropertyValue('--header-num-size'));
+    if (!base) return;
+    var px = (base * ratio * 0.97).toFixed(2) + 'px';
+    cells.forEach(function(c) { c.style.setProperty('--header-num-size', px); });
 }
 
 function escHtml(s) {
@@ -575,12 +610,16 @@ function applyScoreboardFrame(new_s) {
     /* Only when a name actually arrived — which is a heat change, not every tick.
        Re-fitting on each frame would force a layout pass per lane mid-race. */
     if (names_changed) requestAnimationFrame(fitNameFontSize);
+    /* The header phrase changes with the heat, not with every tick. */
+    if ('current_event' in s || 'current_heat' in s)
+        requestAnimationFrame(fitHeaderCells);
     s = {};
 }
 
 function init() {
     on_timer();
     window.setInterval(on_timer, 1000);
+    requestAnimationFrame(fitHeaderCells);   /* the labels are server-rendered */
 {% block init_extra %}{% endblock %}
 }
 </script>

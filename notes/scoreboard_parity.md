@@ -89,12 +89,13 @@ now blank the text rather than removing the cell; `live.html`'s `stop_chrono()` 
 | Cell | `/live` | Qt board | Status |
 | --- | --- | --- | --- |
 | meet title | `#header_meet_title` — idle only | absent; it lives on the splash | **intentional** — `live.html` only ever calls `set_header_mode(true)`, which hides its title cell, so the header the kiosk showed never carried one |
-| EVENT / HEAT | small word **above** a large number, `.header_cell` column flex | `HeaderCell` — the word **beside** the number, one size, placed by hand | **intentional** — see below |
+| EVENT / HEAT | the word **beside** the number, one size, `#header_event_cell` row flex | `HeaderCell` — the same, placed by hand | match — *ported Qt → browser*, see below |
 | — position | after the meet title | first, hard against the left edge | **intentional** — event and heat are what an official glances at first |
 | — text alignment | `align-items: center` | `AlignLeft` | **intentional** — follows from leading the bar |
 | — word colour | `header_label` | `header_label` | match — and it is now the accent blue on both |
 | — number colour | `header_value` (`#current_event`) | `header_value` | match — the browser followed the display here |
-| — word size | 12px in an 85px bar | the number's size, `_R_DIGITS` | **intentional** — see below |
+| — word size | the number's size, via `--header-num-size` | the number's size, `_R_DIGITS` | match |
+| — shrink to fit | `fitHeaderCells()` measures the ratio and applies the smaller of the two | `solve_px()` per cell, `_sync_header_cells` hands both the smaller | match — CSS cannot shrink text, so the browser measures it the way `fitNameFontSize` does |
 | — number size | 4.5vh, digits font | `_R_DIGITS` = 57% of the bar, digits font | match |
 | — letter-spacing | `0.08em` on `.header_label` | `PercentageSpacing, 108` | match |
 | event name | 2-line `-webkit-line-clamp`, 3vh, centred | one line, `FitLabel`, centred, `_R_VALUE` = 62% of the bar | **intentional** — CSS cannot shrink text to fit; wrapping is its only answer to a long name, and shrink-to-fit is the reason this display exists |
@@ -104,11 +105,25 @@ now blank the text rather than removing the cell; `live.html`'s `stop_chrono()` 
 | — between heats | text blanked, cell kept | text blanked, widget kept | match — a removed cell drops out of the layout and everything to its left slides across |
 | wall clock | `#meet_datetime`, 4.5vh, `header_label`, digits font | same, ticking every 10s (HH:MM only) | match — both moved to the accent blue together |
 
-**The EVENT/HEAT word is inline and full size.** The browser's 1.8vh caption is 16px on a
-1080p board: readable at a desk, absent across a pool deck, which is the only distance this
-display is ever read at. Inline and equal-sized, `EV 12` reads as one phrase. What the size
-difference used to do — separate the word from its number — the accent blue does instead,
-which is why `header_label` and `header_value` must stay distinguishable in any theme.
+**The EVENT/HEAT word is inline and full size — ported Qt → browser.** The browser's old
+1.8vh caption was 16px on a 1080p board: readable at a desk, absent across a pool deck,
+which is the only distance this display is ever read at. Inline and equal-sized, `EV 12`
+reads as one phrase. What the size difference used to do — separate the word from its
+number — the accent blue does instead, which is why `header_label` and `header_value` must
+stay distinguishable in any theme. Both sides already used those two keys, so the port was
+layout and size only.
+
+The size is a *ceiling* on both sides, not an answer: `EVENT 12` does not fit 10% of the bar
+at 4.5vh, and `ÉPREUVE` is what `label_style: long` gives in French. Qt binary-searches for
+the largest size that fits and gives both cells the smaller answer; the browser measures one
+`clientWidth / scrollWidth` ratio per cell and applies the smaller, the same shape as
+`fitNameFontSize`. Two sizes in one phrase reads as a mistake, and a divider between two
+cells advertises it — which is why they have to agree rather than each be as large as it
+can be.
+
+What still differs is **where the cell sits and how the pair is packed**: Qt leads the bar
+and left-aligns, the browser sits after the meet-title cell and centres. Both rows below are
+still marked intentional for that reason.
 
 Two sizing rules follow, and both broke the obvious implementation. A cell solves **one**
 size for its word and its number together (`HeaderCell._relayout`), because two `FitLabel`s

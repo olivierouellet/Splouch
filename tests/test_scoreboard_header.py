@@ -1,13 +1,15 @@
 """The top bar: EV/HT inline, the accent blue, and the event name.
 
-The browser stacks a 1.8vh word above a 4.5vh number (`.header_cell` is a column
-flex). At a desk that reads as a caption. Across a pool deck at TV distance the
-word is simply not there — 16px on a 1080p board — so the operator is left reading
-a bare number and guessing whether it is the event or the heat.
+The browser used to stack a 1.8vh word above a 4.5vh number (`.header_cell` is a
+column flex). At a desk that reads as a caption. Across a pool deck at TV distance
+the word is simply not there — 16px on a 1080p board — so the operator is left
+reading a bare number and guessing whether it is the event or the heat.
 
-Here the two sit on one line at the same size, `EV 12`, with the word in the
-board's accent blue and the number in `header_value`. The colour is what keeps the
-pair from reading as one long number now that the size no longer separates them.
+Both displays now put the two on one line at the same size, `EV 12`, with the word
+in the board's accent blue and the number in `header_value`. The colour is what
+keeps the pair from reading as one long number now that the size no longer
+separates them. This file covers the Qt side; the browser's copy of the rule is in
+`tests/test_scoreboard_base_shared.py`.
 
 Three things have to hold, and each of them broke a plausible implementation:
 
