@@ -34,6 +34,7 @@ import state                                          # noqa: E402
 from console_decoders import DECODERS, make_decoder    # noqa: E402
 from console_decoders.utils import split_step          # noqa: E402
 from jsc import HAS_JSC, run_page                      # noqa: E402
+from test_scoreboard_base_shared import _code         # noqa: E402
 
 _ALL = sorted(DECODERS)
 
@@ -436,8 +437,7 @@ def test_no_board_still_pulses():
     board = open(os.path.join(REPO, 'scoreboard', 'board.py')).read()
     lap_rules = css[css.index('.td_delta.lap-count'):]
     lap_rules = lap_rules[:lap_rules.index('/* ── Podium')]
-    # Comments stripped first: the prose there says why there is no animation.
-    lap_rules = re.sub(r'/\*.*?\*/', '', lap_rules, flags=re.S)
+    lap_rules = _code(lap_rules)   # the prose there says why there is no animation
     assert 'lap-last' not in css
     assert 'animation' not in lap_rules, lap_rules
     assert '_LAP_PULSE_MS' not in board and '_lap_anim' not in board

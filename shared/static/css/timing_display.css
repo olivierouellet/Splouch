@@ -142,9 +142,12 @@ html, body {
     font-size: 3vh;
     text-align: center;
 }
-@media (orientation: landscape) and (max-height: 500px) {
-    #event_name { font-size: 3vw; }
-}
+/* No width-based override here on purpose. `3vw` on a short viewport was written for
+   a phone in landscape, where the screen is short *and* narrow — but it keys on
+   height and sizes by width, so a browser window dragged short but left wide made
+   the event name jump *up*: 15px at 501px tall, 42px at 500px. It lives in
+   `scoreboard_base.html` now, with the rest of the phone's short-viewport rules, so
+   the kiosk shrinks monotonically. */
 
 .header_label {
     font-size: 1.8vh;

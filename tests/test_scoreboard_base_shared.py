@@ -699,6 +699,17 @@ def test_the_schedule_page_only_calls_ws_js_helpers_it_has_loaded(sched_pi):
 
 # ── EVENT / HEAT, inline (matches the Qt board) ────────────────────────────────
 
+def _code(text):
+    """*text* with its `/* … */` comments removed.
+
+    Assertions about what a block of CSS or JS *does* must not match the prose
+    explaining why it does it — several of these tests read naturally as "the old
+    approach is gone", and the comment recording what the old approach was is
+    exactly the string they look for.
+    """
+    return re.sub(r'/\*.*?\*/', '', text, flags=re.S)
+
+
 def _shared_css():
     """`timing_display.css` itself — not the `_css(html)` above, which strips a
     rendered page's inline <style> block."""
@@ -826,3 +837,28 @@ def test_the_header_shares_match_the_qt_weights():
 
     assert shares == weights, f'browser {shares} != Qt {weights}'
     assert sum(weights.values()) == 100, weights
+
+
+def test_the_fit_reads_a_resolved_pixel_size(pi, cloud, kiosk):
+    """`getPropertyValue('--header-num-size')` returns the token `4.5vh`, and
+    `parseFloat` of that is 4.5 — which set the cell to about four pixels the moment
+    the phrase first overflowed. A `font-size` is resolved to px by the browser, so
+    the ceiling is read off an element that *uses* the variable."""
+    for html in (pi, cloud, kiosk):
+        body = html[html.index('function fitHeaderCells('):]
+        body = _code(body[:body.index('\n}')])
+        assert "getPropertyValue('--header-num-size')" not in body, \
+            'reading the raw token back gives a unitless number'
+        assert '.fontSize' in body, 'the ceiling must come from a resolved font-size'
+
+
+def test_the_kiosk_header_never_sizes_off_the_width(kiosk):
+    """`3vw` on a short viewport was written for a phone, which is short *and*
+    narrow. It keys on height and sizes by width, so a browser window dragged short
+    but left wide made the event name jump *up* — 15px at 501px tall, 42px at 500px.
+    The kiosk shrinks monotonically; the rule is the phone board's alone."""
+    css = _code(_shared_css())
+    assert 'max-height: 500px' not in css, \
+        'a width-based short-viewport override is back in the shared stylesheet'
+    name = css[css.index('#event_name {'):]
+    assert 'vh' in name[:name.index('}')], 'the event name should size off the height'

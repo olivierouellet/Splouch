@@ -180,8 +180,13 @@ function fitHeaderCells() {
             ratio = Math.min(ratio, cell.clientWidth / cell.scrollWidth);
     });
     if (ratio >= 1) return;
-    var base = parseFloat(window.getComputedStyle(cells[0])
-                          .getPropertyValue('--header-num-size'));
+    /* Read the ceiling off an element that *uses* the variable, not off the variable
+       itself: `getPropertyValue('--header-num-size')` hands back the token `4.5vh`,
+       and `parseFloat` of that is 4.5 — so the cell was being set to about four
+       pixels the moment the phrase first overflowed. A `font-size` is resolved to
+       px by the browser, which is the number this arithmetic needs. */
+    var probe = cells[0].querySelector('.header_value');
+    var base  = probe && parseFloat(window.getComputedStyle(probe).fontSize);
     if (!base) return;
     var px = (base * ratio * 0.97).toFixed(2) + 'px';
     cells.forEach(function(c) { c.style.setProperty('--header-num-size', px); });
