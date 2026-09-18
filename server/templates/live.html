@@ -219,11 +219,27 @@ function fitNameFontSize() {
     });
 }
 
-function init() {
+/* The cached column references, bound as soon as the table has been parsed.
+
+   Deliberately not part of `init()`: that runs on `load`, which waits for every
+   image and font, while the socket opens the moment the script at the foot of the
+   body runs. The server answers a new connection with a burst — `test_mode`,
+   `columns_state`, the heat's names and then the board cache — and every one of
+   those handlers reaches a `mode_to_*` or `*_cols` that writes `_pc.style`. Losing
+   that race threw `null` out of the message handler on a cold load, before any of
+   these were assigned.
+
+   Idempotent, and called from both places: the foot of the body for the socket,
+   and `init()` so nothing depends on which of the two happens to run first. */
+function bind_dom() {
     _pc = document.getElementById("place-column");
     _tc = document.getElementById("time-column");
     _dc = document.getElementById("delta-column");
     _sb = document.getElementById("scoreboard");
+}
+
+function init() {
+    bind_dom();
     on_timer();
     window.setInterval(on_timer, 1000);
     setTimeout(build_scoreboard_bg, 100);
@@ -482,6 +498,10 @@ function mode_to_results() {
 <script src="/static/js/ws.js"></script>
 <script>
     var s = {};
+
+    /* Before the socket, never after: the connect burst starts arriving as soon as
+       it opens and every frame in it writes to these. See `bind_dom`. */
+    bind_dom();
 
     var socket = splouchSocket('/ws/scoreboard');
     socket.on('connect', function() { reset_state(); stop_chrono(); });

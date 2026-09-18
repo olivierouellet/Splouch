@@ -544,6 +544,23 @@ def test_kiosk_page_shrinks_names_too():
     assert 'if (names_changed) requestAnimationFrame(fitNameFontSize)' in src
 
 
+def test_kiosk_binds_its_columns_before_the_socket_opens():
+    """`live.html` caches `_pc`/`_tc`/`_dc`/`_sb` once, and every mode change writes
+    to them. They used to be bound in `init()`, which runs on `load` — after every
+    image and font — while the socket opens as soon as the script at the foot of the
+    body runs. The server answers a connection with a burst (`test_mode`,
+    `columns_state`, the heat's names, then the board cache), so on a cold load the
+    first frame could reach `expand_cols` with all four still null and throw out of
+    the message handler. Bind first, connect second."""
+    src = open(os.path.join(REPO, 'server/templates/live.html')).read()
+    assert 'function bind_dom()' in src
+    assert src.index('bind_dom();') < src.index("splouchSocket('/ws/scoreboard')"), \
+        'the socket opens before the columns are bound'
+    # `init()` keeps the work that genuinely needs layout, and re-binds so neither
+    # caller depends on which of the two runs first.
+    assert re.search(r'function init\(\) \{\s*bind_dom\(\);', src)
+
+
 def test_results_falls_back_to_waiting_when_nothing_feeds_it(res_pi, res_cloud):
     """Previously Pi-only pages had no such state: a dead console left the last
     heat on screen indefinitely, with nothing saying it was stale."""
