@@ -752,6 +752,54 @@ function loadVersions() {
    `repair` is decided by the server, which looks at the tree rather than
    guessing from git's error text — so the button appears only when discarding
    local changes is genuinely the answer. */
+/* ── Reload once the server is actually back ──────────────────────────────────
+   Every caller here restarts the service under the page that is watching, so the
+   panel has to reload itself when the app returns. It used to guess: 6 seconds
+   after an update, 5 after a service restart. The guess measured the wrong thing.
+   `routes/update._run_update` publishes `done`, *then* sleeps 2s, refreshes the
+   systemd unit and only then runs `systemctl restart` — so the browser's timer was
+   already half spent before the server began going down, and on a Pi the Python
+   cold start finished well after it. The reload landed on a dead port.
+
+   So: probe until the app answers again, however long that takes.
+
+   The subtlety is that the *old* process is still answering for the first couple of
+   seconds, and reloading against it is the same bug wearing a different hat. A
+   success is therefore only believed once a probe has failed — we have to watch it
+   go down before watching it come back. `graceMs` keeps us from burning probes
+   before the restart is even scheduled, and if the server never appears to drop
+   (a restart quick enough to fall between two probes) `assumeAfterMs` gives up on
+   seeing it and reloads anyway. */
+function reloadWhenServerReturns(statusEl, opts) {
+    opts = opts || {};
+    var graceMs       = opts.graceMs       || 3000;
+    var everyMs       = opts.everyMs       || 1000;
+    var assumeAfterMs = opts.assumeAfterMs || 20000;
+    var timeoutMs     = opts.timeoutMs     || 180000;
+    var waited = 0, sawDown = false;
+
+    setTimeout(function () {
+        var poll = setInterval(function () {
+            waited += everyMs;
+            if (waited >= timeoutMs) {
+                clearInterval(poll);
+                if (statusEl) {
+                    _statusColor(statusEl, 'err');
+                    statusEl.textContent = T.js_restart_timeout;
+                }
+                return;
+            }
+            fetch('/settings', { cache: 'no-store' }).then(function (r) {
+                if (!r.ok) { sawDown = true; return; }
+                if (sawDown || waited >= assumeAfterMs) {
+                    clearInterval(poll);
+                    location.reload();
+                }
+            }).catch(function () { sawDown = true; });
+        }, everyMs);
+    }, graceMs);
+}
+
 function _followUpdateLog(onDone) {
     var out  = document.getElementById('update-output');
     var row  = document.getElementById('repair-row');
@@ -790,7 +838,7 @@ function startUpdate() {
         if (ok) {
             _statusColor(status, 'ok');
             status.textContent = T.js_done_restarting;
-            setTimeout(function() { location.reload(); }, 6000);
+            reloadWhenServerReturns(status);
         } else {
             _statusColor(status, 'err');
             status.textContent = T.js_failed_see_output;
@@ -921,15 +969,7 @@ function restoreBackup(input) {
         }
         _statusColor(status, 'muted');
         status.textContent = T.js_restored_restarting;
-        var tries = 0;
-        var poll = setInterval(function() {
-            tries++;
-            fetch('/settings').then(function(r) {
-                if (r.ok) { clearInterval(poll); location.reload(); }
-            }).catch(function() {
-                if (tries > 60) { clearInterval(poll); status.textContent = T.js_restart_timeout; }
-            });
-        }, 1000);
+        reloadWhenServerReturns(status);
     }).catch(function() {
         _statusColor(status, 'err');
         status.textContent = T.js_upload_failed;
@@ -1175,9 +1215,9 @@ function serviceRestart() {
     var status = document.getElementById('system-power-status');
     status.textContent = T.js_restarting_service;
     fetch('/system_service_restart', {method: 'POST'});
-    // The app (which serves this page) goes down briefly; nudge a reload so
-    // the panel reconnects once it's back.
-    setTimeout(function() { location.reload(); }, 5000);
+    // The app (which serves this page) goes down briefly; wait for it to answer
+    // again rather than guessing how long that takes.
+    reloadWhenServerReturns(status);
 }
 
 function systemReboot() {
