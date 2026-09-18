@@ -5,6 +5,23 @@ reconstruction of a CTS Gen6 console's serial output, with a companion `.lxf`
 beside it holding the start lists its event and heat numbers refer to — that
 pairing is the whole reason a test session loads one.
 
+## Which console decodes them
+
+A recording is a capture of a wire, so the player feeds its bytes to whatever
+decoder the *configured* console has — a replay is the one path where the console
+setting and the file have to agree. Two consequences:
+
+- **A console with no wire cannot read one.** The manual console's decoder answers
+  nothing by design, so a replay under it once produced the test badge and eight
+  empty lanes for the whole recording. A test session now borrows `cts_gen6` for the
+  duration whenever the configured decoder reports `requires_serial = False`, puts
+  the console's own decoder back at the end, and the Test tab says which one is
+  driving the board (`worker.use_replay_decoder`).
+- **A console with a wire keeps its own.** These files are CTS Gen6, so replaying
+  one under a Quantum decodes to nothing — but substituting there would be the wrong
+  call, because a Quantum operator's own capture is the thing they are trying to
+  play. Record your own console's output (Test → Record) rather than replaying these.
+
 ## The two formats
 
 | | Contents | Timestamps | Playback |

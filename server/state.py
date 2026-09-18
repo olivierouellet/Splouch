@@ -344,6 +344,20 @@ _test_saved_results     = None
 # board told to forget would have nothing to show until the next one — see
 # worker.restore_current_heat.
 _test_saved_heat        = None
+# The console's own decoder, set aside whole while a replay runs under a stand-in.
+# Only ever set for a console that cannot read a wire at all (`requires_serial` is
+# False — the manual console, or a portless plugin): those decode a recording to
+# nothing, so the board showed the test badge over eight empty lanes. The stand-in
+# is REPLAY_CONSOLE_TYPE; `worker.restore_current_heat` puts the real one back.
+#
+# The object carries its own `last_event_sent`, so setting it aside *is* the save —
+# which matters under the manual console, where that field is not a console's last
+# word but the heat the operator put on the boards by hand.
+_test_saved_decoder     = None
+# What a recording is replayed under when the configured console cannot read one.
+# The bundled sessions in `console_recordings/` are CTS captures, and this is the
+# same fallback `console_decoders.make_decoder` already applies to an unknown key.
+REPLAY_CONSOLE_TYPE     = 'cts_gen6'
 _overlay_active     = False
 _cols_hidden        = False
 # Is the timing console actually feeding this display? Published to clients as the

@@ -343,6 +343,14 @@ function _loadTestStatus() {
         var aside = document.getElementById('test-meet-aside-note');
         aside.style.display = (d.has_meet || d.meet_set_aside) ? '' : 'none';
 
+        // A console with no wire decodes a recording to nothing, so the replay runs
+        // under a CTS instead. Shown before Play as well as during, so the operator
+        // knows in advance that the board will not be their own console's.
+        var replayNote = document.getElementById('test-replay-console-note');
+        if (replayNote)
+            replayNote.style.display = (d.replay_console || d.replay_console_needed)
+                                     ? '' : 'none';
+
         // Locked on with a meet loaded: a replay must never be published to
         // the cloud under a live meet's identity. Also locked while a session
         // is running, since the relay was already stopped (or not) at start.

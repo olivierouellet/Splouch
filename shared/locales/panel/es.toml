@@ -389,6 +389,7 @@ cloud_att_all = "Desde el inicio"
 # Prueba
 common_download = "Descargar"
 test_meet_set_aside = '''Tu competición sigue cargada. La prueba usa las listas de salida de la grabación, y tu competición vuelve al terminar.'''
+test_replay_console = '''No hay ninguna consola conectada a este servidor, así que la grabación se reproduce como una CTS. El marcador lo controla la grabación, no tu consola, que vuelve al terminar la prueba.'''
 test_local_only = "Mantener esta prueba local"
 test_local_only_hint = "Se reproduce en la pantalla del televisor y en los teléfonos de esta red. No se envía nada a la nube."
 test_local_only_forced = "Siempre activo mientras haya una competición cargada — una prueba nunca debe llegar a la nube como si fuera la carrera real."

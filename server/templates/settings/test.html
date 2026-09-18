@@ -15,6 +15,14 @@
                             {{ t.test_meet_set_aside | safe }}
                         </div>
 
+                        <!-- The configured console cannot read a recording, so the replay
+                             is decoded as a CTS. The board is then not being driven by
+                             the operator's own console, which they should not have to
+                             infer from the fact that it works. (toggled by JS) -->
+                        <div id="test-replay-console-note" class="alert alert-secondary py-2 px-3 small mb-2" style="display:none;">
+                            {{ t.test_replay_console | safe }}
+                        </div>
+
                         <!-- Keep the replay off the cloud -->
                         <div class="form-check mb-2">
                             <input class="form-check-input" type="checkbox" id="test-local-only" checked

@@ -389,6 +389,7 @@ cloud_att_all = "Depuis le début"
 # Test
 common_download = "Télécharger"
 test_meet_set_aside = '''Votre compétition reste chargée. Le test utilise les listes de départ de l'enregistrement, et votre compétition revient à la fin.'''
+test_replay_console = '''Aucune console n'est reliée à ce serveur : l'enregistrement est donc rejoué comme une CTS. Le tableau est piloté par l'enregistrement, pas par votre console, qui revient à la fin du test.'''
 test_local_only = "Garder ce test local"
 test_local_only_hint = "Joue sur l'écran TV et sur les téléphones de ce réseau. Rien n'est envoyé au nuage."
 test_local_only_forced = "Toujours actif lorsqu'une compétition est chargée — un test ne doit jamais atteindre le nuage comme s'il s'agissait de la vraie course."

@@ -18,7 +18,7 @@ from meet_parsers.lenex_parser import load_lenex
 from web import (ActionResult, EnabledFlag, redirect, require_login, save_upload,
                  ws_guard)
 from worker import (_list_sessions, _restart_worker, end_test_session,
-                    forget_current_heat)
+                    forget_current_heat, use_replay_decoder)
 
 router = APIRouter(tags=['Debug'])
 
@@ -58,6 +58,13 @@ class TestStatus(BaseModel):
     local_only: bool        # what a session started now would do, or is doing
     local_only_forced: bool # a meet is loaded, so the choice is not the operator's
     meet_set_aside: str     # the meet being held for this session, '' if none
+    # The console the replay is being decoded as, when that is not the configured
+    # one — the board is not being driven by the operator's console and they should
+    # not have to infer that. '' whenever the two agree, which is the usual case.
+    replay_console: str
+    # Would a session started now need the stand-in? Lets the Test tab say so before
+    # the operator presses Play, not only once a replay is already running.
+    replay_console_needed: bool
 
 
 class SerialStatus(BaseModel):
@@ -101,6 +108,12 @@ def route_test_status():
                               else _local_only_default()),
         'local_only_forced': bool(state._active_meet_file),
         'meet_set_aside':    state._active_meet_file if state._test_meet_active else '',
+        'replay_console':    (state.REPLAY_CONSOLE_TYPE
+                              if state._test_saved_decoder is not None else ''),
+        # Read off the decoder that would be asked to play it, which is the console's
+        # own one whenever no session is running and the stand-in while one is.
+        'replay_console_needed': not (state._test_saved_decoder
+                                      or state._decoder).requires_serial,
     }
 
 
@@ -136,6 +149,10 @@ def _test_play(name, local_only=True):
         local_only = bool(local_only) or bool(state._active_meet_file)
         _begin_local_only(local_only)
         bus.emit('/scoreboard', 'test_mode', {'active': True})
+        # Before the worker starts, and before `forget_current_heat` below: both of
+        # those touch `state._decoder`, and the replay needs one that can read the
+        # recording. A console with a wire keeps its own — see use_replay_decoder.
+        use_replay_decoder()
         bus.run_bg(_restart_worker, s['path'])
 
         companion = os.path.splitext(s['path'])[0] + '.lxf'

@@ -395,6 +395,7 @@ cloud_att_all = "All time"
 # Test
 common_download = "Download"
 test_meet_set_aside = '''Your meet stays loaded. The test uses the recording's own start lists, and your meet comes back when it ends.'''
+test_replay_console = '''No console is wired to this server, so a recording is replayed as a CTS. The board is driven by the recording, not by your console, and your console comes back when the test ends.'''
 test_local_only = "Keep this test local"
 test_local_only_hint = "Plays on the TV display and on phones on this network. Nothing is sent to the cloud."
 test_local_only_forced = "Always on while a meet is loaded — a test must never reach the cloud as if it were the real race."

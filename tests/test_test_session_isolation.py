@@ -87,6 +87,9 @@ def rig(monkeypatch, tmp_path):
     monkeypatch.setattr(state, '_test_local_only', False, raising=False)
     monkeypatch.setattr(state, '_test_relay_was_running', False, raising=False)
     monkeypatch.setattr(state, '_test_saved_results', None, raising=False)
+    monkeypatch.setattr(state, '_test_saved_decoder', None, raising=False)
+    # Restored by monkeypatch at teardown, so a test may swap the console freely.
+    monkeypatch.setattr(state, '_decoder', state._decoder, raising=False)
     monkeypatch.setattr(state, '_active_meet_file', '', raising=False)
     monkeypatch.setattr(state, 'in_speed', 1.0, raising=False)
 
@@ -528,3 +531,96 @@ def _announcement_packets(name):
         if len(packets) > 3:
             break
     return packets
+
+
+# ── The console the replay is decoded as ───────────────────────────────────────
+# A recording is a capture of a wire, and the player feeds its bytes to whatever
+# `state._decoder` is. The manual console's decoder reads nothing by design, so from
+# the moment it existed (v2026.09.2) a Test-tab replay under it produced the test
+# badge and nothing else — no event, no names, no times — for the whole recording.
+# Before that release `make_decoder` fell through to the CTS for the unknown key
+# `manual`, which is why the same settings file replayed fine one version earlier.
+
+
+def _manual_console(monkeypatch):
+    """Select the manual console, as Settings → Console does."""
+    from console_decoders import make_decoder
+    monkeypatch.setitem(state.settings, 'console_type', 'manual')
+    monkeypatch.setattr(state, '_decoder', make_decoder('manual', state.settings))
+    return state._decoder
+
+
+def test_a_console_with_no_wire_lends_the_replay_a_decoder(rig, monkeypatch):
+    manual = _manual_console(monkeypatch)
+    assert not manual.requires_serial, 'the premise: this one reads no wire'
+
+    debug._test_play(SESSION)
+
+    assert state._decoder is not manual, 'the replay got the console that reads nothing'
+    assert state._decoder.requires_serial, 'the stand-in cannot read a capture either'
+    assert state._test_saved_decoder is manual, 'the console was not set aside'
+
+
+def test_a_console_with_a_wire_keeps_its_own(rig, monkeypatch):
+    """A Quantum operator replaying a Quantum capture must not be handed a CTS."""
+    mine = state._decoder
+    assert mine.requires_serial, 'the premise: the default console reads a wire'
+
+    debug._test_play(SESSION)
+
+    assert state._decoder is mine
+    assert state._test_saved_decoder is None
+
+
+def test_the_console_comes_back_when_the_session_ends(rig, monkeypatch):
+    manual = _manual_console(monkeypatch)
+    debug._test_play(SESSION)
+    worker.end_test_session()
+
+    assert state._decoder is manual, 'the operator was left on the stand-in'
+    assert state._test_saved_decoder is None
+
+
+def test_the_hand_set_heat_survives_the_session(rig, monkeypatch):
+    """Under the manual console `last_event_sent` is not a console's last word — it
+    is the heat the operator put on the boards from /manual. Restoring the *saved*
+    heat over it would clear the meet the test was supposed to leave alone."""
+    manual = _manual_console(monkeypatch)
+    manual.last_event_sent = (7, 2)
+
+    debug._test_play(SESSION)
+    worker.end_test_session()
+
+    assert state._decoder.last_event_sent == (7, 2), 'the operator lost their heat'
+
+
+def test_the_recording_really_decodes_under_a_manual_console(rig, monkeypatch):
+    """The regression itself, end to end: bytes in, swimmers out.
+
+    Everything above tests which object is installed; this one plays the opening of
+    the capture through it and asks whether a name ever reaches the board.
+    """
+    monkeypatch.setattr(worker.bus, 'run_bg', lambda fn, *a, **k: None)
+    monkeypatch.setattr(worker.relay, 'relay_emit', lambda *a, **k: None)
+    _manual_console(monkeypatch)
+
+    debug._test_play(SESSION)
+
+    import re
+    text = io.open(os.path.join(RECORDINGS, SESSION)).read()
+    buf = []
+    for m in re.finditer(r'\[([0-9.]+)\]\s*|([0-9a-fA-F]{2})', text):
+        if m.group(1):
+            if buf:
+                worker._handle_packet(buf)
+                buf = []
+            continue
+        buf = worker._ingest_byte(int(m.group(2), 16), buf)
+    if buf:
+        worker._handle_packet(buf)
+
+    names = {v for _, ev, d in rig.events if ev == 'update_scoreboard'
+             for k, v in (d or {}).items()
+             if k.startswith('lane_name') and not k.startswith('lane_name_alt') and v}
+    assert names, 'the whole recording decoded to nothing'
+    assert 'Alice Tremblay' in names, names

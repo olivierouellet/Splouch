@@ -54,9 +54,10 @@ class ManualDecoder(ConsoleDecoder):
     def feed(self, packet: list[int]) -> dict:
         """Never called — `_run_manual` reads no bytes. Empty for safety anyway.
 
-        It can be reached one way: starting a Test-tab replay while this console is
-        selected. The recording plays and produces nothing, which is why the Test tab
-        says so rather than looking broken.
+        A Test-tab replay used to reach it, and decode to nothing: a badge over eight
+        empty lanes for the whole recording. A replay now runs under a stand-in
+        decoder that can read the capture, and the Test tab says which — see
+        `worker.use_replay_decoder`.
         """
         return {}
 

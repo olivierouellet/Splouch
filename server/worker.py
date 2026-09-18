@@ -10,6 +10,7 @@ import serial
 import bus
 import relay
 import state
+from console_decoders import make_decoder
 from console_decoders.utils import split_step
 from meet_data import (
     delta_fields, get_event_name_display, get_event_name_parts,
@@ -76,6 +77,33 @@ def forget_current_heat():
     state._decoder.reset_lanes()      # for the side effect; the caller repaints
 
 
+def use_replay_decoder():
+    """Lend the replay a decoder that can actually read it. Returns the key, or ''.
+
+    A recording is a capture of a wire, and `_play_cts_file` feeds its bytes to
+    whatever `state._decoder` happens to be. A console with no wire has a decoder to
+    match — `ManualDecoder.feed` returns `{}` and `is_packet_start` is always False —
+    so every byte of the recording decoded to nothing: no `event_changed`, no names,
+    no times, and a test badge (emitted by `_test_play`, never through the decoder)
+    sitting over eight empty lanes with nothing to say why.
+
+    Asks the decoder rather than `settings['console_type'] == 'manual'`, so a
+    portless plugin in ~/SplouchData/console_decoders/ is covered for free. A console
+    that *does* read a wire keeps its own decoder: a Quantum operator replaying a
+    Quantum capture must not be handed a CTS.
+
+    The whole object is set aside rather than its fields, so the console's own state
+    comes back untouched — see `state._test_saved_decoder`.
+    """
+    if state._decoder.requires_serial:
+        return ''
+    state._test_saved_decoder = state._decoder
+    state._decoder = make_decoder(state.REPLAY_CONSOLE_TYPE, state.settings)
+    print(f'[test] replaying under {state.REPLAY_CONSOLE_TYPE} — '
+          f'{state.settings.get("console_type")} reads no recording', flush=True)
+    return state.REPLAY_CONSOLE_TYPE
+
+
 def restore_current_heat():
     """Put back the heat the *console* was on before the test session began.
 
@@ -91,6 +119,18 @@ def restore_current_heat():
     better answer than the recording's. The lanes are still reset: those times
     belonged to the replay.
     """
+    if state._test_saved_decoder is not None:
+        # The console's decoder was set aside whole, so its `last_event_sent` went
+        # with it and there is nothing to put back by hand. Restoring the *saved*
+        # heat here would be actively wrong under the manual console: that field is
+        # the heat the operator put on the boards, and `forget_current_heat` was
+        # looking at the stand-in by the time it ran, so the saved value is the
+        # stand-in's (0, 0) — it would clear the meet the test was supposed to leave
+        # alone. Dropping the stand-in drops the replay's lanes with it.
+        state._decoder = state._test_saved_decoder
+        state._test_saved_decoder = None
+        state._test_saved_heat = None
+        return
     state._decoder.last_event_sent = state._test_saved_heat or (0, 0)
     state._test_saved_heat = None
     state._decoder.reset_lanes()
