@@ -228,11 +228,17 @@ html, body {
     min-width: 0;
 }
 
-.header_cells_fixed #header_event_cell  { flex: 0 0 10%; }
-.header_cells_fixed #header_heat_cell   { flex: 0 0 10%; }
-.header_cells_fixed .header_cell_name   { flex: 0 0 51%; }
+/* The five shares, and `scoreboard/board.py`'s `_HW_*` weights, are one set of
+   numbers. EVENT and HEAT are wide because their word sits *beside* the number now
+   rather than above it; the wall clock gives up what they take, being the one cell
+   nobody reads a race off. Measured on the Qt board, not guessed: at these weights
+   `EV 12` and `HT 7` both reach the full digit size, and the race clock ends up with
+   more room than it had at 16% of the old split. */
+.header_cells_fixed #header_event_cell  { flex: 0 0 13%; }
+.header_cells_fixed #header_heat_cell   { flex: 0 0 13%; }
+.header_cells_fixed .header_cell_name   { flex: 0 0 48%; }
 .header_cells_fixed #header_chrono_cell { flex: 0 0 16%; }
-.header_cells_fixed #header_clock_cell  { flex: 0 0 13%; }
+.header_cells_fixed #header_clock_cell  { flex: 0 0 10%; }
 
 /* ── Scoreboard table — fills remaining height ────────────────────────────── */
 

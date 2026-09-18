@@ -796,3 +796,33 @@ def test_the_header_padding_matches_the_qt_constant():
         assert '1vw' in rule and '2vw' not in rule, rule
     board = open(os.path.join(REPO, 'scoreboard', 'board.py'), encoding='utf-8').read()
     assert '_HDR_PAD_X = 0.01' in board, 'the Qt side moved; the browser has not'
+
+
+def test_the_header_shares_match_the_qt_weights():
+    """One set of five numbers, in two files.
+
+    Qt rebalanced them when its EVENT/HEAT word moved beside the number — the two
+    label cells took what the wall clock gave up — and the browser followed once it
+    went inline too. They sum to 100, so the weights *are* the percentages. Read out
+    of both files rather than hardcoded here: a test that restated them would just be
+    a third copy to drift.
+    """
+    css = _shared_css()
+    shares = {}
+    for cell, key in (('#header_event_cell', 'event'), ('#header_heat_cell', 'heat'),
+                      ('.header_cell_name', 'name'), ('#header_chrono_cell', 'chrono'),
+                      ('#header_clock_cell', 'clock')):
+        m = re.search(r'\.header_cells_fixed ' + re.escape(cell)
+                      + r'\s*\{[^}]*flex:\s*0\s*0\s*(\d+)%', css)
+        assert m, f'no fixed share for {cell}'
+        shares[key] = int(m.group(1))
+
+    board = open(os.path.join(REPO, 'scoreboard', 'board.py'), encoding='utf-8').read()
+    m = re.search(r'_HW_EVENT, _HW_HEAT, _HW_NAME, _HW_CHRONO, _HW_CLOCK = '
+                  r'(\d+), (\d+), (\d+), (\d+), (\d+)', board)
+    assert m, 'no _HW_* weights in board.py'
+    weights = dict(zip(('event', 'heat', 'name', 'chrono', 'clock'),
+                       (int(g) for g in m.groups())))
+
+    assert shares == weights, f'browser {shares} != Qt {weights}'
+    assert sum(weights.values()) == 100, weights

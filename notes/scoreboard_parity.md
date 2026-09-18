@@ -1,12 +1,17 @@
 # `/live` vs the Qt board — layout parity
 
 The Qt display in [`scoreboard/`](../scoreboard/) replaced a Chromium kiosk pointed at
-`http://splouch.local`, which redirects to `/live`. So the reference for every layout
-decision is [`server/templates/live.html`](../server/templates/live.html) plus
-[`shared/static/css/timing_display.css`](../shared/static/css/timing_display.css). A second,
-diverged template (`scoreboard.html`) once sat beside it with different column widths and a
-different heat transition; it has been deleted, and the rows that cited it now stand on their
-own reasons.
+`http://splouch.local`, which redirects to `/live`, so `/live` was the reference for every
+layout decision while the display was catching up to it. A second, diverged template
+(`scoreboard.html`) once sat beside it with different column widths and a different heat
+transition; it has been deleted, and the rows that cited it now stand on their own reasons.
+
+**The Qt board is the reference now.** It is the display that actually hangs over the pool,
+it is where the layout questions get answered first — shrink-to-fit, the inline EVENT/HEAT
+word, the header shares, the 1% cell padding were all settled there — and `/live` and
+[`shared/static/css/timing_display.css`](../shared/static/css/timing_display.css) follow it.
+A difference found from here on is the browser's to close unless there is a reason recorded
+against it, and the reason goes in this file.
 
 This file is the ledger. Every row below is one of:
 
@@ -17,7 +22,8 @@ This file is the ledger. Every row below is one of:
 | **gap** | known missing work, tracked at the bottom |
 
 Where a difference was drift rather than a decision, the fix went into whichever side was
-wrong — usually Qt, once into `live.html`. Both directions are recorded here.
+wrong. Early on that was usually Qt; since the display became the reference it is usually
+the browser. Both directions are recorded here, and each row says which way a port went.
 
 ---
 
@@ -67,14 +73,22 @@ Geometry first. The bar height is the one number everything else derives from.
 | bar height | 65px, 85px above `min-height: 700px` | `_H_BAR` = 10.5% of the window | **intentional** — 85px at 1080p is the floor of what reads across a pool deck |
 | bottom border | `1px solid header_border` | `1px solid header_border` | match |
 | cell dividers | `border-left: 1px solid header_border`, not on the first | same, on the four cells after the first | match |
-| cell widths | `flex: 0 0` 10 / 10 / 51 / 16 / 13 % | stretch weights **13 / 13 / 48 / 16 / 10** | **gap** — Qt widened EVENT/HEAT when its word moved beside the number and took it from the wall clock; the browser has since gone inline too and has not followed. See the gaps at the bottom |
+| cell widths | `flex: 0 0` 13 / 13 / 48 / 16 / 10 % | stretch weights 13 / 13 / 48 / 16 / 10 | match — *ported Qt → browser*, see below |
 | cell padding | `.header_cell` `6px 1vw` | 7% of the bar height (6px of 85), 1% of the window width | match — *ported Qt → browser*, see below |
 
-**Fixed cell widths were ported the other way.** `/live` sized event/heat/chrono/clock to
-their content and gave the name cell `flex: 1`, so the whole row shifted whenever the event
-number gained a digit or the chrono appeared. The Qt board had fixed weights from the start;
-`live.html` now uses the same five percentages. They sum to 100, so the weights *are* the
-percentages — the same convention as the column weights.
+**Fixed cell widths came from Qt, twice.** `/live` sized event/heat/chrono/clock to their
+content and gave the name cell `flex: 1`, so the whole row shifted whenever the event number
+gained a digit or the chrono appeared. The Qt board had fixed weights from the start, and
+`live.html` took them. Then Qt **rebalanced** them when its EVENT/HEAT word moved beside the
+number instead of above it: 10/10/51/16/13 became 13/13/48/16/10, the two label cells taking
+what the wall clock gave up — the one cell nobody reads a race off. Measured, not guessed: at
+13% `EV 12` and `HT 7` both reach the full digit size. The browser went inline later and has
+now followed to the same five numbers. They sum to 100, so the weights *are* the percentages
+— the same convention as the column weights.
+
+At 1920 that gives the EVENT cell 250px, 211px of it usable after the 1% padding, against
+115px under the old split with its old `2vw`. `fitHeaderCells()` shrinks the phrase only when
+even that is not enough.
 
 On the browser side this is **opt-in**, through a `header_cells_fixed` class on the bar.
 `timing_display.css` is shared with `live-mobile.html` and `results.html`,
@@ -409,7 +423,6 @@ decisions.
 | automatic idle splash | Neither display has one: the Qt overlay is operator-driven, and `/live` never had a timeout — the `INTRO_TIMEOUT` / `RESULTS_TIMEOUT` this row used to cite belonged to the retired second template. Both boards hold the last start list until someone presses the button. |
 | results hold | `/live` distinguishes a brief result from a full one (`brief_results`). Here results simply stay until the next heat arrives. |
 | background image behind the table | Neither display does this today — `.background` in the CSS is a flat `--color-bg` fill. Worth having on both. |
-| header cell widths | Qt is **13 / 13 / 48 / 16 / 10**, the browser still **10 / 10 / 51 / 16 / 13**. Qt widened EVENT and HEAT when their word moved beside the number — measured, not guessed: at 13% `EV 12` and `HT 7` both reach the full `_R_DIGITS` size — and took it from the wall clock, the one cell nobody reads a race off. The browser has since gone inline too, so it wants the same rebalance; at 10% its phrase has a third less room than Qt's and `fitHeaderCells()` shrinks it to compensate. Moving the name cell 51% → 48% is the part worth a look before doing it. |
 
 ---
 

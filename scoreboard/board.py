@@ -1033,8 +1033,7 @@ class BoardWindow(QWidget):
         #
         # The widths are fixed percentages rather than content-derived, so the bar
         # does not reflow when the event number gains a digit. `.header_cells_fixed`
-        # in timing_display.css is the browser's copy — still on the pre-inline
-        # 10/10/51/16/13 split, see notes/scoreboard_parity.md.
+        # in timing_display.css carries the same five numbers.
         self.heat_cell.divider = True
         for widget, weight in ((self.event_cell, _HW_EVENT),
                                (self.heat_cell, _HW_HEAT),
