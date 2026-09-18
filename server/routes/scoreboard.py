@@ -80,11 +80,13 @@ def route_results(request: Request):
 
 @router.get('/operator')
 def route_operator(request: Request):
-    sides      = int(state.settings.get('touchpad_sides', 1))
-    split_step = 2 if sides == 1 else 1
+    # Off the decoder, not off `touchpad_sides`: the pad count is the CTS Gen6's own
+    # reason for counting in twos, and applying it to a console that reports a lap
+    # number made the ± buttons move by 2 where the console moves by 1. Same value
+    # the boards get with `expected_splits` (docs/api.md §5.1).
     return render(request, 'operator.html',
                   num_lanes=int(state.settings.get('num_lanes', 8)),
-                  split_step=split_step)
+                  split_step=state._decoder.split_step)
 
 
 @router.get('/manual')

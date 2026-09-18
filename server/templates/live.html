@@ -29,6 +29,8 @@
 <script>
 var labels = {{ labels | tojson }};
 var NUM_LANES   = {{ num_lanes }};
+/* Lap counts in the delta column while a lane swims (Settings → Display). */
+var SHOW_LAPS   = {{ show_laps | default(false) | tojson }};
 var SHOW_PODIUM = {{ show_podium | tojson }};
 var lane_running = {};
 var lane_place_blank = {};
@@ -147,9 +149,10 @@ var VALID_FIELDS = new Set([
     {% for i in range(1, num_lanes + 1) %}"lane_time{{ i }}", {% endfor %}
     {% for i in range(1, num_lanes + 1) %}"lane_name{{ i }}", {% endfor %}
     {% for i in range(1, num_lanes + 1) %}"lane_club{{ i }}", {% endfor %}
-    {% for i in range(1, num_lanes + 1) %}"lane_delta{{ i }}", {% endfor %}
     {% for i in range(1, num_lanes + 1) %}"lane_name_alt{{ i }}", {% endfor %}
 ]);
+/* `lane_delta<i>` is deliberately not in that set: the delta column is shared
+   with the lap count, and `renderDelta` owns it. */
 
 function on_timer() {
     var d = new Date();
@@ -264,6 +267,61 @@ function reset_times() {
     });
 }
 
+/* ── Delta cell: lap count, then the time difference ──────────────────────────
+   The kiosk's copy of the phone board's renderer (scoreboard_base.html) — this
+   page predates the shared base and keeps its own frame handler. Keep the two in
+   step; `notes/scoreboard_parity.md` records the behaviour they owe each other.
+
+   One cell, two tenants. While a lane is swimming it carries the lengths that lane
+   has completed, in the row's own colour — the colour the swimmer's name is in, so
+   it reads as progress rather than as a result. At the finish the delta arrives and
+   takes the cell back in its better/worse colour. The column header never moves.
+
+   Rendered from remembered state rather than written straight from the frame,
+   because the two tenants arrive in *different* frames: the console sends the place
+   on the touch and the server sends the delta a frame or two later. */
+var lane_splits_n   = {};
+var lane_delta_html = {};
+var expected_splits = 0;
+var split_step      = 1;
+
+/* No lap once the lane has a place: that is the finish, whatever the delta is
+   doing. A swimmer with no seed time never gets a delta at all, so waiting for one
+   would leave the lap sitting under a finished swim for the rest of the heat. */
+function lapVisible(i) {
+    if (!SHOW_LAPS) return false;
+    if (!(lane_splits_n[i] > 0)) return false;
+    if (!((lane_delta_html[i] || '').trim() === '')) return false;
+    return !(i in lane_place_blank) || lane_place_blank[i];
+}
+
+/* The last length: `+ split_step`, not `+ 1`. A pool with touchpads at one end only
+   is seen once every two lengths, so its count arrives in twos and a `+ 1` test
+   would never fire (docs/api.md §5.1). */
+function lapIsLast(i) {
+    return expected_splits > 0 &&
+           (lane_splits_n[i] + split_step) >= expected_splits;
+}
+
+function renderDelta(i) {
+    var el = document.getElementById('lane_delta' + i);
+    if (!el) return;
+    var delta = lane_delta_html[i] || '';
+    if (delta.trim() !== '') {
+        el.innerHTML = delta;
+        el.classList.remove('lap-count', 'lap-last');
+        return;
+    }
+    if (lapVisible(i)) {
+        el.textContent = String(lane_splits_n[i]);
+        el.classList.add('lap-count');
+        el.classList.toggle('lap-last', lapIsLast(i));
+        return;
+    }
+    el.textContent = '';
+    el.classList.remove('lap-count', 'lap-last');
+}
+
 function set_header_mode(active) {
     document.getElementById("header_meet_title_wrap").style.display = active ? "none" : "";
     document.getElementById("header_event_cell").style.display      = active ? ""     : "none";
@@ -297,6 +355,11 @@ function reset_state() {
     lane_place_blank = {};
     lane_time_blank = {};
     lane_name_blank = {};
+    lane_splits_n = {};
+    lane_delta_html = {};
+    expected_splits = 0;
+    split_step = 1;
+    for (var i = 1; i <= NUM_LANES; i++) renderDelta(i);
     if (_leave_results_timer) { clearTimeout(_leave_results_timer); _leave_results_timer = null; }
 }
 
@@ -439,10 +502,26 @@ function mode_to_results() {
     socket.on('update_scoreboard', function(new_s) {
         for (var k in new_s) { s[k] = new_s[k]; }
 
+        /* Both halves of the lap test are board-wide and arrive with the heat, so
+           they are read before any lane is rendered below. */
+        if ("expected_splits" in s) expected_splits = s["expected_splits"] || 0;
+        if ("split_step" in s)      split_step      = s["split_step"] || 1;
+
         var names_changed = false;
+        var delta_lanes   = {};
         for (var k in s) {
             if (VALID_FIELDS.has(k)) {
                 document.getElementById(k).innerHTML = s[k];
+            }
+            if (k.startsWith("lane_splits")) {
+                var si = k.replace("lane_splits", "");
+                lane_splits_n[si] = parseInt(s[k], 10) || 0;
+                delta_lanes[si] = true;
+            }
+            if (k.startsWith("lane_delta") && !k.startsWith("lane_delta_")) {
+                var di = k.replace("lane_delta", "");
+                lane_delta_html[di] = s[k] || '';
+                delta_lanes[di] = true;
             }
             if (k.startsWith("lane_running")) {
                 var li = k.replace("lane_running", "");
@@ -462,10 +541,23 @@ function mode_to_results() {
                 }
             }
             if (k.startsWith("lane_time"))  lane_time_blank[k.replace("lane_time", "")]  = (s[k].trim() === "");
-            if (k.startsWith("lane_place")) lane_place_blank[k.replace("lane_place", "")] = (s[k].trim() === "");
+            if (k.startsWith("lane_place")) {
+                var pi = k.replace("lane_place", "");
+                lane_place_blank[pi] = (s[k].trim() === "");
+                delta_lanes[pi] = true;          /* a place ends the lap */
+            }
             if (k.startsWith("lane_name")) names_changed = true;
             if (k.startsWith("lane_name") && !k.startsWith("lane_name_alt"))
                 lane_name_blank[k.replace("lane_name", "")] = (s[k].trim() === "");
+        }
+        /* A heat's `expected_splits` lands in the same frame as its blanked lanes,
+           but a `split_step` that changed on its own (the operator switching the
+           touchpad setting mid-meet) touches no lane at all — so repaint every lane
+           when either moves, and only the lanes that changed otherwise. */
+        if ("expected_splits" in s || "split_step" in s) {
+            for (var li2 = 1; li2 <= NUM_LANES; li2++) renderDelta(li2);
+        } else {
+            for (var di2 in delta_lanes) renderDelta(di2);
         }
         /* Only when a name actually arrived — a heat change, not every tick. This
            page also carries the running clock, so it sees far more frames than the

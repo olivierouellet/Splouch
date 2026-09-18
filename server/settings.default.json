@@ -17,6 +17,7 @@
     "show_club": true,
     "show_delta": true,
     "show_position": true,
+    "show_laps": false,
     "active_theme": "default",
     "theme_colors": {
         "bg": "#0d0d0d",

@@ -57,7 +57,17 @@ the admin session cookie.
 
 ### `/ws/scoreboard`
 On connect the server sends, in order: `test_mode`, `display_overlay`,
-`columns_state`, `meet_live`, then an `update_scoreboard` snapshot.
+`columns_state`, `meet_live`, then **two** `update_scoreboard` frames — the current
+heat's header and lane names, broadcast to everyone, followed by the board snapshot
+sent to this socket alone.
+
+The snapshot is every field published since the last board wipe, merged, minus
+`running_time`. Frames are partial (§5.1), so without it a client connecting between
+two touches would show a start list until the console next moved a lane. The clock is
+left out deliberately: the replay carries no indication of how old it is, and a
+frozen clock is worse than none — the client waits for the next re-base, at most a
+tick away. The cloud's `join_meet` replay (§3) works the same way and drops it for the
+same reason.
 
 **Server → client**
 | event | data | meaning |
@@ -118,7 +128,7 @@ is allowed to reach it is a real session as far as the cloud is concerned.
 | `update_log` | `{ "text", "error": bool, "done": bool\|null }` | progress while handling `update`; `done` null = still running |
 | `set_overlay` | `{ "active": bool }` | toggle overlay (rebroadcast as `display_overlay`) |
 | `set_columns` | `{ "hidden": bool }` | toggle columns (rebroadcast as `columns_state`) |
-| `adjust_splits` | `{ "lane": 1‑12, "delta": int }` | nudge a lane's split count; server replies `update_scoreboard {"lane_splits<n>": v}` |
+| `adjust_splits` | `{ "lane": 1‑12, "delta": int }` | nudge a lane's lap count; server replies `update_scoreboard {"lane_splits<n>": v}` on this channel **and** over the relay. Clamped at 0. A console that counts nothing answers with the unchanged value |
 | `next_heat` | `{}` | advance to the next event/heat in the meet's running order (§2.3) |
 | `prev_heat` | `{}` | step back one event/heat (§2.3) |
 | `goto_heat` | `{ "event": int, "heat": int }` | make that event/heat current; ignored unless the loaded meet contains it (§2.3) |
@@ -284,7 +294,8 @@ Lane keys are 1-indexed (`<i>` = 1…12).
 | `event_name_parts` | object\|null | the same name, language-neutral, for a client rendering in a language the meet is not run in — see below |
 | `heat_time` | string | scheduled time, may be `""` |
 | `running_time` | string | the race clock for the heat — one value, not per lane. **Format `m:ss.hh` or `ss.hh`**, see below. The Pi sends it on every timing tick; **the cloud forwards at most one every 2s**, plus any frame that also carries a `lane_running<i>` key, and never keeps it in the join snapshot. Clients re-base on each one and tick locally in between |
-| `expected_splits` | int | laps expected for the event |
+| `expected_splits` | int | lengths the event runs to (distance ÷ pool length); `0` when unknown |
+| `split_step` | int | lengths one counted split is worth — `1` on every console that reports a lap number, `2` on a CTS Gen6 with touchpads at one end only. Sent with `expected_splits` on every heat change |
 | `lane_name<i>` | string | swimmer/relay display name |
 | `lane_club<i>` | string | club |
 | `lane_name_alt<i>` | string | relay member names, else `""` |
@@ -294,7 +305,7 @@ Lane keys are 1-indexed (`<i>` = 1…12).
 | `lane_delta<i>` | string | **HTML** `<span class="delta-better\|delta-worse">±s.hh</span>` vs seed (for the browser) |
 | `lane_delta_seconds<i>` | float\|null | **structured** signed delta vs seed in seconds (negative = faster); `null` when no seed/time |
 | `lane_delta_better<i>` | bool\|null | `true` when faster than seed; `null` when no delta |
-| `lane_splits<i>` | int | reply to `adjust_splits` |
+| `lane_splits<i>` | int | lengths this lane has completed; `0` at the top of every heat. Native from a Quantum or an Omnisport 2000, inferred from touchpad stops on a CTS Gen6, and never raised at all by a Gen7 or an ARES 21. Also the reply to `adjust_splits` |
 
 > Native clients should use `lane_delta_seconds<i>` / `lane_delta_better<i>` and
 > ignore the HTML `lane_delta<i>`. On a heat change all three reset (`""` / `null`).

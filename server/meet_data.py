@@ -317,5 +317,6 @@ def send_event_info():
         u[f'lane_delta_seconds{i}'] = None
         u[f'lane_delta_better{i}']  = None
         u[f'lane_name_alt{i}']      = get_lane_alt(ev, ht, i)
+    state.record_board(u)
     bus.emit('/scoreboard', 'update_scoreboard', u)
     relay.relay_emit('update_scoreboard', u)

@@ -83,6 +83,11 @@ settings = {
     'show_delta': True,
     'show_position': True,
     'show_podium': True,
+    # Lap counts in the delta column while a lane is swimming. Off by default:
+    # only a console that reports a lap number on the wire is reliable enough to
+    # put on a public board, and the CTS Gen6 count is inferred from touchpad
+    # stops. Turn it on once you know which console the venue has.
+    'show_laps': False,
     'results_sort': 'lane',
     'active_theme': 'default',
     'theme_colors': {
@@ -258,6 +263,34 @@ def install_log_capture():
 # ── Runtime state ──────────────────────────────────────────────────────────────
 
 update      = {}
+
+# Everything ever published on `/scoreboard` as `update_scoreboard`, merged. The
+# frames are partial (docs/api.md §5.1), so a client that connects mid-heat has no
+# way to learn what it missed — the console only resends a lane when that lane
+# changes. The cloud has always solved this with `meet['last_scoreboard']` and its
+# join replay; this is the same cache on the Pi, so a kiosk that reconnects between
+# two touches gets the board back instead of sitting blank until the next frame.
+#
+# Written from the worker thread and read from the event loop. No lock: every writer
+# goes through `record_board`, and a reader takes `dict(board)` — CPython's GIL makes
+# both atomic against each other, and a frame that lands mid-copy is one the client
+# is about to be sent anyway.
+board = {}
+
+
+def record_board(data):
+    """Merge a published `update_scoreboard` frame into the replay cache.
+
+    `running_time` is deliberately dropped. The replay carries no indication of how
+    old it is, and a stale clock is worse than no clock: a client joining mid-heat
+    would paint a frozen figure and believe it. It waits for the next re-base
+    instead, which is at most one tick away. The cloud drops it for the same reason
+    (cloud_server._forward).
+    """
+    if not data:
+        return
+    board.update(data)
+    board.pop('running_time', None)
 
 # The last results payload, published by the worker and read by the results-WS
 # connect handler and the relay. Always reassigned as a whole dict (never mutated

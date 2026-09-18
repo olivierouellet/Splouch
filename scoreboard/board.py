@@ -132,6 +132,11 @@ _TIME_RUNNING   = '#a0a0a0'
 _TIME_LOCK_FROM = '#ffffff'
 _TIME_LOCK_MS   = 800
 
+# One cycle of the browser's `lap-last-pulse` keyframes (timing_display.css): the
+# row colour up to the timing colour and back, on the last length before the finish.
+# Both halves come from the theme, so this is only the duration.
+_LAP_PULSE_MS = 1000
+
 # The link-lost badge and the frozen clock share one colour, so the two obviously
 # belong to each other. It comes from the theme (`connection_lost`, Settings →
 # Theme → Status), like every other colour on the board — the stock value is a red
@@ -220,6 +225,10 @@ class LaneRow(QFrame):
         # arrives at the end of the heat, not the moment a place lands — see
         # BoardWindow.highlight_podium.
         self._place = ''
+        # Whether the delta cell is currently showing a lap count rather than a
+        # delta, so `apply_theme` and the pulse know which colour the cell owes.
+        self._lap_shown = False
+        self._lap_anim  = None
         self._podium_anim = None
         self._time_anim   = None
         self.setAutoFillBackground(True)
@@ -323,7 +332,12 @@ class LaneRow(QFrame):
             label.setFont(QFont(cfg.digits_family))
         self.time_label.setFont(QFont(cfg.timing_family))
         self.delta_label.setFont(QFont(cfg.timing_family))
-        self._style_delta(self._delta_better)
+        # Whichever tenant the delta cell currently has, in the colours the reloaded
+        # theme says. Restated here for the same reason as the podium tint above.
+        if self._lap_shown:
+            self._style_lap(bool(getattr(self, '_lap_pulsing', False)))
+        else:
+            self._style_delta(self._delta_better)
         # Grey while the clock owns the cell, otherwise the time colour. Restated
         # here for the same reason as the tint above.
         self._stop_time_flash()
@@ -381,10 +395,73 @@ class LaneRow(QFrame):
         passing None there would repaint a faster swim in the *slower* colour.
         It happens to recover today because `set_config` calls `refresh()` straight
         after — an ordering accident, not a guarantee.
+
+        A lap count in the cell outranks all of that: it is not a delta and must not
+        take a delta's colour. `.td_delta.lap-count` wins the same way in CSS.
         """
         self._delta_better = better
+        if self._lap_shown:
+            return
         color = self.cfg.color('delta_better' if better else 'delta_worse')
         self.delta_label.setStyleSheet(f'color: {color}; background: transparent;')
+
+    # ── Lap count ──────────────────────────────────────────────────────────────
+    # The delta cell has two tenants: the lengths this lane has completed while it
+    # is swimming, then the time difference once it has finished. See the
+    # `renderDelta` pair in scoreboard_base.html and live.html — this is the same
+    # rule, and `notes/scoreboard_parity.md` records what the three owe each other.
+
+    def _stop_lap_pulse(self):
+        anim = getattr(self, '_lap_anim', None)
+        if anim is not None:
+            anim.stop()
+            self._lap_anim = None
+
+    def _paint_lap(self, colour):
+        self.delta_label.setStyleSheet(f'color: {colour}; background: transparent;')
+
+    def _style_lap(self, pulsing: bool):
+        """Paint the cell as a lap: the row's own colour, pulsing on the last one.
+
+        Qt has no `@keyframes`, so `lap-last-pulse` is spelled out here as the three
+        stops the CSS declares — row colour, timing colour, row colour — looped. The
+        cycle starting *and* ending on the row colour is the part that matters: the
+        delta can replace the lap at any moment, and catching the pulse mid-way on
+        the timing colour would read as a result.
+        """
+        row = self.cfg.color('row_text')
+        self._stop_lap_pulse()
+        self._paint_lap(row)
+        if not pulsing:
+            return
+        anim = QVariantAnimation(self)
+        anim.setDuration(_LAP_PULSE_MS)
+        anim.setKeyValueAt(0.0, QColor(row))
+        anim.setKeyValueAt(0.5, QColor(self.cfg.color('time')))
+        anim.setKeyValueAt(1.0, QColor(row))
+        anim.setEasingCurve(QEasingCurve.InOutSine)
+        anim.setLoopCount(-1)
+        anim.valueChanged.connect(lambda colour: self._paint_lap(colour.name()))
+        anim.start()
+        self._lap_anim = anim
+
+    def set_lap(self, count, pulsing: bool):
+        """Show *count* lengths in the delta cell, or hand the cell back."""
+        if count is None:
+            if self._lap_shown:
+                self._lap_shown = False
+                self._stop_lap_pulse()
+                self._style_delta(self._delta_better)
+            return
+        was = self._lap_shown
+        self._lap_shown = True
+        self.delta_label.setText(str(count))
+        # Only restyle on a change: re-running the animation on every frame would
+        # restart it twenty times a second and the cell would never leave its first
+        # colour.
+        if not was or pulsing != bool(getattr(self, '_lap_pulsing', False)):
+            self._lap_pulsing = pulsing
+            self._style_lap(pulsing)
 
     # ── Podium tint ────────────────────────────────────────────────────────────
 
@@ -513,12 +590,41 @@ class LaneRow(QFrame):
         self.delta_label.setText('')
         self.place_label.setText('')
         self._place = ''
+        # Hands the delta cell back before the next heat writes into it — otherwise
+        # the pulse would run on under a blank cell, and the first delta of the new
+        # heat would be painted in the lap's colour.
+        self.set_lap(None, False)
         self._set_bg(self._base_bg)
         # The browser's `reset_times()`, called from mode_to_intro(): drop any
         # running grey or half-finished lock flash before the next heat is painted.
         self._stop_time_flash()
         self._style_time(self.cfg.color('time'))
         self.set_row_height(self.height())
+
+    def lap_for(self, snapshot: dict):
+        """(count, pulsing) for the lap this lane should show, or (None, False).
+
+        The browser's `lapVisible` / `lapIsLast`, in one call because the Qt side has
+        one writer for the cell either way. No lap once the lane has a place — that
+        is the finish, whatever the delta is doing. A swimmer with no seed time never
+        gets a delta at all, so waiting for one would leave the lap sitting under a
+        finished swim for the rest of the heat.
+        """
+        i = self.lane
+        if not self.cfg.show_laps:
+            return None, False
+        count = int(snapshot.get(f'lane_splits{i}') or 0)
+        if count <= 0:
+            return None, False
+        if (snapshot.get(f'lane_place{i}', '') or '').strip():
+            return None, False
+        if fmt_delta(snapshot.get(f'lane_delta_seconds{i}')):
+            return None, False
+        # `+ step`, not `+ 1`: a pool with touchpads at one end only is seen once
+        # every two lengths, so its count arrives in twos (docs/api.md §5.1).
+        expected = int(snapshot.get('expected_splits') or 0)
+        step     = int(snapshot.get('split_step') or 1)
+        return count, expected > 0 and (count + step) >= expected
 
     def update_from(self, snapshot: dict):
         """Re-render from the merged scoreboard state (only this lane's keys)."""
@@ -539,8 +645,12 @@ class LaneRow(QFrame):
         if not self.running:
             self.time_label.setText(snapshot.get(f'lane_time{i}', ''))
 
+        # The delta cell, then the lap that may be standing in for it. `set_lap`
+        # overwrites the text it just wrote when there is a lap to show, and hands
+        # the cell back — text and colour both — the moment there is not.
         self.delta_label.setText(fmt_delta(snapshot.get(f'lane_delta_seconds{i}')))
         self._style_delta(snapshot.get(f'lane_delta_better{i}'))
+        self.set_lap(*self.lap_for(snapshot))
 
         # Recorded, not acted on. The browser tints only once the heat is over —
         # `highlight_podium()` runs from `mode_to_results()` and `race_finished`, not
@@ -1438,7 +1548,7 @@ class BoardWindow(QWidget):
         """
         stale = [key for key in self.snapshot
                  if key.startswith(('lane_time', 'lane_place', 'lane_delta',
-                                    'lane_running'))
+                                    'lane_running', 'lane_splits'))
                  and key not in keep]
         for key in stale:
             del self.snapshot[key]
@@ -1805,6 +1915,11 @@ class BoardWindow(QWidget):
             match = _LANE_SUFFIX.search(key)
             if match:
                 touched.add(int(match.group(1)))
+        # Neither of these names a lane, but both decide what every lane's delta cell
+        # shows — `expected_splits` arrives with the heat, and `split_step` can move
+        # on its own when the operator changes the touchpad setting mid-meet.
+        if 'expected_splits' in data or 'split_step' in data:
+            touched.update(row.lane for row in self.rows)
         if not self.paused:
             for row in self.rows:
                 if row.lane in touched:

@@ -109,6 +109,11 @@ class Ares21Decoder(ConsoleDecoder):
             updates[f'lane_place{i}']   = ' '
             updates[f'lane_running{i}'] = False
             updates[f'lane_delta{i}']   = ''
+            # This console reports no lap number, so nothing here ever raises the
+            # count — but the key is part of the reset contract every other decoder
+            # honours, and a board that carries a lap from a previous console (or a
+            # custom decoder swapped in at runtime) must not keep it across a heat.
+            updates[f'lane_splits{i}']  = 0
         self.lane_seed_times.clear()
         self._race_active = False
         return updates

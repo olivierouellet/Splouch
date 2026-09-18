@@ -79,6 +79,13 @@ _SHOW_FLAGS = (
     'show_time_header', 'show_delta_header', 'show_position_header',
 )
 
+# Flags that default *off*, so they need their own default rather than the True that
+# every column above is entitled to. `show_laps` is one because the lap count is not
+# a column but a stand-in for one, and because only a console that reports a lap
+# number on the wire is exact — see `state.settings['show_laps']`, which must agree.
+# A server too old to send the key has to read as off, not as on.
+_SHOW_FLAGS_OFF = ('show_laps',)
+
 
 class Config:
     """Normalised view of ``GET /config`` with defaults filled in.
@@ -108,6 +115,8 @@ class Config:
         self.carousel_interval = max(1, int(raw.get('carousel_interval') or 10))
         for flag in _SHOW_FLAGS:
             setattr(self, flag, bool(raw.get(flag, True)))
+        for flag in _SHOW_FLAGS_OFF:
+            setattr(self, flag, bool(raw.get(flag, False)))
 
     def color(self, key: str) -> str:
         return self.colors.get(key) or DEFAULT_COLORS.get(key, '#ffffff')

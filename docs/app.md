@@ -270,6 +270,37 @@ Live lane state during a heat. The busiest screen and the one most worth getting
 | `L-12` | Every running lane's time cell shows the **race clock**: one value for the heat, re-based by the server every couple of seconds and ticked by the device in between | `running_time` (throttled by the relay) + `lane_running<i>` + `meet_live` — see note | **must** |
 | `L-13` | Event or heat change blanks all times, deltas, and places — **unless** a lane was running on the previous frame, in which case the times stay on screen as results. The first event and heat seen after a connect are a baseline, not a change | `current_event` / `current_heat` change, compared as strings | must — see note |
 | `L-14` | Returning to the tab re-runs layout and refreshes the clock | web: parent re-dispatches `resize` | must (native: on-appear) |
+| `L-23` | While a lane is swimming the **delta cell** carries the lengths it has completed, in the row's own text colour; the delta takes the cell back at the finish, in its better/worse colour. The column header never changes | `lane_splits<i>`, gated on meet `settings.show_laps` | should — see note |
+
+> **`L-23` — one cell, two tenants.** (`L-15`–`L-22` are spoken for further down and
+> §0.1 says never renumber, so the next free ID lands out of sequence here. The rule
+> belongs in this table, not at the end of the file.)
+>
+> A lap is not a result, so it is not given a
+> column of its own and it never borrows the place column: `#3` and `3` a length
+> apart are the same glyph, and swapping the header between them mid-heat is a
+> distinction nobody reads across a hall. The delta column is empty for the whole
+> race and fills only at the finish, so the handover is the signal — the colour
+> changes, the header does not.
+>
+> **Show a lap when all of these hold**, and nothing when any fails:
+>
+> | condition | why |
+> | --- | --- |
+> | `settings.show_laps` | off by default; not every console's count is exact |
+> | `lane_splits<i> > 0` | every lane starts a heat at 0, and a column of noughts under a start list is noise |
+> | the lane has no place | the finish ends the lap, whatever the delta is doing — a swimmer with no seed time never gets a delta at all |
+> | the delta is empty | belt and braces for the frame where both arrive together |
+>
+> **The last length pulses**: `lane_splits<i> + split_step >= expected_splits`, with
+> both values from §5.1. It is `+ split_step`, not `+ 1` — a pool with touchpads at
+> one end only is seen once every two lengths, so its count arrives in twos and a
+> `+ 1` test would never fire on the setup where the deck can least easily tell.
+>
+> **Accuracy varies by console** (§5.1): exact from a Quantum or an Omnisport 2000,
+> inferred from touchpad stops on a CTS Gen6, absent on a Gen7 or an ARES 21. The
+> operator corrects a drifting count with `adjust_splits`, which is why the setting
+> exists and why it ships off.
 
 > **`L-12` — one clock per heat, re-based by the server, ticked by the device.** There
 > is **no per-lane elapsed time** — every running lane shows the same figure, and a

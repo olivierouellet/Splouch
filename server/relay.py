@@ -63,6 +63,7 @@ def _get_metadata():
             'show_club':            state.settings.get('show_club', True),
             'show_delta':           state.settings.get('show_delta', True),
             'show_position':        state.settings.get('show_position', True),
+            'show_laps':            state.settings.get('show_laps', False),
             'show_lane_header':     state.settings.get('show_lane_header', True),
             'show_name_header':     state.settings.get('show_name_header', True),
             'show_club_header':     state.settings.get('show_club_header', True),

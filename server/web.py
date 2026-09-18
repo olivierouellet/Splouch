@@ -108,6 +108,7 @@ def _globals():
         show_delta=state.settings.get('show_delta', True),
         show_position=state.settings.get('show_position', True),
         show_podium=state.settings.get('show_podium', True),
+        show_laps=state.settings.get('show_laps', False),
         num_lanes=int(state.settings.get('num_lanes', 6)),
         finish_debounce=float(state.settings.get('finish_debounce', 3.0)),
         # The Timing pane warns when the delay is off the default and offers it

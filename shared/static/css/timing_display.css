@@ -401,6 +401,22 @@ table.timing-table tbody td:first-child,
 .delta-better { color: var(--color-delta-better); }
 .delta-worse  { color: var(--color-delta-worse); }
 
+/* ── Lap count (shares the delta cell) ────────────────────────────────────────
+   While a lane is swimming the delta cell carries the lengths it has completed;
+   at the finish the delta takes the cell back. A lap is not a time, so it takes
+   the row's own colour — the one the swimmer's name is in — while the delta keeps
+   its better/worse colours. That contrast is what makes the swap legible without
+   the column header ever moving. Both boards render this (`renderDelta` in
+   scoreboard_base.html and live.html), so the rule lives here rather than twice. */
+.td_delta.lap-count { color: var(--color-row-text); }
+@keyframes lap-last-pulse {
+    0%, 100% { color: var(--color-row-text); }
+    50%      { color: var(--color-time); }
+}
+/* The last length before the finish. Begins and ends on the row colour, so the
+   swap to the delta can never catch it mid-cycle on an off colour. */
+.td_delta.lap-count.lap-last { animation: lap-last-pulse 1s ease-in-out infinite; }
+
 /* ── Podium highlight ─────────────────────────────────────────────────────── */
 
 tr.podium-gold   td { background-color: var(--color-podium-gold) !important; }

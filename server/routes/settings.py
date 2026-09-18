@@ -269,7 +269,8 @@ def _settings_view(request, form):
         if 'display_settings_submit' in form:
             for key in ('show_lane_header', 'show_name_header', 'show_club_header',
                         'show_time_header', 'show_delta_header', 'show_position_header',
-                        'show_name', 'show_club', 'show_delta', 'show_position', 'show_podium'):
+                        'show_name', 'show_club', 'show_delta', 'show_position', 'show_podium',
+                        'show_laps'):
                 val = key in form
                 if val != state.settings.get(key, True):
                     state.settings[key] = val
@@ -553,6 +554,7 @@ def _settings_view(request, form):
         show_club=state.settings.get('show_club', True),
         show_delta=state.settings.get('show_delta', True),
         show_position=state.settings.get('show_position', True),
+        show_laps=state.settings.get('show_laps', False),
         results_sort=state.settings.get('results_sort', 'lane'),
         active_theme=state.settings.get('active_theme', 'default'),
         theme_list=state.list_builtin_themes(),

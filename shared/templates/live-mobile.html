@@ -22,8 +22,13 @@ function mode_to_intro() {
     reset_times();
     for (var i = 1; i <= NUM_LANES; i++) {
         document.getElementById('lane_time' + i).innerHTML  = '';
-        document.getElementById('lane_delta'+ i).innerHTML  = '';
         document.getElementById('lane_place'+ i).innerHTML  = '';
+        /* Through the remembered state, not the cell: the delta column is shared
+           with the lap count and `renderDelta` is its only writer. Blanking the
+           element here would leave the lap's colour class on it. */
+        lane_delta_html[i] = '';
+        lane_splits_n[i]   = 0;
+        renderDelta(i);
     }
 }
 /* Running and results need no chrome change: the columns are always visible and

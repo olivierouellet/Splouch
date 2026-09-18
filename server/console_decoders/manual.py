@@ -99,8 +99,5 @@ class ManualDecoder(ConsoleDecoder):
     def get_lane_place(self, lane_idx: int) -> str:
         return ' '
 
-    def adjust_splits(self, lane: int, delta: int) -> int:
-        """Implemented, not omitted: the /operator page's split buttons call this
-        blind, and an AttributeError there would only surface as a traceback in
-        `_drain_cmds`. A no-op is the honest answer with no lengths being counted."""
-        return 0
+    # `adjust_splits` is the base class's no-op, which is the honest answer with no
+    # lengths being counted — there is no wire here to disagree with the operator.

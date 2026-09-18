@@ -274,6 +274,33 @@ The time cell has two owners, and which one is in charge is the whole mechanism.
 either, so the Qt board hardcodes them too rather than inventing settings the operator would
 find in only one of the two displays.
 
+### Lane deltas and lap counts
+
+The delta cell has two tenants, and the handover between them is the signal. While a
+lane is swimming it carries the lengths that lane has completed; at the finish the
+delta takes the cell back. The column header never moves — the colours say which
+tenant is in. Gated on `show_laps` (Settings → Display → Features), off by default.
+
+Why here and not the place column, which is where this started: `#3` and `3` a length
+apart are the same glyph at pool-deck distance, and the header would have to swap
+between `PL` and `LP` in English — an anagram — while French and Spanish both already
+say `POS` and could not swap at all. The delta column is empty for the entire race and
+fills only at the finish, so it was free.
+
+| Aspect | `/live` | Qt board | Status |
+| --- | --- | --- | --- |
+| lap colour | `.td_delta.lap-count { color: var(--color-row-text) }` | `_style_lap` → `cfg.color('row_text')` | match — the swimmer's own name colour, from the theme, not a new key |
+| last-length pulse | `@keyframes lap-last-pulse`, 1s `ease-in-out`, row → `time` → row | `QVariantAnimation` with the same three stops, `InOutSine`, `setLoopCount(-1)` | match |
+| when it pulses | `lane_splits<i> + split_step >= expected_splits` | `LaneRow.lap_for()`, same test | match — `+ split_step`, never `+ 1` (`docs/app.md` `L-23`) |
+| when it shows | `lapVisible()`: setting on, count > 0, no place, no delta | `LaneRow.lap_for()`, same four | match |
+| who writes the cell | `renderDelta()` only — `lane_delta<i>` is out of `VALID_FIELDS` | `update_from` writes the delta, then `set_lap` overwrites | match — one writer per side |
+| reset | `reset_state()` and `mode_to_intro()` clear the remembered state | `LaneRow.clear()`; `_drop_stale_timing` forgets `lane_splits` | match |
+
+Three implementations of one rule (`live.html`, `scoreboard_base.html`, `board.py`) —
+the kiosk keeps its own frame handler because it predates the shared base. They are
+guarded together in [`tests/test_lap_counts.py`](../tests/test_lap_counts.py), which
+drives the two browser copies under JavaScriptCore and the Qt one against real widgets.
+
 ### Column reveal
 
 | Aspect | `/live` | Qt board | Status |

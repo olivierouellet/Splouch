@@ -585,6 +585,9 @@ def route_live(request: Request):
         show_club=s.get('show_club', True),
         show_delta=s.get('show_delta', True),
         show_position=s.get('show_position', True),
+        # Live-board only — the Results tab has no running lanes to count lengths
+        # for, so `results.html` does not take this.
+        show_laps=s.get('show_laps', False),
         # Merge over the defaults rather than falling back wholesale: a relay that
         # sends a partial theme_colors would otherwise leave every unlisted CSS
         # variable empty. Matches route_results and route_schedule.

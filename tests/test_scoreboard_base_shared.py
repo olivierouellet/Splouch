@@ -141,8 +141,12 @@ def test_intro_clears_the_previous_heat(pi, cloud):
     places. Without this the last heat's numbers sit under the new swimmers."""
     for html in (pi, cloud):
         intro = html[html.index('function mode_to_intro()'):html.index('function mode_to_running()')]
-        for field in ('lane_time', 'lane_delta', 'lane_place'):
+        for field in ('lane_time', 'lane_place'):
             assert f"'{field}'" in intro or f"'{field}'+" in intro or f"'{field}' +" in intro
+        # The delta cell is shared with the lap count, so intro clears it through the
+        # remembered state and `renderDelta` rather than by writing the element —
+        # blanking it directly would leave the lap's colour class behind.
+        assert 'lane_delta_html' in intro and 'renderDelta' in intro
 
 
 # ── Deliberately absent ────────────────────────────────────────────────────────

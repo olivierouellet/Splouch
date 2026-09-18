@@ -236,6 +236,14 @@ async def ws_scoreboard(ws: WebSocket):
     await bus.manager.send(ws, 'columns_state',   {'hidden': state._cols_hidden})
     await bus.manager.send(ws, 'meet_live',       {'live': state._meet_live})
     send_event_info()
+    # …and then the board itself. `send_event_info` puts the heat's names up but
+    # carries no times, places, laps or deltas — it blanks the deltas outright — so
+    # on its own a client that connects mid-heat shows a start list until the console
+    # next moves a lane. Sent second for exactly that reason: the cache holds the
+    # truth about the keys `send_event_info` has just blanked, so it must have the
+    # last word. To this socket only; the broadcast above is already everyone else's.
+    if state.board:
+        await bus.manager.send(ws, 'update_scoreboard', dict(state.board))
     try:
         while True:
             msg = await ws.receive_json()

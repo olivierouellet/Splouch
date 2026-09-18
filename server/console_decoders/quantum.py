@@ -81,6 +81,19 @@ class QuantumDecoder(ConsoleDecoder):
     def get_lane_place(self, lane_idx: int) -> str:
         return self.lane_places.get(lane_idx, ' ')
 
+    def adjust_splits(self, lane: int, delta: int) -> int:
+        """Hand correction to a lap this console reports itself.
+
+        Worth having even though the count is native: a console started on the wrong
+        length, or a heat joined late, leaves every lane off by the same amount, and
+        the operator has no other way to say so. The next split message overwrites
+        this with the console's own number, which is the right outcome — the console
+        is the authority whenever it speaks.
+        """
+        val = max(0, self.lane_splits.get(lane, 0) + delta)
+        self.lane_splits[lane] = val
+        return val
+
     def reset_lanes(self) -> dict:
         updates: dict = {}
         for i in range(1, self.num_lanes + 1):

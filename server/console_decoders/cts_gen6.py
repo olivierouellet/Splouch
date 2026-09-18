@@ -86,6 +86,16 @@ class CTSGen6Decoder(ConsoleDecoder):
         self._split_min = float(cfg.get('split_min_duration', 1.0))
         self._pad_sides = int(cfg.get('touchpad_sides', 1))
 
+    @property
+    def split_step(self) -> int:
+        """Two lengths per counted split when only one end has touchpads.
+
+        Nothing on this wire carries a lap number, so the count here is the *stops*
+        this decoder has seen (see `feed`). With pads at one end the swimmer is only
+        seen every second length, so each stop is worth two.
+        """
+        return 2 if self._pad_sides == 1 else 1
+
     def set_seed_times(self, times: dict) -> None:
         self.lane_seed_times = dict(times)
 
@@ -174,8 +184,7 @@ class CTSGen6Decoder(ConsoleDecoder):
                 elif not self._split_counted.get(ln, True):
                     elapsed = time.time() - self._split_stop.get(ln, time.time())
                     if elapsed >= self._split_min:
-                        step = 2 if self._pad_sides == 1 else 1
-                        self._splits[ln] = self._splits.get(ln, 0) + step
+                        self._splits[ln] = self._splits.get(ln, 0) + self.split_step
                         self._split_counted[ln] = True
                         updates[f'lane_splits{ln}'] = self._splits[ln]
 

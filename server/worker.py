@@ -146,6 +146,13 @@ def end_test_session():
     # Only after the meet is restored, so the boards repaint from the real one.
     bus.emit('/scoreboard', 'test_mode', {'active': False})
     bus.emit('/scoreboard', 'reset', {})
+    # `reset` wipes the boards that are connected; this wipes the one the *next*
+    # client gets. Without it the replay cache would still hold the recording's
+    # lanes, and a kiosk reconnecting after a test would be handed a heat that never
+    # swam. Refilled immediately with the real meet's names, which is what the
+    # clients that just took the `reset` are showing.
+    state.board.clear()
+    send_event_info()
     # A session left at 10x would still be at 10x the next time the real console
     # feeds the board. It changes nothing live, but the Test tab reads as if it did.
     state.in_speed = 1.0
@@ -182,6 +189,11 @@ def _on_event_changed(updates, ev, ht):
     pool_len = int(state.settings.get('pool_length', 25))
     dist     = m.event_distances.get(ev, 0)
     updates['expected_splits'] = (dist // pool_len) if (dist and pool_len) else 0
+    # How much one counted split is worth on this console (docs/api.md §5.1). A
+    # display needs both numbers to know which length is the last one — the test is
+    # `splits + split_step >= expected_splits`, which is not `splits + 1` on a pool
+    # with touchpads at one end only.
+    updates['split_step'] = state._decoder.split_step
     seed_times = {}
     for i in range(1, 13):
         name, club = get_lane_parts(ev, ht, i)
@@ -240,6 +252,7 @@ def _emit_scoreboard_update():
         return
     try:
         data = dict(state.update)
+        state.record_board(data)
         bus.emit('/scoreboard', 'update_scoreboard', data)
         relay.relay_emit('update_scoreboard', data)
     except Exception as e:
@@ -323,7 +336,14 @@ def _drain_cmds():
 
 def _worker_adjust_splits(lane, delta):
     new_val = state._decoder.adjust_splits(lane, delta)
-    bus.emit('/scoreboard', 'update_scoreboard', {f'lane_splits{lane}': new_val})
+    data = {f'lane_splits{lane}': new_val}
+    state.record_board(data)
+    bus.emit('/scoreboard', 'update_scoreboard', data)
+    # The correction has to travel as far as the number it is correcting. Without
+    # this the operator fixes the kiosk and /operator while every phone — and the
+    # cloud's own join replay — keeps the wrong count until the console next sends
+    # a split of its own, which under a manual console is never.
+    relay.relay_emit('update_scoreboard', data)
 
 
 def _worker_set_heat(ev, ht):
@@ -379,6 +399,7 @@ def _worker_clear_heat():
     state._results_prev_race_finished = False
     state._running_lanes.clear()
 
+    state.record_board(updates)
     bus.emit('/scoreboard', 'update_scoreboard', updates)
     relay.relay_emit('update_scoreboard', updates)
     # Blanks the header and every lane name; reads the (0, 0) sentinel itself.
@@ -427,6 +448,7 @@ def _do_board_reset(gen):
         return
     print('[race-state] board reset (sustained re-start)', flush=True)
     data = state._decoder.reset_lanes()
+    state.record_board(data)
     bus.emit('/scoreboard', 'update_scoreboard', data)
     relay.relay_emit('update_scoreboard', data)
 
