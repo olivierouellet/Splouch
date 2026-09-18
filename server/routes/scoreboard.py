@@ -29,8 +29,9 @@ def route_live(request: Request):
         f for f in os.listdir(state.IMAGES_DIR)
         if os.path.isfile(os.path.join(state.IMAGES_DIR, f))
     )
+    # No `meet_title`: the header's title cell is gone — it only ever showed on a
+    # cold board, and the title lives on the splash on both displays.
     return render(request, 'live.html',
-                  meet_title=state.settings['meet_title'],
                   num_lanes=lanes,
                   nosplash='nosplash' in request.query_params,
                   test_background='test' in request.query_params,

@@ -88,10 +88,10 @@ now blank the text rather than removing the cell; `live.html`'s `stop_chrono()` 
 
 | Cell | `/live` | Qt board | Status |
 | --- | --- | --- | --- |
-| meet title | `#header_meet_title` — idle only | absent; it lives on the splash | **intentional** — `live.html` only ever calls `set_header_mode(true)`, which hides its title cell, so the header the kiosk showed never carried one |
+| meet title | absent; it lives on the splash | absent; it lives on the splash | match — *ported Qt → browser*. `live.html` only ever called `set_header_mode(true)`, so its title cell appeared on a cold board and never again; an idle bar now shows just the two clocks on both |
 | EVENT / HEAT | the word **beside** the number, one size, `#header_event_cell` row flex | `HeaderCell` — the same, placed by hand | match — *ported Qt → browser*, see below |
-| — position | after the meet title | first, hard against the left edge | **intentional** — event and heat are what an official glances at first |
-| — text alignment | `align-items: center` | `AlignLeft` | **intentional** — follows from leading the bar |
+| — position | first, hard against the left edge | first, hard against the left edge | match — the meet-title cell that used to precede them is gone |
+| — text alignment | `justify-content: flex-start` | `AlignLeft`, placed from `rect.x()` | match — slack goes to the right on both, so the two cells start at the same offset whatever the words are |
 | — word colour | `header_label` | `header_label` | match — and it is now the accent blue on both |
 | — number colour | `header_value` (`#current_event`) | `header_value` | match — the browser followed the display here |
 | — word size | the number's size, via `--header-num-size` | the number's size, `_R_DIGITS` | match |
@@ -121,9 +121,12 @@ the largest size that fits and gives both cells the smaller answer; the browser 
 cells advertises it — which is why they have to agree rather than each be as large as it
 can be.
 
-What still differs is **where the cell sits and how the pair is packed**: Qt leads the bar
-and left-aligns, the browser sits after the meet-title cell and centres. Both rows below are
-still marked intentional for that reason.
+The cell's **position and packing** followed: the browser's meet-title cell is gone, so
+event and heat lead the bar on both, and both pack the pair hard left. What is left in this
+group is the **cell padding** — `2vw` in the browser against Qt's `1%` of the window width —
+which insets the first phrase about twice as far from the screen edge on the browser. It is
+still listed as intentional below because it applies to every cell in the bar, not just
+these two.
 
 Two sizing rules follow, and both broke the obvious implementation. A cell solves **one**
 size for its word and its number together (`HeaderCell._relayout`), because two `FitLabel`s

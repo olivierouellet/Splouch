@@ -389,8 +389,11 @@ function renderDelta(i) {
     el.classList.remove('lap-count', 'lap-final');
 }
 
+/* Fill or blank the EVENT / HEAT / event-name group. An idle board shows just the
+   two clocks — the meet title used to sit here instead, but it is on the splash on
+   both displays now, and this page never called `set_header_mode(false)` anyway, so
+   the cell only ever appeared on a cold board before the first heat. */
 function set_header_mode(active) {
-    document.getElementById("header_meet_title_wrap").style.display = active ? "none" : "";
     document.getElementById("header_event_cell").style.display      = active ? ""     : "none";
     document.getElementById("header_heat_cell").style.display       = active ? ""     : "none";
     document.getElementById("header_name_cell").style.display       = active ? ""     : "none";
@@ -477,9 +480,6 @@ function mode_to_results() {
          number gains a digit or the race clock blanks between heats — see
          notes/scoreboard_parity.md. -->
     <div class="timing-header-bar header_cells_fixed">
-        <div class="header_cell header_cell_grow" id="header_meet_title_wrap">
-            <span class="header_value" id="header_meet_title">{{ meet_title }}</span>
-        </div>
         <div class="header_cell" id="header_event_cell" style="display:none;">
             <span class="header_label">{{ labels.event }}</span>
             <span class="header_value" id="current_event"></span>

@@ -750,3 +750,33 @@ def test_the_word_keeps_the_accent_and_the_number_does_not(pi, cloud):
     assert 'var(--color-header-label)' in label[:label.index('}')]
     number = css[css.index('#current_event, #current_heat'):]
     assert 'var(--color-header-value)' in number[:number.index('}')]
+
+
+@pytest.fixture(scope='module')
+def kiosk():
+    """`live.html` — the kiosk board, the page the Qt display mirrors."""
+    # `show_podium` is kiosk-only, so it is not in `_FLAGS` with the shared ones.
+    return _render('server/templates', 'live.html', nosplash=True, show_podium=True,
+                   test_background=False, carousel_images=[], carousel_interval=10)
+
+
+def test_the_kiosk_header_has_no_meet_title_cell(kiosk):
+    """It only ever appeared on a cold board: `set_header_mode(false)` is never
+    called, so the first heat hid it for the rest of the meet. The title is on the
+    splash on both displays, and an idle bar now shows just the two clocks — which
+    is what the Qt board has always shown (`BoardWindow.set_header_mode`)."""
+    assert 'header_meet_title' not in kiosk
+    assert 'header_cell_grow' not in kiosk
+    # Comments stripped: the prose there records where the rule went.
+    rules = re.sub(r'/\*.*?\*/', '', _shared_css(), flags=re.S)
+    assert 'header_cell_grow' not in rules, 'the rule outlived its only user'
+
+
+def test_the_pair_packs_hard_left(kiosk):
+    """`HeaderCell._relayout` places its two halves from `rect.x()`, so the slack a
+    short phrase leaves goes to the right. Centring instead would start EVENT and
+    HEAT at different offsets depending on how wide the words are."""
+    css = _shared_css()
+    rule = css[css.index('#header_event_cell,'):]
+    rule = rule[:rule.index('}')]
+    assert 'justify-content: flex-start' in rule, rule

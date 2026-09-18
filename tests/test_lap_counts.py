@@ -171,7 +171,7 @@ def phone():
 
 @pytest.fixture(scope='module')
 def kiosk():
-    return _render('server/templates', 'live.html', meet_title='Coupe',
+    return _render('server/templates', 'live.html',
                    show_laps=True, nosplash=True, test_background=False,
                    carousel_images=[], carousel_interval=10)
 
@@ -234,7 +234,7 @@ def test_laps_are_off_unless_the_setting_says_otherwise():
     for template, own in (('live-mobile.html', 'server/templates'),
                           ('live.html', 'server/templates')):
         extra = {} if template == 'live-mobile.html' else dict(
-            meet_title='Coupe', nosplash=True, test_background=False,
+            nosplash=True, test_background=False,
             carousel_images=[], carousel_interval=10)
         html = _render(own, template, **extra)   # no show_laps passed at all
         assert re.search(r'var SHOW_LAPS\s*=\s*false', html), template
@@ -398,10 +398,10 @@ def test_the_diff_title_goes_away_with_lap_counts():
     """For most of a heat the column holds lengths, and a `DELTA` over a column of
     small integers reads as a claim about them. The column stays, only the title
     goes — and it stays gone through the results, or the header would move."""
-    on  = _render('server/templates', 'live.html', meet_title='C', show_laps=True,
+    on  = _render('server/templates', 'live.html', show_laps=True,
                   nosplash=True, test_background=False, carousel_images=[],
                   carousel_interval=10)
-    off = _render('server/templates', 'live.html', meet_title='C', show_laps=False,
+    off = _render('server/templates', 'live.html', show_laps=False,
                   nosplash=True, test_background=False, carousel_images=[],
                   carousel_interval=10)
     assert 'hide-delta-header' in on,  'title still shown with laps on'
