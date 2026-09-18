@@ -4,6 +4,7 @@ from fastapi import APIRouter, Request
 
 import state
 from console_decoders import console_info_for
+from console_decoders.utils import split_step
 from meet_data import build_heats
 from web import client_strings, display_config, redirect, remember_prefs, render
 
@@ -80,13 +81,12 @@ def route_results(request: Request):
 
 @router.get('/operator')
 def route_operator(request: Request):
-    # Off the decoder, not off `touchpad_sides`: the pad count is the CTS Gen6's own
-    # reason for counting in twos, and applying it to a console that reports a lap
-    # number made the ± buttons move by 2 where the console moves by 1. Same value
-    # the boards get with `expected_splits` (docs/api.md §5.1).
+    # The ± buttons move the count by whatever one observation is worth in this pool,
+    # so they agree with what the console (or the Gen6's inference) would have added
+    # on its own. Same helper the boards' `split_step` comes from — docs/api.md §5.1.
     return render(request, 'operator.html',
                   num_lanes=int(state.settings.get('num_lanes', 8)),
-                  split_step=state._decoder.split_step)
+                  split_step=split_step(state.settings.get('touchpad_sides', 1)))
 
 
 @router.get('/manual')

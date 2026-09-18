@@ -5,16 +5,17 @@ of the five report it natively (Quantum, Omnisport), the CTS Gen6 *infers* it fr
 touchpad stops, and the Gen7 and ARES 21 have nothing to say about it at all. That
 spread is the whole reason these tests exist:
 
-* Every decoder has to answer `adjust_splits` and `split_step`, because
-  `worker._worker_adjust_splits` and `_on_event_changed` call them blind. They used
-  to exist on two decoders out of six, and the other four surfaced only as an
-  `AttributeError` traceback on the worker thread — the operator's ± buttons just
-  did nothing.
+* Every decoder has to answer `adjust_splits`, because
+  `worker._worker_adjust_splits` calls it blind. It used to exist on two decoders out
+  of six, and the other four surfaced only as an `AttributeError` traceback on the
+  worker thread — the operator's ± buttons just did nothing.
 * Every decoder has to blank `lane_splits{n}` in `reset_lanes()`, whether or not it
   ever raises the count, or a number survives a heat change.
-* `split_step` is 2, not 1, on a pool with touchpads at one end only. Everything
-  that asks "is this the last length?" is `splits + step >= expected`, so a board
-  that assumed 1 would never pulse on the very setup that needs it most.
+* `split_step` belongs to the **pool**, not the console: a swimmer who does not
+  touch a pad is invisible to every console on the market, so pads at one end mean
+  four observations in a 200m whatever brand is on the deck. Everything that asks
+  "is this the last length?" is `splits + step >= expected`, so a board that assumed
+  1 would never pulse on the very setup that needs it most.
 * The delta column has two tenants and one writer. Both boards render it the same
   way — see `notes/scoreboard_parity.md` — and the Qt board is a third
   implementation of the same rule.
@@ -32,6 +33,7 @@ sys.path.insert(0, os.path.join(REPO, 'server'))
 
 import state                                          # noqa: E402
 from console_decoders import DECODERS, make_decoder    # noqa: E402
+from console_decoders.utils import split_step          # noqa: E402
 from jsc import HAS_JSC, run_page                      # noqa: E402
 
 _ALL = sorted(DECODERS)
@@ -46,13 +48,6 @@ def test_every_decoder_answers_adjust_splits(key):
     value = dec.adjust_splits(1, 2)
     assert isinstance(value, int)
     assert value >= 0
-
-
-@pytest.mark.parametrize('key', _ALL)
-def test_every_decoder_answers_split_step(key):
-    """`_on_event_changed` publishes this with `expected_splits`, every heat."""
-    dec = make_decoder(key, {'num_lanes': 8})
-    assert dec.split_step >= 1
 
 
 @pytest.mark.parametrize('key', _ALL)
@@ -81,22 +76,44 @@ def test_counting_decoders_really_move_the_count(key):
 
 
 def test_one_sided_touchpads_count_in_twos():
-    """The Gen6 sees a swimmer once every two lengths when only one end is padded.
+    """Pads at one end mean the swimmer is only *seen* every second length.
 
     This is what `splits + split_step >= expected_splits` is for: with a step of 2
     the count goes 2, 4, 6 and never equals `expected - 1`, so a board testing
     `+ 1` would never find the last length.
     """
-    one = make_decoder('cts_gen6', {'num_lanes': 8, 'touchpad_sides': 1})
-    both = make_decoder('cts_gen6', {'num_lanes': 8, 'touchpad_sides': 2})
-    assert one.split_step == 2
-    assert both.split_step == 1
+    assert split_step(1) == 2
+    assert split_step(2) == 1
 
 
-@pytest.mark.parametrize('key', ['omega_quantum', 'dak_2000'])
-def test_native_consoles_step_by_one(key):
-    """A console that sends a lap number sends *the* lap number, pads or no pads."""
-    assert make_decoder(key, {'num_lanes': 8, 'touchpad_sides': 1}).split_step == 1
+def test_the_step_is_the_pool_not_the_console():
+    """A property of the venue, so it cannot vary by brand.
+
+    A swimmer who does not touch a pad is invisible to every console on the market;
+    there are four observations in a 200m in a one-sided pool whatever is on the
+    deck. When this lived on the decoder, a Quantum in that pool published a step of
+    1 and its last length never pulsed.
+    """
+    assert not any(hasattr(make_decoder(key, {'num_lanes': 8}), 'split_step')
+                   for key in _ALL), 'split_step must not be a decoder property'
+
+
+def test_a_missing_or_odd_setting_reads_as_one_sided():
+    """`touchpad_sides` ships as 1, and anything unset must not read as 2-sided:
+    over-counting the last length is a pulse one length early, under-counting is no
+    pulse at all."""
+    assert split_step(None) == 2
+    assert split_step(0) == 2
+    assert split_step('1') == 2
+    assert split_step('2') == 1
+
+
+def test_the_gen6_counts_in_the_same_step_it_publishes():
+    """The inference and the published value are one function, so the count the
+    board receives and the test it applies to it cannot disagree."""
+    dec = make_decoder('cts_gen6', {'num_lanes': 8, 'touchpad_sides': 1})
+    dec.reset_lanes()
+    assert dec.adjust_splits(1, split_step(1)) == 2
 
 
 # ── The replay cache ───────────────────────────────────────────────────────────

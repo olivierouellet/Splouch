@@ -10,6 +10,7 @@ import serial
 import bus
 import relay
 import state
+from console_decoders.utils import split_step
 from meet_data import (
     delta_fields, get_event_name_display, get_event_name_parts,
     get_lane_alt, get_lane_parts, has_heat, heat_step,
@@ -189,11 +190,11 @@ def _on_event_changed(updates, ev, ht):
     pool_len = int(state.settings.get('pool_length', 25))
     dist     = m.event_distances.get(ev, 0)
     updates['expected_splits'] = (dist // pool_len) if (dist and pool_len) else 0
-    # How much one counted split is worth on this console (docs/api.md §5.1). A
-    # display needs both numbers to know which length is the last one — the test is
-    # `splits + split_step >= expected_splits`, which is not `splits + 1` on a pool
-    # with touchpads at one end only.
-    updates['split_step'] = state._decoder.split_step
+    # How much one counted split is worth in this pool (docs/api.md §5.1). Both
+    # numbers come from the venue, not from the console: a display needs them to know
+    # which length is the last one, and the test is `splits + split_step >=
+    # expected_splits` — not `splits + 1` where only one end has touchpads.
+    updates['split_step'] = split_step(state.settings.get('touchpad_sides', 1))
     seed_times = {}
     for i in range(1, 13):
         name, club = get_lane_parts(ev, ht, i)

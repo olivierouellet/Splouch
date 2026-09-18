@@ -112,19 +112,6 @@ class ConsoleDecoder(ABC):
         """True when every lane with a time has a final place and is stopped."""
         ...
 
-    @property
-    def split_step(self) -> int:
-        """Lengths added to `lane_splits{n}` by one counted split.
-
-        1 for every console that reports a lap number on the wire. The exception is
-        a pool with touchpads at one end only: the console then sees a swimmer once
-        per *two* lengths, so its count moves in twos (see cts_gen6). Published with
-        `expected_splits` so a display can tell which split is the last one before
-        the finish — `splits + split_step >= expected_splits` — without having to
-        know which console it is looking at.
-        """
-        return 1
-
     def adjust_splits(self, lane: int, delta: int) -> int:
         """Nudge a lane's lap count by hand; return the value after the change.
 

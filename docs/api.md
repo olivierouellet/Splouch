@@ -295,7 +295,7 @@ Lane keys are 1-indexed (`<i>` = 1…12).
 | `heat_time` | string | scheduled time, may be `""` |
 | `running_time` | string | the race clock for the heat — one value, not per lane. **Format `m:ss.hh` or `ss.hh`**, see below. The Pi sends it on every timing tick; **the cloud forwards at most one every 2s**, plus any frame that also carries a `lane_running<i>` key, and never keeps it in the join snapshot. Clients re-base on each one and tick locally in between |
 | `expected_splits` | int | lengths the event runs to (distance ÷ pool length); `0` when unknown |
-| `split_step` | int | lengths one counted split is worth — `1` on every console that reports a lap number, `2` on a CTS Gen6 with touchpads at one end only. Sent with `expected_splits` on every heat change |
+| `split_step` | int | lengths one counted split is worth — `2` where the pool has touchpads at one end only, `1` where both ends are padded (Settings → Meet → Touchpads). A property of the **venue**, not of the console: a swimmer who does not touch a pad is seen by none of them. Sent with `expected_splits` on every heat change |
 | `lane_name<i>` | string | swimmer/relay display name |
 | `lane_club<i>` | string | club |
 | `lane_name_alt<i>` | string | relay member names, else `""` |

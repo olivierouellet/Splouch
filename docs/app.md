@@ -293,9 +293,10 @@ Live lane state during a heat. The busiest screen and the one most worth getting
 > | the delta is empty | belt and braces for the frame where both arrive together |
 >
 > **The last length pulses**: `lane_splits<i> + split_step >= expected_splits`, with
-> both values from §5.1. It is `+ split_step`, not `+ 1` — a pool with touchpads at
-> one end only is seen once every two lengths, so its count arrives in twos and a
-> `+ 1` test would never fire on the setup where the deck can least easily tell.
+> both values from §5.1. It is `+ split_step`, not `+ 1` — in a pool with touchpads
+> at one end only the swimmer is only *seen* every second length, so the count
+> arrives in twos and a `+ 1` test would never fire on the setup where the deck can
+> least easily tell. Both numbers describe the venue, so neither varies by console.
 >
 > **Accuracy varies by console** (§5.1): exact from a Quantum or an Omnisport 2000,
 > inferred from touchpad stops on a CTS Gen6, absent on a Gen7 or an ARES 21. The
