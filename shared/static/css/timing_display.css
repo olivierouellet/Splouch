@@ -109,12 +109,16 @@ html, body {
     border-bottom: 1px solid var(--color-header-border);
 }
 
+/* `1vw` a side, matching the Qt board's `_HDR_PAD_X = 0.01`. It was `2vw`: that is a
+   fraction of the *window*, so it costs the same on every cell however narrow, and
+   five cells at 2vw a side spend a fifth of the bar on whitespace — which is what
+   squeezed the header's text. The dividers already separate the cells. */
 .header_cell {
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    padding: 0.8vh 2vw;
+    padding: 0.8vh 1vw;
     border-left: 1px solid var(--color-header-border);
     white-space: nowrap;
     transition: opacity 0.6s;
@@ -200,7 +204,7 @@ html, body {
    match the clock's height without cropping the label above them. */
 @media (min-height: 700px) {
     .timing-header-bar   { height: 85px; }
-    .header_cell         { padding: 6px 2vw; }
+    .header_cell         { padding: 6px 1vw; }
 }
 
 /* ── Fixed header cell widths — `/live` only ──────────────────────────────────
@@ -217,7 +221,7 @@ html, body {
    heat loads, and nothing claims their share in the meantime. */
 
 .header_cells_fixed .header_cell {
-    /* The 2vw padding has to sit *inside* the share, and a flex item defaults to
+    /* The 1vw padding has to sit *inside* the share, and a flex item defaults to
        `min-width: auto` — which would let a long event name push its cell past its
        share and shove everything to the right of it along anyway. */
     box-sizing: border-box;

@@ -780,3 +780,19 @@ def test_the_pair_packs_hard_left(kiosk):
     rule = css[css.index('#header_event_cell,'):]
     rule = rule[:rule.index('}')]
     assert 'justify-content: flex-start' in rule, rule
+
+
+def test_the_header_padding_matches_the_qt_constant():
+    """`1vw` here against `_HDR_PAD_X = 0.01` there — both 1% of the window width.
+
+    It was `2vw`, and that padding is a fraction of the *window*, so it costs every
+    cell the same however narrow: five cells at 2vw a side spend a fifth of the bar
+    on whitespace, which is what left no room for the word beside its number.
+    """
+    css = _shared_css()
+    for block in ('.header_cell {', '.header_cell         {'):
+        i = css.index(block)
+        rule = css[i:css.index('}', i)]
+        assert '1vw' in rule and '2vw' not in rule, rule
+    board = open(os.path.join(REPO, 'scoreboard', 'board.py'), encoding='utf-8').read()
+    assert '_HDR_PAD_X = 0.01' in board, 'the Qt side moved; the browser has not'

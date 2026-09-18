@@ -67,8 +67,8 @@ Geometry first. The bar height is the one number everything else derives from.
 | bar height | 65px, 85px above `min-height: 700px` | `_H_BAR` = 10.5% of the window | **intentional** — 85px at 1080p is the floor of what reads across a pool deck |
 | bottom border | `1px solid header_border` | `1px solid header_border` | match |
 | cell dividers | `border-left: 1px solid header_border`, not on the first | same, on the four cells after the first | match |
-| cell widths | `flex: 0 0` 10 / 10 / 51 / 16 / 13 % | stretch weights 10 / 10 / 51 / 16 / 13 | match — *ported Qt → browser*, see below |
-| cell padding | `.header_cell` `6px 2vw` | 7% of the bar height (6px of 85), **1%** of the window width | **intentional** — see the cell table below |
+| cell widths | `flex: 0 0` 10 / 10 / 51 / 16 / 13 % | stretch weights **13 / 13 / 48 / 16 / 10** | **gap** — Qt widened EVENT/HEAT when its word moved beside the number and took it from the wall clock; the browser has since gone inline too and has not followed. See the gaps at the bottom |
+| cell padding | `.header_cell` `6px 1vw` | 7% of the bar height (6px of 85), 1% of the window width | match — *ported Qt → browser*, see below |
 
 **Fixed cell widths were ported the other way.** `/live` sized event/heat/chrono/clock to
 their content and gave the name cell `flex: 1`, so the whole row shifted whenever the event
@@ -121,12 +121,10 @@ the largest size that fits and gives both cells the smaller answer; the browser 
 cells advertises it — which is why they have to agree rather than each be as large as it
 can be.
 
-The cell's **position and packing** followed: the browser's meet-title cell is gone, so
-event and heat lead the bar on both, and both pack the pair hard left. What is left in this
-group is the **cell padding** — `2vw` in the browser against Qt's `1%` of the window width —
-which insets the first phrase about twice as far from the screen edge on the browser. It is
-still listed as intentional below because it applies to every cell in the bar, not just
-these two.
+The cell's **position, packing and padding** followed: the browser's meet-title cell is
+gone, so event and heat lead the bar on both; both pack the pair hard left; and
+`.header_cell` came down to `1vw`, the same 1% of the window width Qt insets by. The
+header group is now match throughout.
 
 Two sizing rules follow, and both broke the obvious implementation. A cell solves **one**
 size for its word and its number together (`HeaderCell._relayout`), because two `FitLabel`s
@@ -165,15 +163,17 @@ would put `Roy` and `Zoé` at different heights and make a lane's time bob as it
 changed. The browser needs none of this — CSS line boxes already sit where a reader
 expects, which is why the problem is Qt-only rather than a divergence.
 
-**Header cell padding is half the browser's.** `_HDR_PAD_X` is 1vw against `.header_cell`'s
-2vw. That padding is a fraction of the *window*, so it costs every cell the same however
-narrow: five cells at 2vw a side spend a fifth of the bar on whitespace, which is what left
-no room for the word beside its number. The dividers already separate the cells.
-| idle state | title takes the event/heat/name share; both clocks in place | event/heat/name blanked; both clocks in place | match — the region differs only by the title, which is intentional above |
+**Header cell padding is 1% on both — ported Qt → browser.** `_HDR_PAD_X` is 1% of the
+window width and `.header_cell` is now `1vw`, which is the same thing. It was `2vw` in the
+browser and half that here. That padding is a fraction of the *window*, so it costs every
+cell the same however narrow: five cells at 2vw a side spend a fifth of the bar on
+whitespace, which is what left no room for the word beside its number. The dividers already
+separate the cells, so the browser followed this value down rather than Qt coming up.
+| idle state | event/heat/name hidden; both clocks in place | event/heat/name blanked; both clocks in place | match — same result, different mechanism (below) |
 
 The mechanisms differ here and have to. In the browser event/heat/name are `display: none`
-while idle, and the title cell's `flex: 1` picks up exactly their combined 71%. Qt has no
-title cell to hand that space to, so it **blanks** those three rather than hiding them: a
+while idle and nothing claims their share, now that the title cell that used to pick it up
+is gone. Qt **blanks** those three rather than hiding them: a
 hidden widget leaves the layout entirely and Qt redistributes its stretch, which under fixed
 percentages is precisely what they exist to prevent. It used to hide them, and the wall clock
 sat about three-quarters of the way across an idle board instead of hard right.
@@ -409,6 +409,7 @@ decisions.
 | automatic idle splash | Neither display has one: the Qt overlay is operator-driven, and `/live` never had a timeout — the `INTRO_TIMEOUT` / `RESULTS_TIMEOUT` this row used to cite belonged to the retired second template. Both boards hold the last start list until someone presses the button. |
 | results hold | `/live` distinguishes a brief result from a full one (`brief_results`). Here results simply stay until the next heat arrives. |
 | background image behind the table | Neither display does this today — `.background` in the CSS is a flat `--color-bg` fill. Worth having on both. |
+| header cell widths | Qt is **13 / 13 / 48 / 16 / 10**, the browser still **10 / 10 / 51 / 16 / 13**. Qt widened EVENT and HEAT when their word moved beside the number — measured, not guessed: at 13% `EV 12` and `HT 7` both reach the full `_R_DIGITS` size — and took it from the wall clock, the one cell nobody reads a race off. The browser has since gone inline too, so it wants the same rebalance; at 10% its phrase has a third less room than Qt's and `fitHeaderCells()` shrinks it to compensate. Moving the name cell 51% → 48% is the part worth a look before doing it. |
 
 ---
 

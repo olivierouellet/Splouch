@@ -77,13 +77,15 @@ _R_DIGITS = 0.57    # event/heat cells, both clocks
 # than before (62px against 53px at 1080p).
 _HW_EVENT, _HW_HEAT, _HW_NAME, _HW_CHRONO, _HW_CLOCK = 13, 13, 48, 16, 10
 
-# `.header_cell`'s `6px 2vw` padding, as fractions of the bar height and the window
+# `.header_cell`'s `6px 1vw` padding, as fractions of the bar height and the window
 # width. 6px in the browser's 85px bar is 7% of it.
 _HDR_PAD_Y = 0.07
-# Half the browser's `2vw`. That padding is a fraction of the *window*, so it costs
-# the same on every cell however narrow: five cells at 2vw a side spend a fifth of
+# `.header_cell`'s `1vw` — the same fraction on both displays. It was `2vw` in the
+# browser and half that here: that padding is a fraction of the *window*, so it costs
+# the same on every cell however narrow, and five cells at 2vw a side spend a fifth of
 # the bar on whitespace, which is what squeezed the header's text in the first place.
-# The dividers already separate the cells; the whitespace was doing nothing.
+# The dividers already separate the cells; the whitespace was doing nothing. The
+# browser has since followed this value down.
 _HDR_PAD_X = 0.01
 # Space between the EV/HT word and its number, as a fraction of their shared size.
 _HDR_INLINE_GAP = 0.45
@@ -1005,7 +1007,7 @@ class BoardWindow(QWidget):
         self.header = HeaderBar()
         self.header.setAutoFillBackground(True)
         # No margins, no spacing: the cell weights are percentages of the whole bar,
-        # and `.header_cell`'s own `6px 2vw` padding is applied per cell in
+        # and `.header_cell`'s own `6px 1vw` padding is applied per cell in
         # _scale_header so it stays proportional at 4K.
         bar = QHBoxLayout(self.header)
         bar.setContentsMargins(0, 0, 0, 0)
@@ -1026,12 +1028,13 @@ class BoardWindow(QWidget):
         self.wall_clock.setAlignment(Qt.AlignCenter)
 
         # EVENT and HEAT lead, hard against the left edge — they are what an
-        # official glances at first. The browser puts the meet title there instead;
-        # this is a deliberate divergence.
+        # official glances at first. The browser leads with them too now that its
+        # meet-title cell is gone.
         #
         # The widths are fixed percentages rather than content-derived, so the bar
-        # does not reflow when the event number gains a digit. `.header_cell` in
-        # timing_display.css carries the same five numbers.
+        # does not reflow when the event number gains a digit. `.header_cells_fixed`
+        # in timing_display.css is the browser's copy — still on the pre-inline
+        # 10/10/51/16/13 split, see notes/scoreboard_parity.md.
         self.heat_cell.divider = True
         for widget, weight in ((self.event_cell, _HW_EVENT),
                                (self.heat_cell, _HW_HEAT),
@@ -1339,7 +1342,7 @@ class BoardWindow(QWidget):
         for cell in (self.event_cell, self.heat_cell):
             cell.set_pixel_size(int(bar * _R_DIGITS))
         self._sync_header_cells()
-        # `.header_cell`'s `6px 2vw`, kept proportional so it does not shrink to
+        # `.header_cell`'s `6px 1vw`, kept proportional so it does not shrink to
         # nothing on a 4K panel.
         pad_x, pad_y = int(self.width() * _HDR_PAD_X), int(bar * _HDR_PAD_Y)
         for widget in (self.event_cell, self.heat_cell, self.name_label,
