@@ -376,6 +376,7 @@ row by lane (blank gaps) or by finishing place. `delta` is browser HTML;
   "location": "…", "sport": "…", "app_window_title": "…", "meet_date": "YYYY-MM-DD",
   "settings": { "num_lanes": 8, "show_name": true, "show_club": true, "show_delta": true,
                 "show_position": true, "show_podium": true, "show_*_header": true,
+                "show_laps": false,
                 "theme_colors": { … }, "theme_fonts": { … }, "locale": "fr",
                 "labels": { … }, "label_style": "short",
                 "console": { "key": "manual", "timed": false },
