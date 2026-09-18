@@ -47,6 +47,20 @@ AUTHORED = {
 SPLITS = {'50m_sprint': 0, '50m_sprint_2heats': 0,
           '100m_freestyle': 1, '200m_medley_2heats': 3}
 
+# The race distance, in metres, that each companion `.lxf` declares on its
+# SWIMSTYLE. It is what `worker._on_event_changed` divides by the pool length to
+# publish `expected_splits`, so a lap count on the board is measured against this
+# number — without it every one of these replays said "0 lengths expected" and the
+# last-length pulse could never fire.
+DISTANCES = {'50m_sprint': 50, '50m_sprint_2heats': 50,
+             '100m_freestyle': 100, '200m_medley_2heats': 200}
+
+# All four are long course, and it is the splits above that say so rather than any
+# label: the 100m touches once (at 27.89) and the 200m three times (50/100/150), so
+# the pool is 50m. The files now declare it as `course="LCM"`, which is what
+# Settings → Meet compares the operator's own `pool_length` against.
+COURSE_METRES = 50
+
 # Seconds between the event announcement — which is what puts names on the board —
 # and the first lane going active. Long enough to read a heat of eight names across
 # a hall, which is most of what an operator is watching a replay to check.
@@ -178,6 +192,40 @@ def test_the_recording_matches_its_companion_meet_file(name):
         assert len(entries) == lanes, f'heat {heat} has {len(entries)} lanes'
         for lane, entry in entries.items():
             assert entry['name'].strip(), f'lane {lane} has no swimmer'
+
+
+@pytest.mark.parametrize('name', sorted(AUTHORED))
+def test_the_meet_file_states_the_distance_and_the_course(name):
+    """Both, or a lap count on the board has nothing to be measured against.
+
+    `expected_splits` is `distance // pool_length`, so a file with no SWIMSTYLE
+    publishes 0 and the board can never say which length is the last one. The course
+    matters for the same reason from the other side: these are 50m races, and at the
+    stock 25m setting the same 200m would claim 8 lengths against the 3 splits the
+    recording actually carries.
+    """
+    from meet_parsers.lenex_parser import load_lenex
+    event, _, _, _ = AUTHORED[name]
+    meet = load_lenex(os.path.join(RECORDINGS, name + '.lxf'))
+
+    assert meet.event_distances.get(event) == DISTANCES[name], meet.event_distances
+    assert meet.meet_info.get('pool_length_lenex') == COURSE_METRES
+
+
+@pytest.mark.parametrize('name', sorted(AUTHORED))
+def test_the_distance_agrees_with_the_splits_the_recording_carries(name):
+    """The one check that ties the `.lxf` to the `.cts` beside it.
+
+    A race of *n* lengths is touched *n-1* times before the finish, so the splits in
+    the packets and the distance in the meet file are two statements of the same
+    fact. Getting them out of step is what a hand-edited fixture does first, and the
+    symptom on the board — a lap count that stops short of the expected total, or a
+    pulse on the wrong length — points at the display rather than at the data.
+    """
+    lengths = DISTANCES[name] // COURSE_METRES
+    assert SPLITS[name] == lengths - 1, (
+        f'{name}: {DISTANCES[name]}m in a {COURSE_METRES}m pool is {lengths} '
+        f'lengths, so {lengths - 1} splits, but the recording carries {SPLITS[name]}')
 
 
 @pytest.mark.parametrize('name', sorted(AUTHORED))

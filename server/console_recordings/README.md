@@ -44,6 +44,20 @@ way, if it is ever needed, is `xxd -r -p session.raw > session.cap`.
 | `200m_medley_2heats.cts` | 3 · 200m Medley | 2 | 8 | 50m, 100m, 150m | 8s | authored |
 | `real_console6.raw` | 1 · 50m Freestyle | 1 | 8 | — | — | captured, no finish |
 
+**Course.** All four authored races are long course, and the splits are what say
+so: the 100m touches once and the 200m three times, so each length is 50m. The
+companion `.lxf` declares it — `course="LCM"` on the `MEET`, and a `SWIMSTYLE`
+distance on the event — because the server divides that distance by the operator's
+own `pool_length` to publish `expected_splits`, which is what a lap count on the
+board is measured against (`docs/app.md` `L-23`).
+
+That division uses the **setting**, not the file: Settings → Meet warns when the two
+disagree but still uses yours, so replaying one of these at the stock 25m gives a
+200m eight expected lengths against the three splits it actually carries, and the
+last-length pulse never fires. Set the pool to 50m to see these replay as they swam.
+`tests/test_console_recordings.py` holds the distance, the course and the split
+count to each other, so an edit to one of the three fails until the others follow.
+
 **Start list** is the gap between the event announcement — which is what puts names
 on the board — and the first lane going active. It only works because the player
 flushes each packet at *its own* timestamp: a packet is otherwise dispatched by the
