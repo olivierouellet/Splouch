@@ -84,9 +84,10 @@ from console_decoders.base import ConsoleDecoder, SerialConfig
 
 class MyDecoder(ConsoleDecoder):
     def __init__(self, cfg):
-        # Required by the app layer and declared by nothing: send_event_info,
-        # _build_results_snapshot and _add_lane_deltas read these straight off
-        # state._decoder. (0, 0) is the "nothing announced yet" sentinel.
+        # Declared on ConsoleDecoder, but giving them values is __init__'s job:
+        # send_event_info, _build_results_snapshot and _add_lane_deltas read them
+        # straight off state._decoder. (0, 0) is the "nothing announced yet"
+        # sentinel.
         self.last_event_sent = (0, 0)
         self.lane_seed_times = {}
         self.configure(cfg)

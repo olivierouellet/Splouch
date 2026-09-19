@@ -1,5 +1,4 @@
 import collections
-from typing import TextIO
 import glob
 import hashlib
 import json
@@ -8,6 +7,7 @@ import os.path
 import queue
 import subprocess
 import sys
+from typing import Any, TextIO
 
 from meet_parsers.hytek_parser import HytekParser
 from meet_parsers.lenex_parser import load_lenex
@@ -73,7 +73,13 @@ FINISH_DEBOUNCE_DEFAULT = 3.0
 # back, so it is named rather than repeated.
 SPLIT_MIN_DEFAULT = 1.0
 
-settings = {
+# `Any` values, deliberately. This is a JSON blob: `load_settings` does
+# `settings.update(json.load(f))`, the Settings panel writes it back through
+# `for k in settings.keys(): settings[k] = _coerce_like(...)`, and keys like
+# `meet_profiles` and `home_icon_b64` appear at runtime. A TypedDict would have to
+# be cast away at every one of those places, so the honest type is the loose one —
+# the schema lives in settings.default.json and the panel that writes it.
+settings: dict[str, Any] = {
     'meet_title': '',
     'serial_port': 'COM1',
     'username': 'score',
@@ -341,12 +347,12 @@ UPDATE_LOG_MAX = 40
 # A recording's start lists are loaded into `meet` while this is set. The real
 # meet's files, `_active_meet_file` and its cloud profile are untouched throughout,
 # so ending the test only has to reload from disk — see worker._cleanup_test_meet.
-_test_meet_active   = False
-_test_meet_name     = ''   # basename of the start lists the test is using
+_test_meet_active: bool = False
+_test_meet_name         = ''   # basename of the start lists the test is using
 # Keep this test session off the cloud: LAN browsers and the Qt display see it,
 # the relay does not. Forced on whenever a real meet is loaded, so a replay can
 # never publish under a live meet's identity — see routes/debug._test_play.
-_test_local_only        = False
+_test_local_only: bool  = False
 # Whether the relay was running when we stopped it for a local-only test. An
 # operator who had the cloud switched off must not find it switched on afterwards.
 _test_relay_was_running = False
@@ -358,7 +364,7 @@ _test_saved_results: dict | None              = None
 # it ends. Not cleared: a Quantum announces its heat once, when it is readied, so a
 # board told to forget would have nothing to show until the next one — see
 # worker.restore_current_heat.
-_test_saved_heat                              = None
+_test_saved_heat: tuple[int, int] | None      = None
 # The console's own decoder, set aside whole while a replay runs under a stand-in.
 # Only ever set for a console that cannot read a wire at all (`requires_serial` is
 # False — the manual console, or a portless plugin): those decode a recording to
@@ -373,8 +379,8 @@ _test_saved_decoder: ConsoleDecoder | None    = None
 # The bundled sessions in `console_recordings/` are CTS captures, and this is the
 # same fallback `console_decoders.make_decoder` already applies to an unknown key.
 REPLAY_CONSOLE_TYPE     = 'cts_gen6'
-_overlay_active     = False
-_cols_hidden        = False
+_overlay_active: bool   = False
+_cols_hidden: bool      = False
 # Is the timing console actually feeding this display? Published to clients as the
 # `meet_live` event (docs/api.md §2), the local twin of the cloud's relay-connected
 # flag. Keyed off packet arrival rather than the serial port's state: a cable can sit
@@ -382,12 +388,12 @@ _cols_hidden        = False
 # 'open'. Test-session playback counts as live — it goes through _handle_packet too.
 # The window matches the Qt display's own `_STALE` (scoreboard/client.py) so the two
 # give up on the link at the same moment rather than contradicting each other.
-MEET_LIVE_STALE     = 8      # seconds of silence before the link reads as dead
+MEET_LIVE_STALE        = 8      # seconds of silence before the link reads as dead
 _last_packet_at: float = 0.0    # time.monotonic() of the last decoded packet
-_meet_live          = False  # last value broadcast — only transitions are emitted
-_pty_fd             = None
-_pty_pid            = None
-main_thread         = None
+_meet_live: bool       = False  # last value broadcast — only transitions are emitted
+_pty_fd: int | None    = None
+_pty_pid: int | None   = None
+main_thread            = None
 
 # The decoder is owned by a single thread — the serial/playback worker. Other
 # threads that need a decoder operation (WS adjust_splits/next_heat, the reset

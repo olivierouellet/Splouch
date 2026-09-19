@@ -54,18 +54,18 @@ select = [
 
 # ── Type checking ──────────────────────────────────────────────────────────────
 # ty is pre-1.0 (0.0.x, beta), so it is a tool to run rather than a gate to pass.
-# `uv run ty check` is not clean: 261 diagnostics, 132 of them outside `tests/`.
 #
-# The largest single cause is `settings`: it is a heterogeneous dict, so it infers
-# as `str | float | dict[str, str]` and every `int(settings[k])` and
-# `**settings[k]` downstream is flagged — 57 of the 261. A TypedDict would fix
-# that whole class. It has not been done.
+# `uv run ty check` is clean over everything but `tests/`, which still reports
+# ~100. Roughly a quarter are the lightweight doubles the suite passes where a
+# real FastAPI `Request` or a PySide6 widget is declared — deliberate, and not
+# worth building a real object for. Another slice is Qt enums spelled the short
+# way, below.
 #
-# `scoreboard/` is excluded for a different reason: PySide6's stubs declare only
-# the Qt6 scoped enums (`Qt.AlignmentFlag.AlignCenter`), while this code uses the
-# short `Qt.AlignCenter` spelling that PySide6 still resolves to the same value at
-# runtime. That is a stub gap, not ~100 defects, and rewriting every enum access
-# to satisfy it would be churn.
+# `scoreboard/` is excluded because PySide6's stubs declare only the Qt6 scoped
+# enums (`Qt.AlignmentFlag.AlignCenter`) while this code uses the short
+# `Qt.AlignCenter` spelling that PySide6 resolves to the same value at runtime.
+# That is a stub gap, not ~100 defects. Drop the exclusion once the short
+# spellings are gone.
 [tool.ty.environment]
 python-version = "3.13"
 extra-paths = ["server", "shared/py", "cloud"]

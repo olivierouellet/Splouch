@@ -6,7 +6,7 @@ import subprocess
 import tarfile
 import time
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Request, UploadFile
 from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel, Field, field_validator
 from starlette.concurrency import run_in_threadpool
@@ -282,7 +282,7 @@ def route_backup_download():
 async def route_backup_restore(request: Request):
     form = await request.form()
     f = form.get('backup_file')
-    if not f or not getattr(f, 'filename', '').endswith('.tar.gz'):
+    if not isinstance(f, UploadFile) or not (f.filename or '').endswith('.tar.gz'):
         return JSONResponse({'ok': False, 'error': 'Please upload a .tar.gz backup file'},
                             status_code=400)
     data = await f.read()

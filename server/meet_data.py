@@ -1,4 +1,6 @@
 
+from typing import Any
+
 import bus
 import relay
 import state
@@ -167,7 +169,7 @@ def _get_next_heats(after_event=0, after_heat=0, n=3, num_lanes=8):
 
 def _build_results_snapshot():
     ev, ht = state._decoder.last_event_sent if state._decoder.last_event_sent != (0, 0) else (0, 0)
-    lanes  = []
+    lanes: list[dict[str, Any]] = []
     for ch in range(1, 11):
         time_str = state._decoder.get_lane_time(ch)
         if not time_str:

@@ -20,8 +20,9 @@ import secrets
 import time
 import urllib.request
 from contextlib import asynccontextmanager
+from typing import Any
 
-from fastapi import (Depends, FastAPI, HTTPException, Request, WebSocket,
+from fastapi import (Depends, FastAPI, HTTPException, Request, UploadFile, WebSocket,
                      WebSocketDisconnect)
 from fastapi.openapi.docs import get_redoc_html, get_swagger_ui_html
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Response
@@ -305,7 +306,7 @@ def _picker_appearance():
 
 def _admin_meet_list():
     """Merged live + retained meets for the admin table, live first."""
-    out = []
+    out: list[dict[str, Any]] = []
     with _lock:
         for mid, m in _merged_meets().items():
             live = mid in _meets
@@ -842,6 +843,18 @@ def route_picker_manifest():
     return Response(json.dumps(manifest), media_type='application/manifest+json')
 
 
+def _form_text(form, key):
+    """A form field as text.
+
+    Starlette types a form value `str | UploadFile`, because a client is free to
+    post a file part under a name this server means as text. Reading `.strip()`
+    off that raised AttributeError — a 500 for what is really a bad request — so
+    anything that is not text reads as absent.
+    """
+    value = form.get(key, '')
+    return value.strip() if isinstance(value, str) else ''
+
+
 async def _read_image(upload, allowed):
     """Bytes + settled MIME type of an uploaded image, or ValueError with the reason.
 
@@ -872,15 +885,15 @@ async def route_picker_appearance(request: Request):
     form  = await request.form()
     creds = _load_creds()
     if 'picker_title' in form:
-        creds['picker_title']        = form.get('picker_title', '').strip()
-        creds['picker_window_title'] = form.get('picker_window_title', '').strip()
+        creds['picker_title']        = _form_text(form, 'picker_title')
+        creds['picker_window_title'] = _form_text(form, 'picker_window_title')
         creds['picker_logo_above']   = form.get('picker_logo_above') == '1'
     if form.get('picker_logo_clear') == '1':
         creds['picker_logo_b64'] = ''
         creds.pop('picker_logo_mime', None)
     else:
         logo = form.get('picker_logo')
-        if logo and logo.filename:
+        if isinstance(logo, UploadFile) and logo.filename:
             try:
                 data, mime = await _read_image(logo, LOGO_MIME_TYPES)
             except ValueError as e:
@@ -891,7 +904,7 @@ async def route_picker_appearance(request: Request):
         creds['picker_icon_b64'] = ''
     else:
         icon = form.get('picker_icon')
-        if icon and icon.filename:
+        if isinstance(icon, UploadFile) and icon.filename:
             try:
                 data, _ = await _read_image(icon, ICON_MIME_TYPES)
             except ValueError as e:
@@ -933,7 +946,7 @@ def route_backup_keys(request: Request):
           response_model_exclude_none=True, dependencies=[Depends(require_admin)])
 async def route_restore_keys(request: Request):
     uploaded = (await request.form()).get('keys_file')
-    if not uploaded:
+    if not isinstance(uploaded, UploadFile):
         return JSONResponse({'error': 'No file provided'}, status_code=400)
     try:
         data = json.loads(await uploaded.read())
@@ -974,7 +987,7 @@ def route_backup_meets():
           response_model_exclude_none=True, dependencies=[Depends(require_admin)])
 async def route_restore_meets(request: Request):
     uploaded = (await request.form()).get('meets_file')
-    if not uploaded:
+    if not isinstance(uploaded, UploadFile):
         return JSONResponse({'error': 'No file provided'}, status_code=400)
     try:
         data = json.loads(await uploaded.read())
@@ -1104,7 +1117,7 @@ async def route_admin(request: Request):
         form   = await request.form()
         action = form.get('action')
         if action == 'add':
-            org = form.get('organizer', '').strip()
+            org = _form_text(form, 'organizer')
             if org:
                 new_key = secrets.token_urlsafe(32)
                 keys[new_key] = {
@@ -1125,7 +1138,7 @@ async def route_admin(request: Request):
                 await run_in_threadpool(_save_keys, keys)
         elif action == 'set_expiry':
             meet_id = form.get('meet_id', '')
-            raw     = form.get('expires_at', '').strip()
+            raw     = _form_text(form, 'expires_at')
             with _lock:
                 rec = None
                 if meet_id in _retained and meet_id not in _meets and raw:
@@ -1161,7 +1174,7 @@ async def route_admin(request: Request):
             t         = _load_cloud_strings(request)
             creds     = _load_creds()
             cur_pw    = form.get('current_password', '')
-            new_user  = form.get('new_user', '').strip()
+            new_user  = _form_text(form, 'new_user')
             new_pw1   = form.get('new_password', '')
             new_pw2   = form.get('new_password2', '')
             cur_hash, _ = _hash_password(cur_pw, creds['salt'])

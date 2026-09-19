@@ -33,6 +33,7 @@ import os
 import sys
 
 import pytest
+from fastapi import UploadFile
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, REPO)
@@ -216,15 +217,11 @@ def test_the_meet_profile_is_not_disturbed(rig, monkeypatch):
 
 
 def test_an_uploaded_test_meet_lands_outside_the_meet_folder(rig):
-    class _Upload:
-        filename = 'improvised.lxf'
-
-        def __init__(self):
-            with open(os.path.join(RECORDINGS, COMPANION), 'rb') as f:
-                self.file = io.BytesIO(f.read())
+    with open(os.path.join(RECORDINGS, COMPANION), 'rb') as f:
+        upload = UploadFile(file=io.BytesIO(f.read()), filename='improvised.lxf')
 
     state._test_session = 'anything.cts'
-    out = debug._test_meet_upload(_Upload())
+    out = debug._test_meet_upload(upload)
 
     assert out['ok'] is True, out
     assert (rig.test_folder / 'improvised.lxf').exists()

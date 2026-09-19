@@ -6,7 +6,8 @@ import struct
 import subprocess
 from typing import Literal
 
-from fastapi import APIRouter, Depends, Request, WebSocket, WebSocketDisconnect
+from fastapi import (APIRouter, Depends, Request, UploadFile, WebSocket,
+                     WebSocketDisconnect)
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from starlette.concurrency import run_in_threadpool
@@ -232,7 +233,7 @@ def _test_meet_upload(file):
         return {'ok': False, 'error': 'No test session is running'}
     if state._test_meet_active:
         return {'ok': False, 'error': 'Test meet already loaded'}
-    if not file or not file.filename:
+    if not isinstance(file, UploadFile) or not file.filename:
         return {'ok': False, 'error': 'No file provided'}
     ext = os.path.splitext(file.filename)[1].lower()
     if ext not in ('.csv', '.lxf'):
@@ -330,7 +331,7 @@ async def route_test_session_upload(request: Request):
     wrong extension looked exactly like a successful upload, minus the new row.
     """
     file = (await request.form()).get('session_file')
-    if not file or not file.filename:
+    if not isinstance(file, UploadFile) or not file.filename:
         return {'ok': False, 'error': 'No file provided'}
     if not file.filename.lower().endswith(SESSION_UPLOAD_EXTS):
         named = '%s or %s' % (', '.join(SESSION_UPLOAD_EXTS[:-1]), SESSION_UPLOAD_EXTS[-1])

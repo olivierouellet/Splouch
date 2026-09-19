@@ -30,6 +30,7 @@ import sys
 import tempfile
 
 import pytest
+from fastapi import UploadFile
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -51,10 +52,14 @@ def src():
     return settings_source()
 
 
-class _Upload:
-    def __init__(self, name):
-        self.filename = name
-        self.file = io.BytesIO(b'recorded bytes')
+def _Upload(name):
+    """A real UploadFile, not a stand-in.
+
+    The upload routes narrow on the type now — a form value is `str | UploadFile`
+    and only the second has a `.filename` — so a double that merely looked the
+    part would pass a test the route would reject in production.
+    """
+    return UploadFile(file=io.BytesIO(b'recorded bytes'), filename=name)
 
 
 class _Req:

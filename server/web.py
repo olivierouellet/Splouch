@@ -79,7 +79,10 @@ def _url_for(name, **kw):
     return '/' + (kw.get('filename') or '')
 
 
-templates.env.globals['url_for'] = _url_for
+# ty reads the type of `globals` off the namespace Jinja seeds it with (range,
+# dict, lipsum, cycler…), so adding anything of a new type looks like a bad
+# assignment. It is a general namespace — that is the whole point of it.
+templates.env.globals['url_for'] = _url_for  # ty: ignore[invalid-assignment]
 
 
 def _globals():

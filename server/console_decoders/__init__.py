@@ -136,6 +136,8 @@ def load_custom_decoders(folder: str) -> None:
         module_name = f'_splouch_custom_decoder_{fname[:-3]}'
         try:
             spec = importlib.util.spec_from_file_location(module_name, path)
+            if spec is None or spec.loader is None:
+                raise ImportError('no loader for this file')
             mod  = importlib.util.module_from_spec(spec)
             sys.modules[module_name] = mod
             spec.loader.exec_module(mod)

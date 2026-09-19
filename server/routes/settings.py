@@ -31,8 +31,8 @@ def _render_home_icon(name):
         try:
             from PIL import Image
             img = Image.open(src).convert('RGBA')
-            img.resize((192, 192), Image.LANCZOS).save(state.HOME_ICON_PATH, 'PNG', optimize=True)
-            img.resize((512, 512), Image.LANCZOS).save(state.HOME_ICON_512_PATH, 'PNG', optimize=True)
+            img.resize((192, 192), Image.Resampling.LANCZOS).save(state.HOME_ICON_PATH, 'PNG', optimize=True)
+            img.resize((512, 512), Image.Resampling.LANCZOS).save(state.HOME_ICON_512_PATH, 'PNG', optimize=True)
             return
         except Exception:
             pass

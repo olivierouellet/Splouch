@@ -28,6 +28,31 @@ class ConsoleDecoder(ABC):
     #: answerable before any decoder for the console has been built.
     requires_serial: bool = True
 
+    #: The (event, heat) this decoder last announced, and the seed times it holds
+    #: for that heat.
+    #:
+    #: Declared here, without values, because the app layer reads both off whatever
+    #: decoder is configured — `worker`, `meet_data`, `routes/scoreboard` and
+    #: `routes/debug` all touch them directly — so they are part of the contract,
+    #: not an implementation detail. Every bundled decoder sets them in __init__,
+    #: and a custom decoder dropped into CUSTOM_DECODERS_FOLDER has to as well.
+    #:
+    #: Annotations only, deliberately: a class-level `{}` would be one dict shared
+    #: by every decoder ever built.
+    last_event_sent: tuple[int, int]
+    lane_seed_times: dict[int, str]
+
+    @abstractmethod
+    def __init__(self, cfg: dict) -> None:
+        """Build a decoder from the settings dict (`state.settings`).
+
+        Declared because `make_decoder` builds whatever class `DECODERS` holds and
+        passes the config straight in, so taking `cfg` is part of the contract a
+        custom decoder has to meet — not a convention the bundled six happen to
+        share.
+        """
+        ...
+
     @property
     @abstractmethod
     def serial_config(self) -> SerialConfig:
@@ -45,8 +70,12 @@ class ConsoleDecoder(ABC):
         """
         return None
 
+    # The `/` here and on `feed`, `get_lane_time` and `get_lane_place`: the worker
+    # calls all four positionally, and decoders name their parameters to suit the
+    # protocol they speak (`raw`, `_buffer`, `lane`). Positional-only says that is
+    # fine, rather than binding every implementor to this file's choice of words.
     @abstractmethod
-    def is_packet_start(self, byte: int, buffer: list[int]) -> bool:
+    def is_packet_start(self, byte: int, buffer: list[int], /) -> bool:
         """Return True if byte begins a new packet, flushing any buffered data first.
 
         Called by the worker for every incoming byte before it is appended to
@@ -80,7 +109,7 @@ class ConsoleDecoder(ABC):
         return 256
 
     @abstractmethod
-    def feed(self, packet: list[int]) -> dict:
+    def feed(self, packet: list[int], /) -> dict:
         """Decode one assembled packet.
 
         Returns an update dict (subset of keys from the update_scoreboard
@@ -142,11 +171,11 @@ class ConsoleDecoder(ABC):
         ...
 
     @abstractmethod
-    def get_lane_time(self, lane_idx: int) -> str:
+    def get_lane_time(self, lane_idx: int, /) -> str:
         """Return the formatted finish/split time for lane_idx (1-based)."""
         ...
 
     @abstractmethod
-    def get_lane_place(self, lane_idx: int) -> str:
+    def get_lane_place(self, lane_idx: int, /) -> str:
         """Return the place string (' ' if not yet placed) for lane_idx (1-based)."""
         ...

@@ -259,8 +259,10 @@ class Handler(http.server.BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
-    def log_message(self, fmt, *args):
-        print(fmt % args, flush=True)
+    # `format` shadows the builtin, but it is the name BaseHTTPRequestHandler gives
+    # this parameter, and a caller is free to pass it by keyword.
+    def log_message(self, format, *args):
+        print(format % args, flush=True)
 
 
 if __name__ == '__main__':
