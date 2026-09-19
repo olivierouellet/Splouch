@@ -137,7 +137,7 @@ def test_the_unit_keeps_its_placeholders_for_the_installer():
     for line in ('WorkingDirectory=', 'ExecStart=', 'EnvironmentFile=', 'Environment=REPO_DIR='):
         assert line in body, line
     for key in ('ExecStart', 'EnvironmentFile', 'Environment=REPO_DIR', 'WorkingDirectory'):
-        assert 'YOUR_INSTALL_DIR' in [l for l in body.splitlines() if l.startswith(key)][0], key
+        assert 'YOUR_INSTALL_DIR' in [ln for ln in body.splitlines() if ln.startswith(key)][0], key
     assert '/home/' not in unit
 
 

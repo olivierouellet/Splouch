@@ -168,7 +168,8 @@ class OperatorMenu(QWidget):
             f"{self._string('menu_link')}: "
             f"{self._string('menu_link_up' if self._link_up else 'menu_link_down')}")
 
-        for label, key in zip(self.items, ('menu_update', 'menu_restart', 'menu_quit')):
+        for label, key in zip(self.items, ('menu_update', 'menu_restart', 'menu_quit'),
+                              strict=True):
             label.setText('  ' + self._string(key))
         self.note.setText(self._note)
         self.note.setVisible(bool(self._note))

@@ -37,12 +37,15 @@ from PySide6.QtWidgets import (QApplication, QFrame, QGraphicsOpacityEffect,
 # so it is spelled out here — it is a fixed part of the Qt API, not a guess.
 QWIDGETSIZE_MAX = 16777215
 
-from .format import fmt_clock, fmt_delta, parse_clock
-from .menu import OperatorMenu
-from .splash import SplashOverlay
-from .version import cached_version
-from .theme import Config
-from .widgets import FitLabel
+# E402 below: the sentinel above is kept with the Qt imports it belongs to,
+# which leaves this group past the top of the file. Nothing depends on the
+# order — it reads better this way.
+from .format import fmt_clock, fmt_delta, parse_clock  # noqa: E402
+from .menu import OperatorMenu  # noqa: E402
+from .splash import SplashOverlay  # noqa: E402
+from .version import cached_version  # noqa: E402
+from .theme import Config  # noqa: E402
+from .widgets import FitLabel  # noqa: E402
 
 # Clock repaint cadence. 50ms matches the browser: fast enough that hundredths
 # look continuous, slow enough to stay cheap on a Pi.

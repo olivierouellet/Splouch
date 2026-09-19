@@ -96,7 +96,7 @@ def test_every_decoder_carries_what_the_app_layer_reads_off_it(key):
     assert decoder.lane_seed_times == {}
     assert isinstance(DECODERS[key].requires_serial, bool)
     # Off the class, not the instance: Settings asks before one is ever built.
-    assert isinstance(getattr(DECODERS[key], 'requires_serial'), bool)
+    assert isinstance(DECODERS[key].requires_serial, bool)
 
 
 def test_only_the_manual_console_declares_itself_portless():

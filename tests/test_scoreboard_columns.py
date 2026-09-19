@@ -82,7 +82,7 @@ def test_the_race_starting_slides_them_open(board, qt_app):
 
     _seek(board, qt_app, 1.0)
     assert board.columns_visible
-    assert all(w > h for w, h in zip(_timing_widths(board), half))
+    assert all(w > h for w, h in zip(_timing_widths(board), half, strict=True))
 
 
 def test_the_next_heat_collapses_them_again(board, qt_app):

@@ -833,7 +833,7 @@ def test_the_header_shares_match_the_qt_weights():
                   r'(\d+), (\d+), (\d+), (\d+), (\d+)', board)
     assert m, 'no _HW_* weights in board.py'
     weights = dict(zip(('event', 'heat', 'name', 'chrono', 'clock'),
-                       (int(g) for g in m.groups())))
+                       (int(g) for g in m.groups()), strict=True))
 
     assert shares == weights, f'browser {shares} != Qt {weights}'
     assert sum(weights.values()) == 100, weights

@@ -23,7 +23,6 @@ what an attacker had to be able to do:
 Qt-free: templates are rendered as text, routes driven directly.
 """
 import io
-import json
 import os
 import sys
 import tarfile
@@ -204,8 +203,10 @@ def test_a_backup_cannot_write_outside_the_home_directory(tmp_path, monkeypatch)
     it wrote anywhere the service user could — including the checkout it runs."""
     from routes import system as system_routes
 
-    home = tmp_path / 'home'; home.mkdir()
-    outside = tmp_path / 'outside'; outside.mkdir()
+    home = tmp_path / 'home'
+    home.mkdir()
+    outside = tmp_path / 'outside'
+    outside.mkdir()
     monkeypatch.setattr(os.path, 'expanduser', lambda p: str(home) if p == '~' else p)
 
     buf = io.BytesIO()

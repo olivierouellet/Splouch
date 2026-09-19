@@ -37,7 +37,7 @@ class ConnectionManager:
         # cancelling the others; failed sockets are dropped.
         results = await asyncio.gather(*(ws.send_json(frame) for ws in targets),
                                        return_exceptions=True)
-        for ws, result in zip(targets, results):
+        for ws, result in zip(targets, results, strict=True):
             if isinstance(result, Exception):
                 self.leave_all(ws)
 

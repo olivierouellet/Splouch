@@ -31,8 +31,6 @@ WITH_A_RACE = ['50m_sprint.cts', '100m_freestyle.cts',
 
 def _replay(name, monkeypatch):
     """Every `update_scoreboard` payload the worker would emit for a recording."""
-    import bus
-    import relay
     import state
     from console_decoders import make_decoder
 

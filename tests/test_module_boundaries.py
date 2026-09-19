@@ -356,7 +356,7 @@ def test_each_partial_is_named_for_the_tab_it_draws():
         if '{% include' in body and 'tab-pane' in body:
             assert f'id="tab-{name}"' in body, f'{name}.html does not open #tab-{name}'
         elif 'tab-pane' in body:
-            assert body.lstrip().startswith(f'<div class="tab-pane'), name
+            assert body.lstrip().startswith('<div class="tab-pane'), name
             assert f'id="tab-{name}"' in body, f'{name}.html does not open #tab-{name}'
 
 

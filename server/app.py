@@ -283,7 +283,7 @@ async def ws_scoreboard(ws: WebSocket):
                 delta = int(d.get('delta', 0))
                 if 1 <= lane <= 12 and delta != 0:
                     # Hand decoder work to the worker (its sole owner) — see worker.py.
-                    state._worker_cmds.put(lambda l=lane, dl=delta: _worker_adjust_splits(l, dl))
+                    state._worker_cmds.put(lambda lane=lane, dl=delta: _worker_adjust_splits(lane, dl))
             elif ev == 'next_heat':
                 state._worker_cmds.put(_worker_next_heat)
             elif ev == 'prev_heat':

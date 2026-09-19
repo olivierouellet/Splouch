@@ -11,20 +11,13 @@ frames ``{"event", "data"}``.
 import asyncio
 import base64
 import datetime
-import glob
 import hashlib
 import hmac
 import json
 import mimetypes
 import os
-import queue
-import re
 import secrets
-import sqlite3
-import tempfile
-import threading
 import time
-import tomllib
 import urllib.request
 from contextlib import asynccontextmanager
 
@@ -42,21 +35,22 @@ from starlette.concurrency import run_in_threadpool
 # and route handlers reach many of these names directly, so they stay resolvable
 # here. Patch the owning module, not this one, when redirecting a path in a test:
 # the code that reads `CREDS_FILE` now lives in `paths`.
+# E402 on the imports below: this file binds module-level aliases (`_ch`,
+# `_load_creds`, …) between the import groups, so the later groups sit past
+# the top of the file on purpose.
+#
 # The `cloud_` prefix is not decoration: `server/` and `cloud/` are both flat on
 # sys.path when the suite runs, so a plain `bus.py` here would shadow the Pi's —
 # which is exactly why `cloud_server.py` is named that way too.
 import cloud_bus
-import cloud_paths
-from cloud_paths import (DATA_DIR, KEYS_FILE, CREDS_FILE, RETAINED_DIR,
-                         ANALYTICS_FILE, LOCALES_DIR, STATIC_DIR,
-                         SHARED_TEMPLATES_DIR, _HERE,
-                         atomic_write as _atomic_write)
-from cloud_bus import ConnectionManager, manager
+from cloud_paths import (DATA_DIR, KEYS_FILE, STATIC_DIR,
+                         SHARED_TEMPLATES_DIR, _HERE)
+from cloud_bus import manager
 _ch = cloud_bus.ch
-import cloud_analytics
-import cloud_auth
-from cloud_auth import require_admin
-from cloud_analytics import (log_connection as _log_connection,
+import cloud_analytics  # noqa: E402
+import cloud_auth  # noqa: E402
+from cloud_auth import require_admin  # noqa: E402
+from cloud_analytics import (log_connection as _log_connection,  # noqa: E402
                              analytics_enabled as _analytics_enabled,
                              attendee_count as _attendee_count,
                              attendee_counts as _attendee_counts,
@@ -73,18 +67,13 @@ _hash_password  = cloud_auth.hash_password
 _check_admin    = cloud_auth.check_admin
 _ADMIN_FAIL_MAX = cloud_auth._ADMIN_FAIL_MAX
 _admin_fails    = cloud_auth._admin_fails
-import cloud_i18n
-import cloud_store
-from cloud_i18n import (STYLED_LABEL_KEYS, _DEFAULT_COLORS, _DEFAULT_FONTS)
+import cloud_i18n  # noqa: E402
+from cloud_i18n import (_DEFAULT_COLORS, _DEFAULT_FONTS)  # noqa: E402
 # The store's two dicts and their lock are imported as objects, not copied values:
 # they are bound once in `cloud_store` and only ever mutated in place, so every
 # `with _lock:` block and every `_meets[...]` in this file goes on addressing the
 # same thing it always did.
-from cloud_store import (_meets, _relay_sids, _retained, _lock, _ID_RE,
-                         _RETAINED_FIELDS, _meet_file, _write_blob, _split_record,
-                         _write_meet_files, _delete_meet_files, _load_retained,
-                         _persist_meet_mem, _record_copy_locked, _compute_expiry,
-                         _meet_id_for, _retire_mem, _sweep_expired, _get_meet,
+from cloud_store import (_meets, _relay_sids, _retained, _lock, _write_meet_files, _delete_meet_files, _persist_meet_mem, _record_copy_locked, _meet_id_for, _retire_mem, _sweep_expired, _get_meet,  # noqa: E402
                          _merged_meets)
 _available_locales = cloud_i18n.available_locales
 _strings           = cloud_i18n.strings

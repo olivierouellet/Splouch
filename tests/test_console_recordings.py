@@ -498,7 +498,6 @@ def test_the_converted_file_actually_replays(tmp_path):
     assert done.returncode == 0, done.stderr
 
     import state
-    import worker
     from console_decoders import make_decoder
     state.settings['num_lanes'] = 8
     state._decoder = make_decoder('cts_gen6', state.settings)
@@ -509,7 +508,6 @@ def test_the_converted_file_actually_replays(tmp_path):
         if value and value.strip():
             clock.append(value)
 
-    original = worker._emit_scoreboard_update
     text = (tmp_path / 'session.raw').read_text(encoding='utf-8')
     for match in re.finditer(r'[0-9a-fA-F]{2}', text):
         byte = int(match.group(0), 16)
@@ -535,7 +533,7 @@ def test_the_start_list_is_on_screen_before_anyone_swims(name):
     was would otherwise pass. The 100m carries longer than the rest on purpose.
     """
     announced = [ts for ts, packet in _packets(name) if _decode(packet)[0] == 12]
-    for heat, (start, race) in enumerate(zip(announced, _races(name)), start=1):
+    for heat, (start, race) in enumerate(zip(announced, _races(name), strict=True), start=1):
         gap = min(stop['at'] for stop in race if stop['running']) - start
         assert abs(gap - START_LIST_SECONDS[name]) < 0.01, (
             f'{name} heat {heat}: {gap:.2f}s of start list, '
@@ -582,7 +580,6 @@ def played(monkeypatch):
         import worker
         from console_decoders import make_decoder
         from meet_parsers.lenex_parser import load_lenex
-        import meet_data
 
         clock = _FrozenClock()
         frames = []

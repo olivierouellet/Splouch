@@ -112,7 +112,9 @@ def test_stale_window_matches_the_qt_display():
 
 def _header(last_event_sent, monkeypatch):
     """The current_event / current_heat a fresh client receives on connect."""
-    import bus as bus_mod, relay, meet_data
+    import bus as bus_mod
+    import relay
+    import meet_data
 
     class _Decoder:
         def __init__(self, last):

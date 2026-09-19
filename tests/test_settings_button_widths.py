@@ -159,6 +159,5 @@ def test_a_builtin_row_lines_up_with_a_custom_one(src):
     matched while the button was one too, and stopped matching in French."""
     body = src[src.index('function _renderSessions'):src.index('function setSpeed')]
     assert 'visibility:hidden' in body, 'the placeholder is not a hidden button'
-    placeholder = re.search(r"visibility:hidden[^']*'\s*\+\s*(.*?)\s*\+", body)
     assert 'btn_delete' in body[body.index('visibility:hidden'):
                                 body.index('visibility:hidden') + 200], body

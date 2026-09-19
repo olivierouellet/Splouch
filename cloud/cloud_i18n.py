@@ -17,9 +17,12 @@ import cloud_paths
 import splouch_i18n
 
 # The shared rules, re-exported so `cloud_server` keeps reaching for them here.
-from splouch_i18n import (STYLED_LABEL_KEYS, resolve_labels,
-                          DEFAULT_THEME_COLORS as _DEFAULT_COLORS,
-                          DEFAULT_THEME_FONTS as _DEFAULT_FONTS)
+# `X as X` marks a plain re-export; the two renamed ones need the noqa instead,
+# since a renaming alias is not the explicit re-export form.
+from splouch_i18n import (STYLED_LABEL_KEYS as STYLED_LABEL_KEYS,
+                          resolve_labels as resolve_labels)
+from splouch_i18n import DEFAULT_THEME_COLORS as _DEFAULT_COLORS  # noqa: F401
+from splouch_i18n import DEFAULT_THEME_FONTS as _DEFAULT_FONTS  # noqa: F401
 
 _locale_cache = {}
 _panel_cache = {}

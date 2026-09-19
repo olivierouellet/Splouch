@@ -2,7 +2,7 @@ import importlib.util
 import os
 import sys
 
-from .base import ConsoleDecoder, SerialConfig
+from .base import ConsoleDecoder
 from .swiss_timing_ares21 import Ares21Decoder
 from .cts_gen6 import CTSGen6Decoder
 from .cts_gen7 import CTSGen7Decoder

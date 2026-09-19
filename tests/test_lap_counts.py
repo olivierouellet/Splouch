@@ -626,10 +626,12 @@ def test_qt_counts_down_from_the_start_of_the_heat(qt_app):
         assert down.rows[0].delta_label.text() == '8', 'no countdown before the gun'
         assert down.rows[6].delta_label.text() == '', 'an empty lane counts down nothing'
     finally:
-        down.stop_clock(); down.close()
+        down.stop_clock()
+        down.close()
 
     up = board('up')
     try:
         assert up.rows[0].delta_label.text() == '', 'counting up must wait for a wall'
     finally:
-        up.stop_clock(); up.close()
+        up.stop_clock()
+        up.close()

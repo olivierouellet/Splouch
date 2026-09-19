@@ -28,7 +28,47 @@ dependencies = [
 scoreboard = ["pyside6-essentials>=6.5"]
 
 [dependency-groups]
-dev = ["pytest"]
+dev = ["pytest", "ruff", "ty"]
 
 [tool.pytest.ini_options]
 pythonpath = ["server"]
+
+
+# ── Linting ────────────────────────────────────────────────────────────────────
+# Lint only. `ruff format` is deliberately not adopted: it rewrites 58% of the
+# lines here, flattening the aligned assignments and the hand-wrapped import
+# blocks that make modules like `state` readable. Run `uv run ruff check`.
+#
+# No per-file-ignores. Every suppression is a `# noqa` on the line it applies
+# to, with a reason, so a silenced rule stays visible where it was silenced and
+# a file keeps being checked for everything else.
+[tool.ruff.lint]
+select = [
+    "E4",   # imports — placement and form
+    "E7",   # statement-level mistakes
+    "E9",   # syntax and IO errors
+    "F",    # pyflakes: undefined names, unused imports and variables
+    "B",    # bugbear: likely-wrong constructs the interpreter still accepts
+    "PLE",  # pylint errors — the ones that are always bugs
+]
+
+# ── Type checking ──────────────────────────────────────────────────────────────
+# ty is pre-1.0 (0.0.x, beta), so it is a tool to run rather than a gate to pass.
+# `uv run ty check` is not clean: 261 diagnostics, 132 of them outside `tests/`.
+#
+# The largest single cause is `settings`: it is a heterogeneous dict, so it infers
+# as `str | float | dict[str, str]` and every `int(settings[k])` and
+# `**settings[k]` downstream is flagged — 57 of the 261. A TypedDict would fix
+# that whole class. It has not been done.
+#
+# `scoreboard/` is excluded for a different reason: PySide6's stubs declare only
+# the Qt6 scoped enums (`Qt.AlignmentFlag.AlignCenter`), while this code uses the
+# short `Qt.AlignCenter` spelling that PySide6 still resolves to the same value at
+# runtime. That is a stub gap, not ~100 defects, and rewriting every enum access
+# to satisfy it would be churn.
+[tool.ty.environment]
+python-version = "3.13"
+extra-paths = ["server", "shared/py", "cloud"]
+
+[tool.ty.src]
+exclude = ["scoreboard"]

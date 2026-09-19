@@ -1,23 +1,23 @@
 import collections
+from typing import TextIO
 import glob
 import hashlib
 import json
 import os
 import os.path
 import queue
-import re
-import secrets
 import subprocess
 import sys
-
-import tomllib
 
 from meet_parsers.hytek_parser import HytekParser
 from meet_parsers.lenex_parser import load_lenex
 from console_decoders import make_decoder
+from console_decoders.base import ConsoleDecoder
 
 try:
-    import pty, fcntl, termios
+    import pty  # noqa: F401 — imported to detect availability, not to call
+    import fcntl  # noqa: F401 — ditto
+    import termios  # noqa: F401 — ditto
     _PTY_AVAILABLE = True
 except ImportError:
     _PTY_AVAILABLE = False
@@ -31,20 +31,30 @@ except ImportError:
 # directory: `i18n` reads `paths.LOCALES_DIR` at call time, so a name rebound on
 # `state` alone would be read by nobody.
 import i18n
-import paths
-from paths import (app_dir, REPO_DIR, SHARED_DIR, STATIC_DIR, LOCALES_DIR,
-                   PANEL_LOCALES_DIR, SCOREBOARD_DIR, settings_file, _settings_default,
-                   SESSIONS_FOLDER, CUSTOM_SESSIONS_FOLDER, IMAGES_DIR, ICONS_DIR,
-                   HOME_ICON_PATH, HOME_ICON_512_PATH, PICKER_DIR, MEET_FOLDER,
-                   TEST_MEET_FOLDER, LOGS_DIR, THEME_FOLDER, CUSTOM_THEME_FOLDER,
-                   CUSTOM_DECODERS_FOLDER, PROVISION_VERSION_FILE,
-                   PROVISIONED_MARKER, SESSION_KEY_FILE, SERVICE_NAME,
-                   session_secret)
-from i18n import (DEFAULT_THEME_COLORS, DEFAULT_THEME_FONTS,
-                  STYLED_LABEL_KEYS, resolve_labels, available_locales,
-                  list_locales, list_builtin_themes, list_custom_themes,
-                  load_theme, parse_event_name, compose_event_name,
-                  translate_event_name)
+from paths import (app_dir, settings_file, _settings_default, MEET_FOLDER,
+                   PROVISION_VERSION_FILE, PROVISIONED_MARKER)
+# Re-export only — nothing in this module reads these. The redundant `X as X` is
+# what says so: it is the explicit re-export form, so this block keeps being
+# checked and a name that really did die still shows up as unused. Drop one when
+# the last `state.X` caller goes.
+from paths import (REPO_DIR as REPO_DIR, STATIC_DIR as STATIC_DIR, LOCALES_DIR as LOCALES_DIR,
+                   SCOREBOARD_DIR as SCOREBOARD_DIR, SESSIONS_FOLDER as SESSIONS_FOLDER,
+                   CUSTOM_SESSIONS_FOLDER as CUSTOM_SESSIONS_FOLDER, IMAGES_DIR as IMAGES_DIR,
+                   ICONS_DIR as ICONS_DIR, HOME_ICON_PATH as HOME_ICON_PATH,
+                   HOME_ICON_512_PATH as HOME_ICON_512_PATH, PICKER_DIR as PICKER_DIR,
+                   TEST_MEET_FOLDER as TEST_MEET_FOLDER, LOGS_DIR as LOGS_DIR,
+                   CUSTOM_THEME_FOLDER as CUSTOM_THEME_FOLDER,
+                   CUSTOM_DECODERS_FOLDER as CUSTOM_DECODERS_FOLDER,
+                   SERVICE_NAME as SERVICE_NAME, session_secret as session_secret)
+from i18n import (DEFAULT_THEME_COLORS, DEFAULT_THEME_FONTS, list_locales)
+# Re-export only — as above.
+from i18n import (STYLED_LABEL_KEYS as STYLED_LABEL_KEYS, resolve_labels as resolve_labels,
+                  available_locales as available_locales,
+                  list_builtin_themes as list_builtin_themes,
+                  list_custom_themes as list_custom_themes, load_theme as load_theme,
+                  parse_event_name as parse_event_name,
+                  compose_event_name as compose_event_name,
+                  translate_event_name as translate_event_name)
 # Underscored, but reached from outside — keep them resolving off `state`.
 _locale_section = i18n.locale_section
 _panel_section  = i18n.panel_section
@@ -313,19 +323,19 @@ _results_prev_race_finished = False
 # calls), a non-atomic read-modify-write whose lost updates are harmless: only a
 # *change* matters (it stops workers holding an older gen), never the exact value,
 # and it only moves forward. Don't "fix" that with a lock.
-_worker_gen         = 0
-_test_session       = None
-_record_handle      = None
-_debug_serial       = False
-_serial_status      = {'state': 'idle', 'msg': ''}
+_worker_gen: int              = 0
+_test_session: str | None     = None
+_record_handle: TextIO | None = None
+_debug_serial: bool           = False
+_serial_status                = {'state': 'idle', 'msg': ''}
 # Invalidation token for the finish/reset debounce. Bumped by the worker on every
 # finish/un-finish transition and by the meet-load handler to cancel pending tasks
 # across a meet change — so `+= 1` runs from two threads and a bump can be lost.
 # Benign for the same reason as _worker_gen: a debounced task only fires if the gen
 # it captured still matches, so any advance invalidates stale tasks; exactness is
 # irrelevant. No lock needed.
-_finish_timer_gen   = 0
-_scoreboard_clients = {}
+_finish_timer_gen: int = 0
+_scoreboard_clients    = {}
 # Cap on update-log lines kept per display — see app.ws_scoreboard.
 UPDATE_LOG_MAX = 40
 # A recording's start lists are loaded into `meet` while this is set. The real
@@ -343,12 +353,12 @@ _test_relay_was_running = False
 # The results snapshot from before the test, restored when it ends. The relay
 # re-sends this on every reconnect, so without it a replay's results would reach
 # the cloud on the next connect — long after the test was over.
-_test_saved_results     = None
+_test_saved_results: dict | None              = None
 # The event and heat the console was on before a test session started, put back when
 # it ends. Not cleared: a Quantum announces its heat once, when it is readied, so a
 # board told to forget would have nothing to show until the next one — see
 # worker.restore_current_heat.
-_test_saved_heat        = None
+_test_saved_heat                              = None
 # The console's own decoder, set aside whole while a replay runs under a stand-in.
 # Only ever set for a console that cannot read a wire at all (`requires_serial` is
 # False — the manual console, or a portless plugin): those decode a recording to
@@ -358,7 +368,7 @@ _test_saved_heat        = None
 # The object carries its own `last_event_sent`, so setting it aside *is* the save —
 # which matters under the manual console, where that field is not a console's last
 # word but the heat the operator put on the boards by hand.
-_test_saved_decoder     = None
+_test_saved_decoder: ConsoleDecoder | None    = None
 # What a recording is replayed under when the configured console cannot read one.
 # The bundled sessions in `console_recordings/` are CTS captures, and this is the
 # same fallback `console_decoders.make_decoder` already applies to an unknown key.
@@ -373,7 +383,7 @@ _cols_hidden        = False
 # The window matches the Qt display's own `_STALE` (scoreboard/client.py) so the two
 # give up on the link at the same moment rather than contradicting each other.
 MEET_LIVE_STALE     = 8      # seconds of silence before the link reads as dead
-_last_packet_at     = 0.0    # time.monotonic() of the last decoded packet
+_last_packet_at: float = 0.0    # time.monotonic() of the last decoded packet
 _meet_live          = False  # last value broadcast — only transitions are emitted
 _pty_fd             = None
 _pty_pid            = None
@@ -392,23 +402,23 @@ _worker_cmds = queue.Queue()
 # momentary packet to avoid clearing a heat that is mid-race.
 _running_lanes = set()
 
-in_speed = 1.0
+in_speed: float = 1.0
 
-_update_in_progress    = False
-_active_meet_file      = ''   # basename of the currently loaded meet file
-_active_meet_uid       = ''   # meet_uid() of the currently loaded meet
-_os_update_in_progress = False
-_update_log_lines      = []
-_update_log_done       = None
+_update_in_progress: bool        = False
+_active_meet_file: str           = ''   # basename of the currently loaded meet file
+_active_meet_uid: str            = ''   # meet_uid() of the currently loaded meet
+_os_update_in_progress: bool     = False
+_update_log_lines                = []
+_update_log_done: bool | None    = None
 # True when an update stopped because the checkout has local edits. Drives the
 # "Repair checkout" button on the Update panel — see routes/system._run_update.
-_update_repair_needed  = False
-_os_update_log_lines   = []
-_os_update_log_done    = None
+_update_repair_needed: bool      = False
+_os_update_log_lines             = []
+_os_update_log_done: bool | None = None
 
-_rtc_in_progress       = False
-_rtc_log_lines         = []
-_rtc_log_done          = None
+_rtc_in_progress: bool           = False
+_rtc_log_lines                   = []
+_rtc_log_done: bool | None       = None
 
 
 # ── This server's identity, and the language it reads in ─────────────────────────────

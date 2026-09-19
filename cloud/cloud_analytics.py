@@ -14,7 +14,6 @@ import os
 import queue
 import sqlite3
 import threading
-import time
 
 from starlette.concurrency import run_in_threadpool
 

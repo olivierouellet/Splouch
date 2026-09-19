@@ -28,7 +28,7 @@ from .client import ConfigLoader, ServerLink
 from .fonts import load_app_fonts
 from .theme import Config
 from .updater import Updater
-from .version import cached_version, registration, warm_cache
+from .version import registration, warm_cache
 
 DEFAULT_SERVER = os.environ.get('SPLOUCH_SERVER', 'http://splouch.local')
 

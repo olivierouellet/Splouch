@@ -6,7 +6,6 @@ that promise with `GET /meet/{id}/schedule`. The Pi rendered its start list into
 tab. This endpoint is the twin, and it is built by the same function as the page so
 the two cannot drift.
 """
-import json
 import os
 import sys
 
@@ -51,7 +50,7 @@ def test_every_heat_in_running_order_with_its_lanes(loaded_meet):
     # Composed in the meet's locale by the server, as `update_scoreboard.event_name` is.
     assert 'Backstroke' in first['event_name']
     assert first['time'] == '10:42'
-    assert [l['lane'] for l in first['lanes']] == [4, 5]
+    assert [lane['lane'] for lane in first['lanes']] == [4, 5]
     assert first['lanes'][1]['swimmers'][0]['first'] == 'B'
     # A heat with no entries still appears, with an empty `lanes` (api.md §5.8).
     assert heats[1]['lanes'] == []

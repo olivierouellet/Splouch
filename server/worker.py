@@ -494,14 +494,14 @@ def _do_board_reset(gen):
     relay.relay_emit('update_scoreboard', data)
 
 
-def _handle_packet(l):
+def _handle_packet(buf):
     # Liveness stamp for the `meet_live` watchdog in app.py. Set before decoding, so
     # a packet the decoder rejects still counts — the link is alive either way.
     state._last_packet_at = time.monotonic()
 
     hex_str = ''
     if state._record_handle or state._debug_serial:
-        hex_str = ' '.join(['%02X' % int(c) for c in l])
+        hex_str = ' '.join(['%02X' % int(c) for c in buf])
         log_line = '[%f] ' % time.time() + hex_str + '\n'
         if state._record_handle:
             state._record_handle.write(log_line)
@@ -512,7 +512,7 @@ def _handle_packet(l):
         # else ever touches the decoder concurrently. No lock needed.
         _drain_cmds()
 
-        updates = state._decoder.feed(list(l))
+        updates = state._decoder.feed(list(buf))
 
         # Track which lanes are currently running (consoles only send the flag on
         # transitions), so the debounced board-wipe never clears a live heat.
@@ -547,16 +547,16 @@ def _handle_packet(l):
 
 # ── Session playback ───────────────────────────────────────────────────────────
 
-def _ingest_byte(c, l):
+def _ingest_byte(c, buf):
     """Append byte to packet buffer, flushing at packet boundaries. Returns updated buffer."""
     if not c:
-        return l
-    if state._decoder.is_packet_start(c, l) or (len(l) >= state._decoder.max_packet_bytes):
-        if l:
-            _handle_packet(l)
-        l = []
-    l.append(c)
-    return l
+        return buf
+    if state._decoder.is_packet_start(c, buf) or (len(buf) >= state._decoder.max_packet_bytes):
+        if buf:
+            _handle_packet(buf)
+        buf = []
+    buf.append(c)
+    return buf
 
 
 def _play_cts_file(session_file, my_gen):
@@ -567,7 +567,7 @@ def _play_cts_file(session_file, my_gen):
     delay          = 0.0
 
     while state._worker_gen == my_gen:
-        l = []
+        buf = []
         for d in re.finditer(r'\[([0-9.]+)\]\s*|([0-9a-fA-F]{2})', text):
             if state._worker_gen != my_gen:
                 break
@@ -585,9 +585,9 @@ def _play_cts_file(session_file, my_gen):
                 # sits at the top of every file with nothing after it until the race
                 # starts, so the board showed no event and no names until the first
                 # lane went active — eleven seconds of blank start list.
-                if l:
-                    _handle_packet(l)
-                    l = []
+                if buf:
+                    _handle_packet(buf)
+                    buf = []
                 if start_time is None:
                     start_time = ts - state.in_speed * time.time()
                 else:
@@ -596,15 +596,15 @@ def _play_cts_file(session_file, my_gen):
                         _drain_cmds()   # process queued commands between events
                         time.sleep(delay)
                 continue
-            l = _ingest_byte(int(d.group(2), 16), l)
+            buf = _ingest_byte(int(d.group(2), 16), buf)
             if delay > 0.1:
                 delay = 0
                 time.sleep(0.1)
             else:
                 delay += 1 / 720.0
         # The last packet of the file has no successor to flush it either.
-        if l and state._worker_gen == my_gen:
-            _handle_packet(l)
+        if buf and state._worker_gen == my_gen:
+            _handle_packet(buf)
         if has_timestamps:
             break
 
@@ -665,20 +665,20 @@ def _run_live_serial(my_gen):
 
                 # ── Read loop ──────────────────────────────────────────────────
                 _set_serial_status('open', f'Connected: {port}')
-                l = []
+                buf = []
                 last_byte_time = time.time()
                 while state._worker_gen == my_gen:
                     c = f.read(1)
                     if c:
                         # Accumulate bytes; _ingest_byte flushes completed packets.
-                        l = _ingest_byte(c[0], l)
+                        buf = _ingest_byte(c[0], buf)
                         last_byte_time = time.time()
                     else:
                         # No data — flush any partial packet after 50 ms of silence,
                         # then yield to the event loop before polling again.
-                        if l and (time.time() - last_byte_time) >= 0.05:
-                            _handle_packet(l)
-                            l = []
+                        if buf and (time.time() - last_byte_time) >= 0.05:
+                            _handle_packet(buf)
+                            buf = []
                         _drain_cmds()   # process queued commands while idle
                         time.sleep(0.01)
 

@@ -11,14 +11,14 @@ from sys import platform
 displayX = 20
 displayY = 20
 display = [""]
-for i in range(displayY * displayX):
+for _ in range(displayY * displayX):
     display.append(" ")
 
 def setdisplay(x, y):
     global displayX, displayY
     displayX = x
     displayY = y
-    for i in range(displayY * displayX):
+    for _ in range(displayY * displayX):
         display.append(" ")
 
 def c():
@@ -34,7 +34,7 @@ def c():
 def clear():
     c()
     display = [""]
-    for i in range(displayY * displayX):
+    for _ in range(displayY * displayX):
         display.append(" ")
         
 def output(x, y, a):
@@ -44,7 +44,7 @@ def output(x, y, a):
     pointer = (y * displayX) + x
     b = 0
     
-    for i in range(len(a)):
+    for _ in range(len(a)):
         display[pointer] = a[b]
         b += 1
         pointer += 1

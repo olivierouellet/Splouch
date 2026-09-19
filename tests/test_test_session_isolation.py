@@ -28,7 +28,6 @@ socket for a frame to escape on.
 
 Qt-free: the routes are driven directly.
 """
-import asyncio
 import io
 import os
 import sys
@@ -472,7 +471,6 @@ def test_the_console_gets_its_own_heat_back_when_the_test_ends(rig, monkeypatch)
 
 def test_the_recording_s_times_do_not_survive_the_restore(rig, monkeypatch):
     """Keeping the heat must not mean keeping the replay's lanes with it."""
-    import state
     decoder = _decoder(monkeypatch, at=(7, 3))
     debug._test_play(SESSION)
     decoder.lane_times = {1: '1:02.47'} if hasattr(decoder, 'lane_times') else {}
