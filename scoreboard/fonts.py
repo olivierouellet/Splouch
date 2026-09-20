@@ -105,7 +105,7 @@ def resolve_family(family: str) -> str:
             else:
                 from PySide6.QtGui import QFont
                 fallback = QFont()
-                fallback.setStyleHint(QFont.Monospace)
+                fallback.setStyleHint(QFont.StyleHint.Monospace)
                 fallback.setFamily('monospace')
                 resolved = QFont(fallback.defaultFamily()).family() or 'monospace'
                 print(f'[scoreboard] font "{family}" unavailable — using {resolved}',

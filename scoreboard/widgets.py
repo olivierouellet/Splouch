@@ -28,7 +28,7 @@ class FitLabel(QLabel):
         # What the caller asked for. The vertical pair is ours to adjust — see
         # _cap_shift — so the two are kept apart rather than read back off the widget.
         self._margins = (0, 0, 0, 0)
-        self.setTextFormat(Qt.PlainText)
+        self.setTextFormat(Qt.TextFormat.PlainText)
 
     def set_max_px(self, px: int):
         """Set the ceiling font size (called on resize, from the row height)."""
@@ -103,7 +103,7 @@ class FitLabel(QLabel):
         left, top, right, bottom = self._margins
         # Only for a vertically centred label: with AlignTop or AlignBottom the
         # caller has asked for an edge, and an edge is not ours to move.
-        if self.alignment() & Qt.AlignVCenter:
+        if self.alignment() & Qt.AlignmentFlag.AlignVCenter:
             shift = self._cap_shift()
             # Padding one side moves the contents rect's centre by half of it.
             if shift > 0:
@@ -160,7 +160,7 @@ class FitLabel(QLabel):
         if metrics.horizontalAdvance(text) <= avail:
             super().setText(text)
             return
-        elided = metrics.elidedText(text, Qt.ElideRight, avail)
+        elided = metrics.elidedText(text, Qt.TextElideMode.ElideRight, avail)
         # With almost no room even the ellipsis does not fit and elidedText returns
         # "". Showing the full text clipped is better than showing nothing — and in
         # a layout that sizes from sizeHint, an empty label collapses to zero width

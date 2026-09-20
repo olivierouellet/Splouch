@@ -46,8 +46,8 @@ def board(qt_app):
 
 def _press(board, key, ctrl=False):
     from PySide6.QtGui import QKeyEvent
-    mod = Qt.ControlModifier if ctrl else Qt.NoModifier
-    board.keyPressEvent(QKeyEvent(QKeyEvent.KeyPress, key, mod))
+    mod = Qt.KeyboardModifier.ControlModifier if ctrl else Qt.KeyboardModifier.NoModifier
+    board.keyPressEvent(QKeyEvent(QKeyEvent.Type.KeyPress, key, mod))
 
 
 @pytest.fixture
@@ -67,11 +67,11 @@ def chosen(board):
 
 def test_f1_opens_it_and_esc_closes_it(board, qt_app):
     assert not board.menu.isVisible()
-    _press(board, Qt.Key_F1)
+    _press(board, Qt.Key.Key_F1)
     qt_app.processEvents()
     assert board.menu.isVisible()
 
-    _press(board, Qt.Key_Escape)
+    _press(board, Qt.Key.Key_Escape)
     qt_app.processEvents()
     assert not board.menu.isVisible()
 
@@ -83,7 +83,7 @@ def test_esc_closes_the_menu_before_it_leaves_fullscreen(board, qt_app):
     board.open_menu()
     qt_app.processEvents()
 
-    _press(board, Qt.Key_Escape)
+    _press(board, Qt.Key.Key_Escape)
     qt_app.processEvents()
     assert not board.menu.isVisible()
     assert board.isFullScreen(), 'Esc fell through to the fullscreen toggle'
@@ -107,21 +107,21 @@ def test_it_does_not_cover_the_board(board, qt_app):
 def test_arrows_move_the_selection_and_it_wraps(board, qt_app, chosen):
     board.open_menu()
 
-    _press(board, Qt.Key_Down)
-    _press(board, Qt.Key_Return)
+    _press(board, Qt.Key.Key_Down)
+    _press(board, Qt.Key.Key_Return)
     qt_app.processEvents()
     assert chosen == [MenuAction.RESTART]
 
     board.open_menu()                       # index resets each time it opens
-    _press(board, Qt.Key_Up)                # wraps to the last entry
-    _press(board, Qt.Key_Return)
+    _press(board, Qt.Key.Key_Up)                # wraps to the last entry
+    _press(board, Qt.Key.Key_Return)
     qt_app.processEvents()
     assert chosen[-1] == MenuAction.QUIT
 
 
 def test_digits_pick_an_entry_directly(board, qt_app, chosen):
     board.open_menu()
-    _press(board, Qt.Key_2)
+    _press(board, Qt.Key.Key_2)
     qt_app.processEvents()
     assert chosen == [MenuAction.RESTART]
 
@@ -130,7 +130,7 @@ def test_keys_do_not_reach_the_board_while_it_is_open(board, qt_app):
     """F11 under a menu would resize the window out from under the panel."""
     board.set_fullscreen(True)
     board.open_menu()
-    _press(board, Qt.Key_F11)
+    _press(board, Qt.Key.Key_F11)
     qt_app.processEvents()
     assert board.isFullScreen(), 'the board acted on a key the menu was holding'
 
@@ -189,7 +189,7 @@ def test_the_menu_stops_taking_input_while_updating(board, qt_app, chosen):
     board.open_menu()
     board.menu.set_busy(True)
 
-    for key in (Qt.Key_Down, Qt.Key_Return, Qt.Key_1, Qt.Key_Escape):
+    for key in (Qt.Key.Key_Down, Qt.Key.Key_Return, Qt.Key.Key_1, Qt.Key.Key_Escape):
         _press(board, key)
     qt_app.processEvents()
 
@@ -206,7 +206,7 @@ def test_ctrl_q_still_works_during_an_update(board, qt_app):
     original = QApplication.instance().quit
     QApplication.instance().quit = lambda: quit_calls.append(True)
     try:
-        _press(board, Qt.Key_Q, ctrl=True)
+        _press(board, Qt.Key.Key_Q, ctrl=True)
         qt_app.processEvents()
     finally:
         QApplication.instance().quit = original

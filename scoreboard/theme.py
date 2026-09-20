@@ -95,6 +95,22 @@ class Config:
     sensible default instead of raising mid-render.
     """
 
+    # The show_* flags __init__ sets through setattr(), named here so they are
+    # greppable and so a reader can see the board's switches without unrolling the
+    # two loops below. Keep in step with _SHOW_FLAGS / _SHOW_FLAGS_OFF.
+    show_name: bool
+    show_club: bool
+    show_delta: bool
+    show_position: bool
+    show_podium: bool
+    show_lane_header: bool
+    show_name_header: bool
+    show_club_header: bool
+    show_time_header: bool
+    show_delta_header: bool
+    show_position_header: bool
+    show_laps: bool
+
     def __init__(self, raw: dict | None = None):
         raw = raw or {}
         self.raw        = raw

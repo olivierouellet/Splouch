@@ -234,7 +234,7 @@ class LaneRow(QFrame):
         self._podium_anim = None
         self._time_anim   = None
         self.setAutoFillBackground(True)
-        self.setFrameShape(QFrame.NoFrame)
+        self.setFrameShape(QFrame.Shape.NoFrame)
 
         # No margins and no spacing: the stretch weights must apply to the full row
         # width, exactly as the vw column widths do in CSS. What padding there is
@@ -244,7 +244,7 @@ class LaneRow(QFrame):
         row.setSpacing(0)
 
         self.lane_label = FitLabel(str(lane))
-        self.lane_label.setAlignment(Qt.AlignCenter)
+        self.lane_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         # Name and relay members share one cell, stacked — matching the browser's
         # `.lane-name-cell` with its `.name-sub` second line.
@@ -252,9 +252,9 @@ class LaneRow(QFrame):
         name_box.setContentsMargins(0, 0, 0, 0)
         name_box.setSpacing(0)
         self.name_label = FitLabel()
-        self.name_label.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+        self.name_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
         self.alt_label = FitLabel()
-        self.alt_label.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+        self.alt_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
         self.alt_label.hide()
         # Split in the browser's own proportion — 5vh of name over 3.5vh of relay
         # line — rather than evenly. The name's font ceiling is then taken from the
@@ -273,19 +273,19 @@ class LaneRow(QFrame):
         self.name_cell.setLayout(name_box)
 
         self.club_label = FitLabel()
-        self.club_label.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+        self.club_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
 
         # All shrink-to-fit. Qt clips a label to its own rect, so an oversized
         # value is not lost into the neighbour — it is cut through a glyph, which
         # is worse: `1:12.44` beside a clipped delta read as `1:12.44).06`.
         self.time_label = FitLabel()
-        self.time_label.setAlignment(Qt.AlignCenter)
+        self.time_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         self.delta_label = FitLabel()
-        self.delta_label.setAlignment(Qt.AlignCenter)
+        self.delta_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         self.place_label = FitLabel()
-        self.place_label.setAlignment(Qt.AlignCenter)
+        self.place_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         # Size policy Ignored in BOTH directions. Cell fonts are derived from the
         # row height, so a font-driven minimum height would feed straight back into
@@ -298,11 +298,11 @@ class LaneRow(QFrame):
                                (self.time_label,  _W_TIME),
                                (self.delta_label, _W_DELTA),
                                (self.place_label, _W_PLACE)):
-            widget.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Ignored)
+            widget.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Ignored)
             widget.setMinimumSize(0, 0)
             row.addWidget(widget, weight)
         for label in (self.name_label, self.alt_label):
-            label.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Ignored)
+            label.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Ignored)
             label.setMinimumSize(0, 0)
         self.setMinimumSize(0, 0)
 
@@ -471,7 +471,7 @@ class LaneRow(QFrame):
             return
         self._stop_podium_fade()
         self._podium_anim = _animate_color(self, start, end, duration_ms,
-                                           QEasingCurve.InOutQuad, self._paint_bg)
+                                           QEasingCurve.Type.InOutQuad, self._paint_bg)
         self._podium_anim.finished.connect(self._stop_podium_fade)
 
     def _stop_podium_fade(self):
@@ -552,7 +552,7 @@ class LaneRow(QFrame):
         self._stop_time_flash()
         self._time_anim = _animate_color(
             self, _TIME_LOCK_FROM, self.cfg.color('time'), _TIME_LOCK_MS,
-            QEasingCurve.OutQuad, lambda colour: self._style_time(colour.name()))
+            QEasingCurve.Type.OutQuad, lambda colour: self._style_time(colour.name()))
         self._time_anim.finished.connect(self._stop_time_flash)
 
     # ── Data ───────────────────────────────────────────────────────────────────
@@ -668,7 +668,7 @@ class Badge(QLabel):
 
     def __init__(self, parent=None, *, at_top=False):
         super().__init__('', parent)
-        self.setAlignment(Qt.AlignCenter)
+        self.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.at_top = at_top
         self._tint  = '#ffffff'
         self.hide()
@@ -687,7 +687,7 @@ class Badge(QLabel):
             f"border-radius: 6px;")
         font = QFont(cfg.family)
         font.setBold(True)
-        font.setLetterSpacing(QFont.PercentageSpacing, 115)   # `.test-overlay`'s 0.15em
+        font.setLetterSpacing(QFont.SpacingType.PercentageSpacing, 115)   # `.test-overlay`'s 0.15em
         _restyle(self, font)
 
     def place(self, width: int, height: int, top_offset: int = 0):
@@ -755,13 +755,13 @@ class HeaderCell(QWidget):
         self._shared_px = None
         # A bare QWidget ignores stylesheet borders unless it is told to paint
         # itself through the style.
-        self.setAttribute(Qt.WA_StyledBackground, True)
+        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         self.label = FitLabel(parent=self)
-        self.label.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+        self.label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         self.value = FitLabel(parent=self)
-        self.value.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+        self.value.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
         for part in (self.label, self.value):
-            part.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Ignored)
+            part.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Ignored)
             part.setMinimumSize(0, 0)
         self.apply_theme()
 
@@ -783,7 +783,7 @@ class HeaderCell(QWidget):
         # `.header_label`'s `letter-spacing: 0.08em`, which is most of what makes the
         # word read as a label rather than as text that happens to be there.
         word = QFont(self.cfg.family)
-        word.setLetterSpacing(QFont.PercentageSpacing, 108)
+        word.setLetterSpacing(QFont.SpacingType.PercentageSpacing, 108)
         self.label.setFont(word)
         self.value.setFont(QFont(self.cfg.digits_family))
         self._relayout()
@@ -867,7 +867,7 @@ class HeaderRow(QFrame):
         # time title with `_tc.innerHTML = ''`.
         self._time_title_shown = True
         self.setAutoFillBackground(True)
-        self.setFrameShape(QFrame.NoFrame)
+        self.setFrameShape(QFrame.Shape.NoFrame)
 
         row = QHBoxLayout(self)
         row.setContentsMargins(0, 0, 0, 0)
@@ -877,16 +877,16 @@ class HeaderRow(QFrame):
         # browser's own inconsistency (`.td_delta` is right, the `th` is centre) and
         # it is kept, so the two boards read identically.
         self.cells = {}
-        spec = (('lane',  _W_LANE,  Qt.AlignCenter),
-                ('name',  _W_NAME,  Qt.AlignLeft | Qt.AlignVCenter),
-                ('club',  _W_CLUB,  Qt.AlignLeft | Qt.AlignVCenter),
-                ('time',  _W_TIME,  Qt.AlignCenter),
-                ('delta', _W_DELTA, Qt.AlignCenter),
-                ('place', _W_PLACE, Qt.AlignCenter))
+        spec = (('lane',  _W_LANE,  Qt.AlignmentFlag.AlignCenter),
+                ('name',  _W_NAME,  Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter),
+                ('club',  _W_CLUB,  Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter),
+                ('time',  _W_TIME,  Qt.AlignmentFlag.AlignCenter),
+                ('delta', _W_DELTA, Qt.AlignmentFlag.AlignCenter),
+                ('place', _W_PLACE, Qt.AlignmentFlag.AlignCenter))
         for key, weight, align in spec:
             label = FitLabel()
             label.setAlignment(align)
-            label.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Ignored)
+            label.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Ignored)
             label.setMinimumSize(0, 0)
             row.addWidget(label, weight)
             self.cells[key] = label
@@ -984,7 +984,7 @@ class BoardWindow(QWidget):
         # those frames would make the clock visibly step, so we re-base on each
         # one and interpolate locally in between.
         self._clock_base = None       # hundredths at the last console update
-        self._clock_at   = None       # monotonic() when that update arrived
+        self._clock_at: float = 0.0   # monotonic() when that update arrived
         self._clock_timer = QTimer(self)
         self._clock_timer.setInterval(_CLOCK_TICK_MS)
         self._clock_timer.timeout.connect(self._tick_clock)
@@ -1006,7 +1006,7 @@ class BoardWindow(QWidget):
         self._transition_token = 0
         self._col_anim = QVariantAnimation(self)
         self._col_anim.setDuration(_COL_ANIM_MS)
-        self._col_anim.setEasingCurve(QEasingCurve.InOutCubic)
+        self._col_anim.setEasingCurve(QEasingCurve.Type.InOutCubic)
         self._col_anim.valueChanged.connect(self._apply_col_fraction)
         self.setWindowTitle(cfg.meet_title or 'Splouch')
 
@@ -1030,13 +1030,13 @@ class BoardWindow(QWidget):
         self.event_cell = HeaderCell(cfg)
         self.heat_cell  = HeaderCell(cfg)
         self.name_label = FitLabel()
-        self.name_label.setAlignment(Qt.AlignCenter)
+        self.name_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.chrono_label = FitLabel()
-        self.chrono_label.setAlignment(Qt.AlignCenter)
+        self.chrono_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         # Wall clock, far right — `#meet_datetime` in the browser. Always on, so
         # the board says something useful even between sessions.
         self.wall_clock = FitLabel()
-        self.wall_clock.setAlignment(Qt.AlignCenter)
+        self.wall_clock.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         # EVENT and HEAT lead, hard against the left edge — they are what an
         # official glances at first. The browser leads with them too now that its
@@ -1051,7 +1051,7 @@ class BoardWindow(QWidget):
                                (self.name_label, _HW_NAME),
                                (self.chrono_label, _HW_CHRONO),
                                (self.wall_clock, _HW_CLOCK)):
-            widget.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Ignored)
+            widget.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Ignored)
             widget.setMinimumSize(0, 0)
             bar.addWidget(widget, weight)
         root.addWidget(self.header)
@@ -1088,7 +1088,7 @@ class BoardWindow(QWidget):
         self._content_opacity.setOpacity(1.0)
         self.content.setGraphicsEffect(self._content_opacity)
         self._content_fade = QPropertyAnimation(self._content_opacity, b'opacity', self)
-        self._content_fade.setEasingCurve(QEasingCurve.InOutQuad)
+        self._content_fade.setEasingCurve(QEasingCurve.Type.InOutQuad)
         # One permanent connection dispatching to a stored callback, rather than
         # connect/disconnect per fade. Blanket `disconnect()` raised TypeError with
         # nothing connected under PyQt5 but only warns under PySide6, so the
@@ -1111,9 +1111,9 @@ class BoardWindow(QWidget):
         status_layout.setContentsMargins(0, 0, 0, 0)
         status_layout.setSpacing(0)
         self.status = QLabel('')
-        self.status.setAlignment(Qt.AlignCenter)
+        self.status.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.status_detail = QLabel('')
-        self.status_detail.setAlignment(Qt.AlignCenter)
+        self.status_detail.setAlignment(Qt.AlignmentFlag.AlignCenter)
         status_layout.addStretch(1)
         status_layout.addWidget(self.status)
         status_layout.addWidget(self.status_detail)
@@ -1229,11 +1229,11 @@ class BoardWindow(QWidget):
           `menu_choose`.
         """
         key  = event.key()
-        ctrl = bool(event.modifiers() & Qt.ControlModifier)
+        ctrl = bool(event.modifiers() & Qt.KeyboardModifier.ControlModifier)
         # Ctrl+Q is the one key the menu never holds: a wedged update must not be
         # able to trap the board with no way out.
-        if self.menu.isVisible() and not (ctrl and key == Qt.Key_Q):
-            if key == Qt.Key_Escape and not self.menu.busy:
+        if self.menu.isVisible() and not (ctrl and key == Qt.Key.Key_Q):
+            if key == Qt.Key.Key_Escape and not self.menu.busy:
                 self.menu.close_menu()
             else:
                 self.menu.handle_key(key)
@@ -1241,13 +1241,15 @@ class BoardWindow(QWidget):
             # unhandled ones through looks harmless until F11 resizes the window out
             # from under the panel an operator is reading.
             return
-        if ctrl and key == Qt.Key_Q:
-            QApplication.instance().quit()
-        elif key == Qt.Key_F1:
+        if ctrl and key == Qt.Key.Key_Q:
+            app = QApplication.instance()
+            if app is not None:
+                app.quit()
+        elif key == Qt.Key.Key_F1:
             self.open_menu()
-        elif key == Qt.Key_F11 or (ctrl and key == Qt.Key_F):
+        elif key == Qt.Key.Key_F11 or (ctrl and key == Qt.Key.Key_F):
             self.set_fullscreen(not self.isFullScreen())
-        elif key == Qt.Key_Escape and self.isFullScreen():
+        elif key == Qt.Key.Key_Escape and self.isFullScreen():
             self.set_fullscreen(False)
         else:
             super().keyPressEvent(event)
@@ -1282,7 +1284,9 @@ class BoardWindow(QWidget):
                 'menu_race_on', 'A race is running — not updating now.'))
             return
         if action == MenuAction.QUIT:
-            QApplication.instance().quit()
+            app = QApplication.instance()
+            if app is not None:
+                app.quit()
         elif action == MenuAction.RESTART:
             # Non-zero, so start-scoreboard.sh brings it straight back — the same
             # contract a finished update uses. Status 0 would leave the TV dark.
@@ -1713,7 +1717,7 @@ class BoardWindow(QWidget):
         """Squeeze the timing columns to *fraction* of their natural width.
 
         Driven by ``maximumWidth`` rather than layout stretch: these cells use
-        ``QSizePolicy.Ignored``, which carries the Expand flag, so a stretch of 0
+        ``QSizePolicy.Policy.Ignored``, which carries the Expand flag, so a stretch of 0
         would not reliably close them.
         """
         self._col_fraction = float(fraction)

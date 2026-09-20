@@ -39,7 +39,7 @@ from .theme import Config
 _W, _H, _H_BUSY = 0.62, 0.52, 0.78
 
 # Row heights and text sizes, as fractions of the panel height. Laid out by hand
-# rather than by a QVBoxLayout: every child here has `QSizePolicy.Ignored` so its
+# rather than by a QVBoxLayout: every child here has `QSizePolicy.Policy.Ignored` so its
 # font can be derived from the panel's height, and a box layout then has no size
 # hint to distribute and collapses most of the rows to nothing.
 _ROW_TITLE  = 0.13
@@ -78,19 +78,19 @@ class OperatorMenu(QWidget):
 
         self.panel = QFrame(self)
         self.panel.setObjectName('menuPanel')
-        self.panel.setAttribute(Qt.WA_StyledBackground, True)
+        self.panel.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
 
         self.title  = QLabel(self.panel)
         self.status = QLabel(self.panel)
         self.items  = [QLabel(self.panel) for _ in range(3)]
         self.note   = QLabel(self.panel)
         self.output = QLabel(self.panel)
-        self.output.setAlignment(Qt.AlignTop | Qt.AlignLeft)
+        self.output.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
         self.hint   = QLabel(self.panel)
 
         for widget in (self.title, self.status, *self.items,
                        self.note, self.output, self.hint):
-            widget.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Ignored)
+            widget.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Ignored)
             widget.setMinimumSize(0, 0)
 
         self.hide()
@@ -210,15 +210,15 @@ class OperatorMenu(QWidget):
         """
         if self._busy:
             return True                    # swallow everything mid-update
-        if key in (Qt.Key_Up, Qt.Key_K):
+        if key in (Qt.Key.Key_Up, Qt.Key.Key_K):
             self._index = (self._index - 1) % len(self.items)
-        elif key in (Qt.Key_Down, Qt.Key_J):
+        elif key in (Qt.Key.Key_Down, Qt.Key.Key_J):
             self._index = (self._index + 1) % len(self.items)
-        elif key in (Qt.Key_1, Qt.Key_2, Qt.Key_3):
-            self._index = key - Qt.Key_1
+        elif key in (Qt.Key.Key_1, Qt.Key.Key_2, Qt.Key.Key_3):
+            self._index = key - Qt.Key.Key_1
             self._activate()
             return True
-        elif key in (Qt.Key_Return, Qt.Key_Enter, Qt.Key_Space):
+        elif key in (Qt.Key.Key_Return, Qt.Key.Key_Enter, Qt.Key.Key_Space):
             self._activate()
             return True
         else:

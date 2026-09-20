@@ -81,7 +81,7 @@ def _png(qt_app, colour='#808080'):
     pixmap.fill(QColor(colour))
     data = QByteArray()
     buffer = QBuffer(data)
-    buffer.open(QBuffer.WriteOnly)
+    buffer.open(QBuffer.OpenModeFlag.WriteOnly)
     pixmap.save(buffer, 'PNG')
     return bytes(data)
 

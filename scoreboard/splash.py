@@ -111,8 +111,8 @@ class SplashOverlay(QWidget):
         self._effects = []
         for _ in range(2):
             label = QLabel(self)
-            label.setAlignment(Qt.AlignCenter)
-            label.setAttribute(Qt.WA_TranslucentBackground)
+            label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            label.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
             effect = QGraphicsOpacityEffect(label)
             effect.setOpacity(0.0)
             label.setGraphicsEffect(effect)
@@ -120,8 +120,8 @@ class SplashOverlay(QWidget):
             self._effects.append(effect)
 
         self.title = FitLabel(cfg.meet_title, parent=self)
-        self.title.setAlignment(Qt.AlignCenter)
-        self.title.setAttribute(Qt.WA_TranslucentBackground)
+        self.title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.title.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
 
         self._loader = ImageLoader(self)
         self._loader.loaded.connect(self._on_image)
@@ -207,8 +207,9 @@ class SplashOverlay(QWidget):
         if self.isVisible():
             return
         self._index = 0
-        if self.parent() is not None:
-            self.setGeometry(self.parent().rect())
+        parent = self.parentWidget()
+        if parent is not None:
+            self.setGeometry(parent.rect())
         self._layout_children()
         self.show()
         self.raise_()
@@ -283,8 +284,8 @@ class SplashOverlay(QWidget):
         box = self._image_rect()
         if box[2] <= 0 or box[3] <= 0 or pixmap.isNull():
             return pixmap
-        return pixmap.scaled(box[2], box[3], Qt.KeepAspectRatio,
-                             Qt.SmoothTransformation)
+        return pixmap.scaled(box[2], box[3], Qt.AspectRatioMode.KeepAspectRatio,
+                             Qt.TransformationMode.SmoothTransformation)
 
     # ── Layout ─────────────────────────────────────────────────────────────────
 
@@ -334,7 +335,7 @@ class SplashOverlay(QWidget):
             return
         if self._background_for != self.size():
             self._background_scaled = self._background.scaled(
-                self.size(), Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation)
+                self.size(), Qt.AspectRatioMode.KeepAspectRatioByExpanding, Qt.TransformationMode.SmoothTransformation)
             self._background_for = self.size()
         scaled = self._background_scaled
         x = (scaled.width() - self.width()) // 2

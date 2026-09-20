@@ -447,8 +447,8 @@ def main(argv=None) -> int:
 
     # Crisp text on a 4K TV: scale by the display's real DPI rather than
     # rendering at 1080p and upscaling, which is what the browser kiosk did.
-    QApplication.setAttribute(Qt.AA_EnableHighDpiScaling, True)
-    QApplication.setAttribute(Qt.AA_UseHighDpiPixmaps, True)
+    QApplication.setAttribute(Qt.ApplicationAttribute.AA_EnableHighDpiScaling, True)
+    QApplication.setAttribute(Qt.ApplicationAttribute.AA_UseHighDpiPixmaps, True)
 
     qt_app = QApplication(sys.argv[:1])
     qt_app.setApplicationName('Splouch Scoreboard')

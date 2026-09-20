@@ -74,7 +74,7 @@ def test_the_race_starting_slides_them_open(board, qt_app):
     assert _timing_widths(board) == (0, 0, 0)
 
     board.apply_update({'running_time': '0.00', 'lane_running1': True})
-    assert board._col_anim.state() == QAbstractAnimation.Running, 'reveal not animated'
+    assert board._col_anim.state() == QAbstractAnimation.State.Running, 'reveal not animated'
 
     _seek(board, qt_app, 0.5)
     half = _timing_widths(board)
@@ -143,7 +143,7 @@ def test_re_asserting_the_current_state_does_not_re_animate(board):
     """Repeated `columns_state` frames must not make the board stutter."""
     board.set_columns_visible(True, animate=False)
     board.set_columns_visible(True)
-    assert board._col_anim.state() != QAbstractAnimation.Running
+    assert board._col_anim.state() != QAbstractAnimation.State.Running
 
 
 def test_reset_restores_the_idle_look(board, qt_app):
