@@ -6,6 +6,7 @@ would break that. The `qt_app` fixture skips instead.
 """
 import gc
 import os
+import re
 import sys
 import tempfile
 
@@ -132,3 +133,26 @@ def settings_source():
     paths += sorted(glob.glob(os.path.join(base, 'settings', '**', '*.html'), recursive=True))
     paths += [os.path.join(REPO, 'shared', 'static', 'js', 'settings.js')]
     return '\n'.join(open(p, encoding='utf-8').read() for p in paths)
+
+
+def stub_url_for(env):
+    """Give a bare Jinja environment the `url_for` the shared templates call.
+
+    The app installs a real one (server/web.py); a template rendered straight out
+    of a `FileSystemLoader` has none, and every test that renders one needs the
+    same three-line stand-in. Returns the env so it can be used inline.
+    """
+    env.globals['url_for'] = lambda name, **kw: '/static/' + kw.get('filename', '')
+    return env
+
+
+def matched(pattern, text, group=1, flags=0):
+    """`re.search(...).group(...)`, but says what it was looking for when it fails.
+
+    These searches run against rendered templates and page scripts, so a miss
+    means the markup moved — which is worth reporting as itself rather than as an
+    AttributeError on None three frames down.
+    """
+    found = re.search(pattern, text, flags)
+    assert found, f'no match for {pattern!r}'
+    return found.group(group)

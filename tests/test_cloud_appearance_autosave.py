@@ -28,7 +28,7 @@ import tempfile
 import pytest
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-from conftest import admin_source  # noqa: E402
+from conftest import admin_source, stub_url_for  # noqa: E402
 
 needs_js = pytest.mark.skipif(not shutil.which('osascript'),
                               reason='needs JavaScriptCore (macOS)')
@@ -91,7 +91,7 @@ def rendered():
     env = Environment(loader=FileSystemLoader(
         [os.path.join(REPO, 'cloud', 'templates'),
          os.path.join(REPO, 'shared', 'templates')]))
-    env.globals['url_for'] = lambda n, **kw: '/static/' + kw.get('filename', '')
+    stub_url_for(env)
     with open(os.path.join(REPO, 'shared', 'locales', 'panel', 'en.toml'), 'rb') as f:
         t = tomllib.load(f)
     return env.get_template('admin.html').render(

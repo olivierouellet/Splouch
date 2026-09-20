@@ -53,17 +53,19 @@ select = [
 ]
 
 # ── Type checking ──────────────────────────────────────────────────────────────
-# ty is pre-1.0 (0.0.x, beta), so it is a tool to run rather than a gate to pass.
+# `uv run ty check` is clean, tests included. ty is still pre-1.0 (0.0.x, beta),
+# so treat a new diagnostic as a question rather than a verdict — but the answer
+# has been worth having every time so far.
 #
-# `uv run ty check` is clean over `server/`, `cloud/` and `scoreboard/`. What is
-# left — around 75, all under `tests/` — is the suite's own doubles: the small
-# stand-ins it passes where a real FastAPI `Request` or PySide6 widget is
-# declared, and the attributes it sets on modules to stage a test. Deliberate,
-# and not worth building real objects for.
+# Two things to know before annotating anything here:
 #
-# Qt enums are spelled the scoped Qt6 way throughout — `Qt.AlignmentFlag.X`
-# rather than the short `Qt.X`. PySide6 resolves both to the same value, but only
-# the scoped spelling is in its stubs.
+#   * A FastAPI path operation or `Depends()` keeps its `Request` annotation.
+#     FastAPI reads those signatures to build the request, and a Protocol in one
+#     is taken for a query parameter — the module still imports, and the endpoint
+#     breaks. Plain helpers are free to ask for less (see `web.HasHeaders`).
+#   * Qt enums are spelled the scoped Qt6 way — `Qt.AlignmentFlag.X`, not the
+#     short `Qt.X`. PySide6 resolves both to the same value at runtime, but only
+#     the scoped spelling is in its stubs.
 [tool.ty.environment]
 python-version = "3.13"
 extra-paths = ["server", "shared/py", "cloud"]

@@ -14,7 +14,6 @@ it. The one-time rescue that lifted a domain out of an old Caddyfile has been re
 along with its tests — every install has long since been deployed past it.
 """
 import os
-import re
 import sys
 import tempfile
 
@@ -127,7 +126,7 @@ def test_the_installer_does_not_offer_the_placeholder_as_the_current_domain():
 # ── The deploy webhook's unit, and how its failure reaches the operator ─────────
 
 SERVICE = os.path.join(REPO, 'cloud', 'deploy_webhook.service')
-from conftest import admin_source  # noqa: E402
+from conftest import admin_source, matched, stub_url_for  # noqa: E402
 
 
 def test_the_unit_keeps_its_placeholders_for_the_installer():
@@ -195,7 +194,7 @@ def test_the_unavailable_state_is_what_the_operator_sees():
     from jinja2 import Environment, FileSystemLoader
     env = Environment(loader=FileSystemLoader(
         [os.path.join(REPO, 'cloud', 'templates'), os.path.join(REPO, 'shared', 'templates')]))
-    env.globals['url_for'] = lambda n, **kw: '/static/' + kw.get('filename', '')
+    stub_url_for(env)
     with open(os.path.join(REPO, 'shared', 'locales', 'panel', 'fr.toml'), 'rb') as f:
         t = tomllib.load(f)['cloud']
     # Rendered, not raw: the message is `{{ t.… | tojson }}` now, and French proves the
@@ -280,7 +279,7 @@ def test_the_logo_field_names_the_formats_it_takes():
     """`image/*` offers the operator HEIC and TIFF, which no browser will draw."""
     src = admin_source()
     field = src[src.index('name="picker_logo"'):]
-    accept = re.search(r'accept="([^"]*)"', field).group(1).split(',')
+    accept = matched(r'accept="([^"]*)"', field).split(',')
     assert accept == list(cs.LOGO_MIME_TYPES), 'the dialog and the server must agree'
     assert '{{ t.logo_hint }}' in src, 'the accepted formats are not shown on the page'
 
@@ -289,7 +288,7 @@ def test_the_icon_field_takes_only_what_the_manifest_promises():
     """/picker_manifest declares `image/png` for both icon sizes."""
     src = admin_source()
     field = src[src.index('name="picker_icon"'):]
-    accept = re.search(r'accept="([^"]*)"', field).group(1).split(',')
+    accept = matched(r'accept="([^"]*)"', field).split(',')
     assert accept == list(cs.ICON_MIME_TYPES)
 
 

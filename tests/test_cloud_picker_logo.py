@@ -25,6 +25,8 @@ import re
 
 import pytest
 
+from conftest import matched
+
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PICKER = os.path.join(REPO, 'cloud', 'templates', 'picker.html')
 
@@ -60,7 +62,7 @@ def test_the_logo_is_contained_not_stretched(rule):
 
 def test_the_column_is_one_value_shared_with_the_meet_list(src):
     assert re.search(r'--column:\s*\d+px', src), 'the column width has no single source'
-    meets = re.search(r'\.meets\s*\{([^}]*)\}', src).group(1)
+    meets = matched(r'\.meets\s*\{([^}]*)\}', src)
     assert 'max-width: var(--column)' in ' '.join(meets.split()), \
         'the cards and the logo must read the same column, or they stop lining up'
 

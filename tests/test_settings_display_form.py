@@ -11,8 +11,10 @@ Qt-free: this is the server, driven through the real route function.
 import asyncio
 import os
 import sys
+from typing import cast
 
 import pytest
+from fastapi import Request
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, REPO)
@@ -47,7 +49,7 @@ def _post(form, monkeypatch):
                         emitted.append((channel, event)))
     monkeypatch.setattr(state, 'save_settings', lambda: None)
     try:
-        asyncio.run(route_settings(_FakeRequest(form)))
+        asyncio.run(route_settings(cast(Request, _FakeRequest(form))))
     except Exception:
         # Rendering the template needs a real Request; the settings-writing half
         # has already run by then, which is the half under test.

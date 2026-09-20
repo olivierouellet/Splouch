@@ -24,7 +24,7 @@ import pytest
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-from conftest import settings_source  # noqa: E402
+from conftest import matched, settings_source  # noqa: E402
 SETTINGS = os.path.join(REPO, 'server', 'templates', 'settings.html')
 
 needs_js = pytest.mark.skipif(not shutil.which('osascript'),
@@ -64,7 +64,7 @@ def test_the_note_is_announced_to_assistive_tech(src):
     """The receipt replaced a button going green, which a screen reader never saw
     either — but a live region is the reason to do it properly now."""
     for note in ('timing-tuning-note', 'display-save-note', 'theme-save-note'):
-        span = re.search(r'<span id="%s"[^>]*>' % note, src).group(0)
+        span = matched(r'<span id="%s"[^>]*>' % note, src, group=0)
         assert 'role="status"' in span and 'aria-live="polite"' in span
 
 
@@ -291,10 +291,10 @@ def test_the_warning_is_hidden_by_class_not_by_hidden(src):
     before any script runs.
     """
     for warn_id in ('finish-debounce-warn', 'split-min-warn'):
-        el = re.search(r'<div id="%s"[^>]*>' % warn_id, src).group(0)
+        el = matched(r'<div id="%s"[^>]*>' % warn_id, src, group=0)
         assert ' hidden' not in el, f'{warn_id}: hidden is back and does nothing here'
         assert 'd-none' in el and 'd-flex' in el, f'{warn_id}: start state must be server-side'
-    block = re.search(r'^function defaultWarning\(.*?^\}', src, re.S | re.M).group(0)
+    block = matched(r'^function defaultWarning\(.*?^\}', src, group=0, flags=re.S | re.M)
     assert 'warn.hidden' not in block
     assert "classList.toggle('d-none'" in block and "classList.toggle('d-flex'" in block
 

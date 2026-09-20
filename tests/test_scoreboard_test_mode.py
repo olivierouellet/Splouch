@@ -10,6 +10,7 @@ opaque, so starting a test hid the entire scoreboard behind the words TEST SESSI
 """
 import os
 import sys
+from typing import cast
 
 import pytest
 
@@ -312,7 +313,7 @@ def test_the_board_is_wiped_when_a_session_starts(board, qt_app, settle_podium):
     settle_podium(board)
     assert board.rows[0].time_label.text() == '58.12'
 
-    ScoreboardApp._on_frame(_FakeApp(board), 'test_mode', {'active': True})
+    ScoreboardApp._on_frame(cast(ScoreboardApp, _FakeApp(board)), 'test_mode', {'active': True})
     qt_app.processEvents()
 
     assert board.test_badge.isVisible(), 'the badge must still go up'
@@ -333,7 +334,7 @@ def test_stopping_a_session_leaves_the_board_alone(board, qt_app):
     from scoreboard.app import ScoreboardApp
 
     _finish_a_heat(board, qt_app)
-    ScoreboardApp._on_frame(_FakeApp(board), 'test_mode', {'active': False})
+    ScoreboardApp._on_frame(cast(ScoreboardApp, _FakeApp(board)), 'test_mode', {'active': False})
     qt_app.processEvents()
 
     assert not board.test_badge.isVisible()

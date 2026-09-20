@@ -20,7 +20,7 @@ import pytest
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-from conftest import settings_source  # noqa: E402
+from conftest import matched, settings_source  # noqa: E402
 sys.path.insert(0, REPO)
 sys.path.insert(0, os.path.join(REPO, 'server'))
 
@@ -66,7 +66,7 @@ def test_the_inputs_that_do_want_a_fixed_width_still_have_one(src):
     """Not a blanket ban: an IP field holds no translated text and should not
     resize with the page."""
     assert 'id="eth-ip-input"' in src
-    ip = re.search(r'<input[^>]*id="eth-ip-input"[^>]*>', src).group(0)
+    ip = matched(r'<input[^>]*id="eth-ip-input"[^>]*>', src, group=0)
     assert re.search(r'width:\s*\d+px', ip), ip
 
 

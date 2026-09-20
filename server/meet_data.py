@@ -94,7 +94,7 @@ def get_lane_alt(event_num, heat_num, lane):
         return ''
 
 
-def heat_order():
+def heat_order() -> list[tuple[int, int]]:
     """Every (event, heat) in the loaded meet, in running order.
 
     The one place that knows the difference between a Lenex meet (`start_list`) and a

@@ -25,15 +25,19 @@ Qt-free: templates are rendered as text, routes driven directly.
 import io
 import os
 import sys
+from typing import cast
 import tarfile
 import tempfile
 
 import pytest
+from fastapi import Request
 from jinja2 import Environment, FileSystemLoader
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, REPO)
 sys.path.insert(0, os.path.join(REPO, 'server'))
+
+from conftest import stub_url_for  # noqa: E402
 
 
 # ── The start list cannot close the script it is embedded in ──────────────────
@@ -49,7 +53,7 @@ _HEATS = [{'event': 1, 'heat': 1, 'event_name': '50 Free', 'time': '10:00',
 def _render(own_dir, template, **extra):
     env = Environment(loader=FileSystemLoader(
         [os.path.join(REPO, own_dir), os.path.join(REPO, 'shared', 'templates')]))
-    env.globals['url_for'] = lambda name, **kw: '/static/' + kw.get('filename', '')
+    stub_url_for(env)
     import state
     return env.get_template(template).render(
         num_lanes=6, labels={'event': 'EVENT', 'heat': 'HEAT'}, event_vocab={},
@@ -185,7 +189,7 @@ class _FakeRequest:
 @pytest.mark.parametrize('site', ['same-origin', 'same-site', 'none', None])
 def test_the_operators_own_navigation_still_works(site):
     import web
-    web.require_login(_FakeRequest(site))            # must not raise
+    web.require_login(cast(Request, _FakeRequest(site)))            # must not raise
 
 
 def test_a_link_from_another_site_cannot_trigger_a_destructive_get():
@@ -193,7 +197,7 @@ def test_a_link_from_another_site_cannot_trigger_a_destructive_get():
     navigation — so the referring site is the only thing left to check."""
     import web
     with pytest.raises(web.CrossSiteRequest):
-        web.require_login(_FakeRequest('cross-site'))
+        web.require_login(cast(Request, _FakeRequest('cross-site')))
 
 
 # ── Backup restore stays inside the home directory ────────────────────────────
@@ -331,7 +335,7 @@ def test_the_admin_panel_locks_out_a_password_guesser(monkeypatch, tmp_path):
 
     def status(pw, ip='203.0.113.9'):
         try:
-            cs.require_admin(Req(pw, ip))
+            cs.require_admin(cast(Request, Req(pw, ip)))
             return 200
         except HTTPException as e:
             return e.status_code

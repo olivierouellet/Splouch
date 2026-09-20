@@ -24,6 +24,8 @@ REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, REPO)
 sys.path.insert(0, os.path.join(REPO, 'server'))
 
+from conftest import matched, stub_url_for  # noqa: E402
+
 import state   # noqa: E402
 
 _LABELS = {'event': 'Event', 'heat': 'Heat', 'lane': 'Lane', 'name': 'Name',
@@ -37,7 +39,7 @@ _FLAGS = {f'show_{k}': True for k in
 def _render(own_dir, template, **extra):
     env = Environment(loader=FileSystemLoader(
         [os.path.join(REPO, own_dir), os.path.join(REPO, 'shared', 'templates')]))
-    env.globals['url_for'] = lambda name, **kw: '/static/' + kw.get('filename', '')
+    stub_url_for(env)
     return env.get_template(template).render(
         num_lanes=6, labels=_LABELS,
         theme_colors=state.DEFAULT_THEME_COLORS,
@@ -172,7 +174,7 @@ def test_columns_never_animate(pi, cloud, res_cloud):
     """Nothing on a phone collapses them and an orientation flip must not slide
     them. `timing_display.css` is shared with the kiosk, which does animate."""
     for html in (pi, cloud, res_cloud):
-        style = re.search(r'<style>(.*?)</style>', html, re.S).group(1)
+        style = matched(r'<style>(.*?)</style>', html, flags=re.S)
         rules = re.findall(r'\.delta-column\s*{\s*transition:\s*([^;]+)', style)
         assert rules and rules[-1].strip() == 'none'
         assert 'timing-anim' not in html
@@ -205,7 +207,7 @@ def test_the_tabs_inherit_the_shell_resolved_language_and_style(shell_pi, shell_
     than re-deriving it (docs/app.md `T-06`, `T-09`)."""
     for shell in (shell_pi, shell_cloud):
         for frame in ('frame0', 'frame1', 'frame2'):
-            src = re.search(rf'id="{frame}"[^>]*src="([^"]+)"', shell).group(1)
+            src = matched(rf'id="{frame}"[^>]*src="([^"]+)"', shell)
             assert 'lang=' in src and 'style=' in src, src
     # The choice itself is a cookie the server read before rendering, so the shell
     # no longer reloads itself to restore it from client-side storage.
@@ -581,7 +583,7 @@ def test_waiting_message_is_translated_on_both(res_pi, res_cloud):
 
 
 def _css(html):
-    style = re.search(r'<style>(.*?)</style>', html, re.S).group(1)
+    style = matched(r'<style>(.*?)</style>', html, flags=re.S)
     return re.sub(r'/\*.*?\*/', '', style, flags=re.S)   # comments mention z-index too
 
 

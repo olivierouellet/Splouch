@@ -140,6 +140,9 @@ class _FakeSubprocess:
 
     TimeoutExpired = TimeoutError
 
+    # Set by the tests that need a result after the scripted ones run out.
+    _results_default: object
+
     def __init__(self, results):
         self._results = list(results)
         self.calls = []
@@ -211,9 +214,9 @@ def test_the_app_refuses_to_update_mid_race(qt_app, monkeypatch):
 
     app = ScoreboardApp('http://127.0.0.1:1', fullscreen=False)
     sent = []
-    app.link.send = lambda event, data=None: sent.append((event, data))
+    monkeypatch.setattr(app.link, 'send', lambda event, data=None: sent.append((event, data)))
     started = []
-    app.updater.start = lambda target: started.append(target) or True
+    monkeypatch.setattr(app.updater, 'start', lambda target: started.append(target) or True)
     try:
         app.window.apply_update({'lane_running1': True})
         app._on_frame('update', {'target': 'v2026.08.1'})

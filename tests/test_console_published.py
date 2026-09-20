@@ -22,14 +22,18 @@ Two things here are worth guarding beyond the field existing:
 """
 import os
 import sys
+from typing import cast
 import tempfile
 
 import pytest
+from fastapi import Request
 from jinja2 import Environment, FileSystemLoader
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, REPO)
 sys.path.insert(0, os.path.join(REPO, 'server'))
+
+from conftest import stub_url_for  # noqa: E402
 
 import relay                                   # noqa: E402
 import state                                   # noqa: E402
@@ -140,7 +144,7 @@ def _switch_console(monkeypatch, to, **also):
     if to:
         form['console_type'] = to
     try:
-        asyncio.run(settings_route.route_settings(_FakeRequest(form)))
+        asyncio.run(settings_route.route_settings(cast(Request, _FakeRequest(form))))
     except Exception:
         # Rendering the page back needs a real Request; the half under test — the
         # saving half — has already run. Same bargain as test_settings_display_form.
@@ -197,7 +201,7 @@ _TABS = {'scoreboard': 'Scoreboard', 'results': 'Results', 'schedule': 'Schedule
 def _shell(own_dir, **extra):
     env = Environment(loader=FileSystemLoader(
         [os.path.join(REPO, own_dir), os.path.join(REPO, 'shared', 'templates')]))
-    env.globals['url_for'] = lambda name, **kw: '/static/' + kw.get('filename', '')
+    stub_url_for(env)
     return env.get_template('mobile.html').render(
         app_title='Coupe', t=_TABS, labels=_LABELS, num_lanes=6,
         theme_colors=state.DEFAULT_THEME_COLORS,
@@ -248,7 +252,7 @@ def test_a_config_change_reloads_the_shell_not_just_the_tab():
     env = Environment(loader=FileSystemLoader(
         [os.path.join(REPO, 'server', 'templates'),
          os.path.join(REPO, 'shared', 'templates')]))
-    env.globals['url_for'] = lambda name, **kw: '/static/' + kw.get('filename', '')
+    stub_url_for(env)
     board = env.get_template('live-mobile.html').render(
         num_lanes=6, labels=_LABELS, theme_colors=state.DEFAULT_THEME_COLORS,
         theme_fonts=state.DEFAULT_THEME_FONTS,
@@ -368,7 +372,7 @@ def _admin_html(rows):
     env = Environment(loader=FileSystemLoader(
         [os.path.join(REPO, 'cloud', 'templates'),
          os.path.join(REPO, 'shared', 'templates')]))
-    env.globals['url_for'] = lambda n, **kw: '/static/' + kw.get('filename', '')
+    stub_url_for(env)
     with open(os.path.join(REPO, 'shared', 'locales', 'panel', 'en.toml'), 'rb') as f:
         t = tomllib.load(f)
     return env.get_template('admin.html').render(

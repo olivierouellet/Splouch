@@ -14,6 +14,7 @@ from fastapi.responses import Response
 import socket
 
 import state
+from web import HasHeaders
 
 router = APIRouter(tags=['Strings'])
 
@@ -43,7 +44,7 @@ def route_server():
     }
 
 
-def etagged(request: Request, payload):
+def etagged(request: HasHeaders, payload):
     """JSON with an ETag, and a 304 when the client already has that body.
 
     The strings change only when a locale file does, so a client fetches a language

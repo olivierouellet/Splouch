@@ -197,19 +197,14 @@ def test_the_menu_stops_taking_input_while_updating(board, qt_app, chosen):
     assert board.menu.isVisible(), 'Esc hid the only progress on screen'
 
 
-def test_ctrl_q_still_works_during_an_update(board, qt_app):
+def test_ctrl_q_still_works_during_an_update(board, qt_app, monkeypatch):
     """A wedged `uv sync` must not be able to trap the board with no way out."""
     board.open_menu()
     board.menu.set_busy(True)
     quit_calls = []
-    from PySide6.QtWidgets import QApplication
-    original = QApplication.instance().quit
-    QApplication.instance().quit = lambda: quit_calls.append(True)
-    try:
-        _press(board, Qt.Key.Key_Q, ctrl=True)
-        qt_app.processEvents()
-    finally:
-        QApplication.instance().quit = original
+    monkeypatch.setattr(qt_app, 'quit', lambda: quit_calls.append(True))
+    _press(board, Qt.Key.Key_Q, ctrl=True)
+    qt_app.processEvents()
     assert quit_calls == [True]
 
 
@@ -273,7 +268,7 @@ def test_a_restyle_keeps_the_menu_readable(board, qt_app):
 
 
 @pytest.mark.parametrize('action', [MenuAction.RESTART, MenuAction.QUIT])
-def test_nothing_on_the_menu_takes_the_board_down_mid_race(board, qt_app, action):
+def test_nothing_on_the_menu_takes_the_board_down_mid_race(board, qt_app, action, monkeypatch):
     """F1 then a digit is two keystrokes. Ctrl+Q was made two-handed precisely so a
     stray press could not blank the TV with somebody in the water, and a menu entry
     that restarts or quits has to meet the same bar.
@@ -287,18 +282,12 @@ def test_nothing_on_the_menu_takes_the_board_down_mid_race(board, qt_app, action
 
     quit_calls = []
     exits = []
-    from PySide6.QtWidgets import QApplication
     import scoreboard.board as board_mod
-    original_quit, original_exit = QApplication.instance().quit, board_mod.os._exit
-    QApplication.instance().quit = lambda: quit_calls.append(True)
-    board_mod.os._exit = lambda code: exits.append(code)
-    try:
-        board.open_menu()
-        board.menu_choose(action)
-        qt_app.processEvents()
-    finally:
-        QApplication.instance().quit = original_quit
-        board_mod.os._exit = original_exit
+    monkeypatch.setattr(qt_app, 'quit', lambda: quit_calls.append(True))
+    monkeypatch.setattr(board_mod.os, '_exit', lambda code: exits.append(code))
+    board.open_menu()
+    board.menu_choose(action)
+    qt_app.processEvents()
 
     assert quit_calls == [] and exits == [], f'{action} went through mid-race'
     assert board.menu.note.text() == board.cfg.strings['menu_race_on']

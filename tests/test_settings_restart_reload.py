@@ -29,6 +29,8 @@ import pytest
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, REPO)
 
+from conftest import matched  # noqa: E402
+
 SETTINGS_JS = os.path.join(REPO, 'shared', 'static', 'js', 'settings.js')
 
 
@@ -79,9 +81,9 @@ def test_the_probe_outlasts_a_slow_pi(js):
     """The whole point is that it no longer expires before the app is back. The old
     numbers were 5 and 6 seconds; a Pi cold start can take far longer than that."""
     body = _body(js, 'reloadWhenServerReturns')
-    timeout = int(re.search(r'opts\.timeoutMs\s*\|\|\s*(\d+)', body).group(1))
+    timeout = int(matched(r'opts\.timeoutMs\s*\|\|\s*(\d+)', body))
     assert timeout >= 120000, f'{timeout}ms is not long enough for a slow boot'
-    grace = int(re.search(r'opts\.graceMs\s*\|\|\s*(\d+)', body).group(1))
+    grace = int(matched(r'opts\.graceMs\s*\|\|\s*(\d+)', body))
     assert grace >= 2000, 'update.py sleeps 2s after `done` before it restarts at all'
 
 

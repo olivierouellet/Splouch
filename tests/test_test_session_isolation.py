@@ -249,7 +249,8 @@ def cloud(monkeypatch):
     monkeypatch.setattr(relay, '_connected', True, raising=False)
 
     class Cloud:
-        pass
+        sent: list
+        running: dict[str, bool]
     Cloud.sent    = sent
     Cloud.running = running
     return Cloud

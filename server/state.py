@@ -317,8 +317,8 @@ def record_board(data):
 # connect handler and the relay. Always reassigned as a whole dict (never mutated
 # in place) so the rebind is an atomic swap — a reader gets the old or new dict
 # whole, never half-built. Keep it that way: build a new dict, don't mutate this.
-_last_results_snapshot      = {}
-_results_prev_race_finished = False
+_last_results_snapshot            = {}
+_results_prev_race_finished: bool = False
 
 # The worker's stop signal. Each worker captures my_gen = _worker_gen at start and
 # runs while _worker_gen == my_gen; _restart_worker bumps it to stop the current

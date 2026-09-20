@@ -27,14 +27,15 @@ import re
 import shutil
 import subprocess
 import sys
+from typing import cast
 import tempfile
 
 import pytest
-from fastapi import UploadFile
+from fastapi import Request, UploadFile
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-from conftest import settings_source  # noqa: E402
+from conftest import matched, settings_source  # noqa: E402
 sys.path.insert(0, REPO)
 sys.path.insert(0, os.path.join(REPO, 'server'))
 
@@ -82,14 +83,14 @@ def sessions_dir(monkeypatch, tmp_path):
 @pytest.mark.parametrize('name', ['rec.cts', 'rec.raw', 'REC.CTS'])
 def test_every_recording_format_is_stored(sessions_dir, name):
     """Upper case too: the check used to be `endswith`, so `.CTS` was dropped."""
-    out = asyncio.run(debug.route_test_session_upload(_Req(_Upload(name))))
+    out = asyncio.run(debug.route_test_session_upload(cast(Request, _Req(_Upload(name)))))
     assert out == {'ok': True}
     assert (sessions_dir / name).exists()
 
 
 def test_a_wrong_extension_is_refused_in_words(sessions_dir):
     """Not a redirect: the page cannot tell a silent drop from a save."""
-    out = asyncio.run(debug.route_test_session_upload(_Req(_Upload('notes.txt'))))
+    out = asyncio.run(debug.route_test_session_upload(cast(Request, _Req(_Upload('notes.txt')))))
     assert out['ok'] is False
     for ext in debug.SESSION_UPLOAD_EXTS:
         assert ext in out['error'], 'the refusal must name what it would take'
@@ -97,7 +98,7 @@ def test_a_wrong_extension_is_refused_in_words(sessions_dir):
 
 
 def test_no_file_at_all_is_refused(sessions_dir):
-    out = asyncio.run(debug.route_test_session_upload(_Req(None)))
+    out = asyncio.run(debug.route_test_session_upload(cast(Request, _Req(None))))
     assert out['ok'] is False and out['error']
 
 
@@ -105,7 +106,7 @@ def test_the_dialog_offers_exactly_what_the_route_stores(src):
     """These drifted apart, and the dialog is the half an operator can see."""
     field = src[src.index("onchange=\"testUpload(this)\"") - 400:]
     field = field[field.index('<input'):]
-    accept = re.search(r'accept="([^"]*)"', field).group(1).split(',')
+    accept = matched(r'accept="([^"]*)"', field).split(',')
     assert accept == list(debug.SESSION_UPLOAD_EXTS)
 
 

@@ -19,6 +19,8 @@ REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, REPO)
 sys.path.insert(0, os.path.join(REPO, 'server'))
 
+from conftest import stub_url_for  # noqa: E402
+
 import state          # noqa: E402
 from jsc import HAS_JSC, run_page   # noqa: E402
 
@@ -61,7 +63,7 @@ _MANUAL_T = {'title': 'Console manuelle', 'prev': 'Précédente', 'next': 'Suiva
 def _render(own_dir, template, **extra):
     env = Environment(loader=FileSystemLoader(
         [os.path.join(REPO, own_dir), os.path.join(REPO, 'shared', 'templates')]))
-    env.globals['url_for'] = lambda name, **kw: '/static/' + kw.get('filename', '')
+    stub_url_for(env)
     return env.get_template(template).render(
         num_lanes=6, labels=_LABELS, event_vocab=_VOCAB,
         theme_colors=state.DEFAULT_THEME_COLORS,

@@ -30,6 +30,8 @@ REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, REPO)
 sys.path.insert(0, os.path.join(REPO, 'server'))
 
+from conftest import stub_url_for  # noqa: E402
+
 import state                                          # noqa: E402
 from console_decoders import DECODERS, make_decoder    # noqa: E402
 from console_decoders.utils import split_step          # noqa: E402
@@ -157,7 +159,7 @@ _FLAGS = {f'show_{k}': True for k in
 def _render(own_dir, template, **extra):
     env = Environment(loader=FileSystemLoader(
         [os.path.join(REPO, own_dir), os.path.join(REPO, 'shared', 'templates')]))
-    env.globals['url_for'] = lambda name, **kw: '/static/' + kw.get('filename', '')
+    stub_url_for(env)
     return env.get_template(template).render(
         num_lanes=6, labels=_LABELS,
         theme_colors=state.DEFAULT_THEME_COLORS,

@@ -29,7 +29,7 @@ import pytest
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-from conftest import settings_source  # noqa: E402
+from conftest import matched, settings_source  # noqa: E402
 sys.path.insert(0, REPO)
 sys.path.insert(0, os.path.join(REPO, 'server'))
 
@@ -121,7 +121,7 @@ def test_the_state_decides_not_the_label(src):
 # ── The same mechanism Reboot and Shutdown use ─────────────────────────────────
 
 def test_it_is_wired_to_the_shared_hold(src):
-    button = re.search(r'<button id="btn-wifi-toggle"[^>]*>', src).group(0)
+    button = matched(r'<button id="btn-wifi-toggle"[^>]*>', src, group=0)
     assert 'data-hold-fn="toggleWifi"' in button, button
     assert 'onclick' not in button, (
         'a plain click handler fires even while the hold is armed — panel.js '

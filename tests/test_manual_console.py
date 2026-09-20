@@ -25,12 +25,15 @@ thread, which is where they run in production anyway (the decoder has one owner)
 """
 import os
 import sys
+from typing import cast
 
 import pytest
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, REPO)
 sys.path.insert(0, os.path.join(REPO, 'server'))
+
+from conftest import stub_url_for  # noqa: E402
 
 import meet_data                            # noqa: E402
 import state                                # noqa: E402
@@ -65,7 +68,8 @@ def rig(monkeypatch):
     monkeypatch.setattr(state, 'update', {}, raising=False)
 
     class Rig:
-        pass
+        decoder: ConsoleDecoder
+        emitted: list
     rig = Rig()
     rig.decoder, rig.emitted = decoder, emitted
     return rig
@@ -107,13 +111,15 @@ def test_only_the_manual_console_declares_itself_portless():
 def test_the_manual_console_is_offered_and_described():
     assert 'manual' in {key for key, _, _ in CONSOLE_OPTIONS}
     info = console_info_for('manual')
+    cts  = console_info_for('cts_gen6')
+    assert info and cts, 'both consoles are built in — None means unregistered'
     assert info['requires_serial'] is False
-    assert console_info_for('cts_gen6')['requires_serial'] is True
+    assert cts['requires_serial'] is True
 
 
 def test_a_wired_decoder_leaves_liveness_to_the_packet_clock():
     """None, not False. False would declare every console dead."""
-    assert ConsoleDecoder.is_live.fget(object()) is None
+    assert ConsoleDecoder.is_live.fget(cast(ConsoleDecoder, object())) is None
     assert make_decoder('cts_gen6', state.settings).is_live is None
 
 
@@ -358,7 +364,7 @@ def _timing_pane(requires_serial):
     env = Environment(undefined=ChainableUndefined, loader=FileSystemLoader(
         [os.path.join(REPO, 'server', 'templates'),
          os.path.join(REPO, 'shared', 'templates')]))
-    env.globals['url_for'] = lambda name, **kw: '/static/' + kw.get('filename', '')
+    stub_url_for(env)
     console = 'cts_gen6' if requires_serial else 'manual'
     return env.get_template('settings.html').render(
         t=state.settings_strings('en'),

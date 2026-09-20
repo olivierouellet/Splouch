@@ -54,7 +54,7 @@ def image_server(qt_app):
             self.end_headers()
             self.wfile.write(body)
 
-        def log_message(self, *args):
+        def log_message(self, format, *args):
             pass
 
     server = socketserver.TCPServer(('127.0.0.1', 0), Handler)
@@ -83,7 +83,7 @@ def _png(qt_app, colour='#808080'):
     buffer = QBuffer(data)
     buffer.open(QBuffer.OpenModeFlag.WriteOnly)
     pixmap.save(buffer, 'PNG')
-    return bytes(data)
+    return data.data()
 
 
 def _config(**overrides):
@@ -294,7 +294,7 @@ def test_a_race_starting_is_what_dismisses_it(board, qt_app):
     assert board.any_lane_running, 'the dismissal predicate never fires'
 
 
-def test_app_tells_the_server_when_a_race_dismisses_the_splash(qt_app, image_server):
+def test_app_tells_the_server_when_a_race_dismisses_the_splash(qt_app, image_server, monkeypatch):
     """Hiding silently would leave the /operator button lit with nothing behind it.
 
     The next press would then appear to do nothing, because the server still
@@ -303,7 +303,7 @@ def test_app_tells_the_server_when_a_race_dismisses_the_splash(qt_app, image_ser
     from scoreboard.app import ScoreboardApp
     app = ScoreboardApp(image_server, fullscreen=False)
     sent = []
-    app.link.send = lambda event, data=None: sent.append((event, data))
+    monkeypatch.setattr(app.link, 'send', lambda event, data=None: sent.append((event, data)))
     try:
         app.window.splash.apply_config(app.window.cfg, image_server)
         app.window.show_splash()
@@ -340,7 +340,7 @@ def test_display_overlay_frames_drive_it(qt_app, image_server):
 # been all-displays-or-none — the /operator button worked that way for browser
 # clients too. What matters is that each kiosk asks *once*.
 
-def test_a_dismissal_sends_exactly_one_frame(qt_app, image_server):
+def test_a_dismissal_sends_exactly_one_frame(qt_app, image_server, monkeypatch):
     """`update_scoreboard` arrives ~10x/second during a race.
 
     The splash stays visible for the 800ms of its fade-out, so a naive
@@ -351,7 +351,7 @@ def test_a_dismissal_sends_exactly_one_frame(qt_app, image_server):
     from scoreboard.app import ScoreboardApp
     app = ScoreboardApp(image_server, fullscreen=False)
     sent = []
-    app.link.send = lambda event, data=None: sent.append((event, data))
+    monkeypatch.setattr(app.link, 'send', lambda event, data=None: sent.append((event, data)))
     try:
         app.window.show_splash()
         _pump(qt_app, 0.9)
@@ -365,7 +365,7 @@ def test_a_dismissal_sends_exactly_one_frame(qt_app, image_server):
         app.link.stop()
 
 
-def test_redundant_dismissals_from_other_kiosks_are_harmless(qt_app, image_server):
+def test_redundant_dismissals_from_other_kiosks_are_harmless(qt_app, image_server, monkeypatch):
     """Every kiosk sends one, so each receives N rebroadcasts of the same state.
 
     `set_overlay` is an absolute set, not a toggle, so they cannot flip-flop; the
@@ -374,7 +374,7 @@ def test_redundant_dismissals_from_other_kiosks_are_harmless(qt_app, image_serve
     from scoreboard.app import ScoreboardApp
     app = ScoreboardApp(image_server, fullscreen=False)
     sent = []
-    app.link.send = lambda event, data=None: sent.append((event, data))
+    monkeypatch.setattr(app.link, 'send', lambda event, data=None: sent.append((event, data)))
     try:
         app._on_frame('display_overlay', {'active': True})
         _pump(qt_app, 0.9)

@@ -6,6 +6,8 @@ every render), the login dependency, and small shared helpers (``redirect``,
 """
 import os
 import shutil
+from collections.abc import Mapping
+from typing import Protocol
 from urllib.parse import urlparse
 
 from fastapi import Request
@@ -143,7 +145,39 @@ PREF_COOKIES  = {'lang': 'splouch_lang', 'style': 'splouch_style'}
 PREF_MAX_AGE  = 365 * 24 * 3600
 
 
-def _pref(request: Request, name, valid):
+class HasHeaders(Protocol):
+    """A request, as far as anything that only reads a header is concerned.
+
+    These protocols exist so the web layer can ask for what it actually uses
+    instead of a whole `Request`. A real FastAPI request satisfies all of them, so
+    callers are unaffected; the tests get to pass a two-line stand-in rather than
+    assembling ASGI scope to read one mapping.
+
+    Only for helpers. A path operation or a `Depends()` keeps `Request`: FastAPI
+    reads those signatures to build the request, and a Protocol there is taken for
+    a query parameter — the endpoint still imports, and breaks when called.
+    """
+
+    @property
+    def headers(self) -> Mapping[str, str]: ...
+
+
+class HasClientPrefs(Protocol):
+    """What the preference readers need of a request: a query string and cookies.
+
+    Narrower than `Request` on purpose — none of this touches the body, the
+    method or the ASGI scope — so the tests can pass a small stand-in rather than
+    assembling a Starlette request to read two mappings off.
+    """
+
+    @property
+    def query_params(self) -> Mapping[str, str]: ...
+
+    @property
+    def cookies(self) -> Mapping[str, str]: ...
+
+
+def _pref(request: HasClientPrefs, name, valid):
     """`?name=` for this request, else the cookie, else '' — invalid values ignored.
 
     The query string still wins for one request so a shared link opens the way its
@@ -157,7 +191,7 @@ def _pref(request: Request, name, valid):
     return ''
 
 
-def client_prefs(request: Request):
+def client_prefs(request: HasClientPrefs):
     """The visitor's language and label style for a phone page, else this meet's.
 
     Unknown values fall back rather than erroring — a stale bookmark or a cookie
@@ -186,7 +220,7 @@ def remember_prefs(request: Request, response):
     return response
 
 
-def client_strings(request: Request):
+def client_strings(request: HasClientPrefs):
     """`t`, `labels`, `lang` and `ui_style` for a phone page, honouring `client_prefs`.
 
     With no choice made these are exactly what `_globals()` and `_mobile_strings()`

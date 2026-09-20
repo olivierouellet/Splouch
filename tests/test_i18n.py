@@ -17,9 +17,11 @@ import tomllib
 import io
 import os
 import sys
+from typing import cast
 import tempfile
 
 import pytest
+from fastapi import Request
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, REPO)
@@ -442,7 +444,9 @@ def test_the_handshake_matches_the_contract_it_claims(doc, key):
     import re
     from routes.i18n import route_server as pi_server
     text = io.open(os.path.join(REPO, 'docs', doc), encoding='utf-8').read()
-    stated = re.search(r'\*\*Contract version: `(v\d+)`\*\*', text).group(1)
+    match = re.search(r'\*\*Contract version: `(v\d+)`\*\*', text)
+    assert match, f'{doc} no longer states a contract version'
+    stated = match.group(1)
     assert pi_server()['contract'][key] == stated
     assert cs.route_server()['contract'][key] == stated
 
@@ -454,7 +458,7 @@ class _BaseUrlReq:
 def test_the_directory_lists_this_server_with_no_configuration(monkeypatch, tmp_path):
     """Pointed at any cloud, a client gets at least that cloud back."""
     monkeypatch.setattr(cs, 'SERVERS_FILE', str(tmp_path / 'absent.json'))
-    servers = cs.route_servers(_BaseUrlReq('https://splouch.example/'))['servers']
+    servers = cs.route_servers(cast(Request, _BaseUrlReq('https://splouch.example/')))['servers']
     assert [s['url'] for s in servers] == ['https://splouch.example']
     assert servers[0]['kind'] == 'cloud'
 
@@ -467,7 +471,7 @@ def test_the_directory_adds_what_the_operator_published(monkeypatch, tmp_path):
                  ' {"url": "https://splouch.example"},'
                  ' {"name": "no url"}]', encoding='utf-8')
     monkeypatch.setattr(cs, 'SERVERS_FILE', str(f))
-    servers = cs.route_servers(_BaseUrlReq('https://splouch.example/'))['servers']
+    servers = cs.route_servers(cast(Request, _BaseUrlReq('https://splouch.example/')))['servers']
     # This server first, the published one after it; the duplicate and the
     # entry with no URL are dropped rather than rendering a dead row.
     assert [(s['name'], s['url']) for s in servers] == [
@@ -479,7 +483,7 @@ def test_a_broken_directory_file_does_not_take_the_endpoint_down(monkeypatch, tm
     f = tmp_path / 'servers.json'
     f.write_text('{not json', encoding='utf-8')
     monkeypatch.setattr(cs, 'SERVERS_FILE', str(f))
-    assert len(cs.route_servers(_BaseUrlReq('https://splouch.example/'))['servers']) == 1
+    assert len(cs.route_servers(cast(Request, _BaseUrlReq('https://splouch.example/')))['servers']) == 1
 
 
 # ── Event names follow the reader, not the meet ───────────────────────────────
