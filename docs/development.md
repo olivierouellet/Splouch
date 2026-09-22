@@ -75,7 +75,7 @@ Pi #1 /dev/ttyUSB0
 
 ### Local-only decoder (not committed — e.g. for proprietary protocols)
 
-Place a `.py` file in `~/Scoreboard/console_decoders/`. It is loaded automatically at startup and whenever the Settings page is opened, without restarting the service.
+Place a `.py` file in `~/SplouchData/console_decoders/`. It is loaded automatically at startup and whenever the Settings page is opened, without restarting the service.
 
 The file must define `CONSOLE_OPTIONS` and `DECODERS` at module level:
 
