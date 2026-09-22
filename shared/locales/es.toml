@@ -82,7 +82,7 @@ add_lead_here     = "Estás en el sitio correcto. Instala la aplicación Splouch
 add_no_server     = "Este código no nombra ningún servidor reconocido. La aplicación Splouch se puede añadir a mano igualmente."
 add_store_ios     = "Consíguelo en el App Store"
 add_store_android = "Disponible en Google Play"
-add_no_store      = "La aplicación aún no está publicada. Las competiciones de este servidor se pueden seguir en este navegador."
+add_no_store      = "La aplicación aún no está disponible para descargar."
 language             = "Idioma"
 language_auto        = "Auto (navegador)"
 # Preferencias de visualización del visitante, ofrecidas en el selector y

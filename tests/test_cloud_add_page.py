@@ -57,16 +57,32 @@ def stores(tmp_path, monkeypatch):
     return write
 
 
-def get(query=''):
-    """Render `/add` through the real route, and hand back the HTML."""
+IPHONE = ('Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 '
+          '(KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1')
+ANDROID = ('Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) '
+           'Chrome/125.0.0.0 Mobile Safari/537.36')
+# iPadOS asks for desktop sites by default and is indistinguishable from macOS here.
+IPAD_DESKTOP = ('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 '
+                '(KHTML, like Gecko) Version/17.5 Safari/605.1.15')
+
+
+def respond(query='', agent=None):
+    """Render `/add` through the real route, and hand back the response."""
+    headers = [(b'host', b'splouch.ca')]
+    if agent:
+        headers.append((b'user-agent', agent.encode()))
     scope = {'type': 'http', 'asgi': {'version': '3.0'}, 'http_version': '1.1',
              'method': 'GET', 'scheme': 'https', 'path': '/add', 'raw_path': b'/add',
              'query_string': query.encode(), 'root_path': '',
-             'headers': [(b'host', b'splouch.ca')], 'client': ('203.0.113.7', 41234),
+             'headers': headers, 'client': ('203.0.113.7', 41234),
              'server': ('splouch.ca', 443), 'app': cs.app}
     response = cs.route_add(Request(scope))
     assert response.status_code == 200
-    return response.body.decode()
+    return response
+
+
+def get(query='', agent=None):
+    return respond(query, agent).body.decode()
 
 
 def scanned(html):
@@ -171,7 +187,7 @@ def test_the_affordance_is_hidden_when_there_is_no_listing(stores):
     assert cs._store_links() == {}
     html = get('server=http%3A%2F%2Fpoolpi.local%3A5000')
     assert 'class="store"' not in html
-    assert 'not listed yet' in html
+    assert 'not available for download yet' in html
 
 
 def test_only_https_store_urls_are_offered(stores, monkeypatch):
@@ -196,6 +212,58 @@ def test_picker_config_carries_the_same_dict(stores, monkeypatch):
             'analytics_enabled', 'strings'} <= set(config)
 
 
+# ── one store, the reader's own ────────────────────────────────────────────────
+
+@pytest.mark.parametrize('agent,offered,withheld', [
+    (ANDROID, PLAY, APPSTORE),
+    (IPHONE, APPSTORE, PLAY),
+])
+def test_a_phone_is_offered_its_own_store_and_not_the_other(stores, monkeypatch,
+                                                            agent, offered, withheld):
+    """The reader is holding the device the answer is about.
+
+    Two buttons where one applies is a choice nobody standing in front of a poster
+    wants to make, and the wrong one is a dead end dressed as an offer.
+    """
+    monkeypatch.setenv('STORE_URL_ANDROID', PLAY)
+    monkeypatch.setenv('STORE_URL_IOS', APPSTORE)
+    html = get('server=https%3A%2F%2Fsplouch.ca', agent)
+    assert offered in html
+    assert withheld not in html
+
+
+@pytest.mark.parametrize('agent', [None, IPAD_DESKTOP, 'curl/8.4.0'])
+def test_an_unrecognised_agent_is_offered_everything(stores, monkeypatch, agent):
+    """Sniffing may only narrow the offer, never replace it.
+
+    An iPad asks for desktop sites by default and reads as macOS from here, so
+    guessing would cost the reader the button they needed. Falling back costs an
+    extra one.
+    """
+    monkeypatch.setenv('STORE_URL_ANDROID', PLAY)
+    monkeypatch.setenv('STORE_URL_IOS', APPSTORE)
+    html = get('server=https%3A%2F%2Fsplouch.ca', agent)
+    assert PLAY in html and APPSTORE in html
+
+
+def test_a_phone_whose_app_is_unlisted_is_offered_nothing(stores, monkeypatch):
+    """An App Store link is not an answer to an Android phone.
+
+    Shipping on one platform first is the ordinary case, so this is not an edge:
+    it is what every iPhone sees for as long as only Android is listed.
+    """
+    monkeypatch.setenv('STORE_URL_ANDROID', PLAY)
+    html = get('server=https%3A%2F%2Fsplouch.ca', IPHONE)
+    assert 'class="store"' not in html
+    assert 'not available for download yet' in html
+
+
+def test_the_response_says_it_varies_by_agent(stores, monkeypatch):
+    """Nothing caches this today; a proxy that one day does must not mix them up."""
+    monkeypatch.setenv('STORE_URL_ANDROID', PLAY)
+    assert respond('server=https%3A%2F%2Fsplouch.ca', ANDROID).headers['Vary'] == 'User-Agent'
+
+
 # ── it does not pretend to be the app ──────────────────────────────────────────
 
 def test_the_page_never_tries_to_reach_the_app(stores):
@@ -214,6 +282,25 @@ def test_the_page_never_tries_to_reach_the_app(stores):
         assert 'splouch://' not in text
         assert 'http-equiv="refresh"' not in text.lower()
         assert 'window.location' not in text
+
+
+def test_the_only_links_on_the_page_are_store_links(stores, monkeypatch):
+    """No way back into the web board — not the picker, not a meet.
+
+    This page hands off to the app and does nothing else. A link into the browser
+    beside a store button is the easier tap and the one that ends the hand-off,
+    and `P-10` is a hand-off rather than a second front door.
+    """
+    monkeypatch.setenv('STORE_URL_ANDROID', PLAY)
+    html = get('server=https%3A%2F%2Fsplouch.ca', ANDROID)
+    assert re.findall(r'<a\s[^>]*href="([^"]*)"', html) == [PLAY]
+
+
+def test_nothing_is_offered_when_there_is_nothing_to_hand_off_to(stores):
+    """With no listing the page says so and stops, rather than diverting."""
+    html = get('server=https%3A%2F%2Fsplouch.ca', ANDROID)
+    assert '<a ' not in html
+    assert 'not available for download yet' in html
 
 
 def test_the_page_carries_the_disclaimer_the_picker_does(stores):

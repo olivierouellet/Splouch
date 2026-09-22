@@ -51,8 +51,6 @@
             transition: border-color 0.15s, background 0.15s;
         }
         .store:hover { border-color: #555; background: #222; }
-        .back { display: inline-block; margin-top: 4px; font-size: 0.85em; color: #666; text-decoration: none; }
-        .back:hover { color: #999; }
         .note { font-size: 0.74em; color: #999; line-height: 1.5; border: 1px solid #333; border-radius: 8px; background: #141414; padding: 12px 16px; margin-top: 28px; }
     </style>
 </head>
@@ -85,6 +83,8 @@
         {% endif %}
 
         {% if stores %}
+        {# Usually one button: the route has already narrowed these to the reader's
+           own platform where the User-Agent said which. Both only when it did not. #}
         <div class="stores">
             {% if stores.ios %}
             <a class="store" href="{{ stores.ios }}">{{ t.get('add_store_ios', 'Get it on the App Store') }}</a>
@@ -94,12 +94,11 @@
             {% endif %}
         </div>
         {% else %}
-        {# `P-10`: the affordance is hidden when the URLs are absent, never shown dead.
-           Until an app is listed the web board is the whole answer, so say so. #}
-        <p class="lead">{{ t.get('add_no_store', 'The app is not listed yet. The meets on this server can be followed in this browser.') }}</p>
+        {# `P-10`: the affordance is hidden when there is no listing, never shown dead.
+           No link back into the web board either — this page hands off to the app and
+           does nothing else, so with nothing to hand off to it says only that. #}
+        <p class="lead">{{ t.get('add_no_store', 'The app is not available for download yet.') }}</p>
         {% endif %}
-
-        <a class="back" href="/">{{ t.get('back_to_meets', 'Meets') }}</a>
 
         <p class="note">
             {{ t.get('results_disclaimer', 'These are live, unofficial results and are subject to validation. Validated results will be available on the SplashMe app.') }}

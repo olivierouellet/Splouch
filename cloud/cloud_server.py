@@ -600,6 +600,28 @@ def _store_links():
     return out
 
 
+def _phone_platform(request):
+    """Which store to offer, from the User-Agent, or ``None`` when it is not a phone.
+
+    Sniffing a User-Agent is usually the wrong tool, and it is the right one here
+    for a narrow reason: this page is reached by pointing a camera at a poster, so
+    the reader is holding the device the answer is about, and two buttons where one
+    applies is a choice nobody standing at a pool wants to make.
+
+    It is only ever allowed to *narrow* the offer. An unrecognised agent falls back
+    to every listing rather than guessing — which is also what an iPad answers,
+    since iPadOS asks for desktop sites by default and is indistinguishable from
+    macOS from here. Getting it wrong therefore costs an extra button, never a
+    missing one.
+    """
+    agent = request.headers.get('user-agent', '')
+    if 'Android' in agent:
+        return 'android'
+    if any(device in agent for device in ('iPhone', 'iPad', 'iPod')):
+        return 'ios'
+    return None
+
+
 def _json(payload):
     """A JSON body with the content type spelled out rather than inferred.
 
@@ -671,7 +693,14 @@ def route_add(request: Request):
     """
     lang = _picker_lang(request)
     server = splouch_links.parse_origin(request.query_params.get(INVITE_PARAM, ''))
-    return _remember_prefs(request, render(request, 'add.html',
+    # One store, the reader's own, when the agent says which. A platform with no
+    # listing yet leaves nothing rather than offering the other one — an App Store
+    # link is not an answer to an Android phone.
+    stores = _store_links()
+    platform = _phone_platform(request)
+    if platform:
+        stores = {k: v for k, v in stores.items() if k == platform}
+    response = _remember_prefs(request, render(request, 'add.html',
         lang=lang,
         t=_strings(lang, 'mobile'),
         server=server,
@@ -682,8 +711,12 @@ def route_add(request: Request):
         # promising that it "will offer to add this server" would be a small lie
         # told to the majority of readers.
         is_here=bool(server) and server == splouch_links.parse_origin(str(request.base_url)),
-        stores=_store_links(),
+        stores=stores,
         **_picker_branding()))
+    # The body depends on the agent, so say so. Nothing in front of this caches
+    # today, and a proxy that one day does must not hand an iPhone Google Play.
+    response.headers['Vary'] = 'User-Agent'
+    return response
 
 
 @app.get('/locales', tags=['Public'])
