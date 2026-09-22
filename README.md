@@ -79,3 +79,9 @@ curl -fsSL https://raw.githubusercontent.com/olivierouellet/Splouch/master/insta
 ```
 
 The script asks which role to install: **Server**, **Kiosk**, or **Cloud**. See [docs/installation.md](docs/installation.md) for details.
+
+---
+
+## Community
+
+Participation in this project is governed by the [Code of Conduct](CODE_OF_CONDUCT.md).
