@@ -84,4 +84,7 @@ The script asks which role to install: **Server**, **Kiosk**, or **Cloud**. See 
 
 ## Community
 
-Participation in this project is governed by the [Code of Conduct](CODE_OF_CONDUCT.md).
+| | |
+| --- | --- |
+| [Contributing](CONTRIBUTING.md) | Setup, the checks a PR must pass, conventions, reporting a bug |
+| [Code of Conduct](CODE_OF_CONDUCT.md) | Contributor Covenant 2.1 |
