@@ -25,7 +25,7 @@ sys.path.insert(0, REPO)
 sys.path.insert(0, os.path.join(REPO, 'server'))
 
 import state                          # noqa: E402
-from jsc import HAS_JS_ENGINE               # noqa: E402
+from jsc import HAS_JS_ENGINE, js_argv  # noqa: E402
 
 SETTINGS = os.path.join(REPO, 'server', 'templates', 'settings.html')
 
@@ -135,7 +135,7 @@ __html
         handle.write(program)
         path = handle.name
     try:
-        done = subprocess.run(['osascript', '-l', 'JavaScript', path],
+        done = subprocess.run(js_argv(path),
                               capture_output=True, text=True)
     finally:
         os.unlink(path)

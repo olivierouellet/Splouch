@@ -24,7 +24,7 @@ import pytest
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 from conftest import matched, settings_source  # noqa: E402
-from jsc import HAS_JS_ENGINE  # noqa: E402
+from jsc import HAS_JS_ENGINE, js_argv  # noqa: E402
 SETTINGS = os.path.join(REPO, 'server', 'templates', 'settings.html')
 
 needs_js = pytest.mark.skipif(
@@ -125,7 +125,7 @@ def test_autosave_debounces_and_reports(src):
         fh.write(harness)
         path = fh.name
     try:
-        res = subprocess.run(['osascript', '-l', 'JavaScript', path],
+        res = subprocess.run(js_argv(path),
                              capture_output=True, text=True)
     finally:
         os.unlink(path)
@@ -217,7 +217,7 @@ def test_the_warning_tracks_the_default_and_the_reset_saves(src):
         fh.write(harness)
         path = fh.name
     try:
-        res = subprocess.run(['osascript', '-l', 'JavaScript', path],
+        res = subprocess.run(js_argv(path),
                              capture_output=True, text=True)
     finally:
         os.unlink(path)
@@ -270,7 +270,7 @@ def test_a_failed_save_still_speaks(src):
         fh.write(harness)
         path = fh.name
     try:
-        res = subprocess.run(['osascript', '-l', 'JavaScript', path],
+        res = subprocess.run(js_argv(path),
                              capture_output=True, text=True)
     finally:
         os.unlink(path)
@@ -357,7 +357,7 @@ def test_the_shared_warning_helper_works_for_the_split_field(src):
         fh.write(harness)
         path = fh.name
     try:
-        res = subprocess.run(['osascript', '-l', 'JavaScript', path],
+        res = subprocess.run(js_argv(path),
                              capture_output=True, text=True)
     finally:
         os.unlink(path)

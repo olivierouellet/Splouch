@@ -28,7 +28,7 @@ import pytest
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 from conftest import admin_source, stub_url_for  # noqa: E402
-from jsc import HAS_JS_ENGINE  # noqa: E402
+from jsc import HAS_JS_ENGINE, js_argv  # noqa: E402
 
 needs_js = pytest.mark.skipif(
     not HAS_JS_ENGINE, reason='needs a JavaScript engine (osascript or node)')
@@ -227,7 +227,7 @@ def test_the_whole_thing_behaves_when_driven(script):
         fh.write(harness)
         path = fh.name
     try:
-        res = subprocess.run(['osascript', '-l', 'JavaScript', path],
+        res = subprocess.run(js_argv(path),
                              capture_output=True, text=True)
     finally:
         os.remove(path)

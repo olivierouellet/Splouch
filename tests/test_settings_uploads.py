@@ -35,7 +35,7 @@ from fastapi import Request, UploadFile
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 from conftest import matched, settings_source  # noqa: E402
-from jsc import HAS_JS_ENGINE  # noqa: E402
+from jsc import HAS_JS_ENGINE, js_argv  # noqa: E402
 sys.path.insert(0, REPO)
 sys.path.insert(0, os.path.join(REPO, 'server'))
 
@@ -169,7 +169,7 @@ def test_the_filename_listener_survives_a_picker_with_no_message_span(src):
         fh.write(harness)
         path = fh.name
     try:
-        res = subprocess.run(['osascript', '-l', 'JavaScript', path],
+        res = subprocess.run(js_argv(path),
                              capture_output=True, text=True)
     finally:
         os.remove(path)

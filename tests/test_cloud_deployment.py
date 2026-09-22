@@ -190,6 +190,8 @@ def test_the_unavailable_state_is_what_the_operator_sees():
     import subprocess as _sp
     import tempfile as _tf
 
+    from jsc import js_argv
+
     import tomllib
     from jinja2 import Environment, FileSystemLoader
     env = Environment(loader=FileSystemLoader(
@@ -241,7 +243,7 @@ def test_the_unavailable_state_is_what_the_operator_sees():
         fh.write(harness)
         path = fh.name
     try:
-        res = _sp.run(['osascript', '-l', 'JavaScript', path], capture_output=True, text=True)
+        res = _sp.run(js_argv(path), capture_output=True, text=True)
     finally:
         os.remove(path)
     assert res.returncode == 0, res.stderr

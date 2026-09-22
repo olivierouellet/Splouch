@@ -41,10 +41,14 @@ HAS_JS_ENGINE = _ENGINE is not None
 # osascript already does. node also does not print a program's final value, so the
 # completion value of that eval is written out by hand. Between them these two lines are
 # the entire difference; the program text is byte-identical under both engines.
+# One expression, declaring nothing: a `const out` here collided with the `out` that
+# `settings.html`'s own picker script declares, and node refused the whole program with
+# "Identifier 'out' has already been declared". The shim shares a global scope with the
+# page, so it must not put names in it.
 _NODE_BOOTSTRAP = (
-    "const fs = require('fs');"
-    "const out = (0, eval)(fs.readFileSync(process.argv[1], 'utf8'));"
-    "process.stdout.write(String(out));"
+    "process.stdout.write(String("
+    "(0, eval)(require('fs').readFileSync(process.argv[1], 'utf8'))"
+    "));"
 )
 
 # A stub, deliberately dumb: every element is the same object, and it answers whatever
