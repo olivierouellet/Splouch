@@ -126,8 +126,9 @@ Open an issue with:
   session if you have one.
 * Whether it happened on Pi #1 (server), Pi #2 (kiosk), the browser, or the cloud relay.
 
-For anything security-sensitive, don't open a public issue — use the private routes in
-the [Code of Conduct](CODE_OF_CONDUCT.md#enforcement).
+For anything security-sensitive, don't open a public issue — follow
+[SECURITY.md](SECURITY.md), which also sets out what Splouch assumes about the pool-deck
+network and what is out of scope.
 
 ---
 
