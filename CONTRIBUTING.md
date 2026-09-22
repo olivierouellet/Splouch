@@ -118,13 +118,13 @@ diff — that is where this tree keeps its reasoning.
 
 ## Reporting a bug
 
-Open an issue with:
+Open an issue — the form asks for what's needed: what happened, which component, the
+console, the version, and the serial monitor around the failure.
 
-* What you were doing, and what the scoreboard showed instead.
-* **Console make and model**, and how it is wired (adapter, baud).
-* The relevant chunk of the serial monitor (**Settings → Timing**), or the recorded
-  session if you have one.
-* Whether it happened on Pi #1 (server), Pi #2 (kiosk), the browser, or the cloud relay.
+If you ran Splouch against a real timing console, use the **Console support report**
+instead, whether it worked or not. Five of the six supported consoles have never been
+confirmed on hardware, and a raw capture from yours is what lets the decoder be fixed by
+someone who doesn't own one.
 
 For anything security-sensitive, don't open a public issue — follow
 [SECURITY.md](SECURITY.md), which also sets out what Splouch assumes about the pool-deck

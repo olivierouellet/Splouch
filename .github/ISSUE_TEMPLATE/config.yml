@@ -1,0 +1,14 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/olivierouellet/Splouch/security/advisories/new
+    about: Don't open a public issue. Report privately here — see SECURITY.md.
+  - name: Installation and setup
+    url: https://github.com/olivierouellet/Splouch/blob/master/docs/installation.md
+    about: Wiring the Pis, updating, reinstalling, credentials.
+  - name: Meet-day questions
+    url: https://github.com/olivierouellet/Splouch/blob/master/docs/admin.md
+    about: The admin UI, settings tabs, pages, localisation.
+  - name: Something already broken at the pool
+    url: https://github.com/olivierouellet/Splouch/blob/master/docs/troubleshooting-splouch-local-unreachable.md
+    about: Start here if the scoreboard is unreachable and a meet is running.

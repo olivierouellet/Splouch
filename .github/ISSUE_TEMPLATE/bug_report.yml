@@ -1,0 +1,103 @@
+name: Bug report
+description: Something behaved wrongly — at a meet or on the bench.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        If a meet is running right now, the
+        [troubleshooting docs](https://github.com/olivierouellet/Splouch/tree/master/docs)
+        will be faster than this form.
+
+        If the bug has a security dimension, close this and use
+        [SECURITY.md](https://github.com/olivierouellet/Splouch/blob/master/SECURITY.md)
+        instead.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you did, what the scoreboard showed, and what you expected instead.
+      placeholder: |
+        Lane 4 touched second, but the board left the place column blank for the rest of the heat.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: Where
+      description: Where it went wrong. Pick "Not sure" rather than guessing.
+      options:
+        - Pi #1 — server / decoder
+        - Pi #2 — Qt kiosk on the TV
+        - Admin UI in a browser
+        - Cloud relay (remote viewing)
+        - install.sh / updating
+        - Not sure
+    validations:
+      required: true
+
+  - type: dropdown
+    id: console
+    attributes:
+      label: Timing console
+      description: What Settings → Timing is set to.
+      options:
+        - System 5 (Colorado Timing System)
+        - System 6 (Colorado Timing System)
+        - Gen7 Legacy (Colorado Timing System)
+        - Gen7 Serial (Colorado Timing System)
+        - Omnisport 2000 (Daktronics)
+        - Ares 21 (Swiss Timing Omega)
+        - Quantum (Swiss Timing Omega)
+        - Manual — no timing console
+        - A local decoder of my own
+        - Not relevant to this bug
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: "Release tag, or the output of: `git -C ~/Splouch describe --tags`"
+      placeholder: v2026.09.3
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: >
+        If it needs a live console, say so — a recorded session that reproduces it is
+        worth more than any description.
+      placeholder: |
+        1. Load the attached recording via the Test tab
+        2. Start the heat
+        3. Watch lane 4 after the touch
+    validations:
+      required: false
+
+  - type: textarea
+    id: serial
+    attributes:
+      label: Serial monitor or logs
+      description: >
+        Settings → Timing shows the raw serial feed; Settings → Update & Backup can
+        save a log. Paste the part around the failure — it is pasted as plain text,
+        no backticks needed.
+      render: text
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: Pi #1 and Pi #2 are on the same version.
+          required: false
+        - label: This is not a security issue (those go through SECURITY.md).
+          required: true

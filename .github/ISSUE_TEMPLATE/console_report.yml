@@ -1,0 +1,94 @@
+name: Console support report
+description: You put Splouch on a real timing console. Tell us how it went.
+labels: ["console"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This is the most useful issue you can open. Five of the six supported consoles
+        are marked ⚠️ **Untested** because nobody has confirmed them on hardware —
+        a report either way moves one of them.
+
+        It works? Say so. It doesn't? Even better, as long as you paste what came
+        down the wire.
+
+  - type: dropdown
+    id: console
+    attributes:
+      label: Console
+      options:
+        - System 5 (Colorado Timing System)
+        - System 6 (Colorado Timing System)
+        - Gen7 Legacy (Colorado Timing System)
+        - Gen7 Serial (Colorado Timing System)
+        - Omnisport 2000 (Daktronics)
+        - Ares 21 (Swiss Timing Omega)
+        - Quantum (Swiss Timing Omega)
+        - Not in the list — new console
+    validations:
+      required: true
+
+  - type: input
+    id: model
+    attributes:
+      label: Exact model and firmware
+      description: Whatever is on the plate and the boot screen. Variants differ.
+      placeholder: Colorado System 6, firmware 2.4
+    validations:
+      required: true
+
+  - type: dropdown
+    id: outcome
+    attributes:
+      label: How did it go
+      options:
+        - Worked — times, places and event/heat all correct
+        - Mostly worked — some fields wrong or missing
+        - Connected, but the data was wrong
+        - Never connected at all
+    validations:
+      required: true
+
+  - type: textarea
+    id: wiring
+    attributes:
+      label: Wiring
+      description: >
+        Which port on the console, what adapter, and the serial settings you used.
+        This is where most "it doesn't work" reports end up resolving.
+      placeholder: |
+        Scoreboard port (DB9) → FTDI USB-serial → Pi #1 /dev/ttyUSB0
+        9600 8N1
+    validations:
+      required: true
+
+  - type: textarea
+    id: detail
+    attributes:
+      label: What was right and what was wrong
+      description: >
+        Per field if you can — event, heat, lane times, places, splits, lap counts.
+        "Places were fine, splits never appeared" is a fixable report.
+    validations:
+      required: true
+
+  - type: textarea
+    id: capture
+    attributes:
+      label: Raw serial capture
+      description: >
+        The single most valuable thing here — it lets the decoder be fixed and tested
+        by someone who doesn't own your console. Paste a chunk from the serial monitor
+        (Settings → Timing), or attach a `.raw` capture by dragging it in. See
+        server/console_recordings/README.md.
+      render: text
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: followup
+    attributes:
+      label: Follow-up
+      options:
+        - label: I still have access to this console and can test a fix.
+          required: false

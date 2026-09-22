@@ -1,0 +1,54 @@
+name: Feature request
+description: Something Splouch should do that it doesn't.
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Splouch runs unattended on a pool deck with an operator who has a meet to run.
+        The bar for a new feature is whether it helps there — or at least stays out of
+        the way on meet day.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What's the problem
+      description: >
+        The situation at the pool, not the solution. What were you trying to do, and
+        what got in the way?
+      placeholder: |
+        Officials keep asking me what heat is next, and I have to leave the timing
+        table to check the printed programme.
+    validations:
+      required: true
+
+  - type: textarea
+    id: idea
+    attributes:
+      label: What you have in mind
+      description: If you have a shape in mind, describe it. If not, leave it blank.
+    validations:
+      required: false
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Where it would live
+      options:
+        - Scoreboard display (TV)
+        - Admin UI
+        - Results / schedule pages
+        - Cloud relay (remote viewing)
+        - Console decoding
+        - Installer
+        - Not sure
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: offer
+    attributes:
+      label: Taking it on
+      options:
+        - label: I'd be willing to have a go at implementing this.
+          required: false
