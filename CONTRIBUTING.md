@@ -36,6 +36,10 @@ Plain `uv sync` gives you the server-only install. Worth knowing for a fast inne
 it turns the suite from 68s into 7s, since Qt is nearly all of the runtime — as long as
 the full run happens before you open the PR.
 
+`.python-version` pins the interpreter to **3.13**, which is what Raspberry Pi OS Trixie
+ships. `uv` honours it automatically. Newer Pythons run the suite fine, but a green run
+on one is not evidence about the version on the pool deck.
+
 To work with swimmer names, copy the fixture meet in and click **Reload Names** in Meet
 Setup:
 
