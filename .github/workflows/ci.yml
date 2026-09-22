@@ -83,7 +83,10 @@ jobs:
         run: uv run ty check
 
       - name: Tests
-        run: uv run pytest tests/ -q
+        # --cov prints the table into this log and stops there: nothing is uploaded,
+        # nothing is gated. pyproject.toml says what the number is and is not good
+        # for. `term-missing` instead of `term` locally, for the line numbers.
+        run: uv run pytest tests/ -q --cov --cov-report=term
 
   shellcheck:
     name: Shell scripts

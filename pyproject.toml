@@ -28,7 +28,7 @@ dependencies = [
 scoreboard = ["pyside6-essentials>=6.5"]
 
 [dependency-groups]
-dev = ["pytest", "ruff", "ty"]
+dev = ["pytest", "pytest-cov", "ruff", "ty"]
 
 [tool.pytest.ini_options]
 pythonpath = ["server"]
@@ -70,3 +70,22 @@ select = [
 python-version = "3.13"
 extra-paths = ["server", "shared/py", "cloud"]
 
+# ── Coverage ───────────────────────────────────────────────────────────────────
+# Printed in the CI log. Never gated, never uploaded to a third party — the number
+# is there to be read, not enforced.
+#
+# Read it knowing what it cannot tell you. `cts_gen6` sits near 95% and is the one
+# console confirmed on hardware; the other four decoders sit near 35% and are the
+# ones marked untested in the README. Closing that gap with tests written from the
+# same protocol documents the decoders were written from would move the number and
+# prove nothing: coverage says a line ran, not that the byte offset is right. Only
+# a console on a wire settles that.
+#
+# Where it does earn its keep is everything that is not about hardware — the cloud
+# relay and the authenticated routes are the thin spots worth watching.
+[tool.coverage.run]
+source = ["server", "scoreboard", "cloud", "shared/py"]
+
+[tool.coverage.report]
+# Fractional percentages, so a real change is not rounded into invisibility.
+precision = 1
