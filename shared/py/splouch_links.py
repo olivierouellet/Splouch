@@ -12,6 +12,16 @@ The link is::
 
     https://<the app's default host>/add?server=<origin, percent-encoded>
 
+**What travels in `server=` is a cloud, never a Pi.** A scanned code has to work for
+the phone that reads it, and a `.local` name resolves only for a device already on
+the venue's wifi — which a spectator on cellular is not, and which a guest network
+with client isolation prevents even when they are. So a printed code names a cloud,
+the reader lands on its picker, and the Pi in the building is reached from there by
+the mDNS browse or by hand (`P-11`–`P-13`), on a phone that has already joined the
+right network. Nothing enforces that here: `parse_origin` mirrors the client, which
+accepts a `.local` address wherever it is typed. It is what the Pi *mints* that is
+constrained (`server/routes/qr.py`).
+
 `parse_origin` is the same rule the apps' own `ServerAddress.parse` applies, and
 deliberately so: `http` is accepted only for a `.local` name or a developer
 loopback (`app.md` `P-12`), everything else must be `https`, and two spellings of
@@ -39,6 +49,14 @@ from urllib.parse import quote, urlsplit
 # names both.
 INVITE_PATH = '/add'
 INVITE_PARAM = 'server'
+
+# The server the published app ships knowing (`P-11`), and therefore the only
+# authority a link may carry: an App Link is verified per host, and the app matches
+# `https://splouch.ca/add` and nothing else. It is a property of the *app*, not of
+# any server here, which is why it is a constant rather than a setting — a Pi cannot
+# be asked what the app on a stranger's phone was built against. A fork publishing
+# its own app changes this line and the manifest together.
+DEFAULT_APP_SERVER = 'https://splouch.ca'
 
 # `http` is allowed to these and to `*.local`, and to nothing else. The first is
 # the pool's Pi by its mDNS name; the rest are what a developer's emulator dials.
@@ -140,32 +158,3 @@ def invite_link(host_origin, server_origin):
     # the value cannot be read as a path of its own by anything between the
     # camera and the app.
     return f'{host}{INVITE_PATH}?{INVITE_PARAM}={quote(server, safe="")}'
-
-
-def mdns_origin(hostname, port=None):
-    """`http://<hostname>.local[:port]` — the one form of a Pi's own address.
-
-    Never a raw IP: a client refuses cleartext to anything but a `.local` name
-    and the loopbacks (`P-12`), so a code minted from the address an operator
-    happens to be browsing by would scan into "cannot add this server" on the
-    deck. The name is the Pi's own — avahi publishes it, and `_splouch._tcp`
-    advertises the same host (`api.md` §4).
-
-    *port* is dropped when it is 80, which is where an installed Pi answers: the
-    iptables redirect in `install.sh` puts port 80 in front of uvicorn's 5000, and
-    a shorter URL is a sparser QR code to read across a pool deck.
-    """
-    host = (hostname or '').strip().lower().rstrip('.')
-    if not host:
-        return None
-    # `socket.gethostname()` already ends in `.local` on some platforms (macOS,
-    # and a Pi whose search domain is set); appending a second one is a name that
-    # resolves nowhere.
-    if host.endswith('.local'):
-        host = host[:-len('.local')]
-    if not host or '.' in host:
-        # A fully-qualified name that is not `.local` is not the mDNS name, and
-        # a dotted label would make `<host>.local` a subdomain avahi never
-        # publishes. Nothing sensible to mint.
-        return None
-    return parse_origin(f'http://{host}.local' + (f':{port}' if port and int(port) != 80 else ''))

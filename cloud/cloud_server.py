@@ -670,10 +670,18 @@ def route_add(request: Request):
     under it.
     """
     lang = _picker_lang(request)
+    server = splouch_links.parse_origin(request.query_params.get(INVITE_PARAM, ''))
     return _remember_prefs(request, render(request, 'add.html',
         lang=lang,
         t=_strings(lang, 'mobile'),
-        server=splouch_links.parse_origin(request.query_params.get(INVITE_PARAM, '')),
+        server=server,
+        # Whether the code named *this* server, which is the ordinary case: a Pi
+        # prints a code for the cloud it publishes to, and for most deployments
+        # that is the same cloud serving this page. The app would answer such a
+        # scan with "you're already on this server" and open the meet list, so
+        # promising that it "will offer to add this server" would be a small lie
+        # told to the majority of readers.
+        is_here=bool(server) and server == splouch_links.parse_origin(str(request.base_url)),
         stores=_store_links(),
         **_picker_branding()))
 

@@ -7,6 +7,11 @@
     {#
        docs/app.md `P-16` — the code an operator prints and tapes to a wall.
 
+       It carries the **cloud**, never this Pi: a `.local` name resolves only for a
+       phone already on the venue's wifi, and a poster cannot ask which network the
+       reader is on. The Pi in the building is offered later, by the mDNS browse, to
+       a phone that has already joined the right network (`P-11`–`P-13`).
+
        Deliberately not a panel page: no sidebar, no Bootstrap, no script. It is
        opened to be printed, and the only thing that matters on the paper is a code
        large enough to scan from a few metres and the address it carries in words
@@ -79,11 +84,7 @@
         <p class="hint">{{ t.qr_hint }}</p>
         {% else %}
         <div class="missing">
-            {% if reason == 'no_cloud' %}
             {{ t.qr_no_cloud }}
-            {% else %}
-            {{ t.qr_no_hostname }}
-            {% endif %}
         </div>
         {% endif %}
 

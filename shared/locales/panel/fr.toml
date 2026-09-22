@@ -173,13 +173,12 @@ quick_manual    = "Manuelle"
 quick_qr        = "Code QR"
 
 # Le code QR imprimable (docs/app.md `P-16`).
-qr_title        = "Ajouter ce serveur par code QR"
+qr_title        = "Code QR pour cette compétition"
 qr_sub          = "Imprimez-le et placez-le à la vue des spectateurs."
-qr_origin_label = "Ce serveur"
-qr_hint         = "Le scanner ouvre l'application Splouch, qui demande avant d'ajouter ce serveur. Un téléphone sans l'application arrive sur une page web qui propose le téléchargement."
+qr_origin_label = "Les spectateurs accèdent à la compétition à"
+qr_hint         = "Tout le monde peut le scanner, sur n'importe quel réseau. Avec l'application Splouch installée, il ouvre l'application sur la liste des compétitions ; sans elle, une page web propose le téléchargement. Les spectateurs sur le wifi de la piscine peuvent ensuite choisir ce serveur dans la liste de l'application pour un chronomètre en direct."
 qr_print        = "Imprimer"
-qr_no_cloud     = "Aucun serveur infonuagique n'est configuré : il n'y a donc pas d'adresse pour construire le code. Renseignez d'abord l'URL du serveur dans l'onglet Infonuagique."
-qr_no_hostname  = "Le nom réseau de ce serveur n'a pas pu être lu, le code ne peut donc pas être construit. Il doit être joignable par un nom .local — une application refuse une adresse IP brute."
+qr_no_cloud     = "Aucun serveur infonuagique n'est configuré : il n'y a donc nulle part où envoyer les spectateurs. Renseignez d'abord l'URL du serveur dans l'onglet Infonuagique."
 account_change_pw = "Changer le mot de passe"
 account_logout  = "Déconnexion"
 

@@ -1,35 +1,40 @@
-"""This Pi's own QR code, for an operator to print (`app.md` `P-16`).
+"""The QR code an operator prints for this meet (`app.md` `P-16`).
 
-A spectator at a pool wants the meet on the Pi in the building — no internet
-dependency, an unthrottled race clock (`P-11`) — and typing `splouch.local:5000`
-into a phone is the step that loses them. A code taped to the wall is the answer,
-and the operator is the only person who can put one there, so the Pi has to be
-able to draw its own.
+**The code names the cloud, not this Pi.** That is the whole of the design and it
+is worth stating plainly, because the opposite is the tempting answer: the useful
+server at a pool *is* the Pi in the building (`P-11`) — no internet dependency, an
+unthrottled race clock — so why not print its address?
 
-Three things about the link are not this page's to choose:
+Because a poster is read by whoever walks past it, and a `.local` name resolves
+only for a device already joined to the venue's wifi. A spectator on cellular gets
+nothing; a guest network with client isolation blocks mDNS even for one that did
+join; and `splouch.local` is fragile enough on a multihomed Pi to have its own
+troubleshooting page. A printed code cannot ask which network the reader is on, so
+it has to name the address that works from anywhere.
 
-* **The host is the cloud, never this Pi.** An App Link is verified per host, and
-  a Pi has no `https` and no certificate, so nothing can verify one. The Pi
-  travels in the query. The host comes from `cloud_relay_url` — the cloud this
-  Pi publishes to, which is the app's default server in any deployment where
-  scanning works at all. With no cloud configured there is no host to name and
-  the page says so rather than inventing one.
-* **The Pi's own address is its mDNS name**, `http://<host>.local[:port]`, never
-  the raw IP the operator may be browsing by: a client refuses cleartext to
-  anything but a `.local` name and the loopbacks (`P-12`), so a code minted from
-  an address bar would scan into "cannot add this server" on the deck. The port
-  follows the request, so a Pi reached on `:5000` mints `:5000` and an installed
-  one — port 80 in front of uvicorn, via the iptables redirect in `install.sh` —
-  mints the shorter form.
-* **The shape itself** lives in `shared/py/splouch_links.py`, the one copy the
-  cloud's `GET /add` parses with. This module only decides *what* to put in it.
+So the code carries the cloud this Pi publishes to, and the reader lands on its
+**picker** — which is also where `P-06`'s unofficial-results disclaimer lives, so
+a spectator arriving by camera passes the notice rather than being dropped onto a
+live board. Getting to the Pi itself stays `P-11`–`P-13`'s job: the mDNS browse
+offers it to a phone that is already on the right network, which is exactly the
+phone the offer makes sense to.
 
-The page is unauthenticated, like `/live` and `/operator`: it carries the mDNS
-name that avahi already broadcasts to the whole LAN and `_splouch._tcp` already
-advertises, and an operator who has to log in to print a poster prints no poster.
+Two halves of the link, from two different places:
+
+* the **authority** is the app's default server (`splouch_links.DEFAULT_APP_SERVER`),
+  because an App Link is verified per host and the app matches that one host. It is
+  a property of the published app, not of any server here.
+* the **`server=` value** is `cloud_relay_url`, the cloud this Pi actually
+  publishes to. For the canonical deployment the two are the same string and the
+  reader is simply taken to the picker they would have reached anyway; for a club
+  running its own cloud they differ, and the code adds that cloud before opening
+  its picker. With no cloud configured there is no meet to point anyone at and the
+  page says which field to fill.
+
+The page is unauthenticated, like `/live` and `/operator`: it carries a public
+cloud URL and nothing else, and an operator who has to log in to print a poster
+prints no poster.
 """
-import socket
-
 import segno
 from fastapi import APIRouter, Request
 
@@ -40,28 +45,25 @@ from web import render
 router = APIRouter(tags=['Invite'])
 
 
-def invite(request: Request):
-    """Everything the page draws: the link, its two halves, and why there is none.
+def invite():
+    """The link the page draws, or the reason there is none.
 
     One helper rather than logic in the route, so the reason a code is missing is
     decided in the same place the code is — a template that worked out for itself
     when to show an error would be a second, quieter copy of this rule.
+
+    It reads no request: the link says nothing about how this page was reached,
+    which is the point. A poster minted from the operator's address bar would
+    carry whatever they happened to type.
     """
     cloud = (state.settings.get('cloud_relay_url') or '').strip()
-    origin = splouch_links.mdns_origin(socket.gethostname(), request.url.port)
-    link = splouch_links.invite_link(cloud, origin) if cloud else None
-    if link:
-        reason = ''
-    elif not cloud:
-        reason = 'no_cloud'
-    elif not origin:
-        reason = 'no_hostname'
-    else:
-        # A cloud URL that will not parse — cleartext to a public name, most
-        # likely, which the app would refuse as a server and refuse again as a
-        # link host. Same words as a missing one: the fix is the same field.
-        reason = 'no_cloud'
-    return {'link': link, 'origin': origin, 'cloud': cloud, 'reason': reason}
+    origin = splouch_links.parse_origin(cloud)
+    link = splouch_links.invite_link(splouch_links.DEFAULT_APP_SERVER, origin) if origin else None
+    # One reason, because there is one field. A cloud URL that will not parse —
+    # cleartext to a public name, most likely — is the same answer as a missing
+    # one: the fix is the same box in Settings → Cloud.
+    return {'link': link, 'origin': origin, 'cloud': cloud,
+            'reason': '' if link else 'no_cloud'}
 
 
 @router.get('/qr')
@@ -78,7 +80,7 @@ def route_qr(request: Request):
     read is a code nobody can check against, and it is also the fallback for the
     phone whose camera will not focus on a wall.
     """
-    data = invite(request)
+    data = invite()
     svg = ''
     if data['link']:
         svg = segno.make(data['link'], error='m').svg_inline(

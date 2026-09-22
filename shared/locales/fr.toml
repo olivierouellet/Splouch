@@ -78,6 +78,7 @@ offline         = "Horaire seulement"
 # faire passer pour l'application.
 add_scanned       = "Ce code pointe vers"
 add_lead          = "Scannez ce code de nouveau une fois l'application Splouch installée et elle proposera d'ajouter ce serveur."
+add_lead_here     = "Vous êtes au bon endroit. Installez l'application Splouch pour suivre la compétition, ou continuez dans ce navigateur."
 add_no_server     = "Ce code ne nomme aucun serveur reconnu. L'application Splouch peut quand même être ajoutée à la main."
 add_store_ios     = "Télécharger dans l'App Store"
 add_store_android = "Disponible sur Google Play"

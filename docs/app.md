@@ -129,7 +129,7 @@ where the user returns via `A-02`.
 | `P-12` | Servers on the local network are offered without anyone typing an address | mDNS browse for `_splouch._tcp` (do not use `splouch.local`) | native-only — should |
 | `P-13` | A server can be added by hand, checked before it is saved | `GET /server` must answer | native-only — must |
 | `P-14` | A server whose contract versions differ from the app's gets a one-line notice naming both; the app **connects regardless** | `GET /server` → `contract.api`, `contract.app`, compared for equality with the versions the app was built against ([`api.md`](api.md) §5.10) | native-only — should |
-| `P-16` | A server can be added by scanning a QR code: the code opens the app, the app asks, and the server is added and selected on a yes. Without the app installed the same code lands on a web page offering the store | `https://<the app's default host>/add?server=<origin>`, percent-encoded; the host's `/.well-known/assetlinks.json` and `/.well-known/apple-app-site-association`, and its `GET /add` page ([`api.md`](api.md) §4, §5.7) | native-only — should |
+| `P-16` | A server can be added by scanning a QR code: the code opens the app, the app asks, and on a yes the server is added, selected, and the **meet list** is what the reader lands on. Without the app installed the same code lands on a web page offering the store | `https://<the app's default host>/add?server=<origin>`, percent-encoded; the host's `/.well-known/assetlinks.json` and `/.well-known/apple-app-site-association`, and its `GET /add` page ([`api.md`](api.md) §4, §5.7) | native-only — should |
 
 > **`P-06` is not decoration.** The disclaimer — live, unofficial results pending
 > validation, with SplashMe for validated ones — is the only thing between a live feed
@@ -179,9 +179,8 @@ where the user returns via `A-02`.
 >   the page, and the page offers the store (`P-10`'s hand-off, still web-only).
 > - **The host is the app's own default server** — the one URL the app ships knowing
 >   (`P-11`) — because a link is verified per host and no app can verify a pool's Pi,
->   which has no `https` and no certificate. So the Pi travels in the **query** and
->   never in the authority: *a server cannot mint a code that adds a different server*,
->   and a link naming any other host does not parse.
+>   which has no `https` and no certificate. A link naming any other host does not
+>   parse: *a server cannot mint a code that adds a different server.*
 > - **The address inside is held to exactly what a typed one is** (`P-13`): the same
 >   parse, so `http` only for a `.local` name or a developer loopback (`P-12`), and
 >   then `GET /server` before anything is saved. A printed code is a stranger's input
@@ -193,6 +192,22 @@ where the user returns via `A-02`.
 >   network for the server already in use and answering. A link that does not parse
 >   still raises the prompt: a code that opens the app and then appears to do nothing
 >   cannot be told from a dead app.
+> - **However it resolves, the reader ends on the picker.** A code names a cloud (see
+>   below), and a cloud session's launch screen is the meet list — so the yes leads to
+>   the list rather than onto a board. That is not incidental: the picker is where
+>   `P-06`'s unofficial-results disclaimer is, and a spectator who arrived by camera is
+>   exactly the one who has never seen it. A scan must not be a way past a **must**.
+>
+> **A printed code names a cloud, never a Pi.** The Pi in the building is the better
+> server — no internet dependency, an unthrottled race clock, which is what `P-11`'s
+> note is about — and it is still the wrong thing to put on a poster. A `.local` name
+> resolves only for a device already joined to the venue's wifi: a spectator on
+> cellular gets a handshake failure, a guest network with client isolation blocks mDNS
+> even for one that did join, and a poster cannot ask which network the reader is on.
+> So a code names the address that works from anywhere, and the Pi is offered *after*
+> the reader is on the picker, by `P-12`'s browse, to a phone that has by then joined
+> the right network. Nothing in the link shape enforces this — `server=` will carry any
+> address the client would accept — it is a rule about what a server **mints**.
 >
 > **What this repo owes the feature**, without which it is inert:
 >
@@ -207,10 +222,9 @@ where the user returns via `A-02`.
 >   404 after scanning a poster, so it always answers: it shows which server the code
 >   named, offers the store links from `/picker/config` ([`api.md`](api.md) §5.7), and
 >   neither pretends to be the app nor tries to redirect into it.
-> - **A printable code on the Pi**, for the operator putting one on a poster. Its origin
->   is the mDNS form the app will accept — `http://<host>.local:<port>`, never a raw
->   IP, because a client refuses cleartext to anything but a `.local` name and the
->   loopbacks (`P-12`).
+> - **A printable code on the Pi**, for the operator putting one on a poster. It carries
+>   the cloud that Pi publishes to — its **Cloud → Server URL**, which must therefore be
+>   set — under the app's default host, per the rule above.
 >
 > The number: `P-15` is claimed by the app ledgers and is not yet written here, so this
 > row is `P-16` and the gap is deliberate. **IDs are the join key — never renumber.**
@@ -823,6 +837,14 @@ Not on any phone client, now or planned:
   Pi's printable code. No bump: the row is `native-only`, nothing a conforming client
   did became wrong, and a client that never scans anything is unaffected. `P-15` is
   claimed by the app ledgers and still unwritten here, so the numbering skips it.
+
+  **A printed code names a cloud, never a Pi**, and the reader therefore ends on the
+  picker rather than on a board. The first draft had the Pi mint its own `.local`
+  address, which works only for a phone already on the venue's wifi and — because a
+  Pi session skips the picker (§0.2) — would have walked a first-time spectator
+  straight past `P-06`'s disclaimer. Both problems have the same answer and it costs
+  the apps nothing: the link shape is unchanged, and a cloud origin already resolves
+  to the meet list in every client that implements `P-11`.
 
 - **Added since v1** — `A-11`: no Results tab for a meet with no timing console,
   driven by `settings.console` in [`api.md`](api.md) §5.4. No bump: nothing a

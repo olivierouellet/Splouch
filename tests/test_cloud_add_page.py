@@ -109,6 +109,23 @@ def test_the_page_shows_what_was_scanned(stores):
         'http://poolpi.local:5000'
 
 
+def test_the_page_says_so_when_the_code_named_this_very_server(stores):
+    """The ordinary case now: a Pi prints a code for the cloud it publishes to.
+
+    For most deployments that is this cloud, and the app answers such a scan with
+    "you're already on this server" before opening the meet list. Promising that
+    it "will offer to add this server" would be a small lie told to the majority
+    of readers.
+    """
+    here = get('server=https%3A%2F%2Fsplouch.ca')
+    assert 'right place' in here
+    assert 'offer to add this server' not in here
+
+    elsewhere = get('server=https%3A%2F%2Fscores.myclub.ca')
+    assert 'offer to add this server' in elsewhere
+    assert 'right place' not in elsewhere
+
+
 def test_the_origin_is_held_to_the_rule_the_client_applies(stores):
     """`P-12`/`P-13`, via the same helper the Pi mints with.
 

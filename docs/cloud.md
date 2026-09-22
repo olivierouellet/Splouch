@@ -144,10 +144,16 @@ JSON
 The same file also accepts `store_android`, `store_ios`, `android_package` and
 `ios_app_ids`.
 
-**The operator's side.** Each Pi draws its own code at `/qr` — Settings → sidebar →
-**QR code** — ready to print. It carries the Pi's mDNS address (`http://splouch.local:5000`)
-and this cloud's host, taken from the Pi's **Cloud → Server URL**, so that field must be
-filled before the page can build a code.
+**The operator's side.** Each Pi draws a printable code at `/qr` — Settings → sidebar →
+**QR code**. It carries **this cloud**, taken from the Pi's **Cloud → Server URL**, so that
+field must be filled before the page can build one.
+
+It deliberately does *not* carry the Pi's own `http://splouch.local:5000`. That address
+resolves only for a phone already joined to the venue's wifi — a spectator on cellular
+gets nothing, and a guest network with client isolation blocks it even for one that did
+join. A poster cannot ask which network the reader is on, so it names the address that
+works from anywhere; spectators on the pool's wifi can pick the Pi out of the app's own
+server list afterwards, which is what that list is for.
 
 ---
 

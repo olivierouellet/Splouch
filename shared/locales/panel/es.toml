@@ -173,13 +173,12 @@ quick_manual    = "Manual"
 quick_qr        = "Código QR"
 
 # El código QR imprimible (docs/app.md `P-16`).
-qr_title        = "Añadir este servidor por código QR"
+qr_title        = "Código QR de esta competición"
 qr_sub          = "Imprímelo y colócalo donde los espectadores puedan verlo."
-qr_origin_label = "Este servidor"
-qr_hint         = "Al escanearlo se abre la aplicación Splouch, que pregunta antes de añadir este servidor. Un teléfono sin la aplicación llega a una página web que ofrece la descarga."
+qr_origin_label = "Los espectadores llegan a la competición en"
+qr_hint         = "Cualquiera puede escanearlo, desde cualquier red. Con la aplicación Splouch instalada abre la aplicación en la lista de competiciones; sin ella, una página web ofrece la descarga. Los espectadores conectados al wifi de la piscina pueden luego elegir este servidor en la lista de la aplicación para ver el cronómetro en directo."
 qr_print        = "Imprimir"
-qr_no_cloud     = "No hay ningún servidor en la nube configurado, así que no hay dirección con la que construir el código. Indica primero la URL del servidor en la pestaña Nube."
-qr_no_hostname  = "No se ha podido leer el nombre de red de este servidor, así que el código no se puede construir. Debe ser accesible por un nombre .local — una aplicación rechaza una dirección IP sin más."
+qr_no_cloud     = "No hay ningún servidor en la nube configurado, así que no hay adónde enviar a los espectadores. Indica primero la URL del servidor en la pestaña Nube."
 account_change_pw = "Cambiar contraseña"
 account_logout  = "Cerrar sesión"
 

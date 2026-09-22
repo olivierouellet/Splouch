@@ -11,13 +11,17 @@ place no test on this side would otherwise look: on a pool deck, from a camera.
 The rules, and why each is not a preference:
 
 * **`https`, on the cloud's host, path `/add`.** A verified link is per host, and
-  a Pi has no certificate, so the Pi travels in the query. A link on any other
+  a Pi has no certificate, so no link can be hosted on one. A link on any other
   authority is not ours — a server cannot mint a code that adds a *different*
   server — and the Android manifest matches `/add` exactly rather than by prefix.
 * **Cleartext only to a `.local` name or a loopback** (`P-12`). The same floor a
   typed address gets (`P-13`), applied to a string a stranger printed.
 * **Percent-encoded, fully.** The `:` and `/` of the origin are escaped so nothing
   between the camera and the app can read the value as a path of its own.
+
+What a server *mints* is narrower than what this module will parse, and that rule
+is tested where it is enforced — see `test_pi_qr_code.py`. `parse_origin` mirrors
+the client, which accepts a `.local` address however it arrives.
 """
 import os
 import sys
@@ -72,9 +76,9 @@ def test_an_address_a_client_would_accept_round_trips(origin):
 def test_cleartext_off_the_local_network_mints_nothing(origin):
     """A code that scans into "cannot add this server" is worse than no code.
 
-    The client's rule cannot express IP ranges, so a Pi is reachable by its
-    `.local` name and by nothing else. A Pi that minted its address bar's IP
-    would print a poster that fails on the deck, where it cannot be fixed.
+    The client's rule cannot express IP ranges, so cleartext is by name only.
+    This is the floor a *typed* address gets (`P-13`) applied to a printed one,
+    and it holds wherever the string came from — a hand-written poster included.
     """
     assert links.parse_origin(origin) is None
     assert links.invite_link(CLOUD, origin) is None
@@ -117,19 +121,12 @@ def test_a_half_configured_server_mints_nothing():
     assert links.invite_link(CLOUD, '') is None
 
 
-@pytest.mark.parametrize('hostname,port,expected', [
-    ('splouch',        5000, 'http://splouch.local:5000'),
-    ('splouch',        80,   'http://splouch.local'),     # the iptables redirect
-    ('splouch',        None, 'http://splouch.local'),
-    ('splouch.local',  5000, 'http://splouch.local:5000'),  # already qualified
-    ('SPLOUCH',        5000, 'http://splouch.local:5000'),
-    ('',               5000, None),
-    ('host.example.com', 80, None),   # not the mDNS name; nothing sensible to mint
-])
-def test_a_pi_names_itself_by_mdns_and_never_otherwise(hostname, port, expected):
-    """`socket.gethostname()` already ends in `.local` on some platforms.
+def test_the_apps_default_server_is_the_only_authority_a_link_may_carry():
+    """A property of the published app, not of any server here.
 
-    Appending a second one gives `splouch.local.local`, which resolves nowhere and
-    would be discovered only by someone standing at a pool with a printed poster.
+    An App Link is verified per host and the Android manifest names this one, so a
+    Pi cannot be asked what the app on a stranger's phone was built against — which
+    is why it is a constant rather than a setting.
     """
-    assert links.mdns_origin(hostname, port) == expected
+    assert links.DEFAULT_APP_SERVER == CLOUD
+    assert links.parse_origin(links.DEFAULT_APP_SERVER) == links.DEFAULT_APP_SERVER
