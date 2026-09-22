@@ -10,8 +10,8 @@ behind the ones that look arbitrary: https://github.com/olivierouellet/Splouch/b
 
 ## Checks
 
-```
-uv run pytest tests/      # 1224 passing on master
+```bash
+uv run pytest tests/
 uv run ruff check
 uv run ty check
 ```

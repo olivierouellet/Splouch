@@ -28,9 +28,9 @@ cd server && uv run python app.py        # http://localhost:5000
 
 Sync the `scoreboard` extra even if you never touch the kiosk. The extra is optional for
 *deploying* — the server Pi and the cloud VM never pull 341 MB of Qt — but not for
-developing: 180 of the 1224 tests drive the Qt board, and without PySide6 they don't run.
-Seven of those files skip at module level, which pytest reports as seven skipped lines
-rather than 180, so a run that never touched the kiosk still looks green.
+developing: a sixth of the suite drives the Qt board, and without PySide6 none of it runs.
+Those files skip at module level, which pytest reports as one skipped line each rather
+than one per test, so a run that never touched the kiosk still looks green.
 
 Plain `uv sync` gives you the server-only install. Worth knowing for a fast inner loop —
 it turns the suite from 68s into 7s, since Qt is nearly all of the runtime — as long as
@@ -59,7 +59,7 @@ how to add a console decoder.
 All three must pass:
 
 ```bash
-uv run pytest tests/      # 1224 tests, ~70s
+uv run pytest tests/      # about a minute with Qt, seconds without
 uv run ruff check
 uv run ty check
 ```
