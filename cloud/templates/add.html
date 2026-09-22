@@ -75,16 +75,23 @@
             <div class="scanned-label">{{ t.get('add_scanned', 'This code points at') }}</div>
             <div class="scanned-origin">{{ server }}</div>
         </div>
+        {# Only where the app can actually be got. Telling a reader what it will do
+           once installed, directly above "not available for download yet", is two
+           true sentences that contradict each other — and that pair is what every
+           scan sees until the first listing goes up. #}
+        {% if stores %}
         {% if is_here %}
-        <p class="lead">{{ t.get('add_lead_here', 'You are in the right place. Install the Splouch app to follow along, or keep reading in this browser.') }}</p>
+        <p class="lead">{{ t.get('add_lead_here', 'You are in the right place. Install the Splouch app to follow along.') }}</p>
         {% else %}
         <p class="lead">{{ t.get('add_lead', 'Open this code again once the Splouch app is installed and it will offer to add this server.') }}</p>
         {% endif %}
+        {% endif %}
         {% else %}
-        {# The link named no server we could use. Still a page, still the stores: the
+        {# The link named no server we could use. Still a page, still the offer: the
            reader scanned something and is owed an answer, and the app is what they
-           would have needed either way. #}
-        <p class="lead">{{ t.get('add_no_server', 'This code did not name a server we recognise. The Splouch app can still be added by hand.') }}</p>
+           would have needed either way. The second sentence is advice for once they
+           have it, so it keeps the same company as the store button. #}
+        <p class="lead">{{ t.get('add_no_server', 'This code did not name a server we recognise.') }}{% if stores %} {{ t.get('add_by_hand', 'The Splouch app can still be added by hand.') }}{% endif %}</p>
         {% endif %}
 
         {% if stores %}

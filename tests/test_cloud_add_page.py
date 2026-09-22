@@ -125,19 +125,24 @@ def test_the_page_shows_what_was_scanned(stores):
         'http://poolpi.local:5000'
 
 
-def test_the_page_says_so_when_the_code_named_this_very_server(stores):
+def test_the_page_says_so_when_the_code_named_this_very_server(stores, monkeypatch):
     """The ordinary case now: a Pi prints a code for the cloud it publishes to.
 
     For most deployments that is this cloud, and the app answers such a scan with
     "you're already on this server" before opening the meet list. Promising that
     it "will offer to add this server" would be a small lie told to the majority
     of readers.
+
+    Both leads need a store listed to render at all — see the contradiction test
+    below — so this configures one rather than asserting on a page that draws
+    neither.
     """
-    here = get('server=https%3A%2F%2Fsplouch.ca')
+    configure(monkeypatch, 'android')
+    here = get('server=https%3A%2F%2Fsplouch.ca', ANDROID)
     assert 'right place' in here
     assert 'offer to add this server' not in here
 
-    elsewhere = get('server=https%3A%2F%2Fscores.myclub.ca')
+    elsewhere = get('server=https%3A%2F%2Fscores.myclub.ca', ANDROID)
     assert 'offer to add this server' in elsewhere
     assert 'right place' not in elsewhere
 
@@ -227,6 +232,41 @@ def configure(monkeypatch, *platforms):
 def test_what_each_reader_is_offered(stores, monkeypatch, agent, listed, expected):
     configure(monkeypatch, *listed)
     assert offers(get('server=https%3A%2F%2Fsplouch.ca', agent)) == expected
+
+
+def test_the_page_never_promises_an_install_it_cannot_deliver(stores, monkeypatch):
+    """Two true sentences that contradict each other are still a contradiction.
+
+    "Once the Splouch app is installed it will offer to add this server" directly
+    above "the app is not available for download yet" is what every scan saw while
+    no listing existed — which is to say, the whole pre-launch window.
+    """
+    for agent in (ANDROID, IPHONE, IPAD_DESKTOP, None):
+        html = get('server=https%3A%2F%2Fsplouch.ca', agent)
+        assert 'not available for download yet' in html
+        assert 'once the Splouch app is installed' not in html.lower()
+        assert 'install the splouch app' not in html.lower()
+
+    # And it does promise, once there is something to promise.
+    configure(monkeypatch, 'android')
+    assert 'once the Splouch app is installed' in get(
+        'server=https%3A%2F%2Fscores.myclub.ca', ANDROID)
+    assert 'Install the Splouch app' in get('server=https%3A%2F%2Fsplouch.ca', ANDROID)
+
+
+def test_advice_for_inside_the_app_keeps_the_app_s_company(stores, monkeypatch):
+    """A bad link still says so; what it suggests doing about it needs the app.
+
+    The reader of this page does not have the app — one that did was intercepted
+    long before the request — so "add it by hand" is advice for after an install,
+    and it belongs beside the button that leads to one.
+    """
+    bad = 'server=http%3A%2F%2F192.168.1.10%3A5000'
+    assert 'did not name a server' in get(bad, ANDROID)
+    assert 'by hand' not in get(bad, ANDROID)
+
+    configure(monkeypatch, 'android')
+    assert 'by hand' in get(bad, ANDROID)
 
 
 def test_a_recognised_phone_with_its_app_listed_gets_no_browser_link(stores, monkeypatch):
