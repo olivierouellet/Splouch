@@ -278,6 +278,9 @@ JSON/asset endpoints (everything else the servers expose is HTML for the browser
 | `GET /manifest/{meet_id}` | per-meet PWA manifest |
 | `GET /icon/{meet_id}` | meet icon PNG · `GET /picker_image/{meet_id}` picker image PNG |
 | `GET /mobile/schedule?meet=<id>` | schedule page (HTML embedding the same `heats` list) |
+| `GET /add?server=<origin>` | **QR hand-off page** (HTML) — where a scanned code lands on a phone **without** the app (`app.md` `P-16`). Shows the origin the code named, offers the store links from `/picker/config`, and never redirects. Always 200: a spectator who has just scanned a poster must not meet a 404, so a missing or unusable `server` renders the page without one |
+| `GET /.well-known/assetlinks.json` | **Android App Links** — `application/json`, no redirect, no auth. Names `app.splouch.android` and the SHA-256 signing certificate fingerprints allowed to open `/add`. **404 while none is configured**, deliberately: an empty list looks deployed and fails later, on a phone. The fingerprints are deployment config ([`cloud.md`](cloud.md)), never source |
+| `GET /.well-known/apple-app-site-association` | **iOS Universal Links** — the twin of the above, `application/json`, **no file extension**, no redirect. `components` claims `/add?server=…` and nothing else of the site |
 
 ---
 
@@ -439,6 +442,7 @@ meets appear; expired ones are swept before the list is built.
 ```json
 { "title": "Splouch", "window_title": "Splouch", "has_logo": false,
   "logo_above": false, "lang": "fr", "analytics_enabled": true,
+  "stores": { "ios": "https://apps.apple.com/…", "android": "https://play.google.com/…" },
   "strings": { "page_title": "…", "no_meets": "…", "unnamed_meet": "…",
                "results_disclaimer": "…", "privacy_note": "…" } }
 ```
@@ -446,6 +450,15 @@ Language resolves from `?lang=` when it names an available locale, else
 `Accept-Language`, else the server default; the resolved code comes back as
 `lang`. The meet list has no locale of its own — per-meet language starts at
 `GET /meet/{id}/config`.
+
+`stores` carries `app.md` `P-10`'s install hand-off: the store URL for each
+platform whose app is listed, and **only** for those — an absent key means hide
+the affordance, never show a dead button, so `{}` is the normal state until the
+first app ships. Served rather than compiled in for the same reason `strings` is:
+a store listing that moves must not need a release. The cloud's `GET /add` (§4)
+renders its buttons from this same dict, so the native picker and the page a
+scanned code lands on cannot disagree about where the app lives. Inside a native
+app the slot renders nothing — an app cannot install itself.
 
 `strings` is served rather than shipped in the app because `results_disclaimer`
 and `privacy_note` are compliance text and must be correctable without an app

@@ -7,6 +7,15 @@
 # domain survives every update.
 #
 # Caddy obtains and renews the Let's Encrypt certificate automatically.
+#
+# One route, no matcher: everything goes to the app, `/.well-known/` included. That
+# is load-bearing for the QR hand-off (docs/app.md `P-16`) — the app serves
+# `/.well-known/assetlinks.json` and `/.well-known/apple-app-site-association`, and
+# Android fetches the first at install time following **no redirects**. A `handle`
+# or `file_server` block added above this line would swallow them and the only
+# symptom would be `pm get-app-links app.splouch.android` reporting `1024` on a
+# phone, weeks later. Caddy's own ACME handler is scoped to
+# `/.well-known/acme-challenge/*` and does not overlap.
 {$SPLOUCH_DOMAIN} {
     reverse_proxy app:5000
 }

@@ -22,6 +22,23 @@ services:
       # the bridge, while a public client cannot spoof the scheme. `app` publishes
       # no ports, so only Caddy reaches it in any case.
       FORWARDED_ALLOW_IPS:    ${FORWARDED_ALLOW_IPS:-127.0.0.1,::1,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16}
+      # ── QR-code hand-off (docs/app.md `P-16`, docs/cloud.md) ──────────────────
+      # The SHA-256 fingerprints of the Android signing certificates allowed to
+      # open `https://<domain>/add`. With Play App Signing the value to publish is
+      # the one on the Play Console's *App signing* page, **not** the upload key's,
+      # and a debug build's is different again — so it is per-deployment config and
+      # cannot be a constant in the repo. Comma-separated; a debug fingerprint can
+      # also be added to `applinks.json` in the data volume, which is additive, so
+      # testing a debug build needs no compose edit and no restart.
+      #
+      # Unset means `/.well-known/assetlinks.json` returns 404 — deliberately, so
+      # `curl -i` says the file is missing instead of serving an empty list that
+      # only fails later, on a phone, at install time.
+      ANDROID_CERT_FINGERPRINTS: ${ANDROID_CERT_FINGERPRINTS:-}
+      # The store listings `P-10` hands off to, served from `/picker/config` and
+      # rendered on `/add`. Absent means the affordance is hidden, never dead.
+      STORE_URL_ANDROID:      ${STORE_URL_ANDROID:-}
+      STORE_URL_IOS:          ${STORE_URL_IOS:-}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:

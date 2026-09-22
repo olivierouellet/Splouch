@@ -94,6 +94,63 @@ On iOS, tap **Share → Add to Home Screen** for a full-screen app-like experien
 
 ---
 
+## Letting a QR code open the app
+
+A poster at a pool carries a code for `https://yourdomain/add?server=<the pool's Pi>`
+([`app.md`](app.md) `P-16`). With the app installed the phone opens it in the app; without
+it, the browser lands on `https://yourdomain/add`, which shows which server the code
+named and offers the store. The page works out of the box. The part that opens the **app**
+needs two files, and the fingerprint in one of them is per-deployment.
+
+Add to `cloud/.env`, then `docker compose up -d`:
+
+```ini
+# SHA-256 fingerprint of the Android signing certificate, comma-separated for more
+# than one. With Play App Signing this is the value on the Play Console's
+# App signing page — NOT the upload key's. From a keystore directly:
+#   keytool -list -v -keystore release.jks -alias <alias>
+ANDROID_CERT_FINGERPRINTS=14:6D:E9:…:44:E5
+
+# Store listings, once the apps are published. Served from /picker/config and
+# rendered on /add; absent means the buttons are hidden, never dead.
+STORE_URL_ANDROID=https://play.google.com/store/apps/details?id=app.splouch.android
+STORE_URL_IOS=https://apps.apple.com/ca/app/splouch/id…
+```
+
+Check it afterwards — both must be `200` with `content-type: application/json` and **no
+redirect**, because Android follows none:
+
+```bash
+curl -i https://yourdomain/.well-known/assetlinks.json
+curl -i https://yourdomain/.well-known/apple-app-site-association
+```
+
+`assetlinks.json` returns **404 until a fingerprint is set**. That is deliberate: an empty
+but well-formed file looks deployed and fails later, silently, at install time on someone's
+phone — where the only diagnosis is `adb shell pm get-app-links app.splouch.android`
+reporting `1024` and the OS showing a chooser instead of opening the app. Android verifies
+once, at install, and caches the answer, so a pool with no internet is unaffected.
+
+**A debug build, without cutting a release.** Anything in `applinks.json` in the data
+volume is *added* to what `.env` supplies, so a test fingerprint needs no compose edit and
+no restart:
+
+```bash
+docker compose exec app sh -c 'cat > /data/applinks.json' <<'JSON'
+{ "android_fingerprints": ["AA:11:…:FF:00"] }
+JSON
+```
+
+The same file also accepts `store_android`, `store_ios`, `android_package` and
+`ios_app_ids`.
+
+**The operator's side.** Each Pi draws its own code at `/qr` — Settings → sidebar →
+**QR code** — ready to print. It carries the Pi's mDNS address (`http://splouch.local:5000`)
+and this cloud's host, taken from the Pi's **Cloud → Server URL**, so that field must be
+filled before the page can build a code.
+
+---
+
 ## Updating the cloud server
 
 Click **Update** in `/admin` — it fetches from GitHub and rebuilds the container automatically. The page polls until the server is back up, then reloads. Prefer it: it resolves the right ref for the way this server was installed, which the manual commands below leave to you.

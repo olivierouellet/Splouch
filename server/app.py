@@ -32,6 +32,7 @@ from routes.update     import router as update_router
 from routes.network    import router as network_router
 from routes.appearance import router as appearance_router
 from routes.i18n       import router as i18n_router
+from routes.qr         import router as qr_router
 
 # Per-install, generated into the data dir on first run — never a constant here.
 # This repo is public, so a literal key would be the same published key on every
@@ -104,6 +105,7 @@ app.include_router(system_router)
 app.include_router(update_router)
 app.include_router(network_router)
 app.include_router(appearance_router)
+app.include_router(qr_router)
 
 
 @app.exception_handler(NotAuthenticated)

@@ -16,6 +16,7 @@ import hmac
 import json
 import mimetypes
 import os
+import re
 import secrets
 import time
 import urllib.request
@@ -70,6 +71,10 @@ _ADMIN_FAIL_MAX = cloud_auth._ADMIN_FAIL_MAX
 _admin_fails    = cloud_auth._admin_fails
 import cloud_i18n  # noqa: E402
 from cloud_i18n import (_DEFAULT_COLORS, _DEFAULT_FONTS)  # noqa: E402
+# The QR-code link shape, shared verbatim with the Pi that mints one — `cloud_paths`
+# has already put `shared/py/` on the path.
+import splouch_links  # noqa: E402
+from splouch_links import INVITE_PARAM, INVITE_PATH  # noqa: E402
 # The store's two dicts and their lock are imported as objects, not copied values:
 # they are bound once in `cloud_store` and only ever mutated in place, so every
 # `with _lock:` block and every `_meets[...]` in this file goes on addressing the
@@ -484,6 +489,195 @@ def route_servers(request: Request):
     return {'servers': servers}
 
 
+# ── QR-code hand-off (`app.md` `P-16`) ─────────────────────────────────────────
+# A poster at a pool carries `https://<this host>/add?server=<the pool's Pi>`. With
+# the app installed the OS opens it; without it, nothing intercepts it and the
+# browser lands on `GET /add` below, which is the only page whose absence a
+# spectator meets as a 404 after scanning something.
+#
+# The two `/.well-known/` files are what make the first half true, and they are
+# the half a deploy forgets. Android fetches `assetlinks.json` at install time,
+# follows no redirects, and while it is missing
+# `adb shell pm get-app-links app.splouch.android` reports `1024` and the OS shows
+# a chooser instead of opening the app.
+#
+# None of it is a constant here. A certificate fingerprint is per-keystore and
+# per-build, and with Play App Signing the one that must be published is the
+# *App signing* key's, not the upload key's — a value the developer reads off the
+# Play Console and this repo cannot know. So it is configuration, from either of
+# two places, and the two accumulate rather than override: the release fingerprint
+# goes in the environment once at deploy time, and a debug one can be added to
+# `applinks.json` in the data dir to test a debug build without cutting a release.
+APPLINKS_FILE = os.path.join(DATA_DIR, 'applinks.json')
+
+# The Android application id. Fixed by the app's own manifest, not by a keystore,
+# so unlike the fingerprints it has a real default here.
+ANDROID_PACKAGE = 'app.splouch.android'
+
+# `<TEAMID>.<bundle id>` from `Splouch-ios` — the team and bundle the Xcode project
+# is configured with, not a guess. Also a property of the app rather than of a
+# signing key, so it too defaults rather than being required.
+IOS_APP_IDS = ('L86UD2L8Q5.app.splouch.ios',)
+
+
+def _applinks_file():
+    """`applinks.json` from the data dir, or `{}`. Never raises."""
+    try:
+        with open(APPLINKS_FILE, 'rb') as f:
+            data = json.load(f)
+    except Exception:
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def _as_list(value):
+    """A config value that may be a list, or one string holding several."""
+    if isinstance(value, (list, tuple)):
+        return [str(v) for v in value]
+    return [part for part in re.split(r'[,\s]+', str(value or '')) if part]
+
+
+def _fingerprints(*sources):
+    """Normalised SHA-256 certificate fingerprints, in order, without duplicates.
+
+    Accepts what the two tools that produce them print: `keytool -list -v` uses
+    the colon-separated form, and the Play Console's *App signing* page can be
+    copied either way. Anything that is not 32 bytes of hex is dropped rather
+    than served — a malformed entry invalidates the whole file for Android, so
+    one typo in an env var would silently take the *working* fingerprint down
+    with it.
+    """
+    out = []
+    for source in sources:
+        for raw in _as_list(source):
+            hexed = raw.replace(':', '').strip().upper()
+            if len(hexed) != 64 or any(c not in '0123456789ABCDEF' for c in hexed):
+                continue
+            value = ':'.join(hexed[i:i + 2] for i in range(0, 64, 2))
+            if value not in out:
+                out.append(value)
+    return out
+
+
+def _app_links():
+    """Who the apps are, for the two `/.well-known/` files.
+
+    The environment is the deploy's answer and the data file is the operator's;
+    the lists are the union of both, and the package name is a single value the
+    file may override.
+    """
+    stored = _applinks_file()
+    ios = [a for a in dict.fromkeys(_as_list(os.environ.get('IOS_APP_IDS', ''))
+                                    + _as_list(stored.get('ios_app_ids')))]
+    return {
+        'android_package': (str(stored.get('android_package', ''))
+                            or os.environ.get('ANDROID_PACKAGE_NAME', '')
+                            or ANDROID_PACKAGE),
+        'android_fingerprints': _fingerprints(
+            os.environ.get('ANDROID_CERT_FINGERPRINTS', ''),
+            stored.get('android_fingerprints')),
+        'ios_app_ids': ios or list(IOS_APP_IDS),
+    }
+
+
+def _store_links():
+    """Store URLs for the native apps, as `P-10` says to serve them: as data.
+
+    Absent until an app is listed, and absent is meaningful — a client hides the
+    affordance rather than showing a dead button, and this page does the same. A
+    listing that moves is an env var or a line in `applinks.json`, never a
+    release: the reason `P-10` calls it a hand-off and not a feature.
+
+    Only `https` is offered. These are links this server hands a phone, and a
+    store's real address has never been anything else.
+    """
+    stored = _applinks_file()
+    out = {}
+    for key, env in (('android', 'STORE_URL_ANDROID'), ('ios', 'STORE_URL_IOS')):
+        url = str(stored.get(f'store_{key}', '') or os.environ.get(env, '')).strip()
+        if url.lower().startswith('https://'):
+            out[key] = url
+    return out
+
+
+def _json(payload):
+    """A JSON body with the content type spelled out rather than inferred.
+
+    `apple-app-site-association` has no file extension on purpose — Apple fetches
+    that exact path — so nothing downstream can guess its type from a name.
+    """
+    return Response(json.dumps(payload, indent=2, sort_keys=True).encode(),
+                    media_type='application/json')
+
+
+@app.get('/.well-known/assetlinks.json', tags=['Public'], include_in_schema=False)
+def route_assetlinks():
+    """Android App Links: which app may open `https://<this host>/add`.
+
+    **404 while no fingerprint is configured**, rather than a well-formed file
+    with an empty list. Both leave the app unverified, but only one of them says
+    so to `curl -i`: an empty list looks deployed and fails at install time on a
+    phone nobody is watching.
+    """
+    links = _app_links()
+    if not links['android_fingerprints']:
+        raise HTTPException(status_code=404)
+    return _json([{
+        'relation': ['delegate_permission/common.handle_all_urls'],
+        'target': {'namespace': 'android_app',
+                   'package_name': links['android_package'],
+                   'sha256_cert_fingerprints': links['android_fingerprints']},
+    }])
+
+
+@app.get('/.well-known/apple-app-site-association', tags=['Public'],
+         include_in_schema=False)
+def route_aasa():
+    """iOS Universal Links, the twin of the file above.
+
+    `components` names the path *and* the query parameter, so this host claims
+    `/add?server=…` and nothing else of the site: every other page — the picker,
+    a meet, `/admin` — keeps opening in the browser where it belongs.
+
+    No `.json` extension: Apple fetches this exact path, and adding one would
+    serve a file nothing asks for.
+    """
+    return _json({'applinks': {'details': [
+        {'appIDs': _app_links()['ios_app_ids'],
+         'components': [{'/': INVITE_PATH, '?': {INVITE_PARAM: '?*'}}]},
+    ]}})
+
+
+@app.get('/add', tags=['Public'])
+def route_add(request: Request):
+    """Where a scanned code lands when the app is not installed (`app.md` `P-16`).
+
+    **It always answers.** A spectator standing in front of a poster has already
+    done the one thing the poster asked; a 404 here is the worst outcome in the
+    feature, and worse than any of the ways the link itself can be wrong. So a
+    missing, malformed or cleartext-to-nowhere `server` renders the page without
+    a server rather than an error.
+
+    It shows the origin the code named, so the reader can see what they scanned,
+    and offers the store links. It does **not** redirect, or try a scheme, or
+    claim to be the app: a phone that has the app never arrives here — the OS
+    intercepted the link long before the request — so anything this page did to
+    reach the app would only ever run on a phone that cannot.
+
+    The origin is held to the same rule the client applies (`P-12`, `P-13`), via
+    the same helper the Pi mints with. A page that displayed an address the app
+    would refuse would be sending the reader to a dead end with a store link
+    under it.
+    """
+    lang = _picker_lang(request)
+    return _remember_prefs(request, render(request, 'add.html',
+        lang=lang,
+        t=_strings(lang, 'mobile'),
+        server=splouch_links.parse_origin(request.query_params.get(INVITE_PARAM, '')),
+        stores=_store_links(),
+        **_picker_branding()))
+
+
 @app.get('/locales', tags=['Public'])
 def route_locales(request: Request):
     """The languages this server can serve — for a client offering the choice."""
@@ -522,13 +716,19 @@ def route_picker_config(request: Request):
     starts at ``GET /meet/{id}/config``.
 
     ``privacy_note`` is present regardless, but is only to be shown when
-    ``analytics_enabled`` is true, matching the web picker."""
+    ``analytics_enabled`` is true, matching the web picker.
+
+    ``stores`` carries `P-10`'s hand-off — the native apps' store URLs, keyed by
+    platform and present only for a platform that has one, so a client hides the
+    affordance instead of offering a dead link. Empty until an app is listed, and
+    the same dict `GET /add` renders its buttons from."""
     lang = _picker_lang(request)
     strings = _strings(lang, 'mobile')
     return {
         **_picker_branding(),
         'lang':              lang,
         'analytics_enabled': _analytics_enabled(),
+        'stores':            _store_links(),
         'strings':           {k: strings[k] for k in _PICKER_STRING_KEYS if k in strings},
     }
 

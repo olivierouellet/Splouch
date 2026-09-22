@@ -11,6 +11,13 @@ dependencies = [
     "pyserial",
     "websocket-client",
     "pillow>=12.3.0",
+    # The Pi renders its own QR code so an operator can print one (docs/app.md
+    # `P-16`). Pure Python and no system libraries: `qrencode` would be an apt
+    # package to add to every install, and `qrcode` renders through Pillow, while
+    # segno writes the SVG this page inlines directly. A normal dependency, not an
+    # extra — the page is part of the server, and a Pi that cannot draw its own
+    # code is a Pi whose operator has no way to put it on a poster.
+    "segno>=1.6",
 ]
 
 # Qt TV display (scoreboard/). Optional so the server Pi and the cloud VM never

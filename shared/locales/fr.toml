@@ -71,6 +71,17 @@ a2hs_install    = "Installer"
 results_disclaimer = "Les résultats sont en direct, non officiels et sujets à une validation. Les résultats validés sont disponibles sur l'application SplashMe."
 privacy_note      = "Ce site compte les visiteurs de façon anonyme pour estimer l'assistance. Aucun renseignement personnel n'est recueilli ni partagé."
 offline         = "Horaire seulement"
+
+# La page de redirection du code QR (`GET /add`, docs/app.md `P-16`). Lue seulement
+# par un téléphone qui n'a pas l'application — celui qui l'a n'arrive jamais ici, le
+# système a ouvert l'application — donc le texte propose la boutique sans jamais se
+# faire passer pour l'application.
+add_scanned       = "Ce code pointe vers"
+add_lead          = "Scannez ce code de nouveau une fois l'application Splouch installée et elle proposera d'ajouter ce serveur."
+add_no_server     = "Ce code ne nomme aucun serveur reconnu. L'application Splouch peut quand même être ajoutée à la main."
+add_store_ios     = "Télécharger dans l'App Store"
+add_store_android = "Disponible sur Google Play"
+add_no_store      = "L'application n'est pas encore publiée. Les compétitions de ce serveur se suivent dans ce navigateur."
 language             = "Langue"
 language_auto        = "Auto (navigateur)"
 # Préférences d'affichage du visiteur, offertes sur le sélecteur et conservées pour

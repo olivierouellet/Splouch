@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="{{ lang | default('en', true) }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#000000">
+    <link rel="icon" type="image/svg+xml" href="/favicon.ico">
+    <link rel="apple-touch-icon" sizes="180x180" href="/picker_icon">
+    <title>{{ window_title or title or 'Splouch' }}</title>
+    {#
+       docs/app.md `P-16` — where a scanned code lands when the app is not installed.
+
+       A phone that *has* the app never gets here: the OS matched the link against
+       `/.well-known/assetlinks.json` (or the `apple-app-site-association` beside it)
+       and opened the app instead. So this page is only ever read by someone who
+       cannot open the app, and everything it does follows from that.
+
+       No script, and nothing that tries to reach the app — no `splouch://` attempt,
+       no timed redirect, no "open in app" button. Each would fire only on the phone
+       where it cannot work, and a page that flickers through a failed scheme before
+       showing a store link reads as broken rather than as an offer.
+    #}
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: #0d0d0d; color: #e0e0e0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            min-height: 100vh;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            padding: 40px 20px; text-align: center;
+        }
+        .sheet { width: 100%; max-width: 340px; }
+        .picker-logo { display: block; width: 100%; max-height: 120px; object-fit: contain; margin-bottom: 16px; }
+        h1 { font-size: 1.4em; font-weight: 400; color: #888; letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 28px; }
+        /* The scanned address, quoted back. It is the one thing the reader can check
+           against the poster in front of them, so it is the most prominent thing on
+           the page after the title — and monospace, because a host and a port are
+           read character by character. */
+        .scanned { background: #141414; border: 1px solid #2e2e2e; border-radius: 10px; padding: 16px; margin-bottom: 24px; }
+        .scanned-label { font-size: 0.72em; color: #666; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px; }
+        .scanned-origin {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.95em; color: #e0e0e0; word-break: break-all; line-height: 1.4;
+        }
+        .lead { font-size: 0.95em; color: #b0b0b0; line-height: 1.55; margin-bottom: 20px; }
+        .stores { display: flex; flex-direction: column; gap: 10px; margin-bottom: 24px; }
+        .store {
+            display: block; padding: 13px 18px; border-radius: 10px;
+            background: #1a1a1a; border: 1px solid #2e2e2e; color: #e0e0e0;
+            text-decoration: none; font-size: 0.95em;
+            transition: border-color 0.15s, background 0.15s;
+        }
+        .store:hover { border-color: #555; background: #222; }
+        .back { display: inline-block; margin-top: 4px; font-size: 0.85em; color: #666; text-decoration: none; }
+        .back:hover { color: #999; }
+        .note { font-size: 0.74em; color: #999; line-height: 1.5; border: 1px solid #333; border-radius: 8px; background: #141414; padding: 12px 16px; margin-top: 28px; }
+    </style>
+</head>
+<body>
+    <div class="sheet">
+        {% if has_logo %}
+        <img src="/picker_logo" class="picker-logo" alt="">
+        {% endif %}
+        {% if title %}
+        <h1>{{ title }}</h1>
+        {% endif %}
+
+        {% if server %}
+        {# Autoescaped, and already normalised by `splouch_links.parse_origin` — what
+           is printed here is a scheme, a host and a port, or the block is not drawn. #}
+        <div class="scanned">
+            <div class="scanned-label">{{ t.get('add_scanned', 'This code points at') }}</div>
+            <div class="scanned-origin">{{ server }}</div>
+        </div>
+        <p class="lead">{{ t.get('add_lead', 'Open this code again once the Splouch app is installed and it will offer to add this server.') }}</p>
+        {% else %}
+        {# The link named no server we could use. Still a page, still the stores: the
+           reader scanned something and is owed an answer, and the app is what they
+           would have needed either way. #}
+        <p class="lead">{{ t.get('add_no_server', 'This code did not name a server we recognise. The Splouch app can still be added by hand.') }}</p>
+        {% endif %}
+
+        {% if stores %}
+        <div class="stores">
+            {% if stores.ios %}
+            <a class="store" href="{{ stores.ios }}">{{ t.get('add_store_ios', 'Get it on the App Store') }}</a>
+            {% endif %}
+            {% if stores.android %}
+            <a class="store" href="{{ stores.android }}">{{ t.get('add_store_android', 'Get it on Google Play') }}</a>
+            {% endif %}
+        </div>
+        {% else %}
+        {# `P-10`: the affordance is hidden when the URLs are absent, never shown dead.
+           Until an app is listed the web board is the whole answer, so say so. #}
+        <p class="lead">{{ t.get('add_no_store', 'The app is not listed yet. The meets on this server can be followed in this browser.') }}</p>
+        {% endif %}
+
+        <a class="back" href="/">{{ t.get('back_to_meets', 'Meets') }}</a>
+
+        <p class="note">
+            {{ t.get('results_disclaimer', 'These are live, unofficial results and are subject to validation. Validated results will be available on the SplashMe app.') }}
+        </p>
+    </div>
+</body>
+</html>

@@ -129,6 +129,7 @@ where the user returns via `A-02`.
 | `P-12` | Servers on the local network are offered without anyone typing an address | mDNS browse for `_splouch._tcp` (do not use `splouch.local`) | native-only — should |
 | `P-13` | A server can be added by hand, checked before it is saved | `GET /server` must answer | native-only — must |
 | `P-14` | A server whose contract versions differ from the app's gets a one-line notice naming both; the app **connects regardless** | `GET /server` → `contract.api`, `contract.app`, compared for equality with the versions the app was built against ([`api.md`](api.md) §5.10) | native-only — should |
+| `P-16` | A server can be added by scanning a QR code: the code opens the app, the app asks, and the server is added and selected on a yes. Without the app installed the same code lands on a web page offering the store | `https://<the app's default host>/add?server=<origin>`, percent-encoded; the host's `/.well-known/assetlinks.json` and `/.well-known/apple-app-site-association`, and its `GET /add` page ([`api.md`](api.md) §4, §5.7) | native-only — should |
 
 > **`P-06` is not decoration.** The disclaimer — live, unofficial results pending
 > validation, with SplashMe for validated ones — is the only thing between a live feed
@@ -140,7 +141,10 @@ where the user returns via `A-02`.
 > `/picker/config` beside `P-06`'s disclaimer and hide the affordance when they are
 > absent; a store listing that moves must not need a deploy. Inside a native app the
 > slot renders nothing — an app cannot install itself, which is what `web-only` means
-> here. `api.md` gains the fields when the first app is submitted.
+> here. The fields are `stores` in [`api.md`](api.md) §5.7, keyed by platform and
+> present only for a platform that has a listing. `P-16`'s `GET /add` renders its
+> buttons from the same dict, so the page a scanned code lands on and the native
+> picker cannot disagree about where the app lives.
 
 > **`P-11`–`P-13` — the server list is data, and the LAN is the case that matters.**
 > Fetched, never compiled in: the app ships knowing one URL, the default cloud, and
@@ -161,6 +165,55 @@ where the user returns via `A-02`.
 > breaking the board. Either is better than refusing a pool's only server because its
 > Pi is a release behind. Show the line once per session, where the server name
 > already shows (`P-11`'s header rule), and never block a connect on it.
+
+> **`P-16` — the link shape is forced, and the web half is what makes it work.** The
+> code carries **`https://<the app's default host>/add?server=<origin>`**, the origin
+> percent-encoded, and nothing about that is a preference.
+>
+> - **Not a `splouch://` scheme.** The reader uses the camera they already have, and no
+>   stock camera opens a private scheme from a code taped to a pool wall — several
+>   scanners refuse one outright. More to the point, a scheme has no answer for the case
+>   the poster is printed for: the spectator who **does not have the app yet**. An
+>   `https` URL answers it for free. With the app installed the verified link
+>   intercepts it; without the app nothing intercepts it at all, the browser lands on
+>   the page, and the page offers the store (`P-10`'s hand-off, still web-only).
+> - **The host is the app's own default server** — the one URL the app ships knowing
+>   (`P-11`) — because a link is verified per host and no app can verify a pool's Pi,
+>   which has no `https` and no certificate. So the Pi travels in the **query** and
+>   never in the authority: *a server cannot mint a code that adds a different server*,
+>   and a link naming any other host does not parse.
+> - **The address inside is held to exactly what a typed one is** (`P-13`): the same
+>   parse, so `http` only for a `.local` name or a developer loopback (`P-12`), and
+>   then `GET /server` before anything is saved. A printed code is a stranger's input
+>   in a way a typed address is not, so the floor cannot be lower here.
+> - **Scanning proposes; it does not act.** The prompt is the whole of the consent, so
+>   it names the address being agreed to, and a scan makes no request of that address
+>   until the reader says yes. It asks only what is left to ask — *add* for a server
+>   offered nowhere yet, *switch* for one already listed, and nothing at all of the
+>   network for the server already in use and answering. A link that does not parse
+>   still raises the prompt: a code that opens the app and then appears to do nothing
+>   cannot be told from a dead app.
+>
+> **What this repo owes the feature**, without which it is inert:
+>
+> - **`GET /.well-known/assetlinks.json`** and **`GET /.well-known/apple-app-site-association`**
+>   on the cloud — `application/json`, `200`, no redirect, no auth. Android fetches its
+>   file at install time and follows no redirects; while it is missing,
+>   `adb shell pm get-app-links app.splouch.android` reports `1024` and the OS shows a
+>   chooser instead of opening the app. The certificate fingerprints are configuration,
+>   never source (see [`cloud.md`](cloud.md)).
+> - **`GET /add?server=<origin>`** — cloud-only, since a Pi has no `https` and cannot
+>   host a verified link. It is the only page whose absence a spectator meets as a
+>   404 after scanning a poster, so it always answers: it shows which server the code
+>   named, offers the store links from `/picker/config` ([`api.md`](api.md) §5.7), and
+>   neither pretends to be the app nor tries to redirect into it.
+> - **A printable code on the Pi**, for the operator putting one on a poster. Its origin
+>   is the mDNS form the app will accept — `http://<host>.local:<port>`, never a raw
+>   IP, because a client refuses cleartext to anything but a `.local` name and the
+>   loopbacks (`P-12`).
+>
+> The number: `P-15` is claimed by the app ledgers and is not yet written here, so this
+> row is `P-16` and the gap is deliberate. **IDs are the join key — never renumber.**
 
 > **`P-12` — Cleartext for the local network only.** A Pi is plain HTTP, anything
 > remote must be HTTPS: a *scoped* ATS exception on iOS (local networking,
@@ -764,6 +817,12 @@ Not on any phone client, now or planned:
 ---
 
 ## Changelog
+
+- **Added since v1** — `P-16`: a server added by scanning a QR code, and the three
+  things the servers here owe it — the two `/.well-known/` files, `GET /add`, and the
+  Pi's printable code. No bump: the row is `native-only`, nothing a conforming client
+  did became wrong, and a client that never scans anything is unaffected. `P-15` is
+  claimed by the app ledgers and still unwritten here, so the numbering skips it.
 
 - **Added since v1** — `A-11`: no Results tab for a meet with no timing console,
   driven by `settings.console` in [`api.md`](api.md) §5.4. No bump: nothing a

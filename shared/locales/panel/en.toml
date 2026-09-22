@@ -175,6 +175,18 @@ quick_live      = "Live"
 quick_operator  = "Operator"
 quick_mobile    = "Mobile"
 quick_manual    = "Manual"
+quick_qr        = "QR code"
+
+# The printable QR code (docs/app.md `P-16`). A spectator scans it, the app asks,
+# and this server is added — or, with no app installed, the code opens the cloud's
+# /add page and offers the store.
+qr_title        = "Add this server by QR code"
+qr_sub          = "Print this and put it where spectators can see it."
+qr_origin_label = "This server"
+qr_hint         = "Scanning it opens the Splouch app, which asks before adding this server. A phone without the app lands on a web page offering the download."
+qr_print        = "Print"
+qr_no_cloud     = "No cloud server is configured, so there is no address to build the code from. Set the Server URL in the Cloud tab first."
+qr_no_hostname  = "This server's network name could not be read, so the code cannot be built. It must be reachable by a .local name — an app refuses a raw IP address."
 account_change_pw = "Change password"
 account_logout  = "Sign out"
 

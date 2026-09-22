@@ -170,6 +170,16 @@ quick_live      = "Directo"
 quick_operator  = "Operador"
 quick_mobile    = "Móvil"
 quick_manual    = "Manual"
+quick_qr        = "Código QR"
+
+# El código QR imprimible (docs/app.md `P-16`).
+qr_title        = "Añadir este servidor por código QR"
+qr_sub          = "Imprímelo y colócalo donde los espectadores puedan verlo."
+qr_origin_label = "Este servidor"
+qr_hint         = "Al escanearlo se abre la aplicación Splouch, que pregunta antes de añadir este servidor. Un teléfono sin la aplicación llega a una página web que ofrece la descarga."
+qr_print        = "Imprimir"
+qr_no_cloud     = "No hay ningún servidor en la nube configurado, así que no hay dirección con la que construir el código. Indica primero la URL del servidor en la pestaña Nube."
+qr_no_hostname  = "No se ha podido leer el nombre de red de este servidor, así que el código no se puede construir. Debe ser accesible por un nombre .local — una aplicación rechaza una dirección IP sin más."
 account_change_pw = "Cambiar contraseña"
 account_logout  = "Cerrar sesión"
 
