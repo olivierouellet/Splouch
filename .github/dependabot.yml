@@ -1,0 +1,27 @@
+# The cloud relay is the only part of Splouch on the public internet, and its
+# requirements.txt is pinned *and* hashed — deliberately frozen, which means nothing
+# moves until someone moves it. That is the right default for a deploy and the wrong
+# one for a security fix, so Dependabot watches it and opens the PR.
+#
+# The pool-deck server is not here on purpose: it resolves from uv.lock on an
+# isolated network with no inbound route, and a weekly PR against it is noise.
+version: 2
+updates:
+  - package-ecosystem: pip
+    directory: /cloud
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "[Cloud]"
+    labels:
+      - dependencies
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    commit-message:
+      prefix: "[Tooling]"
+    labels:
+      - dependencies

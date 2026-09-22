@@ -1,5 +1,6 @@
 # Splouch
 
+[![CI](https://github.com/olivierouellet/Splouch/actions/workflows/ci.yml/badge.svg)](https://github.com/olivierouellet/Splouch/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 Live swimming scoreboard display for timing consoles.
