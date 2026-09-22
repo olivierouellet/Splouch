@@ -21,7 +21,6 @@ Only failures speak. The field holds what was typed and the public page shows it
 """
 import os
 import re
-import shutil
 import subprocess
 import tempfile
 
@@ -29,9 +28,10 @@ import pytest
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 from conftest import admin_source, stub_url_for  # noqa: E402
+from jsc import HAS_JS_ENGINE  # noqa: E402
 
-needs_js = pytest.mark.skipif(not shutil.which('osascript'),
-                              reason='needs JavaScriptCore (macOS)')
+needs_js = pytest.mark.skipif(
+    not HAS_JS_ENGINE, reason='needs a JavaScript engine (osascript or node)')
 
 
 @pytest.fixture(scope='module')

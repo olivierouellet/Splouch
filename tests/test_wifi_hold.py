@@ -34,7 +34,7 @@ sys.path.insert(0, REPO)
 sys.path.insert(0, os.path.join(REPO, 'server'))
 
 import state                     # noqa: E402
-from jsc import HAS_JSC          # noqa: E402
+from jsc import HAS_JS_ENGINE          # noqa: E402
 
 SETTINGS = os.path.join(REPO, 'server', 'templates', 'settings.html')
 PANEL_JS = os.path.join(REPO, 'shared', 'static', 'js', 'panel.js')
@@ -43,7 +43,7 @@ PANEL_JS = os.path.join(REPO, 'shared', 'static', 'js', 'panel.js')
 # this test follows it rather than re-testing the half that stayed behind.
 HOLD_JS = os.path.join(REPO, 'shared', 'static', 'js', 'hold.js')
 
-pytestmark = pytest.mark.skipif(not HAS_JSC, reason='needs JavaScriptCore (macOS)')
+pytestmark = pytest.mark.skipif(not HAS_JS_ENGINE, reason='needs a JavaScript engine (osascript or node)')
 
 
 @pytest.fixture(scope='module')

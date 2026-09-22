@@ -35,7 +35,7 @@ from conftest import stub_url_for  # noqa: E402
 import state                                          # noqa: E402
 from console_decoders import DECODERS, make_decoder    # noqa: E402
 from console_decoders.utils import split_step          # noqa: E402
-from jsc import HAS_JSC, run_page                      # noqa: E402
+from jsc import HAS_JS_ENGINE, run_page                      # noqa: E402
 from test_scoreboard_base_shared import _code         # noqa: E402
 
 _ALL = sorted(DECODERS)
@@ -284,7 +284,7 @@ def _drive(html, script):
                                  % (_DRIVE, script)))
 
 
-@pytest.mark.skipif(not HAS_JSC, reason='needs JavaScriptCore via osascript (macOS)')
+@pytest.mark.skipif(not HAS_JS_ENGINE, reason='needs a JavaScript engine (osascript or node)')
 def test_the_lap_appears_while_the_lane_swims(phone):
     """Two lengths down, none of them finished: the cell carries the count."""
     _drive(phone, r'''
@@ -295,7 +295,7 @@ def test_the_lap_appears_while_the_lane_swims(phone):
     ''')
 
 
-@pytest.mark.skipif(not HAS_JSC, reason='needs JavaScriptCore via osascript (macOS)')
+@pytest.mark.skipif(not HAS_JS_ENGINE, reason='needs a JavaScript engine (osascript or node)')
 def test_the_delta_takes_the_cell_back_at_the_finish(phone):
     """The swap this whole design is built around, in the order a console sends it:
     the place lands on the touch, the delta a frame or two later."""
@@ -314,7 +314,7 @@ def test_the_delta_takes_the_cell_back_at_the_finish(phone):
     ''')
 
 
-@pytest.mark.skipif(not HAS_JSC, reason='needs JavaScriptCore via osascript (macOS)')
+@pytest.mark.skipif(not HAS_JS_ENGINE, reason='needs a JavaScript engine (osascript or node)')
 def test_zero_lengths_shows_nothing(phone):
     """`lane_splits{n} = 0` is every lane at the top of every heat. A board that
     rendered it would put a column of noughts under a start list."""
@@ -325,7 +325,7 @@ def test_zero_lengths_shows_nothing(phone):
     ''')
 
 
-@pytest.mark.skipif(not HAS_JSC, reason='needs JavaScriptCore via osascript (macOS)')
+@pytest.mark.skipif(not HAS_JS_ENGINE, reason='needs a JavaScript engine (osascript or node)')
 def test_the_setting_off_means_no_lap_at_all():
     """The default. The frame still carries the count — /operator and /console use
     it — so the board has to be the thing that declines to draw it."""
@@ -338,7 +338,7 @@ def test_the_setting_off_means_no_lap_at_all():
     ''')
 
 
-@pytest.mark.skipif(not HAS_JSC, reason='needs JavaScriptCore via osascript (macOS)')
+@pytest.mark.skipif(not HAS_JS_ENGINE, reason='needs a JavaScript engine (osascript or node)')
 def test_the_whole_race_shows_before_anyone_has_swum(phone_down):
     """The heat loads, nobody has touched a wall, and every lane already reads 8."""
     _drive(phone_down, r'''
@@ -356,7 +356,7 @@ def test_the_whole_race_shows_before_anyone_has_swum(phone_down):
     ''')
 
 
-@pytest.mark.skipif(not HAS_JSC, reason='needs JavaScriptCore via osascript (macOS)')
+@pytest.mark.skipif(not HAS_JS_ENGINE, reason='needs a JavaScript engine (osascript or node)')
 def test_an_empty_lane_counts_down_nothing(phone_down):
     """A six-swimmer heat in eight lanes must not advertise eight lengths in the two
     lanes nobody is in."""
@@ -375,7 +375,7 @@ def test_an_empty_lane_counts_down_nothing(phone_down):
     ''')
 
 
-@pytest.mark.skipif(not HAS_JSC, reason='needs JavaScriptCore via osascript (macOS)')
+@pytest.mark.skipif(not HAS_JS_ENGINE, reason='needs a JavaScript engine (osascript or node)')
 def test_counting_up_still_waits_for_the_first_wall(phone):
     """Unchanged: a column of noughts under a start list is noise."""
     _drive(phone, r'''
@@ -390,7 +390,7 @@ def test_counting_up_still_waits_for_the_first_wall(phone):
     ''')
 
 
-@pytest.mark.skipif(not HAS_JSC, reason='needs JavaScriptCore via osascript (macOS)')
+@pytest.mark.skipif(not HAS_JS_ENGINE, reason='needs a JavaScript engine (osascript or node)')
 def test_a_heat_change_takes_the_lap_off_the_board(phone):
     """`reset_lanes()` sends `lane_splits{n} = 0` with the new heat, and the cell has
     to follow it back to empty — the previous heat's lengths are not this one's."""

@@ -177,7 +177,7 @@ def test_an_unavailable_update_section_disables_its_button():
     assert 'sel.disabled = true' in body
 
 
-@pytest.mark.skipif(not __import__('jsc').HAS_JSC, reason='needs JavaScriptCore (macOS)')
+@pytest.mark.skipif(not __import__('jsc').HAS_JS_ENGINE, reason='needs a JavaScript engine (osascript or node)')
 def test_the_unavailable_state_is_what_the_operator_sees():
     """Run the page's own `updateUnavailable()` and check what it leaves on screen.
 

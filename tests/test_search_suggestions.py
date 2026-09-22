@@ -15,7 +15,6 @@ rather than reaching for a server.
 import json
 import os
 import re
-import shutil
 import subprocess
 import sys
 import tempfile
@@ -25,6 +24,8 @@ import pytest
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, REPO)
 sys.path.insert(0, os.path.join(REPO, 'server'))
+
+from jsc import HAS_JS_ENGINE, js_argv  # noqa: E402
 
 # Before the import, as `test_cloud_forward` does: the module derives every path
 # from DATA_DIR at import time.
@@ -161,8 +162,7 @@ def _run_fold(words):
         fh.write(js)
         path = fh.name
     try:
-        res = subprocess.run(['osascript', '-l', 'JavaScript', path],
-                             capture_output=True, text=True)
+        res = subprocess.run(js_argv(path), capture_output=True, text=True)
     finally:
         os.unlink(path)
     assert res.returncode == 0, res.stderr
@@ -170,7 +170,7 @@ def _run_fold(words):
 
 
 needs_js = pytest.mark.skipif(
-    not shutil.which('osascript'),
+    not HAS_JS_ENGINE,
     reason='needs a JS engine to run the template\'s own foldName()')
 
 

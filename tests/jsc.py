@@ -13,8 +13,11 @@ It proves the page's load path executes — declarations resolve, top-level call
 complete, handlers register. It does not prove anything was drawn, and it cannot see an
 error thrown later from a socket frame or a tap.
 
-JavaScriptCore is reached through `osascript -l JavaScript`, which is macOS-only; where
-it is missing the tests skip rather than fail.
+Two engines run the identical program text. JavaScriptCore, reached through
+`osascript -l JavaScript`, on macOS; Node everywhere else, which is what CI has. Only
+the launcher differs — see `_NODE_BOOTSTRAP` for why node needs one. With neither
+present the tests skip, and CI fails instead: a green run that quietly dropped every
+page's load path is worse than a red one.
 """
 import json
 import os
@@ -26,7 +29,23 @@ import tempfile
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 STATIC = os.path.join(REPO, 'shared', 'static')
 
-HAS_JSC = shutil.which('osascript') is not None
+# osascript first, so the machine this is usually written on keeps running the pages
+# under the same engine it always has, and node is what CI resolves to.
+_ENGINE = 'jsc' if shutil.which('osascript') else ('node' if shutil.which('node') else None)
+HAS_JS_ENGINE = _ENGINE is not None
+
+# node runs a file in the CommonJS module scope, so the stub DOM's `var document = ...`
+# would be module-local while every page script — running through indirect eval — reads
+# the *global* scope, and each page would die on `document is not defined`. Reading the
+# program and evaluating it indirectly puts the whole thing in global scope, the way
+# osascript already does. node also does not print a program's final value, so the
+# completion value of that eval is written out by hand. Between them these two lines are
+# the entire difference; the program text is byte-identical under both engines.
+_NODE_BOOTSTRAP = (
+    "const fs = require('fs');"
+    "const out = (0, eval)(fs.readFileSync(process.argv[1], 'utf8'));"
+    "process.stdout.write(String(out));"
+)
 
 # A stub, deliberately dumb: every element is the same object, and it answers whatever
 # the pages ask of it. Widen it when a page needs something, rather than teaching it to
@@ -149,6 +168,18 @@ class PageScriptError(AssertionError):
     pass
 
 
+
+def js_argv(path):
+    """The command that runs the JavaScript file at `path` under whichever engine is here.
+
+    Public because `test_search_suggestions.py` runs a snippet of the template's own
+    `foldName()` rather than a whole page, and which engine to reach for should be
+    decided in exactly one place.
+    """
+    return (['osascript', '-l', 'JavaScript', path] if _ENGINE == 'jsc'
+            else ['node', '-e', _NODE_BOOTSTRAP, path])
+
+
 def _scripts(html):
     """Every script in document order: (label, source). `src` is read off disk."""
     out = []
@@ -202,13 +233,12 @@ def run_page(html, extra=''):
         fh.write('\n'.join(program))
         path = fh.name
     try:
-        res = subprocess.run(['osascript', '-l', 'JavaScript', path],
-                             capture_output=True, text=True)
+        res = subprocess.run(js_argv(path), capture_output=True, text=True)
     finally:
         os.unlink(path)
 
     if res.returncode != 0:
-        raise PageScriptError('JavaScriptCore refused the program:\n' + res.stderr.strip())
+        raise PageScriptError('%s refused the program:\n%s' % (_ENGINE, res.stderr.strip()))
 
     head, _, scheduled = res.stdout.strip().partition('\n')
     if head.startswith('ERROR'):

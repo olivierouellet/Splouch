@@ -16,7 +16,6 @@ and the per-meet cloud appearance all carry something a stray change should not 
 import json
 import os
 import re
-import shutil
 import subprocess
 import tempfile
 
@@ -25,10 +24,11 @@ import pytest
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 from conftest import matched, settings_source  # noqa: E402
+from jsc import HAS_JS_ENGINE  # noqa: E402
 SETTINGS = os.path.join(REPO, 'server', 'templates', 'settings.html')
 
-needs_js = pytest.mark.skipif(not shutil.which('osascript'),
-                              reason='needs JavaScriptCore (macOS)')
+needs_js = pytest.mark.skipif(
+    not HAS_JS_ENGINE, reason='needs a JavaScript engine (osascript or node)')
 
 
 @pytest.fixture(scope='module')

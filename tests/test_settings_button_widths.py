@@ -25,7 +25,7 @@ sys.path.insert(0, REPO)
 sys.path.insert(0, os.path.join(REPO, 'server'))
 
 import state                          # noqa: E402
-from jsc import HAS_JSC               # noqa: E402
+from jsc import HAS_JS_ENGINE               # noqa: E402
 
 SETTINGS = os.path.join(REPO, 'server', 'templates', 'settings.html')
 
@@ -103,7 +103,7 @@ def test_the_long_translations_are_still_there(key, longest):
 
 # ── The half that is built in JavaScript ───────────────────────────────────────
 
-@pytest.mark.skipif(not HAS_JSC, reason='needs JavaScriptCore (macOS)')
+@pytest.mark.skipif(not HAS_JS_ENGINE, reason='needs a JavaScript engine (osascript or node)')
 def test_the_session_list_rows_are_built_unwrappable(src):
     """`_renderSessions` writes its own buttons, so the markup rules above cannot
     see them. Run it and read what it produced."""
@@ -152,7 +152,7 @@ __html
         assert not re.search(r'style="[^"]*(?<!-)\bwidth:\s*\d+px', tag), tag
 
 
-@pytest.mark.skipif(not HAS_JSC, reason='needs JavaScriptCore (macOS)')
+@pytest.mark.skipif(not HAS_JS_ENGINE, reason='needs a JavaScript engine (osascript or node)')
 def test_a_builtin_row_lines_up_with_a_custom_one(src):
     """The built-in rows have nothing to delete. The placeholder has to be the
     delete button made invisible, not an empty box of a guessed width — those only

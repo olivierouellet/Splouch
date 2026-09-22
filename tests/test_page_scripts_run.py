@@ -22,10 +22,10 @@ sys.path.insert(0, os.path.join(REPO, 'server'))
 from conftest import stub_url_for  # noqa: E402
 
 import state          # noqa: E402
-from jsc import HAS_JSC, run_page   # noqa: E402
+from jsc import HAS_JS_ENGINE, run_page   # noqa: E402
 
 pytestmark = pytest.mark.skipif(
-    not HAS_JSC, reason='needs JavaScriptCore via osascript (macOS)')
+    not HAS_JS_ENGINE, reason='needs a JavaScript engine (osascript or node)')
 
 _LABELS = {'event': 'Event', 'heat': 'Heat', 'lane': 'Lane', 'name': 'Name',
            'club': 'Club', 'time': 'Time', 'delta': 'Δ', 'place': '#',
@@ -149,7 +149,10 @@ def test_a_helper_defined_in_a_later_script_is_not_visible_earlier():
     """
     from jsc import PageScriptError
     page = '<script>later();</script><script>function later() {}</script>'
-    with pytest.raises(PageScriptError, match="Can't find variable: later"):
+    # Matched on the error's kind and the name it could not find, not on one
+    # engine's wording: JavaScriptCore says "Can't find variable: later" where V8
+    # says "later is not defined", and CI runs the second one.
+    with pytest.raises(PageScriptError, match=r'ReferenceError.*later'):
         run_page(page)
 
 

@@ -24,7 +24,6 @@ import asyncio
 import io
 import os
 import re
-import shutil
 import subprocess
 import sys
 from typing import cast
@@ -36,6 +35,7 @@ from fastapi import Request, UploadFile
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 from conftest import matched, settings_source  # noqa: E402
+from jsc import HAS_JS_ENGINE  # noqa: E402
 sys.path.insert(0, REPO)
 sys.path.insert(0, os.path.join(REPO, 'server'))
 
@@ -44,8 +44,8 @@ import routes.debug as debug     # noqa: E402
 
 SETTINGS = os.path.join(REPO, 'server', 'templates', 'settings.html')
 
-needs_js = pytest.mark.skipif(not shutil.which('osascript'),
-                              reason='needs JavaScriptCore (macOS)')
+needs_js = pytest.mark.skipif(
+    not HAS_JS_ENGINE, reason='needs a JavaScript engine (osascript or node)')
 
 
 @pytest.fixture(scope='module')
