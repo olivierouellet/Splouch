@@ -57,7 +57,9 @@ jobs:
         # git refuses to touch until it is declared safe.
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
-      - uses: astral-sh/setup-uv@v10
+      # Exact version, not a major tag: setup-uv stopped publishing floating
+      # majors after v7, so `@v10` does not resolve. Dependabot bumps this.
+      - uses: astral-sh/setup-uv@v10.2.0
         with:
           enable-cache: true
           cache-dependency-glob: uv.lock
