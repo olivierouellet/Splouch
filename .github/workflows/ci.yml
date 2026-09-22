@@ -96,7 +96,5 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends shellcheck
 
       - name: Check the installer and its scripts
-        # -S error only, to start: install.sh provisions both Pis and has never been
-        # linted, so the warning and style levels are likely to be loud. Raise this to
-        # `warning` once it is clean and the bar goes up with it.
-        run: shellcheck -S error install.sh install/*.sh install/scripts/*.sh
+        # -S warning: install.sh provisions both Pis
+        run: shellcheck -S warning install.sh install/*.sh install/scripts/*.sh

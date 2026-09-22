@@ -184,7 +184,7 @@ fetch_and_ff() {
     local dir="$1"
     git -C "$dir" fetch --tags --quiet || true
     local upstream
-    upstream="$(git -C "$dir" rev-parse --abbrev-ref --symbolic-full-name @{u} 2>/dev/null || true)"
+    upstream="$(git -C "$dir" rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>/dev/null || true)"
     if [[ -z "$upstream" ]]; then
         info "On a branch with no upstream — skipping the pull."
         return 0
@@ -306,6 +306,8 @@ EOF
     section "Data folders"
     as_user mkdir -p "$TARGET_HOME/SplouchData/meet" "$TARGET_HOME/SplouchData/images" \
                      "$TARGET_HOME/SplouchData/icons" "$TARGET_HOME/SplouchData/recorded"
+    # shellcheck disable=SC2088  # printed at the operator, never expanded — ~ is
+    # what they see in the admin UI and the docs, so $HOME would read worse.
     info "~/SplouchData/{meet,images,icons,recorded} created."
 
     section "Settings"

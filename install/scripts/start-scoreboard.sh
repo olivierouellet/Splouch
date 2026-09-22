@@ -31,7 +31,7 @@ if [[ ! -x "$PYTHON" ]]; then
     exit 1
 fi
 
-cd "$INSTALL_DIR"
+cd "$INSTALL_DIR" || { echo "start-scoreboard: no checkout at $INSTALL_DIR" >&2; exit 1; }
 
 # The app has its own reconnect loop, so a normal exit here means it crashed or
 # was killed. Back off briefly so a persistent failure (missing Qt plugin, no
