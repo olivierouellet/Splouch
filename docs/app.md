@@ -220,16 +220,25 @@ where the user returns via `A-02`.
 > - **`GET /add?server=<origin>`** — cloud-only, since a Pi has no `https` and cannot
 >   host a verified link. It is the only page whose absence a spectator meets as a
 >   404 after scanning a poster, so it always answers: it shows which server the code
->   named and offers the store, and it neither pretends to be the app nor tries to
->   redirect into it. **The store buttons are the only links on it** — no way back into
->   the web board, not the picker and not a meet. `P-10` is a hand-off, not a second
->   front door, and a browser link beside a store button is the easier tap and the one
->   that ends the hand-off. **One button where the agent says which**: the reader is
->   holding the device the answer is about, so the URLs from `/picker/config`
->   ([`api.md`](api.md) §5.7) are narrowed to their own platform. Sniffing may only
->   narrow — an unrecognised agent is offered every listing, which is also what an
->   iPad answers, since iPadOS asks for desktop sites by default. Getting it wrong
->   costs an extra button, never a missing one.
+>   named and offers the app, and it neither pretends to be the app nor tries to
+>   redirect into it. **One store button, the reader's own**: they are holding the
+>   device the answer is about, so the URLs from `/picker/config`
+>   ([`api.md`](api.md) §5.7) are narrowed by `User-Agent` to their platform, and a
+>   platform with no listing yet is offered nothing rather than the other one — an
+>   App Store link is not an answer to an Android phone. **A browser link appears
+>   exactly where that offer is not a whole answer**: no store button applies, or the
+>   agent left us guessing. A recognised phone whose app is listed gets the button
+>   alone, because `P-10` is a hand-off and not a second front door — a browser link
+>   beside a store button is the easier tap and the one that ends the hand-off. When
+>   it is drawn it leads to **`/`, the picker, never a meet**, so a reader who takes
+>   it still passes `P-06`'s disclaimer.
+>
+>   An unrecognised agent is read as **iPad**, which is what it nearly always is:
+>   iPadOS asks for desktop sites by default and there is no server-side tell —
+>   Safari sends no client hints, and `maxTouchPoints` is script-only — while Android
+>   tablets stay recognisable, since Chrome and Firefox keep `Android` in a tablet's
+>   agent. The guess is safe because it is always paired with the browser link, so
+>   being wrong costs a wasted button rather than a dead end.
 > - **A printable code on the Pi**, for the operator putting one on a poster. It carries
 >   the cloud that Pi publishes to — its **Cloud → Server URL**, which must therefore be
 >   set — under the app's default host, per the rule above.

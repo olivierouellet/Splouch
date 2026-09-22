@@ -76,6 +76,7 @@ add_no_server     = "This code did not name a server we recognise. The Splouch a
 add_store_ios     = "Get it on the App Store"
 add_store_android = "Get it on Google Play"
 add_no_store      = "The app is not available for download yet."
+add_web           = "Follow the meets in this browser"
 language             = "Language"
 language_auto        = "Auto (browser)"
 # Visitor-side display preferences, offered on the picker and carried into every

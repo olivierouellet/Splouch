@@ -160,34 +160,10 @@ def test_a_scanned_origin_is_escaped_where_it_is_drawn(stores):
     assert 'onload="x' not in html
 
 
-# ── the store hand-off is data (`P-10`) ────────────────────────────────────────
-
-def test_the_store_links_come_from_config_and_reach_both_halves(stores, monkeypatch):
-    """`/picker/config` and this page render from the same helper.
-
-    `P-10` puts the URLs in the contract precisely so a listing that moves is not
-    a release; serving them from one place is what keeps the native picker and
-    this page from disagreeing about where the app lives.
-    """
-    monkeypatch.setenv('STORE_URL_ANDROID', PLAY)
-    monkeypatch.setenv('STORE_URL_IOS', APPSTORE)
-    assert cs._store_links() == {'android': PLAY, 'ios': APPSTORE}
-    html = get('server=http%3A%2F%2Fpoolpi.local%3A5000')
-    assert PLAY in html and APPSTORE in html
-
-
 def test_a_store_url_can_be_changed_without_touching_the_environment(stores):
     """The data file is on the persisted volume, so this needs no compose edit."""
     stores(store_android=PLAY)
     assert cs._store_links() == {'android': PLAY}
-
-
-def test_the_affordance_is_hidden_when_there_is_no_listing(stores):
-    """`P-10`: hidden, never a dead button. Until an app ships this is the case."""
-    assert cs._store_links() == {}
-    html = get('server=http%3A%2F%2Fpoolpi.local%3A5000')
-    assert 'class="store"' not in html
-    assert 'not available for download yet' in html
 
 
 def test_only_https_store_urls_are_offered(stores, monkeypatch):
@@ -212,55 +188,86 @@ def test_picker_config_carries_the_same_dict(stores, monkeypatch):
             'analytics_enabled', 'strings'} <= set(config)
 
 
-# ── one store, the reader's own ────────────────────────────────────────────────
+# ── what the page offers, and to whom ──────────────────────────────────────────
 
-@pytest.mark.parametrize('agent,offered,withheld', [
-    (ANDROID, PLAY, APPSTORE),
-    (IPHONE, APPSTORE, PLAY),
+def offers(html):
+    """The page's links, as labels, in the order they are drawn."""
+    return ['web' if kind == 'web' else ('android' if 'play.google' in href else 'ios')
+            for kind, href in re.findall(r'<a class="(store|web)" href="([^"]*)"', html)]
+
+
+def configure(monkeypatch, *platforms):
+    for platform, url in (('android', PLAY), ('ios', APPSTORE)):
+        if platform in platforms:
+            monkeypatch.setenv(f'STORE_URL_{platform.upper()}', url)
+
+
+# The whole rule in one table, because it is two independent questions — what the
+# agent says, and what has actually been listed — and reading them separately is
+# how the earlier version of this page ended up offering an iPhone a Play link.
+@pytest.mark.parametrize('agent,listed,expected', [
+    # A recognised phone whose app is listed: the one button, and nothing else.
+    (ANDROID, ('android',),      ['android']),
+    (ANDROID, ('android', 'ios'), ['android']),
+    (IPHONE,  ('ios',),          ['ios']),
+    (IPHONE,  ('android', 'ios'), ['ios']),
+    # A recognised phone whose app is not listed: the browser, not the other store.
+    (ANDROID, ('ios',),          ['web']),
+    (IPHONE,  ('android',),      ['web']),
+    # Nothing listed at all — today's state — is the browser for everyone.
+    (ANDROID, (),                ['web']),
+    (IPHONE,  (),                ['web']),
+    (IPAD_DESKTOP, (),           ['web']),
+    # An agent we could not place is read as an iPad, and always keeps the browser.
+    (IPAD_DESKTOP, ('ios',),          ['ios', 'web']),
+    (IPAD_DESKTOP, ('android', 'ios'), ['ios', 'web']),
+    (IPAD_DESKTOP, ('android',),      ['web']),
+    (None,    ('android', 'ios'), ['ios', 'web']),
 ])
-def test_a_phone_is_offered_its_own_store_and_not_the_other(stores, monkeypatch,
-                                                            agent, offered, withheld):
-    """The reader is holding the device the answer is about.
+def test_what_each_reader_is_offered(stores, monkeypatch, agent, listed, expected):
+    configure(monkeypatch, *listed)
+    assert offers(get('server=https%3A%2F%2Fsplouch.ca', agent)) == expected
 
-    Two buttons where one applies is a choice nobody standing in front of a poster
-    wants to make, and the wrong one is a dead end dressed as an offer.
+
+def test_a_recognised_phone_with_its_app_listed_gets_no_browser_link(stores, monkeypatch):
+    """`P-10` is a hand-off, not a second front door.
+
+    Where the app is the whole answer, a browser link beside the store button is
+    the easier tap and the one that ends the hand-off.
     """
-    monkeypatch.setenv('STORE_URL_ANDROID', PLAY)
-    monkeypatch.setenv('STORE_URL_IOS', APPSTORE)
-    html = get('server=https%3A%2F%2Fsplouch.ca', agent)
-    assert offered in html
-    assert withheld not in html
+    configure(monkeypatch, 'android', 'ios')
+    assert 'class="web"' not in get('server=https%3A%2F%2Fsplouch.ca', ANDROID)
+    assert 'class="web"' not in get('server=https%3A%2F%2Fsplouch.ca', IPHONE)
 
 
-@pytest.mark.parametrize('agent', [None, IPAD_DESKTOP, 'curl/8.4.0'])
-def test_an_unrecognised_agent_is_offered_everything(stores, monkeypatch, agent):
-    """Sniffing may only narrow the offer, never replace it.
+def test_nobody_is_ever_left_with_nothing(stores, monkeypatch):
+    """What makes reading an unknown agent as an iPad safe.
 
-    An iPad asks for desktop sites by default and reads as macOS from here, so
-    guessing would cost the reader the button they needed. Falling back costs an
-    extra one.
+    The guess can be wrong — a computer, or an Android tablet in some browser that
+    asks for desktop sites — and the browser link is there in every one of those
+    cases, so being wrong costs a wasted button rather than a dead end.
     """
-    monkeypatch.setenv('STORE_URL_ANDROID', PLAY)
-    monkeypatch.setenv('STORE_URL_IOS', APPSTORE)
-    html = get('server=https%3A%2F%2Fsplouch.ca', agent)
-    assert PLAY in html and APPSTORE in html
+    for listed in ((), ('android',), ('ios',), ('android', 'ios')):
+        for agent in (ANDROID, IPHONE, IPAD_DESKTOP, None, 'curl/8.4.0'):
+            monkeypatch.delenv('STORE_URL_ANDROID', raising=False)
+            monkeypatch.delenv('STORE_URL_IOS', raising=False)
+            configure(monkeypatch, *listed)
+            assert offers(get('server=https%3A%2F%2Fsplouch.ca', agent)), (agent, listed)
 
 
-def test_a_phone_whose_app_is_unlisted_is_offered_nothing(stores, monkeypatch):
-    """An App Store link is not an answer to an Android phone.
-
-    Shipping on one platform first is the ordinary case, so this is not an edge:
-    it is what every iPhone sees for as long as only Android is listed.
+def test_the_browser_link_goes_to_the_picker_and_never_to_a_meet(stores):
+    """`P-06`'s disclaimer is on the meet list, and a reader arriving by camera
+    is the one who has never seen it. `/mobile` would walk them straight past it.
     """
-    monkeypatch.setenv('STORE_URL_ANDROID', PLAY)
     html = get('server=https%3A%2F%2Fsplouch.ca', IPHONE)
-    assert 'class="store"' not in html
-    assert 'not available for download yet' in html
+    web = matched(r'<a class="web" href="([^"]*)"', html)
+    assert web == '/'
+    assert '/mobile' not in html
 
 
 def test_the_response_says_it_varies_by_agent(stores, monkeypatch):
     """Nothing caches this today; a proxy that one day does must not mix them up."""
-    monkeypatch.setenv('STORE_URL_ANDROID', PLAY)
+    configure(monkeypatch, 'android')
     assert respond('server=https%3A%2F%2Fsplouch.ca', ANDROID).headers['Vary'] == 'User-Agent'
 
 
@@ -282,25 +289,6 @@ def test_the_page_never_tries_to_reach_the_app(stores):
         assert 'splouch://' not in text
         assert 'http-equiv="refresh"' not in text.lower()
         assert 'window.location' not in text
-
-
-def test_the_only_links_on_the_page_are_store_links(stores, monkeypatch):
-    """No way back into the web board — not the picker, not a meet.
-
-    This page hands off to the app and does nothing else. A link into the browser
-    beside a store button is the easier tap and the one that ends the hand-off,
-    and `P-10` is a hand-off rather than a second front door.
-    """
-    monkeypatch.setenv('STORE_URL_ANDROID', PLAY)
-    html = get('server=https%3A%2F%2Fsplouch.ca', ANDROID)
-    assert re.findall(r'<a\s[^>]*href="([^"]*)"', html) == [PLAY]
-
-
-def test_nothing_is_offered_when_there_is_nothing_to_hand_off_to(stores):
-    """With no listing the page says so and stops, rather than diverting."""
-    html = get('server=https%3A%2F%2Fsplouch.ca', ANDROID)
-    assert '<a ' not in html
-    assert 'not available for download yet' in html
 
 
 def test_the_page_carries_the_disclaimer_the_picker_does(stores):

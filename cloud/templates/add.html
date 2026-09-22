@@ -51,6 +51,11 @@
             transition: border-color 0.15s, background 0.15s;
         }
         .store:hover { border-color: #555; background: #222; }
+        /* The browser fallback is quieter than a store button on purpose: where both
+           are drawn the app is still the better answer, and this is the way out for
+           the reader the app cannot serve. */
+        .web { display: inline-block; margin-top: 4px; font-size: 0.85em; color: #7a9fc9; text-decoration: none; }
+        .web:hover { color: #a9c6e6; }
         .note { font-size: 0.74em; color: #999; line-height: 1.5; border: 1px solid #333; border-radius: 8px; background: #141414; padding: 12px 16px; margin-top: 28px; }
     </style>
 </head>
@@ -98,6 +103,17 @@
            No link back into the web board either — this page hands off to the app and
            does nothing else, so with nothing to hand off to it says only that. #}
         <p class="lead">{{ t.get('add_no_store', 'The app is not available for download yet.') }}</p>
+        {% endif %}
+
+        {# The way out for a reader the app cannot serve: a computer, an iPad we
+           could not tell from one, or a platform with no listing yet. It goes to
+           `/` and never to a meet — the picker is where `P-06`'s unofficial-results
+           disclaimer is, and a reader arriving by camera is the one who has never
+           seen it. Absent for a recognised phone whose app is listed: there the one
+           store button is the whole answer, and a browser link beside it is the
+           easier tap and the one that ends the hand-off (`P-10`). #}
+        {% if web %}
+        <a class="web" href="/">{{ t.get('add_web', 'Follow the meets in this browser') }}</a>
         {% endif %}
 
         <p class="note">

@@ -83,6 +83,7 @@ add_no_server     = "Ce code ne nomme aucun serveur reconnu. L'application Splou
 add_store_ios     = "Télécharger dans l'App Store"
 add_store_android = "Disponible sur Google Play"
 add_no_store      = "L'application n'est pas encore disponible au téléchargement."
+add_web           = "Suivre les compétitions dans ce navigateur"
 language             = "Langue"
 language_auto        = "Auto (navigateur)"
 # Préférences d'affichage du visiteur, offertes sur le sélecteur et conservées pour

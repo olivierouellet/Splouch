@@ -608,11 +608,14 @@ def _phone_platform(request):
     the reader is holding the device the answer is about, and two buttons where one
     applies is a choice nobody standing at a pool wants to make.
 
-    It is only ever allowed to *narrow* the offer. An unrecognised agent falls back
-    to every listing rather than guessing — which is also what an iPad answers,
-    since iPadOS asks for desktop sites by default and is indistinguishable from
-    macOS from here. Getting it wrong therefore costs an extra button, never a
-    missing one.
+    ``None`` is mostly **iPad**: iPadOS asks for desktop sites by default and is
+    indistinguishable from macOS from here — there is no server-side tell, since
+    Safari sends no `Sec-CH-UA-Platform` and `navigator.maxTouchPoints` is only
+    reachable from script. Android tablets are not in that bucket; Chrome and
+    Firefox both keep `Android` in a tablet's agent.
+
+    Guessing wrong is survivable because the caller pairs a `None` with the web
+    link, so nobody in that bucket is left without a working answer.
     """
     agent = request.headers.get('user-agent', '')
     if 'Android' in agent:
@@ -693,13 +696,22 @@ def route_add(request: Request):
     """
     lang = _picker_lang(request)
     server = splouch_links.parse_origin(request.query_params.get(INVITE_PARAM, ''))
-    # One store, the reader's own, when the agent says which. A platform with no
-    # listing yet leaves nothing rather than offering the other one — an App Store
-    # link is not an answer to an Android phone.
-    stores = _store_links()
+    # One store, the reader's own. A platform with no listing yet leaves nothing
+    # rather than offering the other one — an App Store link is not an answer to an
+    # Android phone.
+    #
+    # An unrecognised agent is read as `ios`, not as "offer everything". A device
+    # that scanned a poster and asked for a desktop site is an iPad far more often
+    # than it is a computer, and Play has no audience on either. What makes the
+    # guess safe is the line below it rather than its accuracy.
     platform = _phone_platform(request)
-    if platform:
-        stores = {k: v for k, v in stores.items() if k == platform}
+    stores = {k: v for k, v in _store_links().items() if k == (platform or 'ios')}
+    # The browser is offered exactly when the store offer is not a confident, whole
+    # answer: when there is no store button at all, and when the agent left us
+    # guessing. A phone we recognised, whose app is listed, gets the one button —
+    # a browser link beside it is the easier tap and the one that ends the hand-off
+    # (`P-10`). It leads to the **picker**, never straight to a meet, so a reader
+    # who takes it still passes `P-06`'s disclaimer.
     response = _remember_prefs(request, render(request, 'add.html',
         lang=lang,
         t=_strings(lang, 'mobile'),
@@ -712,6 +724,7 @@ def route_add(request: Request):
         # told to the majority of readers.
         is_here=bool(server) and server == splouch_links.parse_origin(str(request.base_url)),
         stores=stores,
+        web=not stores or platform is None,
         **_picker_branding()))
     # The body depends on the agent, so say so. Nothing in front of this caches
     # today, and a proxy that one day does must not hand an iPhone Google Play.

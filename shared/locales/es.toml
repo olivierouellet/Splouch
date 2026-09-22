@@ -83,6 +83,7 @@ add_no_server     = "Este código no nombra ningún servidor reconocido. La apli
 add_store_ios     = "Consíguelo en el App Store"
 add_store_android = "Disponible en Google Play"
 add_no_store      = "La aplicación aún no está disponible para descargar."
+add_web           = "Seguir las competiciones en este navegador"
 language             = "Idioma"
 language_auto        = "Auto (navegador)"
 # Preferencias de visualización del visitante, ofrecidas en el selector y
