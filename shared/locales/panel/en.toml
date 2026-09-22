@@ -177,9 +177,10 @@ quick_mobile    = "Mobile"
 quick_manual    = "Manual"
 quick_qr        = "QR code"
 
-# The printable QR code (docs/app.md `P-16`). A spectator scans it, the app asks,
-# and this server is added — or, with no app installed, the code opens the cloud's
-# /add page and offers the store.
+# The printable QR code (docs/app.md `P-16`). It carries the cloud this Pi
+# publishes to, not the Pi itself: a spectator scans it and lands on the meet list,
+# in the app if they have it and on the cloud's /add page — which offers the app —
+# if they do not.
 qr_title        = "QR code for this meet"
 qr_sub          = "Print this and put it where spectators can see it."
 qr_origin_label = "Spectators reach the meet at"

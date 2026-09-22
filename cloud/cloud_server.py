@@ -490,10 +490,12 @@ def route_servers(request: Request):
 
 
 # ── QR-code hand-off (`app.md` `P-16`) ─────────────────────────────────────────
-# A poster at a pool carries `https://<this host>/add?server=<the pool's Pi>`. With
-# the app installed the OS opens it; without it, nothing intercepts it and the
-# browser lands on `GET /add` below, which is the only page whose absence a
-# spectator meets as a 404 after scanning something.
+# A poster at a pool carries `https://<this host>/add?server=<a cloud>` — a cloud
+# and never a Pi, since a `.local` name resolves only for a phone already on the
+# venue's wifi and a poster cannot ask which network it is being read on. With the
+# app installed the OS opens it; without it, nothing intercepts it and the browser
+# lands on `GET /add` below, which is the only page whose absence a spectator meets
+# as a 404 after scanning something.
 #
 # The two `/.well-known/` files are what make the first half true, and they are
 # the half a deploy forgets. Android fetches `assetlinks.json` at install time,
