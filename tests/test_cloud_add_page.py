@@ -223,11 +223,13 @@ def configure(monkeypatch, *platforms):
     (ANDROID, (),                ['web']),
     (IPHONE,  (),                ['web']),
     (IPAD_DESKTOP, (),           ['web']),
-    # An agent we could not place is read as an iPad, and always keeps the browser.
-    (IPAD_DESKTOP, ('ios',),          ['ios', 'web']),
-    (IPAD_DESKTOP, ('android', 'ios'), ['ios', 'web']),
-    (IPAD_DESKTOP, ('android',),      ['web']),
-    (None,    ('android', 'ios'), ['ios', 'web']),
+    # An agent we could not place is shown everything there is, and always keeps
+    # the browser: sniffing may narrow, never guess.
+    (IPAD_DESKTOP, ('ios',),           ['ios', 'web']),
+    (IPAD_DESKTOP, ('android',),       ['android', 'web']),
+    (IPAD_DESKTOP, ('android', 'ios'), ['ios', 'android', 'web']),
+    (None,         ('android', 'ios'), ['ios', 'android', 'web']),
+    ('curl/8.4.0', ('android', 'ios'), ['ios', 'android', 'web']),
 ])
 def test_what_each_reader_is_offered(stores, monkeypatch, agent, listed, expected):
     configure(monkeypatch, *listed)
@@ -280,12 +282,25 @@ def test_a_recognised_phone_with_its_app_listed_gets_no_browser_link(stores, mon
     assert 'class="web"' not in get('server=https%3A%2F%2Fsplouch.ca', IPHONE)
 
 
-def test_nobody_is_ever_left_with_nothing(stores, monkeypatch):
-    """What makes reading an unknown agent as an iPad safe.
+def test_an_unplaceable_agent_learns_that_both_apps_exist(stores, monkeypatch):
+    """Sniffing may narrow, never guess.
 
-    The guess can be wrong — a computer, or an Android tablet in some browser that
-    asks for desktop sites — and the browser link is there in every one of those
-    cases, so being wrong costs a wasted button rather than a dead end.
+    The bucket is mostly iPads asking for desktop sites, but it also holds laptops
+    and anything unusual, and there is no server-side way to tell them apart. So it
+    is shown every listing: the reader gets the button they came for, and finds out
+    from the one beside it that the other app exists.
+    """
+    configure(monkeypatch, 'android', 'ios')
+    for agent in (IPAD_DESKTOP, None, 'curl/8.4.0'):
+        html = get('server=https%3A%2F%2Fsplouch.ca', agent)
+        assert PLAY in html and APPSTORE in html
+
+
+def test_nobody_is_ever_left_with_nothing(stores, monkeypatch):
+    """Every reader gets a working answer, whatever is listed and whoever they are.
+
+    A phone whose app has not shipped, a laptop, an agent nothing recognises: each
+    keeps at least the browser, so no combination of the two axes is a dead end.
     """
     for listed in ((), ('android',), ('ios',), ('android', 'ios')):
         for agent in (ANDROID, IPHONE, IPAD_DESKTOP, None, 'curl/8.4.0'):

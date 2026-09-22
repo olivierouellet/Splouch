@@ -614,8 +614,8 @@ def _phone_platform(request):
     reachable from script. Android tablets are not in that bucket; Chrome and
     Firefox both keep `Android` in a tablet's agent.
 
-    Guessing wrong is survivable because the caller pairs a `None` with the web
-    link, so nobody in that bucket is left without a working answer.
+    The caller never guesses on a ``None``. It is only ever allowed to *narrow*,
+    so an agent this cannot place is shown everything there is.
     """
     agent = request.headers.get('user-agent', '')
     if 'Android' in agent:
@@ -696,16 +696,18 @@ def route_add(request: Request):
     """
     lang = _picker_lang(request)
     server = splouch_links.parse_origin(request.query_params.get(INVITE_PARAM, ''))
-    # One store, the reader's own. A platform with no listing yet leaves nothing
-    # rather than offering the other one — an App Store link is not an answer to an
-    # Android phone.
+    # One store, the reader's own, where the agent says which. A platform with no
+    # listing yet leaves nothing rather than offering the other one — an App Store
+    # link is not an answer to an Android phone.
     #
-    # An unrecognised agent is read as `ios`, not as "offer everything". A device
-    # that scanned a poster and asked for a desktop site is an iPad far more often
-    # than it is a computer, and Play has no audience on either. What makes the
-    # guess safe is the line below it rather than its accuracy.
+    # An agent we cannot place is shown **every** listing instead: sniffing may
+    # narrow, never guess. It is also the honest answer for the bucket, which is
+    # mostly iPads asking for desktop sites — the reader gets the App Store button
+    # they came for, and learns from the one beside it that the other app exists.
     platform = _phone_platform(request)
-    stores = {k: v for k, v in _store_links().items() if k == (platform or 'ios')}
+    stores = _store_links()
+    if platform:
+        stores = {k: v for k, v in stores.items() if k == platform}
     # The browser is offered exactly when the store offer is not a confident, whole
     # answer: when there is no store button at all, and when the agent left us
     # guessing. A phone we recognised, whose app is listed, gets the one button —

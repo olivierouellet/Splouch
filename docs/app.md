@@ -233,12 +233,13 @@ where the user returns via `A-02`.
 >   it is drawn it leads to **`/`, the picker, never a meet**, so a reader who takes
 >   it still passes `P-06`'s disclaimer.
 >
->   An unrecognised agent is read as **iPad**, which is what it nearly always is:
->   iPadOS asks for desktop sites by default and there is no server-side tell —
->   Safari sends no client hints, and `maxTouchPoints` is script-only — while Android
->   tablets stay recognisable, since Chrome and Firefox keep `Android` in a tablet's
->   agent. The guess is safe because it is always paired with the browser link, so
->   being wrong costs a wasted button rather than a dead end.
+>   **Sniffing may narrow, never guess.** An agent that cannot be placed is shown
+>   every listing plus the browser. That bucket is mostly iPads — iPadOS asks for
+>   desktop sites by default and there is no server-side tell, since Safari sends no
+>   client hints and `maxTouchPoints` is script-only — but it also holds laptops and
+>   anything unusual, and showing all of it means the reader gets the button they
+>   came for *and* learns the other app exists. Android tablets are not in the
+>   bucket: Chrome and Firefox both keep `Android` in a tablet's agent.
 > - **A printable code on the Pi**, for the operator putting one on a poster. It carries
 >   the cloud that Pi publishes to — its **Cloud → Server URL**, which must therefore be
 >   set — under the app's default host, per the rule above.

@@ -95,8 +95,11 @@
         {% endif %}
 
         {% if stores %}
-        {# Usually one button: the route has already narrowed these to the reader's
-           own platform where the User-Agent said which. Both only when it did not. #}
+        {# One button on a phone: the route narrowed these to the reader's own platform
+           where the User-Agent said which. Both where it did not — mostly an iPad
+           asking for a desktop site, which gets the App Store button it came for and
+           learns from the one beside it that the other app exists. iOS first, since
+           that bucket is far more often an iPad than anything else. #}
         <div class="stores">
             {% if stores.ios %}
             <a class="store" href="{{ stores.ios }}">{{ t.get('add_store_ios', 'Get it on the App Store') }}</a>
