@@ -1,0 +1,13 @@
+{
+  // Same tools CI runs, so the editor and the pipeline agree. `shellcheck` is the
+  // one worth installing even if you never touch shell: it is gated in CI and the
+  // extension bundles the binary, which is otherwise not on most machines here.
+  "recommendations": [
+    "charliermarsh.ruff",
+    "astral-sh.ty",
+    "timonwong.shellcheck",
+    "ms-python.python",
+    "redhat.vscode-yaml",
+    "samuelcolvin.jinjahtml"
+  ]
+}

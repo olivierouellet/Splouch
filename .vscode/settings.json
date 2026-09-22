@@ -1,0 +1,30 @@
+{
+  // ── The important one ──────────────────────────────────────────────────────
+  // `ruff format` is deliberately not adopted here: it rewrites 58% of the lines,
+  // flattening the aligned assignments and hand-wrapped import blocks that make
+  // modules like `state` readable (see the comment in pyproject.toml). Format-on-
+  // save would do that silently on your first edit, so it is off for Python, and
+  // organize-imports — which would undo those same import blocks — is off with it.
+  // Lint on save is fine and encouraged; only the rewriting is disabled.
+  "[python]": {
+    "editor.formatOnSave": false,
+    "editor.codeActionsOnSave": {
+      "source.organizeImports": "never"
+    }
+  },
+  "ruff.organizeImports": false,
+
+  // `ty` is this project's type authority and runs in CI. Pylance left on its own
+  // defaults produces a second, differently-opinionated set of squiggles over the
+  // same code, which is noise — it keeps completion and navigation either way.
+  "python.analysis.typeCheckingMode": "off",
+
+  // The interpreter `.python-version` pins: Debian Trixie's 3.13, same as the Pi.
+  "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
+  "python.testing.pytestEnabled": true,
+  "python.testing.unittestEnabled": false,
+  "python.testing.pytestArgs": ["tests"],
+
+  "files.trimTrailingWhitespace": true,
+  "files.insertFinalNewline": true
+}

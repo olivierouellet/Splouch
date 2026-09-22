@@ -24,7 +24,12 @@ build/
 htmlcov/
 
 # Editor / IDE
-.vscode/
+# `.vscode/*`, not `.vscode/`: git cannot re-include a file whose parent directory is
+# excluded, so the trailing-slash form would make the two negations below silently do
+# nothing. Everything else in there — launch.json and friends, full of local paths —
+# stays ignored.
+.vscode/*
+!.vscode/extensions.json
 .idea/
 *.swp
 *.swo
@@ -37,7 +42,10 @@ cloud/.deploy.log
 
 # ...but the Claude Code sandbox policy is project config, not runtime data.
 # The bare `settings.json` rule above matches at any depth and would swallow it.
+# Same for the editor settings, which exist to stop `ruff format` running on save.
+# Both negations have to sit *after* that rule: last match wins.
 !.claude/settings.json
+!.vscode/settings.json
 
 # Deployment secrets. `cloud/.env` is generated on the server by install.sh and holds
 # SECRET_KEY, ADMIN_PASSWORD and DEPLOY_SECRET. It is untracked today only by luck —
