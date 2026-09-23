@@ -15,6 +15,7 @@ import state
 from console_decoders import CONSOLE_OPTIONS, console_info_for, load_custom_decoders, make_decoder
 from meet_data import send_event_info
 from meet_parsers.lenex_parser import load_lenex
+from routes.qr import invite as qr_invite
 from web import render, require_login, save_upload
 from worker import _restart_worker
 
@@ -524,10 +525,17 @@ def _settings_view(request, form):
     installed_ui = {c for c, _ in state.list_locales()}
     ui_lang_cookie = request.cookies.get('ui_lang', '')
     ui_lang_cookie = ui_lang_cookie if ui_lang_cookie in installed_ui else ''
+    # docs/app.md `P-16`: the Cloud tab offers the spectator QR code, and only
+    # once there is a cloud to point it at. Rendered from the same helper the
+    # download itself is built from, so the button cannot appear for a field the
+    # image route would then 404 on.
+    qr = qr_invite()
     return render(
         request,
         'settings.html',
         t=state.settings_strings(ui_lang),
+        qr_link=qr['link'],
+        qr_origin=qr['origin'],
         ui_locale=ui_lang,
         ui_lang_cookie=ui_lang_cookie,
         meet_file_list=meet_file_list,

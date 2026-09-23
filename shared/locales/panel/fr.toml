@@ -170,15 +170,12 @@ quick_live      = "Direct"
 quick_operator  = "Opérateur"
 quick_mobile    = "Mobile"
 quick_manual    = "Manuelle"
-quick_qr        = "Code QR"
 
-# Le code QR imprimable (docs/app.md `P-16`).
-qr_title        = "Code QR pour cette compétition"
-qr_sub          = "Imprimez-le et placez-le à la vue des spectateurs."
-qr_origin_label = "Les spectateurs accèdent à la compétition à"
-qr_hint         = "Tout le monde peut le scanner, sur n'importe quel réseau. Avec l'application Splouch installée, il ouvre l'application sur la liste des compétitions ; sans elle, une page web propose le téléchargement. Les spectateurs sur le wifi de la piscine peuvent ensuite choisir ce serveur dans la liste de l'application pour un chronomètre en direct."
-qr_print        = "Imprimer"
-qr_no_cloud     = "Aucun serveur infonuagique n'est configuré : il n'y a donc nulle part où envoyer les spectateurs. Renseignez d'abord l'URL du serveur dans l'onglet Infonuagique."
+# Le code QR pour les spectateurs, proposé dans l'onglet Infonuagique (docs/app.md `P-16`).
+qr_title        = "Code QR pour les spectateurs"
+qr_desc         = "Un code que les spectateurs peuvent scanner pour suivre la compétition sur leur téléphone. L'image est prête à imprimer et porte l'adresse en dessous."
+qr_download     = "Télécharger le code QR"
+qr_no_cloud     = "Renseignez l'URL du serveur ci-dessus pour obtenir un code QR à faire scanner."
 account_change_pw = "Changer le mot de passe"
 account_logout  = "Déconnexion"
 

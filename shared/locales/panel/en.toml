@@ -175,18 +175,16 @@ quick_live      = "Live"
 quick_operator  = "Operator"
 quick_mobile    = "Mobile"
 quick_manual    = "Manual"
-quick_qr        = "QR code"
 
-# The printable QR code (docs/app.md `P-16`). It carries the cloud this Pi
-# publishes to, not the Pi itself: a spectator scans it and lands on the meet list,
-# in the app if they have it and on the cloud's /add page — which offers the app —
-# if they do not.
-qr_title        = "QR code for this meet"
-qr_sub          = "Print this and put it where spectators can see it."
-qr_origin_label = "Spectators reach the meet at"
-qr_hint         = "Anyone can scan it, on any network. With the Splouch app installed it opens the app on the meet list; without it, a web page offers the download. Spectators on the pool's own wifi can then pick this server from the app's list for a live race clock."
-qr_print        = "Print"
-qr_no_cloud     = "No cloud server is configured, so there is nowhere to send spectators. Set the Server URL in the Cloud tab first."
+# The spectator QR code, offered in the Cloud tab (docs/app.md `P-16`). It carries
+# the cloud this Pi publishes to, not the Pi itself: a spectator scans it and lands
+# on the meet list, in the app if they have it and on the cloud's /add page — which
+# offers the app — if they do not. The address is drawn into the image, so the
+# downloaded file is a poster on its own.
+qr_title        = "QR code for spectators"
+qr_desc         = "A code spectators can scan to follow this meet on their phone. The image is print-ready and carries the address underneath."
+qr_download     = "Download QR code"
+qr_no_cloud     = "Set the Server URL above to get a QR code spectators can scan."
 account_change_pw = "Change password"
 account_logout  = "Sign out"
 

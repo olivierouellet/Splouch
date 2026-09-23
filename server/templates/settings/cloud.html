@@ -25,6 +25,26 @@
                         </div></div>
                     </form>
 
+                        {# docs/app.md `P-16` — the code that points spectators at this
+                           meet. In this tab because it is made *of* the field above: it
+                           carries the cloud URL, not this Pi's own `.local` address,
+                           which would resolve only for a phone already on the venue's
+                           wifi. Hidden rather than disabled while that field is empty —
+                           there is nothing to make a code of, and the line says which
+                           box to fill. #}
+                        <div class="card mb-3"><div class="card-body">
+                            <label class="form-label fw-bold mb-1">{{ t.qr_title }}</label>
+                            {% if qr_link %}
+                            <p class="small text-body-secondary mb-2">{{ t.qr_desc }}</p>
+                            <div class="d-flex align-items-center gap-2 flex-wrap">
+                                <a href="/qr.png" download class="btn btn-secondary btn-sm">{{ t.qr_download }}</a>
+                                <span class="small text-body-secondary font-monospace text-break">{{ qr_origin }}</span>
+                            </div>
+                            {% else %}
+                            <p class="small text-body-secondary mb-0">{{ t.qr_no_cloud }}</p>
+                            {% endif %}
+                        </div></div>
+
                         <!-- Attendance counts, pushed back from the cloud (analytics is opt-in there) -->
                         <div id="cloud-attendance-card" class="card mb-3" style="display:none;">
                             <div class="card-body">

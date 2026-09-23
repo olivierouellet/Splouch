@@ -240,9 +240,14 @@ where the user returns via `A-02`.
 >   anything unusual, and showing all of it means the reader gets the button they
 >   came for *and* learns the other app exists. Android tablets are not in the
 >   bucket: Chrome and Firefox both keep `Android` in a tablet's agent.
-> - **A printable code on the Pi**, for the operator putting one on a poster. It carries
->   the cloud that Pi publishes to — its **Cloud → Server URL**, which must therefore be
->   set — under the app's default host, per the rule above.
+> - **A downloadable code on the Pi**, for the operator putting one on a poster —
+>   Settings → Cloud, offered only once **Cloud → Server URL** is set, since that is
+>   what it carries (under the app's default host, per the rule above). It is a
+>   print-resolution image with **the address drawn into it**, not a page and not a
+>   bare code: a download carries no page around it, so a file that is only a symbol
+>   is a poster that fails outright the first time a camera will not focus on a wall
+>   — and it is also the only way anyone checks that the poster on the wall says the
+>   right thing.
 >
 > The number: `P-15` is claimed by the app ledgers and is not yet written here, so this
 > row is `P-16` and the gap is deliberate. **IDs are the join key — never renumber.**

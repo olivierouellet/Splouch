@@ -1,4 +1,4 @@
-"""`GET /qr` — the code an operator prints for the meet (`app.md` `P-16`).
+"""The QR code an operator downloads for a poster (`app.md` `P-16`).
 
 **The code names the cloud, not this Pi**, and that is the single property worth
 defending here, because the other answer is the tempting one. The useful server at
@@ -20,27 +20,30 @@ The second thing that falls out of naming a cloud: a cloud session's launch scre
 is the **meet list**, so the reader lands there rather than on a board — which is
 where `P-06`'s unofficial-results disclaimer is. A Pi session skips the picker
 (§0.2), so a code naming a Pi would have walked a first-time spectator straight
-past a **must**. The tests below pin both halves of that.
+past a **must**.
+
+**The file is the poster, not a picture of a code.** It is a download rather than a
+page, so whatever it does not carry is lost for good — which is why the address is
+drawn into the image and why the resolution is fixed to something printable rather
+than to whatever a screen wanted.
 """
+import io
 import os
-import re
 import sys
 
 import pytest
+from PIL import Image
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 for path in (REPO, os.path.join(REPO, 'server'), os.path.join(REPO, 'shared', 'py')):
     sys.path.insert(0, path)
 
-import splouch_links                       # noqa: E402
-import state                               # noqa: E402
-from routes.qr import invite, route_qr     # noqa: E402
-from starlette.requests import Request     # noqa: E402
+import splouch_links                                    # noqa: E402
+import state                                            # noqa: E402
+from routes.qr import invite, poster, route_qr_png      # noqa: E402
 
-from conftest import matched               # noqa: E402
-
-QR_TEMPLATE = os.path.join(REPO, 'server', 'templates', 'qr.html')
 QR_ROUTE = os.path.join(REPO, 'server', 'routes', 'qr.py')
+CLOUD_TAB = os.path.join(REPO, 'server', 'templates', 'settings', 'cloud.html')
 
 
 @pytest.fixture
@@ -52,21 +55,9 @@ def cloud(monkeypatch):
     return set_url
 
 
-def request_from(host='splouch.local:5000'):
-    """A request as the operator's browser made it — by name, or by raw IP."""
-    name, _, port = host.partition(':')
-    return Request({'type': 'http', 'http_version': '1.1', 'method': 'GET',
-                    'path': '/qr', 'raw_path': b'/qr', 'query_string': b'',
-                    'root_path': '', 'scheme': 'http',
-                    'headers': [(b'host', host.encode())],
-                    'client': ('192.168.1.22', 51110),
-                    'server': (name, int(port) if port else 80), 'app': None})
-
-
-def page(host='splouch.local:5000'):
-    response = route_qr(request_from(host))
-    assert response.status_code == 200
-    return response.body.decode()
+def image(link=None, origin=None):
+    data = invite()
+    return Image.open(io.BytesIO(poster(link or data['link'], origin or data['origin'])))
 
 
 # ── what the code carries ──────────────────────────────────────────────────────
@@ -77,26 +68,16 @@ def test_the_code_names_the_cloud_this_pi_publishes_to(cloud):
 
 
 def test_no_local_address_is_ever_minted(cloud, monkeypatch):
-    """The property this whole page turns on.
+    """The property this whole feature turns on.
 
     A `.local` name resolves only for a device already on the venue's wifi, and a
-    poster cannot ask. Whatever the Pi's own hostname is, and however the operator
-    reached this page, none of it may reach the code.
+    poster cannot ask. Whatever the Pi's own hostname is, none of it may reach the
+    code.
     """
     monkeypatch.setattr('socket.gethostname', lambda: 'splouch')
-    for host in ('192.168.1.22:5000', 'splouch.local:5000', 'localhost:5000'):
-        html = page(host)
-        assert '.local' not in html
-        assert '192.168.1.22' not in html
-
-
-def test_the_code_does_not_depend_on_how_the_page_was_reached(cloud):
-    """A poster minted from the address bar carries whatever the operator typed.
-
-    `invite()` takes no request at all, which is the structural version of this
-    test: there is no way for the browsing address to leak into the link.
-    """
-    assert page('192.168.1.22:5000') == page('splouch.local')
+    data = invite()
+    assert '.local' not in data['link']
+    assert data['origin'] == 'https://splouch.ca'
 
 
 def test_a_club_cloud_is_carried_under_the_apps_default_host(cloud):
@@ -118,72 +99,133 @@ def test_the_default_host_is_not_taken_from_the_pi_s_own_setting(cloud):
     assert 'scores.myclub.ca/add' not in invite()['link']
 
 
-# ── where the reader ends up ───────────────────────────────────────────────────
+def test_the_code_does_not_depend_on_how_the_panel_was_reached(cloud):
+    """`invite()` takes no request, which is the structural form of this test.
+
+    A poster minted from the operator's address bar would carry whatever they
+    happened to type, and there is no way for that to leak in if the function
+    cannot see it.
+    """
+    import inspect
+    assert not inspect.signature(invite).parameters
+
 
 def test_the_code_leads_to_a_meet_list_and_not_to_a_board(cloud):
     """`P-06`'s disclaimer lives on the picker, and a Pi session skips the picker.
 
     A cloud origin is what keeps the notice in the path of a spectator who arrived
-    by camera — the reader who has most likely never seen it. This asserts the
-    property that makes that true: the code names a `cloud` server, which every
-    client implementing `P-11` resolves to the meet list.
+    by camera — the reader who has most likely never seen it.
     """
     origin = invite()['origin']
     assert origin.startswith('https://')
     assert not splouch_links.is_local_name(origin.split('://', 1)[1].split(':')[0])
 
 
-# ── the page itself ────────────────────────────────────────────────────────────
+# ── the file is the poster ─────────────────────────────────────────────────────
 
-def test_the_page_prints_the_address_in_words_under_the_code(cloud):
-    """A code nobody can read is a code nobody can check against the poster."""
-    html = page()
-    assert matched(r'<div class="origin">(.*?)</div>', html, flags=re.S).strip() == \
-        'https://splouch.ca'
-    assert matched(r'<div class="link">(.*?)</div>', html, flags=re.S).strip() == \
-        invite()['link']
+def test_the_image_is_big_enough_to_print(cloud):
+    """~10 cm across at 300 dpi, the size a code wants to be read from a metre or two.
 
-
-def test_the_page_draws_a_scannable_code(cloud):
-    """Inline SVG, black on white, scaling to whatever the paper gives it."""
-    html = page()
-    assert '<svg' in html
-    assert 'viewBox' in matched(r'(<svg[^>]*>)', html)
-    assert '#000' in html and '#fff' in html
-
-
-def test_the_code_is_of_the_link_and_not_of_something_near_it(cloud):
-    """Decoding is not testable here, so pin the input segno was handed."""
-    import segno
-    expected = segno.make(invite()['link'], error='m').svg_inline(
-        svgclass=None, lineclass=None, omitsize=True, dark='#000000', light='#ffffff')
-    assert expected in page()
+    Checked as a physical size rather than a pixel count, because the pixel count
+    alone does not say how large anything prints.
+    """
+    sheet = image()
+    # PNG stores density as whole pixels per *metre*, so 300 dpi comes back as
+    # 299.9994 — the format cannot represent it exactly and the rounding is not
+    # a bug to chase.
+    dpi = sheet.info['dpi'][0]
+    assert round(dpi) == 300, 'without this a word processor lays it out at 96 dpi'
+    cm = sheet.width / dpi * 2.54
+    assert 9 <= cm <= 12, f'{cm:.1f} cm across'
 
 
-def test_no_cloud_configured_says_which_field_to_fill(cloud):
-    """With no cloud there is nowhere to send anyone, so there is no code.
+def test_a_longer_address_does_not_make_a_bigger_poster(cloud):
+    """The module count grows with the URL, so the scale is derived per symbol.
 
-    One reason and one message, because there is one field: a URL that will not
-    parse is the same answer as a missing one.
+    Left as a constant, a club with a long domain would get a physically larger
+    code than `splouch.ca` from the same button.
+    """
+    short = image()
+    cloud('https://scores.swimclub-montreal.ca')
+    long = image()
+    assert abs(short.width - long.width) < short.width * 0.1
+
+
+def test_the_address_is_drawn_under_the_code(cloud):
+    """A download carries no page around it, so what is not in the file is lost.
+
+    A code alone fails completely the moment a camera will not focus on a wall,
+    and it is also the only way anyone checks the poster says the right thing.
+    """
+    sheet = image()
+    assert sheet.height > sheet.width, 'no room was left under the code'
+    strip = sheet.crop((0, sheet.width, sheet.width, sheet.height)).convert('L')
+    assert strip.getextrema()[0] < 128, 'the space under the code is blank'
+
+
+def test_the_address_never_overflows_the_width(cloud):
+    """The type is fitted to the code, so a long club domain cannot run off the edge."""
+    cloud('https://scores.a-very-long-swimming-club-name-indeed.example.com')
+    sheet = image()
+    strip = sheet.crop((0, sheet.width, sheet.width, sheet.height)).convert('L')
+    edges = [strip.crop((0, 0, 4, strip.height)), strip.crop((strip.width - 4, 0, strip.width, strip.height))]
+    for edge in edges:
+        assert edge.getextrema()[0] > 200, 'ink is touching the edge of the sheet'
+
+
+def test_the_code_is_drawn_crisp_and_not_scaled_up(cloud):
+    """A QR is squares, and resampling softens the edges a camera looks for.
+
+    Pure black and white with nothing in between is what says no interpolation
+    happened on the way out.
+    """
+    code = image().crop((0, 0, image().width, image().width)).convert('L')
+    greys = [value for value, count in enumerate(code.histogram()) if count and 16 < value < 240]
+    assert not greys, f'intermediate greys in the code: {greys[:5]}'
+
+
+# ── the download ───────────────────────────────────────────────────────────────
+
+def test_the_download_is_a_png_attachment_named_for_the_server(cloud):
+    response = route_qr_png()
+    assert response.status_code == 200
+    assert response.media_type == 'image/png'
+    assert response.headers['content-disposition'] == \
+        'attachment; filename="splouch-qr-splouch.ca.png"'
+
+
+def test_no_cloud_configured_serves_no_image(cloud):
+    """Rather than a poster-shaped picture saying "not configured".
+
+    That is the one output worse than none, because it is the one that ends up on
+    a wall.
     """
     cloud('')
     assert invite()['link'] is None and invite()['reason'] == 'no_cloud'
-    html = page()
-    assert '<svg' not in html
-    assert 'Cloud tab' in matched(r'<div class="missing">(.*?)</div>', html, flags=re.S)
+    assert route_qr_png().status_code == 404
 
 
 def test_a_cloud_url_the_app_would_refuse_is_the_same_answer(cloud):
     """Cleartext to a public name: refused as a server, so refused as a code."""
     cloud('http://scores.example.com')
     assert invite()['reason'] == 'no_cloud'
+    assert route_qr_png().status_code == 404
 
 
-def test_the_page_is_reachable_from_the_admin_panel():
-    """`P-16` asks for it to be reachable, and an operator will not guess `/qr`."""
-    panel = open(os.path.join(REPO, 'server', 'templates', 'settings.html'),
-                 encoding='utf-8').read()
-    assert 'href="/qr"' in panel
+# ── where the operator finds it ────────────────────────────────────────────────
+
+def test_the_button_lives_with_the_field_it_is_made_of():
+    """The Cloud tab, because the code is built from the Server URL above it."""
+    tab = open(CLOUD_TAB, encoding='utf-8').read()
+    assert 'href="/qr.png" download' in tab
+    assert 'cloud_relay_url' in tab
+
+
+def test_the_button_is_hidden_rather_than_dead_without_a_cloud():
+    """And the line in its place names the field to fill."""
+    tab = open(CLOUD_TAB, encoding='utf-8').read()
+    assert '{% if qr_link %}' in tab
+    assert 't.qr_no_cloud' in tab
 
 
 def test_the_link_shape_is_the_shared_one():
@@ -192,10 +234,3 @@ def test_the_link_shape_is_the_shared_one():
     assert 'splouch_links' in source
     assert '/add?' not in source, 'the link is built by the shared helper, not here'
     assert splouch_links.INVITE_PATH == '/add'
-
-
-def test_the_printed_sheet_drops_the_screen_furniture():
-    """It is opened to be printed; the button and the hints are not the poster."""
-    css = matched(r'@media print \{(.*?)\n        \}',
-                  open(QR_TEMPLATE, encoding='utf-8').read(), flags=re.S)
-    assert '.print' in css and 'display: none' in css

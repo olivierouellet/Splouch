@@ -170,15 +170,12 @@ quick_live      = "Directo"
 quick_operator  = "Operador"
 quick_mobile    = "Móvil"
 quick_manual    = "Manual"
-quick_qr        = "Código QR"
 
-# El código QR imprimible (docs/app.md `P-16`).
-qr_title        = "Código QR de esta competición"
-qr_sub          = "Imprímelo y colócalo donde los espectadores puedan verlo."
-qr_origin_label = "Los espectadores llegan a la competición en"
-qr_hint         = "Cualquiera puede escanearlo, desde cualquier red. Con la aplicación Splouch instalada abre la aplicación en la lista de competiciones; sin ella, una página web ofrece la descarga. Los espectadores conectados al wifi de la piscina pueden luego elegir este servidor en la lista de la aplicación para ver el cronómetro en directo."
-qr_print        = "Imprimir"
-qr_no_cloud     = "No hay ningún servidor en la nube configurado, así que no hay adónde enviar a los espectadores. Indica primero la URL del servidor en la pestaña Nube."
+# El código QR para los espectadores, en la pestaña Nube (docs/app.md `P-16`).
+qr_title        = "Código QR para espectadores"
+qr_desc         = "Un código que los espectadores pueden escanear para seguir la competición en su teléfono. La imagen está lista para imprimir y lleva la dirección debajo."
+qr_download     = "Descargar el código QR"
+qr_no_cloud     = "Indica la URL del servidor arriba para obtener un código QR que escanear."
 account_change_pw = "Cambiar contraseña"
 account_logout  = "Cerrar sesión"
 
