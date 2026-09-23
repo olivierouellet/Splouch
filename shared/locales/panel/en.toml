@@ -181,10 +181,11 @@ quick_manual    = "Manual"
 # on the meet list, in the app if they have it and on the cloud's /add page — which
 # offers the app — if they do not. The address is drawn into the image, so the
 # downloaded file is a poster on its own.
-qr_title        = "QR code for spectators"
-qr_desc         = "A code spectators can scan to follow this meet on their phone. The image is print-ready and carries the address underneath."
-qr_download     = "Download QR code"
-qr_no_cloud     = "Set the Server URL above to get a QR code spectators can scan."
+qr_title         = "QR code for spectators"
+qr_desc          = "A code spectators can scan to follow this meet on their phone. Print-ready at about 10 cm across."
+qr_download      = "QR code with address"
+qr_download_bare = "QR code only"
+qr_no_cloud      = "Set the Server URL above to get a QR code spectators can scan."
 account_change_pw = "Change password"
 account_logout  = "Sign out"
 

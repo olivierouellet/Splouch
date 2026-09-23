@@ -172,10 +172,11 @@ quick_mobile    = "Móvil"
 quick_manual    = "Manual"
 
 # El código QR para los espectadores, en la pestaña Nube (docs/app.md `P-16`).
-qr_title        = "Código QR para espectadores"
-qr_desc         = "Un código que los espectadores pueden escanear para seguir la competición en su teléfono. La imagen está lista para imprimir y lleva la dirección debajo."
-qr_download     = "Descargar el código QR"
-qr_no_cloud     = "Indica la URL del servidor arriba para obtener un código QR que escanear."
+qr_title         = "Código QR para espectadores"
+qr_desc          = "Un código que los espectadores pueden escanear para seguir la competición en su teléfono. Listo para imprimir, unos 10 cm de lado."
+qr_download      = "Código QR con la dirección"
+qr_download_bare = "Solo el código QR"
+qr_no_cloud      = "Indica la URL del servidor arriba para obtener un código QR que escanear."
 account_change_pw = "Cambiar contraseña"
 account_logout  = "Cerrar sesión"
 

@@ -146,9 +146,14 @@ The same file also accepts `store_android`, `store_ios`, `android_package` and
 
 **The operator's side.** Each Pi can hand its operator a poster-ready code — Settings →
 **Cloud** → *Download QR code*. It carries **this cloud**, taken from the Pi's **Cloud →
-Server URL**, so that field must be filled before the button appears. The PNG is ~10 cm
-across at 300 dpi with the address printed underneath, so it drops straight into a poster
-or a programme.
+Server URL**, so that field must be filled before the buttons appear. Both PNGs are ~10 cm
+across at 300 dpi:
+
+- **QR code with address** — the address is printed under the code. Use this for anything
+  taped to a wall: it is the fallback when a camera will not focus, and the only way
+  anyone can check the poster says the right thing.
+- **QR code only** — the bare code, for a programme or a slide that already prints the
+  address itself.
 
 It deliberately does *not* carry the Pi's own `http://splouch.local:5000`. That address
 resolves only for a phone already joined to the venue's wifi — a spectator on cellular

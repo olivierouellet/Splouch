@@ -55,9 +55,9 @@ def cloud(monkeypatch):
     return set_url
 
 
-def image(link=None, origin=None):
+def image(address=True):
     data = invite()
-    return Image.open(io.BytesIO(poster(link or data['link'], origin or data['origin'])))
+    return Image.open(io.BytesIO(poster(data['link'], data['origin'] if address else None)))
 
 
 # ── what the code carries ──────────────────────────────────────────────────────
@@ -185,6 +185,48 @@ def test_the_code_is_drawn_crisp_and_not_scaled_up(cloud):
 
 
 # ── the download ───────────────────────────────────────────────────────────────
+
+def test_the_code_only_variant_is_the_code_and_nothing_else(cloud):
+    """For a layout that prints the address itself — a programme, a slide.
+
+    A second copy underneath would be a duplicate to keep in sync with whatever
+    the layout already says.
+    """
+    bare = image(address=False)
+    assert bare.width == bare.height, 'a text block was left under the code'
+    assert bare.width == image().width, 'the code itself changed size between the two'
+    assert round(bare.info['dpi'][0]) == 300, 'the bare one has to print at the same size'
+
+
+def test_the_variant_with_the_address_is_the_default(cloud):
+    """`P-16`: a code on a wall with no readable address has no fallback.
+
+    The default is what an operator gets by not thinking about it, so it is the
+    one that survives a camera that will not focus — and the one anyone can check
+    the poster against.
+    """
+    import inspect
+    assert inspect.signature(poster).parameters['origin'].default is None
+    assert inspect.signature(route_qr_png).parameters['address'].default is True
+    assert route_qr_png().body != route_qr_png(address=False).body
+
+
+def test_the_two_variants_are_told_apart_in_a_downloads_folder(cloud):
+    """They are made to be fetched side by side, and then found again later.
+
+    Two files called `splouch-qr.png` and `splouch-qr (1).png` would be a coin
+    toss at the point where it matters, which is after the operator has forgotten.
+    """
+    names = [route_qr_png(address=a).headers['content-disposition'] for a in (True, False)]
+    assert names[0] != names[1]
+    assert 'code-only' in names[1] and 'code-only' not in names[0]
+
+
+def test_the_panel_offers_both(cloud):
+    tab = open(CLOUD_TAB, encoding='utf-8').read()
+    assert 'href="/qr.png" download' in tab
+    assert 'href="/qr.png?address=0" download' in tab
+
 
 def test_the_download_is_a_png_attachment_named_for_the_server(cloud):
     response = route_qr_png()

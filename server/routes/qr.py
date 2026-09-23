@@ -90,8 +90,15 @@ def invite():
             'reason': '' if link else 'no_cloud'}
 
 
-def poster(link, origin):
+def poster(link, origin=None):
     """A print-resolution PNG of *link*, with *origin* written underneath.
+
+    *origin* may be ``None`` for the code alone. That version is for an operator
+    dropping the code into a layout they are already writing the address into —
+    a programme, a slide, a printed heat sheet — where a second copy underneath
+    would be a duplicate to keep in sync. The one with the address is the default
+    because a code taped to a wall on its own has no fallback for a camera that
+    will not focus, and no way for anyone to check the poster is the right one.
 
     `error='m'` — 15% recovery. A poster on a pool deck gets splashed, taped over
     a corner and photographed at an angle; `l` is the smallest code and the one
@@ -114,6 +121,10 @@ def poster(link, origin):
     buf.seek(0)
     drawn = Image.open(buf).convert('RGB')
     width, height = drawn.size
+    if not origin:
+        out = io.BytesIO()
+        drawn.save(out, format='PNG', dpi=(PRINT_DPI, PRINT_DPI))
+        return out.getvalue()
 
     # Fit the address to the code's width. Sized to fill rather than to a constant,
     # so a long club address and a short one read with the same weight instead of
@@ -141,19 +152,25 @@ def poster(link, origin):
 
 
 @router.get('/qr.png')
-def route_qr_png():
-    """The download itself. 404 when no cloud is configured.
+def route_qr_png(address: bool = True):
+    """The download itself. `?address=0` for the code without it.
 
-    A 404 rather than a placeholder image: the Settings panel already hides the
-    button in that case, so a request arriving here is a stale page or a typed
-    URL, and a poster-shaped image saying "not configured" is the one thing worse
-    than no file — it is the file that ends up on a wall.
+    404 when no cloud is configured, rather than a placeholder image: the Settings
+    panel already hides the buttons in that case, so a request arriving here is a
+    stale page or a typed URL, and a poster-shaped image saying "not configured"
+    is the one thing worse than no file — it is the file that ends up on a wall.
+
+    The two variants differ by filename as well as by content. They are made to be
+    downloaded side by side and then found again in a downloads folder, where two
+    files called `splouch-qr.png` and `splouch-qr (1).png` would be a coin toss.
     """
     data = invite()
     if not data['link']:
         return Response(status_code=404)
     host = (data['origin'] or '').split('://')[-1].replace(':', '-').replace('/', '-')
+    name = f'splouch-qr-{host}{"" if address else "-code-only"}.png'
     return Response(
-        content=poster(data['link'], data['origin']), media_type='image/png',
-        headers={'Content-Disposition': f'attachment; filename="splouch-qr-{host}.png"',
+        content=poster(data['link'], data['origin'] if address else None),
+        media_type='image/png',
+        headers={'Content-Disposition': f'attachment; filename="{name}"',
                  'Cache-Control': 'no-cache'})

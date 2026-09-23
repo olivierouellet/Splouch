@@ -37,7 +37,13 @@
                             {% if qr_link %}
                             <p class="small text-body-secondary mb-2">{{ t.qr_desc }}</p>
                             <div class="d-flex align-items-center gap-2 flex-wrap">
+                                {# The one carrying the address is first and is the plain
+                                   button: a code on a wall with no readable address has no
+                                   fallback for a camera that will not focus, and no way for
+                                   anyone to check the poster is the right one. The bare
+                                   code is for a layout that prints the address itself. #}
                                 <a href="/qr.png" download class="btn btn-secondary btn-sm">{{ t.qr_download }}</a>
+                                <a href="/qr.png?address=0" download class="btn btn-outline-secondary btn-sm">{{ t.qr_download_bare }}</a>
                                 <span class="small text-body-secondary font-monospace text-break">{{ qr_origin }}</span>
                             </div>
                             {% else %}
