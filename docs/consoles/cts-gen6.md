@@ -25,7 +25,7 @@ The CTS Gen6 outputs serial data on the 1/4" headphone jack. Tap it passively wi
 
 RS-232 — 9600 baud, 8-E-1 (8 data bits, even parity, 1 stop bit)
 
-Full protocol reference: [`console_decoders/cts_gen6_serial.md`](../../console_decoders/cts_gen6_serial.md)
+Full protocol reference: [`console_decoders/cts_gen6_serial.md`](../../server/console_decoders/cts_gen6_serial.md)
 
 ## Settings
 

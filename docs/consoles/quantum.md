@@ -23,7 +23,7 @@ RS-485 — 9600 baud, 8-N-1 (OSM6 format)
 
 > If no data is received, try switching to 7 data bits in the Timing settings — the official spec says 8, but some hardware variants use 7.
 
-Full protocol reference: [`console_decoders/swiss_timing_quantum_serial.md`](../../console_decoders/swiss_timing_quantum_serial.md)
+Full protocol reference: [`console_decoders/swiss_timing_quantum_serial.md`](../../server/console_decoders/swiss_timing_quantum_serial.md)
 
 ## Settings
 

@@ -17,7 +17,7 @@ Connect the DB9 cable to the **J6 Results Port** (preferred) or **J5 RTD Port** 
 
 RS-232 — 19 200 baud, 8-N-1
 
-Full protocol reference: [`console_decoders/omnisport_2000_serial.md`](../../console_decoders/omnisport_2000_serial.md)
+Full protocol reference: [`console_decoders/omnisport_2000_serial.md`](../../server/console_decoders/omnisport_2000_serial.md)
 
 ## Settings
 

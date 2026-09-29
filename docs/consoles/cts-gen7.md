@@ -16,7 +16,7 @@ Connect to the RS-485 port on the Gen7 console.
 
 RS-485 — 115 200 baud, 8-N-1
 
-Full protocol reference: [`console_decoders/cts_gen7_serial.md`](../../console_decoders/cts_gen7_serial.md)
+Full protocol reference: [`console_decoders/cts_gen7_serial.md`](../../server/console_decoders/cts_gen7_serial.md)
 
 ## Settings
 

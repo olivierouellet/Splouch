@@ -25,7 +25,7 @@ PC side (DB9 female)          Ares 21 side (DB9 male)
 
 RS-485 — 9600 baud, 8-N-1 (Venus ERTD scoreboard format)
 
-Full protocol reference: [`console_decoders/swiss_timing_ares21_serial.md`](../../console_decoders/swiss_timing_ares21_serial.md)
+Full protocol reference: [`console_decoders/swiss_timing_ares21_serial.md`](../../server/console_decoders/swiss_timing_ares21_serial.md)
 
 ## Settings
 

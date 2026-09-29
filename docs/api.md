@@ -31,7 +31,7 @@ is its own path. Every message — both directions — is a single JSON text fra
 - Reconnect is the client's responsibility (WebSockets don't auto-reconnect).
   Reconnect with capped backoff; on every (re)connect, a cloud attendee must
   re-send `join_meet` (see §3). The reference browser client is
-  [`static/js/ws.js`](../static/js/ws.js).
+  [`static/js/ws.js`](../shared/static/js/ws.js).
 
 There are **two servers** with distinct roles:
 
@@ -237,7 +237,7 @@ connects/disconnects), `update_scoreboard` (§5.1; the cloud throttles
 > re-fetches it on every reconnect, foreground and refresh (`app.md` `A-09`).
 
 ### `/ws/relay` (the Pi relay — not a spectator)
-Documented for completeness; implemented by [`relay.py`](../relay.py). The Pi is a
+Documented for completeness; implemented by [`relay.py`](../server/relay.py). The Pi is a
 *producer*: it registers once, then forwards the same events it broadcasts locally.
 
 **Client (relay) → server:** `register` (metadata §5.4), then `update_scoreboard`,
