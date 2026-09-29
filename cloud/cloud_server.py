@@ -162,16 +162,18 @@ def _pref(request, name, valid):
 
 
 def _remember_prefs(request, response):
-    """Turn a valid `?lang=` / `?style=` on this request into the device cookie."""
-    for name, valid in (
-        ("lang", {c for c, _ in _available_locales()}),
-        ("style", ("short", "long")),
+    """Turn a valid `?lang=` on this request into the device cookie.
+
+    Not `?style=`: the cloud's pages are always short (`_client_style`), so there
+    is no choice to remember.
+    """
+    value = request.query_params.get("lang", "")
+    if value in {c for c, _ in _available_locales()} and value != request.cookies.get(
+        PREF_COOKIES["lang"]
     ):
-        value = request.query_params.get(name, "")
-        if value in valid and value != request.cookies.get(PREF_COOKIES[name]):
-            response.set_cookie(
-                PREF_COOKIES[name], value, max_age=PREF_MAX_AGE, samesite="lax"
-            )
+        response.set_cookie(
+            PREF_COOKIES["lang"], value, max_age=PREF_MAX_AGE, samesite="lax"
+        )
     return response
 
 
@@ -207,10 +209,10 @@ def _client_labels(meet, lang, style):
 
 
 def _client_style(request, meet):
-    """`short` or `long` — the visitor's pick, else the operator's (`T-09`)."""
-    return _pref(request, "style", ("short", "long")) or meet.get("settings", {}).get(
-        "label_style", "short"
-    )
+    """Always `short` (`T-09`): the picker offers no label control, and a stale
+    `splouch_style` cookie or `?style=` link is ignored rather than cleared, so a
+    control that comes back finds each visitor's choice where they left it."""
+    return "short"
 
 
 def _etagged(request, payload):

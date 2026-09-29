@@ -171,10 +171,6 @@
         {% for code, name in locales %}
         <button type="button" class="prefs-opt" data-pref="lang" data-value="{{ code }}">{{ name }}</button>
         {% endfor %}
-        <div class="prefs-group">{{ t.prefs_labels or 'Column labels' }}</div>
-        <button type="button" class="prefs-opt" data-pref="style" data-value="">{{ t.prefs_auto or 'Meet default' }}</button>
-        <button type="button" class="prefs-opt" data-pref="style" data-value="short">{{ t.prefs_short or 'Short' }}</button>
-        <button type="button" class="prefs-opt" data-pref="style" data-value="long">{{ t.prefs_long or 'Long' }}</button>
     </div>
 
     <div id="ptr-edge"></div>
@@ -302,15 +298,16 @@ function meetMatches(key, query) {
 })();
 
 /* ── Display preferences ──────────────────────────────────────────────────────
-   Two cookies per device, read by the server for every page it renders, so the
+   A cookie per device, read by the server for every page it renders, so the
    meet cards below stay plain links and a bookmark opens right without a
-   parameter (docs/app.md `T-08`, `T-09`). A preference, not tracking: nothing
-   here identifies the visitor.
+   parameter (docs/app.md `T-08`). A preference, not tracking: nothing here
+   identifies the visitor. Column labels are not offered: the cloud's meet pages
+   are always short (`T-09`).
 
    Empty means "no choice": the picker keeps following the browser, and a meet page
    keeps following the meet. That is the default, and clearing is how you get back
    to it. */
-var PREFS = { lang: 'splouch_lang', style: 'splouch_style' };
+var PREFS = { lang: 'splouch_lang' };
 
 function readPref(name) {
     var m = document.cookie.match('(?:^|; )' + PREFS[name] + '=([^;]*)');
@@ -346,13 +343,10 @@ document.querySelectorAll('.prefs-opt').forEach(function (b) {
         markPrefs();
         /* This page is rendered server-side, so a language change is a reload: the
            server reads the cookie just written. A stale `?lang=` on the URL would
-           outrank it, so drop it. A style change alters nothing here — the picker
-           has no columns — so it is stored and left for the meet pages. */
-        if (b.dataset.pref === 'lang') {
-            var url = new URL(location.href);
-            url.searchParams.delete('lang');
-            location.assign(url.toString());
-        }
+           outrank it, so drop it. */
+        var url = new URL(location.href);
+        url.searchParams.delete('lang');
+        location.assign(url.toString());
     });
 });
 markPrefs();

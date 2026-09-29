@@ -208,53 +208,54 @@ def _pref(request: HasClientPrefs, name, valid):
 
 
 def client_prefs(request: HasClientPrefs):
-    """The visitor's language and label style for a phone page, else this meet's.
+    """The visitor's language for a phone page, else this meet's, and the style.
 
     Unknown values fall back rather than erroring — a stale bookmark or a cookie
     for a language this server no longer ships must not break the board
-    (docs/app.md `T-06`, `T-08`, `T-09`).
+    (docs/app.md `T-06`, `T-08`).
+
+    The style is always short (`T-09`), whatever the kiosk's `label_style`: that
+    setting is for the operator's board, not a phone. A `splouch_style` cookie or
+    `?style=` link is ignored rather than cleared, so a control that comes back
+    finds each visitor's choice where they left it.
     """
     lang = _pref(
         request, "lang", dict(state.available_locales())
     ) or state.settings.get("locale", "en")
-    style = _pref(request, "style", ("short", "long")) or state.settings.get(
-        "label_style", "long"
-    )
-    return lang, style
+    return lang, "short"
 
 
 def remember_prefs(request: Request, response):
-    """Turn a valid `?lang=` / `?style=` on this request into the device cookie.
+    """Turn a valid `?lang=` on this request into the device cookie.
 
     Called by the shell, the one page a shared link lands on: after it, the tabs
-    and every later visit read the cookie and the URL carries nothing.
+    and every later visit read the cookie and the URL carries nothing. Not
+    `?style=`: phone pages are always short (`client_prefs`), so there is no
+    choice to remember.
     """
-    for name, valid in (
-        ("lang", dict(state.available_locales())),
-        ("style", ("short", "long")),
+    value = request.query_params.get("lang", "")
+    if value in dict(state.available_locales()) and value != request.cookies.get(
+        PREF_COOKIES["lang"]
     ):
-        value = request.query_params.get(name, "")
-        if value in valid and value != request.cookies.get(PREF_COOKIES[name]):
-            response.set_cookie(
-                PREF_COOKIES[name], value, max_age=PREF_MAX_AGE, samesite="lax"
-            )
+        response.set_cookie(
+            PREF_COOKIES["lang"], value, max_age=PREF_MAX_AGE, samesite="lax"
+        )
     return response
 
 
 def client_strings(request: HasClientPrefs):
     """`t`, `labels`, `lang` and `ui_style` for a phone page, honouring `client_prefs`.
 
-    With no choice made these are exactly what `_globals()` and `_mobile_strings()`
-    produce today. With one, they come from the same bundle `GET /i18n/{lang}`
-    serves — this Pi's custom wording included, since it reads the files directly.
+    With no language chosen these are what `_mobile_strings()` produces, with the
+    labels in the short style. With one, they come from the same bundle
+    `GET /i18n/{lang}` serves — this Pi's custom wording included, since it reads
+    the files directly.
     """
     lang, style = client_prefs(request)
-    default_lang = state.settings.get("locale", "en")
-    default_style = state.settings.get("label_style", "long")
-    if lang == default_lang and style == default_style:
+    if lang == state.settings.get("locale", "en"):
         return {
             "t": state._mobile_strings(),
-            "labels": state.load_locale(),
+            "labels": state.load_locale(style=style),
             "event_vocab": state.load_event_translations(),
             "lang": lang,
             "ui_style": style,

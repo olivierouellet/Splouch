@@ -771,11 +771,12 @@ of its own.
 > **`T-08` — one choice, stored per device, set where every meet is in view.** The
 > natural home is the meet picker, which already resolves the visitor's language
 > rather than a meet's ([`api.md`](api.md) §5.7): set once, every meet opened
-> afterwards follows. On the web the choice is two cookies, `splouch_lang` and
-> `splouch_style`, written by the picker and read by the server for every page it
-> renders; `?lang=` / `?style=` on a link win for that one request so a shared link
-> opens as sent, and the shell writes them to the cookie. An app stores the choice
-> itself and sends `lang` on the request; it has no cookie to keep.
+> afterwards follows. On the web the choice is a cookie, `splouch_lang`, written by
+> the picker and read by the server for every page it renders; `?lang=` on a link
+> wins for that one request so a shared link opens as sent, and the shell writes it
+> to the cookie. Neither server reads `splouch_style` / `?style=` any more (`T-09`).
+> An app stores the choice itself and sends `lang` on the request; it has no cookie
+> to keep.
 >
 > **The picker is cloud-only.** The Pi serves the shell and the tabs but has no
 > picker (§0.2), so a picker-only control leaves its phone pages following the
@@ -810,6 +811,13 @@ of its own.
 > `prefs_labels`, `prefs_short` and `prefs_long` stay served and stay in `T-10`'s
 > snapshot, and `settings.label_style` stays in the config whether or not a client
 > consults it.
+>
+> **The web has withdrawn it, and its phone pages are fixed at short.** The picker
+> offers no label control, and both the cloud and the Pi resolve every phone page's
+> headers short — whatever the operator's `label_style` (the cloud's) or the kiosk's
+> `label_style` (the Pi's), a `?style=` link or a `splouch_style` cookie says. The
+> cookie is ignored rather than cleared, as above, so a control that returns finds
+> each visitor's choice.
 
 > **`T-10` — fetch, but never depend on the fetch.** Ship a snapshot of the strings and
 > treat the endpoint as a refresh: read the cache, draw, revalidate in the background,

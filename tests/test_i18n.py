@@ -356,7 +356,7 @@ def test_a_changed_string_changes_the_etag():
 # ── The visitor's choice, per device ──────────────────────────────────────────
 #
 # The choice is two cookies (`T-08`): the picker writes them, every page reads them,
-# and the URL carries nothing. `?lang=` / `?style=` still win for one request so a
+# and the URL carries nothing. `?lang=` still wins for one request so a
 # shared link opens as sent, and the shell turns that into the cookie. What matters
 # is that *no* choice is byte-for-byte what the operator configured — the override
 # must not quietly restyle every board.
@@ -406,12 +406,18 @@ def test_choosing_a_style_or_language_reads_the_served_table():
 def test_a_stale_link_falls_back_instead_of_breaking_the_board():
     assert cs._client_lang(_Q(lang="de"), _MEET) == "fr"
     assert cs._client_lang(_Q(lang="../en"), _MEET) == "fr"
-    assert cs._client_style(_Q(style="tiny"), _MEET) == "short"
 
 
 def test_the_choice_is_honoured_when_it_is_available():
     assert cs._client_lang(_Q(lang="es"), _MEET) == "es"
-    assert cs._client_style(_Q(style="long"), _MEET) == "long"
+
+
+def test_the_cloud_is_always_short():
+    """The picker offers no label control (`T-09`): neither a leftover cookie, a
+    `?style=` link nor an operator's long style changes the cloud's headers."""
+    long_meet = {"settings": dict(_MEET["settings"], label_style="long")}
+    for req in (_Q(style="long"), _Q({"splouch_style": "long"}), _Q()):
+        assert cs._client_style(req, long_meet) == "short"
 
 
 def test_the_cookie_is_the_choice_and_the_url_is_a_one_shot_override():
@@ -419,9 +425,7 @@ def test_the_cookie_is_the_choice_and_the_url_is_a_one_shot_override():
     `?lang=` opens as its sender saw it, that once."""
     cookies = {"splouch_lang": "es", "splouch_style": "long"}
     assert cs._client_lang(_Q(cookies), _MEET) == "es"
-    assert cs._client_style(_Q(cookies), _MEET) == "long"
     assert cs._client_lang(_Q(cookies, lang="en"), _MEET) == "en"
-    assert cs._client_style(_Q(cookies, style="short"), _MEET) == "short"
     # A cookie for a language this server no longer ships reads as no choice.
     assert cs._client_lang(_Q({"splouch_lang": "de"}), _MEET) == "fr"
 
@@ -445,7 +449,8 @@ def test_the_shell_turns_a_link_parameter_into_the_cookie(remember):
     """After the shell, the tabs and every later visit need no parameter at all."""
     resp = remember(_Q(lang="es", style="long"), _Resp())
     assert resp.cookies["splouch_lang"][0] == "es"
-    assert resp.cookies["splouch_style"][0] == "long"
+    # Phone pages are always short, so there is no style to remember.
+    assert "splouch_style" not in resp.cookies
     assert resp.cookies["splouch_lang"][1]["max_age"] >= 30 * 24 * 3600
     # Nothing valid on the URL, nothing written — and nothing rewritten needlessly.
     assert remember(_Q(lang="de"), _Resp()).cookies == {}
@@ -457,24 +462,26 @@ def test_both_servers_name_the_cookies_the_same():
     assert cs.PREF_COOKIES == web.PREF_COOKIES
 
 
-def test_the_pi_serves_its_own_settings_when_nothing_is_chosen(monkeypatch):
-    """Same rule on the Pi, against its settings rather than a meet's."""
+def test_the_pi_serves_its_own_language_short_when_nothing_is_chosen(monkeypatch):
+    """Same rule on the Pi, against its settings rather than a meet's — except the
+    style: the kiosk's long `label_style` is for the operator's board, not a phone."""
     monkeypatch.setitem(state.settings, "locale", "en")
     monkeypatch.setitem(state.settings, "label_style", "long")
     ctx = web.client_strings(_Q())
-    assert (ctx["lang"], ctx["ui_style"]) == ("en", "long")
-    assert ctx["labels"] == state.load_locale()
+    assert (ctx["lang"], ctx["ui_style"]) == ("en", "short")
+    assert ctx["labels"] == state.load_locale(style="short")
+    assert ctx["labels"]["event"] == "EV"
     assert ctx["t"] == state._mobile_strings()
 
 
-def test_the_pi_honours_a_choice_and_hands_the_style_to_the_template(monkeypatch):
+def test_the_pi_honours_a_language_and_hands_the_style_to_the_template(monkeypatch):
     """`ui_style` is what the shell stamps on its tab URLs, so it has to come back
-    out of here even when it equals the default."""
+    out of here — short, whatever a leftover cookie or link asks for."""
     monkeypatch.setitem(state.settings, "locale", "en")
     monkeypatch.setitem(state.settings, "label_style", "long")
     for req in (
-        _Q(lang="fr", style="short"),
-        _Q({"splouch_lang": "fr", "splouch_style": "short"}),
+        _Q(lang="fr", style="long"),
+        _Q({"splouch_lang": "fr", "splouch_style": "long"}),
     ):
         ctx = web.client_strings(req)
         assert ctx["lang"] == "fr" and ctx["ui_style"] == "short"

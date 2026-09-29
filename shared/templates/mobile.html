@@ -33,9 +33,9 @@
     <link rel="manifest" href="/manifest.json">
     {% endif %}
     <title>{{ app_title }}</title>
-    {# The visitor's language and label style are cookies (`splouch_lang`,
-       `splouch_style`, app.md `T-08`), so the server resolved them before rendering
-       this page and nothing has to be restored client-side. #}
+    {# The visitor's language is a cookie (`splouch_lang`, app.md `T-08`) and the
+       label style is always short (`T-09`), so the server resolved both before
+       rendering this page and nothing has to be restored client-side. #}
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         html, body { width: 100%; height: 100%; overflow: hidden; background: #000; }
