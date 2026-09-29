@@ -36,8 +36,8 @@ jobs:
       # one on the pool deck.
       UV_PYTHON_DOWNLOADS: never
       UV_PYTHON_PREFERENCE: only-system
-      # Every `uv run` would otherwise re-sync the default groups first — lint
-      # included — and undo the install step's --no-group lint.
+      # The install step decides what is in the environment; `uv run` must not
+      # re-sync it behind that step's back.
       UV_NO_SYNC: "1"
     steps:
       - name: Install system packages
@@ -76,9 +76,11 @@ jobs:
       - name: Install dependencies
         # --frozen: uv.lock decides, nothing resolves fresh. It also pins ruff and a
         # pre-1.0 ty, so neither can turn this red overnight by releasing.
-        # --no-group lint: the non-Python linters run in the lint job, and three of
-        # them have no aarch64 wheel (pyproject.toml).
-        run: uv sync --extra scoreboard --frozen --no-group lint
+        # Default groups, as a Pi's own update resolves them (install.sh and the
+        # update routes run a plain `uv sync`): a default group that cannot install
+        # on aarch64 fails here, not on the pool deck. The lint group is opt-in for
+        # that reason — three of its tools have no aarch64 wheel.
+        run: uv sync --extra scoreboard --frozen
 
       - name: Check Qt is really here
         # The guard that makes green mean green. Every Qt test module skips at module

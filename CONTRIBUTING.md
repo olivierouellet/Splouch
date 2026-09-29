@@ -22,10 +22,14 @@ By participating you agree to the [Code of Conduct](CODE_OF_CONDUCT.md).
 ## Setup
 
 ```bash
-uv sync --extra scoreboard               # everything, PySide6 included
+uv sync --extra scoreboard --group lint  # everything: PySide6, and the linters below
 npm ci                                   # Biome and TypeScript, for JS/CSS — dev only, never on a Pi
 cd server && uv run python app.py        # http://localhost:5000
 ```
+
+The `lint` group is opt-in, and a plain `uv sync` removes it again, so keep the
+flag. It is never installed by default because every Pi updates with a plain
+`uv sync`, and three of the linters cannot be installed on a Pi.
 
 Sync the `scoreboard` extra even if you never touch the kiosk. The extra is optional for
 *deploying* — the server Pi and the cloud VM never pull 341 MB of Qt — but not for

@@ -36,10 +36,11 @@ scoreboard = ["pyside6-essentials>=6.5"]
 
 [dependency-groups]
 dev = ["diff-cover", "pytest", "pytest-cov", "ruff", "ty"]
-# Non-Python linters, pinned by uv.lock like the rest. A group of their own because
-# three have no Linux aarch64 wheel — Taplo's source build is broken outright — and
-# the test job runs on aarch64 to match the Pi. It passes `--no-group lint`; CI's
-# x86 `lint` job installs this group alone.
+# Non-Python linters, pinned by uv.lock like the rest. Opt-in — `uv sync --group
+# lint` — and never a default group: three have no Linux aarch64 wheel (Taplo's
+# source build is broken outright), and every Pi updates with a plain `uv sync`,
+# run by the code it already has. A default group here breaks every Pi's update.
+# CI's x86 `lint` job installs this group alone.
 lint = [
     "actionlint-py",    # .github/workflows/
     "check-jsonschema", # issue forms, Dependabot and compose, against SchemaStore
@@ -52,9 +53,6 @@ lint = [
     "zizmor",           # workflow security, run --offline
 ]
 
-# Both groups for a plain `uv sync`, so every command in CONTRIBUTING works locally.
-[tool.uv]
-default-groups = ["dev", "lint"]
 
 [tool.pytest.ini_options]
 # Every import root, so no test needs `sys.path` surgery of its own. The same
