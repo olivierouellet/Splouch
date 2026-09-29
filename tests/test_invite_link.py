@@ -23,56 +23,64 @@ What a server *mints* is narrower than what this module will parse, and that rul
 is tested where it is enforced — see `test_pi_qr_code.py`. `parse_origin` mirrors
 the client, which accepts a `.local` address however it arrives.
 """
+
 import os
 import sys
 
 import pytest
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, os.path.join(REPO, 'shared', 'py'))
+sys.path.insert(0, os.path.join(REPO, "shared", "py"))
 
-import splouch_links as links   # noqa: E402
+import splouch_links as links  # noqa: E402
 
-CLOUD = 'https://splouch.ca'
+CLOUD = "https://splouch.ca"
 
 
 def test_the_link_is_the_shape_the_app_was_built_against():
     """The one example in `parity.md` `P-16`, byte for byte."""
-    assert links.invite_link(CLOUD, 'http://poolpi.local:5000') == \
-        'https://splouch.ca/add?server=http%3A%2F%2Fpoolpi.local%3A5000'
+    assert (
+        links.invite_link(CLOUD, "http://poolpi.local:5000")
+        == "https://splouch.ca/add?server=http%3A%2F%2Fpoolpi.local%3A5000"
+    )
 
 
 def test_the_origin_is_escaped_and_not_merely_quoted():
     """`safe=''`: a bare `/` in the value would be a second path to a naive reader."""
-    link = links.invite_link(CLOUD, 'http://poolpi.local:5000')
-    assert '://' not in link.split('?', 1)[1]
-    assert link.count('/') == 3, 'the only slashes left are the cloud origin and /add'
+    link = links.invite_link(CLOUD, "http://poolpi.local:5000")
+    assert "://" not in link.split("?", 1)[1]
+    assert link.count("/") == 3, "the only slashes left are the cloud origin and /add"
 
 
 def test_the_path_is_exactly_add():
     """`pathPrefix` in the manifest would also swallow `/address` and friends."""
-    assert links.INVITE_PATH == '/add'
-    assert links.INVITE_PARAM == 'server'
+    assert links.INVITE_PATH == "/add"
+    assert links.INVITE_PARAM == "server"
 
 
-@pytest.mark.parametrize('origin', [
-    'http://poolpi.local:5000',      # the pool's Pi, by the name mDNS publishes
-    'http://splouch.local',          # an installed Pi answers on 80, port dropped
-    'https://scores.example.com',    # another cloud
-    'http://localhost:5055',         # the developer loopbacks
-    'http://10.0.2.2:5056',
-])
+@pytest.mark.parametrize(
+    "origin",
+    [
+        "http://poolpi.local:5000",  # the pool's Pi, by the name mDNS publishes
+        "http://splouch.local",  # an installed Pi answers on 80, port dropped
+        "https://scores.example.com",  # another cloud
+        "http://localhost:5055",  # the developer loopbacks
+        "http://10.0.2.2:5056",
+    ],
+)
 def test_an_address_a_client_would_accept_round_trips(origin):
     assert links.parse_origin(origin) == origin
-    assert links.invite_link(CLOUD, origin).endswith(
-        links.quote(origin, safe=''))
+    assert links.invite_link(CLOUD, origin).endswith(links.quote(origin, safe=""))
 
 
-@pytest.mark.parametrize('origin', [
-    'http://192.168.1.10:5000',   # the whole point of P-12: a raw IP is refused
-    'http://10.0.0.5',
-    'http://splouch.ca',          # cleartext to a public name
-])
+@pytest.mark.parametrize(
+    "origin",
+    [
+        "http://192.168.1.10:5000",  # the whole point of P-12: a raw IP is refused
+        "http://10.0.0.5",
+        "http://splouch.ca",  # cleartext to a public name
+    ],
+)
 def test_cleartext_off_the_local_network_mints_nothing(origin):
     """A code that scans into "cannot add this server" is worse than no code.
 
@@ -84,15 +92,20 @@ def test_cleartext_off_the_local_network_mints_nothing(origin):
     assert links.invite_link(CLOUD, origin) is None
 
 
-@pytest.mark.parametrize('text', [
-    '', '   ', 'not a url',
-    'https://<script>alert(1)</script>',   # urlsplit hands this back as a "host"
-    'http://a b.local',
-    'http://-nope-.local',
-    'http://user:pw@splouch.local',        # userinfo, which the client refuses
-    'http://splouch.local:notaport',
-    'http://splouch.local:99999',
-])
+@pytest.mark.parametrize(
+    "text",
+    [
+        "",
+        "   ",
+        "not a url",
+        "https://<script>alert(1)</script>",  # urlsplit hands this back as a "host"
+        "http://a b.local",
+        "http://-nope-.local",
+        "http://user:pw@splouch.local",  # userinfo, which the client refuses
+        "http://splouch.local:notaport",
+        "http://splouch.local:99999",
+    ],
+)
 def test_a_host_a_stricter_parser_would_reject_is_rejected_here(text):
     """`urlsplit` is far laxer than the `java.net.URI` on the other side.
 
@@ -105,20 +118,23 @@ def test_a_host_a_stricter_parser_would_reject_is_rejected_here(text):
 
 def test_two_spellings_of_one_server_are_one_string():
     """The key a `vid` is stored under (`C-10`), so normalisation is not cosmetic."""
-    same = {links.parse_origin(t) for t in (
-        'https://splouch.ca', 'https://SPLOUCH.CA/', 'https://splouch.ca:443')}
-    assert same == {'https://splouch.ca'}
+    same = {
+        links.parse_origin(t)
+        for t in ("https://splouch.ca", "https://SPLOUCH.CA/", "https://splouch.ca:443")
+    }
+    assert same == {"https://splouch.ca"}
 
 
 def test_the_cloud_host_is_normalised_too():
     """An operator's trailing slash must not change the code from one boot to the next."""
-    assert links.invite_link('https://splouch.ca/', 'http://poolpi.local') == \
-           links.invite_link('https://splouch.ca:443', 'http://poolpi.local')
+    assert links.invite_link(
+        "https://splouch.ca/", "http://poolpi.local"
+    ) == links.invite_link("https://splouch.ca:443", "http://poolpi.local")
 
 
 def test_a_half_configured_server_mints_nothing():
-    assert links.invite_link('', 'http://poolpi.local') is None
-    assert links.invite_link(CLOUD, '') is None
+    assert links.invite_link("", "http://poolpi.local") is None
+    assert links.invite_link(CLOUD, "") is None
 
 
 def test_the_apps_default_server_is_the_only_authority_a_link_may_carry():

@@ -38,6 +38,7 @@ only way anyone checks that the poster on the wall is the right one. Drawing it 
 is what lets this be a download rather than a page: the operator drops one file
 into whatever they are making and nothing is lost on the way.
 """
+
 import io
 import os
 
@@ -50,13 +51,13 @@ import paths
 import splouch_links
 import state
 
-router = APIRouter(tags=['Invite'])
+router = APIRouter(tags=["Invite"])
 
 # Monospace, the same choice the admin panel makes for an address: a host is read
 # character by character, and `l`/`1` and `0`/`O` are the characters an operator
 # will be asked about over the phone. Bundled rather than a system face, so the
 # file a Pi produces does not depend on what the Pi happens to have installed.
-FONT_FILE = 'RobotoMono[wght].ttf'
+FONT_FILE = "RobotoMono[wght].ttf"
 
 # Across the code, in pixels. 1200 px is ~10 cm at 300 dpi, which is the size a
 # code wants on a poster to be read from one or two metres. The PNG carries that
@@ -67,7 +68,7 @@ PRINT_DPI = 300
 
 
 def _font_path():
-    return os.path.join(paths.STATIC_DIR, 'fonts', FONT_FILE)
+    return os.path.join(paths.STATIC_DIR, "fonts", FONT_FILE)
 
 
 def invite():
@@ -80,14 +81,22 @@ def invite():
     which is the point. A poster minted from the operator's address bar would
     carry whatever they happened to type.
     """
-    cloud = (state.settings.get('cloud_relay_url') or '').strip()
+    cloud = (state.settings.get("cloud_relay_url") or "").strip()
     origin = splouch_links.parse_origin(cloud)
-    link = splouch_links.invite_link(splouch_links.DEFAULT_APP_SERVER, origin) if origin else None
+    link = (
+        splouch_links.invite_link(splouch_links.DEFAULT_APP_SERVER, origin)
+        if origin
+        else None
+    )
     # One reason, because there is one field. A cloud URL that will not parse —
     # cleartext to a public name, most likely — is the same answer as a missing
     # one: the fix is the same box in Settings → Cloud.
-    return {'link': link, 'origin': origin, 'cloud': cloud,
-            'reason': '' if link else 'no_cloud'}
+    return {
+        "link": link,
+        "origin": origin,
+        "cloud": cloud,
+        "reason": "" if link else "no_cloud",
+    }
 
 
 def poster(link, origin=None):
@@ -112,18 +121,18 @@ def poster(link, origin=None):
     size whichever cloud is named, instead of making a club's longer address
     produce a bigger poster.
     """
-    code = segno.make(link, error='m')
+    code = segno.make(link, error="m")
     # `symbol_size` counts the quiet zone, so the border is already in the width
     # every measurement below is taken from.
     modules = code.symbol_size(border=4)[0]
     buf = io.BytesIO()
-    code.save(buf, kind='png', scale=max(1, round(TARGET_PX / modules)), border=4)
+    code.save(buf, kind="png", scale=max(1, round(TARGET_PX / modules)), border=4)
     buf.seek(0)
-    drawn = Image.open(buf).convert('RGB')
+    drawn = Image.open(buf).convert("RGB")
     width, height = drawn.size
     if not origin:
         out = io.BytesIO()
-        drawn.save(out, format='PNG', dpi=(PRINT_DPI, PRINT_DPI))
+        drawn.save(out, format="PNG", dpi=(PRINT_DPI, PRINT_DPI))
         return out.getvalue()
 
     # Fit the address to the code's width. Sized to fill rather than to a constant,
@@ -141,17 +150,21 @@ def poster(link, origin=None):
     left, top, right, bottom = font.getbbox(origin)
     pad = int(size * 0.55)
 
-    sheet = Image.new('RGB', (width, round(height + (bottom - top) + pad * 2)), 'white')
+    sheet = Image.new("RGB", (width, round(height + (bottom - top) + pad * 2)), "white")
     sheet.paste(drawn, (0, 0))
     # `- top` because getbbox measures from the baseline origin, not the glyph top.
-    ImageDraw.Draw(sheet).text(((width - (right - left)) / 2, height + pad - top),
-                               origin, font=font, fill='black')
+    ImageDraw.Draw(sheet).text(
+        ((width - (right - left)) / 2, height + pad - top),
+        origin,
+        font=font,
+        fill="black",
+    )
     out = io.BytesIO()
-    sheet.save(out, format='PNG', dpi=(PRINT_DPI, PRINT_DPI))
+    sheet.save(out, format="PNG", dpi=(PRINT_DPI, PRINT_DPI))
     return out.getvalue()
 
 
-@router.get('/qr.png')
+@router.get("/qr.png")
 def route_qr_png(address: bool = True):
     """The download itself. `?address=0` for the code without it.
 
@@ -165,12 +178,15 @@ def route_qr_png(address: bool = True):
     files called `splouch-qr.png` and `splouch-qr (1).png` would be a coin toss.
     """
     data = invite()
-    if not data['link']:
+    if not data["link"]:
         return Response(status_code=404)
-    host = (data['origin'] or '').split('://')[-1].replace(':', '-').replace('/', '-')
-    name = f'splouch-qr-{host}{"" if address else "-code-only"}.png'
+    host = (data["origin"] or "").split("://")[-1].replace(":", "-").replace("/", "-")
+    name = f"splouch-qr-{host}{'' if address else '-code-only'}.png"
     return Response(
-        content=poster(data['link'], data['origin'] if address else None),
-        media_type='image/png',
-        headers={'Content-Disposition': f'attachment; filename="{name}"',
-                 'Cache-Control': 'no-cache'})
+        content=poster(data["link"], data["origin"] if address else None),
+        media_type="image/png",
+        headers={
+            "Content-Disposition": f'attachment; filename="{name}"',
+            "Cache-Control": "no-cache",
+        },
+    )

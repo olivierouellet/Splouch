@@ -31,13 +31,21 @@ def parse_time_hundredths(s: str):
     if not s:
         return None
     s = s.strip()
-    m = re.match(r'^(\d+):(\d{2}):(\d{2})\.(\d{2})$', s)
+    m = re.match(r"^(\d+):(\d{2}):(\d{2})\.(\d{2})$", s)
     if m:
-        val = (int(m.group(1)) * 360000 + int(m.group(2)) * 6000
-               + int(m.group(3)) * 100 + int(m.group(4)))
+        val = (
+            int(m.group(1)) * 360000
+            + int(m.group(2)) * 6000
+            + int(m.group(3)) * 100
+            + int(m.group(4))
+        )
         return val if val > 0 else None
-    m = re.match(r'^(?:(\d+):)?(\d{1,2})\.(\d{2})$', s)
+    m = re.match(r"^(?:(\d+):)?(\d{1,2})\.(\d{2})$", s)
     if not m:
         return None
-    val = (int(m.group(1)) if m.group(1) else 0) * 6000 + int(m.group(2)) * 100 + int(m.group(3))
+    val = (
+        (int(m.group(1)) if m.group(1) else 0) * 6000
+        + int(m.group(2)) * 100
+        + int(m.group(3))
+    )
     return val if val > 0 else None

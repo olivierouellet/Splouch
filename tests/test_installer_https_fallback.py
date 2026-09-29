@@ -18,39 +18,40 @@ rule is load-bearing rather than cosmetic.
 
 See docs/troubleshooting-splouch-local-unreachable.md.
 """
+
 import os
 import re
 
 import pytest
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-INSTALLER = os.path.join(REPO, 'install', 'install.sh')
+INSTALLER = os.path.join(REPO, "install", "install.sh")
 
 
-@pytest.fixture(scope='module')
+@pytest.fixture(scope="module")
 def server_path():
     """The Pi #1 branch of the installer, up to its closing banner.
 
     Scoped deliberately: the kiosk Pi has its own firewall block and serves no web
     UI, so the rule is only asserted where someone actually types the hostname.
     """
-    src = open(INSTALLER, encoding='utf-8').read()
+    src = open(INSTALLER, encoding="utf-8").read()
     end = src.index('section "Done — Pi #1 (server)"')
     return src[:end]
 
 
 def test_server_pi_rejects_443(server_path):
-    assert re.search(r'^\s*sudo ufw reject 443/tcp\b', server_path, re.M), (
-        'Pi #1 must `ufw reject 443/tcp`. Without it, a client reaching the Pi on any '
-        'interface outside the eth0/wlan0 allow rules has its https SYN dropped, and '
-        'the browser hangs instead of falling back to http.'
+    assert re.search(r"^\s*sudo ufw reject 443/tcp\b", server_path, re.M), (
+        "Pi #1 must `ufw reject 443/tcp`. Without it, a client reaching the Pi on any "
+        "interface outside the eth0/wlan0 allow rules has its https SYN dropped, and "
+        "the browser hangs instead of falling back to http."
     )
 
 
 def test_443_is_never_denied(server_path):
     """`deny` would look equivalent in the script and reintroduce the hang."""
-    assert not re.search(r'^\s*sudo ufw deny .*\b443\b', server_path, re.M), (
-        'ufw `deny` is a silent DROP — use `reject` so the client gets a TCP reset.'
+    assert not re.search(r"^\s*sudo ufw deny .*\b443\b", server_path, re.M), (
+        "ufw `deny` is a silent DROP — use `reject` so the client gets a TCP reset."
     )
 
 
@@ -61,6 +62,6 @@ def test_rule_follows_the_interface_allows(server_path):
     reject first would mean a future TLS listener on 443 is firewalled off by a rule
     nobody remembered was there.
     """
-    allow = server_path.rindex('sudo ufw allow in on wlan0')
-    reject = server_path.index('sudo ufw reject 443/tcp')
-    assert reject > allow, 'the 443 reject belongs after the eth0/wlan0 allow rules'
+    allow = server_path.rindex("sudo ufw allow in on wlan0")
+    reject = server_path.index("sudo ufw reject 443/tcp")
+    assert reject > allow, "the 443 reject belongs after the eth0/wlan0 allow rules"

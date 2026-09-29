@@ -12,6 +12,7 @@ says is on. Everything else exists so that the rest of the app — `send_event_i
 `_build_results_snapshot`, `_add_lane_deltas`, the `/operator` split buttons — can go
 on talking to `state._decoder` without knowing there is nobody on the other end.
 """
+
 from .base import ConsoleDecoder, SerialConfig
 
 
@@ -73,16 +74,16 @@ class ManualDecoder(ConsoleDecoder):
     def reset_lanes(self) -> dict:
         updates: dict = {}
         for ln in range(1, 13):
-            updates[f'lane_time{ln}']          = ''
-            updates[f'lane_place{ln}']         = ' '
-            updates[f'lane_running{ln}']       = False
-            updates[f'lane_splits{ln}']        = 0
+            updates[f"lane_time{ln}"] = ""
+            updates[f"lane_place{ln}"] = " "
+            updates[f"lane_running{ln}"] = False
+            updates[f"lane_splits{ln}"] = 0
             # The structured pair travels with the HTML delta wherever
             # `send_event_info` sends it, so clear all three together — otherwise a
             # native client keeps the previous heat's delta after a heat change.
-            updates[f'lane_delta{ln}']         = ''
-            updates[f'lane_delta_seconds{ln}'] = None
-            updates[f'lane_delta_better{ln}']  = None
+            updates[f"lane_delta{ln}"] = ""
+            updates[f"lane_delta_seconds{ln}"] = None
+            updates[f"lane_delta_better{ln}"] = None
         return updates
 
     def set_seed_times(self, times: dict) -> None:
@@ -92,13 +93,13 @@ class ManualDecoder(ConsoleDecoder):
         self.lane_seed_times = dict(times)
 
     def configure(self, cfg: dict) -> None:
-        self._num_lanes = int(cfg.get('num_lanes', 8))
+        self._num_lanes = int(cfg.get("num_lanes", 8))
 
     def get_lane_time(self, lane_idx: int) -> str:
-        return ''
+        return ""
 
     def get_lane_place(self, lane_idx: int) -> str:
-        return ' '
+        return " "
 
     # `adjust_splits` is the base class's no-op, which is the honest answer with no
     # lengths being counted — there is no wire here to disagree with the operator.

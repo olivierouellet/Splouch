@@ -8,6 +8,7 @@ silently half-open (which is what a pool-deck switch reboot looks like from here
 The thread never touches Qt widgets. It emits :class:`ServerLink` signals, which
 Qt queues onto the GUI thread — the only safe way to cross that boundary.
 """
+
 import json
 import threading
 import time
@@ -41,14 +42,14 @@ _RETRY_EVERY = 3
 
 def _ws_url(base: str) -> str:
     """Turn ``http://splouch.local`` into ``ws://splouch.local/ws/scoreboard``."""
-    base = base.strip().rstrip('/')
-    if base.startswith('https://'):
-        base = 'wss://' + base[len('https://'):]
-    elif base.startswith('http://'):
-        base = 'ws://' + base[len('http://'):]
-    elif not base.startswith(('ws://', 'wss://')):
-        base = 'ws://' + base
-    return base + '/ws/scoreboard'
+    base = base.strip().rstrip("/")
+    if base.startswith("https://"):
+        base = "wss://" + base[len("https://") :]
+    elif base.startswith("http://"):
+        base = "ws://" + base[len("http://") :]
+    elif not base.startswith(("ws://", "wss://")):
+        base = "ws://" + base
+    return base + "/ws/scoreboard"
 
 
 def fetch_config(base: str, timeout: float = 10.0) -> dict:
@@ -58,9 +59,9 @@ def fetch_config(base: str, timeout: float = 10.0) -> dict:
     defaults, because a first-boot failure and a mid-meet failure want different
     handling.
     """
-    base = base.strip().rstrip('/')
-    with urllib.request.urlopen(base + '/config', timeout=timeout) as resp:
-        return json.loads(resp.read().decode('utf-8'))
+    base = base.strip().rstrip("/")
+    with urllib.request.urlopen(base + "/config", timeout=timeout) as resp:
+        return json.loads(resp.read().decode("utf-8"))
 
 
 class ConfigLoader(QObject):
@@ -78,8 +79,8 @@ class ConfigLoader(QObject):
     timer cannot pile up threads against a server that is slow rather than down.
     """
 
-    loaded = Signal(object)   # parsed config dict
-    failed = Signal(str)      # human-readable reason
+    loaded = Signal(object)  # parsed config dict
+    failed = Signal(str)  # human-readable reason
 
     def __init__(self, base_url: str, parent=None):
         super().__init__(parent)
@@ -110,16 +111,16 @@ class ServerLink(QObject):
     the "waiting for server" overlay.
     """
 
-    frame     = Signal(str, object)
+    frame = Signal(str, object)
     connected = Signal(bool)
 
     def __init__(self, base_url: str, register=None, parent=None):
         super().__init__(parent)
-        self._base   = base_url
-        self._stop   = threading.Event()
+        self._base = base_url
+        self._stop = threading.Event()
         self._thread = None
-        self._ws     = None
-        self._lock   = threading.Lock()
+        self._ws = None
+        self._lock = threading.Lock()
         # Callable returning the `register` payload, sent on every (re)connect so
         # the server's client list is right again after a drop. A callable rather
         # than a dict because it shells out to git — evaluated here, on this
@@ -168,7 +169,7 @@ class ServerLink(QObject):
         if ws is None:
             return
         try:
-            ws.send(json.dumps({'event': event, 'data': data or {}}))
+            ws.send(json.dumps({"event": event, "data": data or {}}))
         except Exception:
             pass
 
@@ -182,20 +183,21 @@ class ServerLink(QObject):
             ws = None
             try:
                 ws = create_connection(url, timeout=15)
-                ws.settimeout(_PING_EVERY)       # recv() unblocks so we can heartbeat
+                ws.settimeout(_PING_EVERY)  # recv() unblocks so we can heartbeat
                 ws.enable_multithreading = True  # send() is called from the GUI thread
                 with self._lock:
                     self._ws = ws
                 if self._register is not None:
                     try:
-                        ws.send(json.dumps({'event': 'register',
-                                            'data': self._register()}))
+                        ws.send(
+                            json.dumps({"event": "register", "data": self._register()})
+                        )
                     except Exception as e:
                         # Registration is diagnostics — never let it stop the
                         # board from showing times.
-                        print(f'[scoreboard] register failed: {e}', flush=True)
+                        print(f"[scoreboard] register failed: {e}", flush=True)
                 self.connected.emit(True)
-                print(f'[scoreboard] connected to {url}', flush=True)
+                print(f"[scoreboard] connected to {url}", flush=True)
 
                 # Monotonic, not wall clock: this Pi may have no RTC and can take a
                 # large step when NTP first answers, which on `time.time()` would
@@ -206,12 +208,12 @@ class ServerLink(QObject):
                         raw = ws.recv()
                     except WebSocketTimeoutException:
                         if time.monotonic() - last_rx > _STALE:
-                            print('[scoreboard] link stale — reconnecting', flush=True)
+                            print("[scoreboard] link stale — reconnecting", flush=True)
                             break
                         try:
-                            ws.send(json.dumps({'event': 'ping', 'data': {}}))
+                            ws.send(json.dumps({"event": "ping", "data": {}}))
                         except Exception:
-                            break               # send failed => link is dead
+                            break  # send failed => link is dead
                         continue
                     if not raw:
                         break
@@ -220,14 +222,14 @@ class ServerLink(QObject):
                         msg = json.loads(raw)
                     except Exception:
                         continue
-                    event = msg.get('event')
-                    if not event or event == 'pong':
+                    event = msg.get("event")
+                    if not event or event == "pong":
                         continue
-                    self.frame.emit(event, msg.get('data'))
+                    self.frame.emit(event, msg.get("data"))
 
             except Exception as e:
                 if not self._stop.is_set():
-                    print(f'[scoreboard] connect failed: {e}', flush=True)
+                    print(f"[scoreboard] connect failed: {e}", flush=True)
             finally:
                 with self._lock:
                     self._ws = None

@@ -17,27 +17,27 @@ to aim at; and two updates must never run at once, whichever surface asked.
 
 Needs PySide6 (`uv run pytest tests/`); skips without it.
 """
+
 import pytest
 
-pytest.importorskip('PySide6', reason='needs the `scoreboard` extra (PySide6)')
+pytest.importorskip("PySide6", reason="needs the `scoreboard` extra (PySide6)")
 
-from PySide6.QtCore import Qt                      # noqa: E402
-
-from scoreboard.board import BoardWindow           # noqa: E402
-from scoreboard.menu import MenuAction             # noqa: E402
-from scoreboard.theme import Config                # noqa: E402
+from PySide6.QtCore import Qt  # noqa: E402
+from scoreboard.board import BoardWindow  # noqa: E402
+from scoreboard.menu import MenuAction  # noqa: E402
+from scoreboard.theme import Config  # noqa: E402
 
 # `qt_app` comes from tests/conftest.py — session-scoped, fonts already loaded.
 
-SERVER_REF = 'v2026.09.0'
+SERVER_REF = "v2026.09.0"
 
 
 @pytest.fixture
 def board(qt_app):
-    window = BoardWindow(Config({'num_lanes': 6, 'server_version': SERVER_REF}))
+    window = BoardWindow(Config({"num_lanes": 6, "server_version": SERVER_REF}))
     window.resize(1920, 1080)
     window.show()
-    window.own_version = 'v2026.08.1-4-gb3d21af'
+    window.own_version = "v2026.08.1-4-gb3d21af"
     qt_app.processEvents()
     yield window
     window.stop_clock()
@@ -46,7 +46,10 @@ def board(qt_app):
 
 def _press(board, key, ctrl=False):
     from PySide6.QtGui import QKeyEvent
-    mod = Qt.KeyboardModifier.ControlModifier if ctrl else Qt.KeyboardModifier.NoModifier
+
+    mod = (
+        Qt.KeyboardModifier.ControlModifier if ctrl else Qt.KeyboardModifier.NoModifier
+    )
     board.keyPressEvent(QKeyEvent(QKeyEvent.Type.KeyPress, key, mod))
 
 
@@ -64,6 +67,7 @@ def chosen(board):
 
 
 # ── Opening and closing ────────────────────────────────────────────────────────
+
 
 def test_f1_opens_it_and_esc_closes_it(board, qt_app):
     assert not board.menu.isVisible()
@@ -86,23 +90,24 @@ def test_esc_closes_the_menu_before_it_leaves_fullscreen(board, qt_app):
     _press(board, Qt.Key.Key_Escape)
     qt_app.processEvents()
     assert not board.menu.isVisible()
-    assert board.isFullScreen(), 'Esc fell through to the fullscreen toggle'
+    assert board.isFullScreen(), "Esc fell through to the fullscreen toggle"
 
 
 def test_it_does_not_cover_the_board(board, qt_app):
     """A meet does not stop because somebody opened a menu. Same reasoning as the
     test badge being a pill rather than a curtain."""
-    board.apply_update({'lane_name1': 'Roy, Zoé', 'lane_time1': '1:12.44'})
+    board.apply_update({"lane_name1": "Roy, Zoé", "lane_time1": "1:12.44"})
     board.open_menu()
     qt_app.processEvents()
 
     panel = board.menu.panel.geometry()
     assert panel.height() < board.height() * 0.85
     assert panel.width() < board.width() * 0.8
-    assert board.rows[0].name_label.text() == 'Roy, Zoé'
+    assert board.rows[0].name_label.text() == "Roy, Zoé"
 
 
 # ── Choosing ───────────────────────────────────────────────────────────────────
+
 
 def test_arrows_move_the_selection_and_it_wraps(board, qt_app, chosen):
     board.open_menu()
@@ -112,8 +117,8 @@ def test_arrows_move_the_selection_and_it_wraps(board, qt_app, chosen):
     qt_app.processEvents()
     assert chosen == [MenuAction.RESTART]
 
-    board.open_menu()                       # index resets each time it opens
-    _press(board, Qt.Key.Key_Up)                # wraps to the last entry
+    board.open_menu()  # index resets each time it opens
+    _press(board, Qt.Key.Key_Up)  # wraps to the last entry
     _press(board, Qt.Key.Key_Return)
     qt_app.processEvents()
     assert chosen[-1] == MenuAction.QUIT
@@ -132,10 +137,11 @@ def test_keys_do_not_reach_the_board_while_it_is_open(board, qt_app):
     board.open_menu()
     _press(board, Qt.Key.Key_F11)
     qt_app.processEvents()
-    assert board.isFullScreen(), 'the board acted on a key the menu was holding'
+    assert board.isFullScreen(), "the board acted on a key the menu was holding"
 
 
 # ── The update, and what it refuses ────────────────────────────────────────────
+
 
 def test_choosing_update_asks_for_the_server_version(board, qt_app):
     """The board never updates itself — it asks, and `app.py` owns the updater, so
@@ -147,13 +153,13 @@ def test_choosing_update_asks_for_the_server_version(board, qt_app):
     qt_app.processEvents()
 
     assert asked == [SERVER_REF]
-    assert board.menu.busy, 'the menu kept taking input during an update'
+    assert board.menu.busy, "the menu kept taking input during an update"
 
 
 def test_an_update_is_refused_mid_race(board, qt_app):
     """It restarts the app to finish. A black TV while somebody is swimming is
     worse than being a version behind."""
-    board.apply_update({'running_time': '12.30', 'lane_running1': True})
+    board.apply_update({"running_time": "12.30", "lane_running1": True})
     qt_app.processEvents()
     asked = []
     board.update_requested.connect(asked.append)
@@ -162,15 +168,15 @@ def test_an_update_is_refused_mid_race(board, qt_app):
     board.menu_choose(MenuAction.UPDATE)
     qt_app.processEvents()
 
-    assert asked == [], 'started an update over a running race'
+    assert asked == [], "started an update over a running race"
     assert not board.menu.busy
     assert board.menu.note.isVisible()
-    assert board.menu.note.text() == board.cfg.strings['menu_race_on']
+    assert board.menu.note.text() == board.cfg.strings["menu_race_on"]
 
 
 def test_an_update_is_refused_with_no_target(qt_app):
     """A server too old to send `server_version`, or one that never answered."""
-    window = BoardWindow(Config({'num_lanes': 4}))     # no server_version
+    window = BoardWindow(Config({"num_lanes": 4}))  # no server_version
     window.resize(1920, 1080)
     window.show()
     asked = []
@@ -180,7 +186,7 @@ def test_an_update_is_refused_with_no_target(qt_app):
         window.menu_choose(MenuAction.UPDATE)
         qt_app.processEvents()
         assert asked == []
-        assert window.menu.note.text() == window.cfg.strings['menu_no_target']
+        assert window.menu.note.text() == window.cfg.strings["menu_no_target"]
     finally:
         window.close()
 
@@ -193,8 +199,8 @@ def test_the_menu_stops_taking_input_while_updating(board, qt_app, chosen):
         _press(board, key)
     qt_app.processEvents()
 
-    assert chosen == [], 'a second update could be started from the same panel'
-    assert board.menu.isVisible(), 'Esc hid the only progress on screen'
+    assert chosen == [], "a second update could be started from the same panel"
+    assert board.menu.isVisible(), "Esc hid the only progress on screen"
 
 
 def test_ctrl_q_still_works_during_an_update(board, qt_app, monkeypatch):
@@ -202,7 +208,7 @@ def test_ctrl_q_still_works_during_an_update(board, qt_app, monkeypatch):
     board.open_menu()
     board.menu.set_busy(True)
     quit_calls = []
-    monkeypatch.setattr(qt_app, 'quit', lambda: quit_calls.append(True))
+    monkeypatch.setattr(qt_app, "quit", lambda: quit_calls.append(True))
     _press(board, Qt.Key.Key_Q, ctrl=True)
     qt_app.processEvents()
     assert quit_calls == [True]
@@ -210,35 +216,36 @@ def test_ctrl_q_still_works_during_an_update(board, qt_app, monkeypatch):
 
 # ── What it says ───────────────────────────────────────────────────────────────
 
+
 def test_it_names_both_versions_and_the_link(board, qt_app):
     board.open_menu()
     qt_app.processEvents()
     text = board.menu.status.text()
-    assert 'v2026.08.1-4-gb3d21af' in text, 'this display is not named'
-    assert SERVER_REF in text, 'the server version is not named'
-    assert board.cfg.strings['menu_out_of_date'] in text
+    assert "v2026.08.1-4-gb3d21af" in text, "this display is not named"
+    assert SERVER_REF in text, "the server version is not named"
+    assert board.cfg.strings["menu_out_of_date"] in text
 
 
 def test_it_says_up_to_date_when_it_is(qt_app):
-    window = BoardWindow(Config({'num_lanes': 4, 'server_version': SERVER_REF}))
+    window = BoardWindow(Config({"num_lanes": 4, "server_version": SERVER_REF}))
     window.resize(1920, 1080)
     window.show()
     window.own_version = SERVER_REF
     try:
         window.open_menu()
         qt_app.processEvents()
-        assert window.cfg.strings['menu_up_to_date'] in window.menu.status.text()
+        assert window.cfg.strings["menu_up_to_date"] in window.menu.status.text()
     finally:
         window.close()
 
 
 def test_it_opens_with_the_link_down(board, qt_app):
     """The case it exists for: no server, so no browser to press a button in."""
-    board.set_link_lost(True, 'lost')
+    board.set_link_lost(True, "lost")
     board.open_menu()
     qt_app.processEvents()
     assert board.menu.isVisible()
-    assert board.cfg.strings['menu_link_down'] in board.menu.status.text()
+    assert board.cfg.strings["menu_link_down"] in board.menu.status.text()
 
 
 def test_update_output_is_shown_on_the_tv(board, qt_app):
@@ -246,29 +253,39 @@ def test_update_output_is_shown_on_the_tv(board, qt_app):
     progress an operator standing at the display can see."""
     board.open_menu()
     board.menu.set_busy(True)
-    for line in ('$ git fetch --tags', '$ uv sync', 'Installed 3 packages'):
+    for line in ("$ git fetch --tags", "$ uv sync", "Installed 3 packages"):
         board.menu.add_output(line)
     qt_app.processEvents()
 
-    assert board.menu.output.isVisible(), 'the update ran with nothing on screen'
-    assert 'Installed 3 packages' in board.menu.output.text()
+    assert board.menu.output.isVisible(), "the update ran with nothing on screen"
+    assert "Installed 3 packages" in board.menu.output.text()
     assert board.menu.output.height() > 0
-    assert board.menu.panel.height() > int(board.height() * 0.6), \
-        'the panel did not make room for the output'
+    assert board.menu.panel.height() > int(board.height() * 0.6), (
+        "the panel did not make room for the output"
+    )
 
 
 def test_a_restyle_keeps_the_menu_readable(board, qt_app):
     """`/config` lands seconds after boot and on every reload."""
     board.open_menu()
-    board.set_config(Config({'num_lanes': 6, 'server_version': SERVER_REF,
-                             'theme_colors': {'header_label': '#ff00ff'}}))
+    board.set_config(
+        Config(
+            {
+                "num_lanes": 6,
+                "server_version": SERVER_REF,
+                "theme_colors": {"header_label": "#ff00ff"},
+            }
+        )
+    )
     qt_app.processEvents()
     assert board.menu.isVisible()
-    assert 'color: #ff00ff' in board.menu.title.styleSheet()
+    assert "color: #ff00ff" in board.menu.title.styleSheet()
 
 
-@pytest.mark.parametrize('action', [MenuAction.RESTART, MenuAction.QUIT])
-def test_nothing_on_the_menu_takes_the_board_down_mid_race(board, qt_app, action, monkeypatch):
+@pytest.mark.parametrize("action", [MenuAction.RESTART, MenuAction.QUIT])
+def test_nothing_on_the_menu_takes_the_board_down_mid_race(
+    board, qt_app, action, monkeypatch
+):
     """F1 then a digit is two keystrokes. Ctrl+Q was made two-handed precisely so a
     stray press could not blank the TV with somebody in the water, and a menu entry
     that restarts or quits has to meet the same bar.
@@ -276,18 +293,19 @@ def test_nothing_on_the_menu_takes_the_board_down_mid_race(board, qt_app, action
     If this ever regresses it does so silently — `os._exit` leaves no traceback and
     the board simply comes back, looking like a crash.
     """
-    board.apply_update({'running_time': '12.30', 'lane_running1': True})
+    board.apply_update({"running_time": "12.30", "lane_running1": True})
     qt_app.processEvents()
     assert board.any_lane_running
 
     quit_calls = []
     exits = []
     import scoreboard.board as board_mod
-    monkeypatch.setattr(qt_app, 'quit', lambda: quit_calls.append(True))
-    monkeypatch.setattr(board_mod.os, '_exit', lambda code: exits.append(code))
+
+    monkeypatch.setattr(qt_app, "quit", lambda: quit_calls.append(True))
+    monkeypatch.setattr(board_mod.os, "_exit", lambda code: exits.append(code))
     board.open_menu()
     board.menu_choose(action)
     qt_app.processEvents()
 
-    assert quit_calls == [] and exits == [], f'{action} went through mid-race'
-    assert board.menu.note.text() == board.cfg.strings['menu_race_on']
+    assert quit_calls == [] and exits == [], f"{action} went through mid-race"
+    assert board.menu.note.text() == board.cfg.strings["menu_race_on"]

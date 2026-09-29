@@ -12,13 +12,13 @@ behind the ones that look arbitrary: https://github.com/olivierouellet/Splouch/b
 
 ```bash
 uv run pytest tests/
+uv run ruff format --check
 uv run ruff check
 uv run ty check
 ```
 
-- [ ] All three pass.
+- [ ] All four pass.
 - [ ] Synced with `--extra scoreboard`, so the Qt tests actually ran rather than skipping.
-- [ ] No `ruff format` run over the tree.
 - [ ] Any suppression is a `# noqa` on its own line, with a reason.
 
 ## Hardware

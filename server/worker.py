@@ -13,9 +13,17 @@ import state
 from console_decoders import make_decoder
 from console_decoders.utils import split_step
 from meet_data import (
-    delta_fields, get_event_name_display, get_event_name_parts,
-    get_lane_alt, get_lane_parts, has_heat, heat_step,
-    get_lane_seed_time, _get_next_heats, _build_results_snapshot, send_event_info,
+    _build_results_snapshot,
+    _get_next_heats,
+    delta_fields,
+    get_event_name_display,
+    get_event_name_parts,
+    get_lane_alt,
+    get_lane_parts,
+    get_lane_seed_time,
+    has_heat,
+    heat_step,
+    send_event_info,
 )
 from meet_parsers.lenex_parser import load_lenex
 
@@ -23,7 +31,7 @@ from meet_parsers.lenex_parser import load_lenex
 def _auto_dismiss_overlay():
     if state._overlay_active:
         state._overlay_active = False
-        bus.emit('/scoreboard', 'display_overlay', {'active': False})
+        bus.emit("/scoreboard", "display_overlay", {"active": False})
 
 
 def _load_meet_from_disk(filename):
@@ -38,13 +46,13 @@ def _load_meet_from_disk(filename):
     if not filename or not os.path.isfile(path):
         return False
     try:
-        if path.lower().endswith('.csv'):
+        if path.lower().endswith(".csv"):
             state.load_event_info(path)
         else:
             state.set_lenex(load_lenex(path))
         return True
     except Exception:
-        print(f'[test] could not restore {filename}', flush=True)
+        print(f"[test] could not restore {filename}", flush=True)
         traceback.print_exc()
         return False
 
@@ -74,7 +82,7 @@ def forget_current_heat():
     """
     state._test_saved_heat = state._decoder.last_event_sent
     state._decoder.last_event_sent = (0, 0)
-    state._decoder.reset_lanes()      # for the side effect; the caller repaints
+    state._decoder.reset_lanes()  # for the side effect; the caller repaints
 
 
 def use_replay_decoder():
@@ -96,11 +104,14 @@ def use_replay_decoder():
     comes back untouched — see `state._test_saved_decoder`.
     """
     if state._decoder.requires_serial:
-        return ''
+        return ""
     state._test_saved_decoder = state._decoder
     state._decoder = make_decoder(state.REPLAY_CONSOLE_TYPE, state.settings)
-    print(f'[test] replaying under {state.REPLAY_CONSOLE_TYPE} — '
-          f'{state.settings.get("console_type")} reads no recording', flush=True)
+    print(
+        f"[test] replaying under {state.REPLAY_CONSOLE_TYPE} — "
+        f"{state.settings.get('console_type')} reads no recording",
+        flush=True,
+    )
     return state.REPLAY_CONSOLE_TYPE
 
 
@@ -150,15 +161,15 @@ def _cleanup_test_meet():
     """
     if not state._test_meet_active:
         return
-    for f in glob.glob(os.path.join(state.TEST_MEET_FOLDER, '*')):
+    for f in glob.glob(os.path.join(state.TEST_MEET_FOLDER, "*")):
         try:
             os.remove(f)
         except Exception:
             pass
     if not _load_meet_from_disk(state._active_meet_file):
-        state.clear_meet()      # nothing was loaded before the test, or it has gone
+        state.clear_meet()  # nothing was loaded before the test, or it has gone
     state._test_meet_active = False
-    state._test_meet_name   = ''
+    state._test_meet_name = ""
     send_event_info()
 
 
@@ -185,8 +196,8 @@ def end_test_session():
         # the boards are about to be wiped, and something has to put the names back.
         send_event_info()
     # Only after the meet is restored, so the boards repaint from the real one.
-    bus.emit('/scoreboard', 'test_mode', {'active': False})
-    bus.emit('/scoreboard', 'reset', {})
+    bus.emit("/scoreboard", "test_mode", {"active": False})
+    bus.emit("/scoreboard", "reset", {})
     # `reset` wipes the boards that are connected; this wipes the one the *next*
     # client gets. Without it the replay cache would still hold the recording's
     # lanes, and a kiosk reconnecting after a test would be handed a heat that never
@@ -207,97 +218,107 @@ def end_test_session():
         if state._test_relay_was_running:
             state._test_relay_was_running = False
             relay.start()
-    bus.emit('/settings', 'test_status', {})
+    bus.emit("/settings", "test_status", {})
 
 
 def _list_sessions():
     result = []
-    for folder, source in [(state.SESSIONS_FOLDER, 'builtin'),
-                           (state.CUSTOM_SESSIONS_FOLDER, 'custom')]:
-        for ext in ('*.cts', '*.raw'):
+    for folder, source in [
+        (state.SESSIONS_FOLDER, "builtin"),
+        (state.CUSTOM_SESSIONS_FOLDER, "custom"),
+    ]:
+        for ext in ("*.cts", "*.raw"):
             for path in sorted(glob.glob(os.path.join(folder, ext))):
-                result.append({'name': os.path.basename(path), 'source': source, 'path': path})
+                result.append(
+                    {"name": os.path.basename(path), "source": source, "path": path}
+                )
     return result
 
 
 # ── Packet handler helpers ─────────────────────────────────────────────────────
 
+
 def _on_event_changed(updates, ev, ht):
     m = state.meet
-    updates['event_name']       = get_event_name_display(ev)
-    updates['event_name_parts'] = get_event_name_parts(ev)
-    updates['heat_time']  = m.heat_times.get(ev, {}).get(ht, '')
-    pool_len = int(state.settings.get('pool_length', 25))
-    dist     = m.event_distances.get(ev, 0)
-    updates['expected_splits'] = (dist // pool_len) if (dist and pool_len) else 0
+    updates["event_name"] = get_event_name_display(ev)
+    updates["event_name_parts"] = get_event_name_parts(ev)
+    updates["heat_time"] = m.heat_times.get(ev, {}).get(ht, "")
+    pool_len = int(state.settings.get("pool_length", 25))
+    dist = m.event_distances.get(ev, 0)
+    updates["expected_splits"] = (dist // pool_len) if (dist and pool_len) else 0
     # How much one counted split is worth in this pool (docs/api.md §5.1). Both
     # numbers come from the venue, not from the console: a display needs them to know
     # which length is the last one, and the test is `splits + split_step >=
     # expected_splits` — not `splits + 1` where only one end has touchpads.
-    updates['split_step'] = split_step(state.settings.get('touchpad_sides', 1))
+    updates["split_step"] = split_step(state.settings.get("touchpad_sides", 1))
     seed_times = {}
     for i in range(1, 13):
         name, club = get_lane_parts(ev, ht, i)
-        updates[f'lane_name{i}']     = name
-        updates[f'lane_club{i}']     = club
-        updates[f'lane_name_alt{i}'] = get_lane_alt(ev, ht, i)
+        updates[f"lane_name{i}"] = name
+        updates[f"lane_club{i}"] = club
+        updates[f"lane_name_alt{i}"] = get_lane_alt(ev, ht, i)
         st = get_lane_seed_time(ev, ht, i)
         if st:
             seed_times[i] = st
     state._decoder.set_seed_times(seed_times)
-    print(f'[seed_times] event={(ev, ht)} loaded: {seed_times}', flush=True)
-    next_heats_data = {'heats': _get_next_heats(ev, ht,
-                                                num_lanes=int(state.settings.get('num_lanes', 8)))}
-    bus.emit('/results', 'next_heats', next_heats_data)
-    relay.relay_emit('next_heats', next_heats_data)
+    print(f"[seed_times] event={(ev, ht)} loaded: {seed_times}", flush=True)
+    next_heats_data = {
+        "heats": _get_next_heats(
+            ev, ht, num_lanes=int(state.settings.get("num_lanes", 8))
+        )
+    }
+    bus.emit("/results", "next_heats", next_heats_data)
+    relay.relay_emit("next_heats", next_heats_data)
 
 
 def _add_lane_deltas(updates):
     for i in range(1, 13):
-        lane_time = updates.get(f'lane_time{i}')
+        lane_time = updates.get(f"lane_time{i}")
         if not lane_time:
             continue
-        if not updates.get(f'lane_place{i}', ' ').strip():
+        if not updates.get(f"lane_place{i}", " ").strip():
             continue
         if i not in state._decoder.lane_seed_times:
             continue
         html, secs, better = delta_fields(lane_time, state._decoder.lane_seed_times[i])
-        updates[f'lane_delta{i}']         = html
-        updates[f'lane_delta_seconds{i}'] = secs
-        updates[f'lane_delta_better{i}']  = better
+        updates[f"lane_delta{i}"] = html
+        updates[f"lane_delta_seconds{i}"] = secs
+        updates[f"lane_delta_better{i}"] = better
 
 
 def _packet_summary(updates):
     """Return a one-line human-readable summary of the update for the serial debug panel."""
-    s = ''
-    if 'current_event' in updates:
-        s = ' Event:' + updates['current_event'] + ' Heat:' + updates['current_heat']
-    if 'running_time' in updates:
-        s = 'Running Time: ' + updates['running_time']
+    s = ""
+    if "current_event" in updates:
+        s = " Event:" + updates["current_event"] + " Heat:" + updates["current_heat"]
+    if "running_time" in updates:
+        s = "Running Time: " + updates["running_time"]
     for i in range(1, 13):
-        if f'lane_time{i}' not in updates and not updates.get(f'lane_running{i}'):
+        if f"lane_time{i}" not in updates and not updates.get(f"lane_running{i}"):
             continue
-        lane_time = updates.get(f'lane_time{i}', '')
-        place     = updates.get(f'lane_place{i}', ' ')
-        running   = updates.get(f'lane_running{i}', False)
+        lane_time = updates.get(f"lane_time{i}", "")
+        place = updates.get(f"lane_place{i}", " ")
+        running = updates.get(f"lane_running{i}", False)
         if not s:
-            s = '%4s: %s %s' % (i, place, 'running' if running else lane_time)
+            s = "%4s: %s %s" % (i, place, "running" if running else lane_time)
     return s
 
 
 def _emit_scoreboard_update():
-    has_update = ('current_event' in state.update or
-                  'running_time'  in state.update or
-                  any(key.startswith('lane_') for key in state.update))
+    has_update = (
+        "current_event" in state.update
+        or "running_time" in state.update
+        or any(key.startswith("lane_") for key in state.update)
+    )
     if not has_update:
         return
     try:
         data = dict(state.update)
         state.record_board(data)
-        bus.emit('/scoreboard', 'update_scoreboard', data)
-        relay.relay_emit('update_scoreboard', data)
+        bus.emit("/scoreboard", "update_scoreboard", data)
+        relay.relay_emit("update_scoreboard", data)
     except Exception as e:
-        print(f'[emit error] {e}', flush=True)
+        print(f"[emit error] {e}", flush=True)
         traceback.print_exc()
     state.update.clear()
 
@@ -309,16 +330,19 @@ def _lane_log_summary(updates):
     the likely trigger of a flip. The snapshot shows every timed/placed lane as
     'L<lane>:<place>/<time>' so a flapping lane stands out across consecutive flips.
     """
-    changed = {k: v for k, v in (updates or {}).items()
-               if k == 'running_time'
-               or k.startswith(('lane_running', 'lane_time', 'lane_place', 'current_'))}
+    changed = {
+        k: v
+        for k, v in (updates or {}).items()
+        if k == "running_time"
+        or k.startswith(("lane_running", "lane_time", "lane_place", "current_"))
+    }
     lanes = []
-    for i in range(1, int(state.settings.get('num_lanes', 8)) + 1):
+    for i in range(1, int(state.settings.get("num_lanes", 8)) + 1):
         t = state._decoder.get_lane_time(i)
         p = state._decoder.get_lane_place(i).strip()
         if t or p:
-            lanes.append(f'L{i}:{p or "-"}/{t or "-"}')
-    return changed, ' '.join(lanes)
+            lanes.append(f"L{i}:{p or '-'}/{t or '-'}")
+    return changed, " ".join(lanes)
 
 
 def _on_race_state_changed(now_finished, updates=None):
@@ -326,20 +350,30 @@ def _on_race_state_changed(now_finished, updates=None):
 
     if now_finished != prev:
         changed, lanes = _lane_log_summary(updates)
-        print(f'[race-state] finished {prev}->{now_finished} '
-              f'trigger={changed} lanes=[{lanes}]', flush=True)
+        print(
+            f"[race-state] finished {prev}->{now_finished} "
+            f"trigger={changed} lanes=[{lanes}]",
+            flush=True,
+        )
 
     if now_finished and not prev:
         state._last_results_snapshot = _build_results_snapshot()
         state._finish_timer_gen += 1
-        def _finish_task(gen=state._finish_timer_gen, snap=state._last_results_snapshot):
-            time.sleep(float(state.settings.get('finish_debounce',
-                                               state.FINISH_DEBOUNCE_DEFAULT)))
+
+        def _finish_task(
+            gen=state._finish_timer_gen, snap=state._last_results_snapshot
+        ):
+            time.sleep(
+                float(
+                    state.settings.get("finish_debounce", state.FINISH_DEBOUNCE_DEFAULT)
+                )
+            )
             if state._finish_timer_gen == gen:
-                print('[race-state] results confirmed', flush=True)
-                bus.emit('/scoreboard', 'race_finished', {})
-                bus.emit('/results', 'results_snapshot', snap)
-                relay.relay_emit('results_snapshot', snap)
+                print("[race-state] results confirmed", flush=True)
+                bus.emit("/scoreboard", "race_finished", {})
+                bus.emit("/results", "results_snapshot", snap)
+                relay.relay_emit("results_snapshot", snap)
+
         bus.run_bg(_finish_task)
 
     elif not now_finished and prev:
@@ -348,10 +382,12 @@ def _on_race_state_changed(now_finished, updates=None):
         # blank the board and flicker the display. Only reset if a genuine
         # re-start is still un-finished after the debounce window.
         state._finish_timer_gen += 1
+
         def _reset_task(gen=state._finish_timer_gen):
-            time.sleep(float(state.settings.get('reset_debounce', 1.0)))
+            time.sleep(float(state.settings.get("reset_debounce", 1.0)))
             # Hand the wipe to the worker so it runs on the decoder-owning thread.
             state._worker_cmds.put(lambda g=gen: _do_board_reset(g))
+
         bus.run_bg(_reset_task)
 
     state._results_prev_race_finished = now_finished
@@ -362,6 +398,7 @@ def _on_race_state_changed(now_finished, updates=None):
 # adjust_splits/next_heat handlers, the reset debounce) are posted to
 # state._worker_cmds and executed here, on the decoder-owning worker thread, so the
 # decoder is never accessed concurrently — no lock required.
+
 
 def _drain_cmds():
     while True:
@@ -377,14 +414,14 @@ def _drain_cmds():
 
 def _worker_adjust_splits(lane, delta):
     new_val = state._decoder.adjust_splits(lane, delta)
-    data = {f'lane_splits{lane}': new_val}
+    data = {f"lane_splits{lane}": new_val}
     state.record_board(data)
-    bus.emit('/scoreboard', 'update_scoreboard', data)
+    bus.emit("/scoreboard", "update_scoreboard", data)
     # The correction has to travel as far as the number it is correcting. Without
     # this the operator fixes the kiosk and /operator while every phone — and the
     # cloud's own join replay — keeps the wrong count until the console next sends
     # a split of its own, which under a manual console is never.
-    relay.relay_emit('update_scoreboard', data)
+    relay.relay_emit("update_scoreboard", data)
 
 
 def _worker_set_heat(ev, ht):
@@ -401,7 +438,7 @@ def _worker_set_heat(ev, ht):
     phones, the cloud — hears about it over the contract it already speaks.
     """
     state._decoder.last_event_sent = (ev, ht)
-    updates = {'current_event': str(ev), 'current_heat': str(ht)}
+    updates = {"current_event": str(ev), "current_heat": str(ht)}
     updates.update(state._decoder.reset_lanes())
     _on_event_changed(updates, ev, ht)
 
@@ -416,7 +453,7 @@ def _worker_set_heat(ev, ht):
 
     state.update.update(updates)
     _emit_scoreboard_update()
-    print(f'[manual] Event {ev} Heat {ht}', flush=True)
+    print(f"[manual] Event {ev} Heat {ht}", flush=True)
 
 
 def _worker_clear_heat():
@@ -441,17 +478,18 @@ def _worker_clear_heat():
     state._running_lanes.clear()
 
     state.record_board(updates)
-    bus.emit('/scoreboard', 'update_scoreboard', updates)
-    relay.relay_emit('update_scoreboard', updates)
+    bus.emit("/scoreboard", "update_scoreboard", updates)
+    relay.relay_emit("update_scoreboard", updates)
     # Blanks the header and every lane name; reads the (0, 0) sentinel itself.
     send_event_info()
     # And the upcoming list goes back to the top of the meet, which is what an empty
     # board means: nothing has run yet.
-    next_heats_data = {'heats': _get_next_heats(
-        num_lanes=int(state.settings.get('num_lanes', 8)))}
-    bus.emit('/results', 'next_heats', next_heats_data)
-    relay.relay_emit('next_heats', next_heats_data)
-    print('[manual] board cleared', flush=True)
+    next_heats_data = {
+        "heats": _get_next_heats(num_lanes=int(state.settings.get("num_lanes", 8)))
+    }
+    bus.emit("/results", "next_heats", next_heats_data)
+    relay.relay_emit("next_heats", next_heats_data)
+    print("[manual] board cleared", flush=True)
 
 
 def _worker_step_heat(delta):
@@ -483,15 +521,21 @@ def _worker_goto_heat(ev, ht):
 
 def _do_board_reset(gen):
     """Board wipe on a genuine re-start; runs on the worker (the decoder owner)."""
-    if (state._finish_timer_gen != gen or state._decoder.race_finished()
-            or state._running_lanes):
-        print('[race-state] reset skipped (race active or transient un-finish)', flush=True)
+    if (
+        state._finish_timer_gen != gen
+        or state._decoder.race_finished()
+        or state._running_lanes
+    ):
+        print(
+            "[race-state] reset skipped (race active or transient un-finish)",
+            flush=True,
+        )
         return
-    print('[race-state] board reset (sustained re-start)', flush=True)
+    print("[race-state] board reset (sustained re-start)", flush=True)
     data = state._decoder.reset_lanes()
     state.record_board(data)
-    bus.emit('/scoreboard', 'update_scoreboard', data)
-    relay.relay_emit('update_scoreboard', data)
+    bus.emit("/scoreboard", "update_scoreboard", data)
+    relay.relay_emit("update_scoreboard", data)
 
 
 def _handle_packet(buf):
@@ -499,10 +543,10 @@ def _handle_packet(buf):
     # a packet the decoder rejects still counts — the link is alive either way.
     state._last_packet_at = time.monotonic()
 
-    hex_str = ''
+    hex_str = ""
     if state._record_handle or state._debug_serial:
-        hex_str = ' '.join(['%02X' % int(c) for c in buf])
-        log_line = '[%f] ' % time.time() + hex_str + '\n'
+        hex_str = " ".join(["%02X" % int(c) for c in buf])
+        log_line = "[%f] " % time.time() + hex_str + "\n"
         if state._record_handle:
             state._record_handle.write(log_line)
 
@@ -517,17 +561,20 @@ def _handle_packet(buf):
         # Track which lanes are currently running (consoles only send the flag on
         # transitions), so the debounced board-wipe never clears a live heat.
         for ln in range(1, 13):
-            key = f'lane_running{ln}'
+            key = f"lane_running{ln}"
             if key in updates:
-                (state._running_lanes.add if updates[key]
-                 else state._running_lanes.discard)(ln)
+                (
+                    state._running_lanes.add
+                    if updates[key]
+                    else state._running_lanes.discard
+                )(ln)
 
-        if updates.pop('dismiss_overlay', False):
+        if updates.pop("dismiss_overlay", False):
             _auto_dismiss_overlay()
 
-        if 'event_changed' in updates:
-            ev, ht = updates.pop('event_changed')
-            print(f'[event] Event {ev} Heat {ht}', flush=True)
+        if "event_changed" in updates:
+            ev, ht = updates.pop("event_changed")
+            print(f"[event] Event {ev} Heat {ht}", flush=True)
             _on_event_changed(updates, ev, ht)
 
         _add_lane_deltas(updates)
@@ -537,7 +584,11 @@ def _handle_packet(buf):
         _on_race_state_changed(state._decoder.race_finished(), updates)
 
         if state._debug_serial and hex_str:
-            bus.emit('/settings', 'debug_line', {'hex': hex_str, 'text': _packet_summary(updates)})
+            bus.emit(
+                "/settings",
+                "debug_line",
+                {"hex": hex_str, "text": _packet_summary(updates)},
+            )
 
     except Exception:
         traceback.print_exc()
@@ -547,11 +598,14 @@ def _handle_packet(buf):
 
 # ── Session playback ───────────────────────────────────────────────────────────
 
+
 def _ingest_byte(c, buf):
     """Append byte to packet buffer, flushing at packet boundaries. Returns updated buffer."""
     if not c:
         return buf
-    if state._decoder.is_packet_start(c, buf) or (len(buf) >= state._decoder.max_packet_bytes):
+    if state._decoder.is_packet_start(c, buf) or (
+        len(buf) >= state._decoder.max_packet_bytes
+    ):
         if buf:
             _handle_packet(buf)
         buf = []
@@ -561,14 +615,14 @@ def _ingest_byte(c, buf):
 
 def _play_cts_file(session_file, my_gen):
     """Play a timestamped or looping .cts/.raw session file."""
-    text           = open(session_file, 'rt').read()
-    has_timestamps = bool(re.search(r'\[[0-9.]+\]', text))
-    start_time     = None
-    delay          = 0.0
+    text = open(session_file, "rt").read()
+    has_timestamps = bool(re.search(r"\[[0-9.]+\]", text))
+    start_time = None
+    delay = 0.0
 
     while state._worker_gen == my_gen:
         buf = []
-        for d in re.finditer(r'\[([0-9.]+)\]\s*|([0-9a-fA-F]{2})', text):
+        for d in re.finditer(r"\[([0-9.]+)\]\s*|([0-9a-fA-F]{2})", text):
             if state._worker_gen != my_gen:
                 break
             if d.group(1):
@@ -593,7 +647,7 @@ def _play_cts_file(session_file, my_gen):
                 else:
                     delay = ts - state.in_speed * time.time() - start_time
                     if delay > 0:
-                        _drain_cmds()   # process queued commands between events
+                        _drain_cmds()  # process queued commands between events
                         time.sleep(delay)
                 continue
             buf = _ingest_byte(int(d.group(2), 16), buf)
@@ -613,15 +667,15 @@ def _run_test_session(session_file, my_gen):
     """Play a recorded session file, then emit cleanup events if it finishes naturally."""
     _play_cts_file(session_file, my_gen)
 
-    if state._worker_gen != my_gen:   # superseded — the new worker owns cleanup
+    if state._worker_gen != my_gen:  # superseded — the new worker owns cleanup
         return
     state._test_session = None
     end_test_session()
 
 
-def _set_serial_status(st, msg=''):
-    state._serial_status = {'state': st, 'msg': msg}
-    bus.emit('/settings', 'serial_log', {'state': st, 'msg': msg})
+def _set_serial_status(st, msg=""):
+    state._serial_status = {"state": st, "msg": msg}
+    bus.emit("/settings", "serial_log", {"state": st, "msg": msg})
 
 
 def _run_manual(my_gen):
@@ -633,38 +687,44 @@ def _run_manual(my_gen):
     live console. With no worker running there would be nobody to drain that queue,
     and the buttons on /manual would do nothing at all.
     """
-    _set_serial_status('manual', 'Manual console — nothing is wired to this server')
+    _set_serial_status("manual", "Manual console — nothing is wired to this server")
     while state._worker_gen == my_gen:
         _drain_cmds()
         time.sleep(0.05)
-    _set_serial_status('idle', '')
+    _set_serial_status("idle", "")
 
 
 def _run_live_serial(my_gen):
     """Read from the configured serial port until superseded, retrying on error."""
-    port = state.settings['serial_port']
+    port = state.settings["serial_port"]
 
     while state._worker_gen == my_gen:
         cfg = state._decoder.serial_config
-        _PARITY = {'N': serial.PARITY_NONE, 'E': serial.PARITY_EVEN, 'O': serial.PARITY_ODD}
+        _PARITY = {
+            "N": serial.PARITY_NONE,
+            "E": serial.PARITY_EVEN,
+            "O": serial.PARITY_ODD,
+        }
         _STOPBITS = {1: serial.STOPBITS_ONE, 2: serial.STOPBITS_TWO}
-        parity_label = f'{cfg.bytesize}-{cfg.parity}-{cfg.stopbits}'
-        _set_serial_status('opening', f'Opening {port} ({cfg.baud} {parity_label})…')
+        parity_label = f"{cfg.bytesize}-{cfg.parity}-{cfg.stopbits}"
+        _set_serial_status("opening", f"Opening {port} ({cfg.baud} {parity_label})…")
         try:
             # ── Open port ─────────────────────────────────────────────────────
-            with serial.Serial(port, cfg.baud,
-                               bytesize=cfg.bytesize,
-                               parity=_PARITY.get(cfg.parity, serial.PARITY_EVEN),
-                               stopbits=_STOPBITS.get(cfg.stopbits, serial.STOPBITS_ONE),
-                               timeout=0) as f:
-
+            with serial.Serial(
+                port,
+                cfg.baud,
+                bytesize=cfg.bytesize,
+                parity=_PARITY.get(cfg.parity, serial.PARITY_EVEN),
+                stopbits=_STOPBITS.get(cfg.stopbits, serial.STOPBITS_ONE),
+                timeout=0,
+            ) as f:
                 # ── Initialization ────────────────────────────────────────────
                 init = state._decoder.post_open_bytes
                 if init:
                     f.write(init)
 
                 # ── Read loop ──────────────────────────────────────────────────
-                _set_serial_status('open', f'Connected: {port}')
+                _set_serial_status("open", f"Connected: {port}")
                 buf = []
                 last_byte_time = time.time()
                 while state._worker_gen == my_gen:
@@ -679,14 +739,14 @@ def _run_live_serial(my_gen):
                         if buf and (time.time() - last_byte_time) >= 0.05:
                             _handle_packet(buf)
                             buf = []
-                        _drain_cmds()   # process queued commands while idle
+                        _drain_cmds()  # process queued commands while idle
                         time.sleep(0.01)
 
         except (serial.SerialException, OSError) as e:
             # ── Error: wait 5 s then retry unless the worker was stopped ──────
             err = str(e)
-            print(f'Serial port error: {err}')
-            _set_serial_status('error', err)
+            print(f"Serial port error: {err}")
+            _set_serial_status("error", err)
             for _ in range(50):
                 if state._worker_gen != my_gen:
                     break
@@ -694,14 +754,15 @@ def _run_live_serial(my_gen):
             continue  # retry the outer while loop (re-open the port)
 
     # ── Worker stopped cleanly ─────────────────────────────────────────────────
-    _set_serial_status('idle', '')
+    _set_serial_status("idle", "")
 
 
 # ── Worker lifecycle ───────────────────────────────────────────────────────────
 
+
 def main_thread_worker():
-    state._running_lanes.clear()            # fresh worker — no lanes carried over
-    while not state._worker_cmds.empty():   # drop stale commands from a prior session
+    state._running_lanes.clear()  # fresh worker — no lanes carried over
+    while not state._worker_cmds.empty():  # drop stale commands from a prior session
         try:
             state._worker_cmds.get_nowait()
         except queue.Empty:
@@ -726,6 +787,6 @@ def main_thread_worker():
 
 def _restart_worker(session_path=None):
     state._test_session = session_path
-    state._worker_gen  += 1   # supersede the current worker (see state._worker_gen)
+    state._worker_gen += 1  # supersede the current worker (see state._worker_gen)
     time.sleep(0.3)
     state.main_thread = bus.run_bg(main_thread_worker)

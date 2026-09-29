@@ -3,10 +3,11 @@
 Kept Qt-free and separate from ``board.py`` so it can be tested in CI without
 PySide6 installed — these are pure string functions with no widget involvement.
 """
+
 import re
 
 # `1:05.23`, `59.99`, `5.23` — the clock format every console string uses.
-_CLOCK = re.compile(r'^(?:(\d+):)?(\d{1,2})\.(\d{2})$')
+_CLOCK = re.compile(r"^(?:(\d+):)?(\d{1,2})\.(\d{2})$")
 
 
 def parse_clock(text):
@@ -45,12 +46,12 @@ def fmt_clock(hundredths: int, *, tenths: bool = False) -> str:
     hundredths = max(0, int(hundredths))
     if tenths:
         hundredths -= hundredths % 10
-    frac    = hundredths % 100
+    frac = hundredths % 100
     seconds = (hundredths // 100) % 60
     minutes = hundredths // 6000
     if minutes:
-        return f'{minutes}:{seconds:02d}.{frac:02d}'
-    return f'{seconds}.{frac:02d}'
+        return f"{minutes}:{seconds:02d}.{frac:02d}"
+    return f"{seconds}.{frac:02d}"
 
 
 def fmt_delta(seconds) -> str:
@@ -68,21 +69,21 @@ def fmt_delta(seconds) -> str:
     Returns ``''`` when there is no delta (no seed time, or an unparseable value).
     """
     if seconds is None:
-        return ''
+        return ""
     try:
         value = float(seconds)
     except (TypeError, ValueError):
-        return ''
+        return ""
 
     # Round-trip through hundredths: the server derived `seconds` from an integer
     # number of hundredths, so this recovers the original value exactly.
     hundredths = round(value * 100)
-    sign = '-' if hundredths < 0 else '+'
+    sign = "-" if hundredths < 0 else "+"
     hundredths = abs(hundredths)
 
     minutes = hundredths // 6000
-    secs    = (hundredths // 100) % 60
-    frac    = hundredths % 100
+    secs = (hundredths // 100) % 60
+    frac = hundredths % 100
     if minutes:
-        return f'{sign}{minutes}:{secs:02d}.{frac:02d}'
-    return f'{sign}{secs}.{frac:02d}'
+        return f"{sign}{minutes}:{secs:02d}.{frac:02d}"
+    return f"{sign}{secs}.{frac:02d}"

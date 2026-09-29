@@ -6,8 +6,14 @@ import struct
 import subprocess
 from typing import Literal
 
-from fastapi import (APIRouter, Depends, Request, UploadFile, WebSocket,
-                     WebSocketDisconnect)
+from fastapi import (
+    APIRouter,
+    Depends,
+    Request,
+    UploadFile,
+    WebSocket,
+    WebSocketDisconnect,
+)
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from starlette.concurrency import run_in_threadpool
@@ -16,20 +22,31 @@ import bus
 import state
 from meet_data import send_event_info
 from meet_parsers.lenex_parser import load_lenex
-from web import (ActionResult, EnabledFlag, redirect, require_login, save_upload,
-                 ws_guard)
-from worker import (_list_sessions, _restart_worker, end_test_session,
-                    forget_current_heat, use_replay_decoder)
+from web import (
+    ActionResult,
+    EnabledFlag,
+    redirect,
+    require_login,
+    save_upload,
+    ws_guard,
+)
+from worker import (
+    _list_sessions,
+    _restart_worker,
+    end_test_session,
+    forget_current_heat,
+    use_replay_decoder,
+)
 
-router = APIRouter(tags=['Debug'])
+router = APIRouter(tags=["Debug"])
 
 
 class NameBody(BaseModel):
-    name: str = ''
+    name: str = ""
 
 
 class PlayBody(BaseModel):
-    name: str = ''
+    name: str = ""
     # Keep this session off the cloud. Defaults on: a replay is for the people in
     # the building, and the cost of getting it wrong is spectators watching a
     # recording as if it were the race in front of them. Forced on when a real meet
@@ -56,9 +73,9 @@ class TestStatus(BaseModel):
     has_meet: bool
     test_meet: bool
     test_meet_name: str
-    local_only: bool        # what a session started now would do, or is doing
-    local_only_forced: bool # a meet is loaded, so the choice is not the operator's
-    meet_set_aside: str     # the meet being held for this session, '' if none
+    local_only: bool  # what a session started now would do, or is doing
+    local_only_forced: bool  # a meet is loaded, so the choice is not the operator's
+    meet_set_aside: str  # the meet being held for this session, '' if none
     # The console the replay is being decoded as, when that is not the configured
     # one — the board is not being driven by the operator's console and they should
     # not have to infer that. '' whenever the two agree, which is the usual case.
@@ -82,51 +99,57 @@ class SeedTimes(BaseModel):
 class TerminalStart(BaseModel):
     # Keys must mirror _TERMINAL_ALLOWED_CMDS below; an unknown value is rejected
     # by validation before the handler runs.
-    cmd: Literal['bash', 'raspi-config', 'logs', 'dmesg-tty', 'serial-ports'] = 'bash'
+    cmd: Literal["bash", "raspi-config", "logs", "dmesg-tty", "serial-ports"] = "bash"
+
 
 _TERMINAL_ALLOWED_CMDS = {
-    'bash':         ['bash'],
-    'raspi-config': ['sudo', 'raspi-config'],
-    'logs':         ['journalctl', '-u', state.SERVICE_NAME, '-f'],
-    'dmesg-tty':    ['bash', '-c', 'dmesg | grep -i tty'],
-    'serial-ports': ['python3', '-m', 'serial.tools.list_ports', '-v'],
+    "bash": ["bash"],
+    "raspi-config": ["sudo", "raspi-config"],
+    "logs": ["journalctl", "-u", state.SERVICE_NAME, "-f"],
+    "dmesg-tty": ["bash", "-c", "dmesg | grep -i tty"],
+    "serial-ports": ["python3", "-m", "serial.tools.list_ports", "-v"],
 }
 
 
-@router.get('/test_status', response_model=TestStatus,
-            dependencies=[Depends(require_login)])
+@router.get(
+    "/test_status", response_model=TestStatus, dependencies=[Depends(require_login)]
+)
 def route_test_status():
     return {
-        'playing':        state._test_session is not None,
-        'session':        os.path.basename(state._test_session) if state._test_session else '',
-        'recording':      state._record_handle is not None,
-        'sessions':       _list_sessions(),
-        'speed':          state.in_speed,
-        'has_meet':       bool(state._active_meet_file) and not state._test_meet_active,
-        'test_meet':      state._test_meet_active,
-        'test_meet_name': state._test_meet_name,
-        'local_only':        (state._test_local_only if state._test_session
-                              else _local_only_default()),
-        'local_only_forced': bool(state._active_meet_file),
-        'meet_set_aside':    state._active_meet_file if state._test_meet_active else '',
-        'replay_console':    (state.REPLAY_CONSOLE_TYPE
-                              if state._test_saved_decoder is not None else ''),
+        "playing": state._test_session is not None,
+        "session": os.path.basename(state._test_session) if state._test_session else "",
+        "recording": state._record_handle is not None,
+        "sessions": _list_sessions(),
+        "speed": state.in_speed,
+        "has_meet": bool(state._active_meet_file) and not state._test_meet_active,
+        "test_meet": state._test_meet_active,
+        "test_meet_name": state._test_meet_name,
+        "local_only": (
+            state._test_local_only if state._test_session else _local_only_default()
+        ),
+        "local_only_forced": bool(state._active_meet_file),
+        "meet_set_aside": state._active_meet_file if state._test_meet_active else "",
+        "replay_console": (
+            state.REPLAY_CONSOLE_TYPE if state._test_saved_decoder is not None else ""
+        ),
         # Read off the decoder that would be asked to play it, which is the console's
         # own one whenever no session is running and the stand-in while one is.
-        'replay_console_needed': not (state._test_saved_decoder
-                                      or state._decoder).requires_serial,
+        "replay_console_needed": not (
+            state._test_saved_decoder or state._decoder
+        ).requires_serial,
     }
 
 
 def _local_only_default() -> bool:
     """What the checkbox shows for a session not yet started."""
     if state._active_meet_file:
-        return True                 # not the operator's choice — see _test_play
-    return bool(state.settings.get('test_local_only', True))
+        return True  # not the operator's choice — see _test_play
+    return bool(state.settings.get("test_local_only", True))
 
 
-@router.post('/test_play', response_model=ActionResult,
-             dependencies=[Depends(require_login)])
+@router.post(
+    "/test_play", response_model=ActionResult, dependencies=[Depends(require_login)]
+)
 async def route_test_play(body: PlayBody):
     # Parsing the companion LENEX is blocking — run off the loop.
     return await run_in_threadpool(_test_play, body.name, body.local_only)
@@ -143,20 +166,20 @@ def _test_play(name, local_only=True):
     meet by hand and re-uploading it afterwards used to be the operator's job.
     """
     for s in _list_sessions():
-        if s['name'] != name:
+        if s["name"] != name:
             continue
         # A replay must never publish under a live meet's identity: the times are
         # invented and the cloud would show them to spectators as the real race.
         local_only = bool(local_only) or bool(state._active_meet_file)
         _begin_local_only(local_only)
-        bus.emit('/scoreboard', 'test_mode', {'active': True})
+        bus.emit("/scoreboard", "test_mode", {"active": True})
         # Before the worker starts, and before `forget_current_heat` below: both of
         # those touch `state._decoder`, and the replay needs one that can read the
         # recording. A console with a wire keeps its own — see use_replay_decoder.
         use_replay_decoder()
-        bus.run_bg(_restart_worker, s['path'])
+        bus.run_bg(_restart_worker, s["path"])
 
-        companion = os.path.splitext(s['path'])[0] + '.lxf'
+        companion = os.path.splitext(s["path"])[0] + ".lxf"
         if os.path.exists(companion):
             try:
                 # In memory only. Not through routes/settings._load_meet_file:
@@ -165,7 +188,7 @@ def _test_play(name, local_only=True):
                 # title and images — see state.apply_meet_profile.
                 state.set_lenex(load_lenex(companion))
                 state._test_meet_active = True
-                state._test_meet_name   = os.path.basename(companion)
+                state._test_meet_name = os.path.basename(companion)
                 # The decoder still holds the previous session's event and heat.
                 # Broadcasting that against this recording's start lists shows its
                 # number over eight empty lanes until the replay announces its own
@@ -173,9 +196,9 @@ def _test_play(name, local_only=True):
                 forget_current_heat()
                 send_event_info()
             except Exception as e:
-                print(f'[test] Failed to load companion LXF: {e}', flush=True)
-        return {'ok': True}
-    return JSONResponse({'error': 'Session not found'}, status_code=404)
+                print(f"[test] Failed to load companion LXF: {e}", flush=True)
+        return {"ok": True}
+    return JSONResponse({"error": "Session not found"}, status_code=404)
 
 
 def _begin_local_only(local_only: bool):
@@ -188,6 +211,7 @@ def _begin_local_only(local_only: bool):
     on, which no amount of filtering can promise.
     """
     import relay
+
     state._test_local_only = bool(local_only)
     if not local_only or state._test_saved_results is not None:
         # Already holding a session's worth of state: a second `_test_play` (the
@@ -199,24 +223,25 @@ def _begin_local_only(local_only: bool):
     # reconnect, so a replay's results would otherwise reach the cloud on the next
     # connect, long after the test was over.
     state._test_saved_results = state._last_results_snapshot or {}
-    state._test_relay_was_running = relay.status()['running']
+    state._test_relay_was_running = relay.status()["running"]
     if state._test_relay_was_running:
         relay.stop()
 
 
-@router.post('/test_stop', response_model=ActionResult,
-             dependencies=[Depends(require_login)])
+@router.post(
+    "/test_stop", response_model=ActionResult, dependencies=[Depends(require_login)]
+)
 def route_test_stop():
     # Restores the meet, wipes the boards and puts the cloud back — the same
     # ending a recording that runs to its end gets (worker._run_test_session).
     end_test_session()
     bus.run_bg(_restart_worker, None)
-    return {'ok': True}
+    return {"ok": True}
 
 
-@router.post('/test_meet_upload', dependencies=[Depends(require_login)])
+@router.post("/test_meet_upload", dependencies=[Depends(require_login)])
 async def route_test_meet_upload(request: Request):
-    file = (await request.form()).get('meet_file')
+    file = (await request.form()).get("meet_file")
     # Saving + LENEX parsing is blocking — run off the loop.
     return await run_in_threadpool(_test_meet_upload, file)
 
@@ -230,39 +255,42 @@ def _test_meet_upload(file):
     with the rest of the delete-your-meet-first workflow.
     """
     if state._test_session is None:
-        return {'ok': False, 'error': 'No test session is running'}
+        return {"ok": False, "error": "No test session is running"}
     if state._test_meet_active:
-        return {'ok': False, 'error': 'Test meet already loaded'}
+        return {"ok": False, "error": "Test meet already loaded"}
     if not isinstance(file, UploadFile) or not file.filename:
-        return {'ok': False, 'error': 'No file provided'}
+        return {"ok": False, "error": "No file provided"}
     ext = os.path.splitext(file.filename)[1].lower()
-    if ext not in ('.csv', '.lxf'):
-        return {'ok': False, 'error': 'File must be .lxf or .csv'}
+    if ext not in (".csv", ".lxf"):
+        return {"ok": False, "error": "File must be .lxf or .csv"}
     dest = os.path.join(state.TEST_MEET_FOLDER, os.path.basename(file.filename))
     save_upload(file, dest)
     try:
-        if ext == '.csv':
+        if ext == ".csv":
             state.load_event_info(dest)
         else:
             state.set_lenex(load_lenex(dest))
         send_event_info()
         state._test_meet_active = True
-        state._test_meet_name   = os.path.basename(file.filename)
-        return {'ok': True, 'name': os.path.basename(file.filename)}
+        state._test_meet_name = os.path.basename(file.filename)
+        return {"ok": True, "name": os.path.basename(file.filename)}
     except Exception as e:
         try:
             os.remove(dest)
         except Exception:
             pass
-        return {'ok': False, 'error': str(e)}
+        return {"ok": False, "error": str(e)}
 
 
 class LocalOnlyBody(BaseModel):
     local_only: bool = True
 
 
-@router.post('/test_set_local_only', response_model=ActionResult,
-             dependencies=[Depends(require_login)])
+@router.post(
+    "/test_set_local_only",
+    response_model=ActionResult,
+    dependencies=[Depends(require_login)],
+)
 def route_test_set_local_only(body: LocalOnlyBody):
     """Remember the checkbox between sessions.
 
@@ -270,44 +298,47 @@ def route_test_set_local_only(body: LocalOnlyBody):
     whatever it started with, since the relay was stopped (or not) at that point
     and flipping it mid-replay would publish half a test.
     """
-    state.settings['test_local_only'] = bool(body.local_only)
+    state.settings["test_local_only"] = bool(body.local_only)
     state.save_settings()
-    return {'ok': True}
+    return {"ok": True}
 
 
-@router.post('/test_set_speed', dependencies=[Depends(require_login)])
+@router.post("/test_set_speed", dependencies=[Depends(require_login)])
 def route_test_set_speed(body: SpeedBody):
     state.in_speed = max(0.1, min(body.speed, 100.0))
-    return {'speed': state.in_speed}
+    return {"speed": state.in_speed}
 
 
-@router.post('/test_record_start', dependencies=[Depends(require_login)])
+@router.post("/test_record_start", dependencies=[Depends(require_login)])
 async def route_test_record_start(body: NameBody):
     if state._record_handle:
         state._record_handle.close()
-    code = re.sub(r'[^a-z0-9_-]', '_', body.name.strip().lower()) or 'recording'
-    path = os.path.join(state.CUSTOM_SESSIONS_FOLDER, code + '.cts')
-    state._record_handle = open(path, 'wt')
-    return {'ok': True, 'file': code + '.cts'}
+    code = re.sub(r"[^a-z0-9_-]", "_", body.name.strip().lower()) or "recording"
+    path = os.path.join(state.CUSTOM_SESSIONS_FOLDER, code + ".cts")
+    state._record_handle = open(path, "wt")
+    return {"ok": True, "file": code + ".cts"}
 
 
-@router.post('/test_record_stop', response_model=ActionResult,
-             dependencies=[Depends(require_login)])
+@router.post(
+    "/test_record_stop",
+    response_model=ActionResult,
+    dependencies=[Depends(require_login)],
+)
 def route_test_record_stop():
     if state._record_handle:
         state._record_handle.close()
         state._record_handle = None
-    return {'ok': True}
+    return {"ok": True}
 
 
-@router.post('/test_session_delete', dependencies=[Depends(require_login)])
+@router.post("/test_session_delete", dependencies=[Depends(require_login)])
 async def route_test_session_delete(body: NameBody):
     path = os.path.join(state.CUSTOM_SESSIONS_FOLDER, body.name)
     if os.path.isfile(path) and path.endswith(SESSION_UPLOAD_EXTS):
         if state._test_session == path:
             bus.run_bg(_restart_worker, None)
         os.remove(path)
-    return redirect('/settings')
+    return redirect("/settings")
 
 
 # The recording formats a session upload takes. `settings.html` puts the same list in
@@ -318,11 +349,15 @@ async def route_test_session_delete(body: NameBody):
 # than hex, so every capture appeared twice in the operator's session list as two rows
 # that played identically. Convert one with
 # `server/console_recordings/cap-to-raw.py` — see that folder's README.
-SESSION_UPLOAD_EXTS = ('.cts', '.raw')
+SESSION_UPLOAD_EXTS = (".cts", ".raw")
 
 
-@router.post('/test_session_upload', response_model=ActionResult,
-             response_model_exclude_none=True, dependencies=[Depends(require_login)])
+@router.post(
+    "/test_session_upload",
+    response_model=ActionResult,
+    response_model_exclude_none=True,
+    dependencies=[Depends(require_login)],
+)
 async def route_test_session_upload(request: Request):
     """Store an uploaded console recording, and say so.
 
@@ -330,50 +365,58 @@ async def route_test_session_upload(request: Request):
     silently dropped it, and the page reloaded its session list either way — so a
     wrong extension looked exactly like a successful upload, minus the new row.
     """
-    file = (await request.form()).get('session_file')
+    file = (await request.form()).get("session_file")
     if not isinstance(file, UploadFile) or not file.filename:
-        return {'ok': False, 'error': 'No file provided'}
+        return {"ok": False, "error": "No file provided"}
     if not file.filename.lower().endswith(SESSION_UPLOAD_EXTS):
-        named = '%s or %s' % (', '.join(SESSION_UPLOAD_EXTS[:-1]), SESSION_UPLOAD_EXTS[-1])
-        return {'ok': False, 'error': 'File must be ' + named}
+        named = "%s or %s" % (
+            ", ".join(SESSION_UPLOAD_EXTS[:-1]),
+            SESSION_UPLOAD_EXTS[-1],
+        )
+        return {"ok": False, "error": "File must be " + named}
     # Writing the upload is blocking — run it off the event loop so live
     # scoreboard broadcasts keep flowing (a long capture is not small).
     await run_in_threadpool(
-        save_upload, file,
-        os.path.join(state.CUSTOM_SESSIONS_FOLDER,
-                     os.path.basename(file.filename)))
-    return {'ok': True}
+        save_upload,
+        file,
+        os.path.join(state.CUSTOM_SESSIONS_FOLDER, os.path.basename(file.filename)),
+    )
+    return {"ok": True}
 
 
-@router.get('/serial_status', response_model=SerialStatus,
-            dependencies=[Depends(require_login)])
+@router.get(
+    "/serial_status", response_model=SerialStatus, dependencies=[Depends(require_login)]
+)
 def route_serial_status():
     return state._serial_status
 
 
-@router.get('/debug_status', response_model=EnabledFlag,
-            dependencies=[Depends(require_login)])
+@router.get(
+    "/debug_status", response_model=EnabledFlag, dependencies=[Depends(require_login)]
+)
 def route_debug_status():
-    return {'enabled': state._debug_serial}
+    return {"enabled": state._debug_serial}
 
 
-@router.post('/debug_toggle', response_model=EnabledFlag,
-             dependencies=[Depends(require_login)])
+@router.post(
+    "/debug_toggle", response_model=EnabledFlag, dependencies=[Depends(require_login)]
+)
 def route_debug_toggle():
     state._debug_serial = not state._debug_serial
-    return {'enabled': state._debug_serial}
+    return {"enabled": state._debug_serial}
 
 
-@router.get('/debug/seed_times', response_model=SeedTimes)
+@router.get("/debug/seed_times", response_model=SeedTimes)
 def route_debug_seed_times():
     return {
-        'lane_seed_times': state._decoder.lane_seed_times,
-        'last_event_sent': state._decoder.last_event_sent,
-        'lenex_loaded':    bool(state.meet.start_list),
+        "lane_seed_times": state._decoder.lane_seed_times,
+        "last_event_sent": state._decoder.last_event_sent,
+        "lenex_loaded": bool(state.meet.start_list),
     }
 
 
 # ── Terminal (PTY) ─────────────────────────────────────────────────────────────
+
 
 def _pty_reader():
     while state._pty_fd is not None:
@@ -382,7 +425,9 @@ def _pty_reader():
             if r:
                 data = os.read(state._pty_fd, 4096)
                 if data:
-                    bus.emit('/terminal', 'output', data.decode('utf-8', errors='replace'))
+                    bus.emit(
+                        "/terminal", "output", data.decode("utf-8", errors="replace")
+                    )
                 else:
                     break
         except OSError:
@@ -390,48 +435,57 @@ def _pty_reader():
         except Exception:
             break
     state._pty_fd = state._pty_pid = None
-    bus.emit('/terminal', 'exit', {})
+    bus.emit("/terminal", "exit", {})
 
 
-@router.post('/terminal_start', response_model=ActionResult,
-             dependencies=[Depends(require_login)])
+@router.post(
+    "/terminal_start",
+    response_model=ActionResult,
+    dependencies=[Depends(require_login)],
+)
 async def route_terminal_start(body: TerminalStart):
     if not state._PTY_AVAILABLE:
-        return {'ok': False, 'error': 'PTY not available on this platform'}
+        return {"ok": False, "error": "PTY not available on this platform"}
     if state._pty_fd is not None:
-        return {'ok': True}
+        return {"ok": True}
     try:
         import fcntl
         import pty
         import termios
+
         # body.cmd is constrained to _TERMINAL_ALLOWED_CMDS keys by the model.
         cmd = _TERMINAL_ALLOWED_CMDS[body.cmd]
         master_fd, slave_fd = pty.openpty()
-        winsize = struct.pack('HHHH', 24, 80, 0, 0)
+        winsize = struct.pack("HHHH", 24, 80, 0, 0)
         fcntl.ioctl(slave_fd, termios.TIOCSWINSZ, winsize)
-        TIOCSCTTY = getattr(termios, 'TIOCSCTTY', 0x540E)
+        TIOCSCTTY = getattr(termios, "TIOCSCTTY", 0x540E)
 
         def _preexec():
             os.setsid()
             fcntl.ioctl(0, TIOCSCTTY, 0)
 
-        env  = {**os.environ, 'TERM': 'xterm-256color'}
+        env = {**os.environ, "TERM": "xterm-256color"}
         proc = subprocess.Popen(
             cmd,
-            stdin=slave_fd, stdout=slave_fd, stderr=slave_fd,
-            close_fds=True, preexec_fn=_preexec, env=env
+            stdin=slave_fd,
+            stdout=slave_fd,
+            stderr=slave_fd,
+            close_fds=True,
+            preexec_fn=_preexec,
+            env=env,
         )
         os.close(slave_fd)
-        state._pty_fd  = master_fd
+        state._pty_fd = master_fd
         state._pty_pid = proc.pid
         bus.run_bg(_pty_reader)
-        return {'ok': True}
+        return {"ok": True}
     except Exception as e:
-        return {'ok': False, 'error': str(e)}
+        return {"ok": False, "error": str(e)}
 
 
-@router.post('/terminal_stop', response_model=ActionResult,
-             dependencies=[Depends(require_login)])
+@router.post(
+    "/terminal_stop", response_model=ActionResult, dependencies=[Depends(require_login)]
+)
 def route_terminal_stop():
     if state._pty_pid:
         try:
@@ -444,13 +498,13 @@ def route_terminal_stop():
         except Exception:
             pass
     state._pty_fd = state._pty_pid = None
-    return {'ok': True}
+    return {"ok": True}
 
 
 def _terminal_input(data):
     if state._pty_fd is not None:
         try:
-            os.write(state._pty_fd, data.encode('utf-8'))
+            os.write(state._pty_fd, data.encode("utf-8"))
         except OSError:
             pass
 
@@ -460,13 +514,14 @@ def _terminal_resize(data):
         try:
             import fcntl
             import termios
-            winsize = struct.pack('HHHH', data['rows'], data['cols'], 0, 0)
+
+            winsize = struct.pack("HHHH", data["rows"], data["cols"], 0, 0)
             fcntl.ioctl(state._pty_fd, termios.TIOCSWINSZ, winsize)
         except Exception:
             pass
 
 
-@router.websocket('/ws/terminal')
+@router.websocket("/ws/terminal")
 async def ws_terminal(ws: WebSocket):
     # The only privileged channel on this server, and the one place the LAN-open
     # model of the other sockets does not hold: `_pty_reader` broadcasts every byte
@@ -476,18 +531,18 @@ async def ws_terminal(ws: WebSocket):
     # *open* the terminal, not who could then read and drive it.
     if not await ws_guard(ws, login_required=True):
         return
-    await bus.manager.connect(ws, '/terminal')
+    await bus.manager.connect(ws, "/terminal")
     try:
         while True:
             msg = await ws.receive_json()
-            ev, d = msg.get('event'), msg.get('data')
-            if ev == 'input':
+            ev, d = msg.get("event"), msg.get("data")
+            if ev == "input":
                 _terminal_input(d)
-            elif ev == 'resize':
+            elif ev == "resize":
                 _terminal_resize(d)
-            elif ev == 'ping':
-                await bus.manager.send(ws, 'pong')
+            elif ev == "ping":
+                await bus.manager.send(ws, "pong")
     except WebSocketDisconnect:
         pass
     finally:
-        bus.manager.disconnect(ws, '/terminal')
+        bus.manager.disconnect(ws, "/terminal")

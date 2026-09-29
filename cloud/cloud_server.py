@@ -8,6 +8,7 @@ FastAPI + plain WebSockets. Each WebSocket path
 per-meet room is a channel keyed ``<namespace>:<meet_id>``. Messages are JSON
 frames ``{"event", "data"}``.
 """
+
 import asyncio
 import base64
 import datetime
@@ -23,8 +24,15 @@ import urllib.request
 from contextlib import asynccontextmanager
 from typing import Any
 
-from fastapi import (Depends, FastAPI, HTTPException, Request, UploadFile, WebSocket,
-                     WebSocketDisconnect)
+from fastapi import (
+    Depends,
+    FastAPI,
+    HTTPException,
+    Request,
+    UploadFile,
+    WebSocket,
+    WebSocketDisconnect,
+)
 from fastapi.openapi.docs import get_redoc_html, get_swagger_ui_html
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
@@ -45,58 +53,79 @@ from starlette.concurrency import run_in_threadpool
 # sys.path when the suite runs, so a plain `bus.py` here would shadow the Pi's —
 # which is exactly why `cloud_server.py` is named that way too.
 import cloud_bus
-from cloud_paths import (DATA_DIR, KEYS_FILE, STATIC_DIR,
-                         SHARED_TEMPLATES_DIR, _HERE)
 from cloud_bus import manager
+from cloud_paths import _HERE, DATA_DIR, KEYS_FILE, SHARED_TEMPLATES_DIR, STATIC_DIR
+
 _ch = cloud_bus.ch
 import cloud_analytics  # noqa: E402
 import cloud_auth  # noqa: E402
+from cloud_analytics import (  # noqa: E402
+    analytics_enabled as _analytics_enabled,
+    analytics_flush_loop as _analytics_flush_loop,
+    analytics_prune as _analytics_prune,
+    attendee_count as _attendee_count,
+    attendee_counts as _attendee_counts,
+    flush_analytics as _flush_analytics,
+    log_connection as _log_connection,
+)
 from cloud_auth import require_admin  # noqa: E402
-from cloud_analytics import (log_connection as _log_connection,  # noqa: E402
-                             analytics_enabled as _analytics_enabled,
-                             attendee_count as _attendee_count,
-                             attendee_counts as _attendee_counts,
-                             analytics_flush_loop as _analytics_flush_loop,
-                             analytics_prune as _analytics_prune,
-                             flush_analytics as _flush_analytics)
+
 _ANALYTICS_WINDOWS = cloud_analytics._ANALYTICS_WINDOWS
 # Names the routes and the tests still reach for directly.
-_load_keys      = cloud_auth.load_keys
-_save_keys      = cloud_auth.save_keys
-_load_creds     = cloud_auth.load_creds
-_save_creds     = cloud_auth.save_creds
-_hash_password  = cloud_auth.hash_password
-_check_admin    = cloud_auth.check_admin
+_load_keys = cloud_auth.load_keys
+_save_keys = cloud_auth.save_keys
+_load_creds = cloud_auth.load_creds
+_save_creds = cloud_auth.save_creds
+_hash_password = cloud_auth.hash_password
+_check_admin = cloud_auth.check_admin
 _ADMIN_FAIL_MAX = cloud_auth._ADMIN_FAIL_MAX
-_admin_fails    = cloud_auth._admin_fails
+_admin_fails = cloud_auth._admin_fails
 import cloud_i18n  # noqa: E402
-from cloud_i18n import (_DEFAULT_COLORS, _DEFAULT_FONTS)  # noqa: E402
+
 # The QR-code link shape, shared verbatim with the Pi that mints one — `cloud_paths`
 # has already put `shared/py/` on the path.
 import splouch_links  # noqa: E402
-from splouch_links import INVITE_PARAM, INVITE_PATH  # noqa: E402
+from cloud_i18n import _DEFAULT_COLORS, _DEFAULT_FONTS  # noqa: E402
+
 # The store's two dicts and their lock are imported as objects, not copied values:
 # they are bound once in `cloud_store` and only ever mutated in place, so every
 # `with _lock:` block and every `_meets[...]` in this file goes on addressing the
 # same thing it always did.
-from cloud_store import (_meets, _relay_sids, _retained, _lock, _write_meet_files, _delete_meet_files, _persist_meet_mem, _record_copy_locked, _meet_id_for, _retire_mem, _sweep_expired, _get_meet,  # noqa: E402
-                         _merged_meets)
+from cloud_store import (  # noqa: E402
+    _delete_meet_files,
+    _get_meet,
+    _lock,
+    _meet_id_for,
+    _meets,
+    _merged_meets,
+    _persist_meet_mem,
+    _record_copy_locked,
+    _relay_sids,
+    _retained,
+    _retire_mem,
+    _sweep_expired,
+    _write_meet_files,
+)
+from splouch_links import INVITE_PARAM, INVITE_PATH  # noqa: E402
+
 _available_locales = cloud_i18n.available_locales
-_strings           = cloud_i18n.strings
-_panel_strings     = cloud_i18n.panel_strings
-_resolve_labels    = cloud_i18n.resolve_labels
-_i18n_bundle       = cloud_i18n.i18n_bundle
-_locale_name       = cloud_i18n.locale_name
+_strings = cloud_i18n.strings
+_panel_strings = cloud_i18n.panel_strings
+_resolve_labels = cloud_i18n.resolve_labels
+_i18n_bundle = cloud_i18n.i18n_bundle
+_locale_name = cloud_i18n.locale_name
 
 
 class ActionResult(BaseModel):
     """Success/failure body for admin actions (error only present on failure)."""
+
     ok: bool
     error: str | None = None
 
 
 class RestoreResult(BaseModel):
     """Result of a backup restore: how many records were merged in."""
+
     ok: bool
     count: int = 0
     error: str | None = None
@@ -104,15 +133,15 @@ class RestoreResult(BaseModel):
 
 class StatsResult(BaseModel):
     """Attendee count for a meet/window; count is null when analytics are off."""
+
     enabled: bool
     count: int | None = None
-
 
 
 # The visitor's choice, per device and per server (docs/app.md `T-08`): the picker
 # writes these, every meet page reads them, and the URL carries nothing. The Pi
 # uses the same names (server/web.py), so the rule is one rule.
-PREF_COOKIES = {'lang': 'splouch_lang', 'style': 'splouch_style'}
+PREF_COOKIES = {"lang": "splouch_lang", "style": "splouch_style"}
 PREF_MAX_AGE = 365 * 24 * 3600
 
 
@@ -123,21 +152,26 @@ def _pref(request, name, valid):
     sender saw it and an old bookmark keeps working; `_remember_prefs` then writes
     it to the cookie so the next page needs no parameter at all.
     """
-    for value in (request.query_params.get(name, ''),
-                  request.cookies.get(PREF_COOKIES[name], '')):
+    for value in (
+        request.query_params.get(name, ""),
+        request.cookies.get(PREF_COOKIES[name], ""),
+    ):
         if value in valid:
             return value
-    return ''
+    return ""
 
 
 def _remember_prefs(request, response):
     """Turn a valid `?lang=` / `?style=` on this request into the device cookie."""
-    for name, valid in (('lang', {c for c, _ in _available_locales()}),
-                        ('style', ('short', 'long'))):
-        value = request.query_params.get(name, '')
+    for name, valid in (
+        ("lang", {c for c, _ in _available_locales()}),
+        ("style", ("short", "long")),
+    ):
+        value = request.query_params.get(name, "")
         if value in valid and value != request.cookies.get(PREF_COOKIES[name]):
-            response.set_cookie(PREF_COOKIES[name], value, max_age=PREF_MAX_AGE,
-                                samesite='lax')
+            response.set_cookie(
+                PREF_COOKIES[name], value, max_age=PREF_MAX_AGE, samesite="lax"
+            )
     return response
 
 
@@ -149,8 +183,9 @@ def _client_lang(request, meet):
     request so a shared link opens as sent. An unknown code falls back rather than
     erroring: a stale bookmark must not break the board.
     """
-    return _pref(request, 'lang', {code for code, _ in _available_locales()}) \
-        or _meet_lang(meet)
+    return _pref(
+        request, "lang", {code for code, _ in _available_locales()}
+    ) or _meet_lang(meet)
 
 
 def _client_labels(meet, lang, style):
@@ -160,21 +195,22 @@ def _client_labels(meet, lang, style):
     byte for byte. With one, it is the shipped table for that language, the same
     body `GET /i18n/{lang}` serves (api.md §5.9).
     """
-    s = meet.get('settings', {})
-    if lang == _meet_lang(meet) and style == s.get('label_style', 'short'):
-        return s.get('labels', {})
-    labels = dict(_i18n_bundle(lang)['labels'].get(style, {}))
+    s = meet.get("settings", {})
+    if lang == _meet_lang(meet) and style == s.get("label_style", "short"):
+        return s.get("labels", {})
+    labels = dict(_i18n_bundle(lang)["labels"].get(style, {}))
     # The relay folds a few [mobile] strings into `labels`; keep whatever else the
     # meet sent so nothing that read them starts rendering blank.
-    for key, value in s.get('labels', {}).items():
+    for key, value in s.get("labels", {}).items():
         labels.setdefault(key, value)
     return labels
 
 
 def _client_style(request, meet):
     """`short` or `long` — the visitor's pick, else the operator's (`T-09`)."""
-    return _pref(request, 'style', ('short', 'long')) \
-        or meet.get('settings', {}).get('label_style', 'short')
+    return _pref(request, "style", ("short", "long")) or meet.get("settings", {}).get(
+        "label_style", "short"
+    )
 
 
 def _etagged(request, payload):
@@ -185,63 +221,72 @@ def _etagged(request, payload):
     """
     body = json.dumps(payload, ensure_ascii=False, sort_keys=True).encode()
     etag = '"' + hashlib.sha256(body).hexdigest()[:16] + '"'
-    headers = {'ETag': etag, 'Cache-Control': 'no-cache'}
-    if request.headers.get('if-none-match') == etag:
+    headers = {"ETag": etag, "Cache-Control": "no-cache"}
+    if request.headers.get("if-none-match") == etag:
         return Response(status_code=304, headers=headers)
-    return Response(body, media_type='application/json', headers=headers)
+    return Response(body, media_type="application/json", headers=headers)
 
 
 def _browser_lang(request):
     """First Accept-Language entry matching an available locale, or None."""
     available = {code for code, _ in _available_locales()}
-    accept = request.headers.get('Accept-Language', '')
-    for part in accept.replace('-', '_').split(','):
-        code = part.split(';')[0].strip().split('_')[0].lower()
+    accept = request.headers.get("Accept-Language", "")
+    for part in accept.replace("-", "_").split(","):
+        code = part.split(";")[0].strip().split("_")[0].lower()
         if code in available:
             return code
     return None
 
+
 def _server_lang(request):
     # Admin's pinned locale wins; otherwise follow the browser.
     available = {code for code, _ in _available_locales()}
-    stored = _load_creds().get('locale', '')
+    stored = _load_creds().get("locale", "")
     if stored and stored in available:
         return stored
-    return _browser_lang(request) or 'en'
+    return _browser_lang(request) or "en"
+
 
 def _picker_lang(request):
     # Public picker: the visitor's stored choice (`?lang=`, then the cookie) wins,
     # then the browser language; the server-wide default (creds['locale']) is only
     # a fallback when neither names a language this server ships. Set from the
     # Appearance tab — see change_locale.
-    return (_pref(request, 'lang', {c for c, _ in _available_locales()})
-            or _browser_lang(request) or _server_lang(request))
+    return (
+        _pref(request, "lang", {c for c, _ in _available_locales()})
+        or _browser_lang(request)
+        or _server_lang(request)
+    )
+
 
 def _admin_lang(request):
     # The admin panel language is per-device, independent of the server-wide
     # public-page locale above: the ui_lang cookie wins, else the browser, else
     # English. Same contract as the operator Settings panel.
     available = {code for code, _ in _available_locales()}
-    cookie = request.cookies.get('ui_lang', '')
+    cookie = request.cookies.get("ui_lang", "")
     if cookie in available:
         return cookie
-    return _browser_lang(request) or 'en'
+    return _browser_lang(request) or "en"
+
 
 def _ui_lang_cookie(request):
     # The explicitly-pinned panel language, or '' for "Auto" — so a stale cookie
     # for a removed locale reads as Auto, matching _admin_lang() resolution.
     available = {code for code, _ in _available_locales()}
-    cookie = request.cookies.get('ui_lang', '')
-    return cookie if cookie in available else ''
+    cookie = request.cookies.get("ui_lang", "")
+    return cookie if cookie in available else ""
+
 
 def _load_cloud_strings(request):
     """`[chrome]` underneath `[cloud]`: the sidebar and theme switcher are the same
     markup as the Pi's Settings panel, so their words live in one section both read."""
     lang = _admin_lang(request)
-    return {**_panel_strings(lang, 'chrome'), **_panel_strings(lang, 'cloud')}
+    return {**_panel_strings(lang, "chrome"), **_panel_strings(lang, "cloud")}
+
 
 def _meet_lang(meet):
-    return meet.get('settings', {}).get('locale') or 'en'
+    return meet.get("settings", {}).get("locale") or "en"
 
 
 @asynccontextmanager
@@ -258,24 +303,22 @@ async def lifespan(app):
         except asyncio.CancelledError:
             pass
         try:
-            await run_in_threadpool(_flush_analytics)   # persist anything still queued
+            await run_in_threadpool(_flush_analytics)  # persist anything still queued
         except Exception:
-            pass                                        # don't let a failed drain error shutdown
+            pass  # don't let a failed drain error shutdown
 
 
 # Built-in docs are disabled here and re-served below behind `require_admin`, so
 # the OpenAPI schema and Swagger/ReDoc UIs require admin Basic-auth credentials.
 app = FastAPI(lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None)
-app.mount('/static', StaticFiles(directory=STATIC_DIR, check_dir=False),
-          name='static')
-templates = Jinja2Templates(directory=[os.path.join(_HERE, 'templates'),
-                                       SHARED_TEMPLATES_DIR])
+app.mount("/static", StaticFiles(directory=STATIC_DIR, check_dir=False), name="static")
+templates = Jinja2Templates(
+    directory=[os.path.join(_HERE, "templates"), SHARED_TEMPLATES_DIR]
+)
 
 
 def render(request, name, **ctx):
     return templates.TemplateResponse(request, name, ctx)
-
-
 
 
 # How often a running race clock is re-based on the attendees' devices. They tick
@@ -290,22 +333,28 @@ _CLOCK_SYNC_SECS = 2.0
 # The cap is small on purpose: both images live base64-encoded inside
 # credentials.json, and `_load_creds()` re-reads and re-parses that file on every
 # request. A few megabytes of logo would be paid for on every page view.
-LOGO_MIME_TYPES = ('image/png', 'image/jpeg', 'image/gif', 'image/webp', 'image/svg+xml')
-ICON_MIME_TYPES = ('image/png',)
+LOGO_MIME_TYPES = (
+    "image/png",
+    "image/jpeg",
+    "image/gif",
+    "image/webp",
+    "image/svg+xml",
+)
+ICON_MIME_TYPES = ("image/png",)
 MAX_IMAGE_BYTES = 2 * 1024 * 1024
 
 
 def _picker_appearance():
     creds = _load_creds()
-    raw = creds.get('picker_title')
-    raw_wt = creds.get('picker_window_title')
+    raw = creds.get("picker_title")
+    raw_wt = creds.get("picker_window_title")
     return {
-        'picker_title_form':        'Splouch' if raw is None else raw,
-        'picker_window_title_form': 'Splouch' if raw_wt is None else raw_wt,
-        'has_picker_logo':          bool(creds.get('picker_logo_b64', '')),
-        'has_picker_icon':          bool(creds.get('picker_icon_b64', '')),
-        'picker_logo_above':        creds.get('picker_logo_above', False),
-        'picker_max_upload':        MAX_IMAGE_BYTES,
+        "picker_title_form": "Splouch" if raw is None else raw,
+        "picker_window_title_form": "Splouch" if raw_wt is None else raw_wt,
+        "has_picker_logo": bool(creds.get("picker_logo_b64", "")),
+        "has_picker_icon": bool(creds.get("picker_icon_b64", "")),
+        "picker_logo_above": creds.get("picker_logo_above", False),
+        "picker_max_upload": MAX_IMAGE_BYTES,
     }
 
 
@@ -315,11 +364,13 @@ def _admin_meet_list():
     with _lock:
         for mid, m in _merged_meets().items():
             live = mid in _meets
-            exp  = None if live else _retained.get(mid, {}).get('expires_at')
-            disp = ''
+            exp = None if live else _retained.get(mid, {}).get("expires_at")
+            disp = ""
             if exp:
                 try:
-                    disp = datetime.datetime.fromisoformat(exp).strftime('%Y-%m-%d %H:%M')
+                    disp = datetime.datetime.fromisoformat(exp).strftime(
+                        "%Y-%m-%d %H:%M"
+                    )
                 except ValueError:
                     disp = exp
             # Which console the operator is running on, straight off the relay's
@@ -327,48 +378,56 @@ def _admin_meet_list():
             # did this meet run on* — and the admin table is exactly the support
             # screen it was published for. A relay too old to send one leaves both
             # None: the table says so rather than guessing a console for it.
-            console = m.get('settings', {}).get('console') or {}
-            out.append({
-                'id':              mid,
-                'name':            m.get('name', ''),
-                'location':        m.get('location', ''),
-                'sport':           m.get('sport', ''),
-                'organizer':       m.get('organizer', ''),
-                'connected_at':    m.get('connected_at', ''),
-                'language':        _locale_name(_meet_lang(m)),
-                'console':         console.get('key', ''),
-                'console_timed':   console.get('timed'),
-                'live':            live,
-                'expires_at':      exp,
-                'expires_display': disp,
-                'expires_input':   (exp or '')[:16],   # for <input type=datetime-local>
-            })
-    out.sort(key=lambda x: (not x['live'], (x['name'] or '').lower()))
+            console = m.get("settings", {}).get("console") or {}
+            out.append(
+                {
+                    "id": mid,
+                    "name": m.get("name", ""),
+                    "location": m.get("location", ""),
+                    "sport": m.get("sport", ""),
+                    "organizer": m.get("organizer", ""),
+                    "connected_at": m.get("connected_at", ""),
+                    "language": _locale_name(_meet_lang(m)),
+                    "console": console.get("key", ""),
+                    "console_timed": console.get("timed"),
+                    "live": live,
+                    "expires_at": exp,
+                    "expires_display": disp,
+                    "expires_input": (exp or "")[
+                        :16
+                    ],  # for <input type=datetime-local>
+                }
+            )
+    out.sort(key=lambda x: (not x["live"], (x["name"] or "").lower()))
     return out
-
 
 
 # ── API docs (admin-gated) ─────────────────────────────────────────────────────
 # 401 → the browser prompts for admin Basic-auth credentials, which it then also
 # resends when Swagger UI fetches /openapi.json from the same origin.
 
-@app.get('/openapi.json', include_in_schema=False,
-         dependencies=[Depends(require_admin)])
+
+@app.get(
+    "/openapi.json", include_in_schema=False, dependencies=[Depends(require_admin)]
+)
 async def route_openapi():
     return app.openapi()
 
 
-@app.get('/docs', include_in_schema=False, dependencies=[Depends(require_admin)])
+@app.get("/docs", include_in_schema=False, dependencies=[Depends(require_admin)])
 async def route_docs():
-    return get_swagger_ui_html(openapi_url='/openapi.json', title='Splouch Cloud API docs')
+    return get_swagger_ui_html(
+        openapi_url="/openapi.json", title="Splouch Cloud API docs"
+    )
 
 
-@app.get('/redoc', include_in_schema=False, dependencies=[Depends(require_admin)])
+@app.get("/redoc", include_in_schema=False, dependencies=[Depends(require_admin)])
 async def route_redoc():
-    return get_redoc_html(openapi_url='/openapi.json', title='Splouch Cloud API docs')
+    return get_redoc_html(openapi_url="/openapi.json", title="Splouch Cloud API docs")
 
 
 # ── Routes ─────────────────────────────────────────────────────────────────────
+
 
 def _public_meet_list():
     """Meets for the picker — live and retained alike, newest state first.
@@ -380,12 +439,21 @@ def _public_meet_list():
     """
     _sweep_expired()
     with _lock:
-        return [{'id': mid, 'name': m['name'], 'location': m['location'],
-                 'sport': m['sport'], 'organizer': m['organizer'],
-                 'meet_date': m.get('meet_date', ''),
-                 'offline': mid not in _meets,
-                 'has_picker_image': bool(m.get('settings', {}).get('picker_image_b64', ''))}
-                for mid, m in _merged_meets().items()]
+        return [
+            {
+                "id": mid,
+                "name": m["name"],
+                "location": m["location"],
+                "sport": m["sport"],
+                "organizer": m["organizer"],
+                "meet_date": m.get("meet_date", ""),
+                "offline": mid not in _meets,
+                "has_picker_image": bool(
+                    m.get("settings", {}).get("picker_image_b64", "")
+                ),
+            }
+            for mid, m in _merged_meets().items()
+        ]
 
 
 def _picker_branding():
@@ -395,52 +463,64 @@ def _picker_branding():
     'Splouch', while an explicitly blank title hides it. Preserve that — see
     route_picker_appearance.
     """
-    creds  = _load_creds()
-    raw    = creds.get('picker_title')
-    raw_wt = creds.get('picker_window_title')
+    creds = _load_creds()
+    raw = creds.get("picker_title")
+    raw_wt = creds.get("picker_window_title")
     return {
-        'title':        'Splouch' if raw is None else raw,
-        'window_title': 'Splouch' if raw_wt is None else raw_wt,
-        'has_logo':     bool(creds.get('picker_logo_b64', '')),
-        'logo_above':   creds.get('picker_logo_above', False),
+        "title": "Splouch" if raw is None else raw,
+        "window_title": "Splouch" if raw_wt is None else raw_wt,
+        "has_logo": bool(creds.get("picker_logo_b64", "")),
+        "logo_above": creds.get("picker_logo_above", False),
     }
 
 
 # The picker chrome a native client renders itself. Kept server-side rather than
 # shipped in the app because results_disclaimer and privacy_note are compliance
 # text: they must be correctable without waiting on an App Store review.
-_PICKER_STRING_KEYS = ('page_title', 'no_meets', 'unnamed_meet',
-                       'results_disclaimer', 'privacy_note')
+_PICKER_STRING_KEYS = (
+    "page_title",
+    "no_meets",
+    "unnamed_meet",
+    "results_disclaimer",
+    "privacy_note",
+)
 
 
-@app.get('/', tags=['Public'])
+@app.get("/", tags=["Public"])
 def route_index(request: Request):
     meets = _public_meet_list()
     brand = _picker_branding()
     # The list spans meets that may each run in a different language, so this page
     # follows the visitor, not a meet. Per-meet language starts at /mobile.
     lang = _picker_lang(request)
-    return _remember_prefs(request, render(request, 'picker.html', meets=meets,
-        t=_strings(lang, 'mobile'),
-        lang=lang,
-        # For the display-preferences menu: the languages this server can serve.
-        locales=_available_locales(),
-        picker_title=brand['title'],
-        picker_window_title=brand['window_title'],
-        picker_logo=brand['has_logo'],
-        picker_logo_above=brand['logo_above'],
-        analytics_enabled=_analytics_enabled()))
+    return _remember_prefs(
+        request,
+        render(
+            request,
+            "picker.html",
+            meets=meets,
+            t=_strings(lang, "mobile"),
+            lang=lang,
+            # For the display-preferences menu: the languages this server can serve.
+            locales=_available_locales(),
+            picker_title=brand["title"],
+            picker_window_title=brand["window_title"],
+            picker_logo=brand["has_logo"],
+            picker_logo_above=brand["logo_above"],
+            analytics_enabled=_analytics_enabled(),
+        ),
+    )
 
 
 # The contracts this build implements, for the handshake below. Bumped with the
 # headers of docs/api.md and docs/app.md, which a test pins.
-API_CONTRACT    = 'v2'
-APP_CONTRACT    = 'v1'
+API_CONTRACT = "v2"
+APP_CONTRACT = "v1"
 
-SERVERS_FILE = os.path.join(DATA_DIR, 'servers.json')
+SERVERS_FILE = os.path.join(DATA_DIR, "servers.json")
 
 
-@app.get('/server', tags=['Public'])
+@app.get("/server", tags=["Public"])
 def route_server():
     """Who this server is — the handshake a native client makes before anything else.
 
@@ -451,13 +531,13 @@ def route_server():
     contract versions.
     """
     return {
-        'kind':     'cloud',
-        'name':     _picker_branding().get('title') or 'Splouch',
-        'contract': {'api': API_CONTRACT, 'app': APP_CONTRACT},
+        "kind": "cloud",
+        "name": _picker_branding().get("title") or "Splouch",
+        "contract": {"api": API_CONTRACT, "app": APP_CONTRACT},
     }
 
 
-@app.get('/servers', tags=['Public'])
+@app.get("/servers", tags=["Public"])
 def route_servers(request: Request):
     """Servers a client may offer to connect to — a directory, not a whitelist.
 
@@ -470,23 +550,33 @@ def route_servers(request: Request):
     A client keeps its own additions (docs/app.md `P-13`) — this list
     informs the menu, it does not replace what the user typed.
     """
-    here = str(request.base_url).rstrip('/')
-    servers = [{'name': _picker_branding().get('title') or 'Splouch',
-                'url': here, 'kind': 'cloud'}]
+    here = str(request.base_url).rstrip("/")
+    servers = [
+        {
+            "name": _picker_branding().get("title") or "Splouch",
+            "url": here,
+            "kind": "cloud",
+        }
+    ]
     try:
-        with open(SERVERS_FILE, 'rb') as f:
+        with open(SERVERS_FILE, "rb") as f:
             extra = json.load(f)
     except Exception:
         extra = []
     seen = {here}
     for entry in extra if isinstance(extra, list) else []:
-        url = str(entry.get('url', '')).rstrip('/')
+        url = str(entry.get("url", "")).rstrip("/")
         if not url or url in seen:
             continue
         seen.add(url)
-        servers.append({'name': entry.get('name') or url,
-                        'url': url, 'kind': entry.get('kind', 'cloud')})
-    return {'servers': servers}
+        servers.append(
+            {
+                "name": entry.get("name") or url,
+                "url": url,
+                "kind": entry.get("kind", "cloud"),
+            }
+        )
+    return {"servers": servers}
 
 
 # ── QR-code hand-off (`app.md` `P-16`) ─────────────────────────────────────────
@@ -510,22 +600,22 @@ def route_servers(request: Request):
 # two places, and the two accumulate rather than override: the release fingerprint
 # goes in the environment once at deploy time, and a debug one can be added to
 # `applinks.json` in the data dir to test a debug build without cutting a release.
-APPLINKS_FILE = os.path.join(DATA_DIR, 'applinks.json')
+APPLINKS_FILE = os.path.join(DATA_DIR, "applinks.json")
 
 # The Android application id. Fixed by the app's own manifest, not by a keystore,
 # so unlike the fingerprints it has a real default here.
-ANDROID_PACKAGE = 'app.splouch.android'
+ANDROID_PACKAGE = "app.splouch.android"
 
 # `<TEAMID>.<bundle id>` from `Splouch-ios` — the team and bundle the Xcode project
 # is configured with, not a guess. Also a property of the app rather than of a
 # signing key, so it too defaults rather than being required.
-IOS_APP_IDS = ('L86UD2L8Q5.app.splouch.ios',)
+IOS_APP_IDS = ("L86UD2L8Q5.app.splouch.ios",)
 
 
 def _applinks_file():
     """`applinks.json` from the data dir, or `{}`. Never raises."""
     try:
-        with open(APPLINKS_FILE, 'rb') as f:
+        with open(APPLINKS_FILE, "rb") as f:
             data = json.load(f)
     except Exception:
         return {}
@@ -536,7 +626,7 @@ def _as_list(value):
     """A config value that may be a list, or one string holding several."""
     if isinstance(value, (list, tuple)):
         return [str(v) for v in value]
-    return [part for part in re.split(r'[,\s]+', str(value or '')) if part]
+    return [part for part in re.split(r"[,\s]+", str(value or "")) if part]
 
 
 def _fingerprints(*sources):
@@ -552,10 +642,10 @@ def _fingerprints(*sources):
     out = []
     for source in sources:
         for raw in _as_list(source):
-            hexed = raw.replace(':', '').strip().upper()
-            if len(hexed) != 64 or any(c not in '0123456789ABCDEF' for c in hexed):
+            hexed = raw.replace(":", "").strip().upper()
+            if len(hexed) != 64 or any(c not in "0123456789ABCDEF" for c in hexed):
                 continue
-            value = ':'.join(hexed[i:i + 2] for i in range(0, 64, 2))
+            value = ":".join(hexed[i : i + 2] for i in range(0, 64, 2))
             if value not in out:
                 out.append(value)
     return out
@@ -569,16 +659,24 @@ def _app_links():
     file may override.
     """
     stored = _applinks_file()
-    ios = [a for a in dict.fromkeys(_as_list(os.environ.get('IOS_APP_IDS', ''))
-                                    + _as_list(stored.get('ios_app_ids')))]
+    ios = [
+        a
+        for a in dict.fromkeys(
+            _as_list(os.environ.get("IOS_APP_IDS", ""))
+            + _as_list(stored.get("ios_app_ids"))
+        )
+    ]
     return {
-        'android_package': (str(stored.get('android_package', ''))
-                            or os.environ.get('ANDROID_PACKAGE_NAME', '')
-                            or ANDROID_PACKAGE),
-        'android_fingerprints': _fingerprints(
-            os.environ.get('ANDROID_CERT_FINGERPRINTS', ''),
-            stored.get('android_fingerprints')),
-        'ios_app_ids': ios or list(IOS_APP_IDS),
+        "android_package": (
+            str(stored.get("android_package", ""))
+            or os.environ.get("ANDROID_PACKAGE_NAME", "")
+            or ANDROID_PACKAGE
+        ),
+        "android_fingerprints": _fingerprints(
+            os.environ.get("ANDROID_CERT_FINGERPRINTS", ""),
+            stored.get("android_fingerprints"),
+        ),
+        "ios_app_ids": ios or list(IOS_APP_IDS),
     }
 
 
@@ -595,9 +693,9 @@ def _store_links():
     """
     stored = _applinks_file()
     out = {}
-    for key, env in (('android', 'STORE_URL_ANDROID'), ('ios', 'STORE_URL_IOS')):
-        url = str(stored.get(f'store_{key}', '') or os.environ.get(env, '')).strip()
-        if url.lower().startswith('https://'):
+    for key, env in (("android", "STORE_URL_ANDROID"), ("ios", "STORE_URL_IOS")):
+        url = str(stored.get(f"store_{key}", "") or os.environ.get(env, "")).strip()
+        if url.lower().startswith("https://"):
             out[key] = url
     return out
 
@@ -619,11 +717,11 @@ def _phone_platform(request):
     The caller never guesses on a ``None``. It is only ever allowed to *narrow*,
     so an agent this cannot place is shown everything there is.
     """
-    agent = request.headers.get('user-agent', '')
-    if 'Android' in agent:
-        return 'android'
-    if any(device in agent for device in ('iPhone', 'iPad', 'iPod')):
-        return 'ios'
+    agent = request.headers.get("user-agent", "")
+    if "Android" in agent:
+        return "android"
+    if any(device in agent for device in ("iPhone", "iPad", "iPod")):
+        return "ios"
     return None
 
 
@@ -633,11 +731,13 @@ def _json(payload):
     `apple-app-site-association` has no file extension on purpose — Apple fetches
     that exact path — so nothing downstream can guess its type from a name.
     """
-    return Response(json.dumps(payload, indent=2, sort_keys=True).encode(),
-                    media_type='application/json')
+    return Response(
+        json.dumps(payload, indent=2, sort_keys=True).encode(),
+        media_type="application/json",
+    )
 
 
-@app.get('/.well-known/assetlinks.json', tags=['Public'], include_in_schema=False)
+@app.get("/.well-known/assetlinks.json", tags=["Public"], include_in_schema=False)
 def route_assetlinks():
     """Android App Links: which app may open `https://<this host>/add`.
 
@@ -647,18 +747,25 @@ def route_assetlinks():
     phone nobody is watching.
     """
     links = _app_links()
-    if not links['android_fingerprints']:
+    if not links["android_fingerprints"]:
         raise HTTPException(status_code=404)
-    return _json([{
-        'relation': ['delegate_permission/common.handle_all_urls'],
-        'target': {'namespace': 'android_app',
-                   'package_name': links['android_package'],
-                   'sha256_cert_fingerprints': links['android_fingerprints']},
-    }])
+    return _json(
+        [
+            {
+                "relation": ["delegate_permission/common.handle_all_urls"],
+                "target": {
+                    "namespace": "android_app",
+                    "package_name": links["android_package"],
+                    "sha256_cert_fingerprints": links["android_fingerprints"],
+                },
+            }
+        ]
+    )
 
 
-@app.get('/.well-known/apple-app-site-association', tags=['Public'],
-         include_in_schema=False)
+@app.get(
+    "/.well-known/apple-app-site-association", tags=["Public"], include_in_schema=False
+)
 def route_aasa():
     """iOS Universal Links, the twin of the file above.
 
@@ -669,13 +776,21 @@ def route_aasa():
     No `.json` extension: Apple fetches this exact path, and adding one would
     serve a file nothing asks for.
     """
-    return _json({'applinks': {'details': [
-        {'appIDs': _app_links()['ios_app_ids'],
-         'components': [{'/': INVITE_PATH, '?': {INVITE_PARAM: '?*'}}]},
-    ]}})
+    return _json(
+        {
+            "applinks": {
+                "details": [
+                    {
+                        "appIDs": _app_links()["ios_app_ids"],
+                        "components": [{"/": INVITE_PATH, "?": {INVITE_PARAM: "?*"}}],
+                    },
+                ]
+            }
+        }
+    )
 
 
-@app.get('/add', tags=['Public'])
+@app.get("/add", tags=["Public"])
 def route_add(request: Request):
     """Where a scanned code lands when the app is not installed (`app.md` `P-16`).
 
@@ -697,7 +812,7 @@ def route_add(request: Request):
     under it.
     """
     lang = _picker_lang(request)
-    server = splouch_links.parse_origin(request.query_params.get(INVITE_PARAM, ''))
+    server = splouch_links.parse_origin(request.query_params.get(INVITE_PARAM, ""))
     # One store, the reader's own, where the agent says which. A platform with no
     # listing yet leaves nothing rather than offering the other one — an App Store
     # link is not an answer to an Android phone.
@@ -716,33 +831,40 @@ def route_add(request: Request):
     # a browser link beside it is the easier tap and the one that ends the hand-off
     # (`P-10`). It leads to the **picker**, never straight to a meet, so a reader
     # who takes it still passes `P-06`'s disclaimer.
-    response = _remember_prefs(request, render(request, 'add.html',
-        lang=lang,
-        t=_strings(lang, 'mobile'),
-        server=server,
-        # Whether the code named *this* server, which is the ordinary case: a Pi
-        # prints a code for the cloud it publishes to, and for most deployments
-        # that is the same cloud serving this page. The app would answer such a
-        # scan with "you're already on this server" and open the meet list, so
-        # promising that it "will offer to add this server" would be a small lie
-        # told to the majority of readers.
-        is_here=bool(server) and server == splouch_links.parse_origin(str(request.base_url)),
-        stores=stores,
-        web=not stores or platform is None,
-        **_picker_branding()))
+    response = _remember_prefs(
+        request,
+        render(
+            request,
+            "add.html",
+            lang=lang,
+            t=_strings(lang, "mobile"),
+            server=server,
+            # Whether the code named *this* server, which is the ordinary case: a Pi
+            # prints a code for the cloud it publishes to, and for most deployments
+            # that is the same cloud serving this page. The app would answer such a
+            # scan with "you're already on this server" and open the meet list, so
+            # promising that it "will offer to add this server" would be a small lie
+            # told to the majority of readers.
+            is_here=bool(server)
+            and server == splouch_links.parse_origin(str(request.base_url)),
+            stores=stores,
+            web=not stores or platform is None,
+            **_picker_branding(),
+        ),
+    )
     # The body depends on the agent, so say so. Nothing in front of this caches
     # today, and a proxy that one day does must not hand an iPhone Google Play.
-    response.headers['Vary'] = 'User-Agent'
+    response.headers["Vary"] = "User-Agent"
     return response
 
 
-@app.get('/locales', tags=['Public'])
+@app.get("/locales", tags=["Public"])
 def route_locales(request: Request):
     """The languages this server can serve — for a client offering the choice."""
-    return _etagged(request, [{'code': c, 'name': n} for c, n in _available_locales()])
+    return _etagged(request, [{"code": c, "name": n} for c, n in _available_locales()])
 
 
-@app.get('/i18n/{lang}', tags=['Public'])
+@app.get("/i18n/{lang}", tags=["Public"])
 def route_i18n(lang: str, request: Request):
     """One language: app chrome plus both label styles (§5.9).
 
@@ -753,7 +875,7 @@ def route_i18n(lang: str, request: Request):
     return _etagged(request, _i18n_bundle(lang))
 
 
-@app.get('/meets', tags=['Public'])
+@app.get("/meets", tags=["Public"])
 def route_meets():
     """The meet list as JSON — the native picker's equivalent of ``GET /``.
 
@@ -761,10 +883,10 @@ def route_meets():
     stay listed on purpose so a spectator can still read the last state.
     ``has_picker_image`` says whether ``GET /picker_image/{id}`` will return an
     image for that meet."""
-    return {'meets': _public_meet_list()}
+    return {"meets": _public_meet_list()}
 
 
-@app.get('/picker/config', tags=['Public'])
+@app.get("/picker/config", tags=["Public"])
 def route_picker_config(request: Request):
     """Branding, localised chrome, and the analytics flag for a native picker.
 
@@ -781,169 +903,194 @@ def route_picker_config(request: Request):
     affordance instead of offering a dead link. Empty until an app is listed, and
     the same dict `GET /add` renders its buttons from."""
     lang = _picker_lang(request)
-    strings = _strings(lang, 'mobile')
+    strings = _strings(lang, "mobile")
     return {
         **_picker_branding(),
-        'lang':              lang,
-        'analytics_enabled': _analytics_enabled(),
-        'stores':            _store_links(),
-        'strings':           {k: strings[k] for k in _PICKER_STRING_KEYS if k in strings},
+        "lang": lang,
+        "analytics_enabled": _analytics_enabled(),
+        "stores": _store_links(),
+        "strings": {k: strings[k] for k in _PICKER_STRING_KEYS if k in strings},
     }
 
 
-@app.get('/mobile', tags=['Public'])
+@app.get("/mobile", tags=["Public"])
 def route_mobile(request: Request):
-    meet_id = request.query_params.get('meet', '')
+    meet_id = request.query_params.get("meet", "")
     with _lock:
         meet = _get_meet(meet_id)
     if not meet:
-        return RedirectResponse('/', status_code=303)
-    return _remember_prefs(request, render(request, 'mobile.html',
-                  meet_id=meet_id,
-                  app_title=(meet.get('app_window_title') or meet['name'] or 'Splouch'),
-                  t=_strings(_client_lang(request, meet), 'mobile'),
-                  lang=_client_lang(request, meet),
-                  # No Results tab for a meet run by hand: nothing will ever fill it
-                  # (docs/app.md `A-11`). True for a relay too old to say, which is
-                  # what every relay before this said by having a console at all.
-                  show_results=meet.get('settings', {})
-                                  .get('console', {}).get('timed', True),
-                  # Passed down to the tab iframes so one choice covers all three.
-                  ui_style=_client_style(request, meet)))
+        return RedirectResponse("/", status_code=303)
+    return _remember_prefs(
+        request,
+        render(
+            request,
+            "mobile.html",
+            meet_id=meet_id,
+            app_title=(meet.get("app_window_title") or meet["name"] or "Splouch"),
+            t=_strings(_client_lang(request, meet), "mobile"),
+            lang=_client_lang(request, meet),
+            # No Results tab for a meet run by hand: nothing will ever fill it
+            # (docs/app.md `A-11`). True for a relay too old to say, which is
+            # what every relay before this said by having a console at all.
+            show_results=meet.get("settings", {}).get("console", {}).get("timed", True),
+            # Passed down to the tab iframes so one choice covers all three.
+            ui_style=_client_style(request, meet),
+        ),
+    )
 
 
-@app.get('/mobile/live', tags=['Public'])
+@app.get("/mobile/live", tags=["Public"])
 def route_live(request: Request):
-    meet_id = request.query_params.get('meet', '')
+    meet_id = request.query_params.get("meet", "")
     with _lock:
         meet = _get_meet(meet_id)
     if not meet:
-        return render(request, 'offline.html')
-    s = meet.get('settings', {})
-    return render(request, 'live-mobile.html',
+        return render(request, "offline.html")
+    s = meet.get("settings", {})
+    return render(
+        request,
+        "live-mobile.html",
         meet_id=meet_id,
-        num_lanes=s.get('num_lanes', 8),
-        show_lane_header=s.get('show_lane_header', True),
-        show_name_header=s.get('show_name_header', True),
-        show_club_header=s.get('show_club_header', True),
-        show_time_header=s.get('show_time_header', True),
-        show_delta_header=s.get('show_delta_header', True),
-        show_position_header=s.get('show_position_header', True),
-        show_name=s.get('show_name', True),
-        show_club=s.get('show_club', True),
-        show_delta=s.get('show_delta', True),
-        show_position=s.get('show_position', True),
+        num_lanes=s.get("num_lanes", 8),
+        show_lane_header=s.get("show_lane_header", True),
+        show_name_header=s.get("show_name_header", True),
+        show_club_header=s.get("show_club_header", True),
+        show_time_header=s.get("show_time_header", True),
+        show_delta_header=s.get("show_delta_header", True),
+        show_position_header=s.get("show_position_header", True),
+        show_name=s.get("show_name", True),
+        show_club=s.get("show_club", True),
+        show_delta=s.get("show_delta", True),
+        show_position=s.get("show_position", True),
         # Live-board only — the Results tab has no running lanes to count lengths
         # for, so `results.html` does not take this.
-        show_laps=s.get('show_laps', False),
-        lap_direction=s.get('lap_direction', 'up'),
+        show_laps=s.get("show_laps", False),
+        lap_direction=s.get("lap_direction", "up"),
         # Merge over the defaults rather than falling back wholesale: a relay that
         # sends a partial theme_colors would otherwise leave every unlisted CSS
         # variable empty. Matches route_results and route_schedule.
-        theme_colors={**_DEFAULT_COLORS, **s.get('theme_colors', {})},
-        theme_fonts={**_DEFAULT_FONTS,  **s.get('theme_fonts',  {})},
-        labels=_client_labels(meet, _client_lang(request, meet), _client_style(request, meet)),
+        theme_colors={**_DEFAULT_COLORS, **s.get("theme_colors", {})},
+        theme_fonts={**_DEFAULT_FONTS, **s.get("theme_fonts", {})},
+        labels=_client_labels(
+            meet, _client_lang(request, meet), _client_style(request, meet)
+        ),
         # The vocabulary `event_name_parts` composes against, in the language the
         # page is rendered in (docs/app.md `T-11`).
-        event_vocab=_strings(_client_lang(request, meet), 'event_name'),
+        event_vocab=_strings(_client_lang(request, meet), "event_name"),
         lang=_client_lang(request, meet),
     )
 
 
-@app.get('/mobile/results', tags=['Public'])
+@app.get("/mobile/results", tags=["Public"])
 def route_results(request: Request):
-    meet_id = request.query_params.get('meet', '')
+    meet_id = request.query_params.get("meet", "")
     with _lock:
         meet = _get_meet(meet_id)
     if not meet:
-        return render(request, 'offline.html')
-    s = meet.get('settings', {})
-    return render(request, 'results.html',
+        return render(request, "offline.html")
+    s = meet.get("settings", {})
+    return render(
+        request,
+        "results.html",
         meet_id=meet_id,
-        num_lanes=s.get('num_lanes', 8),
-        show_lane_header=s.get('show_lane_header', True),
-        show_name_header=s.get('show_name_header', True),
-        show_club_header=s.get('show_club_header', True),
-        show_time_header=s.get('show_time_header', True),
-        show_delta_header=s.get('show_delta_header', True),
-        show_position_header=s.get('show_position_header', True),
-        show_name=s.get('show_name', True),
-        show_club=s.get('show_club', True),
-        show_delta=s.get('show_delta', True),
-        show_position=s.get('show_position', True),
-        show_podium=s.get('show_podium', True),
-        t=_strings(_client_lang(request, meet), 'mobile'),
-        theme_colors={**_DEFAULT_COLORS, **s.get('theme_colors', {})},
+        num_lanes=s.get("num_lanes", 8),
+        show_lane_header=s.get("show_lane_header", True),
+        show_name_header=s.get("show_name_header", True),
+        show_club_header=s.get("show_club_header", True),
+        show_time_header=s.get("show_time_header", True),
+        show_delta_header=s.get("show_delta_header", True),
+        show_position_header=s.get("show_position_header", True),
+        show_name=s.get("show_name", True),
+        show_club=s.get("show_club", True),
+        show_delta=s.get("show_delta", True),
+        show_position=s.get("show_position", True),
+        show_podium=s.get("show_podium", True),
+        t=_strings(_client_lang(request, meet), "mobile"),
+        theme_colors={**_DEFAULT_COLORS, **s.get("theme_colors", {})},
         # Merged, not a wholesale fallback: a relay sending only one font would
         # otherwise leave the other two CSS variables empty. Same as route_live.
-        theme_fonts={**_DEFAULT_FONTS,  **s.get('theme_fonts',  {})},
-        labels=_client_labels(meet, _client_lang(request, meet), _client_style(request, meet)),
+        theme_fonts={**_DEFAULT_FONTS, **s.get("theme_fonts", {})},
+        labels=_client_labels(
+            meet, _client_lang(request, meet), _client_style(request, meet)
+        ),
         # The vocabulary `event_name_parts` composes against, in the language the
         # page is rendered in (docs/app.md `T-11`).
-        event_vocab=_strings(_client_lang(request, meet), 'event_name'),
+        event_vocab=_strings(_client_lang(request, meet), "event_name"),
         lang=_client_lang(request, meet),
     )
 
 
 def _build_heats_json(sched):
-    if not sched or not sched.get('events'):
+    if not sched or not sched.get("events"):
         return []
-    names      = sched.get('names', {})
-    name_parts = sched.get('name_parts', {})
-    times      = sched.get('times', {})
-    start_list = sched.get('start_list', {})
+    names = sched.get("names", {})
+    name_parts = sched.get("name_parts", {})
+    times = sched.get("times", {})
+    start_list = sched.get("start_list", {})
     heats = []
-    for ev, sorted_heats in sched['events']:
+    for ev, sorted_heats in sched["events"]:
         ev_str = str(ev)
         for ht in sorted_heats:
             ht_str = str(ht)
             lanes_data = start_list.get(ev_str, {}).get(ht_str, {})
             lanes = []
-            for lane_str in sorted(lanes_data, key=lambda x: int(x) if x.lstrip('-').isdigit() else 0):
+            for lane_str in sorted(
+                lanes_data, key=lambda x: int(x) if x.lstrip("-").isdigit() else 0
+            ):
                 entry = lanes_data[lane_str]
-                lanes.append({
-                    'lane':      int(lane_str) if lane_str.lstrip('-').isdigit() else lane_str,
-                    'name':      entry.get('name', ''),
-                    'club':      entry.get('club', ''),
-                    'seed_time': entry.get('seed_time', ''),
-                    'swimmers':  entry.get('swimmers', []),
-                })
-            heats.append({
-                'event':      ev,
-                'heat':       ht,
-                'event_name': names.get(ev_str, ''),
-                'event_name_parts': name_parts.get(ev_str),
-                'time':       times.get(ev_str, {}).get(ht_str, ''),
-                'lanes':      lanes,
-            })
+                lanes.append(
+                    {
+                        "lane": int(lane_str)
+                        if lane_str.lstrip("-").isdigit()
+                        else lane_str,
+                        "name": entry.get("name", ""),
+                        "club": entry.get("club", ""),
+                        "seed_time": entry.get("seed_time", ""),
+                        "swimmers": entry.get("swimmers", []),
+                    }
+                )
+            heats.append(
+                {
+                    "event": ev,
+                    "heat": ht,
+                    "event_name": names.get(ev_str, ""),
+                    "event_name_parts": name_parts.get(ev_str),
+                    "time": times.get(ev_str, {}).get(ht_str, ""),
+                    "lanes": lanes,
+                }
+            )
     return heats
 
 
-@app.get('/mobile/schedule', tags=['Public'])
+@app.get("/mobile/schedule", tags=["Public"])
 def route_schedule(request: Request):
-    meet_id = request.query_params.get('meet', '')
+    meet_id = request.query_params.get("meet", "")
     with _lock:
         meet = _get_meet(meet_id)
     if not meet:
-        return render(request, 'offline.html')
-    s     = meet.get('settings', {})
-    sched = meet.get('schedule_data', {})
+        return render(request, "offline.html")
+    s = meet.get("settings", {})
+    sched = meet.get("schedule_data", {})
     heats = _build_heats_json(sched)
-    return render(request, 'schedule.html',
+    return render(
+        request,
+        "schedule.html",
         meet_id=meet_id,
         heats=heats,
         has_meet=bool(heats),
-        meet_name=meet['name'],
-        t=_strings(_client_lang(request, meet), 'mobile'),
-        labels=_client_labels(meet, _client_lang(request, meet), _client_style(request, meet)),
-        event_vocab=_strings(_client_lang(request, meet), 'event_name'),
-        theme_colors={**_DEFAULT_COLORS, **s.get('theme_colors', {})},
-        theme_fonts={**_DEFAULT_FONTS,  **s.get('theme_fonts', {})},
+        meet_name=meet["name"],
+        t=_strings(_client_lang(request, meet), "mobile"),
+        labels=_client_labels(
+            meet, _client_lang(request, meet), _client_style(request, meet)
+        ),
+        event_vocab=_strings(_client_lang(request, meet), "event_name"),
+        theme_colors={**_DEFAULT_COLORS, **s.get("theme_colors", {})},
+        theme_fonts={**_DEFAULT_FONTS, **s.get("theme_fonts", {})},
         lang=_client_lang(request, meet),
     )
 
 
-@app.get('/meet/{meet_id}/config', tags=['Public'])
+@app.get("/meet/{meet_id}/config", tags=["Public"])
 def route_meet_config(meet_id: str):
     """A meet's display config as JSON — for native attendee clients (iOS/Android)
     that render the board natively instead of loading the HTML page."""
@@ -953,17 +1100,17 @@ def route_meet_config(meet_id: str):
     if not meet:
         raise HTTPException(404)
     return {
-        'name':             meet.get('name', ''),
-        'location':         meet.get('location', ''),
-        'sport':            meet.get('sport', ''),
-        'app_window_title': meet.get('app_window_title', ''),
-        'meet_date':        meet.get('meet_date', ''),
-        'live':             live,
-        'settings':         meet.get('settings', {}),
+        "name": meet.get("name", ""),
+        "location": meet.get("location", ""),
+        "sport": meet.get("sport", ""),
+        "app_window_title": meet.get("app_window_title", ""),
+        "meet_date": meet.get("meet_date", ""),
+        "live": live,
+        "settings": meet.get("settings", {}),
     }
 
 
-@app.get('/meet/{meet_id}/schedule', tags=['Public'])
+@app.get("/meet/{meet_id}/schedule", tags=["Public"])
 def route_meet_schedule(meet_id: str):
     """A meet's full start list as JSON — what ``/mobile/schedule`` embeds.
 
@@ -975,130 +1122,149 @@ def route_meet_schedule(meet_id: str):
         meet = _get_meet(meet_id)
     if not meet:
         raise HTTPException(404)
-    return {'heats': _build_heats_json(meet.get('schedule_data', {}))}
+    return {"heats": _build_heats_json(meet.get("schedule_data", {}))}
 
 
-@app.get('/logout', tags=['Admin'])
+@app.get("/logout", tags=["Admin"])
 def route_logout():
     return Response(
-        'Logged out — <a href="/admin">sign in again</a>', status_code=401,
-        headers={'WWW-Authenticate': 'Basic realm="Splouch Admin"'})
+        'Logged out — <a href="/admin">sign in again</a>',
+        status_code=401,
+        headers={"WWW-Authenticate": 'Basic realm="Splouch Admin"'},
+    )
 
 
-@app.get('/ping', tags=['Public'])
+@app.get("/ping", tags=["Public"])
 def route_ping():
-    return Response('ok', media_type='text/plain')
+    return Response("ok", media_type="text/plain")
 
 
-@app.get('/manifest/{meet_id}', tags=['Public'])
+@app.get("/manifest/{meet_id}", tags=["Public"])
 def route_manifest(meet_id: str):
     with _lock:
         meet = _get_meet(meet_id)
     if not meet:
         raise HTTPException(404)
-    has_icon = bool(meet.get('settings', {}).get('home_icon_b64'))
-    icons = ([
-        {'src': f'/icon/{meet_id}', 'sizes': '192x192', 'type': 'image/png'},
-        {'src': f'/icon/{meet_id}', 'sizes': '512x512', 'type': 'image/png'},
-    ] if has_icon else [
-        {'src': '/static/img/default_mobile_icon.png', 'sizes': '1024x1024', 'type': 'image/png'},
-    ])
-    app_title = meet.get('app_window_title') or meet.get('name') or 'Splouch'
+    has_icon = bool(meet.get("settings", {}).get("home_icon_b64"))
+    icons = (
+        [
+            {"src": f"/icon/{meet_id}", "sizes": "192x192", "type": "image/png"},
+            {"src": f"/icon/{meet_id}", "sizes": "512x512", "type": "image/png"},
+        ]
+        if has_icon
+        else [
+            {
+                "src": "/static/img/default_mobile_icon.png",
+                "sizes": "1024x1024",
+                "type": "image/png",
+            },
+        ]
+    )
+    app_title = meet.get("app_window_title") or meet.get("name") or "Splouch"
     manifest = {
-        'name':             app_title,
-        'short_name':       app_title,
-        'start_url':        f'/mobile?meet={meet_id}',
-        'display':          'standalone',
-        'background_color': '#000000',
-        'theme_color':      '#000000',
-        'icons':            icons,
+        "name": app_title,
+        "short_name": app_title,
+        "start_url": f"/mobile?meet={meet_id}",
+        "display": "standalone",
+        "background_color": "#000000",
+        "theme_color": "#000000",
+        "icons": icons,
     }
-    return Response(json.dumps(manifest), media_type='application/manifest+json')
+    return Response(json.dumps(manifest), media_type="application/manifest+json")
 
 
-@app.get('/icon/{meet_id}', tags=['Public'])
+@app.get("/icon/{meet_id}", tags=["Public"])
 def route_icon(meet_id: str):
     with _lock:
         meet = _get_meet(meet_id)
     if not meet:
         raise HTTPException(404)
-    icon_b64 = meet.get('settings', {}).get('home_icon_b64', '')
+    icon_b64 = meet.get("settings", {}).get("home_icon_b64", "")
     if not icon_b64:
         raise HTTPException(404)
     data = base64.b64decode(icon_b64)
-    return Response(data, media_type='image/png',
-                    headers={'Cache-Control': 'public, max-age=3600'})
+    return Response(
+        data, media_type="image/png", headers={"Cache-Control": "public, max-age=3600"}
+    )
 
 
-@app.get('/picker_image/{meet_id}', tags=['Public'])
+@app.get("/picker_image/{meet_id}", tags=["Public"])
 def route_meet_picker_image(meet_id: str):
     with _lock:
         meet = _get_meet(meet_id)
     if not meet:
         raise HTTPException(404)
-    img_b64 = meet.get('settings', {}).get('picker_image_b64', '')
+    img_b64 = meet.get("settings", {}).get("picker_image_b64", "")
     if not img_b64:
         raise HTTPException(404)
     data = base64.b64decode(img_b64)
-    return Response(data, media_type='image/png',
-                    headers={'Cache-Control': 'public, max-age=60'})
+    return Response(
+        data, media_type="image/png", headers={"Cache-Control": "public, max-age=60"}
+    )
 
 
-@app.get('/picker_logo', tags=['Public'])
+@app.get("/picker_logo", tags=["Public"])
 def route_picker_logo():
-    creds    = _load_creds()
-    logo_b64 = creds.get('picker_logo_b64', '')
+    creds = _load_creds()
+    logo_b64 = creds.get("picker_logo_b64", "")
     if not logo_b64:
         raise HTTPException(404)
     data = base64.b64decode(logo_b64)
-    mime = creds.get('picker_logo_mime', 'image/png')
+    mime = creds.get("picker_logo_mime", "image/png")
     # An SVG logo is a document, not a bitmap: opened directly (rather than through
     # the `<img>` on the picker page, which already inerts it) it would run its own
     # script on this origin. The sandbox costs nothing for the other formats.
-    return Response(data, media_type=mime,
-                    headers={'Cache-Control': 'public, max-age=300',
-                             'Content-Security-Policy': "default-src 'none'; sandbox",
-                             'X-Content-Type-Options': 'nosniff'})
+    return Response(
+        data,
+        media_type=mime,
+        headers={
+            "Cache-Control": "public, max-age=300",
+            "Content-Security-Policy": "default-src 'none'; sandbox",
+            "X-Content-Type-Options": "nosniff",
+        },
+    )
 
 
-@app.get('/picker_icon', tags=['Public'])
+@app.get("/picker_icon", tags=["Public"])
 def route_picker_icon():
-    icon_b64 = _load_creds().get('picker_icon_b64', '')
+    icon_b64 = _load_creds().get("picker_icon_b64", "")
     if not icon_b64:
-        default = os.path.join(_HERE, 'static', 'img', 'default_mobile_icon.png')
+        default = os.path.join(_HERE, "static", "img", "default_mobile_icon.png")
         if not os.path.exists(default):
             raise HTTPException(404)
-        return FileResponse(default, media_type='image/png')
+        return FileResponse(default, media_type="image/png")
     data = base64.b64decode(icon_b64)
-    return Response(data, media_type='image/png',
-                    headers={'Cache-Control': 'public, max-age=300'})
+    return Response(
+        data, media_type="image/png", headers={"Cache-Control": "public, max-age=300"}
+    )
 
 
-@app.get('/favicon.ico', tags=['Public'])
+@app.get("/favicon.ico", tags=["Public"])
 def route_favicon():
     # Browsers auto-request this; serve a lean, scalable brand mark for the tab.
-    return FileResponse(os.path.join(_HERE, 'static', 'img', 'favicon.svg'),
-                        media_type='image/svg+xml')
+    return FileResponse(
+        os.path.join(_HERE, "static", "img", "favicon.svg"), media_type="image/svg+xml"
+    )
 
 
-@app.get('/picker_manifest', tags=['Public'])
+@app.get("/picker_manifest", tags=["Public"])
 def route_picker_manifest():
     creds = _load_creds()
-    raw_wt = creds.get('picker_window_title')
-    app_title = ('Splouch' if raw_wt is None else raw_wt) or 'Splouch'
+    raw_wt = creds.get("picker_window_title")
+    app_title = ("Splouch" if raw_wt is None else raw_wt) or "Splouch"
     manifest = {
-        'name':             app_title,
-        'short_name':       app_title,
-        'start_url':        '/',
-        'display':          'standalone',
-        'background_color': '#000000',
-        'theme_color':      '#000000',
-        'icons': [
-            {'src': '/picker_icon', 'sizes': '192x192', 'type': 'image/png'},
-            {'src': '/picker_icon', 'sizes': '512x512', 'type': 'image/png'},
+        "name": app_title,
+        "short_name": app_title,
+        "start_url": "/",
+        "display": "standalone",
+        "background_color": "#000000",
+        "theme_color": "#000000",
+        "icons": [
+            {"src": "/picker_icon", "sizes": "192x192", "type": "image/png"},
+            {"src": "/picker_icon", "sizes": "512x512", "type": "image/png"},
         ],
     }
-    return Response(json.dumps(manifest), media_type='application/manifest+json')
+    return Response(json.dumps(manifest), media_type="application/manifest+json")
 
 
 def _form_text(form, key):
@@ -1109,8 +1275,8 @@ def _form_text(form, key):
     off that raised AttributeError — a 500 for what is really a bad request — so
     anything that is not text reads as absent.
     """
-    value = form.get(key, '')
-    return value.strip() if isinstance(value, str) else ''
+    value = form.get(key, "")
+    return value.strip() if isinstance(value, str) else ""
 
 
 async def _read_image(upload, allowed):
@@ -1123,59 +1289,66 @@ async def _read_image(upload, allowed):
     filters the file dialog and nothing else, so drag-and-drop and any non-browser
     client arrive here unchecked.
     """
-    mime = (upload.content_type or '').split(';')[0].strip().lower()
-    if mime in ('', 'application/octet-stream'):
-        mime = (mimetypes.guess_type(upload.filename)[0] or '').lower()
-    if mime == 'image/jpg':          # non-standard, but some tools still send it
-        mime = 'image/jpeg'
+    mime = (upload.content_type or "").split(";")[0].strip().lower()
+    if mime in ("", "application/octet-stream"):
+        mime = (mimetypes.guess_type(upload.filename)[0] or "").lower()
+    if mime == "image/jpg":  # non-standard, but some tools still send it
+        mime = "image/jpeg"
     if mime not in allowed:
-        names = ', '.join(m.split('/')[-1].split('+')[0].upper() for m in allowed)
-        raise ValueError(f'Unsupported image format. Accepted: {names}.')
+        names = ", ".join(m.split("/")[-1].split("+")[0].upper() for m in allowed)
+        raise ValueError(f"Unsupported image format. Accepted: {names}.")
     data = await upload.read()
     if len(data) > MAX_IMAGE_BYTES:
-        raise ValueError(f'Image is too large (max {MAX_IMAGE_BYTES // (1024 * 1024)} MB).')
+        raise ValueError(
+            f"Image is too large (max {MAX_IMAGE_BYTES // (1024 * 1024)} MB)."
+        )
     return data, mime
 
 
-@app.post('/admin/picker_appearance', tags=['Admin'], response_model=ActionResult,
-          response_model_exclude_none=True, dependencies=[Depends(require_admin)])
+@app.post(
+    "/admin/picker_appearance",
+    tags=["Admin"],
+    response_model=ActionResult,
+    response_model_exclude_none=True,
+    dependencies=[Depends(require_admin)],
+)
 async def route_picker_appearance(request: Request):
-    form  = await request.form()
+    form = await request.form()
     creds = _load_creds()
-    if 'picker_title' in form:
-        creds['picker_title']        = _form_text(form, 'picker_title')
-        creds['picker_window_title'] = _form_text(form, 'picker_window_title')
-        creds['picker_logo_above']   = form.get('picker_logo_above') == '1'
-    if form.get('picker_logo_clear') == '1':
-        creds['picker_logo_b64'] = ''
-        creds.pop('picker_logo_mime', None)
+    if "picker_title" in form:
+        creds["picker_title"] = _form_text(form, "picker_title")
+        creds["picker_window_title"] = _form_text(form, "picker_window_title")
+        creds["picker_logo_above"] = form.get("picker_logo_above") == "1"
+    if form.get("picker_logo_clear") == "1":
+        creds["picker_logo_b64"] = ""
+        creds.pop("picker_logo_mime", None)
     else:
-        logo = form.get('picker_logo')
+        logo = form.get("picker_logo")
         if isinstance(logo, UploadFile) and logo.filename:
             try:
                 data, mime = await _read_image(logo, LOGO_MIME_TYPES)
             except ValueError as e:
-                return {'ok': False, 'error': str(e)}
-            creds['picker_logo_b64']  = base64.b64encode(data).decode()
-            creds['picker_logo_mime'] = mime
-    if form.get('picker_icon_clear') == '1':
-        creds['picker_icon_b64'] = ''
+                return {"ok": False, "error": str(e)}
+            creds["picker_logo_b64"] = base64.b64encode(data).decode()
+            creds["picker_logo_mime"] = mime
+    if form.get("picker_icon_clear") == "1":
+        creds["picker_icon_b64"] = ""
     else:
-        icon = form.get('picker_icon')
+        icon = form.get("picker_icon")
         if isinstance(icon, UploadFile) and icon.filename:
             try:
                 data, _ = await _read_image(icon, ICON_MIME_TYPES)
             except ValueError as e:
-                return {'ok': False, 'error': str(e)}
-            creds['picker_icon_b64'] = base64.b64encode(data).decode()
+                return {"ok": False, "error": str(e)}
+            creds["picker_icon_b64"] = base64.b64encode(data).decode()
     await run_in_threadpool(_save_creds, creds)
-    return {'ok': True}
+    return {"ok": True}
 
 
-_LOGIN_FIELDS = ('user', 'password_hash', 'salt')
+_LOGIN_FIELDS = ("user", "password_hash", "salt")
 
 
-@app.get('/admin/backup/keys', tags=['Admin'], dependencies=[Depends(require_admin)])
+@app.get("/admin/backup/keys", tags=["Admin"], dependencies=[Depends(require_admin)])
 def route_backup_keys(request: Request):
     try:
         with open(KEYS_FILE) as f:
@@ -1186,74 +1359,86 @@ def route_backup_keys(request: Request):
     # default the admin login is excluded, so a routine backup never carries the
     # password hash. ?full=1 adds the login (marked 'full') for a bare-metal
     # rebuild — that file contains the password hash + salt, so keep it private.
-    full  = request.query_params.get('full') == '1'
+    full = request.query_params.get("full") == "1"
     creds = _load_creds()
     if not full:
         creds = {k: v for k, v in creds.items() if k not in _LOGIN_FIELDS}
-    backup = {'version': 2, 'keys': keys, 'credentials': creds}
+    backup = {"version": 2, "keys": keys, "credentials": creds}
     if full:
-        backup['full'] = True
-    name = 'splouch-backup-full.json' if full else 'splouch-backup.json'
+        backup["full"] = True
+    name = "splouch-backup-full.json" if full else "splouch-backup.json"
     return Response(
         json.dumps(backup, indent=2),
-        media_type='application/json',
-        headers={'Content-Disposition': f'attachment; filename="{name}"'})
+        media_type="application/json",
+        headers={"Content-Disposition": f'attachment; filename="{name}"'},
+    )
 
 
-@app.post('/admin/restore/keys', tags=['Admin'], response_model=RestoreResult,
-          response_model_exclude_none=True, dependencies=[Depends(require_admin)])
+@app.post(
+    "/admin/restore/keys",
+    tags=["Admin"],
+    response_model=RestoreResult,
+    response_model_exclude_none=True,
+    dependencies=[Depends(require_admin)],
+)
 async def route_restore_keys(request: Request):
-    uploaded = (await request.form()).get('keys_file')
+    uploaded = (await request.form()).get("keys_file")
     if not isinstance(uploaded, UploadFile):
-        return JSONResponse({'error': 'No file provided'}, status_code=400)
+        return JSONResponse({"error": "No file provided"}, status_code=400)
     try:
         data = json.loads(await uploaded.read())
-        if not isinstance(data, dict) or not isinstance(data.get('keys'), dict):
-            raise ValueError('not a valid backup file')
-        keys = data['keys']
+        if not isinstance(data, dict) or not isinstance(data.get("keys"), dict):
+            raise ValueError("not a valid backup file")
+        keys = data["keys"]
         await run_in_threadpool(_save_keys, keys)
         # Merge the backup's credentials (appearance, analytics, locale) onto the
         # current ones so the backup wins but no required field goes missing. The
         # admin login is only touched when the file is an explicit full backup —
         # otherwise restoring a routine backup would silently reset the password.
-        creds_in = data.get('credentials')
+        creds_in = data.get("credentials")
         if isinstance(creds_in, dict):
             creds_in = dict(creds_in)
-            if not data.get('full'):
+            if not data.get("full"):
                 for f in _LOGIN_FIELDS:
                     creds_in.pop(f, None)
             await run_in_threadpool(_save_creds, {**_load_creds(), **creds_in})
-        return {'ok': True, 'count': len(keys)}
+        return {"ok": True, "count": len(keys)}
     except (json.JSONDecodeError, ValueError) as e:
-        return JSONResponse({'error': f'Invalid file: {e}'}, status_code=400)
+        return JSONResponse({"error": f"Invalid file: {e}"}, status_code=400)
     except Exception as e:
-        return JSONResponse({'error': str(e)}, status_code=500)
+        return JSONResponse({"error": str(e)}, status_code=500)
 
 
-@app.get('/admin/backup/meets', tags=['Admin'], dependencies=[Depends(require_admin)])
+@app.get("/admin/backup/meets", tags=["Admin"], dependencies=[Depends(require_admin)])
 def route_backup_meets():
     with _lock:
         meets = dict(_retained)
-    backup = {'version': 1, 'meets': meets}
+    backup = {"version": 1, "meets": meets}
     return Response(
         json.dumps(backup, indent=2),
-        media_type='application/json',
-        headers={'Content-Disposition': 'attachment; filename="splouch-meets.json"'})
+        media_type="application/json",
+        headers={"Content-Disposition": 'attachment; filename="splouch-meets.json"'},
+    )
 
 
-@app.post('/admin/restore/meets', tags=['Admin'], response_model=RestoreResult,
-          response_model_exclude_none=True, dependencies=[Depends(require_admin)])
+@app.post(
+    "/admin/restore/meets",
+    tags=["Admin"],
+    response_model=RestoreResult,
+    response_model_exclude_none=True,
+    dependencies=[Depends(require_admin)],
+)
 async def route_restore_meets(request: Request):
-    uploaded = (await request.form()).get('meets_file')
+    uploaded = (await request.form()).get("meets_file")
     if not isinstance(uploaded, UploadFile):
-        return JSONResponse({'error': 'No file provided'}, status_code=400)
+        return JSONResponse({"error": "No file provided"}, status_code=400)
     try:
         data = json.loads(await uploaded.read())
         if not isinstance(data, dict):
-            raise ValueError('expected a JSON object')
-        meets = data['meets'] if 'meets' in data else data
+            raise ValueError("expected a JSON object")
+        meets = data["meets"] if "meets" in data else data
         if not isinstance(meets, dict):
-            raise ValueError('invalid meets section')
+            raise ValueError("invalid meets section")
         with _lock:
             # Merge (upsert) the backup's meets into the store — never clear. A
             # meet not in the backup is left alone, and a currently-live meet is
@@ -1265,268 +1450,289 @@ async def route_restore_meets(request: Request):
             recs = {mid: dict(_retained[mid]) for mid in incoming}
         for mid, rec in recs.items():
             await run_in_threadpool(_write_meet_files, mid, rec, True, True)
-        return {'ok': True, 'count': len(incoming)}
+        return {"ok": True, "count": len(incoming)}
     except (json.JSONDecodeError, ValueError) as e:
-        return JSONResponse({'error': f'Invalid file: {e}'}, status_code=400)
+        return JSONResponse({"error": f"Invalid file: {e}"}, status_code=400)
     except Exception as e:
-        return JSONResponse({'error': str(e)}, status_code=500)
+        return JSONResponse({"error": str(e)}, status_code=500)
 
 
-@app.post('/admin/update', tags=['Admin'], dependencies=[Depends(require_admin)])
+@app.post("/admin/update", tags=["Admin"], dependencies=[Depends(require_admin)])
 async def route_update(request: Request):
-    version = (await request.form()).get('version', 'latest')
+    version = (await request.form()).get("version", "latest")
     # The webhook call is a blocking HTTP request — run it off the event loop
     # so attendee broadcasts keep flowing.
     return await run_in_threadpool(_trigger_update, version)
 
 
 def _trigger_update(version):
-    url    = os.environ.get('DEPLOY_WEBHOOK_URL', '')
-    secret = os.environ.get('DEPLOY_WEBHOOK_SECRET', '')
+    url = os.environ.get("DEPLOY_WEBHOOK_URL", "")
+    secret = os.environ.get("DEPLOY_WEBHOOK_SECRET", "")
     if not url or not secret:
-        return JSONResponse({'error': 'Deploy webhook not configured'}, status_code=503)
+        return JSONResponse({"error": "Deploy webhook not configured"}, status_code=503)
     try:
-        body = json.dumps({'version': version}).encode()
-        req = urllib.request.Request(url, data=body, method='POST')
-        req.add_header('X-Deploy-Token', secret)
-        req.add_header('Content-Type', 'application/json')
+        body = json.dumps({"version": version}).encode()
+        req = urllib.request.Request(url, data=body, method="POST")
+        req.add_header("X-Deploy-Token", secret)
+        req.add_header("Content-Type", "application/json")
         with urllib.request.urlopen(req, timeout=5) as resp:
             if resp.status == 200:
-                return {'status': 'started'}
-            return JSONResponse({'error': f'webhook {resp.status}'}, status_code=502)
+                return {"status": "started"}
+            return JSONResponse({"error": f"webhook {resp.status}"}, status_code=502)
     except Exception as e:
-        return JSONResponse({'error': str(e)}, status_code=502)
+        return JSONResponse({"error": str(e)}, status_code=502)
 
 
-@app.get('/admin/update_log', tags=['Admin'], dependencies=[Depends(require_admin)])
+@app.get("/admin/update_log", tags=["Admin"], dependencies=[Depends(require_admin)])
 def route_update_log():
-    webhook_url = os.environ.get('DEPLOY_WEBHOOK_URL', '')
-    secret      = os.environ.get('DEPLOY_WEBHOOK_SECRET', '')
+    webhook_url = os.environ.get("DEPLOY_WEBHOOK_URL", "")
+    secret = os.environ.get("DEPLOY_WEBHOOK_SECRET", "")
     if not webhook_url or not secret:
-        return {'lines': [], 'done': None}
+        return {"lines": [], "done": None}
 
-    log_url = webhook_url.rsplit('/', 1)[0] + '/log'
+    log_url = webhook_url.rsplit("/", 1)[0] + "/log"
     try:
-        req = urllib.request.Request(log_url, method='GET')
-        req.add_header('X-Deploy-Token', secret)
+        req = urllib.request.Request(log_url, method="GET")
+        req.add_header("X-Deploy-Token", secret)
         with urllib.request.urlopen(req, timeout=5) as resp:
-            return Response(resp.read(), media_type='application/json')
+            return Response(resp.read(), media_type="application/json")
     except Exception:
-        return {'lines': [], 'done': None}
+        return {"lines": [], "done": None}
 
 
-@app.get('/admin/logs', tags=['Admin'], dependencies=[Depends(require_admin)])
+@app.get("/admin/logs", tags=["Admin"], dependencies=[Depends(require_admin)])
 def route_logs(request: Request):
-    webhook_url = os.environ.get('DEPLOY_WEBHOOK_URL', '')
-    secret      = os.environ.get('DEPLOY_WEBHOOK_SECRET', '')
+    webhook_url = os.environ.get("DEPLOY_WEBHOOK_URL", "")
+    secret = os.environ.get("DEPLOY_WEBHOOK_SECRET", "")
     if not webhook_url or not secret:
-        return JSONResponse({'ok': False, 'error': 'not configured'}, status_code=503)
+        return JSONResponse({"ok": False, "error": "not configured"}, status_code=503)
 
-    source = request.query_params.get('source', 'app')
-    tail   = request.query_params.get('tail', '300')
-    logs_url = webhook_url.rsplit('/', 1)[0] + f'/logs?source={source}&tail={tail}'
+    source = request.query_params.get("source", "app")
+    tail = request.query_params.get("tail", "300")
+    logs_url = webhook_url.rsplit("/", 1)[0] + f"/logs?source={source}&tail={tail}"
     try:
-        req = urllib.request.Request(logs_url, method='GET')
-        req.add_header('X-Deploy-Token', secret)
+        req = urllib.request.Request(logs_url, method="GET")
+        req.add_header("X-Deploy-Token", secret)
         with urllib.request.urlopen(req, timeout=15) as resp:
-            return Response(resp.read(), media_type='application/json')
+            return Response(resp.read(), media_type="application/json")
     except Exception as e:
-        return JSONResponse({'ok': False, 'error': str(e)}, status_code=502)
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=502)
 
 
-@app.get('/admin/versions', tags=['Admin'], dependencies=[Depends(require_admin)])
+@app.get("/admin/versions", tags=["Admin"], dependencies=[Depends(require_admin)])
 def route_versions():
-    webhook_url = os.environ.get('DEPLOY_WEBHOOK_URL', '')
-    secret      = os.environ.get('DEPLOY_WEBHOOK_SECRET', '')
+    webhook_url = os.environ.get("DEPLOY_WEBHOOK_URL", "")
+    secret = os.environ.get("DEPLOY_WEBHOOK_SECRET", "")
     if not webhook_url or not secret:
-        return JSONResponse({'ok': False, 'error': 'not configured'}, status_code=503)
+        return JSONResponse({"ok": False, "error": "not configured"}, status_code=503)
 
-    versions_url = webhook_url.rsplit('/', 1)[0] + '/versions'
+    versions_url = webhook_url.rsplit("/", 1)[0] + "/versions"
     try:
-        req = urllib.request.Request(versions_url, method='GET')
-        req.add_header('X-Deploy-Token', secret)
+        req = urllib.request.Request(versions_url, method="GET")
+        req.add_header("X-Deploy-Token", secret)
         with urllib.request.urlopen(req, timeout=15) as resp:
-            return Response(resp.read(), media_type='application/json')
+            return Response(resp.read(), media_type="application/json")
     except Exception as e:
-        return JSONResponse({'ok': False, 'error': str(e)}, status_code=502)
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=502)
 
 
-@app.get('/admin/stats', tags=['Admin'], response_model=StatsResult,
-         dependencies=[Depends(require_admin)])
+@app.get(
+    "/admin/stats",
+    tags=["Admin"],
+    response_model=StatsResult,
+    dependencies=[Depends(require_admin)],
+)
 def route_stats(request: Request):
     if not _analytics_enabled():
-        return {'enabled': False, 'count': None}
-    meet_id = request.query_params.get('meet_id', '')
-    window  = request.query_params.get('window', '24h')
-    if window == 'all':
+        return {"enabled": False, "count": None}
+    meet_id = request.query_params.get("meet_id", "")
+    window = request.query_params.get("window", "24h")
+    if window == "all":
         since = 0
     else:
-        delta = _ANALYTICS_WINDOWS.get(window, _ANALYTICS_WINDOWS['24h'])
+        delta = _ANALYTICS_WINDOWS.get(window, _ANALYTICS_WINDOWS["24h"])
         since = int((datetime.datetime.now() - delta).timestamp())
-    return {'enabled': True, 'count': _attendee_count(meet_id, since)}
+    return {"enabled": True, "count": _attendee_count(meet_id, since)}
 
 
-@app.get('/admin', tags=['Admin'], dependencies=[Depends(require_admin)])
-@app.post('/admin', tags=['Admin'], dependencies=[Depends(require_admin)])
+@app.get("/admin", tags=["Admin"], dependencies=[Depends(require_admin)])
+@app.post("/admin", tags=["Admin"], dependencies=[Depends(require_admin)])
 async def route_admin(request: Request):
     keys = _load_keys()
 
-    if request.method == 'POST':
-        form   = await request.form()
-        action = form.get('action')
-        if action == 'add':
-            org = _form_text(form, 'organizer')
+    if request.method == "POST":
+        form = await request.form()
+        action = form.get("action")
+        if action == "add":
+            org = _form_text(form, "organizer")
             if org:
                 new_key = secrets.token_urlsafe(32)
                 keys[new_key] = {
-                    'organizer': org,
-                    'created':   datetime.date.today().isoformat(),
-                    'active':    True,
+                    "organizer": org,
+                    "created": datetime.date.today().isoformat(),
+                    "active": True,
                 }
                 await run_in_threadpool(_save_keys, keys)
-        elif action == 'revoke':
-            key = form.get('key', '')
+        elif action == "revoke":
+            key = form.get("key", "")
             if key in keys:
-                keys[key]['active'] = False
+                keys[key]["active"] = False
                 await run_in_threadpool(_save_keys, keys)
-        elif action == 'delete':
-            key = form.get('key', '')
+        elif action == "delete":
+            key = form.get("key", "")
             if key in keys:
                 del keys[key]
                 await run_in_threadpool(_save_keys, keys)
-        elif action == 'set_expiry':
-            meet_id = form.get('meet_id', '')
-            raw     = _form_text(form, 'expires_at')
+        elif action == "set_expiry":
+            meet_id = form.get("meet_id", "")
+            raw = _form_text(form, "expires_at")
             with _lock:
                 rec = None
                 if meet_id in _retained and meet_id not in _meets and raw:
                     try:
                         exp = datetime.datetime.fromisoformat(raw)
-                        _retained[meet_id]['expires_at'] = exp.isoformat(timespec='seconds')
+                        _retained[meet_id]["expires_at"] = exp.isoformat(
+                            timespec="seconds"
+                        )
                         rec = _record_copy_locked(meet_id)
                     except ValueError:
                         pass
             if rec is not None:
-                await run_in_threadpool(_write_meet_files, meet_id, rec, False, False)  # metadata only
-        elif action == 'delete_meet':
-            meet_id = form.get('meet_id', '')
+                await run_in_threadpool(
+                    _write_meet_files, meet_id, rec, False, False
+                )  # metadata only
+        elif action == "delete_meet":
+            meet_id = form.get("meet_id", "")
             with _lock:
                 gone = meet_id in _retained and meet_id not in _meets
                 if gone:
                     del _retained[meet_id]
             if gone:
                 await run_in_threadpool(_delete_meet_files, meet_id)
-        elif action == 'set_analytics':
+        elif action == "set_analytics":
             creds = _load_creds()
-            creds['analytics_enabled'] = form.get('analytics_enabled') == '1'
+            creds["analytics_enabled"] = form.get("analytics_enabled") == "1"
             await run_in_threadpool(_save_creds, creds)
-            return RedirectResponse('/admin', status_code=303)
-        elif action == 'change_locale':
-            locale = form.get('locale', '')
-            creds  = _load_creds()
-            creds['locale'] = locale
+            return RedirectResponse("/admin", status_code=303)
+        elif action == "change_locale":
+            locale = form.get("locale", "")
+            creds = _load_creds()
+            creds["locale"] = locale
             await run_in_threadpool(_save_creds, creds)
             cloud_i18n._locale_cache.clear()
-            return RedirectResponse('/admin', status_code=303)
-        elif action == 'change_credentials':
-            t         = _load_cloud_strings(request)
-            creds     = _load_creds()
-            cur_pw    = form.get('current_password', '')
-            new_user  = _form_text(form, 'new_user')
-            new_pw1   = form.get('new_password', '')
-            new_pw2   = form.get('new_password2', '')
-            cur_hash, _ = _hash_password(cur_pw, creds['salt'])
-            if not hmac.compare_digest(cur_hash, creds['password_hash']):
-                error = t.get('err_wrong_password', 'Incorrect current password.')
+            return RedirectResponse("/admin", status_code=303)
+        elif action == "change_credentials":
+            t = _load_cloud_strings(request)
+            creds = _load_creds()
+            cur_pw = form.get("current_password", "")
+            new_user = _form_text(form, "new_user")
+            new_pw1 = form.get("new_password", "")
+            new_pw2 = form.get("new_password2", "")
+            cur_hash, _ = _hash_password(cur_pw, creds["salt"])
+            if not hmac.compare_digest(cur_hash, creds["password_hash"]):
+                error = t.get("err_wrong_password", "Incorrect current password.")
             elif new_pw1 != new_pw2:
-                error = t.get('err_password_mismatch', 'New passwords do not match.')
+                error = t.get("err_password_mismatch", "New passwords do not match.")
             elif not new_pw1:
-                error = t.get('err_empty_password', 'Password cannot be empty.')
+                error = t.get("err_empty_password", "Password cannot be empty.")
             else:
-                creds['user'] = new_user or creds['user']
-                creds['password_hash'], creds['salt'] = _hash_password(new_pw1)
+                creds["user"] = new_user or creds["user"]
+                creds["password_hash"], creds["salt"] = _hash_password(new_pw1)
                 await run_in_threadpool(_save_creds, creds)
                 return Response(
                     'Credentials updated — <a href="/admin">sign in with new credentials</a>',
                     status_code=401,
-                    headers={'WWW-Authenticate': 'Basic realm="Splouch Admin"'})
-            return render(request, 'admin.html', keys=keys,
-                          active_meets=_admin_meet_list(),
-                          t=t, creds_error=error,
-                          user_name=_load_creds().get('user', 'Admin'),
-                          locales=_available_locales(),
-                          current_locale=_load_creds().get('locale', ''),
-                          ui_lang_cookie=_ui_lang_cookie(request),
-                          has_deploy=bool(os.environ.get('DEPLOY_WEBHOOK_URL')),
-                          analytics_enabled=_analytics_enabled(),
-                          **_picker_appearance())
-        return RedirectResponse('/admin', status_code=303)
+                    headers={"WWW-Authenticate": 'Basic realm="Splouch Admin"'},
+                )
+            return render(
+                request,
+                "admin.html",
+                keys=keys,
+                active_meets=_admin_meet_list(),
+                t=t,
+                creds_error=error,
+                user_name=_load_creds().get("user", "Admin"),
+                locales=_available_locales(),
+                current_locale=_load_creds().get("locale", ""),
+                ui_lang_cookie=_ui_lang_cookie(request),
+                has_deploy=bool(os.environ.get("DEPLOY_WEBHOOK_URL")),
+                analytics_enabled=_analytics_enabled(),
+                **_picker_appearance(),
+            )
+        return RedirectResponse("/admin", status_code=303)
 
     await run_in_threadpool(_sweep_expired)
-    return render(request, 'admin.html', keys=keys,
-                  active_meets=_admin_meet_list(),
-                  t=_load_cloud_strings(request), creds_error=None,
-                  user_name=_load_creds().get('user', 'Admin'),
-                  locales=_available_locales(),
-                  current_locale=_load_creds().get('locale', ''),
-                  ui_lang_cookie=_ui_lang_cookie(request),
-                  has_deploy=bool(os.environ.get('DEPLOY_WEBHOOK_URL')),
-                  analytics_enabled=_analytics_enabled(),
-                  **_picker_appearance())
+    return render(
+        request,
+        "admin.html",
+        keys=keys,
+        active_meets=_admin_meet_list(),
+        t=_load_cloud_strings(request),
+        creds_error=None,
+        user_name=_load_creds().get("user", "Admin"),
+        locales=_available_locales(),
+        current_locale=_load_creds().get("locale", ""),
+        ui_lang_cookie=_ui_lang_cookie(request),
+        has_deploy=bool(os.environ.get("DEPLOY_WEBHOOK_URL")),
+        analytics_enabled=_analytics_enabled(),
+        **_picker_appearance(),
+    )
 
 
 # ── WebSocket — /ws/relay (Pi connections) ─────────────────────────────────────
 
+
 async def _on_relay_register(ws, sid, data):
-    key  = data.get('key', '')
+    key = data.get("key", "")
     keys = _load_keys()
 
-    if key not in keys or not keys[key].get('active', False):
-        await manager.send(ws, 'rejected', {'reason': 'invalid or inactive key'})
+    if key not in keys or not keys[key].get("active", False):
+        await manager.send(ws, "rejected", {"reason": "invalid or inactive key"})
         return
 
     # Meet id is stable per (key, meet_uid): one relay key can publish several
     # meets (e.g. a meet split across days), each on its own picker card and
     # reattaching on reload. Legacy relays without a meet_uid keep one slot/key.
-    meet_uid = data.get('meet_uid', '')
+    meet_uid = data.get("meet_uid", "")
     if meet_uid:
         meet_id = _meet_id_for(key, meet_uid)
     else:
-        meet_id = keys[key].get('meet_id')
+        meet_id = keys[key].get("meet_id")
         if not meet_id:
             meet_id = secrets.token_urlsafe(8)
-            keys[key]['meet_id'] = meet_id
+            keys[key]["meet_id"] = meet_id
             await run_in_threadpool(_save_keys, keys)
 
-    with _lock:                                   # fast: in-memory only
+    with _lock:  # fast: in-memory only
         # If this socket was publishing a different meet (operator switched
         # LENEX files), retire it so it stays available as schedule-only.
-        prev_id  = _relay_sids.get(sid)
+        prev_id = _relay_sids.get(sid)
         prev_rec = None
         if prev_id and prev_id != meet_id:
             _retire_mem(prev_id)
             prev_rec = _record_copy_locked(prev_id) if prev_id in _retained else None
 
-        prev = _meets.get(meet_id, {})          # already-live data (settings re-register)
-        snap = _retained.get(meet_id, {})        # persisted snapshot (fresh reconnect)
+        prev = _meets.get(meet_id, {})  # already-live data (settings re-register)
+        snap = _retained.get(meet_id, {})  # persisted snapshot (fresh reconnect)
         _meets[meet_id] = {
-            'relay_key':        key,
-            'relay_sid':        sid,
-            'organizer':        keys[key]['organizer'],
-            'name':             data.get('name', ''),
-            'location':         data.get('location', ''),
-            'sport':            data.get('sport', ''),
-            'app_window_title': data.get('app_window_title', ''),
-            'meet_date':        data.get('meet_date', ''),
-            'settings':         data.get('settings', {}),
-            'connected_at':     prev.get('connected_at') or datetime.datetime.now().strftime('%H:%M:%S'),
-            'last_scoreboard':  prev.get('last_scoreboard', {}),
-            'clock_at':         0.0,   # monotonic() of the last `running_time` sent
-            'last_results':     prev.get('last_results', {}),
-            'last_next_heats':  prev.get('last_next_heats', {}),
+            "relay_key": key,
+            "relay_sid": sid,
+            "organizer": keys[key]["organizer"],
+            "name": data.get("name", ""),
+            "location": data.get("location", ""),
+            "sport": data.get("sport", ""),
+            "app_window_title": data.get("app_window_title", ""),
+            "meet_date": data.get("meet_date", ""),
+            "settings": data.get("settings", {}),
+            "connected_at": prev.get("connected_at")
+            or datetime.datetime.now().strftime("%H:%M:%S"),
+            "last_scoreboard": prev.get("last_scoreboard", {}),
+            "clock_at": 0.0,  # monotonic() of the last `running_time` sent
+            "last_results": prev.get("last_results", {}),
+            "last_next_heats": prev.get("last_next_heats", {}),
             # Restore the retained schedule on a fresh reconnect so it shows
             # immediately, before the relay re-sends its schedule_snapshot.
-            'schedule_data':    prev.get('schedule_data') or snap.get('schedule_data', {}),
+            "schedule_data": prev.get("schedule_data") or snap.get("schedule_data", {}),
         }
         _relay_sids[sid] = meet_id
         _persist_meet_mem(meet_id, _meets[meet_id])
@@ -1537,76 +1743,79 @@ async def _on_relay_register(ws, sid, data):
     if prev_rec is not None:
         await run_in_threadpool(_write_meet_files, prev_id, prev_rec, False, False)
 
-    await manager.send(ws, 'registered', {'meet_id': meet_id})
+    await manager.send(ws, "registered", {"meet_id": meet_id})
     await _emit_meet_live(meet_id, True)
-    print(f'[cloud] {keys[key]["organizer"]} registered as meet {meet_id}', flush=True)
+    print(f"[cloud] {keys[key]['organizer']} registered as meet {meet_id}", flush=True)
 
 
 async def _on_relay_disconnect(sid):
     rec = None
     with _lock:
         meet_id = _relay_sids.pop(sid, None)
-        meet    = _meets.get(meet_id) if meet_id else None
+        meet = _meets.get(meet_id) if meet_id else None
         # Guard against a reconnect race: only retire the meet if this socket is
         # still the one bound to it (a newer socket may have re-registered).
-        retired = bool(meet and meet.get('relay_sid') == sid)
+        retired = bool(meet and meet.get("relay_sid") == sid)
         if retired:
             _retire_mem(meet_id)
             rec = _record_copy_locked(meet_id) if meet_id in _retained else None
     if rec is not None:
-        await run_in_threadpool(_write_meet_files, meet_id, rec, False, False)  # metadata only
+        await run_in_threadpool(
+            _write_meet_files, meet_id, rec, False, False
+        )  # metadata only
     if retired:
         await _emit_meet_live(meet_id, False)
     if meet_id:
-        print(f'[cloud] meet {meet_id} disconnected', flush=True)
+        print(f"[cloud] meet {meet_id} disconnected", flush=True)
 
 
 async def _forward(sid, event, data):
     """Cache and broadcast a relay event to all attendees of the sending meet."""
     with _lock:
         meet_id = _relay_sids.get(sid)
-        meet    = _meets.get(meet_id)
+        meet = _meets.get(meet_id)
     if not meet_id or not meet:
         return
 
-    if event == 'update_scoreboard':
+    if event == "update_scoreboard":
         # `running_time` is the race clock, and the console sends it on every
         # timing tick. Forwarding that to every attendee is the traffic
         # notes/cloud_parity.md refused; dropping it outright left the phones with
         # no clock at all. So throttle it: the client re-bases on what we send and
         # interpolates in between (docs/app.md `L-12`).
-        clock = data.pop('running_time', None)
+        clock = data.pop("running_time", None)
 
         # Cache the frame without the clock. The join replay sends the snapshot
         # with no way to say how old it is, and a stale clock is worse than none —
         # a client joining mid-heat waits for the next re-base instead.
-        meet['last_scoreboard'].update(data)
+        meet["last_scoreboard"].update(data)
 
         # A frame that also moves a lane's running flag is a start, a touch, the
         # end of the console's split hold or a finish: rare, and exactly where the
         # value has to be right.
         if clock is not None:
             now = time.monotonic()
-            if (now - meet.get('clock_at', 0.0) >= _CLOCK_SYNC_SECS
-                    or any(k.startswith('lane_running') for k in data)):
-                meet['clock_at']     = now
-                data['running_time'] = clock
+            if now - meet.get("clock_at", 0.0) >= _CLOCK_SYNC_SECS or any(
+                k.startswith("lane_running") for k in data
+            ):
+                meet["clock_at"] = now
+                data["running_time"] = clock
 
-        await manager.broadcast(_ch('scoreboard', meet_id), event, data)
-    elif event == 'results_snapshot':
-        meet['last_results'] = data
-        await manager.broadcast(_ch('results', meet_id), event, data)
-    elif event == 'next_heats':
-        meet['last_next_heats'] = data
-        await manager.broadcast(_ch('results', meet_id), event, data)
-    elif event == 'schedule_snapshot':
-        meet['schedule_data'] = data
-        with _lock:                               # fast: in-memory only
+        await manager.broadcast(_ch("scoreboard", meet_id), event, data)
+    elif event == "results_snapshot":
+        meet["last_results"] = data
+        await manager.broadcast(_ch("results", meet_id), event, data)
+    elif event == "next_heats":
+        meet["last_next_heats"] = data
+        await manager.broadcast(_ch("results", meet_id), event, data)
+    elif event == "schedule_snapshot":
+        meet["schedule_data"] = data
+        with _lock:  # fast: in-memory only
             _persist_meet_mem(meet_id, meet)
             rec = _record_copy_locked(meet_id)
         # Off the loop: metadata + the (changed) schedule; images are untouched.
         await run_in_threadpool(_write_meet_files, meet_id, rec, True, False)
-        await manager.broadcast(_ch('schedule', meet_id), 'schedule_update')
+        await manager.broadcast(_ch("schedule", meet_id), "schedule_update")
 
 
 async def _on_relay_reload(sid):
@@ -1614,8 +1823,8 @@ async def _on_relay_reload(sid):
         meet_id = _relay_sids.get(sid)
     if not meet_id:
         return
-    await manager.broadcast(_ch('scoreboard', meet_id), 'reload')
-    await manager.broadcast(_ch('results', meet_id), 'reload')
+    await manager.broadcast(_ch("scoreboard", meet_id), "reload")
+    await manager.broadcast(_ch("results", meet_id), "reload")
 
 
 async def _on_relay_stats(ws, sid):
@@ -1628,31 +1837,35 @@ async def _on_relay_stats(ws, sid):
     if not meet_id:
         return
     if not _analytics_enabled():
-        await manager.send(ws, 'stats', {'enabled': False})
+        await manager.send(ws, "stats", {"enabled": False})
         return
     counts = await run_in_threadpool(_attendee_counts, meet_id)
-    await manager.send(ws, 'stats', {'enabled': True, 'counts': counts})
+    await manager.send(ws, "stats", {"enabled": True, "counts": counts})
 
 
-@app.websocket('/ws/relay')
+@app.websocket("/ws/relay")
 async def ws_relay(ws: WebSocket):
     await ws.accept()
     sid = id(ws)
     try:
         while True:
             msg = await ws.receive_json()
-            event, data = msg.get('event'), msg.get('data') or {}
-            if event == 'register':
+            event, data = msg.get("event"), msg.get("data") or {}
+            if event == "register":
                 await _on_relay_register(ws, sid, data)
-            elif event in ('update_scoreboard', 'results_snapshot',
-                           'next_heats', 'schedule_snapshot'):
+            elif event in (
+                "update_scoreboard",
+                "results_snapshot",
+                "next_heats",
+                "schedule_snapshot",
+            ):
                 await _forward(sid, event, data)
-            elif event == 'reload':
+            elif event == "reload":
                 await _on_relay_reload(sid)
-            elif event == 'get_stats':
+            elif event == "get_stats":
                 await _on_relay_stats(ws, sid)
-            elif event == 'ping':
-                await manager.send(ws, 'pong')
+            elif event == "ping":
+                await manager.send(ws, "pong")
     except WebSocketDisconnect:
         pass
     finally:
@@ -1661,96 +1874,97 @@ async def ws_relay(ws: WebSocket):
 
 # ── WebSocket — attendee namespaces ────────────────────────────────────────────
 
+
 async def _emit_meet_live(meet_id, live):
     """Tell scoreboard/results attendees whether a relay is currently feeding this
     meet, so live-only UI (the running-lane glow, the results board) reverts to its
     idle state when no console is connected."""
-    for ns in ('scoreboard', 'results'):
-        await manager.broadcast(_ch(ns, meet_id), 'meet_live', {'live': live})
+    for ns in ("scoreboard", "results"):
+        await manager.broadcast(_ch(ns, meet_id), "meet_live", {"live": live})
 
 
-@app.websocket('/ws/scoreboard')
+@app.websocket("/ws/scoreboard")
 async def ws_scoreboard(ws: WebSocket):
     await ws.accept()
     try:
         while True:
             msg = await ws.receive_json()
-            if msg.get('event') == 'ping':
-                await manager.send(ws, 'pong')
+            if msg.get("event") == "ping":
+                await manager.send(ws, "pong")
                 continue
-            if msg.get('event') != 'join_meet':
+            if msg.get("event") != "join_meet":
                 continue
-            data = msg.get('data') or {}
-            meet_id = data.get('meet_id', '')
+            data = msg.get("data") or {}
+            meet_id = data.get("meet_id", "")
             with _lock:
                 meet = _get_meet(meet_id)
                 live = meet_id in _meets
             if not meet:
                 continue
-            manager.join(ws, _ch('scoreboard', meet_id))
-            _log_connection(meet_id, data.get('vid', ''), 'scoreboard')
+            manager.join(ws, _ch("scoreboard", meet_id))
+            _log_connection(meet_id, data.get("vid", ""), "scoreboard")
             # Send live status first so the page knows whether to animate before
             # the cached scoreboard snapshot is applied.
-            await manager.send(ws, 'meet_live', {'live': live})
-            if meet.get('last_scoreboard'):
-                await manager.send(ws, 'update_scoreboard', meet['last_scoreboard'])
+            await manager.send(ws, "meet_live", {"live": live})
+            if meet.get("last_scoreboard"):
+                await manager.send(ws, "update_scoreboard", meet["last_scoreboard"])
     except WebSocketDisconnect:
         pass
     finally:
         manager.leave_all(ws)
 
 
-@app.websocket('/ws/results')
+@app.websocket("/ws/results")
 async def ws_results(ws: WebSocket):
     await ws.accept()
     try:
         while True:
             msg = await ws.receive_json()
-            if msg.get('event') == 'ping':
-                await manager.send(ws, 'pong')
+            if msg.get("event") == "ping":
+                await manager.send(ws, "pong")
                 continue
-            if msg.get('event') != 'join_meet':
+            if msg.get("event") != "join_meet":
                 continue
-            data = msg.get('data') or {}
-            meet_id = data.get('meet_id', '')
+            data = msg.get("data") or {}
+            meet_id = data.get("meet_id", "")
             with _lock:
                 meet = _get_meet(meet_id)
                 live = meet_id in _meets
             if not meet:
                 continue
-            manager.join(ws, _ch('results', meet_id))
-            _log_connection(meet_id, data.get('vid', ''), 'results')
+            manager.join(ws, _ch("results", meet_id))
+            _log_connection(meet_id, data.get("vid", ""), "results")
             # Live status first, so the page reverts to "Waiting…" when no relay is feeding.
-            await manager.send(ws, 'meet_live', {'live': live})
-            if meet.get('last_results'):
-                await manager.send(ws, 'results_snapshot', meet['last_results'])
-            if meet.get('last_next_heats'):
-                await manager.send(ws, 'next_heats', meet['last_next_heats'])
+            await manager.send(ws, "meet_live", {"live": live})
+            if meet.get("last_results"):
+                await manager.send(ws, "results_snapshot", meet["last_results"])
+            if meet.get("last_next_heats"):
+                await manager.send(ws, "next_heats", meet["last_next_heats"])
     except WebSocketDisconnect:
         pass
     finally:
         manager.leave_all(ws)
 
 
-@app.websocket('/ws/schedule')
+@app.websocket("/ws/schedule")
 async def ws_schedule(ws: WebSocket):
     await ws.accept()
     try:
         while True:
             msg = await ws.receive_json()
-            if msg.get('event') == 'ping':
-                await manager.send(ws, 'pong')
+            if msg.get("event") == "ping":
+                await manager.send(ws, "pong")
                 continue
-            if msg.get('event') != 'join_meet':
+            if msg.get("event") != "join_meet":
                 continue
-            data = msg.get('data') or {}
-            meet_id = data.get('meet_id', '')
+            data = msg.get("data") or {}
+            meet_id = data.get("meet_id", "")
             with _lock:
                 meet = _get_meet(meet_id)
             if not meet:
                 continue
-            manager.join(ws, _ch('schedule', meet_id))
-            _log_connection(meet_id, data.get('vid', ''), 'schedule')
+            manager.join(ws, _ch("schedule", meet_id))
+            _log_connection(meet_id, data.get("vid", ""), "schedule")
     except WebSocketDisconnect:
         pass
     finally:
@@ -1759,6 +1973,7 @@ async def ws_schedule(ws: WebSocket):
 
 # ── Entry point ────────────────────────────────────────────────────────────────
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host='0.0.0.0', port=5000)
+
+    uvicorn.run(app, host="0.0.0.0", port=5000)

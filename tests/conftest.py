@@ -4,6 +4,7 @@ Nothing here imports PySide6 at module level — most of the suite is deliberate
 Qt-free so it runs in CI without the `scoreboard` extra, and importing Qt here
 would break that. The `qt_app` fixture skips instead.
 """
+
 import gc
 import os
 import re
@@ -16,11 +17,11 @@ import pytest
 # config at startup and writes it after every successful fetch, so without this a
 # test run leaves a stale lane count in the developer's real ~/.cache that the
 # next run silently picks up.
-os.environ.setdefault('QT_QPA_PLATFORM', 'offscreen')
-os.environ.setdefault('XDG_CACHE_HOME', tempfile.mkdtemp(prefix='splouch-test-'))
+os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+os.environ.setdefault("XDG_CACHE_HOME", tempfile.mkdtemp(prefix="splouch-test-"))
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-for path in (REPO, os.path.join(REPO, 'server')):
+for path in (REPO, os.path.join(REPO, "server")):
     if path not in sys.path:
         sys.path.insert(0, path)
 
@@ -33,14 +34,14 @@ for path in (REPO, os.path.join(REPO, 'server')):
 _QT_APP = None
 
 
-@pytest.fixture(scope='session')
+@pytest.fixture(scope="session")
 def qt_app():
     """A single QApplication for the whole session, with the bundled fonts loaded."""
     global _QT_APP
-    pytest.importorskip('PySide6', reason='needs the `scoreboard` extra (PySide6)')
+    pytest.importorskip("PySide6", reason="needs the `scoreboard` extra (PySide6)")
     from PySide6.QtWidgets import QApplication
-
     from scoreboard.fonts import load_app_fonts
+
     if _QT_APP is None:
         _QT_APP = QApplication.instance() or QApplication([])
         # Mirror main(): register fonts before anything resolves a family, since
@@ -83,6 +84,7 @@ def settle_podium(qt_app):
     some colour between the stripe and the tint. Fire the pending timers and seek
     every fade to its end instead — 1.3s of animation, deterministically.
     """
+
     def run(board):
         qt_app.processEvents()
         for timer in list(board._podium_timers):
@@ -93,6 +95,7 @@ def settle_podium(qt_app):
             if row._podium_anim is not None:
                 row._podium_anim.setCurrentTime(row._podium_anim.duration())
         qt_app.processEvents()
+
     return run
 
 
@@ -108,10 +111,11 @@ def admin_source():
     .js file to join yet.
     """
     import glob
-    base = os.path.join(REPO, 'cloud', 'templates')
-    paths = [os.path.join(base, 'admin.html')]
-    paths += sorted(glob.glob(os.path.join(base, 'admin', '*.html')))
-    return '\n'.join(open(p, encoding='utf-8').read() for p in paths)
+
+    base = os.path.join(REPO, "cloud", "templates")
+    paths = [os.path.join(base, "admin.html")]
+    paths += sorted(glob.glob(os.path.join(base, "admin", "*.html")))
+    return "\n".join(open(p, encoding="utf-8").read() for p in paths)
 
 
 def settings_source():
@@ -128,11 +132,14 @@ def settings_source():
     not take.
     """
     import glob
-    base = os.path.join(REPO, 'server', 'templates')
-    paths = [os.path.join(base, 'settings.html')]
-    paths += sorted(glob.glob(os.path.join(base, 'settings', '**', '*.html'), recursive=True))
-    paths += [os.path.join(REPO, 'shared', 'static', 'js', 'settings.js')]
-    return '\n'.join(open(p, encoding='utf-8').read() for p in paths)
+
+    base = os.path.join(REPO, "server", "templates")
+    paths = [os.path.join(base, "settings.html")]
+    paths += sorted(
+        glob.glob(os.path.join(base, "settings", "**", "*.html"), recursive=True)
+    )
+    paths += [os.path.join(REPO, "shared", "static", "js", "settings.js")]
+    return "\n".join(open(p, encoding="utf-8").read() for p in paths)
 
 
 def stub_url_for(env):
@@ -142,7 +149,7 @@ def stub_url_for(env):
     of a `FileSystemLoader` has none, and every test that renders one needs the
     same three-line stand-in. Returns the env so it can be used inline.
     """
-    env.globals['url_for'] = lambda name, **kw: '/static/' + kw.get('filename', '')
+    env.globals["url_for"] = lambda name, **kw: "/static/" + kw.get("filename", "")
     return env
 
 
@@ -154,5 +161,5 @@ def matched(pattern, text, group=1, flags=0):
     AttributeError on None three frames down.
     """
     found = re.search(pattern, text, flags)
-    assert found, f'no match for {pattern!r}'
+    assert found, f"no match for {pattern!r}"
     return found.group(group)

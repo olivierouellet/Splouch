@@ -23,6 +23,7 @@ Three things shape the design:
 * **Keyboard only.** A kiosk has no mouse. Arrows and Enter, digits as shortcuts,
   Esc to leave.
 """
+
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import QFrame, QLabel, QSizePolicy, QWidget
@@ -42,20 +43,21 @@ _W, _H, _H_BUSY = 0.62, 0.52, 0.78
 # rather than by a QVBoxLayout: every child here has `QSizePolicy.Policy.Ignored` so its
 # font can be derived from the panel's height, and a box layout then has no size
 # hint to distribute and collapses most of the rows to nothing.
-_ROW_TITLE  = 0.13
+_ROW_TITLE = 0.13
 _ROW_STATUS = 0.22
-_ROW_ITEM   = 0.13
-_ROW_NOTE   = 0.09
-_ROW_HINT   = 0.08
+_ROW_ITEM = 0.13
+_ROW_NOTE = 0.09
+_ROW_HINT = 0.08
 # Text size within its row.
 _TEXT = 0.62
 
 
 class MenuAction:
     """The actions an entry can carry. Plain strings — the board owns the doing."""
-    UPDATE  = 'update'
-    RESTART = 'restart'
-    QUIT    = 'quit'
+
+    UPDATE = "update"
+    RESTART = "restart"
+    QUIT = "quit"
 
 
 class OperatorMenu(QWidget):
@@ -72,24 +74,30 @@ class OperatorMenu(QWidget):
         super().__init__(parent)
         self.cfg = cfg
         self._index = 0
-        self._busy  = False        # an update is running; the menu stops taking input
-        self._note  = ''           # one line under the entries: a refusal, or progress
-        self._log   = []           # tail of the updater's output
+        self._busy = False  # an update is running; the menu stops taking input
+        self._note = ""  # one line under the entries: a refusal, or progress
+        self._log = []  # tail of the updater's output
 
         self.panel = QFrame(self)
-        self.panel.setObjectName('menuPanel')
+        self.panel.setObjectName("menuPanel")
         self.panel.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
 
-        self.title  = QLabel(self.panel)
+        self.title = QLabel(self.panel)
         self.status = QLabel(self.panel)
-        self.items  = [QLabel(self.panel) for _ in range(3)]
-        self.note   = QLabel(self.panel)
+        self.items = [QLabel(self.panel) for _ in range(3)]
+        self.note = QLabel(self.panel)
         self.output = QLabel(self.panel)
         self.output.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
-        self.hint   = QLabel(self.panel)
+        self.hint = QLabel(self.panel)
 
-        for widget in (self.title, self.status, *self.items,
-                       self.note, self.output, self.hint):
+        for widget in (
+            self.title,
+            self.status,
+            *self.items,
+            self.note,
+            self.output,
+            self.hint,
+        ):
             widget.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Ignored)
             widget.setMinimumSize(0, 0)
 
@@ -107,22 +115,28 @@ class OperatorMenu(QWidget):
         cfg = self.cfg
         # The overlay itself is a wash rather than a wall: the board stays readable
         # behind it, so an operator can see the race they are not interrupting.
-        self.setStyleSheet('background-color: rgba(0,0,0,0.55);')
+        self.setStyleSheet("background-color: rgba(0,0,0,0.55);")
         # `QFrame#menuPanel`, not `QFrame`: QLabel *is* a QFrame subclass, so an
         # unscoped rule draws this border around every line of text in the panel.
         self.panel.setStyleSheet(
             f"QFrame#menuPanel {{ background-color: {cfg.color('header_bg')};"
-            f" border: 2px solid {cfg.color('header_border')}; border-radius: 10px; }}")
+            f" border: 2px solid {cfg.color('header_border')}; border-radius: 10px; }}"
+        )
         self.title.setStyleSheet(
-            f"color: {cfg.color('header_label')}; background: transparent; border: none;")
+            f"color: {cfg.color('header_label')}; background: transparent; border: none;"
+        )
         self.status.setStyleSheet(
-            f"color: {cfg.color('th_text')}; background: transparent; border: none;")
+            f"color: {cfg.color('th_text')}; background: transparent; border: none;"
+        )
         self.note.setStyleSheet(
-            f"color: {cfg.color('time')}; background: transparent; border: none;")
+            f"color: {cfg.color('time')}; background: transparent; border: none;"
+        )
         self.output.setStyleSheet(
-            f"color: {cfg.color('th_text')}; background: transparent; border: none;")
+            f"color: {cfg.color('th_text')}; background: transparent; border: none;"
+        )
         self.hint.setStyleSheet(
-            f"color: {cfg.color('th_text')}; background: transparent; border: none;")
+            f"color: {cfg.color('th_text')}; background: transparent; border: none;"
+        )
         for widget in (self.title, self.status, self.note, self.output, self.hint):
             widget.setFont(QFont(cfg.family))
         self._paint_items()
@@ -136,53 +150,59 @@ class OperatorMenu(QWidget):
                 label.setStyleSheet(
                     f"color: {cfg.color('header_bg')};"
                     f" background-color: {cfg.color('header_label')};"
-                    f" border: none; border-radius: 6px;")
+                    f" border: none; border-radius: 6px;"
+                )
             else:
                 label.setStyleSheet(
                     f"color: {cfg.color('header_value')};"
-                    f" background: transparent; border: none;")
+                    f" background: transparent; border: none;"
+                )
             label.setFont(QFont(cfg.family))
 
     # ── Content ────────────────────────────────────────────────────────────────
 
-    def _string(self, key, fallback=''):
+    def _string(self, key, fallback=""):
         return self.cfg.strings.get(key, fallback or key)
 
-    def refresh(self, *, own_version='', link_up=False):
+    def refresh(self, *, own_version="", link_up=False):
         """Redraw from the current config and the board's live state."""
         if own_version:
             self._own_version = own_version
-        own    = getattr(self, '_own_version', '') or self._string('menu_unknown')
-        server = self.cfg.server_version or self._string('menu_unknown')
-        self._link_up = link_up or getattr(self, '_link_up', False)
+        own = getattr(self, "_own_version", "") or self._string("menu_unknown")
+        server = self.cfg.server_version or self._string("menu_unknown")
+        self._link_up = link_up or getattr(self, "_link_up", False)
 
-        self.title.setText(self._string('menu_title'))
-        state = ''
-        if self.cfg.server_version and getattr(self, '_own_version', ''):
-            state = ('  ·  ' + self._string(
-                'menu_up_to_date' if self.cfg.server_version == self._own_version
-                else 'menu_out_of_date'))
+        self.title.setText(self._string("menu_title"))
+        state = ""
+        if self.cfg.server_version and getattr(self, "_own_version", ""):
+            state = "  ·  " + self._string(
+                "menu_up_to_date"
+                if self.cfg.server_version == self._own_version
+                else "menu_out_of_date"
+            )
         self.status.setText(
             f"{self._string('menu_this')}: {own}\n"
             f"{self._string('menu_server')}: {server}{state}\n"
             f"{self._string('menu_link')}: "
-            f"{self._string('menu_link_up' if self._link_up else 'menu_link_down')}")
+            f"{self._string('menu_link_up' if self._link_up else 'menu_link_down')}"
+        )
 
-        for label, key in zip(self.items, ('menu_update', 'menu_restart', 'menu_quit'),
-                              strict=True):
-            label.setText('  ' + self._string(key))
+        for label, key in zip(
+            self.items, ("menu_update", "menu_restart", "menu_quit"), strict=True
+        ):
+            label.setText("  " + self._string(key))
         self.note.setText(self._note)
         self.note.setVisible(bool(self._note))
-        self.output.setText('\n'.join(self._log[-6:]))
+        self.output.setText("\n".join(self._log[-6:]))
         self.output.setVisible(bool(self._log))
-        self.hint.setText(self._string('menu_close'))
+        self.hint.setText(self._string("menu_close"))
         self.hint.setVisible(not self._busy)
         self._paint_items()
         self._layout()
 
     def set_note(self, text: str):
         """One line under the entries — a refusal, or what is happening now."""
-        self._note = text or ''
+        self._note = text or ""
         self.refresh()
 
     def add_output(self, text: str):
@@ -209,7 +229,7 @@ class OperatorMenu(QWidget):
         value only says whether anything changed, not whether to pass it on.
         """
         if self._busy:
-            return True                    # swallow everything mid-update
+            return True  # swallow everything mid-update
         if key in (Qt.Key.Key_Up, Qt.Key.Key_K):
             self._index = (self._index - 1) % len(self.items)
         elif key in (Qt.Key.Key_Down, Qt.Key.Key_J):
@@ -227,25 +247,26 @@ class OperatorMenu(QWidget):
         return True
 
     def _activate(self):
-        self.chosen.emit((MenuAction.UPDATE, MenuAction.RESTART,
-                          MenuAction.QUIT)[self._index])
+        self.chosen.emit(
+            (MenuAction.UPDATE, MenuAction.RESTART, MenuAction.QUIT)[self._index]
+        )
 
     def open(self):
         self._index = 0
-        self._note  = ''
-        self._log   = []
+        self._note = ""
+        self._log = []
         self.show()
         self.raise_()
         self.refresh()
 
     def close_menu(self):
-        self._note = ''
-        self._log  = []
+        self._note = ""
+        self._log = []
         self.hide()
 
     # ── Layout ─────────────────────────────────────────────────────────────────
 
-    def resizeEvent(self, event):     # noqa: N802 — Qt naming
+    def resizeEvent(self, event):  # noqa: N802 — Qt naming
         super().resizeEvent(event)
         self._layout()
 
@@ -256,16 +277,17 @@ class OperatorMenu(QWidget):
         from the geometry — never the other way round, or the panel sizes itself to
         its text and the text to the panel and the two settle somewhere tiny.
         """
-        width  = max(1, int(self.width() * _W))
+        width = max(1, int(self.width() * _W))
         height = max(1, int(self.height() * (_H_BUSY if self._log else _H)))
-        self.panel.setGeometry((self.width() - width) // 2,
-                               (self.height() - height) // 2, width, height)
+        self.panel.setGeometry(
+            (self.width() - width) // 2, (self.height() - height) // 2, width, height
+        )
 
         # Rows are sized off the *idle* height, so growing the panel for the output
         # does not also inflate the title and the entries — the extra room is the
         # output's, not everyone's.
         unit = max(1, int(self.height() * _H))
-        pad  = max(8, int(unit * 0.07))
+        pad = max(8, int(unit * 0.07))
         x, inner = pad, max(1, width - 2 * pad)
 
         def place(widget, row_h, *, shown=True):

@@ -13,12 +13,15 @@ answers at all.
 Qt-free on purpose (see ``scoreboard/README.md``): this is `json` and `os`, and
 keeping it out of ``client.py`` lets CI test it without PySide6.
 """
+
 import json
 import os
 
 _CACHE_PATH = os.path.join(
-    os.environ.get('XDG_CACHE_HOME') or os.path.expanduser('~/.cache'),
-    'splouch', 'scoreboard-config.json')
+    os.environ.get("XDG_CACHE_HOME") or os.path.expanduser("~/.cache"),
+    "splouch",
+    "scoreboard-config.json",
+)
 
 
 def cache_path() -> str:
@@ -35,7 +38,7 @@ def load_cached_config():
     crashing a scoreboard over.
     """
     try:
-        with open(_CACHE_PATH, encoding='utf-8') as f:
+        with open(_CACHE_PATH, encoding="utf-8") as f:
             data = json.load(f)
         return data if isinstance(data, dict) else None
     except Exception:
@@ -59,8 +62,8 @@ def save_cached_config(raw: dict) -> bool:
             return False
         payload = json.dumps(raw, sort_keys=True)
         os.makedirs(os.path.dirname(_CACHE_PATH), exist_ok=True)
-        tmp = _CACHE_PATH + '.tmp'
-        with open(tmp, 'w', encoding='utf-8') as f:
+        tmp = _CACHE_PATH + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
             f.write(payload)
         os.replace(tmp, _CACHE_PATH)
         return True

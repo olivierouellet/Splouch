@@ -12,6 +12,7 @@ the native apps. Neither wants chrome, and both want the screen to match the las
 frame received. Re-adding any of it, or letting the two servers drift apart again,
 is what these guard against.
 """
+
 import json
 import os
 import re
@@ -22,92 +23,137 @@ from jinja2 import Environment, FileSystemLoader
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, REPO)
-sys.path.insert(0, os.path.join(REPO, 'server'))
+sys.path.insert(0, os.path.join(REPO, "server"))
 
+import state  # noqa: E402
 from conftest import matched, stub_url_for  # noqa: E402
 
-import state   # noqa: E402
-
-_LABELS = {'event': 'Event', 'heat': 'Heat', 'lane': 'Lane', 'name': 'Name',
-           'club': 'Club', 'time': 'Time', 'delta': 'Δ', 'place': '#',
-           'waiting_results': 'Waiting for results…', 'no_schedule': 'No schedule'}
-_FLAGS = {f'show_{k}': True for k in
-          ('lane_header', 'name_header', 'club_header', 'time_header',
-           'delta_header', 'position_header', 'name', 'club', 'delta', 'position')}
+_LABELS = {
+    "event": "Event",
+    "heat": "Heat",
+    "lane": "Lane",
+    "name": "Name",
+    "club": "Club",
+    "time": "Time",
+    "delta": "Δ",
+    "place": "#",
+    "waiting_results": "Waiting for results…",
+    "no_schedule": "No schedule",
+}
+_FLAGS = {
+    f"show_{k}": True
+    for k in (
+        "lane_header",
+        "name_header",
+        "club_header",
+        "time_header",
+        "delta_header",
+        "position_header",
+        "name",
+        "club",
+        "delta",
+        "position",
+    )
+}
 
 
 def _render(own_dir, template, **extra):
-    env = Environment(loader=FileSystemLoader(
-        [os.path.join(REPO, own_dir), os.path.join(REPO, 'shared', 'templates')]))
+    env = Environment(
+        loader=FileSystemLoader(
+            [os.path.join(REPO, own_dir), os.path.join(REPO, "shared", "templates")]
+        )
+    )
     stub_url_for(env)
     return env.get_template(template).render(
-        num_lanes=6, labels=_LABELS,
+        num_lanes=6,
+        labels=_LABELS,
         theme_colors=state.DEFAULT_THEME_COLORS,
         theme_fonts=state.DEFAULT_THEME_FONTS,
-        **_FLAGS, **extra)
+        **_FLAGS,
+        **extra,
+    )
 
 
-@pytest.fixture(scope='module')
+@pytest.fixture(scope="module")
 def pi():
     """As the Pi serves it: one meet, so no room to join."""
-    return _render('server/templates', 'live-mobile.html')
+    return _render("server/templates", "live-mobile.html")
 
 
-@pytest.fixture(scope='module')
+@pytest.fixture(scope="module")
 def cloud():
     """As the cloud serves it: many meets, joined by id."""
-    return _render('cloud/templates', 'live-mobile.html', meet_id='abc123')
+    return _render("cloud/templates", "live-mobile.html", meet_id="abc123")
 
 
-_TABS = {'scoreboard': 'Scoreboard', 'results': 'Results', 'schedule': 'Schedule',
-         'back_to_meets': 'Meets'}
+_TABS = {
+    "scoreboard": "Scoreboard",
+    "results": "Results",
+    "schedule": "Schedule",
+    "back_to_meets": "Meets",
+}
 
 
-@pytest.fixture(scope='module')
+@pytest.fixture(scope="module")
 def shell_pi():
-    return _render('server/templates', 'mobile.html', app_title='Coupe', t=_TABS)
+    return _render("server/templates", "mobile.html", app_title="Coupe", t=_TABS)
 
 
-@pytest.fixture(scope='module')
+@pytest.fixture(scope="module")
 def shell_cloud():
-    return _render('cloud/templates', 'mobile.html',
-                   app_title='Coupe', t=_TABS, meet_id='abc123')
+    return _render(
+        "cloud/templates", "mobile.html", app_title="Coupe", t=_TABS, meet_id="abc123"
+    )
 
 
 def _body(html):
     """Markup only — CSS mentions classes for elements that may not be rendered."""
-    return re.sub(r'<style>.*?</style>', '', html, flags=re.S)
+    return re.sub(r"<style>.*?</style>", "", html, flags=re.S)
 
 
 # ── One template, two servers ──────────────────────────────────────────────────
 
-@pytest.mark.parametrize('name', ['live-mobile.html', 'mobile.html',
-                                  'schedule.html', 'results.html'])
+
+@pytest.mark.parametrize(
+    "name", ["live-mobile.html", "mobile.html", "schedule.html", "results.html"]
+)
 def test_pages_live_only_in_shared(name):
     """A copy reappearing under server/ or cloud/ would win over the shared one —
     the loaders are own-first — and drift silently."""
-    assert os.path.isfile(os.path.join(REPO, 'shared/templates', name))
-    for d in ('server/templates', 'cloud/templates'):
-        assert not os.path.exists(os.path.join(REPO, d, name)), \
-            f'{d}/{name} shadows the shared template'
+    assert os.path.isfile(os.path.join(REPO, "shared/templates", name))
+    for d in ("server/templates", "cloud/templates"):
+        assert not os.path.exists(os.path.join(REPO, d, name)), (
+            f"{d}/{name} shadows the shared template"
+        )
 
 
 def test_the_only_difference_is_the_room_join(pi, cloud):
     """Same file, so the rendered pages may differ only where MEET_ID does."""
-    assert "emit('join_meet'" in pi and "emit('join_meet'" in cloud   # the call is in both
-    assert 'var MEET_ID   = ""' in pi                                 # …guarded off here
+    assert (
+        "emit('join_meet'" in pi and "emit('join_meet'" in cloud
+    )  # the call is in both
+    assert 'var MEET_ID   = ""' in pi  # …guarded off here
     assert 'var MEET_ID   = "abc123"' in cloud
-    assert 'if (MEET_ID) socket.emit' in pi
+    assert "if (MEET_ID) socket.emit" in pi
 
 
-@pytest.mark.parametrize('probe', [
-    'id="lane_num1"',        # the pulse target
-    'id="row1"',
-    'id="current_event"', 'id="current_heat"', 'id="event_name"',
-    'id="meet_datetime"',
-    'id="lane_name1"', 'id="lane_name_alt1"', 'id="lane_club1"',
-    'id="lane_time1"', 'id="lane_delta1"', 'id="lane_place1"',
-])
+@pytest.mark.parametrize(
+    "probe",
+    [
+        'id="lane_num1"',  # the pulse target
+        'id="row1"',
+        'id="current_event"',
+        'id="current_heat"',
+        'id="event_name"',
+        'id="meet_datetime"',
+        'id="lane_name1"',
+        'id="lane_name_alt1"',
+        'id="lane_club1"',
+        'id="lane_time1"',
+        'id="lane_delta1"',
+        'id="lane_place1"',
+    ],
+)
 def test_all_three_pages_share_the_skeleton(pi, cloud, res_cloud, probe):
     for html in (pi, cloud, res_cloud):
         assert probe in html
@@ -118,13 +164,15 @@ def test_shared_symbols_are_defined_once(pi, cloud, res_cloud):
     two surfaces had drifted here before (the cloud could not retrigger the
     time-locked animation). One definition each, on every page."""
     for html in (pi, cloud, res_cloud):
-        for symbol in ('function applyScoreboardFrame(',
-                       'function apply_state_transition(',
-                       'function reset_state(',
-                       'function updateAllLanePulses(',
-                       'var VALID_FIELDS',
-                       'var meet_live'):
-            assert html.count(symbol) == 1, f'{symbol} defined {html.count(symbol)}x'
+        for symbol in (
+            "function applyScoreboardFrame(",
+            "function apply_state_transition(",
+            "function reset_state(",
+            "function updateAllLanePulses(",
+            "var VALID_FIELDS",
+            "var meet_live",
+        ):
+            assert html.count(symbol) == 1, f"{symbol} defined {html.count(symbol)}x"
 
 
 def test_lock_animation_retriggers(pi, cloud):
@@ -133,72 +181,87 @@ def test_lock_animation_retriggers(pi, cloud):
     shows the lock effect only once."""
     for html in (pi, cloud):
         i = html.index("} else if (was) {")
-        block = html[i:html.index("add('time-locked')", i)]
-        assert "remove('time-locked')" in block, 'stale class is never cleared'
-        assert block.index("remove('time-locked')") < block.index('void tel.offsetWidth')
+        block = html[i : html.index("add('time-locked')", i)]
+        assert "remove('time-locked')" in block, "stale class is never cleared"
+        assert block.index("remove('time-locked')") < block.index(
+            "void tel.offsetWidth"
+        )
 
 
 def test_intro_clears_the_previous_heat(pi, cloud):
     """The server refreshes names/clubs on an event change but not times, deltas or
     places. Without this the last heat's numbers sit under the new swimmers."""
     for html in (pi, cloud):
-        intro = html[html.index('function mode_to_intro()'):html.index('function mode_to_running()')]
-        for field in ('lane_time', 'lane_place'):
-            assert f"'{field}'" in intro or f"'{field}'+" in intro or f"'{field}' +" in intro
+        intro = html[
+            html.index("function mode_to_intro()") : html.index(
+                "function mode_to_running()"
+            )
+        ]
+        for field in ("lane_time", "lane_place"):
+            assert (
+                f"'{field}'" in intro
+                or f"'{field}'+" in intro
+                or f"'{field}' +" in intro
+            )
         # The delta cell is shared with the lap count, so intro clears it through the
         # remembered state and `renderDelta` rather than by writing the element —
         # blanking it directly would leave the lap's colour class behind.
-        assert 'lane_delta_html' in intro and 'renderDelta' in intro
+        assert "lane_delta_html" in intro and "renderDelta" in intro
 
 
 # ── Deliberately absent ────────────────────────────────────────────────────────
 
-@pytest.mark.parametrize('removed, why', [
-    ('carousel-overlay',    'operator image overlay — Pi-local, never relayed'),
-    ('test-overlay',        'test-session banner'),
-    ('collapse_cols',       'operator column collapse'),
-    ('expand_cols',         'duplicated the CSS column widths'),
-    ('build_scoreboard_bg', 'synthesized row-stripe gradient'),
-    ('set_header_mode',     'idle meet title'),
-    ('results_implicit',    'timed revert after implied results'),
-])
+
+@pytest.mark.parametrize(
+    "removed, why",
+    [
+        ("carousel-overlay", "operator image overlay — Pi-local, never relayed"),
+        ("test-overlay", "test-session banner"),
+        ("collapse_cols", "operator column collapse"),
+        ("expand_cols", "duplicated the CSS column widths"),
+        ("build_scoreboard_bg", "synthesized row-stripe gradient"),
+        ("set_header_mode", "idle meet title"),
+        ("results_implicit", "timed revert after implied results"),
+    ],
+)
 def test_removed_chrome_stays_removed(pi, cloud, removed, why):
     """Each of these was cut on purpose: this board shows the last frame received
     and nothing else. Re-adding one means re-opening that decision, not patching a
     regression."""
     for html in (pi, cloud):
-        assert removed not in html, f'{removed} is back ({why})'
+        assert removed not in html, f"{removed} is back ({why})"
 
 
 def test_columns_never_animate(pi, cloud, res_cloud):
     """Nothing on a phone collapses them and an orientation flip must not slide
     them. `timing_display.css` is shared with the kiosk, which does animate."""
     for html in (pi, cloud, res_cloud):
-        style = matched(r'<style>(.*?)</style>', html, flags=re.S)
-        rules = re.findall(r'\.delta-column\s*{\s*transition:\s*([^;]+)', style)
-        assert rules and rules[-1].strip() == 'none'
-        assert 'timing-anim' not in html
+        style = matched(r"<style>(.*?)</style>", html, flags=re.S)
+        rules = re.findall(r"\.delta-column\s*{\s*transition:\s*([^;]+)", style)
+        assert rules and rules[-1].strip() == "none"
+        assert "timing-anim" not in html
 
 
 def test_results_page_reacts_to_meet_live_its_own_way(res_cloud):
     """It shares `meet_live` with the live board but not the response: no lane runs
     on a results screen, so it shows the waiting message instead of pulsing."""
-    assert 'function bindLanePulse' in res_cloud   # defined by the base…
-    assert 'bindLanePulse(' not in res_cloud.split('function bindLanePulse')[1]
-    assert "sock.on('meet_live'" in res_cloud       # …but wired by hand here
-    assert 'showWaiting()' in res_cloud
+    assert "function bindLanePulse" in res_cloud  # defined by the base…
+    assert "bindLanePulse(" not in res_cloud.split("function bindLanePulse")[1]
+    assert "sock.on('meet_live'" in res_cloud  # …but wired by hand here
+    assert "showWaiting()" in res_cloud
 
 
 # ── The phone shell ────────────────────────────────────────────────────────────
 
+
 def test_shell_tabs_point_at_each_server_own_routes(shell_pi, shell_cloud):
     """`meet_id` is the whole difference: the cloud routes by room, the Pi serves
     one meet from local paths."""
-    for page in ('live', 'results', 'schedule'):
+    for page in ("live", "results", "schedule"):
         assert f'src="/mobile/{page}?meet=abc123&' in shell_cloud
-    for path in ('/live-mobile', '/results', '/schedule'):
+    for path in ("/live-mobile", "/results", "/schedule"):
         assert f'src="{path}?' in shell_pi
-    assert 'meet=' not in _body(shell_pi)
+    assert "meet=" not in _body(shell_pi)
 
 
 def test_the_tabs_inherit_the_shell_resolved_language_and_style(shell_pi, shell_cloud):
@@ -206,13 +269,13 @@ def test_the_tabs_inherit_the_shell_resolved_language_and_style(shell_pi, shell_
     choice with the meet's defaults, so a tab reads its answer off the URL rather
     than re-deriving it (docs/app.md `T-06`, `T-09`)."""
     for shell in (shell_pi, shell_cloud):
-        for frame in ('frame0', 'frame1', 'frame2'):
+        for frame in ("frame0", "frame1", "frame2"):
             src = matched(rf'id="{frame}"[^>]*src="([^"]+)"', shell)
-            assert 'lang=' in src and 'style=' in src, src
+            assert "lang=" in src and "style=" in src, src
     # The choice itself is a cookie the server read before rendering, so the shell
     # no longer reloads itself to restore it from client-side storage.
     for shell in (shell_pi, shell_cloud):
-        assert 'localStorage' not in shell and 'location.replace' not in shell
+        assert "localStorage" not in shell and "location.replace" not in shell
 
 
 def test_back_to_meets_only_where_there_are_meets(shell_pi, shell_cloud):
@@ -222,17 +285,20 @@ def test_back_to_meets_only_where_there_are_meets(shell_pi, shell_cloud):
 
 
 def test_manifest_and_icon_follow_the_server(shell_pi, shell_cloud):
-    assert '/manifest/abc123' in shell_cloud and '/icon/abc123' in shell_cloud
-    assert '/manifest.json' in shell_pi and '/home_icon' in shell_pi
-    assert '/manifest/' not in shell_pi
+    assert "/manifest/abc123" in shell_cloud and "/icon/abc123" in shell_cloud
+    assert "/manifest.json" in shell_pi and "/home_icon" in shell_pi
+    assert "/manifest/" not in shell_pi
 
 
-@pytest.mark.parametrize('feature', [
-    'sessionStorage',      # the tab you were on survives a reload
-    'on_tab_shown',        # the revealed page re-joins / re-lays out
-    'bindPtr',             # pull to refresh
-    'edgeL',               # swipe between tabs
-])
+@pytest.mark.parametrize(
+    "feature",
+    [
+        "sessionStorage",  # the tab you were on survives a reload
+        "on_tab_shown",  # the revealed page re-joins / re-lays out
+        "bindPtr",  # pull to refresh
+        "edgeL",  # swipe between tabs
+    ],
+)
 def test_shell_features_are_on_both(shell_pi, shell_cloud, feature):
     """These were cloud-only before the merge; the Pi gains all of them."""
     for html in (shell_pi, shell_cloud):
@@ -244,55 +310,69 @@ def test_pull_to_refresh_binds_inside_the_iframe(shell_pi, shell_cloud):
     of each tab, which meant the gesture only worked on the header and forced
     schedule.html to keep its controls clear of a hard-coded dead zone."""
     for html in (shell_pi, shell_cloud):
-        assert 'edgeT' not in html
-        assert 'contentDocument' in html
-        assert 'atTop(' in html                    # only fires at scrollTop 0
-        assert "addEventListener('load'" in html   # re-bound when a tab reloads
+        assert "edgeT" not in html
+        assert "contentDocument" in html
+        assert "atTop(" in html  # only fires at scrollTop 0
+        assert "addEventListener('load'" in html  # re-bound when a tab reloads
 
 
 def test_a2hs_hint_is_gone_from_the_shell(shell_pi, shell_cloud):
     """The picker steers people to the native apps; teaching them to install the
     web page works against that, and operators do not need it at all."""
     for html in (shell_pi, shell_cloud):
-        assert 'a2hs' not in html.lower()
+        assert "a2hs" not in html.lower()
 
 
 def test_shell_and_pages_agree_on_the_header_height(shell_pi, pi):
     """The shell reserves 65px for the tab bar and the pages draw a 65px header;
     if they disagree the tabs jump as you swipe."""
-    assert '65px' in shell_pi
-    assert 'max(65px' in pi or '65px' in pi
+    assert "65px" in shell_pi
+    assert "max(65px" in pi or "65px" in pi
 
 
 # ── The schedule tab ───────────────────────────────────────────────────────────
 
-_SCHED_T = {'schedule': 'Horaire', 'search_placeholder': 'Add…',
-            'upcoming_only': 'Upcoming', 'show_all_heats': 'All heats',
-            'reset_filters': 'Reset', 'reset_confirm': 'Clear?', 'no_meet': 'No meet'}
+_SCHED_T = {
+    "schedule": "Horaire",
+    "search_placeholder": "Add…",
+    "upcoming_only": "Upcoming",
+    "show_all_heats": "All heats",
+    "reset_filters": "Reset",
+    "reset_confirm": "Clear?",
+    "no_meet": "No meet",
+}
 _HEATS = json.loads(
     '[{"event":3,"heat":1,"event_name":"50 Libre","time":"10:42",'
-    '"lanes":[{"lane":4,"name":"T, A","club":"CNL","seed_time":"0:27.10","swimmers":[]}]}]')
+    '"lanes":[{"lane":4,"name":"T, A","club":"CNL","seed_time":"0:27.10","swimmers":[]}]}]'
+)
 
 
 def _sched(own_dir, **extra):
-    return _render(own_dir, 'schedule.html', heats=_HEATS, has_meet=True,
-                   meet_name='Coupe', t=_SCHED_T, **extra)
+    return _render(
+        own_dir,
+        "schedule.html",
+        heats=_HEATS,
+        has_meet=True,
+        meet_name="Coupe",
+        t=_SCHED_T,
+        **extra,
+    )
 
 
-@pytest.fixture(scope='module')
+@pytest.fixture(scope="module")
 def sched_pi():
-    return _sched('server/templates')
+    return _sched("server/templates")
 
 
-@pytest.fixture(scope='module')
+@pytest.fixture(scope="module")
 def sched_cloud():
-    return _sched('cloud/templates', meet_id='abc123')
+    return _sched("cloud/templates", meet_id="abc123")
 
 
 def test_schedule_lives_only_in_shared():
-    assert os.path.isfile(os.path.join(REPO, 'shared/templates/schedule.html'))
-    for d in ('server/templates', 'cloud/templates'):
-        assert not os.path.exists(os.path.join(REPO, d, 'schedule.html'))
+    assert os.path.isfile(os.path.join(REPO, "shared/templates/schedule.html"))
+    for d in ("server/templates", "cloud/templates"):
+        assert not os.path.exists(os.path.join(REPO, d, "schedule.html"))
 
 
 def test_schedule_joins_a_room_only_on_the_cloud(sched_pi, sched_cloud):
@@ -305,7 +385,7 @@ def test_schedule_joins_a_room_only_on_the_cloud(sched_pi, sched_cloud):
     assert "const MEET_ID = ''" in sched_pi
     assert "const MEET_ID = 'abc123'" in sched_cloud
     for html in (sched_pi, sched_cloud):
-        assert 'if (MEET_ID) sock.emit' in html
+        assert "if (MEET_ID) sock.emit" in html
 
 
 def test_both_listen_for_schedule_update(sched_pi, sched_cloud):
@@ -322,9 +402,9 @@ def test_filter_sheet_is_no_longer_boxed_out_of_its_own_header(sched_pi, sched_c
     dodge the shell's pull-to-refresh overlay, which is gone: the gesture now binds
     inside this document. The sheet gets its full height back."""
     for html in (sched_pi, sched_cloud):
-        assert 'edgeT' not in html
-        assert 'filter-title' not in html
-        assert 'grid-template-rows' not in html
+        assert "edgeT" not in html
+        assert "filter-title" not in html
+        assert "grid-template-rows" not in html
 
 
 def test_schedule_palette_comes_from_the_server(sched_pi, sched_cloud):
@@ -332,146 +412,177 @@ def test_schedule_palette_comes_from_the_server(sched_pi, sched_cloud):
     `_DEFAULT_COLORS` lacked the schedule_* keys. They live in the palette now, so
     a partial theme still themes the page and the values exist in one place."""
     import splouch_i18n
-    for key in ('schedule_event', 'schedule_time', 'schedule_name', 'schedule_club'):
-        assert key in state.DEFAULT_THEME_COLORS, f'{key} missing from the Pi palette'
+
+    for key in ("schedule_event", "schedule_time", "schedule_name", "schedule_club"):
+        assert key in state.DEFAULT_THEME_COLORS, f"{key} missing from the Pi palette"
         # One palette now, shared by both servers — so "the cloud has it too" is a
         # statement about the same dict rather than about a second file's text.
-        assert key in splouch_i18n.DEFAULT_THEME_COLORS, f'{key} missing from the palette'
+        assert key in splouch_i18n.DEFAULT_THEME_COLORS, (
+            f"{key} missing from the palette"
+        )
     for html in (sched_pi, sched_cloud):
         assert "theme_colors.get('schedule" not in html
 
 
 # ── Page language ──────────────────────────────────────────────────────────────
 
-@pytest.mark.parametrize('template, extra', [
-    ('mobile.html',      {'app_title': 'Coupe', 't': _TABS}),
-    ('live-mobile.html', {}),
-    ('schedule.html',    {'heats': _HEATS, 'has_meet': True,
-                          'meet_name': 'Coupe', 't': _SCHED_T}),
-])
-@pytest.mark.parametrize('code', ['fr', 'es', 'en'])
+
+@pytest.mark.parametrize(
+    "template, extra",
+    [
+        ("mobile.html", {"app_title": "Coupe", "t": _TABS}),
+        ("live-mobile.html", {}),
+        (
+            "schedule.html",
+            {"heats": _HEATS, "has_meet": True, "meet_name": "Coupe", "t": _SCHED_T},
+        ),
+    ],
+)
+@pytest.mark.parametrize("code", ["fr", "es", "en"])
 def test_html_lang_follows_the_meet_locale(template, extra, code):
     """Screen readers and hyphenation key off <html lang>. The content is in the
     meet's language, not the device's, so the routes pass it explicitly."""
-    html = _render('server/templates', template, lang=code, **extra)
+    html = _render("server/templates", template, lang=code, **extra)
     assert f'<html lang="{code}">' in html
 
 
 def test_html_lang_falls_back_when_unset():
     """A caller that forgets it should get a valid document, not lang=""."""
-    assert '<html lang="en">' in _render('server/templates', 'live-mobile.html')
+    assert '<html lang="en">' in _render("server/templates", "live-mobile.html")
 
 
 def test_every_shared_template_declares_a_language():
     """A missing lang leaves assistive tech guessing from the browser locale."""
     import glob
-    for path in glob.glob(os.path.join(REPO, 'shared/templates/*.html')):
+
+    for path in glob.glob(os.path.join(REPO, "shared/templates/*.html")):
         src = open(path).read()
-        if '<html' not in src:
-            continue                       # a fragment, not a document
-        assert '<html lang="{{ lang' in src, f'{os.path.basename(path)} hard-codes or omits lang'
+        if "<html" not in src:
+            continue  # a fragment, not a document
+        assert '<html lang="{{ lang' in src, (
+            f"{os.path.basename(path)} hard-codes or omits lang"
+        )
 
 
-@pytest.mark.parametrize('template', [
-    'live.html', 'next_heats.html', 'full_schedule.html',
-])
+@pytest.mark.parametrize(
+    "template",
+    [
+        "live.html",
+        "next_heats.html",
+        "full_schedule.html",
+    ],
+)
 def test_pi_display_pages_declare_the_scoreboard_language(template):
     """Every page that renders `labels` shows text in the Settings → Display →
     Scoreboard language. Declaring lang="en" while painting French headers is the
     mismatch these guard against; the admin pages are excluded on purpose, since
     they follow the per-device `ui_lang` cookie instead."""
-    src = open(os.path.join(REPO, 'server/templates', template)).read()
+    src = open(os.path.join(REPO, "server/templates", template)).read()
     assert '<html lang="{{ lang' in src
 
 
 def test_locale_fallbacks_agree_with_the_settings_default():
     """`load_locale()` used to default to 'fr' while DEFAULT_SETTINGS said 'en', so
     a config with no locale would paint French labels under lang="en"."""
-    state_src = open(os.path.join(REPO, 'server/state.py')).read()
-    assert "'locale': 'en'," in state_src, 'the settings default moved or changed'
-    for path in ('server/state.py', 'server/web.py', 'server/routes/settings.py'):
+    state_src = open(os.path.join(REPO, "server/state.py")).read()
+    assert '"locale": "en",' in state_src, "the settings default moved or changed"
+    for path in ("server/state.py", "server/web.py", "server/routes/settings.py"):
         src = open(os.path.join(REPO, path)).read()
-        assert "get('locale', 'fr')" not in src, f'{path} still falls back to fr'
+        assert 'get("locale", "fr")' not in src, f"{path} still falls back to fr"
 
 
 # ── Admin-panel language ───────────────────────────────────────────────────────
 
+
 class _Req:
     """Minimal stand-in for the parts of Request that ui_locale() reads."""
-    def __init__(self, cookie=None, accept=''):
-        self.cookies = {'ui_lang': cookie} if cookie else {}
-        self.headers = {'Accept-Language': accept}
+
+    def __init__(self, cookie=None, accept=""):
+        self.cookies = {"ui_lang": cookie} if cookie else {}
+        self.headers = {"Accept-Language": accept}
 
 
 @pytest.fixture
 def scoreboard_locale(monkeypatch):
     def _set(code):
-        monkeypatch.setitem(state.settings, 'locale', code)
+        monkeypatch.setitem(state.settings, "locale", code)
+
     return _set
 
 
 def test_panel_defaults_to_the_scoreboard_language(scoreboard_locale):
     """Everyone opening Settings sees it in the language the meet is run in."""
-    scoreboard_locale('fr')
-    assert state.ui_locale(_Req()) == 'fr'
+    scoreboard_locale("fr")
+    assert state.ui_locale(_Req()) == "fr"
 
 
 def test_panel_ignores_the_browser_preference(scoreboard_locale):
     """A laptop that happens to prefer Spanish is a worse default than the meet's
     own language — the per-device override exists for that case."""
-    scoreboard_locale('fr')
-    assert state.ui_locale(_Req(accept='es-ES,es;q=0.9')) == 'fr'
+    scoreboard_locale("fr")
+    assert state.ui_locale(_Req(accept="es-ES,es;q=0.9")) == "fr"
 
 
 def test_per_device_override_still_wins(scoreboard_locale):
-    scoreboard_locale('fr')
-    assert state.ui_locale(_Req(cookie='es')) == 'es'
+    scoreboard_locale("fr")
+    assert state.ui_locale(_Req(cookie="es")) == "es"
 
 
 def test_stale_override_falls_back_rather_than_breaking(scoreboard_locale):
     """A cookie naming a locale that has since been removed must not stick."""
-    scoreboard_locale('fr')
-    assert state.ui_locale(_Req(cookie='zz')) == 'fr'
+    scoreboard_locale("fr")
+    assert state.ui_locale(_Req(cookie="zz")) == "fr"
 
 
 def test_new_install_lands_on_english(scoreboard_locale):
-    scoreboard_locale('en')
-    assert state.ui_locale(_Req(accept='fr-CA')) == 'en'
+    scoreboard_locale("en")
+    assert state.ui_locale(_Req(accept="fr-CA")) == "en"
 
 
 def test_settings_page_declares_the_panel_language_not_the_scoreboard_one():
     """It is the one page whose text comes from ui_locale rather than `labels`."""
-    src = open(os.path.join(REPO, 'server/templates/settings.html')).read()
+    src = open(os.path.join(REPO, "server/templates/settings.html")).read()
     assert '<html lang="{{ ui_locale' in src
 
 
-@pytest.mark.parametrize('template', ['meet.html', 'console.html',
-                                      'operator.html', 'login.html'])
+@pytest.mark.parametrize(
+    "template", ["meet.html", "console.html", "operator.html", "login.html"]
+)
 def test_other_admin_pages_declare_the_scoreboard_language(template):
-    src = open(os.path.join(REPO, 'server/templates', template)).read()
+    src = open(os.path.join(REPO, "server/templates", template)).read()
     assert '<html lang="{{ lang' in src
 
 
 def test_login_is_rendered_with_the_globals():
     """A bare TemplateResponse would leave `lang` undefined, silently pinning the
     login page to the fallback whatever the server is set to."""
-    src = open(os.path.join(REPO, 'server/app.py')).read()
-    assert "templates.TemplateResponse(request, 'login.html'" not in src
-    assert src.count("render(request, 'login.html'") == 2
+    src = open(os.path.join(REPO, "server/app.py")).read()
+    assert 'templates.TemplateResponse(request, "login.html"' not in src
+    assert src.count('render(request, "login.html"') == 2
 
 
 # ── The results tab ────────────────────────────────────────────────────────────
 
-@pytest.fixture(scope='module')
+
+@pytest.fixture(scope="module")
 def res_pi():
-    return _render('server/templates', 'results.html', t={'waiting_results': 'Waiting…'},
-                   show_podium=True)
+    return _render(
+        "server/templates",
+        "results.html",
+        t={"waiting_results": "Waiting…"},
+        show_podium=True,
+    )
 
 
-@pytest.fixture(scope='module')
+@pytest.fixture(scope="module")
 def res_cloud():
-    return _render('cloud/templates', 'results.html', meet_id='abc123',
-                   t={'waiting_results': 'Waiting…'}, show_podium=True)
+    return _render(
+        "cloud/templates",
+        "results.html",
+        meet_id="abc123",
+        t={"waiting_results": "Waiting…"},
+        show_podium=True,
+    )
 
 
 def test_results_shares_the_scoreboard_skeleton(res_pi, res_cloud, pi):
@@ -479,8 +590,13 @@ def test_results_shares_the_scoreboard_skeleton(res_pi, res_cloud, pi):
     the layout — the reason this page adopted the base's DOM rather than keeping
     its own `res-*` / positional-cell markup."""
     for html in (res_pi, res_cloud):
-        for probe in ('id="row1"', 'id="lane_num1"', 'id="lane_name1"',
-                      'id="lane_place1"', 'id="current_event"'):
+        for probe in (
+            'id="row1"',
+            'id="lane_num1"',
+            'id="lane_name1"',
+            'id="lane_place1"',
+            'id="current_event"',
+        ):
             assert probe in html and probe in pi
 
 
@@ -488,26 +604,30 @@ def test_results_keeps_podium_and_shrink_to_fit(res_pi, res_cloud):
     """The two things a results board earns that the live board does without: it is
     read carefully and it holds still. Both were Pi-only before the merge."""
     for html in (res_pi, res_cloud):
-        assert 'podium-gold' in html and 'podium-silver' in html and 'podium-bronze' in html
-        assert '--color-podium-gold' in html
-        assert 'fitNameFontSize' in html
+        assert (
+            "podium-gold" in html
+            and "podium-silver" in html
+            and "podium-bronze" in html
+        )
+        assert "--color-podium-gold" in html
+        assert "fitNameFontSize" in html
 
 
 def test_podium_respects_the_setting(res_pi, res_cloud):
     """`show_podium` is an operator setting and is relayed (docs/api.md §5.4), so
     both servers must forward it rather than assuming."""
     for html in (res_pi, res_cloud):
-        assert 'var SHOW_PODIUM = true' in html
-        assert 'if (tr && SHOW_PODIUM)' in html
-    src = open(os.path.join(REPO, 'cloud', 'cloud_server.py')).read()
-    assert "show_podium=s.get('show_podium', True)," in src
+        assert "var SHOW_PODIUM = true" in html
+        assert "if (tr && SHOW_PODIUM)" in html
+    src = open(os.path.join(REPO, "cloud", "cloud_server.py")).read()
+    assert 'show_podium=s.get("show_podium", True),' in src
 
 
 def test_live_board_has_no_podium_tinting(pi, cloud):
     """Places move while a heat is settling; tinting them mid-race would flicker.
     The variables are declared on both (they cost nothing), the logic is not."""
     for html in (pi, cloud):
-        assert 'podium-gold' not in html.replace('--color-podium-gold', '')
+        assert "podium-gold" not in html.replace("--color-podium-gold", "")
 
 
 def test_every_board_shrinks_names_to_fit(pi, cloud, res_pi, res_cloud):
@@ -516,16 +636,16 @@ def test_every_board_shrinks_names_to_fit(pi, cloud, res_pi, res_cloud):
     along. Row heights are floored by min-height, so this changes type size only."""
     for html in (pi, cloud, res_pi, res_cloud):
         assert 'class="name-primary"' in html
-        assert 'function fitNameFontSize()' in html
+        assert "function fitNameFontSize()" in html
 
 
 def test_name_primary_is_styled_once_in_the_stylesheet(pi, res_pi):
     """Shared by four displays including the standalone kiosk page, so it lives in
     timing_display.css rather than being re-declared per template."""
-    css = open(os.path.join(REPO, 'shared/static/css/timing_display.css')).read()
-    assert '.name-primary {' in css
+    css = open(os.path.join(REPO, "shared/static/css/timing_display.css")).read()
+    assert ".name-primary {" in css
     for html in (pi, res_pi):
-        assert '.name-primary {' not in html
+        assert ".name-primary {" not in html
 
 
 def test_refit_is_not_on_the_per_frame_path(pi, cloud):
@@ -533,17 +653,17 @@ def test_refit_is_not_on_the_per_frame_path(pi, cloud):
     change, so the call is gated — running it on every update_scoreboard would put
     a layout pass in the middle of a race."""
     for html in (pi, cloud):
-        assert 'if (names_changed) requestAnimationFrame(fitNameFontSize)' in html
+        assert "if (names_changed) requestAnimationFrame(fitNameFontSize)" in html
 
 
 def test_kiosk_page_shrinks_names_too():
     """server/templates/live.html is standalone — it does not extend the base, so
     it carries its own copy and can drift. notes/scoreboard_parity.md tracks it
     against the Qt board, which has always used FitLabel here."""
-    src = open(os.path.join(REPO, 'server/templates/live.html')).read()
+    src = open(os.path.join(REPO, "server/templates/live.html")).read()
     assert 'class="name-primary"' in src
-    assert 'function fitNameFontSize()' in src
-    assert 'if (names_changed) requestAnimationFrame(fitNameFontSize)' in src
+    assert "function fitNameFontSize()" in src
+    assert "if (names_changed) requestAnimationFrame(fitNameFontSize)" in src
 
 
 def test_kiosk_binds_its_columns_before_the_socket_opens():
@@ -554,13 +674,14 @@ def test_kiosk_binds_its_columns_before_the_socket_opens():
     `columns_state`, the heat's names, then the board cache), so on a cold load the
     first frame could reach `expand_cols` with all four still null and throw out of
     the message handler. Bind first, connect second."""
-    src = open(os.path.join(REPO, 'server/templates/live.html')).read()
-    assert 'function bind_dom()' in src
-    assert src.index('bind_dom();') < src.index("splouchSocket('/ws/scoreboard')"), \
-        'the socket opens before the columns are bound'
+    src = open(os.path.join(REPO, "server/templates/live.html")).read()
+    assert "function bind_dom()" in src
+    assert src.index("bind_dom();") < src.index("splouchSocket('/ws/scoreboard')"), (
+        "the socket opens before the columns are bound"
+    )
     # `init()` keeps the work that genuinely needs layout, and re-binds so neither
     # caller depends on which of the two runs first.
-    assert re.search(r'function init\(\) \{\s*bind_dom\(\);', src)
+    assert re.search(r"function init\(\) \{\s*bind_dom\(\);", src)
 
 
 def test_results_falls_back_to_waiting_when_nothing_feeds_it(res_pi, res_cloud):
@@ -569,27 +690,28 @@ def test_results_falls_back_to_waiting_when_nothing_feeds_it(res_pi, res_cloud):
     for html in (res_pi, res_cloud):
         assert "sock.on('meet_live'" in html
         assert "sock.on('disconnect'" in html
-        assert 'showWaiting()' in html
+        assert "showWaiting()" in html
 
 
 def test_waiting_message_is_translated_on_both(res_pi, res_cloud):
     """It is a [mobile] string. The cloud read it off `labels`, where it does not
     exist, so its waiting screen was English whatever language the meet ran in."""
     for html in (res_pi, res_cloud):
-        assert 'Waiting…' in html            # the fixture's [mobile] string won
-    src = open(os.path.join(REPO, 'cloud', 'cloud_server.py')).read()
-    assert src.count("t=_strings(_client_lang(request, meet), 'mobile')") == 3, \
-        'every per-meet cloud page must pass the [mobile] strings'
+        assert "Waiting…" in html  # the fixture's [mobile] string won
+    src = open(os.path.join(REPO, "cloud", "cloud_server.py")).read()
+    assert src.count('t=_strings(_client_lang(request, meet), "mobile")') == 3, (
+        "every per-meet cloud page must pass the [mobile] strings"
+    )
 
 
 def _css(html):
-    style = matched(r'<style>(.*?)</style>', html, flags=re.S)
-    return re.sub(r'/\*.*?\*/', '', style, flags=re.S)   # comments mention z-index too
+    style = matched(r"<style>(.*?)</style>", html, flags=re.S)
+    return re.sub(r"/\*.*?\*/", "", style, flags=re.S)  # comments mention z-index too
 
 
 def _rule(css, selector, after=0):
     start = css.index(selector, after)
-    return css[start:css.index('}', start)]
+    return css[start : css.index("}", start)]
 
 
 def _page_css(html):
@@ -597,7 +719,7 @@ def _page_css(html):
     media queries earlier in the same <style>, so searching the whole thing finds
     those instead of the overrides under test."""
     css = _css(html)
-    return css[css.index('#waiting {'):]
+    return css[css.index("#waiting {") :]
 
 
 def test_waiting_message_never_covers_the_board(res_pi, res_cloud):
@@ -605,11 +727,11 @@ def test_waiting_message_never_covers_the_board(res_pi, res_cloud):
     table's own and leaked its background out below the last lane. Now the rows are
     cleared when the feed drops, so there is nothing to hide and nothing to stack."""
     for html in (res_pi, res_cloud):
-        rule = _rule(_css(html), '#waiting {')
-        assert 'position: fixed' not in rule
-        assert 'z-index' not in rule
-        assert 'background' not in rule
-        assert 'flex: 1' in rule           # takes leftover room, not the whole area
+        rule = _rule(_css(html), "#waiting {")
+        assert "position: fixed" not in rule
+        assert "z-index" not in rule
+        assert "background" not in rule
+        assert "flex: 1" in rule  # takes leftover room, not the whole area
 
 
 def test_waiting_message_fills_the_gap_in_portrait(res_pi, res_cloud):
@@ -617,10 +739,11 @@ def test_waiting_message_fills_the_gap_in_portrait(res_pi, res_cloud):
     free and the message goes there, under a visible empty grid."""
     for html in (res_pi, res_cloud):
         portrait = _page_css(html)
-        portrait = portrait[portrait.index('@media (orientation: portrait)'):]
-        assert 'flex: 0 0 auto' in _rule(portrait, '.timing-content')
-        assert 'height: auto' in _rule(portrait, '.timing-table'), \
-            'the table must give up its 100% height or there is no gap'
+        portrait = portrait[portrait.index("@media (orientation: portrait)") :]
+        assert "flex: 0 0 auto" in _rule(portrait, ".timing-content")
+        assert "height: auto" in _rule(portrait, ".timing-table"), (
+            "the table must give up its 100% height or there is no gap"
+        )
 
 
 def test_no_message_in_landscape(res_pi, res_cloud):
@@ -629,8 +752,8 @@ def test_no_message_in_landscape(res_pi, res_cloud):
     either — better than covering the board to say so."""
     for html in (res_pi, res_cloud):
         landscape = _page_css(html)
-        landscape = landscape[landscape.index('@media (orientation: landscape)'):]
-        assert 'display: none' in _rule(landscape, '#waiting {')
+        landscape = landscape[landscape.index("@media (orientation: landscape)") :]
+        assert "display: none" in _rule(landscape, "#waiting {")
 
 
 def test_stale_results_are_cleared_not_covered(res_pi, res_cloud):
@@ -638,37 +761,42 @@ def test_stale_results_are_cleared_not_covered(res_pi, res_cloud):
     as the current one. When the feed goes away the rows are wiped, so the message
     never has anything to hide."""
     for html in (res_pi, res_cloud):
-        assert 'function clearResults()' in html
-        assert 'function goIdle() { clearResults(); showWaiting(); }' in html
+        assert "function clearResults()" in html
+        assert "function goIdle() { clearResults(); showWaiting(); }" in html
         assert "sock.on('disconnect', goIdle)" in html
-        assert 'if (!(d && d.live)) goIdle()' in html
+        assert "if (!(d && d.live)) goIdle()" in html
 
 
 # ── Event names follow the reader (`T-11`) ────────────────────────────────────
+
 
 def test_the_board_composes_the_event_name_it_is_given_parts_for(pi, cloud):
     """A frame is one broadcast, so `event_name` is in the meet's language. A page
     rendered for a visitor reading another one composes from `event_name_parts`
     against the vocabulary the server embedded — see `T-11`."""
     for page in (pi, cloud):
-        assert 'window.EVENT_VOCAB' in page
+        assert "window.EVENT_VOCAB" in page
         assert 'composeEventName(s["event_name_parts"], window.EVENT_VOCAB)' in page
 
 
 def test_the_vocabulary_is_the_page_language_not_the_meets():
     """Embedded per render, so the tab the visitor opened carries their words."""
-    page = _render('server/templates', 'live-mobile.html',
-                   event_vocab={'unit': 'm', 'freestyle': 'libre'})
+    page = _render(
+        "server/templates",
+        "live-mobile.html",
+        event_vocab={"unit": "m", "freestyle": "libre"},
+    )
     assert '"freestyle": "libre"' in page or '"freestyle":"libre"' in page
 
 
 def test_a_page_without_a_vocabulary_still_renders(pi):
     """`event_vocab` is optional: an older render path leaves it out and the board
     falls back to `event_name`, which is already right for most viewers."""
-    assert 'window.EVENT_VOCAB = {}' in pi
+    assert "window.EVENT_VOCAB = {}" in pi
 
 
 # ── Script load order ──────────────────────────────────────────────────────────
+
 
 def test_schedule_loads_ws_js_before_it_renders(sched_pi, sched_cloud):
     """`renderSchedule()` runs at the end of the page's own script, and composes each
@@ -680,26 +808,37 @@ def test_schedule_loads_ws_js_before_it_renders(sched_pi, sched_cloud):
     asserted here directly.
     """
     for html in (sched_pi, sched_cloud):
-        ws     = html.index('src="/static/js/ws.js"')
-        vocab  = html.index('window.EVENT_VOCAB')
-        render = html.index('\nrenderSchedule();')
-        assert ws < render, 'ws.js must load before the page calls renderSchedule()'
-        assert vocab < render, 'EVENT_VOCAB must be set before renderSchedule() composes names'
+        ws = html.index('src="/static/js/ws.js"')
+        vocab = html.index("window.EVENT_VOCAB")
+        render = html.index("\nrenderSchedule();")
+        assert ws < render, "ws.js must load before the page calls renderSchedule()"
+        assert vocab < render, (
+            "EVENT_VOCAB must be set before renderSchedule() composes names"
+        )
 
 
 def test_the_schedule_page_only_calls_ws_js_helpers_it_has_loaded(sched_pi):
     """Any other `ws.js` helper used at load would need the same ordering."""
     import re
-    helpers = set(re.findall(r'^function (\w+)', open(
-        os.path.join(REPO, 'shared', 'static', 'js', 'ws.js'), encoding='utf-8').read(), re.M))
-    body = sched_pi[sched_pi.index('src="/static/js/ws.js"'):]
-    used = {h for h in helpers if h + '(' in body}
+
+    helpers = set(
+        re.findall(
+            r"^function (\w+)",
+            open(
+                os.path.join(REPO, "shared", "static", "js", "ws.js"), encoding="utf-8"
+            ).read(),
+            re.M,
+        )
+    )
+    body = sched_pi[sched_pi.index('src="/static/js/ws.js"') :]
+    used = {h for h in helpers if h + "(" in body}
     # Everything used has to sit after the tag that defines it, which is what the
     # slice above proves; this pins the set so a new helper gets the same thought.
-    assert used <= {'splouchSocket', 'eventNameOf', 'composeEventName'}, used
+    assert used <= {"splouchSocket", "eventNameOf", "composeEventName"}, used
 
 
 # ── EVENT / HEAT, inline (matches the Qt board) ────────────────────────────────
+
 
 def _code(text):
     """*text* with its `/* … */` comments removed.
@@ -709,14 +848,16 @@ def _code(text):
     approach is gone", and the comment recording what the old approach was is
     exactly the string they look for.
     """
-    return re.sub(r'/\*.*?\*/', '', text, flags=re.S)
+    return re.sub(r"/\*.*?\*/", "", text, flags=re.S)
 
 
 def _shared_css():
     """`timing_display.css` itself — not the `_css(html)` above, which strips a
     rendered page's inline <style> block."""
-    return open(os.path.join(REPO, 'shared', 'static', 'css',
-                             'timing_display.css'), encoding='utf-8').read()
+    return open(
+        os.path.join(REPO, "shared", "static", "css", "timing_display.css"),
+        encoding="utf-8",
+    ).read()
 
 
 def test_the_event_heat_word_sits_beside_its_number():
@@ -725,9 +866,9 @@ def test_the_event_heat_word_sits_beside_its_number():
     (`HeaderCell`); this is the browser's copy of that rule, scoped to the only two
     cells that have a word at all."""
     css = _shared_css()
-    rule = css[css.index('#header_event_cell,'):]
-    rule = rule[:rule.index('}')]
-    assert 'flex-direction: row' in rule, rule
+    rule = css[css.index("#header_event_cell,") :]
+    rule = rule[: rule.index("}")]
+    assert "flex-direction: row" in rule, rule
 
 
 def test_the_word_and_the_number_are_one_size():
@@ -735,12 +876,12 @@ def test_the_word_and_the_number_are_one_size():
     why Qt solves the size once for the pair. Here they read one variable, so a
     media query cannot move one without the other."""
     css = _shared_css()
-    label = css[css.index('#header_event_cell .header_label'):]
-    label = label[:label.index('}')]
-    assert 'var(--header-num-size)' in label, label
-    number = css[css.index('#current_event, #current_heat'):]
-    number = number[:number.index('}')]
-    assert 'var(--header-num-size)' in number, number
+    label = css[css.index("#header_event_cell .header_label") :]
+    label = label[: label.index("}")]
+    assert "var(--header-num-size)" in label, label
+    number = css[css.index("#current_event, #current_heat") :]
+    number = number[: number.index("}")]
+    assert "var(--header-num-size)" in number, number
 
 
 def test_the_pair_shrinks_to_fit_and_agrees(pi, cloud):
@@ -749,28 +890,35 @@ def test_the_pair_shrinks_to_fit_and_agrees(pi, cloud):
     text, so it is measured — and both cells take the *smaller* ratio, the way
     `BoardWindow._sync_header_cells` hands the Qt pair one shared answer."""
     for html in (pi, cloud):
-        body = html[html.index('function fitHeaderCells('):]
-        body = body[:body.index('\n}')]
-        assert 'Math.min' in body, 'the two cells do not agree on a size'
-        assert 'clientWidth / ' in body and 'scrollWidth' in body
+        body = html[html.index("function fitHeaderCells(") :]
+        body = body[: body.index("\n}")]
+        assert "Math.min" in body, "the two cells do not agree on a size"
+        assert "clientWidth / " in body and "scrollWidth" in body
         assert "setProperty('--header-num-size'" in body
 
 
 def test_the_word_keeps_the_accent_and_the_number_does_not(pi, cloud):
     """The colour is what separates the two halves now that the size does not."""
     css = _shared_css()
-    label = css[css.index('.header_label {'):]
-    assert 'var(--color-header-label)' in label[:label.index('}')]
-    number = css[css.index('#current_event, #current_heat'):]
-    assert 'var(--color-header-value)' in number[:number.index('}')]
+    label = css[css.index(".header_label {") :]
+    assert "var(--color-header-label)" in label[: label.index("}")]
+    number = css[css.index("#current_event, #current_heat") :]
+    assert "var(--color-header-value)" in number[: number.index("}")]
 
 
-@pytest.fixture(scope='module')
+@pytest.fixture(scope="module")
 def kiosk():
     """`live.html` — the kiosk board, the page the Qt display mirrors."""
     # `show_podium` is kiosk-only, so it is not in `_FLAGS` with the shared ones.
-    return _render('server/templates', 'live.html', nosplash=True, show_podium=True,
-                   test_background=False, carousel_images=[], carousel_interval=10)
+    return _render(
+        "server/templates",
+        "live.html",
+        nosplash=True,
+        show_podium=True,
+        test_background=False,
+        carousel_images=[],
+        carousel_interval=10,
+    )
 
 
 def test_the_kiosk_header_has_no_meet_title_cell(kiosk):
@@ -778,11 +926,11 @@ def test_the_kiosk_header_has_no_meet_title_cell(kiosk):
     called, so the first heat hid it for the rest of the meet. The title is on the
     splash on both displays, and an idle bar now shows just the two clocks — which
     is what the Qt board has always shown (`BoardWindow.set_header_mode`)."""
-    assert 'header_meet_title' not in kiosk
-    assert 'header_cell_grow' not in kiosk
+    assert "header_meet_title" not in kiosk
+    assert "header_cell_grow" not in kiosk
     # Comments stripped: the prose there records where the rule went.
-    rules = re.sub(r'/\*.*?\*/', '', _shared_css(), flags=re.S)
-    assert 'header_cell_grow' not in rules, 'the rule outlived its only user'
+    rules = re.sub(r"/\*.*?\*/", "", _shared_css(), flags=re.S)
+    assert "header_cell_grow" not in rules, "the rule outlived its only user"
 
 
 def test_the_pair_packs_hard_left(kiosk):
@@ -790,9 +938,9 @@ def test_the_pair_packs_hard_left(kiosk):
     short phrase leaves goes to the right. Centring instead would start EVENT and
     HEAT at different offsets depending on how wide the words are."""
     css = _shared_css()
-    rule = css[css.index('#header_event_cell,'):]
-    rule = rule[:rule.index('}')]
-    assert 'justify-content: flex-start' in rule, rule
+    rule = css[css.index("#header_event_cell,") :]
+    rule = rule[: rule.index("}")]
+    assert "justify-content: flex-start" in rule, rule
 
 
 def test_the_header_padding_matches_the_qt_constant():
@@ -803,12 +951,12 @@ def test_the_header_padding_matches_the_qt_constant():
     on whitespace, which is what left no room for the word beside its number.
     """
     css = _shared_css()
-    for block in ('.header_cell {', '.header_cell         {'):
+    for block in (".header_cell {", ".header_cell         {"):
         i = css.index(block)
-        rule = css[i:css.index('}', i)]
-        assert '1vw' in rule and '2vw' not in rule, rule
-    board = open(os.path.join(REPO, 'scoreboard', 'board.py'), encoding='utf-8').read()
-    assert '_HDR_PAD_X = 0.01' in board, 'the Qt side moved; the browser has not'
+        rule = css[i : css.index("}", i)]
+        assert "1vw" in rule and "2vw" not in rule, rule
+    board = open(os.path.join(REPO, "scoreboard", "board.py"), encoding="utf-8").read()
+    assert "_HDR_PAD_X = 0.01" in board, "the Qt side moved; the browser has not"
 
 
 def test_the_header_shares_match_the_qt_weights():
@@ -822,22 +970,38 @@ def test_the_header_shares_match_the_qt_weights():
     """
     css = _shared_css()
     shares = {}
-    for cell, key in (('#header_event_cell', 'event'), ('#header_heat_cell', 'heat'),
-                      ('.header_cell_name', 'name'), ('#header_chrono_cell', 'chrono'),
-                      ('#header_clock_cell', 'clock')):
-        m = re.search(r'\.header_cells_fixed ' + re.escape(cell)
-                      + r'\s*\{[^}]*flex:\s*0\s*0\s*(\d+)%', css)
-        assert m, f'no fixed share for {cell}'
+    for cell, key in (
+        ("#header_event_cell", "event"),
+        ("#header_heat_cell", "heat"),
+        (".header_cell_name", "name"),
+        ("#header_chrono_cell", "chrono"),
+        ("#header_clock_cell", "clock"),
+    ):
+        m = re.search(
+            r"\.header_cells_fixed "
+            + re.escape(cell)
+            + r"\s*\{[^}]*flex:\s*0\s*0\s*(\d+)%",
+            css,
+        )
+        assert m, f"no fixed share for {cell}"
         shares[key] = int(m.group(1))
 
-    board = open(os.path.join(REPO, 'scoreboard', 'board.py'), encoding='utf-8').read()
-    m = re.search(r'_HW_EVENT, _HW_HEAT, _HW_NAME, _HW_CHRONO, _HW_CLOCK = '
-                  r'(\d+), (\d+), (\d+), (\d+), (\d+)', board)
-    assert m, 'no _HW_* weights in board.py'
-    weights = dict(zip(('event', 'heat', 'name', 'chrono', 'clock'),
-                       (int(g) for g in m.groups()), strict=True))
+    board = open(os.path.join(REPO, "scoreboard", "board.py"), encoding="utf-8").read()
+    m = re.search(
+        r"_HW_EVENT, _HW_HEAT, _HW_NAME, _HW_CHRONO, _HW_CLOCK = "
+        r"(\d+), (\d+), (\d+), (\d+), (\d+)",
+        board,
+    )
+    assert m, "no _HW_* weights in board.py"
+    weights = dict(
+        zip(
+            ("event", "heat", "name", "chrono", "clock"),
+            (int(g) for g in m.groups()),
+            strict=True,
+        )
+    )
 
-    assert shares == weights, f'browser {shares} != Qt {weights}'
+    assert shares == weights, f"browser {shares} != Qt {weights}"
     assert sum(weights.values()) == 100, weights
 
 
@@ -847,11 +1011,12 @@ def test_the_fit_reads_a_resolved_pixel_size(pi, cloud, kiosk):
     the phrase first overflowed. A `font-size` is resolved to px by the browser, so
     the ceiling is read off an element that *uses* the variable."""
     for html in (pi, cloud, kiosk):
-        body = html[html.index('function fitHeaderCells('):]
-        body = _code(body[:body.index('\n}')])
-        assert "getPropertyValue('--header-num-size')" not in body, \
-            'reading the raw token back gives a unitless number'
-        assert '.fontSize' in body, 'the ceiling must come from a resolved font-size'
+        body = html[html.index("function fitHeaderCells(") :]
+        body = _code(body[: body.index("\n}")])
+        assert "getPropertyValue('--header-num-size')" not in body, (
+            "reading the raw token back gives a unitless number"
+        )
+        assert ".fontSize" in body, "the ceiling must come from a resolved font-size"
 
 
 def test_the_kiosk_header_never_sizes_off_the_width(kiosk):
@@ -860,7 +1025,8 @@ def test_the_kiosk_header_never_sizes_off_the_width(kiosk):
     but left wide made the event name jump *up* — 15px at 501px tall, 42px at 500px.
     The kiosk shrinks monotonically; the rule is the phone board's alone."""
     css = _code(_shared_css())
-    assert 'max-height: 500px' not in css, \
-        'a width-based short-viewport override is back in the shared stylesheet'
-    name = css[css.index('#event_name {'):]
-    assert 'vh' in name[:name.index('}')], 'the event name should size off the height'
+    assert "max-height: 500px" not in css, (
+        "a width-based short-viewport override is back in the shared stylesheet"
+    )
+    name = css[css.index("#event_name {") :]
+    assert "vh" in name[: name.index("}")], "the event name should size off the height"

@@ -10,6 +10,7 @@ Deliberately not shared with the server's own copy of this: `docs/api.md` says
 there is no shared client library, and a five-line subprocess call is not worth
 breaking that for. Qt-free, so it can be tested without PySide6.
 """
+
 import os
 import socket
 import subprocess
@@ -24,8 +25,9 @@ _TIMEOUT = 8
 
 def _git(*args):
     try:
-        result = subprocess.run(('git',) + args, cwd=_REPO, capture_output=True,
-                                text=True, timeout=_TIMEOUT)
+        result = subprocess.run(
+            ("git",) + args, cwd=_REPO, capture_output=True, text=True, timeout=_TIMEOUT
+        )
     except (OSError, subprocess.SubprocessError):
         return None
     return result.stdout.strip() if result.returncode == 0 else None
@@ -38,16 +40,16 @@ def describe() -> dict:
     reports empty strings rather than raising, and the display still runs. Call
     it off the GUI thread — it shells out to git.
     """
-    version = _git('describe', '--tags', '--always', '--dirty')
-    commit  = _git('rev-parse', '--short', 'HEAD')
-    status  = _git('status', '--porcelain')
+    version = _git("describe", "--tags", "--always", "--dirty")
+    commit = _git("rev-parse", "--short", "HEAD")
+    status = _git("status", "--porcelain")
     return {
-        'version': version or '',
-        'commit':  commit or '',
+        "version": version or "",
+        "commit": commit or "",
         # Local edits mean the ref alone no longer describes what is running —
         # worth flagging in the UI, because it is usually a forgotten dev change
         # on a kiosk that then resists updating.
-        'dirty':   bool(status),
+        "dirty": bool(status),
     }
 
 
@@ -76,13 +78,13 @@ def warm_cache():
 def cached_version() -> str:
     """This checkout's ref, or ``''`` until :func:`warm_cache` has finished."""
     with _CACHE_LOCK:
-        return _CACHE.get('version', '')
+        return _CACHE.get("version", "")
 
 
-def registration(role: str = 'kiosk') -> dict:
+def registration(role: str = "kiosk") -> dict:
     """The full `register` payload (docs/api.md §2)."""
     try:
         hostname = socket.gethostname()
     except OSError:
-        hostname = ''
-    return {'role': role, 'hostname': hostname, **describe()}
+        hostname = ""
+    return {"role": role, "hostname": hostname, **describe()}

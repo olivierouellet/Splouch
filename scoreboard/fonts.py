@@ -18,6 +18,7 @@ Family resolution runs in three steps:
 Resolution is cached: it is called once per label restyle, and querying the font
 database is not free.
 """
+
 import os
 
 _APP_FONTS_LOADED = False
@@ -26,7 +27,10 @@ _RESOLVED: dict[str, str] = {}
 # Where the browser clients keep their faces; shared with the Qt display.
 _FONT_DIR = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-    'shared', 'static', 'fonts')
+    "shared",
+    "static",
+    "fonts",
+)
 
 
 def load_app_fonts() -> list[str]:
@@ -49,7 +53,7 @@ def load_app_fonts() -> list[str]:
         return added
 
     for name in names:
-        if not name.lower().endswith(('.ttf', '.otf')):
+        if not name.lower().endswith((".ttf", ".otf")):
             continue
         font_id = QFontDatabase.addApplicationFont(os.path.join(_FONT_DIR, name))
         if font_id != -1:
@@ -59,14 +63,16 @@ def load_app_fonts() -> list[str]:
         # now is stale — a lookup made first would have cached the monospace
         # fallback and kept returning it for the life of the process.
         _RESOLVED.clear()
-        print(f'[scoreboard] loaded bundled fonts: {", ".join(sorted(set(added)))}',
-              flush=True)
+        print(
+            f"[scoreboard] loaded bundled fonts: {', '.join(sorted(set(added)))}",
+            flush=True,
+        )
     return added
 
 
 def _squash(name: str) -> str:
     """Normalise a family name for matching: no spaces, no case."""
-    return name.replace(' ', '').replace('-', '').lower()
+    return name.replace(" ", "").replace("-", "").lower()
 
 
 def resolve_family(family: str) -> str:
@@ -87,13 +93,14 @@ def resolve_family(family: str) -> str:
     is unreadable at a distance, because the digits jitter as times tick.
     """
     if not family:
-        family = 'monospace'
+        family = "monospace"
     if family in _RESOLVED:
         return _RESOLVED[family]
 
     resolved = family
     try:
         from PySide6.QtGui import QFontDatabase
+
         # Static in Qt 6 — PyQt5 required an instance, PySide6 does not.
         families = QFontDatabase.families()
         if family not in families:
@@ -104,12 +111,15 @@ def resolve_family(family: str) -> str:
                 print(f'[scoreboard] font "{family}" matched as "{match}"', flush=True)
             else:
                 from PySide6.QtGui import QFont
+
                 fallback = QFont()
                 fallback.setStyleHint(QFont.StyleHint.Monospace)
-                fallback.setFamily('monospace')
-                resolved = QFont(fallback.defaultFamily()).family() or 'monospace'
-                print(f'[scoreboard] font "{family}" unavailable — using {resolved}',
-                      flush=True)
+                fallback.setFamily("monospace")
+                resolved = QFont(fallback.defaultFamily()).family() or "monospace"
+                print(
+                    f'[scoreboard] font "{family}" unavailable — using {resolved}',
+                    flush=True,
+                )
     except Exception:
         pass
 

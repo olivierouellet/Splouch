@@ -13,6 +13,7 @@ one. Each save also emits `reload` to the TV displays and every connected phone
 Three forms deliberately keep their buttons: the cloud connection, the admin account
 and the per-meet cloud appearance all carry something a stray change should not send.
 """
+
 import json
 import os
 import re
@@ -25,34 +26,41 @@ REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 from conftest import matched, settings_source  # noqa: E402
 from jsc import HAS_JS_ENGINE, js_argv  # noqa: E402
-SETTINGS = os.path.join(REPO, 'server', 'templates', 'settings.html')
+
+SETTINGS = os.path.join(REPO, "server", "templates", "settings.html")
 
 needs_js = pytest.mark.skipif(
-    not HAS_JS_ENGINE, reason='needs a JavaScript engine (osascript or node)')
+    not HAS_JS_ENGINE, reason="needs a JavaScript engine (osascript or node)"
+)
 
 
-@pytest.fixture(scope='module')
+@pytest.fixture(scope="module")
 def src():
     return settings_source()
 
 
-@pytest.mark.parametrize('form_id,note_id', [
-    ('timing_tuning_form',    'timing-tuning-note'),
-    ('display-settings-form', 'display-save-note'),
-    ('theme_update_form',     'theme-save-note'),
-])
+@pytest.mark.parametrize(
+    "form_id,note_id",
+    [
+        ("timing_tuning_form", "timing-tuning-note"),
+        ("display-settings-form", "display-save-note"),
+        ("theme_update_form", "theme-save-note"),
+    ],
+)
 def test_each_appearance_form_saves_itself(src, form_id, note_id):
     assert 'id="%s"' % form_id in src
     assert 'id="%s"' % note_id in src
     assert "autoSave(document.getElementById('%s'), '%s'" % (form_id, note_id) in src
 
 
-@pytest.mark.parametrize('btn', ['btn-update-display', 'btn-update-theme'])
+@pytest.mark.parametrize("btn", ["btn-update-display", "btn-update-theme"])
 def test_the_appearance_update_buttons_are_gone(src, btn):
     assert 'id="%s"' % btn not in src
 
 
-@pytest.mark.parametrize('btn', ['btn-update-cloud', 'btn-update-meet', 'btn-update-account'])
+@pytest.mark.parametrize(
+    "btn", ["btn-update-cloud", "btn-update-meet", "btn-update-account"]
+)
 def test_the_deliberate_buttons_stay(src, btn):
     """Not an oversight: a relay key, a password and a per-meet record each want an
     explicit press rather than saving on the way past."""
@@ -63,7 +71,7 @@ def test_the_deliberate_buttons_stay(src, btn):
 def test_the_note_is_announced_to_assistive_tech(src):
     """The receipt replaced a button going green, which a screen reader never saw
     either — but a live region is the reason to do it properly now."""
-    for note in ('timing-tuning-note', 'display-save-note', 'theme-save-note'):
+    for note in ("timing-tuning-note", "display-save-note", "theme-save-note"):
         span = matched(r'<span id="%s"[^>]*>' % note, src, group=0)
         assert 'role="status"' in span and 'aria-live="polite"' in span
 
@@ -76,8 +84,8 @@ def test_reverting_a_swatch_reaches_the_server(src):
     save — worse than the old button, which `markDirty` flipped on either event.
     """
     # Anchor on the handler, not the class name — there is a `.cs-reset` CSS rule too.
-    block = src[src.index("querySelectorAll('#tab-theme .cs-reset')"):]
-    block = block[:block.index('})();')]
+    block = src[src.index("querySelectorAll('#tab-theme .cs-reset')") :]
+    block = block[: block.index("})();")]
     assert "new Event('input'" in block
     assert "new Event('change'" in block
 
@@ -85,11 +93,13 @@ def test_reverting_a_swatch_reaches_the_server(src):
 @needs_js
 def test_autosave_debounces_and_reports(src):
     """Run the page's own `autoSave` and check what it does with one change."""
-    fn = re.search(r'^function autoSave\(form, noteId, opts\) \{.*?^\}',
-                   src, re.S | re.M)
-    assert fn, 'autoSave is no longer a top-level function'
+    fn = re.search(
+        r"^function autoSave\(form, noteId, opts\) \{.*?^\}", src, re.S | re.M
+    )
+    assert fn, "autoSave is no longer a top-level function"
 
-    harness = '''
+    harness = (
+        """
     var T = { js_request_failed_c: 'Failed: ' };
     var posts = [], __timers = [];
     var note = { className: '', textContent: '' };
@@ -110,7 +120,9 @@ def test_autosave_debounces_and_reports(src):
       var els = [{ addEventListener: function (ev, fn) { handlers.push([ev, fn]); } }];
       els.forEach = Array.prototype.forEach.bind(els);
       return els; } };
-    ''' + fn.group(0) + '''
+    """
+        + fn.group(0)
+        + """
     autoSave(form, 'note');
     handlers.forEach(function (h) { h[1](); });      // three changes in a row
     handlers.forEach(function (h) { h[1](); });
@@ -120,13 +132,15 @@ def test_autosave_debounces_and_reports(src):
                      scheduled: __timers.length, alive: live.length,
                      debounce: live[live.length - 1][1],
                      posts: posts, note: note.textContent });
-    '''
-    with tempfile.NamedTemporaryFile('w', suffix='.js', delete=False, encoding='utf-8') as fh:
+    """
+    )
+    with tempfile.NamedTemporaryFile(
+        "w", suffix=".js", delete=False, encoding="utf-8"
+    ) as fh:
         fh.write(harness)
         path = fh.name
     try:
-        res = subprocess.run(js_argv(path),
-                             capture_output=True, text=True)
+        res = subprocess.run(js_argv(path), capture_output=True, text=True)
     finally:
         os.unlink(path)
     assert res.returncode == 0, res.stderr
@@ -134,15 +148,15 @@ def test_autosave_debounces_and_reports(src):
 
     # `input` fires per keystroke and per pixel of a colour drag; `change` lands on
     # commit, which is the only moment a value is meant.
-    assert set(out['events']) == {'change'}
+    assert set(out["events"]) == {"change"}
     # Several changes, one save: the debounce is what keeps a colour drag from
     # bouncing every display in the building.
-    assert out['alive'] == 1, 'each change must replace the pending save, not add one'
-    assert out['posts'] == ['/settings'], out['posts']
-    assert out['debounce'] >= 300, 'too tight to coalesce a drag'
+    assert out["alive"] == 1, "each change must replace the pending save, not add one"
+    assert out["posts"] == ["/settings"], out["posts"]
+    assert out["debounce"] >= 300, "too tight to coalesce a drag"
     # Silent on success: a "Saving…"/"Saved" on every checkbox is noise during a meet,
     # and the change is its own confirmation — the field holds what you typed.
-    assert out['note'] == '', f'a success notice is back: {out["note"]!r}'
+    assert out["note"] == "", f"a success notice is back: {out['note']!r}"
 
 
 # ── Race detection (Timing pane) ───────────────────────────────────────────────
@@ -153,43 +167,56 @@ def test_autosave_debounces_and_reports(src):
 # `scoreboard.html` read; that template is gone and these two moved to Timing, which
 # is what they actually are: console behaviour, not display behaviour.
 
+
 def test_the_flow_pane_is_gone(src):
     assert 'id="tab-flow"' not in src
-    assert 'flow_settings_submit' not in src
-    assert 'nav_flow' not in src, 'the sidebar still links to a pane that does not exist'
+    assert "flow_settings_submit" not in src
+    assert "nav_flow" not in src, (
+        "the sidebar still links to a pane that does not exist"
+    )
 
 
 def test_race_detection_lives_in_the_timing_pane(src):
-    timing = src[src.index('id="tab-debug"'):]
-    timing = timing[:timing.index('id="tab-appearance"')] if 'id="tab-appearance"' in timing else timing
-    for field in ('finish_debounce', 'split_min_duration'):
-        assert 'name="%s"' % field in timing, f'{field} is not in the Timing pane'
+    timing = src[src.index('id="tab-debug"') :]
+    timing = (
+        timing[: timing.index('id="tab-appearance"')]
+        if 'id="tab-appearance"' in timing
+        else timing
+    )
+    for field in ("finish_debounce", "split_min_duration"):
+        assert 'name="%s"' % field in timing, f"{field} is not in the Timing pane"
 
 
 def test_both_fields_are_explained(src):
     """They are the two settings most likely to be changed without knowing the cost."""
-    for key in ('timing_finish_debounce_help', 'timing_split_min_help'):
-        assert '{{ t.%s }}' % key in src
+    for key in ("timing_finish_debounce_help", "timing_split_min_help"):
+        assert "{{ t.%s }}" % key in src
 
 
 def test_the_default_comes_from_the_server(src):
     """Retyping 3.0 into the template is how it drifts from `state`."""
     assert 'data-default="{{ finish_debounce_default }}"' in src
     import sys
-    sys.path.insert(0, os.path.join(REPO, 'server'))
+
+    sys.path.insert(0, os.path.join(REPO, "server"))
     import state
-    assert state.settings['finish_debounce'] == state.FINISH_DEBOUNCE_DEFAULT
+
+    assert state.settings["finish_debounce"] == state.FINISH_DEBOUNCE_DEFAULT
 
 
 @needs_js
 def test_the_warning_tracks_the_default_and_the_reset_saves(src):
     """`3` and `3.0` are the same delay, so the comparison has to be numeric — and
     the reset sets the value from script, which fires no event by itself."""
-    blk = re.search(r'^function defaultWarning\(inputId, warnId, resetId\) \{.*?^\}',
-                    src, re.S | re.M)
-    assert blk, 'defaultWarning is no longer a top-level function'
+    blk = re.search(
+        r"^function defaultWarning\(inputId, warnId, resetId\) \{.*?^\}",
+        src,
+        re.S | re.M,
+    )
+    assert blk, "defaultWarning is no longer a top-level function"
 
-    harness = '''
+    harness = (
+        """
     var els = {};
     function mk(id) { var o = { id:id, value:'', dataset:{}, _h:{}, _cls:{},
       addEventListener:function(e,f){ (this._h[e]=this._h[e]||[]).push(f); },
@@ -200,7 +227,9 @@ def test_the_warning_tracks_the_default_and_the_reset_saves(src):
     var warn = mk('finish-debounce-warn'), reset = mk('finish-debounce-reset');
     var document = { getElementById: function (id) { return els[id] || null; } };
     function Event(t) { this.type = t; }
-    ''' + blk.group(0) + '''
+    """
+        + blk.group(0)
+        + """
     defaultWarning('finish_debounce', 'finish-debounce-warn', 'finish-debounce-reset');
     var steps = [];
     // What the browser actually goes by — `hidden` loses to `.d-flex` in Bootstrap.
@@ -212,23 +241,25 @@ def test_the_warning_tracks_the_default_and_the_reset_saves(src):
     input.value = '0.5'; input.dispatchEvent(new Event('change')); snap('low');
     reset.dispatchEvent(new Event('click'));                        snap('reset');
     JSON.stringify({ steps: steps, changeHandlers: (input._h['change'] || []).length });
-    '''
-    with tempfile.NamedTemporaryFile('w', suffix='.js', delete=False, encoding='utf-8') as fh:
+    """
+    )
+    with tempfile.NamedTemporaryFile(
+        "w", suffix=".js", delete=False, encoding="utf-8"
+    ) as fh:
         fh.write(harness)
         path = fh.name
     try:
-        res = subprocess.run(js_argv(path),
-                             capture_output=True, text=True)
+        res = subprocess.run(js_argv(path), capture_output=True, text=True)
     finally:
         os.unlink(path)
     assert res.returncode == 0, res.stderr
-    steps = dict((s[0], (s[1], s[2])) for s in json.loads(res.stdout)['steps'])
+    steps = dict((s[0], (s[1], s[2])) for s in json.loads(res.stdout)["steps"])
 
-    assert steps['load'][1] is True,            'warns on a value that is the default'
-    assert steps['changed'][1] is False,        'no warning on a non-default value'
-    assert steps['back to default'][1] is True, '"3.0" and "3" are the same delay'
-    assert steps['low'][1] is False
-    assert steps['reset'] == ('3', True),       'reset must restore the default and clear'
+    assert steps["load"][1] is True, "warns on a value that is the default"
+    assert steps["changed"][1] is False, "no warning on a non-default value"
+    assert steps["back to default"][1] is True, '"3.0" and "3" are the same delay'
+    assert steps["low"][1] is False
+    assert steps["reset"] == ("3", True), "reset must restore the default and clear"
 
 
 @needs_js
@@ -238,10 +269,12 @@ def test_a_failed_save_still_speaks(src):
     A change that never reached the server looks exactly like one that did — the
     field still holds what you typed — so this is the one case the note exists for.
     """
-    fn = re.search(r'^function autoSave\(form, noteId, opts\) \{.*?^\}',
-                   src, re.S | re.M)
+    fn = re.search(
+        r"^function autoSave\(form, noteId, opts\) \{.*?^\}", src, re.S | re.M
+    )
     assert fn
-    harness = '''
+    harness = (
+        """
     var T = { js_request_failed_c: 'Failed: ' };
     var __timers = [];
     var note = { className: '', textContent: '' };
@@ -260,24 +293,28 @@ def test_a_failed_save_still_speaks(src):
       var els = [{ addEventListener: function (ev, fn) { handlers.push(fn); } }];
       els.forEach = Array.prototype.forEach.bind(els);
       return els; } };
-    ''' + fn.group(0) + '''
+    """
+        + fn.group(0)
+        + """
     autoSave(form, 'note');
     handlers[0]();
     __timers.filter(Boolean)[0][0]();
     JSON.stringify({ text: note.textContent, cls: note.className });
-    '''
-    with tempfile.NamedTemporaryFile('w', suffix='.js', delete=False, encoding='utf-8') as fh:
+    """
+    )
+    with tempfile.NamedTemporaryFile(
+        "w", suffix=".js", delete=False, encoding="utf-8"
+    ) as fh:
         fh.write(harness)
         path = fh.name
     try:
-        res = subprocess.run(js_argv(path),
-                             capture_output=True, text=True)
+        res = subprocess.run(js_argv(path), capture_output=True, text=True)
     finally:
         os.unlink(path)
     assert res.returncode == 0, res.stderr
     out = json.loads(res.stdout)
-    assert 'HTTP 500' in out['text'], 'the reason has to reach the operator'
-    assert 'text-danger' in out['cls']
+    assert "HTTP 500" in out["text"], "the reason has to reach the operator"
+    assert "text-danger" in out["cls"]
 
 
 def test_the_warning_is_hidden_by_class_not_by_hidden(src):
@@ -290,28 +327,47 @@ def test_the_warning_is_hidden_by_class_not_by_hidden(src):
     utilities instead, and the server renders the right one so the warning is correct
     before any script runs.
     """
-    for warn_id in ('finish-debounce-warn', 'split-min-warn'):
+    for warn_id in ("finish-debounce-warn", "split-min-warn"):
         el = matched(r'<div id="%s"[^>]*>' % warn_id, src, group=0)
-        assert ' hidden' not in el, f'{warn_id}: hidden is back and does nothing here'
-        assert 'd-none' in el and 'd-flex' in el, f'{warn_id}: start state must be server-side'
-    block = matched(r'^function defaultWarning\(.*?^\}', src, group=0, flags=re.S | re.M)
-    assert 'warn.hidden' not in block
+        assert " hidden" not in el, f"{warn_id}: hidden is back and does nothing here"
+        assert "d-none" in el and "d-flex" in el, (
+            f"{warn_id}: start state must be server-side"
+        )
+    block = matched(
+        r"^function defaultWarning\(.*?^\}", src, group=0, flags=re.S | re.M
+    )
+    assert "warn.hidden" not in block
     assert "classList.toggle('d-none'" in block and "classList.toggle('d-flex'" in block
 
 
-@pytest.mark.parametrize('field,warn,reset,default_var', [
-    ('finish_debounce',    'finish-debounce-warn', 'finish-debounce-reset',
-     'finish_debounce_default'),
-    ('split_min_duration', 'split-min-warn',       'split-min-reset',
-     'split_min_duration_default'),
-])
-def test_both_race_detection_fields_warn_off_default(src, field, warn, reset, default_var):
+@pytest.mark.parametrize(
+    "field,warn,reset,default_var",
+    [
+        (
+            "finish_debounce",
+            "finish-debounce-warn",
+            "finish-debounce-reset",
+            "finish_debounce_default",
+        ),
+        (
+            "split_min_duration",
+            "split-min-warn",
+            "split-min-reset",
+            "split_min_duration_default",
+        ),
+    ],
+)
+def test_both_race_detection_fields_warn_off_default(
+    src, field, warn, reset, default_var
+):
     """Each changes how the meet is read, not how it looks, so neither should sit off
     its default quietly."""
     assert 'data-default="{{ %s }}"' % default_var in src
     el = re.search(r'<div id="%s"[^>]*>' % warn, src).group(0)
-    assert ' hidden' not in el, 'hidden does not work here — see the Bootstrap note'
-    assert 'd-none' in el and 'd-flex' in el, 'the start state must come from the server'
+    assert " hidden" not in el, "hidden does not work here — see the Bootstrap note"
+    assert "d-none" in el and "d-flex" in el, (
+        "the start state must come from the server"
+    )
     assert 'id="%s"' % reset in src
     assert "defaultWarning('%s'" % field in src
 
@@ -319,19 +375,25 @@ def test_both_race_detection_fields_warn_off_default(src, field, warn, reset, de
 def test_the_defaults_are_named_once(src):
     """Retyping 3.0 or 1.0 into the template is how it drifts from `state`."""
     import sys
-    sys.path.insert(0, os.path.join(REPO, 'server'))
+
+    sys.path.insert(0, os.path.join(REPO, "server"))
     import state
-    assert state.settings['finish_debounce'] == state.FINISH_DEBOUNCE_DEFAULT
-    assert state.settings['split_min_duration'] == state.SPLIT_MIN_DEFAULT
+
+    assert state.settings["finish_debounce"] == state.FINISH_DEBOUNCE_DEFAULT
+    assert state.settings["split_min_duration"] == state.SPLIT_MIN_DEFAULT
 
 
 @needs_js
 def test_the_shared_warning_helper_works_for_the_split_field(src):
     """One helper, two fields — so the second is not a copy that drifts."""
-    blk = re.search(r'^function defaultWarning\(inputId, warnId, resetId\) \{.*?^\}',
-                    src, re.S | re.M)
+    blk = re.search(
+        r"^function defaultWarning\(inputId, warnId, resetId\) \{.*?^\}",
+        src,
+        re.S | re.M,
+    )
     assert blk
-    harness = '''
+    harness = (
+        """
     var els = {};
     function mk(id) { var o = { id:id, value:'', dataset:{}, _h:{}, _cls:{},
       addEventListener:function(e,f){ (this._h[e]=this._h[e]||[]).push(f); },
@@ -342,7 +404,9 @@ def test_the_shared_warning_helper_works_for_the_split_field(src):
     var warn = mk('split-min-warn'), reset = mk('split-min-reset');
     var document = { getElementById: function (id) { return els[id] || null; } };
     function Event(t) { this.type = t; }
-    ''' + blk.group(0) + '''
+    """
+        + blk.group(0)
+        + """
     defaultWarning('split_min_duration', 'split-min-warn', 'split-min-reset');
     var steps = [];
     function hidden() { return warn._cls['d-none'] === true && warn._cls['d-flex'] === false; }
@@ -352,17 +416,19 @@ def test_the_shared_warning_helper_works_for_the_split_field(src):
     reset.dispatchEvent(new Event('click'));
     steps.push(['reset', input.value, hidden()]);
     JSON.stringify(steps);
-    '''
-    with tempfile.NamedTemporaryFile('w', suffix='.js', delete=False, encoding='utf-8') as fh:
+    """
+    )
+    with tempfile.NamedTemporaryFile(
+        "w", suffix=".js", delete=False, encoding="utf-8"
+    ) as fh:
         fh.write(harness)
         path = fh.name
     try:
-        res = subprocess.run(js_argv(path),
-                             capture_output=True, text=True)
+        res = subprocess.run(js_argv(path), capture_output=True, text=True)
     finally:
         os.unlink(path)
     assert res.returncode == 0, res.stderr
     steps = dict((s[0], (s[1], s[2])) for s in json.loads(res.stdout))
-    assert steps['load'][1] is True,    'no warning when the value is the default'
-    assert steps['changed'][1] is False
-    assert steps['reset'] == ('1', True), 'reset restores the default and clears'
+    assert steps["load"][1] is True, "no warning when the value is the default"
+    assert steps["changed"][1] is False
+    assert steps["reset"] == ("1", True), "reset restores the default and clears"

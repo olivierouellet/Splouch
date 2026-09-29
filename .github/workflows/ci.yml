@@ -83,7 +83,13 @@ jobs:
         # and the run still reports green — including every page-load smoke test.
         run: node --version
 
+      - name: Format
+        # Check only: CI never rewrites. `uv run ruff format` locally, or save in
+        # VS Code, fixes whatever this reports.
+        run: uv run ruff format --check --diff
+
       - name: Lint
+        # Includes the `I` rules, so unsorted imports fail here.
         run: uv run ruff check
 
       - name: Type check

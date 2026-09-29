@@ -6,6 +6,7 @@ measures text before drawing it, so :class:`FitLabel` picks the largest pixel si
 at which the whole name fits and nobody named "Vandenbroucke-Mortensen" loses
 their surname on the TV.
 """
+
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QFontMetrics
 from PySide6.QtWidgets import QLabel
@@ -20,11 +21,11 @@ class FitLabel(QLabel):
     rather than render a 4px name.
     """
 
-    def __init__(self, text='', *, max_px=48, min_px=10, parent=None):
+    def __init__(self, text="", *, max_px=48, min_px=10, parent=None):
         super().__init__(text, parent)
         self._max_px = max_px
         self._min_px = min_px
-        self._full   = text or ''
+        self._full = text or ""
         # What the caller asked for. The vertical pair is ours to adjust — see
         # _cap_shift — so the two are kept apart rather than read back off the widget.
         self._margins = (0, 0, 0, 0)
@@ -37,7 +38,7 @@ class FitLabel(QLabel):
             self._max_px = px
             self._refit()
 
-    def setFont(self, font):          # noqa: N802 — Qt naming
+    def setFont(self, font):  # noqa: N802 — Qt naming
         """Adopt a new family or style, then fit it again.
 
         A ``QFont`` carries a size as well as a face, so the plain ``QLabel``
@@ -54,11 +55,11 @@ class FitLabel(QLabel):
         super().setFont(font)
         self._refit()
 
-    def setText(self, text):          # noqa: N802 — Qt naming
-        self._full = text if text is not None else ''
+    def setText(self, text):  # noqa: N802 — Qt naming
+        self._full = text if text is not None else ""
         self._refit()
 
-    def text(self):                   # noqa: N802 — Qt naming
+    def text(self):  # noqa: N802 — Qt naming
         """The full text, even when what is drawn has been elided."""
         return self._full
 
@@ -66,13 +67,13 @@ class FitLabel(QLabel):
         """What is actually painted — elided if it would not fit at *min_px*."""
         return super().text()
 
-    def resizeEvent(self, event):     # noqa: N802 — Qt naming
+    def resizeEvent(self, event):  # noqa: N802 — Qt naming
         super().resizeEvent(event)
         self._refit()
 
-    def setContentsMargins(self, *args):   # noqa: N802 — Qt naming
+    def setContentsMargins(self, *args):  # noqa: N802 — Qt naming
         """Remember the caller's padding; the vertical half is ours to adjust."""
-        if len(args) == 1:                 # a QMargins
+        if len(args) == 1:  # a QMargins
             box = args[0]
             self._margins = (box.left(), box.top(), box.right(), box.bottom())
         else:
@@ -95,7 +96,7 @@ class FitLabel(QLabel):
         """
         metrics = QFontMetrics(self.font())
         cap = metrics.capHeight()
-        if cap <= 0:                       # a face that does not report one
+        if cap <= 0:  # a face that does not report one
             return 0
         return round(cap / 2 + metrics.height() / 2 - metrics.ascent())
 
@@ -121,14 +122,14 @@ class FitLabel(QLabel):
             font.setPixelSize(self._max_px)
             super().setFont(font)
             self._apply_margins()
-            super().setText('')
+            super().setText("")
             return
 
         # The *contents* rect, not the widget: several cells carry the column
         # padding `timing_display.css` gives them (`.lane-name-cell`'s `0 2vw`, for
         # one) as contents margins, and fitting to the full width would let the text
         # run straight through that padding into its neighbour.
-        avail = max(1, self.contentsRect().width() - 2)   # 1px breathing room each side
+        avail = max(1, self.contentsRect().width() - 2)  # 1px breathing room each side
 
         # Widest-first: the common case is a name that already fits, so check the
         # ceiling before paying for a search.

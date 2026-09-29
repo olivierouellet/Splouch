@@ -27,6 +27,7 @@ page, so whatever it does not carry is lost for good — which is why the addres
 drawn into the image and why the resolution is fixed to something printable rather
 than to whatever a screen wanted.
 """
+
 import io
 import os
 import sys
@@ -35,36 +36,40 @@ import pytest
 from PIL import Image
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-for path in (REPO, os.path.join(REPO, 'server'), os.path.join(REPO, 'shared', 'py')):
+for path in (REPO, os.path.join(REPO, "server"), os.path.join(REPO, "shared", "py")):
     sys.path.insert(0, path)
 
-import splouch_links                                    # noqa: E402
-import state                                            # noqa: E402
-from routes.qr import invite, poster, route_qr_png      # noqa: E402
+import splouch_links  # noqa: E402
+import state  # noqa: E402
+from routes.qr import invite, poster, route_qr_png  # noqa: E402
 
-QR_ROUTE = os.path.join(REPO, 'server', 'routes', 'qr.py')
-CLOUD_TAB = os.path.join(REPO, 'server', 'templates', 'settings', 'cloud.html')
+QR_ROUTE = os.path.join(REPO, "server", "routes", "qr.py")
+CLOUD_TAB = os.path.join(REPO, "server", "templates", "settings", "cloud.html")
 
 
 @pytest.fixture
 def cloud(monkeypatch):
     """Point this Pi at a cloud, restoring whatever the settings dict held."""
+
     def set_url(url):
-        monkeypatch.setitem(state.settings, 'cloud_relay_url', url)
-    set_url('https://splouch.ca')
+        monkeypatch.setitem(state.settings, "cloud_relay_url", url)
+
+    set_url("https://splouch.ca")
     return set_url
 
 
 def image(address=True):
     data = invite()
-    return Image.open(io.BytesIO(poster(data['link'], data['origin'] if address else None)))
+    return Image.open(
+        io.BytesIO(poster(data["link"], data["origin"] if address else None))
+    )
 
 
 # ── what the code carries ──────────────────────────────────────────────────────
 
+
 def test_the_code_names_the_cloud_this_pi_publishes_to(cloud):
-    assert invite()['link'] == \
-        'https://splouch.ca/add?server=https%3A%2F%2Fsplouch.ca'
+    assert invite()["link"] == "https://splouch.ca/add?server=https%3A%2F%2Fsplouch.ca"
 
 
 def test_no_local_address_is_ever_minted(cloud, monkeypatch):
@@ -74,10 +79,10 @@ def test_no_local_address_is_ever_minted(cloud, monkeypatch):
     poster cannot ask. Whatever the Pi's own hostname is, none of it may reach the
     code.
     """
-    monkeypatch.setattr('socket.gethostname', lambda: 'splouch')
+    monkeypatch.setattr("socket.gethostname", lambda: "splouch")
     data = invite()
-    assert '.local' not in data['link']
-    assert data['origin'] == 'https://splouch.ca'
+    assert ".local" not in data["link"]
+    assert data["origin"] == "https://splouch.ca"
 
 
 def test_a_club_cloud_is_carried_under_the_apps_default_host(cloud):
@@ -87,16 +92,16 @@ def test_a_club_cloud_is_carried_under_the_apps_default_host(cloud):
     cloud this Pi publishes to. They are the same string in the canonical
     deployment and differ for a club running its own relay.
     """
-    cloud('https://scores.myclub.ca')
-    link = invite()['link']
-    assert link.startswith(f'{splouch_links.DEFAULT_APP_SERVER}/add?')
-    assert link.endswith('server=https%3A%2F%2Fscores.myclub.ca')
+    cloud("https://scores.myclub.ca")
+    link = invite()["link"]
+    assert link.startswith(f"{splouch_links.DEFAULT_APP_SERVER}/add?")
+    assert link.endswith("server=https%3A%2F%2Fscores.myclub.ca")
 
 
 def test_the_default_host_is_not_taken_from_the_pi_s_own_setting(cloud):
     """A Pi cannot be asked what the app on a stranger's phone was built against."""
-    cloud('https://scores.myclub.ca')
-    assert 'scores.myclub.ca/add' not in invite()['link']
+    cloud("https://scores.myclub.ca")
+    assert "scores.myclub.ca/add" not in invite()["link"]
 
 
 def test_the_code_does_not_depend_on_how_the_panel_was_reached(cloud):
@@ -107,6 +112,7 @@ def test_the_code_does_not_depend_on_how_the_panel_was_reached(cloud):
     cannot see it.
     """
     import inspect
+
     assert not inspect.signature(invite).parameters
 
 
@@ -116,12 +122,13 @@ def test_the_code_leads_to_a_meet_list_and_not_to_a_board(cloud):
     A cloud origin is what keeps the notice in the path of a spectator who arrived
     by camera — the reader who has most likely never seen it.
     """
-    origin = invite()['origin']
-    assert origin.startswith('https://')
-    assert not splouch_links.is_local_name(origin.split('://', 1)[1].split(':')[0])
+    origin = invite()["origin"]
+    assert origin.startswith("https://")
+    assert not splouch_links.is_local_name(origin.split("://", 1)[1].split(":")[0])
 
 
 # ── the file is the poster ─────────────────────────────────────────────────────
+
 
 def test_the_image_is_big_enough_to_print(cloud):
     """~10 cm across at 300 dpi, the size a code wants to be read from a metre or two.
@@ -133,10 +140,10 @@ def test_the_image_is_big_enough_to_print(cloud):
     # PNG stores density as whole pixels per *metre*, so 300 dpi comes back as
     # 299.9994 — the format cannot represent it exactly and the rounding is not
     # a bug to chase.
-    dpi = sheet.info['dpi'][0]
-    assert round(dpi) == 300, 'without this a word processor lays it out at 96 dpi'
+    dpi = sheet.info["dpi"][0]
+    assert round(dpi) == 300, "without this a word processor lays it out at 96 dpi"
     cm = sheet.width / dpi * 2.54
-    assert 9 <= cm <= 12, f'{cm:.1f} cm across'
+    assert 9 <= cm <= 12, f"{cm:.1f} cm across"
 
 
 def test_a_longer_address_does_not_make_a_bigger_poster(cloud):
@@ -146,7 +153,7 @@ def test_a_longer_address_does_not_make_a_bigger_poster(cloud):
     code than `splouch.ca` from the same button.
     """
     short = image()
-    cloud('https://scores.swimclub-montreal.ca')
+    cloud("https://scores.swimclub-montreal.ca")
     long = image()
     assert abs(short.width - long.width) < short.width * 0.1
 
@@ -158,19 +165,22 @@ def test_the_address_is_drawn_under_the_code(cloud):
     and it is also the only way anyone checks the poster says the right thing.
     """
     sheet = image()
-    assert sheet.height > sheet.width, 'no room was left under the code'
-    strip = sheet.crop((0, sheet.width, sheet.width, sheet.height)).convert('L')
-    assert strip.getextrema()[0] < 128, 'the space under the code is blank'
+    assert sheet.height > sheet.width, "no room was left under the code"
+    strip = sheet.crop((0, sheet.width, sheet.width, sheet.height)).convert("L")
+    assert strip.getextrema()[0] < 128, "the space under the code is blank"
 
 
 def test_the_address_never_overflows_the_width(cloud):
     """The type is fitted to the code, so a long club domain cannot run off the edge."""
-    cloud('https://scores.a-very-long-swimming-club-name-indeed.example.com')
+    cloud("https://scores.a-very-long-swimming-club-name-indeed.example.com")
     sheet = image()
-    strip = sheet.crop((0, sheet.width, sheet.width, sheet.height)).convert('L')
-    edges = [strip.crop((0, 0, 4, strip.height)), strip.crop((strip.width - 4, 0, strip.width, strip.height))]
+    strip = sheet.crop((0, sheet.width, sheet.width, sheet.height)).convert("L")
+    edges = [
+        strip.crop((0, 0, 4, strip.height)),
+        strip.crop((strip.width - 4, 0, strip.width, strip.height)),
+    ]
     for edge in edges:
-        assert edge.getextrema()[0] > 200, 'ink is touching the edge of the sheet'
+        assert edge.getextrema()[0] > 200, "ink is touching the edge of the sheet"
 
 
 def test_the_code_is_drawn_crisp_and_not_scaled_up(cloud):
@@ -179,12 +189,17 @@ def test_the_code_is_drawn_crisp_and_not_scaled_up(cloud):
     Pure black and white with nothing in between is what says no interpolation
     happened on the way out.
     """
-    code = image().crop((0, 0, image().width, image().width)).convert('L')
-    greys = [value for value, count in enumerate(code.histogram()) if count and 16 < value < 240]
-    assert not greys, f'intermediate greys in the code: {greys[:5]}'
+    code = image().crop((0, 0, image().width, image().width)).convert("L")
+    greys = [
+        value
+        for value, count in enumerate(code.histogram())
+        if count and 16 < value < 240
+    ]
+    assert not greys, f"intermediate greys in the code: {greys[:5]}"
 
 
 # ── the download ───────────────────────────────────────────────────────────────
+
 
 def test_the_code_only_variant_is_the_code_and_nothing_else(cloud):
     """For a layout that prints the address itself — a programme, a slide.
@@ -193,9 +208,11 @@ def test_the_code_only_variant_is_the_code_and_nothing_else(cloud):
     the layout already says.
     """
     bare = image(address=False)
-    assert bare.width == bare.height, 'a text block was left under the code'
-    assert bare.width == image().width, 'the code itself changed size between the two'
-    assert round(bare.info['dpi'][0]) == 300, 'the bare one has to print at the same size'
+    assert bare.width == bare.height, "a text block was left under the code"
+    assert bare.width == image().width, "the code itself changed size between the two"
+    assert round(bare.info["dpi"][0]) == 300, (
+        "the bare one has to print at the same size"
+    )
 
 
 def test_the_variant_with_the_address_is_the_default(cloud):
@@ -206,8 +223,9 @@ def test_the_variant_with_the_address_is_the_default(cloud):
     the poster against.
     """
     import inspect
-    assert inspect.signature(poster).parameters['origin'].default is None
-    assert inspect.signature(route_qr_png).parameters['address'].default is True
+
+    assert inspect.signature(poster).parameters["origin"].default is None
+    assert inspect.signature(route_qr_png).parameters["address"].default is True
     assert route_qr_png().body != route_qr_png(address=False).body
 
 
@@ -217,13 +235,15 @@ def test_the_two_variants_are_told_apart_in_a_downloads_folder(cloud):
     Two files called `splouch-qr.png` and `splouch-qr (1).png` would be a coin
     toss at the point where it matters, which is after the operator has forgotten.
     """
-    names = [route_qr_png(address=a).headers['content-disposition'] for a in (True, False)]
+    names = [
+        route_qr_png(address=a).headers["content-disposition"] for a in (True, False)
+    ]
     assert names[0] != names[1]
-    assert 'code-only' in names[1] and 'code-only' not in names[0]
+    assert "code-only" in names[1] and "code-only" not in names[0]
 
 
 def test_the_panel_offers_both(cloud):
-    tab = open(CLOUD_TAB, encoding='utf-8').read()
+    tab = open(CLOUD_TAB, encoding="utf-8").read()
     assert 'href="/qr.png" download' in tab
     assert 'href="/qr.png?address=0" download' in tab
 
@@ -231,9 +251,11 @@ def test_the_panel_offers_both(cloud):
 def test_the_download_is_a_png_attachment_named_for_the_server(cloud):
     response = route_qr_png()
     assert response.status_code == 200
-    assert response.media_type == 'image/png'
-    assert response.headers['content-disposition'] == \
-        'attachment; filename="splouch-qr-splouch.ca.png"'
+    assert response.media_type == "image/png"
+    assert (
+        response.headers["content-disposition"]
+        == 'attachment; filename="splouch-qr-splouch.ca.png"'
+    )
 
 
 def test_no_cloud_configured_serves_no_image(cloud):
@@ -242,37 +264,38 @@ def test_no_cloud_configured_serves_no_image(cloud):
     That is the one output worse than none, because it is the one that ends up on
     a wall.
     """
-    cloud('')
-    assert invite()['link'] is None and invite()['reason'] == 'no_cloud'
+    cloud("")
+    assert invite()["link"] is None and invite()["reason"] == "no_cloud"
     assert route_qr_png().status_code == 404
 
 
 def test_a_cloud_url_the_app_would_refuse_is_the_same_answer(cloud):
     """Cleartext to a public name: refused as a server, so refused as a code."""
-    cloud('http://scores.example.com')
-    assert invite()['reason'] == 'no_cloud'
+    cloud("http://scores.example.com")
+    assert invite()["reason"] == "no_cloud"
     assert route_qr_png().status_code == 404
 
 
 # ── where the operator finds it ────────────────────────────────────────────────
 
+
 def test_the_button_lives_with_the_field_it_is_made_of():
     """The Cloud tab, because the code is built from the Server URL above it."""
-    tab = open(CLOUD_TAB, encoding='utf-8').read()
+    tab = open(CLOUD_TAB, encoding="utf-8").read()
     assert 'href="/qr.png" download' in tab
-    assert 'cloud_relay_url' in tab
+    assert "cloud_relay_url" in tab
 
 
 def test_the_button_is_hidden_rather_than_dead_without_a_cloud():
     """And the line in its place names the field to fill."""
-    tab = open(CLOUD_TAB, encoding='utf-8').read()
-    assert '{% if qr_link %}' in tab
-    assert 't.qr_no_cloud' in tab
+    tab = open(CLOUD_TAB, encoding="utf-8").read()
+    assert "{% if qr_link %}" in tab
+    assert "t.qr_no_cloud" in tab
 
 
 def test_the_link_shape_is_the_shared_one():
     """The Pi and the cloud's `GET /add` must not drift, so neither owns the shape."""
-    source = open(QR_ROUTE, encoding='utf-8').read()
-    assert 'splouch_links' in source
-    assert '/add?' not in source, 'the link is built by the shared helper, not here'
-    assert splouch_links.INVITE_PATH == '/add'
+    source = open(QR_ROUTE, encoding="utf-8").read()
+    assert "splouch_links" in source
+    assert "/add?" not in source, "the link is built by the shared helper, not here"
+    assert splouch_links.INVITE_PATH == "/add"

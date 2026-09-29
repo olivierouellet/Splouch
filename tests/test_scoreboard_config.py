@@ -5,6 +5,7 @@ in CI and on a dev machine that never installs the `scoreboard` extra. The
 widget behaviour (shrink-to-fit, frame merging) needs a QApplication and is
 covered separately — see scoreboard/README.md.
 """
+
 import os
 import sys
 
@@ -19,49 +20,50 @@ def test_empty_config_falls_back_to_defaults():
     """First boot: the board must draw before the server ever answers."""
     cfg = Config()
     assert cfg.num_lanes == 8
-    assert cfg.meet_title == ''
-    assert cfg.color('bg') == DEFAULT_COLORS['bg']
+    assert cfg.meet_title == ""
+    assert cfg.color("bg") == DEFAULT_COLORS["bg"]
     assert cfg.show_name and cfg.show_club and cfg.show_delta
 
 
 def test_server_values_override_defaults_per_key():
     """A partial theme_colors block overrides only the keys it names."""
-    cfg = Config({'theme_colors': {'time': '#00ff00'}})
-    assert cfg.color('time') == '#00ff00'
-    assert cfg.color('bg') == DEFAULT_COLORS['bg']
+    cfg = Config({"theme_colors": {"time": "#00ff00"}})
+    assert cfg.color("time") == "#00ff00"
+    assert cfg.color("bg") == DEFAULT_COLORS["bg"]
 
 
 def test_show_flags_default_true_but_honour_false():
-    cfg = Config({'show_club': False, 'show_delta_header': False})
+    cfg = Config({"show_club": False, "show_delta_header": False})
     assert cfg.show_club is False
     assert cfg.show_delta_header is False
-    assert cfg.show_name is True          # unspecified => visible
+    assert cfg.show_name is True  # unspecified => visible
 
 
 def test_lane_count_is_clamped():
     """The board has 12 rows of hardware at most; a bad value must not crash it."""
-    assert Config({'num_lanes': 99}).num_lanes == 12
+    assert Config({"num_lanes": 99}).num_lanes == 12
     # 0 and None are both "unset" — a zero-lane board is meaningless, so both
     # fall back to the 8-lane default rather than rendering an empty screen.
-    assert Config({'num_lanes': 0}).num_lanes == 8
-    assert Config({'num_lanes': None}).num_lanes == 8
+    assert Config({"num_lanes": 0}).num_lanes == 8
+    assert Config({"num_lanes": None}).num_lanes == 8
 
 
 def test_null_theme_blocks_do_not_wipe_defaults():
     """`theme_fonts: null` reaches us as None — merging it must not explode."""
-    cfg = Config({'theme_colors': None, 'theme_fonts': None, 'labels': None})
-    assert cfg.color('row_text') == DEFAULT_COLORS['row_text']
-    assert cfg.fonts['family'] == DEFAULT_FONTS['family']
-    assert cfg.labels['lane'] == 'LN'
+    cfg = Config({"theme_colors": None, "theme_fonts": None, "labels": None})
+    assert cfg.color("row_text") == DEFAULT_COLORS["row_text"]
+    assert cfg.fonts["family"] == DEFAULT_FONTS["family"]
+    assert cfg.labels["lane"] == "LN"
 
 
 def test_labels_are_taken_from_the_server_locale():
-    cfg = Config({'labels': {'lane': 'COULOIR', 'name': 'NOM'}})
-    assert cfg.labels['lane'] == 'COULOIR'
-    assert cfg.labels['time'] == 'TIME'   # untranslated keys keep the fallback
+    cfg = Config({"labels": {"lane": "COULOIR", "name": "NOM"}})
+    assert cfg.labels["lane"] == "COULOIR"
+    assert cfg.labels["time"] == "TIME"  # untranslated keys keep the fallback
 
 
 # ── Carousel (Settings → Display → Splash Screen) ──────────────────────────────
+
 
 def test_carousel_defaults_are_empty_and_sane():
     cfg = Config()
@@ -70,36 +72,38 @@ def test_carousel_defaults_are_empty_and_sane():
 
 
 def test_carousel_values_come_from_the_server():
-    cfg = Config({'carousel_images': ['a.png', 'b.png'], 'carousel_interval': 4})
-    assert cfg.carousel_images == ['a.png', 'b.png']
+    cfg = Config({"carousel_images": ["a.png", "b.png"], "carousel_interval": 4})
+    assert cfg.carousel_images == ["a.png", "b.png"]
     assert cfg.carousel_interval == 4
 
 
-@pytest.mark.parametrize('bad', [0, -5, None, ''])
+@pytest.mark.parametrize("bad", [0, -5, None, ""])
 def test_a_zero_or_missing_interval_falls_back(bad):
     """A zero interval would spin the carousel timer as fast as Qt allows."""
-    assert Config({'carousel_interval': bad}).carousel_interval >= 1
+    assert Config({"carousel_interval": bad}).carousel_interval >= 1
 
 
 def test_a_null_image_list_does_not_crash():
-    assert Config({'carousel_images': None}).carousel_images == []
+    assert Config({"carousel_images": None}).carousel_images == []
 
 
 def test_config_endpoint_exposes_the_carousel(monkeypatch, tmp_path):
     """`/live` builds this list for its template; native clients need it too."""
     import state
     import web
-    (tmp_path / 'sponsor.png').write_bytes(b'x')
-    (tmp_path / 'nested').mkdir()                 # directories must be skipped
-    monkeypatch.setattr(state, 'IMAGES_DIR', str(tmp_path))
-    monkeypatch.setitem(state.settings, 'carousel_interval', 7)
+
+    (tmp_path / "sponsor.png").write_bytes(b"x")
+    (tmp_path / "nested").mkdir()  # directories must be skipped
+    monkeypatch.setattr(state, "IMAGES_DIR", str(tmp_path))
+    monkeypatch.setitem(state.settings, "carousel_interval", 7)
 
     cfg = web.display_config()
-    assert cfg['carousel_images'] == ['sponsor.png']
-    assert cfg['carousel_interval'] == 7
+    assert cfg["carousel_images"] == ["sponsor.png"]
+    assert cfg["carousel_interval"] == 7
 
 
 # ── Adding a theme colour must not break existing installs ─────────────────────
+
 
 def test_an_old_settings_file_still_gets_new_theme_colours(monkeypatch):
     """`settings.update()` is shallow, so a stored theme replaces the whole dict.
@@ -115,27 +119,31 @@ def test_an_old_settings_file_still_gets_new_theme_colours(monkeypatch):
     import state
 
     stored = dict(state.DEFAULT_THEME_COLORS)
-    stored.pop('connection_lost')                    # a settings.json written before it
-    stored['bg'] = '#123456'                   # and an operator's own choice
-    monkeypatch.setitem(state.settings, 'theme_colors', stored)
-    monkeypatch.setitem(state.settings, 'theme_fonts', {})
+    stored.pop("connection_lost")  # a settings.json written before it
+    stored["bg"] = "#123456"  # and an operator's own choice
+    monkeypatch.setitem(state.settings, "theme_colors", stored)
+    monkeypatch.setitem(state.settings, "theme_fonts", {})
 
     state.merge_theme_defaults()
 
-    assert state.settings['theme_colors']['connection_lost'] == \
-        state.DEFAULT_THEME_COLORS['connection_lost'], 'the picker would have shown black'
-    assert state.settings['theme_colors']['bg'] == '#123456', 'lost a stored colour'
-    assert state.settings['theme_fonts']['family'] == \
-        state.DEFAULT_THEME_FONTS['family']
+    assert (
+        state.settings["theme_colors"]["connection_lost"]
+        == state.DEFAULT_THEME_COLORS["connection_lost"]
+    ), "the picker would have shown black"
+    assert state.settings["theme_colors"]["bg"] == "#123456", "lost a stored colour"
+    assert (
+        state.settings["theme_fonts"]["family"] == state.DEFAULT_THEME_FONTS["family"]
+    )
 
 
 def test_every_theme_key_survives_a_round_trip(monkeypatch):
     """The Settings form saves `{**DEFAULT, **posted}`, so the two must agree on
     the key set — a colour the form does not render would be silently reset."""
     import state
-    monkeypatch.setitem(state.settings, 'theme_colors', {})
+
+    monkeypatch.setitem(state.settings, "theme_colors", {})
     state.merge_theme_defaults()
-    assert set(state.settings['theme_colors']) == set(state.DEFAULT_THEME_COLORS)
+    assert set(state.settings["theme_colors"]) == set(state.DEFAULT_THEME_COLORS)
 
 
 # ── The accent blue ────────────────────────────────────────────────────────────
@@ -143,16 +151,20 @@ def test_every_theme_key_survives_a_round_trip(monkeypatch):
 # accent: the EV/HT words in the top bar and the wall clock beside them. Two things
 # have to hold for that to look deliberate rather than broken.
 
+
 def test_the_fallback_palette_matches_the_server():
     """`scoreboard/theme.py` is what the board paints with for the seconds between
     the kiosk window opening and `/config` answering. A value that disagrees with
     the server's makes the board visibly change colour a moment after boot."""
     import state
+
     shared = set(DEFAULT_COLORS) & set(state.DEFAULT_THEME_COLORS)
-    differ = {k: (DEFAULT_COLORS[k], state.DEFAULT_THEME_COLORS[k])
-              for k in shared
-              if DEFAULT_COLORS[k].lower() != state.DEFAULT_THEME_COLORS[k].lower()}
-    assert not differ, f'kiosk fallback disagrees with the server: {differ}'
+    differ = {
+        k: (DEFAULT_COLORS[k], state.DEFAULT_THEME_COLORS[k])
+        for k in shared
+        if DEFAULT_COLORS[k].lower() != state.DEFAULT_THEME_COLORS[k].lower()
+    }
+    assert not differ, f"kiosk fallback disagrees with the server: {differ}"
 
 
 def test_the_cloud_fallback_palette_is_the_same_object():
@@ -161,9 +173,11 @@ def test_the_cloud_fallback_palette_is_the_same_object():
     `shared/py/splouch_i18n.py`, so this asserts identity rather than comparing two
     literals — there is nothing left to drift."""
     import sys
+
     import state
+
     repo = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    sys.path.insert(0, os.path.join(repo, 'cloud'))
+    sys.path.insert(0, os.path.join(repo, "cloud"))
     import cloud_i18n
     import splouch_i18n
 
@@ -173,7 +187,7 @@ def test_the_cloud_fallback_palette_is_the_same_object():
     assert state.DEFAULT_THEME_FONTS is splouch_i18n.DEFAULT_THEME_FONTS
 
 
-@pytest.mark.parametrize('stored', ['#ff00ff', '#ffffff'])
+@pytest.mark.parametrize("stored", ["#ff00ff", "#ffffff"])
 def test_a_stored_colour_is_left_alone(monkeypatch, stored):
     """`merge_theme_defaults` fills in missing keys; it never overwrites a stored one.
 
@@ -184,14 +198,19 @@ def test_a_stored_colour_is_left_alone(monkeypatch, stored):
     button in Settings → Theme is how an operator takes the new default.
     """
     import state
-    monkeypatch.setitem(state.settings, 'theme_colors',
-                        {**state.DEFAULT_THEME_COLORS, 'header_label': stored})
-    monkeypatch.setitem(state.settings, 'theme_fonts', {})
+
+    monkeypatch.setitem(
+        state.settings,
+        "theme_colors",
+        {**state.DEFAULT_THEME_COLORS, "header_label": stored},
+    )
+    monkeypatch.setitem(state.settings, "theme_fonts", {})
     state.merge_theme_defaults()
-    assert state.settings['theme_colors']['header_label'] == stored
+    assert state.settings["theme_colors"]["header_label"] == stored
 
 
 def test_a_fresh_install_gets_the_blue():
     """The default itself, now that nothing rewrites it after the fact."""
     import state
-    assert state.DEFAULT_THEME_COLORS['header_label'] == '#3b9eff'
+
+    assert state.DEFAULT_THEME_COLORS["header_label"] == "#3b9eff"

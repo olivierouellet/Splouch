@@ -11,6 +11,7 @@ fixed set of locale files, baked into the image, to a lot of phones; the Pi
 re-reads on every call because an operator can edit a locale file on the machine
 and expects the next page to show it.
 """
+
 import os
 
 import cloud_paths
@@ -19,10 +20,12 @@ import splouch_i18n
 # The shared rules, re-exported so `cloud_server` keeps reaching for them here.
 # `X as X` marks a plain re-export; the two renamed ones need the noqa instead,
 # since a renaming alias is not the explicit re-export form.
-from splouch_i18n import (STYLED_LABEL_KEYS as STYLED_LABEL_KEYS,
-                          resolve_labels as resolve_labels)
-from splouch_i18n import DEFAULT_THEME_COLORS as _DEFAULT_COLORS  # noqa: F401
-from splouch_i18n import DEFAULT_THEME_FONTS as _DEFAULT_FONTS  # noqa: F401
+from splouch_i18n import (
+    DEFAULT_THEME_COLORS as _DEFAULT_COLORS,  # noqa: F401
+    DEFAULT_THEME_FONTS as _DEFAULT_FONTS,  # noqa: F401
+    STYLED_LABEL_KEYS as STYLED_LABEL_KEYS,
+    resolve_labels as resolve_labels,
+)
 
 _locale_cache = {}
 _panel_cache = {}
@@ -40,9 +43,9 @@ def strings(lang, section):
     bookmark or a hand-typed `?lang=` cannot produce an empty page.
     """
     if lang not in {code for code, _ in available_locales()}:
-        lang = 'en'
+        lang = "en"
     if lang not in _locale_cache:
-        path = os.path.join(cloud_paths.LOCALES_DIR, f'{lang}.toml')
+        path = os.path.join(cloud_paths.LOCALES_DIR, f"{lang}.toml")
         _locale_cache[lang] = splouch_i18n.toml_file(path)
     return _locale_cache[lang].get(section, {})
 
@@ -53,14 +56,15 @@ def panel_strings(lang, section):
     `panel/{lang}.toml` is optional: the admin page is not what a spectator reads,
     so a language shipped without one renders it in English (docs/admin.md).
     """
+
     def load(code):
         if code not in _panel_cache:
-            path = os.path.join(cloud_paths.LOCALES_DIR, 'panel', f'{code}.toml')
+            path = os.path.join(cloud_paths.LOCALES_DIR, "panel", f"{code}.toml")
             _panel_cache[code] = splouch_i18n.toml_file(path)
         return _panel_cache[code].get(section, {})
 
-    base = load('en')
-    return dict(base) if lang == 'en' else {**base, **load(lang)}
+    base = load("en")
+    return dict(base) if lang == "en" else {**base, **load(lang)}
 
 
 def i18n_bundle(lang):

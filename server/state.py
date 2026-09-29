@@ -9,15 +9,16 @@ import subprocess
 import sys
 from typing import Any, TextIO
 
-from meet_parsers.hytek_parser import HytekParser
-from meet_parsers.lenex_parser import load_lenex
 from console_decoders import make_decoder
 from console_decoders.base import ConsoleDecoder
+from meet_parsers.hytek_parser import HytekParser
+from meet_parsers.lenex_parser import load_lenex
 
 try:
-    import pty  # noqa: F401 — imported to detect availability, not to call
     import fcntl  # noqa: F401 — ditto
+    import pty  # noqa: F401 — imported to detect availability, not to call
     import termios  # noqa: F401 — ditto
+
     _PTY_AVAILABLE = True
 except ImportError:
     _PTY_AVAILABLE = False
@@ -31,33 +32,56 @@ except ImportError:
 # directory: `i18n` reads `paths.LOCALES_DIR` at call time, so a name rebound on
 # `state` alone would be read by nobody.
 import i18n
-from paths import (app_dir, settings_file, _settings_default, MEET_FOLDER,
-                   PROVISION_VERSION_FILE, PROVISIONED_MARKER)
+
+# Re-export only — as above.
+from i18n import (
+    DEFAULT_THEME_COLORS,
+    DEFAULT_THEME_FONTS,
+    STYLED_LABEL_KEYS as STYLED_LABEL_KEYS,
+    available_locales as available_locales,
+    compose_event_name as compose_event_name,
+    list_builtin_themes as list_builtin_themes,
+    list_custom_themes as list_custom_themes,
+    list_locales,
+    load_theme as load_theme,
+    parse_event_name as parse_event_name,
+    resolve_labels as resolve_labels,
+    translate_event_name as translate_event_name,
+)
+
 # Re-export only — nothing in this module reads these. The redundant `X as X` is
 # what says so: it is the explicit re-export form, so this block keeps being
 # checked and a name that really did die still shows up as unused. Drop one when
 # the last `state.X` caller goes.
-from paths import (REPO_DIR as REPO_DIR, STATIC_DIR as STATIC_DIR, LOCALES_DIR as LOCALES_DIR,
-                   SCOREBOARD_DIR as SCOREBOARD_DIR, SESSIONS_FOLDER as SESSIONS_FOLDER,
-                   CUSTOM_SESSIONS_FOLDER as CUSTOM_SESSIONS_FOLDER, IMAGES_DIR as IMAGES_DIR,
-                   ICONS_DIR as ICONS_DIR, HOME_ICON_PATH as HOME_ICON_PATH,
-                   HOME_ICON_512_PATH as HOME_ICON_512_PATH, PICKER_DIR as PICKER_DIR,
-                   TEST_MEET_FOLDER as TEST_MEET_FOLDER, LOGS_DIR as LOGS_DIR,
-                   CUSTOM_THEME_FOLDER as CUSTOM_THEME_FOLDER,
-                   CUSTOM_DECODERS_FOLDER as CUSTOM_DECODERS_FOLDER,
-                   SERVICE_NAME as SERVICE_NAME, session_secret as session_secret)
-from i18n import (DEFAULT_THEME_COLORS, DEFAULT_THEME_FONTS, list_locales)
-# Re-export only — as above.
-from i18n import (STYLED_LABEL_KEYS as STYLED_LABEL_KEYS, resolve_labels as resolve_labels,
-                  available_locales as available_locales,
-                  list_builtin_themes as list_builtin_themes,
-                  list_custom_themes as list_custom_themes, load_theme as load_theme,
-                  parse_event_name as parse_event_name,
-                  compose_event_name as compose_event_name,
-                  translate_event_name as translate_event_name)
+from paths import (
+    CUSTOM_DECODERS_FOLDER as CUSTOM_DECODERS_FOLDER,
+    CUSTOM_SESSIONS_FOLDER as CUSTOM_SESSIONS_FOLDER,
+    CUSTOM_THEME_FOLDER as CUSTOM_THEME_FOLDER,
+    HOME_ICON_512_PATH as HOME_ICON_512_PATH,
+    HOME_ICON_PATH as HOME_ICON_PATH,
+    ICONS_DIR as ICONS_DIR,
+    IMAGES_DIR as IMAGES_DIR,
+    LOCALES_DIR as LOCALES_DIR,
+    LOGS_DIR as LOGS_DIR,
+    MEET_FOLDER,
+    PICKER_DIR as PICKER_DIR,
+    PROVISION_VERSION_FILE,
+    PROVISIONED_MARKER,
+    REPO_DIR as REPO_DIR,
+    SCOREBOARD_DIR as SCOREBOARD_DIR,
+    SERVICE_NAME as SERVICE_NAME,
+    SESSIONS_FOLDER as SESSIONS_FOLDER,
+    STATIC_DIR as STATIC_DIR,
+    TEST_MEET_FOLDER as TEST_MEET_FOLDER,
+    _settings_default,
+    app_dir,
+    session_secret as session_secret,
+    settings_file,
+)
+
 # Underscored, but reached from outside — keep them resolving off `state`.
 _locale_section = i18n.locale_section
-_panel_section  = i18n.panel_section
+_panel_section = i18n.panel_section
 _FALLBACK_LABELS = i18n._FALLBACK_LABELS
 
 
@@ -80,56 +104,71 @@ SPLIT_MIN_DEFAULT = 1.0
 # be cast away at every one of those places, so the honest type is the loose one —
 # the schema lives in settings.default.json and the panel that writes it.
 settings: dict[str, Any] = {
-    'meet_title': '',
-    'serial_port': 'COM1',
-    'username': 'score',
-    'password': 'swimming',
-    'splash_url': '',
-    'locale': 'en',
-    'label_style': 'long',
-    'num_lanes': 8,
-    'show_lane_header': True,
-    'show_name_header': True,
-    'show_club_header': True,
-    'show_time_header': True,
-    'show_delta_header': True,
-    'show_position_header': True,
-    'show_name': True,
-    'show_club': True,
-    'show_delta': True,
-    'show_position': True,
-    'show_podium': True,
+    "meet_title": "",
+    "serial_port": "COM1",
+    "username": "score",
+    "password": "swimming",
+    "splash_url": "",
+    "locale": "en",
+    "label_style": "long",
+    "num_lanes": 8,
+    "show_lane_header": True,
+    "show_name_header": True,
+    "show_club_header": True,
+    "show_time_header": True,
+    "show_delta_header": True,
+    "show_position_header": True,
+    "show_name": True,
+    "show_club": True,
+    "show_delta": True,
+    "show_position": True,
+    "show_podium": True,
     # Lap counts in the delta column while a lane is swimming. Off by default:
     # only a console that reports a lap number on the wire is reliable enough to
     # put on a public board, and the CTS Gen6 count is inferred from touchpad
     # stops. Turn it on once you know which console the venue has.
-    'show_laps': False,
+    "show_laps": False,
     # Which way the lap count runs: 'up' counts lengths completed, 'down' counts
     # lengths remaining. Up is the console's own number and the safer default —
     # counting down needs `expected_splits`, which is 0 for any event whose meet
     # file carries no distance, and a countdown from an unknown total is a lie.
-    'lap_direction': 'up',
-    'results_sort': 'lane',
-    'active_theme': 'default',
-    'theme_colors': {
-        'bg': '#0d0d0d', 'header_bg': '#1a1a1a', 'header_border': '#2e2e2e',
-        'header_label': '#3b9eff', 'header_value': '#e0e0e0',
-        'th_text': '#666666', 'th_bg': '#1a1a1a',
-        'row_odd': '#141414', 'row_even': '#202020', 'row_text': '#e0e0e0',
-        'time': '#FFD700', 'delta_better': '#4CAF50', 'delta_worse': '#808080',
-        'podium_gold': '#545454', 'podium_silver': '#424242', 'podium_bronze': '#343434',
-        'connection_lost': '#ef5350', 'connection_lost_text': '#0d0d0d',
+    "lap_direction": "up",
+    "results_sort": "lane",
+    "active_theme": "default",
+    "theme_colors": {
+        "bg": "#0d0d0d",
+        "header_bg": "#1a1a1a",
+        "header_border": "#2e2e2e",
+        "header_label": "#3b9eff",
+        "header_value": "#e0e0e0",
+        "th_text": "#666666",
+        "th_bg": "#1a1a1a",
+        "row_odd": "#141414",
+        "row_even": "#202020",
+        "row_text": "#e0e0e0",
+        "time": "#FFD700",
+        "delta_better": "#4CAF50",
+        "delta_worse": "#808080",
+        "podium_gold": "#545454",
+        "podium_silver": "#424242",
+        "podium_bronze": "#343434",
+        "connection_lost": "#ef5350",
+        "connection_lost_text": "#0d0d0d",
     },
-    'theme_fonts': {'family': 'Overpass Mono', 'digits': 'DSEG7Classic', 'timing': 'Overpass Mono'},
-    'finish_debounce': FINISH_DEBOUNCE_DEFAULT,
-    'split_min_duration': SPLIT_MIN_DEFAULT,
-    'pool_length': 25,
-    'touchpad_sides': 1,
-    'carousel_interval': 10,
-    'console_type': 'cts_gen6',
+    "theme_fonts": {
+        "family": "Overpass Mono",
+        "digits": "DSEG7Classic",
+        "timing": "Overpass Mono",
+    },
+    "finish_debounce": FINISH_DEBOUNCE_DEFAULT,
+    "split_min_duration": SPLIT_MIN_DEFAULT,
+    "pool_length": 25,
+    "touchpad_sides": 1,
+    "carousel_interval": 10,
+    "console_type": "cts_gen6",
     # Per-meet cloud appearance overrides, keyed by meet_uid(). See
     # CLOUD_PROFILE_FIELDS / apply_meet_profile().
-    'meet_profiles': {},
+    "meet_profiles": {},
 }
 
 # ── Meet data ──────────────────────────────────────────────────────────────────
@@ -142,18 +181,32 @@ settings: dict[str, Any] = {
 # mid-read. Writers must go through set_lenex / load_event_info / clear_meet — the
 # published snapshot is never mutated in place.
 
-class _Meet:
-    __slots__ = ('event_names', 'start_list', 'heat_times', 'meet_info',
-                 'event_distances', 'event_info')
 
-    def __init__(self, event_names=None, start_list=None, heat_times=None,
-                 meet_info=None, event_distances=None, event_info=None):
-        self.event_names     = event_names     or {}
-        self.start_list      = start_list      or {}
-        self.heat_times      = heat_times      or {}
-        self.meet_info       = meet_info       or {}
+class _Meet:
+    __slots__ = (
+        "event_names",
+        "start_list",
+        "heat_times",
+        "meet_info",
+        "event_distances",
+        "event_info",
+    )
+
+    def __init__(
+        self,
+        event_names=None,
+        start_list=None,
+        heat_times=None,
+        meet_info=None,
+        event_distances=None,
+        event_info=None,
+    ):
+        self.event_names = event_names or {}
+        self.start_list = start_list or {}
+        self.heat_times = heat_times or {}
+        self.meet_info = meet_info or {}
         self.event_distances = event_distances or {}
-        self.event_info      = event_info if event_info is not None else HytekParser()
+        self.event_info = event_info if event_info is not None else HytekParser()
 
 
 meet = _Meet()
@@ -162,9 +215,13 @@ meet = _Meet()
 def set_lenex(data):
     """Publish a LENEX meet atomically (from a parsers.lenex_parser result)."""
     global meet
-    meet = _Meet(event_names=data.event_names, start_list=data.start_list,
-                 heat_times=data.heat_times, meet_info=data.meet_info,
-                 event_distances=data.event_distances)
+    meet = _Meet(
+        event_names=data.event_names,
+        start_list=data.start_list,
+        heat_times=data.heat_times,
+        meet_info=data.meet_info,
+        event_distances=data.event_distances,
+    )
 
 
 def load_event_info(path):
@@ -180,33 +237,42 @@ def clear_meet():
     global meet
     meet = _Meet()
 
+
 # Cloud-appearance overrides that travel per meet (not Pi-global). Keyed by
 # meet_uid() in settings['meet_profiles']; the active values are mirrored into
 # settings so the relay metadata and the Meet tab read them directly.
-CLOUD_PROFILE_FIELDS = ('cloud_meet_title', 'meet_location', 'meet_sport',
-                        'app_window_title', 'cloud_label_style',
-                        'active_picker_image', 'active_home_icon')
-_PROFILE_DEFAULTS = {'cloud_label_style': 'short'}
+CLOUD_PROFILE_FIELDS = (
+    "cloud_meet_title",
+    "meet_location",
+    "meet_sport",
+    "app_window_title",
+    "cloud_label_style",
+    "active_picker_image",
+    "active_home_icon",
+)
+_PROFILE_DEFAULTS = {"cloud_label_style": "short"}
 
 
 def _profile_field(f):
-    return settings.get(f, _PROFILE_DEFAULTS.get(f, ''))
+    return settings.get(f, _PROFILE_DEFAULTS.get(f, ""))
 
 
-def uid_from_meet_info(meet_info, fallback_file=''):
+def uid_from_meet_info(meet_info, fallback_file=""):
     """meet_uid() for an arbitrary parsed meet, without touching global state.
 
     Lets callers (e.g. the "update file" guard) compute a candidate file's uid
     and compare it to the loaded meet before committing the swap.
     """
-    name  = meet_info.get('name', '')
-    dates = sorted(d for d in (s.get('date', '') for s in meet_info.get('sessions', [])) if d)
-    basis = (name + '|' + '|'.join(dates)).strip('|')
+    name = meet_info.get("name", "")
+    dates = sorted(
+        d for d in (s.get("date", "") for s in meet_info.get("sessions", [])) if d
+    )
+    basis = (name + "|" + "|".join(dates)).strip("|")
     if not basis:
         basis = fallback_file
     if not basis:
-        return ''
-    return hashlib.sha1(basis.encode('utf-8')).hexdigest()[:12]
+        return ""
+    return hashlib.sha1(basis.encode("utf-8")).hexdigest()[:12]
 
 
 def meet_uid():
@@ -227,21 +293,22 @@ def apply_meet_profile(uid):
     loaded meet starts from what's already on screen (usually only the title
     needs changing). Returns the active_home_icon so the caller can re-render it.
     """
-    profiles = settings.setdefault('meet_profiles', {})
+    profiles = settings.setdefault("meet_profiles", {})
     if uid and uid in profiles:
         for f in CLOUD_PROFILE_FIELDS:
-            settings[f] = profiles[uid].get(f, _PROFILE_DEFAULTS.get(f, ''))
+            settings[f] = profiles[uid].get(f, _PROFILE_DEFAULTS.get(f, ""))
     elif uid:
         profiles[uid] = {f: _profile_field(f) for f in CLOUD_PROFILE_FIELDS}
-    return settings.get('active_home_icon', '')
+    return settings.get("active_home_icon", "")
 
 
 def save_meet_profile(uid):
     """Persist the active cloud-appearance overrides into the meet's profile."""
     if not uid:
         return
-    profiles = settings.setdefault('meet_profiles', {})
+    profiles = settings.setdefault("meet_profiles", {})
     profiles[uid] = {f: _profile_field(f) for f in CLOUD_PROFILE_FIELDS}
+
 
 # ── Console log capture ──────────────────────────────────────────────────────
 # Keep the most recent console output (the same lines that go to the journal) in
@@ -256,13 +323,13 @@ class _LogTee:
 
     def __init__(self, stream):
         self._stream = stream
-        self._buf    = ''
+        self._buf = ""
 
     def write(self, s):
         self._stream.write(s)
         self._buf += s
-        while '\n' in self._buf:
-            line, self._buf = self._buf.split('\n', 1)
+        while "\n" in self._buf:
+            line, self._buf = self._buf.split("\n", 1)
             _log_ring.append(line)
         return len(s)
 
@@ -283,7 +350,7 @@ def install_log_capture():
 
 # ── Runtime state ──────────────────────────────────────────────────────────────
 
-update      = {}
+update = {}
 
 # Everything ever published on `/scoreboard` as `update_scoreboard`, merged. The
 # frames are partial (docs/api.md §5.1), so a client that connects mid-heat has no
@@ -311,13 +378,14 @@ def record_board(data):
     if not data:
         return
     board.update(data)
-    board.pop('running_time', None)
+    board.pop("running_time", None)
+
 
 # The last results payload, published by the worker and read by the results-WS
 # connect handler and the relay. Always reassigned as a whole dict (never mutated
 # in place) so the rebind is an atomic swap — a reader gets the old or new dict
 # whole, never half-built. Keep it that way: build a new dict, don't mutate this.
-_last_results_snapshot            = {}
+_last_results_snapshot = {}
 _results_prev_race_finished: bool = False
 
 # The worker's stop signal. Each worker captures my_gen = _worker_gen at start and
@@ -329,11 +397,11 @@ _results_prev_race_finished: bool = False
 # calls), a non-atomic read-modify-write whose lost updates are harmless: only a
 # *change* matters (it stops workers holding an older gen), never the exact value,
 # and it only moves forward. Don't "fix" that with a lock.
-_worker_gen: int              = 0
-_test_session: str | None     = None
+_worker_gen: int = 0
+_test_session: str | None = None
 _record_handle: TextIO | None = None
-_debug_serial: bool           = False
-_serial_status                = {'state': 'idle', 'msg': ''}
+_debug_serial: bool = False
+_serial_status = {"state": "idle", "msg": ""}
 # Invalidation token for the finish/reset debounce. Bumped by the worker on every
 # finish/un-finish transition and by the meet-load handler to cancel pending tasks
 # across a meet change — so `+= 1` runs from two threads and a bump can be lost.
@@ -341,30 +409,30 @@ _serial_status                = {'state': 'idle', 'msg': ''}
 # it captured still matches, so any advance invalidates stale tasks; exactness is
 # irrelevant. No lock needed.
 _finish_timer_gen: int = 0
-_scoreboard_clients    = {}
+_scoreboard_clients = {}
 # Cap on update-log lines kept per display — see app.ws_scoreboard.
 UPDATE_LOG_MAX = 40
 # A recording's start lists are loaded into `meet` while this is set. The real
 # meet's files, `_active_meet_file` and its cloud profile are untouched throughout,
 # so ending the test only has to reload from disk — see worker._cleanup_test_meet.
 _test_meet_active: bool = False
-_test_meet_name         = ''   # basename of the start lists the test is using
+_test_meet_name = ""  # basename of the start lists the test is using
 # Keep this test session off the cloud: LAN browsers and the Qt display see it,
 # the relay does not. Forced on whenever a real meet is loaded, so a replay can
 # never publish under a live meet's identity — see routes/debug._test_play.
-_test_local_only: bool  = False
+_test_local_only: bool = False
 # Whether the relay was running when we stopped it for a local-only test. An
 # operator who had the cloud switched off must not find it switched on afterwards.
 _test_relay_was_running = False
 # The results snapshot from before the test, restored when it ends. The relay
 # re-sends this on every reconnect, so without it a replay's results would reach
 # the cloud on the next connect — long after the test was over.
-_test_saved_results: dict | None              = None
+_test_saved_results: dict | None = None
 # The event and heat the console was on before a test session started, put back when
 # it ends. Not cleared: a Quantum announces its heat once, when it is readied, so a
 # board told to forget would have nothing to show until the next one — see
 # worker.restore_current_heat.
-_test_saved_heat: tuple[int, int] | None      = None
+_test_saved_heat: tuple[int, int] | None = None
 # The console's own decoder, set aside whole while a replay runs under a stand-in.
 # Only ever set for a console that cannot read a wire at all (`requires_serial` is
 # False — the manual console, or a portless plugin): those decode a recording to
@@ -374,13 +442,13 @@ _test_saved_heat: tuple[int, int] | None      = None
 # The object carries its own `last_event_sent`, so setting it aside *is* the save —
 # which matters under the manual console, where that field is not a console's last
 # word but the heat the operator put on the boards by hand.
-_test_saved_decoder: ConsoleDecoder | None    = None
+_test_saved_decoder: ConsoleDecoder | None = None
 # What a recording is replayed under when the configured console cannot read one.
 # The bundled sessions in `console_recordings/` are CTS captures, and this is the
 # same fallback `console_decoders.make_decoder` already applies to an unknown key.
-REPLAY_CONSOLE_TYPE     = 'cts_gen6'
-_overlay_active: bool   = False
-_cols_hidden: bool      = False
+REPLAY_CONSOLE_TYPE = "cts_gen6"
+_overlay_active: bool = False
+_cols_hidden: bool = False
 # Is the timing console actually feeding this display? Published to clients as the
 # `meet_live` event (docs/api.md §2), the local twin of the cloud's relay-connected
 # flag. Keyed off packet arrival rather than the serial port's state: a cable can sit
@@ -388,12 +456,12 @@ _cols_hidden: bool      = False
 # 'open'. Test-session playback counts as live — it goes through _handle_packet too.
 # The window matches the Qt display's own `_STALE` (scoreboard/client.py) so the two
 # give up on the link at the same moment rather than contradicting each other.
-MEET_LIVE_STALE        = 8      # seconds of silence before the link reads as dead
-_last_packet_at: float = 0.0    # time.monotonic() of the last decoded packet
-_meet_live: bool       = False  # last value broadcast — only transitions are emitted
-_pty_fd: int | None    = None
-_pty_pid: int | None   = None
-main_thread            = None
+MEET_LIVE_STALE = 8  # seconds of silence before the link reads as dead
+_last_packet_at: float = 0.0  # time.monotonic() of the last decoded packet
+_meet_live: bool = False  # last value broadcast — only transitions are emitted
+_pty_fd: int | None = None
+_pty_pid: int | None = None
+main_thread = None
 
 # The decoder is owned by a single thread — the serial/playback worker. Other
 # threads that need a decoder operation (WS adjust_splits/next_heat, the reset
@@ -410,21 +478,21 @@ _running_lanes = set()
 
 in_speed: float = 1.0
 
-_update_in_progress: bool        = False
-_active_meet_file: str           = ''   # basename of the currently loaded meet file
-_active_meet_uid: str            = ''   # meet_uid() of the currently loaded meet
-_os_update_in_progress: bool     = False
-_update_log_lines                = []
-_update_log_done: bool | None    = None
+_update_in_progress: bool = False
+_active_meet_file: str = ""  # basename of the currently loaded meet file
+_active_meet_uid: str = ""  # meet_uid() of the currently loaded meet
+_os_update_in_progress: bool = False
+_update_log_lines = []
+_update_log_done: bool | None = None
 # True when an update stopped because the checkout has local edits. Drives the
 # "Repair checkout" button on the Update panel — see routes/system._run_update.
-_update_repair_needed: bool      = False
-_os_update_log_lines             = []
+_update_repair_needed: bool = False
+_os_update_log_lines = []
 _os_update_log_done: bool | None = None
 
-_rtc_in_progress: bool           = False
-_rtc_log_lines                   = []
-_rtc_log_done: bool | None       = None
+_rtc_in_progress: bool = False
+_rtc_log_lines = []
+_rtc_log_done: bool | None = None
 
 
 # ── This server's identity, and the language it reads in ─────────────────────────────
@@ -449,14 +517,17 @@ def git_describe():
 
     def run(*args):
         try:
-            r = subprocess.run(('git',) + args, cwd=app_dir, capture_output=True,
-                               text=True, timeout=8)
+            r = subprocess.run(
+                ("git",) + args, cwd=app_dir, capture_output=True, text=True, timeout=8
+            )
         except (OSError, subprocess.SubprocessError):
-            return ''
-        return r.stdout.strip() if r.returncode == 0 else ''
+            return ""
+        return r.stdout.strip() if r.returncode == 0 else ""
 
-    _git_describe_cache = {'version': run('describe', '--tags', '--always', '--dirty'),
-                           'commit':  run('rev-parse', '--short', 'HEAD')}
+    _git_describe_cache = {
+        "version": run("describe", "--tags", "--always", "--dirty"),
+        "commit": run("rev-parse", "--short", "HEAD"),
+    }
     return _git_describe_cache
 
 
@@ -464,24 +535,29 @@ def git_describe():
 # wrapper below is the same shape: fill in the meet's language, then hand off to
 # `i18n`, which knows nothing about settings.
 
+
 def _locale():
-    return settings.get('locale', 'en')
+    return settings.get("locale", "en")
 
 
 def load_locale(style=None):
     """Column headers in the meet's language and this server's label style."""
-    return i18n.labels_for(_locale(), style or settings.get('label_style', 'long'))
+    return i18n.labels_for(_locale(), style or settings.get("label_style", "long"))
+
 
 def i18n_bundle(code=None):
     """`GET /i18n/{lang}` (api.md §5.9), defaulting to the meet's language."""
     return i18n.i18n_bundle(code or _locale())
 
+
 def load_event_translations():
     """The `[event_name]` vocabulary, in the meet's language."""
     return i18n.event_translations(_locale())
 
+
 def load_preview_strings():
-    return i18n.panel_section(_locale(), 'preview')
+    return i18n.panel_section(_locale(), "preview")
+
 
 def manual_strings(code=None):
     """Words on /manual — an operator page, so `panel/`, not the served bundle.
@@ -490,10 +566,12 @@ def manual_strings(code=None):
     operator is standing at the pool reading the same event names the boards show,
     and `labels` and `event_vocab` on that page already come from the meet's language.
     """
-    return i18n.panel_section(code or _locale(), 'manual')
+    return i18n.panel_section(code or _locale(), "manual")
+
 
 def _mobile_strings():
-    return i18n.locale_section(_locale(), 'mobile')
+    return i18n.locale_section(_locale(), "mobile")
+
 
 def display_strings(code=None):
     """Status strings for the native TV display, English-merged.
@@ -504,6 +582,7 @@ def display_strings(code=None):
     """
     return i18n.display_strings(code or _locale())
 
+
 def settings_strings(code=None):
     """UI strings for the operator Settings panel, English-merged so any
     untranslated key falls back to English — templates can safely use
@@ -513,7 +592,8 @@ def settings_strings(code=None):
     and in the cloud's ``/admin``, so their words live in one section both pages read.
     ``[settings]`` wins on a clash, so a page-specific override stays possible.
     """
-    return i18n.panel_strings(code or _locale(), 'chrome', 'settings')
+    return i18n.panel_strings(code or _locale(), "chrome", "settings")
+
 
 def ui_locale(request):
     """Resolve the Settings-panel UI language.
@@ -530,11 +610,11 @@ def ui_locale(request):
     override, which is what it is for.
     """
     installed = {c for c, _ in list_locales()}
-    cookie = request.cookies.get('ui_lang')
+    cookie = request.cookies.get("ui_lang")
     if cookie in installed:
         return cookie
-    code = settings.get('locale', 'en')
-    return code if code in installed else 'en'
+    code = settings.get("locale", "en")
+    return code if code in installed else "en"
 
 
 def provisioning_stale():
@@ -546,13 +626,13 @@ def provisioning_stale():
     ``INVOCATION_ID`` so it only fires for a real systemd-managed service, never a
     plain dev run.
     """
-    if not os.environ.get('INVOCATION_ID'):
+    if not os.environ.get("INVOCATION_ID"):
         return False
 
     def _read(path):
         try:
             with open(path) as f:
-                return int(f.read().strip() or '0')
+                return int(f.read().strip() or "0")
         except (OSError, ValueError):
             return 0
 
@@ -572,9 +652,9 @@ def _shipped_credentials():
         try:
             with open(_settings_default) as f:
                 d = json.load(f)
-            _SHIPPED_CREDS = (d.get('username', ''), d.get('password', ''))
+            _SHIPPED_CREDS = (d.get("username", ""), d.get("password", ""))
         except (OSError, ValueError):
-            _SHIPPED_CREDS = ('', '')
+            _SHIPPED_CREDS = ("", "")
     return _SHIPPED_CREDS
 
 
@@ -594,11 +674,11 @@ def using_default_credentials():
     user, password = _shipped_credentials()
     if not user and not password:
         return False
-    return (settings.get('username') == user and
-            settings.get('password') == password)
+    return settings.get("username") == user and settings.get("password") == password
 
 
 # ── Settings loader ────────────────────────────────────────────────────────────
+
 
 def merge_theme_defaults():
     """Put the built-in theme back underneath whatever was stored.
@@ -610,26 +690,30 @@ def merge_theme_defaults():
     black. `connection_lost` was the first key to arrive after installs existed in
     wild; this makes every future one safe too.
     """
-    settings['theme_colors'] = {**DEFAULT_THEME_COLORS,
-                                **(settings.get('theme_colors') or {})}
-    settings['theme_fonts']  = {**DEFAULT_THEME_FONTS,
-                                **(settings.get('theme_fonts') or {})}
+    settings["theme_colors"] = {
+        **DEFAULT_THEME_COLORS,
+        **(settings.get("theme_colors") or {}),
+    }
+    settings["theme_fonts"] = {
+        **DEFAULT_THEME_FONTS,
+        **(settings.get("theme_fonts") or {}),
+    }
 
 
 def load_settings():
     try:
-        with open(settings_file, 'rt') as f:
+        with open(settings_file, "rt") as f:
             settings.update(json.load(f))
     except Exception:
         pass
     merge_theme_defaults()
-    csv_files = glob.glob(os.path.join(MEET_FOLDER, '*.csv'))
+    csv_files = glob.glob(os.path.join(MEET_FOLDER, "*.csv"))
     if csv_files:
         try:
             load_event_info(max(csv_files, key=os.path.getmtime))
         except Exception:
             pass
-    lxf_files = glob.glob(os.path.join(MEET_FOLDER, '*.lxf'))
+    lxf_files = glob.glob(os.path.join(MEET_FOLDER, "*.lxf"))
     if lxf_files:
         try:
             set_lenex(load_lenex(max(lxf_files, key=os.path.getmtime)))
@@ -653,7 +737,7 @@ def _apply_console_type():
     `_run_live_serial` only drains the command queue once a port is actually open.
     """
     global _decoder, _decoder_console_type
-    want = settings.get('console_type', 'cts_gen6')
+    want = settings.get("console_type", "cts_gen6")
     if want != _decoder_console_type:
         _decoder = make_decoder(want, settings)
         _decoder_console_type = want
@@ -670,19 +754,20 @@ def save_settings():
     (a real risk on the Pi) can't leave a truncated settings.json.
     """
     data = json.dumps(dict(settings), sort_keys=True, indent=4)
-    tmp = settings_file + '.tmp'
+    tmp = settings_file + ".tmp"
     # 0600: this file holds the admin password and the cloud relay key in clear
     # text, and the default umask would leave both readable by every account on
     # the Pi. Set on the temp file, before the rename, so the finished file is
     # never briefly world-readable.
     fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-    with os.fdopen(fd, 'wt') as f:
+    with os.fdopen(fd, "wt") as f:
         f.write(data)
     os.replace(tmp, settings_file)
 
+
 # ── Decoder (initialized after settings dict is defined) ──────────────────────
 
-_decoder_console_type = settings.get('console_type', 'cts_gen6')
+_decoder_console_type = settings.get("console_type", "cts_gen6")
 _decoder = make_decoder(_decoder_console_type, settings)
 
 
@@ -706,6 +791,6 @@ def console_state():
     `CONSOLE_OPTIONS` carries it in English only, and no spectator reads it.
     """
     return {
-        'key':   settings.get('console_type', 'cts_gen6'),
-        'timed': bool(getattr(_decoder, 'requires_serial', True)),
+        "key": settings.get("console_type", "cts_gen6"),
+        "timed": bool(getattr(_decoder, "requires_serial", True)),
     }

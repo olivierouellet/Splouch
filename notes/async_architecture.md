@@ -120,9 +120,9 @@ enough to shallow-copy one small record; the serialize + atomic (temp-file +
 `os.replace`) write happen on a threadpool thread while the loop keeps broadcasting:
 
 ```python
-with _lock:                                  # fast: in-memory only
+with _lock:  # fast: in-memory only
     _persist_meet_mem(meet_id, meet)
-    rec = _record_copy_locked(meet_id)       # shallow copy of one record
+    rec = _record_copy_locked(meet_id)  # shallow copy of one record
 await run_in_threadpool(_write_meet_files, meet_id, rec, write_schedule, write_images)
 ```
 

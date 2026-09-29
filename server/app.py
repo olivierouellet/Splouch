@@ -18,21 +18,25 @@ from starlette.middleware.sessions import SessionMiddleware
 import bus
 import state
 from meet_data import _get_next_heats, send_event_info
-from web import (CrossSiteRequest, NotAuthenticated, render, require_login,
-                 ws_guard)
-from worker import (_worker_adjust_splits, _worker_clear_heat, _worker_goto_heat,
-                    _worker_next_heat, _worker_prev_heat, main_thread_worker)
-
-from routes.scoreboard import router as scoreboard_router
-from routes.meet       import router as meet_router
-from routes.settings   import router as settings_router
-from routes.debug      import router as debug_router
-from routes.system     import router as system_router
-from routes.update     import router as update_router
-from routes.network    import router as network_router
 from routes.appearance import router as appearance_router
-from routes.i18n       import router as i18n_router
-from routes.qr         import router as qr_router
+from routes.debug import router as debug_router
+from routes.i18n import router as i18n_router
+from routes.meet import router as meet_router
+from routes.network import router as network_router
+from routes.qr import router as qr_router
+from routes.scoreboard import router as scoreboard_router
+from routes.settings import router as settings_router
+from routes.system import router as system_router
+from routes.update import router as update_router
+from web import CrossSiteRequest, NotAuthenticated, render, require_login, ws_guard
+from worker import (
+    _worker_adjust_splits,
+    _worker_clear_heat,
+    _worker_goto_heat,
+    _worker_next_heat,
+    _worker_prev_heat,
+    main_thread_worker,
+)
 
 # Per-install, generated into the data dir on first run — never a constant here.
 # This repo is public, so a literal key would be the same published key on every
@@ -57,12 +61,15 @@ async def _meet_live_watchdog():
     """
     while True:
         declared = None if state._test_session else state._decoder.is_live
-        live = (declared if declared is not None else
-                (time.monotonic() - state._last_packet_at) < state.MEET_LIVE_STALE)
+        live = (
+            declared
+            if declared is not None
+            else (time.monotonic() - state._last_packet_at) < state.MEET_LIVE_STALE
+        )
         if live != state._meet_live:
             state._meet_live = live
-            for channel in ('/scoreboard', '/results'):
-                bus.emit(channel, 'meet_live', {'live': live})
+            for channel in ("/scoreboard", "/results"):
+                bus.emit(channel, "meet_live", {"live": live})
         await asyncio.sleep(1)
 
 
@@ -74,11 +81,12 @@ async def lifespan(app: FastAPI):
     import relay
     from console_decoders import load_custom_decoders
     from routes.settings import _load_meet_file
+
     state.load_settings()
     load_custom_decoders(state.CUSTOM_DECODERS_FOLDER)
     relay.start()
     _register_locale_aliases()
-    _last = state.settings.get('last_meet_file', '')
+    _last = state.settings.get("last_meet_file", "")
     if _last:
         _path = os.path.join(state.MEET_FOLDER, _last)
         if os.path.isfile(_path):
@@ -94,7 +102,7 @@ async def lifespan(app: FastAPI):
 # the OpenAPI schema and Swagger/ReDoc UIs are only reachable once signed in.
 app = FastAPI(lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None)
 app.add_middleware(SessionMiddleware, secret_key=SECRET_KEY)
-app.mount('/static', StaticFiles(directory=state.STATIC_DIR), name='static')
+app.mount("/static", StaticFiles(directory=state.STATIC_DIR), name="static")
 
 app.include_router(i18n_router)
 app.include_router(scoreboard_router)
@@ -110,15 +118,16 @@ app.include_router(qr_router)
 
 @app.exception_handler(NotAuthenticated)
 async def _redirect_to_login(request: Request, exc: NotAuthenticated):
-    return RedirectResponse('/login', status_code=303)
+    return RedirectResponse("/login", status_code=303)
 
 
 @app.exception_handler(CrossSiteRequest)
 async def _refuse_cross_site(request: Request, exc: CrossSiteRequest):
     # Not a redirect: following one would be the same request again from the same
     # place. The operator sees this only if another site sent them here.
-    return JSONResponse({'ok': False, 'error': 'Cross-site request refused.'},
-                        status_code=403)
+    return JSONResponse(
+        {"ok": False, "error": "Cross-site request refused."}, status_code=403
+    )
 
 
 @app.exception_handler(RequestValidationError)
@@ -132,52 +141,58 @@ async def _on_validation_error(request: Request, exc: RequestValidationError):
     API/`/docs` consumers.
     """
     errors = exc.errors()
-    error  = 'Invalid request.'
+    error = "Invalid request."
     if errors:
-        e   = errors[0]
-        msg = e.get('msg', 'Invalid input')
+        e = errors[0]
+        msg = e.get("msg", "Invalid input")
         # A field_validator raising ValueError('X') surfaces as 'Value error, X'.
-        if msg.startswith('Value error, '):
-            error = msg[len('Value error, '):]
+        if msg.startswith("Value error, "):
+            error = msg[len("Value error, ") :]
         else:
-            loc   = [str(x) for x in e.get('loc', ()) if x != 'body']
-            field = '.'.join(loc)
-            error = f'{field}: {msg}' if field else msg
+            loc = [str(x) for x in e.get("loc", ()) if x != "body"]
+            field = ".".join(loc)
+            error = f"{field}: {msg}" if field else msg
     # A field_validator's ValueError lands in each error's ``ctx`` as a live
     # exception object, which JSONResponse can't serialize — keep only the
     # JSON-safe fields so ``detail`` never breaks the response.
-    detail = [{k: e[k] for k in ('type', 'loc', 'msg', 'input') if k in e}
-              for e in errors]
-    return JSONResponse({'ok': False, 'error': error, 'detail': detail}, status_code=422)
+    detail = [
+        {k: e[k] for k in ("type", "loc", "msg", "input") if k in e} for e in errors
+    ]
+    return JSONResponse(
+        {"ok": False, "error": error, "detail": detail}, status_code=422
+    )
 
 
 # ── API docs (login-gated) ───────────────────────────────────────────────────
 # Unauthenticated hits raise NotAuthenticated → redirect to /login. Once signed
 # in, the session cookie also authorizes Swagger UI's fetch of /openapi.json.
 
-@app.get('/openapi.json', include_in_schema=False,
-         dependencies=[Depends(require_login)])
+
+@app.get(
+    "/openapi.json", include_in_schema=False, dependencies=[Depends(require_login)]
+)
 async def route_openapi():
     return app.openapi()
 
 
-@app.get('/docs', include_in_schema=False, dependencies=[Depends(require_login)])
+@app.get("/docs", include_in_schema=False, dependencies=[Depends(require_login)])
 async def route_docs():
-    return get_swagger_ui_html(openapi_url='/openapi.json', title='Splouch API docs')
+    return get_swagger_ui_html(openapi_url="/openapi.json", title="Splouch API docs")
 
 
-@app.get('/redoc', include_in_schema=False, dependencies=[Depends(require_login)])
+@app.get("/redoc", include_in_schema=False, dependencies=[Depends(require_login)])
 async def route_redoc():
-    return get_redoc_html(openapi_url='/openapi.json', title='Splouch API docs')
+    return get_redoc_html(openapi_url="/openapi.json", title="Splouch API docs")
 
 
 # ── Auth ───────────────────────────────────────────────────────────────────────
 
-@app.get('/login', tags=['Auth'])
+
+@app.get("/login", tags=["Auth"])
 async def route_login_form(request: Request):
     # render(), not a bare TemplateResponse: the page needs `lang` from _globals()
     # to declare the scoreboard language like every other page on this server.
-    return render(request, 'login.html')
+    return render(request, "login.html")
 
 
 def _safe_next(target: str) -> str:
@@ -188,37 +203,40 @@ def _safe_next(target: str) -> str:
     redirect: a link that shows this Pi's sign-in form and lands somewhere else
     afterwards.
     """
-    if target.startswith('/') and not target.startswith('//'):
+    if target.startswith("/") and not target.startswith("//"):
         return target
-    return '/'
+    return "/"
 
 
-@app.post('/login', tags=['Auth'])
-async def route_login(request: Request,
-                      username: str = Form(''), password: str = Form('')):
+@app.post("/login", tags=["Auth"])
+async def route_login(
+    request: Request, username: str = Form(""), password: str = Form("")
+):
     # compare_digest, not ==: a plain comparison returns as soon as two characters
     # differ, which over enough tries measures out the password one character at a
     # time. Both halves are evaluated so the timing does not leak the username either.
-    ok_user = secrets.compare_digest(username, str(state.settings['username']))
-    ok_pass = secrets.compare_digest(password, str(state.settings['password']))
+    ok_user = secrets.compare_digest(username, str(state.settings["username"]))
+    ok_pass = secrets.compare_digest(password, str(state.settings["password"]))
     if ok_user and ok_pass:
-        request.session['user'] = username
-        return RedirectResponse(_safe_next(request.query_params.get('next') or '/'),
-                                status_code=303)
-    resp = render(request, 'login.html', login_failed=True)
+        request.session["user"] = username
+        return RedirectResponse(
+            _safe_next(request.query_params.get("next") or "/"), status_code=303
+        )
+    resp = render(request, "login.html", login_failed=True)
     resp.status_code = 401
     return resp
 
 
-@app.get('/logout', tags=['Auth'])
+@app.get("/logout", tags=["Auth"])
 async def route_logout(request: Request):
-    request.session.pop('user', None)
-    return RedirectResponse('/', status_code=303)
+    request.session.pop("user", None)
+    return RedirectResponse("/", status_code=303)
 
 
 # ── WebSocket endpoints ─────────────────────────────────────────────────────────
 
-@app.websocket('/ws/scoreboard')
+
+@app.websocket("/ws/scoreboard")
 async def ws_scoreboard(ws: WebSocket):
     # Deliberately open to the LAN (this channel carries `next_heat` and friends
     # from the ungated /operator and /manual pages), but "the LAN" has to mean the
@@ -226,17 +244,17 @@ async def ws_scoreboard(ws: WebSocket):
     # could drive the board from the far side of the internet.
     if not await ws_guard(ws):
         return
-    await bus.manager.connect(ws, '/scoreboard')
+    await bus.manager.connect(ws, "/scoreboard")
     state._scoreboard_clients[id(ws)] = {
-        'ip': ws.client.host if ws.client else '',
-        'at': datetime.datetime.now().strftime('%H:%M:%S'),
+        "ip": ws.client.host if ws.client else "",
+        "at": datetime.datetime.now().strftime("%H:%M:%S"),
     }
     if state.main_thread is None:
         state.main_thread = bus.run_bg(main_thread_worker)
-    await bus.manager.send(ws, 'test_mode',       {'active': state._test_session is not None})
-    await bus.manager.send(ws, 'display_overlay', {'active': state._overlay_active})
-    await bus.manager.send(ws, 'columns_state',   {'hidden': state._cols_hidden})
-    await bus.manager.send(ws, 'meet_live',       {'live': state._meet_live})
+    await bus.manager.send(ws, "test_mode", {"active": state._test_session is not None})
+    await bus.manager.send(ws, "display_overlay", {"active": state._overlay_active})
+    await bus.manager.send(ws, "columns_state", {"hidden": state._cols_hidden})
+    await bus.manager.send(ws, "meet_live", {"live": state._meet_live})
     send_event_info()
     # …and then the board itself. `send_event_info` puts the heat's names up but
     # carries no times, places, laps or deltas — it blanks the deltas outright — so
@@ -245,96 +263,119 @@ async def ws_scoreboard(ws: WebSocket):
     # truth about the keys `send_event_info` has just blanked, so it must have the
     # last word. To this socket only; the broadcast above is already everyone else's.
     if state.board:
-        await bus.manager.send(ws, 'update_scoreboard', dict(state.board))
+        await bus.manager.send(ws, "update_scoreboard", dict(state.board))
     try:
         while True:
             msg = await ws.receive_json()
-            ev, d = msg.get('event'), msg.get('data') or {}
-            if ev == 'register':
+            ev, d = msg.get("event"), msg.get("data") or {}
+            if ev == "register":
                 # A native display identifying itself (docs/api.md §2). Browser
                 # tabs never send this, so `role` is what tells the two apart in
                 # Settings → Network — and `version` is what makes a kiosk running
                 # a different git ref than the server visible at all.
-                state._scoreboard_clients.setdefault(id(ws), {}).update({
-                    'role':     str(d.get('role', ''))[:20],
-                    'hostname': str(d.get('hostname', ''))[:64],
-                    'version':  str(d.get('version', ''))[:64],
-                    'commit':   str(d.get('commit', ''))[:16],
-                    'dirty':    bool(d.get('dirty', False)),
-                })
-            elif ev == 'update_log':
+                state._scoreboard_clients.setdefault(id(ws), {}).update(
+                    {
+                        "role": str(d.get("role", ""))[:20],
+                        "hostname": str(d.get("hostname", ""))[:64],
+                        "version": str(d.get("version", ""))[:64],
+                        "commit": str(d.get("commit", ""))[:16],
+                        "dirty": bool(d.get("dirty", False)),
+                    }
+                )
+            elif ev == "update_log":
                 # Progress from a display updating itself (docs/api.md §2). Kept
                 # per-client and capped: this is unauthenticated LAN input, and a
                 # chatty or malfunctioning client must not grow state without end.
                 client = state._scoreboard_clients.setdefault(id(ws), {})
-                lines = client.setdefault('update_lines', [])
-                lines.append({'text': str(d.get('text', ''))[:400],
-                              'error': bool(d.get('error', False))})
-                del lines[:-state.UPDATE_LOG_MAX]
-                done = d.get('done')
-                client['update_state'] = ('updating' if done is None
-                                          else 'ok' if done else 'failed')
-            elif ev == 'set_overlay':
-                state._overlay_active = bool(d.get('active', False))
-                bus.emit('/scoreboard', 'display_overlay', {'active': state._overlay_active})
-            elif ev == 'set_columns':
-                state._cols_hidden = bool(d.get('hidden', False))
-                bus.emit('/scoreboard', 'columns_state', {'hidden': state._cols_hidden})
-            elif ev == 'adjust_splits':
-                lane  = int(d.get('lane', 0))
-                delta = int(d.get('delta', 0))
+                lines = client.setdefault("update_lines", [])
+                lines.append(
+                    {
+                        "text": str(d.get("text", ""))[:400],
+                        "error": bool(d.get("error", False)),
+                    }
+                )
+                del lines[: -state.UPDATE_LOG_MAX]
+                done = d.get("done")
+                client["update_state"] = (
+                    "updating" if done is None else "ok" if done else "failed"
+                )
+            elif ev == "set_overlay":
+                state._overlay_active = bool(d.get("active", False))
+                bus.emit(
+                    "/scoreboard", "display_overlay", {"active": state._overlay_active}
+                )
+            elif ev == "set_columns":
+                state._cols_hidden = bool(d.get("hidden", False))
+                bus.emit("/scoreboard", "columns_state", {"hidden": state._cols_hidden})
+            elif ev == "adjust_splits":
+                lane = int(d.get("lane", 0))
+                delta = int(d.get("delta", 0))
                 if 1 <= lane <= 12 and delta != 0:
                     # Hand decoder work to the worker (its sole owner) — see worker.py.
-                    state._worker_cmds.put(lambda lane=lane, dl=delta: _worker_adjust_splits(lane, dl))
-            elif ev == 'next_heat':
+                    state._worker_cmds.put(
+                        lambda lane=lane, dl=delta: _worker_adjust_splits(lane, dl)
+                    )
+            elif ev == "next_heat":
                 state._worker_cmds.put(_worker_next_heat)
-            elif ev == 'prev_heat':
+            elif ev == "prev_heat":
                 state._worker_cmds.put(_worker_prev_heat)
-            elif ev == 'clear_heat':
+            elif ev == "clear_heat":
                 state._worker_cmds.put(_worker_clear_heat)
-            elif ev == 'goto_heat':
+            elif ev == "goto_heat":
                 # Unauthenticated LAN input like the rest of this channel: coerce
                 # here, then let the worker check the heat against the loaded meet,
                 # where it can read `state.meet` and the decoder together.
                 try:
-                    tgt = (int(d.get('event', 0)), int(d.get('heat', 0)))
+                    tgt = (int(d.get("event", 0)), int(d.get("heat", 0)))
                 except (TypeError, ValueError):
                     tgt = None
                 if tgt:
                     state._worker_cmds.put(lambda t=tgt: _worker_goto_heat(*t))
-            elif ev == 'ping':
-                await bus.manager.send(ws, 'pong')
+            elif ev == "ping":
+                await bus.manager.send(ws, "pong")
     except WebSocketDisconnect:
         pass
     finally:
-        bus.manager.disconnect(ws, '/scoreboard')
+        bus.manager.disconnect(ws, "/scoreboard")
         state._scoreboard_clients.pop(id(ws), None)
 
 
-@app.websocket('/ws/results')
+@app.websocket("/ws/results")
 async def ws_results(ws: WebSocket):
     if not await ws_guard(ws):
         return
-    await bus.manager.connect(ws, '/results')
-    await bus.manager.send(ws, 'meet_live', {'live': state._meet_live})
+    await bus.manager.connect(ws, "/results")
+    await bus.manager.send(ws, "meet_live", {"live": state._meet_live})
     if state._last_results_snapshot:
-        await bus.manager.send(ws, 'results_snapshot', state._last_results_snapshot)
-    ev, ht = state._decoder.last_event_sent if state._decoder.last_event_sent != (0, 0) else (0, 0)
-    await bus.manager.send(ws, 'next_heats',
-                           {'heats': _get_next_heats(ev, ht,
-                                                     num_lanes=int(state.settings.get('num_lanes', 6)))})
+        await bus.manager.send(ws, "results_snapshot", state._last_results_snapshot)
+    ev, ht = (
+        state._decoder.last_event_sent
+        if state._decoder.last_event_sent != (0, 0)
+        else (0, 0)
+    )
+    await bus.manager.send(
+        ws,
+        "next_heats",
+        {
+            "heats": _get_next_heats(
+                ev, ht, num_lanes=int(state.settings.get("num_lanes", 6))
+            )
+        },
+    )
     try:
         while True:
-            msg = await ws.receive_json()   # results is receive-only apart from heartbeat
-            if msg.get('event') == 'ping':
-                await bus.manager.send(ws, 'pong')
+            msg = (
+                await ws.receive_json()
+            )  # results is receive-only apart from heartbeat
+            if msg.get("event") == "ping":
+                await bus.manager.send(ws, "pong")
     except WebSocketDisconnect:
         pass
     finally:
-        bus.manager.disconnect(ws, '/results')
+        bus.manager.disconnect(ws, "/results")
 
 
-@app.websocket('/ws/schedule')
+@app.websocket("/ws/schedule")
 async def ws_schedule(ws: WebSocket):
     """Start-list invalidation. Carries one event, `schedule_update`, sent when a
     meet file is loaded so an open Schedule tab re-fetches instead of showing the
@@ -342,64 +383,70 @@ async def ws_schedule(ws: WebSocket):
     page is identical against either server (docs/api.md §2)."""
     if not await ws_guard(ws):
         return
-    await bus.manager.connect(ws, '/schedule')
+    await bus.manager.connect(ws, "/schedule")
     try:
         while True:
-            msg = await ws.receive_json()   # receive-only apart from the heartbeat
-            if msg.get('event') == 'ping':
-                await bus.manager.send(ws, 'pong')
+            msg = await ws.receive_json()  # receive-only apart from the heartbeat
+            if msg.get("event") == "ping":
+                await bus.manager.send(ws, "pong")
     except WebSocketDisconnect:
         pass
     finally:
-        bus.manager.disconnect(ws, '/schedule')
+        bus.manager.disconnect(ws, "/schedule")
 
 
-@app.websocket('/ws/settings')
+@app.websocket("/ws/settings")
 async def ws_settings(ws: WebSocket):
     # Settings-page channel: login-gated like the page that opens it.
     if not await ws_guard(ws, login_required=True):
         return
-    await bus.manager.connect(ws, '/settings')
+    await bus.manager.connect(ws, "/settings")
     if state.main_thread is None and state._test_session is None:
         state.main_thread = bus.run_bg(main_thread_worker)
     try:
         while True:
             msg = await ws.receive_json()
-            if msg.get('event') == 'ping':
-                await bus.manager.send(ws, 'pong')
+            if msg.get("event") == "ping":
+                await bus.manager.send(ws, "pong")
     except WebSocketDisconnect:
         pass
     finally:
-        bus.manager.disconnect(ws, '/settings')
+        bus.manager.disconnect(ws, "/settings")
 
 
 # ── Locale URL aliases ─────────────────────────────────────────────────────────
 
+
 def _register_locale_aliases():
     import tomllib
+
     seen = set()
-    for path in glob.glob(os.path.join(state.LOCALES_DIR, '*.toml')):
+    for path in glob.glob(os.path.join(state.LOCALES_DIR, "*.toml")):
         try:
-            with open(path, 'rb') as f:
-                aliases = tomllib.load(f).get('aliases', {})
+            with open(path, "rb") as f:
+                aliases = tomllib.load(f).get("aliases", {})
             for alias, target in aliases.items():
                 if alias in seen:
                     continue
                 seen.add(alias)
+
                 def make_redirect(t):
                     async def view():
                         return RedirectResponse(t, status_code=303)
+
                     return view
-                app.add_api_route('/' + alias, make_redirect(target), methods=['GET'])
+
+                app.add_api_route("/" + alias, make_redirect(target), methods=["GET"])
         except Exception:
             pass
 
 
 # ── Entry point ────────────────────────────────────────────────────────────────
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     import uvicorn
+
     try:
-        uvicorn.run(app, host='0.0.0.0', port=5000)
+        uvicorn.run(app, host="0.0.0.0", port=5000)
     except Exception:
         traceback.print_exc()

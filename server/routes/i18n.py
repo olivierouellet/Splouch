@@ -5,26 +5,26 @@ The Qt display has always been served its status strings (`display_strings` in
 repo carries a copy of `shared/locales/` (docs/api.md §5.9,
 docs/app.md `T-05`). Adding a language is one file in `shared/locales/`.
 """
+
 import hashlib
 import json
+import socket
 
 from fastapi import APIRouter, Request
 from fastapi.responses import Response
 
-import socket
-
 import state
 from web import HasHeaders
 
-router = APIRouter(tags=['Strings'])
+router = APIRouter(tags=["Strings"])
 
 # The contracts this build implements, for the handshake below. Bumped with the
 # headers of docs/api.md and docs/app.md, which a test pins.
-API_CONTRACT    = 'v2'
-APP_CONTRACT    = 'v1'
+API_CONTRACT = "v2"
+APP_CONTRACT = "v1"
 
 
-@router.get('/server')
+@router.get("/server")
 def route_server():
     """Who this server is — the handshake a native client makes before anything else.
 
@@ -37,10 +37,9 @@ def route_server():
     as the version handshake now that both contracts are numbered.
     """
     return {
-        'kind':     'pi',
-        'name':     (state.settings.get('meet_title')
-                     or socket.gethostname() or 'Splouch'),
-        'contract': {'api': API_CONTRACT, 'app': APP_CONTRACT},
+        "kind": "pi",
+        "name": (state.settings.get("meet_title") or socket.gethostname() or "Splouch"),
+        "contract": {"api": API_CONTRACT, "app": APP_CONTRACT},
     }
 
 
@@ -54,19 +53,21 @@ def etagged(request: HasHeaders, payload):
     """
     body = json.dumps(payload, ensure_ascii=False, sort_keys=True).encode()
     etag = '"' + hashlib.sha256(body).hexdigest()[:16] + '"'
-    headers = {'ETag': etag, 'Cache-Control': 'no-cache'}
-    if request.headers.get('if-none-match') == etag:
+    headers = {"ETag": etag, "Cache-Control": "no-cache"}
+    if request.headers.get("if-none-match") == etag:
         return Response(status_code=304, headers=headers)
-    return Response(body, media_type='application/json', headers=headers)
+    return Response(body, media_type="application/json", headers=headers)
 
 
-@router.get('/locales')
+@router.get("/locales")
 def route_locales(request: Request):
     """The languages this server can serve: one file each in `shared/locales/`."""
-    return etagged(request, [{'code': c, 'name': n} for c, n in state.available_locales()])
+    return etagged(
+        request, [{"code": c, "name": n} for c, n in state.available_locales()]
+    )
 
 
-@router.get('/i18n/{lang}')
+@router.get("/i18n/{lang}")
 def route_i18n(lang: str, request: Request):
     """One language: chrome plus both label styles. Unknown `lang` falls back to en.
 

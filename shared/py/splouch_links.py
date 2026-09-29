@@ -38,6 +38,7 @@ in the feature.
 Imported as `splouch_links` by `cloud/cloud_server.py` and `server/routes/qr.py`;
 both put `shared/py/` on `sys.path` at import time (`cloud_paths`, `server/paths.py`).
 """
+
 import ipaddress
 import re
 from urllib.parse import quote, urlsplit
@@ -47,8 +48,8 @@ from urllib.parse import quote, urlsplit
 # a prefix match would also swallow `/address` and anything else starting with
 # those four characters — and the `apple-app-site-association` components block
 # names both.
-INVITE_PATH = '/add'
-INVITE_PARAM = 'server'
+INVITE_PATH = "/add"
+INVITE_PARAM = "server"
 
 # The server the published app ships knowing (`P-11`), and therefore the only
 # authority a link may carry: an App Link is verified per host, and the app matches
@@ -56,15 +57,15 @@ INVITE_PARAM = 'server'
 # any server here, which is why it is a constant rather than a setting — a Pi cannot
 # be asked what the app on a stranger's phone was built against. A fork publishing
 # its own app changes this line and the manifest together.
-DEFAULT_APP_SERVER = 'https://splouch.ca'
+DEFAULT_APP_SERVER = "https://splouch.ca"
 
 # `http` is allowed to these and to `*.local`, and to nothing else. The first is
 # the pool's Pi by its mDNS name; the rest are what a developer's emulator dials.
 # The apps' network policies list the same names and cannot express IP ranges,
 # which is why a Pi travels by name and never as a raw address.
-LOCAL_HOSTS = frozenset({'localhost', '127.0.0.1', '10.0.2.2', '::1'})
+LOCAL_HOSTS = frozenset({"localhost", "127.0.0.1", "10.0.2.2", "::1"})
 
-_DEFAULT_PORTS = {'http': 80, 'https': 443}
+_DEFAULT_PORTS = {"http": 80, "https": 443}
 
 # A host name, or an IPv4 literal — labels of letters, digits and hyphens, none of
 # them starting or ending with a hyphen.
@@ -76,13 +77,12 @@ _DEFAULT_PORTS = {'http': 80, 'https': 443}
 # this check the `/add` page would quote whatever a scanned code carried back at
 # the reader as though it were an address; escaped, so not an injection, but
 # nonsense presented as a server, and one no app would ever accept.
-_HOST_RE = re.compile(
-    r'^(?!-)[a-z0-9-]{1,63}(?<!-)(\.(?!-)[a-z0-9-]{1,63}(?<!-))*$')
+_HOST_RE = re.compile(r"^(?!-)[a-z0-9-]{1,63}(?<!-)(\.(?!-)[a-z0-9-]{1,63}(?<!-))*$")
 
 
 def _valid_host(host):
     """Whether *host* is a name or address a stricter parser would also accept."""
-    if ':' in host:                       # only an IPv6 literal may contain a colon
+    if ":" in host:  # only an IPv6 literal may contain a colon
         try:
             return ipaddress.ip_address(host).version == 6
         except ValueError:
@@ -92,7 +92,7 @@ def _valid_host(host):
 
 def is_local_name(host):
     """Whether cleartext is acceptable to *host* — `.local`, or a loopback."""
-    return host.endswith('.local') or host in LOCAL_HOSTS
+    return host.endswith(".local") or host in LOCAL_HOSTS
 
 
 def parse_origin(text):
@@ -109,32 +109,32 @@ def parse_origin(text):
     scheme is part of an origin, and guessing `http` for anything with a dot in
     it would quietly widen the one rule this module exists to hold.
     """
-    s = (text or '').strip()
+    s = (text or "").strip()
     if not s:
         return None
-    if '://' not in s:
-        s = 'https://' + s
+    if "://" not in s:
+        s = "https://" + s
     try:
         parts = urlsplit(s)
-        port = parts.port           # raises on a non-numeric or out-of-range port
+        port = parts.port  # raises on a non-numeric or out-of-range port
     except ValueError:
         return None
-    scheme = (parts.scheme or '').lower()
+    scheme = (parts.scheme or "").lower()
     if scheme not in _DEFAULT_PORTS:
         return None
     if parts.username is not None or parts.password is not None:
         return None
-    host = (parts.hostname or '').strip().lower()
+    host = (parts.hostname or "").strip().lower()
     if not host or not _valid_host(host):
         return None
     if port == _DEFAULT_PORTS[scheme]:
         port = None
-    if scheme == 'http' and not is_local_name(host):
+    if scheme == "http" and not is_local_name(host):
         return None
     # urlsplit strips the brackets an IPv6 literal needs back in the origin.
-    if ':' in host:
-        host = '[' + host + ']'
-    return f'{scheme}://{host}' + (f':{port}' if port else '')
+    if ":" in host:
+        host = "[" + host + "]"
+    return f"{scheme}://{host}" + (f":{port}" if port else "")
 
 
 def invite_link(host_origin, server_origin):
@@ -157,4 +157,4 @@ def invite_link(host_origin, server_origin):
     # `safe=''` on purpose: the `:` and `/` of the origin are percent-encoded, so
     # the value cannot be read as a path of its own by anything between the
     # camera and the app.
-    return f'{host}{INVITE_PATH}?{INVITE_PARAM}={quote(server, safe="")}'
+    return f"{host}{INVITE_PATH}?{INVITE_PARAM}={quote(server, safe='')}"

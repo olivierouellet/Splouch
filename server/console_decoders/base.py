@@ -6,7 +6,7 @@ from dataclasses import dataclass
 class SerialConfig:
     baud: int = 9600
     bytesize: int = 8
-    parity: str = 'E'
+    parity: str = "E"
     stopbits: int = 1
 
 
@@ -96,7 +96,7 @@ class ConsoleDecoder(ABC):
         console before it starts streaming data (e.g. CTS Gen7).
         Default: empty (no initialization required).
         """
-        return b''
+        return b""
 
     @property
     def max_packet_bytes(self) -> int:

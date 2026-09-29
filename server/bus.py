@@ -10,6 +10,7 @@ via :func:`set_loop`. Async request handlers can call :func:`emit` too — from
 inside the loop thread ``run_coroutine_threadsafe`` simply schedules the send
 and returns without blocking.
 """
+
 import asyncio
 import threading
 
@@ -40,7 +41,7 @@ class ConnectionManager:
     async def send(self, ws, event, data=None):
         """Send one frame to a single socket, ignoring a dead connection."""
         try:
-            await ws.send_json({'event': event, 'data': data})
+            await ws.send_json({"event": event, "data": data})
         except Exception:
             pass
 
@@ -49,13 +50,14 @@ class ConnectionManager:
         targets = list(self.channels.get(channel, ()))
         if not targets:
             return
-        frame = {'event': event, 'data': data}
+        frame = {"event": event, "data": data}
         # Send to every client concurrently so one slow/backed-up socket (a phone
         # on flaky venue Wi-Fi) can't delay the rest — including the on-site kiosk,
         # which shares this channel and streams the running-time clock. Still one
         # loop: this overlaps the sends' I/O waits, it is not parallelism.
-        results = await asyncio.gather(*(ws.send_json(frame) for ws in targets),
-                                       return_exceptions=True)
+        results = await asyncio.gather(
+            *(ws.send_json(frame) for ws in targets), return_exceptions=True
+        )
         for ws, result in zip(targets, results, strict=True):
             if isinstance(result, Exception):
                 self.disconnect(ws, channel)
@@ -74,8 +76,7 @@ def emit(channel, event, data=None):
     if loop is None:
         return
     try:
-        asyncio.run_coroutine_threadsafe(
-            manager.broadcast(channel, event, data), loop)
+        asyncio.run_coroutine_threadsafe(manager.broadcast(channel, event, data), loop)
     except Exception:
         pass
 

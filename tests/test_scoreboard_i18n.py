@@ -7,6 +7,7 @@ lands — is solved by caching the last config on disk, covered here too.
 
 Qt-free: the locale lookup and the cache are both plain Python.
 """
+
 import json
 import os
 import sys
@@ -15,95 +16,104 @@ import pytest
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, REPO)
-sys.path.insert(0, os.path.join(REPO, 'server'))
+sys.path.insert(0, os.path.join(REPO, "server"))
 
 from scoreboard.theme import DEFAULT_STRINGS, Config  # noqa: E402
 
-LOCALES = os.path.join(REPO, 'shared', 'locales')
+LOCALES = os.path.join(REPO, "shared", "locales")
 KEYS = sorted(DEFAULT_STRINGS)
 
 
 def _display_section(code):
     import tomllib
-    with open(os.path.join(LOCALES, f'{code}.toml'), 'rb') as f:
-        return tomllib.load(f).get('display', {})
+
+    with open(os.path.join(LOCALES, f"{code}.toml"), "rb") as f:
+        return tomllib.load(f).get("display", {})
 
 
-@pytest.mark.parametrize('code', ['en', 'fr', 'es'])
+@pytest.mark.parametrize("code", ["en", "fr", "es"])
 def test_every_locale_defines_every_display_string(code):
     """A missing key would render the raw key name on a TV in front of a crowd."""
     assert sorted(_display_section(code)) == KEYS
 
 
-@pytest.mark.parametrize('code', ['fr', 'es'])
+@pytest.mark.parametrize("code", ["fr", "es"])
 def test_translations_are_not_left_as_english(code):
     """Guards against a locale file copied but never translated."""
-    english = _display_section('en')
-    assert _display_section(code)['waiting_server'] != english['waiting_server']
+    english = _display_section("en")
+    assert _display_section(code)["waiting_server"] != english["waiting_server"]
 
 
 def test_config_defaults_to_english_when_the_server_says_nothing():
     """First-ever boot: no cache, no server — must still read as a sentence."""
     cfg = Config()
-    assert cfg.locale == 'en'
+    assert cfg.locale == "en"
     assert cfg.strings == DEFAULT_STRINGS
 
 
 def test_server_strings_override_the_built_in_defaults():
-    cfg = Config({'locale': 'fr',
-                  'display_strings': {'waiting_server': 'En attente du serveur'}})
-    assert cfg.locale == 'fr'
-    assert cfg.strings['waiting_server'] == 'En attente du serveur'
+    cfg = Config(
+        {"locale": "fr", "display_strings": {"waiting_server": "En attente du serveur"}}
+    )
+    assert cfg.locale == "fr"
+    assert cfg.strings["waiting_server"] == "En attente du serveur"
     # Keys the server did not send still resolve, rather than vanishing.
-    assert cfg.strings['retrying'] == DEFAULT_STRINGS['retrying']
+    assert cfg.strings["retrying"] == DEFAULT_STRINGS["retrying"]
 
 
 def test_display_strings_are_english_merged(monkeypatch):
     """A partially translated locale falls back per key, not wholesale."""
     import state
-    monkeypatch.setitem(state.settings, 'locale', 'fr')
+
+    monkeypatch.setitem(state.settings, "locale", "fr")
     strings = state.display_strings()
     assert sorted(strings) == KEYS
-    assert strings['waiting_server'].startswith('En attente')
+    assert strings["waiting_server"].startswith("En attente")
 
 
-@pytest.mark.parametrize('code', ['en', 'fr', 'es'])
+@pytest.mark.parametrize("code", ["en", "fr", "es"])
 def test_config_endpoint_carries_locale_and_strings(monkeypatch, code):
     import state
     import web
-    monkeypatch.setitem(state.settings, 'locale', code)
+
+    monkeypatch.setitem(state.settings, "locale", code)
     cfg = web.display_config()
-    assert cfg['locale'] == code
-    assert sorted(cfg['display_strings']) == KEYS
+    assert cfg["locale"] == code
+    assert sorted(cfg["display_strings"]) == KEYS
 
 
 # ── Config cache (what makes the first screen translated) ──────────────────────
 
+
 @pytest.fixture
 def cache(tmp_path, monkeypatch):
-    monkeypatch.setenv('XDG_CACHE_HOME', str(tmp_path))
+    monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path))
     import importlib
 
     import scoreboard.cache as cache_mod
-    importlib.reload(cache_mod)      # re-read XDG_CACHE_HOME at import time
+
+    importlib.reload(cache_mod)  # re-read XDG_CACHE_HOME at import time
     yield cache_mod
     importlib.reload(cache_mod)
 
 
 def test_cache_round_trips_the_config(cache):
-    raw = {'locale': 'fr', 'num_lanes': 6,
-           'display_strings': {'waiting_server': 'En attente du serveur'}}
+    raw = {
+        "locale": "fr",
+        "num_lanes": 6,
+        "display_strings": {"waiting_server": "En attente du serveur"},
+    }
     assert cache.save_cached_config(raw) is True
     assert cache.load_cached_config() == raw
-    assert Config(cache.load_cached_config()).locale == 'fr'
+    assert Config(cache.load_cached_config()).locale == "fr"
 
 
 def test_identical_save_is_skipped(cache):
     """Every reconnect re-fetches /config; rewriting it each time is SD wear."""
-    raw = {'locale': 'es', 'num_lanes': 8}
+    raw = {"locale": "es", "num_lanes": 8}
     assert cache.save_cached_config(raw) is True
     assert cache.save_cached_config(raw) is False
-    assert cache.save_cached_config({**raw, 'num_lanes': 6}) is True
+    assert cache.save_cached_config({**raw, "num_lanes": 6}) is True
 
 
 def test_missing_cache_reads_as_absent(cache):
@@ -112,19 +122,21 @@ def test_missing_cache_reads_as_absent(cache):
 
 def test_corrupt_cache_reads_as_absent(cache):
     """A power cut mid-write must not poison every later boot."""
-    cache.save_cached_config({'locale': 'fr'})
-    path = os.path.join(os.environ['XDG_CACHE_HOME'], 'splouch',
-                        'scoreboard-config.json')
-    with open(path, 'w', encoding='utf-8') as f:
-        f.write('{"locale": "fr"')      # truncated
+    cache.save_cached_config({"locale": "fr"})
+    path = os.path.join(
+        os.environ["XDG_CACHE_HOME"], "splouch", "scoreboard-config.json"
+    )
+    with open(path, "w", encoding="utf-8") as f:
+        f.write('{"locale": "fr"')  # truncated
     assert cache.load_cached_config() is None
     assert Config(cache.load_cached_config() or {}).strings == DEFAULT_STRINGS
 
 
 def test_non_dict_cache_reads_as_absent(cache):
-    path = os.path.join(os.environ['XDG_CACHE_HOME'], 'splouch',
-                        'scoreboard-config.json')
+    path = os.path.join(
+        os.environ["XDG_CACHE_HOME"], "splouch", "scoreboard-config.json"
+    )
     os.makedirs(os.path.dirname(path), exist_ok=True)
-    with open(path, 'w', encoding='utf-8') as f:
-        json.dump(['not', 'a', 'config'], f)
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(["not", "a", "config"], f)
     assert cache.load_cached_config() is None

@@ -1,18 +1,15 @@
 {
   // ── The important one ──────────────────────────────────────────────────────
-  // `ruff format` is deliberately not adopted here: it rewrites 58% of the lines,
-  // flattening the aligned assignments and hand-wrapped import blocks that make
-  // modules like `state` readable (see the comment in pyproject.toml). Format-on-
-  // save would do that silently on your first edit, so it is off for Python, and
-  // organize-imports — which would undo those same import blocks — is off with it.
-  // Lint on save is fine and encouraged; only the rewriting is disabled.
+  // Ruff formats and sorts imports on save, the same two checks CI fails on
+  // (`ruff format --check` and the `I` rules in `ruff check`), so a file saved
+  // here is a file CI accepts. The settings themselves live in pyproject.toml.
   "[python]": {
-    "editor.formatOnSave": false,
+    "editor.defaultFormatter": "charliermarsh.ruff",
+    "editor.formatOnSave": true,
     "editor.codeActionsOnSave": {
-      "source.organizeImports": "never"
+      "source.organizeImports": "explicit"
     }
   },
-  "ruff.organizeImports": false,
 
   // `ty` is this project's type authority and runs in CI. Pylance left on its own
   // defaults produces a second, differently-opinionated set of squiggles over the

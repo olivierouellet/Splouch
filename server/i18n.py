@@ -17,20 +17,25 @@ them). See notes/cloud_parity.md.
 Not to be confused with ``routes/i18n.py``, which is the HTTP endpoint that serves
 :func:`i18n_bundle` to clients.
 """
+
 import glob
 import os
 import re
 import tomllib
 
-import paths          # noqa: F401  — its import puts shared/py on sys.path
+import paths  # noqa: F401  — its import puts shared/py on sys.path
 import splouch_i18n
 
 # The half both servers share, re-exported so `state` and the routes keep reaching
 # for `i18n.X` as they always have. The readers below bind this server's locales
 # directory; the relay's copy binds its own.
-from splouch_i18n import (DEFAULT_THEME_COLORS, DEFAULT_THEME_FONTS,
-                          _FALLBACK_LABELS, resolve_labels,
-                          STYLED_LABEL_KEYS as STYLED_LABEL_KEYS)
+from splouch_i18n import (
+    _FALLBACK_LABELS,
+    DEFAULT_THEME_COLORS,
+    DEFAULT_THEME_FONTS,
+    STYLED_LABEL_KEYS as STYLED_LABEL_KEYS,
+    resolve_labels,
+)
 
 
 def available_locales():
@@ -63,30 +68,26 @@ def i18n_bundle(code):
 
 
 _STROKE_ALIASES = [
-    ('individual medley', 'medley'),
-    ('breaststroke',      'breaststroke'),
-    ('backstroke',        'backstroke'),
-    ('butterfly',         'butterfly'),
-    ('freestyle',         'freestyle'),
-    ('medley',            'medley'),
-    ('breast',            'breaststroke'),
-    ('back',              'backstroke'),
-    ('free',              'freestyle'),
-    ('fly',               'butterfly'),
-    ('im',                'medley'),
+    ("individual medley", "medley"),
+    ("breaststroke", "breaststroke"),
+    ("backstroke", "backstroke"),
+    ("butterfly", "butterfly"),
+    ("freestyle", "freestyle"),
+    ("medley", "medley"),
+    ("breast", "breaststroke"),
+    ("back", "backstroke"),
+    ("free", "freestyle"),
+    ("fly", "butterfly"),
+    ("im", "medley"),
 ]
 
 _GENDER_PATTERNS = [
-    (r"\bwomen(?:'s)?\b", 'women'),
-    (r"\bgirls?(?:'s)?\b", 'girls'),
-    (r"\bmen(?:'s)?\b", 'men'),
-    (r"\bboys?(?:'s)?\b", 'boys'),
-    (r"\bmixed\b", 'mixed'),
+    (r"\bwomen(?:'s)?\b", "women"),
+    (r"\bgirls?(?:'s)?\b", "girls"),
+    (r"\bmen(?:'s)?\b", "men"),
+    (r"\bboys?(?:'s)?\b", "boys"),
+    (r"\bmixed\b", "mixed"),
 ]
-
-
-
-
 
 
 def labels_for(code, style):
@@ -95,7 +96,7 @@ def labels_for(code, style):
     Falls back to the built-in English table when the language ships no `[labels]`
     section at all — a board with blank headers is worse than an untranslated one.
     """
-    labels = locale_section(code, 'labels')
+    labels = locale_section(code, "labels")
     if not labels:
         return dict(_FALLBACK_LABELS)
     return resolve_labels(labels, style)
@@ -107,8 +108,8 @@ def display_strings(code):
     An untranslated key falls back to English rather than rendering blank on a TV
     at the far end of the pool.
     """
-    base = locale_section('en', 'display')
-    return base if code == 'en' else {**base, **locale_section(code, 'display')}
+    base = locale_section("en", "display")
+    return base if code == "en" else {**base, **locale_section(code, "display")}
 
 
 def panel_strings(code, *sections):
@@ -126,19 +127,20 @@ def panel_strings(code, *sections):
 
 def event_translations(code):
     """The `[event_name]` vocabulary a parsed event name is rendered against."""
-    return locale_section(code, 'event_name')
+    return locale_section(code, "event_name")
 
 
 def _read_locale_name(path, fallback):
     try:
-        with open(path, 'rb') as f:
-            return tomllib.load(f).get('meta', {}).get('name', fallback)
+        with open(path, "rb") as f:
+            return tomllib.load(f).get("meta", {}).get("name", fallback)
     except Exception:
         return fallback
 
+
 def list_locales():
     result = []
-    for path in sorted(glob.glob(os.path.join(paths.LOCALES_DIR, '*.toml'))):
+    for path in sorted(glob.glob(os.path.join(paths.LOCALES_DIR, "*.toml"))):
         code = os.path.splitext(os.path.basename(path))[0]
         result.append((code, _read_locale_name(path, code)))
     return result
@@ -146,30 +148,41 @@ def list_locales():
 
 def _read_theme_name(path, fallback):
     try:
-        with open(path, 'rb') as f:
-            return tomllib.load(f).get('name', fallback)
+        with open(path, "rb") as f:
+            return tomllib.load(f).get("name", fallback)
     except Exception:
         return fallback
 
+
 def list_builtin_themes():
-    return [(os.path.splitext(os.path.basename(p))[0],
-             _read_theme_name(p, os.path.splitext(os.path.basename(p))[0]))
-            for p in sorted(glob.glob(os.path.join(paths.THEME_FOLDER, '*.toml')))]
+    return [
+        (
+            os.path.splitext(os.path.basename(p))[0],
+            _read_theme_name(p, os.path.splitext(os.path.basename(p))[0]),
+        )
+        for p in sorted(glob.glob(os.path.join(paths.THEME_FOLDER, "*.toml")))
+    ]
+
 
 def list_custom_themes():
-    return [(os.path.splitext(os.path.basename(p))[0],
-             _read_theme_name(p, os.path.splitext(os.path.basename(p))[0]))
-            for p in sorted(glob.glob(os.path.join(paths.CUSTOM_THEME_FOLDER, '*.toml')))]
+    return [
+        (
+            os.path.splitext(os.path.basename(p))[0],
+            _read_theme_name(p, os.path.splitext(os.path.basename(p))[0]),
+        )
+        for p in sorted(glob.glob(os.path.join(paths.CUSTOM_THEME_FOLDER, "*.toml")))
+    ]
+
 
 def load_theme(code):
-    path = os.path.join(paths.CUSTOM_THEME_FOLDER, code + '.toml')
+    path = os.path.join(paths.CUSTOM_THEME_FOLDER, code + ".toml")
     if not os.path.exists(path):
-        path = os.path.join(paths.THEME_FOLDER, code + '.toml')
+        path = os.path.join(paths.THEME_FOLDER, code + ".toml")
     try:
-        with open(path, 'rb') as f:
+        with open(path, "rb") as f:
             data = tomllib.load(f)
-        colors = {**DEFAULT_THEME_COLORS, **data.get('colors', {})}
-        fonts  = {**DEFAULT_THEME_FONTS,  **data.get('fonts',  {})}
+        colors = {**DEFAULT_THEME_COLORS, **data.get("colors", {})}
+        fonts = {**DEFAULT_THEME_FONTS, **data.get("fonts", {})}
         return colors, fonts
     except Exception:
         return dict(DEFAULT_THEME_COLORS), dict(DEFAULT_THEME_FONTS)
@@ -178,10 +191,11 @@ def load_theme(code):
 # Distances, with and without a unit. Metric only: nothing in this project renders
 # yards, and matching `50y` here would print it as "50 m" — a wrong distance reads
 # worse than a missing one.
-_UNITS = r'(?:metres|meters|metre|meter|m)'
-_DIST_WITH_UNIT = re.compile(r'\b(\d+\s*[xX]\s*\d+|\d+)\s*' + _UNITS + r'\b',
-                             re.IGNORECASE)
-_DIST_BARE      = re.compile(r'\b(\d+\s*[xX]\s*\d+|\d+)\b')
+_UNITS = r"(?:metres|meters|metre|meter|m)"
+_DIST_WITH_UNIT = re.compile(
+    r"\b(\d+\s*[xX]\s*\d+|\d+)\s*" + _UNITS + r"\b", re.IGNORECASE
+)
+_DIST_BARE = re.compile(r"\b(\d+\s*[xX]\s*\d+|\d+)\b")
 
 
 def parse_event_name(raw):
@@ -200,34 +214,36 @@ def parse_event_name(raw):
         return None
     s = raw.strip()
 
-    gender = ''
+    gender = ""
     for pat, key in _GENDER_PATTERNS:
         if re.search(pat, s, re.IGNORECASE):
             gender = key
             break
 
-    age, age_key = '', ''
+    age, age_key = "", ""
     s_rest = s
     age_m = re.search(
-        r'\b(\d+)\s*(?:[Uu](?:nder)?|&\s*[Uu]nder|[Aa]nd\s+[Uu]nder)\b'
-        r'|\b[Uu](\d+)\b', s)
+        r"\b(\d+)\s*(?:[Uu](?:nder)?|&\s*[Uu]nder|[Aa]nd\s+[Uu]nder)\b"
+        r"|\b[Uu](\d+)\b",
+        s,
+    )
     if age_m:
-        num    = age_m.group(1) or age_m.group(2)
-        age    = '< ' + num
-        s_rest = s[:age_m.start()] + s[age_m.end():]
+        num = age_m.group(1) or age_m.group(2)
+        age = "< " + num
+        s_rest = s[: age_m.start()] + s[age_m.end() :]
     else:
-        range_m = re.search(r'\b(\d{1,2}-\d{1,2})\b', s)
+        range_m = re.search(r"\b(\d{1,2}-\d{1,2})\b", s)
         if range_m:
-            age    = range_m.group(1)
-            s_rest = s[:range_m.start()] + s[range_m.end():]
-        elif re.search(r'\bopen\b', s, re.IGNORECASE):
-            age_key = 'open'
-            s_rest  = re.sub(r'\bopen\b', '', s, flags=re.IGNORECASE)
-        elif re.search(r'\bsenior\b', s, re.IGNORECASE):
-            age_key = 'senior'
-            s_rest  = re.sub(r'\bsenior\b', '', s, flags=re.IGNORECASE)
+            age = range_m.group(1)
+            s_rest = s[: range_m.start()] + s[range_m.end() :]
+        elif re.search(r"\bopen\b", s, re.IGNORECASE):
+            age_key = "open"
+            s_rest = re.sub(r"\bopen\b", "", s, flags=re.IGNORECASE)
+        elif re.search(r"\bsenior\b", s, re.IGNORECASE):
+            age_key = "senior"
+            s_rest = re.sub(r"\bsenior\b", "", s, flags=re.IGNORECASE)
 
-    is_relay = bool(re.search(r'\brelay\b', s_rest, re.IGNORECASE))
+    is_relay = bool(re.search(r"\brelay\b", s_rest, re.IGNORECASE))
 
     # A distance with its unit attached first — `100m`, `4x50 m`, `200 metres` —
     # then a bare number as the fallback.
@@ -241,19 +257,26 @@ def parse_event_name(raw):
     # Trying the unit first also settles which number is the distance when a name
     # carries more than one: `Mixed 13 & Over 4x50m Freestyle Relay` used to take
     # the `13` from the age band and call it the distance.
-    dist   = ''
+    dist = ""
     dist_m = _DIST_WITH_UNIT.search(s_rest) or _DIST_BARE.search(s_rest)
     if dist_m:
-        dist = re.sub(r'\s+', '', dist_m.group(1))
+        dist = re.sub(r"\s+", "", dist_m.group(1))
 
-    stroke = ''
+    stroke = ""
     for alias, key in _STROKE_ALIASES:
-        if re.search(r'\b' + re.escape(alias) + r'\b', s_rest, re.IGNORECASE):
+        if re.search(r"\b" + re.escape(alias) + r"\b", s_rest, re.IGNORECASE):
             stroke = key
             break
 
-    return {'raw': raw, 'dist': dist, 'stroke': stroke, 'relay': is_relay,
-            'gender': gender, 'age': age, 'age_key': age_key}
+    return {
+        "raw": raw,
+        "dist": dist,
+        "stroke": stroke,
+        "relay": is_relay,
+        "gender": gender,
+        "age": age,
+        "age_key": age_key,
+    }
 
 
 def compose_event_name(parts, ev):
@@ -264,29 +287,30 @@ def compose_event_name(parts, ev):
     blank, the same floor `T-10` sets for every other string.
     """
     if not parts:
-        return ''
+        return ""
     if not ev:
-        return parts.get('raw', '')
-    unit = ev.get('unit', 'm')
-    sep  = ev.get('separator', '  \u2014  ')
+        return parts.get("raw", "")
+    unit = ev.get("unit", "m")
+    sep = ev.get("separator", "  \u2014  ")
 
     left_parts = []
-    if parts.get('dist'):
-        left_parts.append(parts['dist'] + ' ' + unit)
-    if parts.get('stroke'):
-        left_parts.append(ev.get(parts['stroke'], parts['stroke']))
-    if parts.get('relay') and ev.get('relay'):
-        left_parts.append(ev['relay'])
-    left = ' '.join(left_parts)
+    if parts.get("dist"):
+        left_parts.append(parts["dist"] + " " + unit)
+    if parts.get("stroke"):
+        left_parts.append(ev.get(parts["stroke"], parts["stroke"]))
+    if parts.get("relay") and ev.get("relay"):
+        left_parts.append(ev["relay"])
+    left = " ".join(left_parts)
 
-    age = parts.get('age') or (ev.get(parts['age_key'], parts['age_key'])
-                               if parts.get('age_key') else '')
-    gender = ev.get(parts['gender'], parts['gender']) if parts.get('gender') else ''
-    right = ' '.join(p for p in [gender, age] if p)
+    age = parts.get("age") or (
+        ev.get(parts["age_key"], parts["age_key"]) if parts.get("age_key") else ""
+    )
+    gender = ev.get(parts["gender"], parts["gender"]) if parts.get("gender") else ""
+    right = " ".join(p for p in [gender, age] if p)
 
     if left and right:
         return left + sep + right
-    return left or right or parts.get('raw', '')
+    return left or right or parts.get("raw", "")
 
 
 def translate_event_name(raw, ev):

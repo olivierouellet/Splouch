@@ -13,21 +13,22 @@ only becomes meaningful at its split, and that arrives as `lane_time<i>`.
 
 Needs PySide6 (`uv run pytest tests/`); skips without it.
 """
+
 import time
 
 import pytest
 
-pytest.importorskip('PySide6', reason='needs the `scoreboard` extra (PySide6)')
+pytest.importorskip("PySide6", reason="needs the `scoreboard` extra (PySide6)")
 
-from scoreboard.board import BoardWindow          # noqa: E402
-from scoreboard.theme import Config               # noqa: E402
+from scoreboard.board import BoardWindow  # noqa: E402
+from scoreboard.theme import Config  # noqa: E402
 
 # `qt_app` comes from tests/conftest.py — session-scoped, fonts already loaded.
 
 
 @pytest.fixture
 def board(qt_app):
-    window = BoardWindow(Config({'num_lanes': 4}))
+    window = BoardWindow(Config({"num_lanes": 4}))
     window.resize(1920, 1080)
     window.show()
     qt_app.processEvents()
@@ -45,14 +46,15 @@ def _pump(qt_app, seconds):
 
 
 def test_running_lanes_mirror_the_race_clock(board, qt_app):
-    board.apply_update({'running_time': '5.00',
-                        'lane_running1': True, 'lane_running2': True})
+    board.apply_update(
+        {"running_time": "5.00", "lane_running1": True, "lane_running2": True}
+    )
     qt_app.processEvents()
     assert board.rows[0].time_label.text() == board.chrono_label.text()
     assert board.rows[1].time_label.text() == board.chrono_label.text()
     # Lanes with no swimmer running must stay untouched.
-    assert board.rows[2].time_label.text() == ''
-    assert board.rows[3].time_label.text() == ''
+    assert board.rows[2].time_label.text() == ""
+    assert board.rows[3].time_label.text() == ""
 
 
 def test_clock_interpolates_between_console_frames(board, qt_app):
@@ -61,35 +63,37 @@ def test_clock_interpolates_between_console_frames(board, qt_app):
     Rendering only those frames makes the hundredths visibly step, so the board
     re-bases on each frame and interpolates locally in between.
     """
-    board.apply_update({'running_time': '5.00', 'lane_running1': True})
+    board.apply_update({"running_time": "5.00", "lane_running1": True})
     qt_app.processEvents()
-    _pump(qt_app, 0.4)                       # no further console frames
-    assert board.chrono_label.text() != '5.00', 'clock did not advance on its own'
+    _pump(qt_app, 0.4)  # no further console frames
+    assert board.chrono_label.text() != "5.00", "clock did not advance on its own"
     assert board.rows[0].time_label.text() == board.chrono_label.text()
 
 
 def test_a_split_freezes_the_lane_until_the_hold_ends(board, qt_app):
     """The case this feature exists for."""
-    board.apply_update({'running_time': '5.00',
-                        'lane_running1': True, 'lane_running2': True})
+    board.apply_update(
+        {"running_time": "5.00", "lane_running1": True, "lane_running2": True}
+    )
     qt_app.processEvents()
 
     # Lane 1 touches the wall: flag drops, split arrives in the same frame.
-    board.apply_update({'lane_running1': False, 'lane_time1': '28.41',
-                        'running_time': '28.60'})
+    board.apply_update(
+        {"lane_running1": False, "lane_time1": "28.41", "running_time": "28.60"}
+    )
     qt_app.processEvents()
-    assert board.rows[0].time_label.text() == '28.41'
+    assert board.rows[0].time_label.text() == "28.41"
 
     # It must hold there while lane 2 keeps swimming.
     _pump(qt_app, 0.3)
-    assert board.rows[0].time_label.text() == '28.41', 'split was overwritten'
-    assert board.rows[1].time_label.text() != '28.41', 'lane 2 should still tick'
+    assert board.rows[0].time_label.text() == "28.41", "split was overwritten"
+    assert board.rows[1].time_label.text() != "28.41", "lane 2 should still tick"
 
     # The console's hold expires: the lane rejoins the clock.
-    board.apply_update({'lane_running1': True, 'running_time': '30.00'})
+    board.apply_update({"lane_running1": True, "running_time": "30.00"})
     qt_app.processEvents()
     _pump(qt_app, 0.15)
-    assert board.rows[0].time_label.text() != '28.41'
+    assert board.rows[0].time_label.text() != "28.41"
 
 
 def test_later_frames_do_not_stamp_the_split_back_over_a_running_lane(board, qt_app):
@@ -98,31 +102,39 @@ def test_later_frames_do_not_stamp_the_split_back_over_a_running_lane(board, qt_
     Every subsequent frame touching that lane redraws it, so a running lane has to
     ignore `lane_time<i>` or the stale split would flicker over the live clock.
     """
-    board.apply_update({'running_time': '5.00', 'lane_running1': True,
-                        'lane_time1': '28.41'})
+    board.apply_update(
+        {"running_time": "5.00", "lane_running1": True, "lane_time1": "28.41"}
+    )
     qt_app.processEvents()
-    board.apply_update({'lane_club1': 'CAMO'})      # unrelated field, same lane
+    board.apply_update({"lane_club1": "CAMO"})  # unrelated field, same lane
     qt_app.processEvents()
-    assert board.rows[0].time_label.text() != '28.41'
+    assert board.rows[0].time_label.text() != "28.41"
 
 
 def test_ticker_stops_when_the_last_lane_finishes(board, qt_app):
-    board.apply_update({'running_time': '5.00',
-                        'lane_running1': True, 'lane_running2': True})
+    board.apply_update(
+        {"running_time": "5.00", "lane_running1": True, "lane_running2": True}
+    )
     qt_app.processEvents()
-    board.apply_update({'lane_running1': False, 'lane_running2': False,
-                        'lane_time1': '58.12', 'lane_time2': '59.03'})
+    board.apply_update(
+        {
+            "lane_running1": False,
+            "lane_running2": False,
+            "lane_time1": "58.12",
+            "lane_time2": "59.03",
+        }
+    )
     qt_app.processEvents()
 
-    assert not board._clock_timer.isActive(), 'ticker left running with no swimmers'
+    assert not board._clock_timer.isActive(), "ticker left running with no swimmers"
     finals = [row.time_label.text() for row in board.rows]
     _pump(qt_app, 0.25)
-    assert [row.time_label.text() for row in board.rows] == finals, 'finals drifted'
+    assert [row.time_label.text() for row in board.rows] == finals, "finals drifted"
 
 
 def test_stop_clock_freezes_everything(board, qt_app):
     """`race_finished` calls this in case a `lane_running` frame was missed."""
-    board.apply_update({'running_time': '5.00', 'lane_running1': True})
+    board.apply_update({"running_time": "5.00", "lane_running1": True})
     qt_app.processEvents()
     assert board._clock_timer.isActive()
 
@@ -144,33 +156,33 @@ def test_unparseable_running_time_is_shown_verbatim(board, qt_app):
     ignores `running_time` whatever it says (see
     test_a_late_running_time_does_not_restart_the_header).
     """
-    board.apply_update({'running_time': '5.00', 'lane_running1': True})
+    board.apply_update({"running_time": "5.00", "lane_running1": True})
     qt_app.processEvents()
-    board.apply_update({'lane_running1': False, 'lane_time1': '58.12'})  # no place yet
+    board.apply_update({"lane_running1": False, "lane_time1": "58.12"})  # no place yet
     qt_app.processEvents()
 
-    board.apply_update({'running_time': '??:??'})
+    board.apply_update({"running_time": "??:??"})
     qt_app.processEvents()
-    assert board.chrono_label.text() == '??:??'
+    assert board.chrono_label.text() == "??:??"
 
 
 def test_an_unparseable_value_never_blanks_a_running_clock(board, qt_app):
     """The guarantee the test above is really protecting. Mid-race the ticker owns
     the cell, so the garbage lasts less than a frame — but it must not leave a hole
     in the header on its way past."""
-    board.apply_update({'running_time': '5.00', 'lane_running1': True})
+    board.apply_update({"running_time": "5.00", "lane_running1": True})
     qt_app.processEvents()
-    board.apply_update({'running_time': '??:??'})
+    board.apply_update({"running_time": "??:??"})
     qt_app.processEvents()
-    assert board.chrono_label.text() != '', 'a bad frame blanked the race clock'
+    assert board.chrono_label.text() != "", "a bad frame blanked the race clock"
 
 
 def test_reset_stops_the_clock(board, qt_app):
-    board.apply_update({'running_time': '5.00', 'lane_running1': True})
+    board.apply_update({"running_time": "5.00", "lane_running1": True})
     qt_app.processEvents()
     board.reset()
     assert not board._clock_timer.isActive()
-    assert board.rows[0].time_label.text() == ''
+    assert board.rows[0].time_label.text() == ""
 
 
 def test_the_race_clock_clears_when_the_heat_ends(board, qt_app):
@@ -179,47 +191,53 @@ def test_the_race_clock_clears_when_the_heat_ends(board, qt_app):
     We clear the *text* instead of hiding the widget, because a hidden widget
     leaves the layout and everything to its left slides across.
     """
-    board.apply_update({'running_time': '12.30', 'lane_running1': True})
+    board.apply_update({"running_time": "12.30", "lane_running1": True})
     qt_app.processEvents()
     assert board.chrono_label.text()
 
-    board.apply_update({'lane_running1': False, 'lane_time1': '1:12.44'})
+    board.apply_update({"lane_running1": False, "lane_time1": "1:12.44"})
     qt_app.processEvents()
-    assert board.chrono_label.text() == '', 'clock still showing after the heat'
+    assert board.chrono_label.text() == "", "clock still showing after the heat"
 
 
 def test_clearing_the_clock_does_not_move_the_header(board, qt_app):
     """Nothing beside the clock may shift as heats come and go."""
-    board.apply_update({'current_event': '3', 'current_heat': '1',
-                        'running_time': '12.30', 'lane_running1': True})
+    board.apply_update(
+        {
+            "current_event": "3",
+            "current_heat": "1",
+            "running_time": "12.30",
+            "lane_running1": True,
+        }
+    )
     qt_app.processEvents()
     slot = board.chrono_label.geometry()
     name = board.name_label.geometry()
 
-    board.apply_update({'lane_running1': False, 'lane_time1': '1:12.44'})
+    board.apply_update({"lane_running1": False, "lane_time1": "1:12.44"})
     qt_app.processEvents()
-    assert board.chrono_label.geometry() == slot, 'the clock gave up its space'
-    assert board.name_label.geometry() == name, 'the event name moved'
+    assert board.chrono_label.geometry() == slot, "the clock gave up its space"
+    assert board.name_label.geometry() == name, "the event name moved"
 
 
 def test_stop_clock_also_clears_it(board, qt_app):
     """`race_finished` arrives even when a `lane_running` frame was missed."""
-    board.apply_update({'running_time': '12.30', 'lane_running1': True})
+    board.apply_update({"running_time": "12.30", "lane_running1": True})
     qt_app.processEvents()
     board.stop_clock()
-    assert board.chrono_label.text() == ''
+    assert board.chrono_label.text() == ""
 
 
 def test_the_next_race_brings_it_back(board, qt_app):
-    board.apply_update({'running_time': '12.30', 'lane_running1': True})
+    board.apply_update({"running_time": "12.30", "lane_running1": True})
     qt_app.processEvents()
-    board.apply_update({'lane_running1': False})
+    board.apply_update({"lane_running1": False})
     qt_app.processEvents()
-    assert board.chrono_label.text() == ''
+    assert board.chrono_label.text() == ""
 
-    board.apply_update({'running_time': '0.00', 'lane_running2': True})
+    board.apply_update({"running_time": "0.00", "lane_running2": True})
     qt_app.processEvents()
-    assert board.chrono_label.text(), 'the clock did not come back for the next race'
+    assert board.chrono_label.text(), "the clock did not come back for the next race"
 
 
 # ── Which owner has the cell ───────────────────────────────────────────────────
@@ -228,27 +246,30 @@ def test_the_next_race_brings_it_back(board, qt_app):
 # (`.time-running`) and flashes the split from white down to the time colour when it
 # locks (`time-lock-flash`); without that the two are indistinguishable.
 
+
 def test_a_running_lane_is_greyed(board, qt_app):
     from scoreboard.board import _TIME_RUNNING
-    board.apply_update({'running_time': '12.30', 'lane_running1': True})
+
+    board.apply_update({"running_time": "12.30", "lane_running1": True})
     qt_app.processEvents()
     assert _TIME_RUNNING in board.rows[0].time_label.styleSheet().lower()
     # A lane that never started keeps the plain time colour.
-    assert board.cfg.color('time') in board.rows[1].time_label.styleSheet()
+    assert board.cfg.color("time") in board.rows[1].time_label.styleSheet()
 
 
 def test_locking_a_split_flashes_it_back_to_the_time_colour(board, qt_app):
-    board.apply_update({'running_time': '12.30', 'lane_running1': True})
+    board.apply_update({"running_time": "12.30", "lane_running1": True})
     qt_app.processEvents()
-    board.apply_update({'lane_running1': False, 'lane_time1': '28.41'})
+    board.apply_update({"lane_running1": False, "lane_time1": "28.41"})
     qt_app.processEvents()
 
     anim = board.rows[0]._time_anim
-    assert anim is not None, 'the split locked without a flash'
+    assert anim is not None, "the split locked without a flash"
     assert anim.duration() == 800
     anim.setCurrentTime(anim.duration())
-    assert board.cfg.color('time').lower() in \
-        board.rows[0].time_label.styleSheet().lower()
+    assert (
+        board.cfg.color("time").lower() in board.rows[0].time_label.styleSheet().lower()
+    )
 
 
 def test_rejoining_the_clock_cancels_a_flash_in_flight(board, qt_app):
@@ -258,22 +279,24 @@ def test_rejoining_the_clock_cancels_a_flash_in_flight(board, qt_app):
     rejoin the clock with one still in flight.
     """
     from scoreboard.board import _TIME_RUNNING
-    board.apply_update({'running_time': '12.30', 'lane_running1': True})
+
+    board.apply_update({"running_time": "12.30", "lane_running1": True})
     qt_app.processEvents()
-    board.apply_update({'lane_running1': False, 'lane_time1': '28.41'})
+    board.apply_update({"lane_running1": False, "lane_time1": "28.41"})
     qt_app.processEvents()
     assert board.rows[0]._time_anim is not None
 
-    board.apply_update({'lane_running1': True})
+    board.apply_update({"lane_running1": True})
     qt_app.processEvents()
-    assert board.rows[0]._time_anim is None, 'the flash outlived the pause'
+    assert board.rows[0]._time_anim is None, "the flash outlived the pause"
     assert _TIME_RUNNING in board.rows[0].time_label.styleSheet().lower()
 
 
 def test_a_restyle_keeps_the_running_grey(board, qt_app):
     """`apply_theme` runs on every /config reload, mid-race included."""
     from scoreboard.board import _TIME_RUNNING
-    board.apply_update({'running_time': '12.30', 'lane_running1': True})
+
+    board.apply_update({"running_time": "12.30", "lane_running1": True})
     qt_app.processEvents()
     board.rows[0].apply_theme()
     assert _TIME_RUNNING in board.rows[0].time_label.styleSheet().lower()
@@ -282,11 +305,12 @@ def test_a_restyle_keeps_the_running_grey(board, qt_app):
 def test_the_next_heat_clears_the_running_grey(board, qt_app):
     """The browser's `reset_times()`, called as the new start list is painted."""
     from scoreboard.board import _TIME_RUNNING
-    board.apply_update({'running_time': '12.30', 'lane_running1': True})
+
+    board.apply_update({"running_time": "12.30", "lane_running1": True})
     qt_app.processEvents()
     board.rows[0].clear()
     assert _TIME_RUNNING not in board.rows[0].time_label.styleSheet().lower()
-    assert board.cfg.color('time') in board.rows[0].time_label.styleSheet()
+    assert board.cfg.color("time") in board.rows[0].time_label.styleSheet()
 
 
 # ── Tenths, not hundredths ─────────────────────────────────────────────────────
@@ -297,53 +321,55 @@ def test_the_next_heat_clears_the_running_grey(board, qt_app):
 # had the problem: `/live` writes the console's own string into the lane cells, and
 # the phone board formats to tenths outright (`formatTenths` in scoreboard_base).
 
+
 def test_the_running_clock_shows_a_still_last_digit(board, qt_app):
-    board.apply_update({'running_time': '12.30', 'lane_running1': True})
+    board.apply_update({"running_time": "12.30", "lane_running1": True})
     qt_app.processEvents()
     seen = set()
     for _ in range(12):
         _pump(qt_app, 0.05)
         seen.add(board.chrono_label.text())
-    assert len(seen) > 1, 'the clock did not run at all'
+    assert len(seen) > 1, "the clock did not run at all"
     for text in seen:
-        assert text.endswith('0'), f'{text!r} — the hundredths digit is still moving'
+        assert text.endswith("0"), f"{text!r} — the hundredths digit is still moving"
 
 
 def test_every_running_lane_shows_the_same_still_digit(board, qt_app):
-    board.apply_update({'running_time': '12.30',
-                        'lane_running1': True, 'lane_running2': True})
+    board.apply_update(
+        {"running_time": "12.30", "lane_running1": True, "lane_running2": True}
+    )
     _pump(qt_app, 0.2)
     assert board.rows[0].time_label.text() == board.chrono_label.text()
     assert board.rows[1].time_label.text() == board.chrono_label.text()
-    assert board.chrono_label.text().endswith('0')
+    assert board.chrono_label.text().endswith("0")
 
 
 def test_the_console_frame_is_rounded_too(board, qt_app):
     """A console that does report hundredths while running would otherwise make the
     figure jump between its value and the ticker's zero — the flicker, with a step."""
-    board.apply_update({'running_time': '12.37', 'lane_running1': True})
+    board.apply_update({"running_time": "12.37", "lane_running1": True})
     qt_app.processEvents()
-    assert board.chrono_label.text() == '12.30'
+    assert board.chrono_label.text() == "12.30"
 
 
 def test_a_finished_time_keeps_its_hundredths(board, qt_app):
     """Only the *running* clock is rounded. A split or a final time is the console's
     own figure and is written straight through — that precision is the whole point
     of the sport."""
-    board.apply_update({'running_time': '12.30', 'lane_running1': True})
+    board.apply_update({"running_time": "12.30", "lane_running1": True})
     qt_app.processEvents()
-    board.apply_update({'lane_running1': False, 'lane_time1': '1:02.47'})
+    board.apply_update({"lane_running1": False, "lane_time1": "1:02.47"})
     qt_app.processEvents()
-    assert board.rows[0].time_label.text() == '1:02.47'
+    assert board.rows[0].time_label.text() == "1:02.47"
 
 
 def test_the_width_never_changes_as_it_runs(board, qt_app):
     """Two digits either way. A figure that narrows by a character when it stops
     would shift everything around it — worse than the flicker it replaced."""
-    board.apply_update({'running_time': '9.30', 'lane_running1': True})
+    board.apply_update({"running_time": "9.30", "lane_running1": True})
     _pump(qt_app, 0.15)
     running = board.chrono_label.text()
-    assert len(running.split('.')[1]) == 2, f'{running!r} dropped a digit'
+    assert len(running.split(".")[1]) == 2, f"{running!r} dropped a digit"
 
 
 # ── The clock stops when the heat does ─────────────────────────────────────────
@@ -359,73 +385,92 @@ def test_the_width_never_changes_as_it_runs(board, qt_app):
 # `/live` never had this. Its whole `running_time` block sits inside
 # `if (any_running)`, over the same condition `heat_is_done()` expresses here.
 
+
 def _finish_the_heat(board, qt_app):
-    board.apply_update({'current_event': '3', 'current_heat': '1',
-                        'lane_name1': 'Roy, Zoé', 'lane_name2': 'Côté, Léa'})
+    board.apply_update(
+        {
+            "current_event": "3",
+            "current_heat": "1",
+            "lane_name1": "Roy, Zoé",
+            "lane_name2": "Côté, Léa",
+        }
+    )
     board.cancel_heat_transition()
-    board.apply_update({'running_time': '10.00',
-                        'lane_running1': True, 'lane_running2': True})
+    board.apply_update(
+        {"running_time": "10.00", "lane_running1": True, "lane_running2": True}
+    )
     qt_app.processEvents()
-    board.apply_update({'lane_running1': False, 'lane_time1': '58.12', 'lane_place1': '1',
-                        'lane_running2': False, 'lane_time2': '59.03', 'lane_place2': '2'})
+    board.apply_update(
+        {
+            "lane_running1": False,
+            "lane_time1": "58.12",
+            "lane_place1": "1",
+            "lane_running2": False,
+            "lane_time2": "59.03",
+            "lane_place2": "2",
+        }
+    )
     qt_app.processEvents()
 
 
 def test_a_late_running_time_does_not_restart_the_header(board, qt_app):
     _finish_the_heat(board, qt_app)
-    assert board.chrono_label.text() == '', 'it did not clear in the first place'
+    assert board.chrono_label.text() == "", "it did not clear in the first place"
 
-    for value in ('59.10', '1:02.40', '1:20.00'):
-        board.apply_update({'running_time': value})
+    for value in ("59.10", "1:02.40", "1:20.00"):
+        board.apply_update({"running_time": value})
         qt_app.processEvents()
-        assert board.chrono_label.text() == '', \
-            f'the console said {value} with the pool empty and the board believed it'
+        assert board.chrono_label.text() == "", (
+            f"the console said {value} with the pool empty and the board believed it"
+        )
 
 
 def test_the_ticker_stays_stopped_too(board, qt_app):
     """Not just the paint: a re-based clock with no lane to own it would start
     counting again the moment anything looked like it was running."""
     _finish_the_heat(board, qt_app)
-    board.apply_update({'running_time': '59.10'})
+    board.apply_update({"running_time": "59.10"})
     _pump(qt_app, 0.2)
     assert not board._clock_timer.isActive()
-    assert board.chrono_label.text() == ''
+    assert board.chrono_label.text() == ""
 
 
 def test_a_lane_still_awaiting_its_place_keeps_the_clock(board, qt_app):
     """The browser's other half: a lane with a time but no place yet is not
     finished, so the heat is not over and the clock still belongs to it."""
-    board.apply_update({'current_event': '3', 'current_heat': '1'})
+    board.apply_update({"current_event": "3", "current_heat": "1"})
     board.cancel_heat_transition()
-    board.apply_update({'running_time': '10.00', 'lane_running1': True})
+    board.apply_update({"running_time": "10.00", "lane_running1": True})
     qt_app.processEvents()
     # Stops with a time but no place — the console has not placed it yet.
-    board.apply_update({'lane_running1': False, 'lane_time1': '58.12'})
-    board.apply_update({'running_time': '58.30'})
+    board.apply_update({"lane_running1": False, "lane_time1": "58.12"})
+    board.apply_update({"running_time": "58.30"})
     qt_app.processEvents()
-    assert board.chrono_label.text() == '58.30', 'gave up on a heat still being placed'
+    assert board.chrono_label.text() == "58.30", "gave up on a heat still being placed"
 
 
 def test_the_next_heat_gets_its_clock_back(board, qt_app):
     """The guard must not be a one-way door."""
     _finish_the_heat(board, qt_app)
-    board.apply_update({'current_event': '3', 'current_heat': '2',
-                        'lane_name1': 'Nguyen, An'})
+    board.apply_update(
+        {"current_event": "3", "current_heat": "2", "lane_name1": "Nguyen, An"}
+    )
     board.cancel_heat_transition()
-    board.apply_update({'running_time': '0.00', 'lane_running1': True})
+    board.apply_update({"running_time": "0.00", "lane_running1": True})
     qt_app.processEvents()
-    assert board.chrono_label.text() == '0.00'
+    assert board.chrono_label.text() == "0.00"
 
-    board.apply_update({'running_time': '4.50'})
+    board.apply_update({"running_time": "4.50"})
     qt_app.processEvents()
-    assert board.chrono_label.text() == '4.50'
+    assert board.chrono_label.text() == "4.50"
 
 
 def test_an_idle_board_shows_no_clock_at_all(board, qt_app):
     """Nothing has run yet, so a streaming console clock is not this heat's."""
-    board.apply_update({'current_event': '3', 'current_heat': '1',
-                        'lane_name1': 'Roy, Zoé'})
+    board.apply_update(
+        {"current_event": "3", "current_heat": "1", "lane_name1": "Roy, Zoé"}
+    )
     board.cancel_heat_transition()
-    board.apply_update({'running_time': '12.30'})
+    board.apply_update({"running_time": "12.30"})
     qt_app.processEvents()
-    assert board.chrono_label.text() == ''
+    assert board.chrono_label.text() == ""

@@ -19,6 +19,7 @@ the launcher differs — see `_NODE_BOOTSTRAP` for why node needs one. With neit
 present the tests skip, and CI fails instead: a green run that quietly dropped every
 page's load path is worse than a red one.
 """
+
 import json
 import os
 import re
@@ -27,11 +28,13 @@ import subprocess
 import tempfile
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-STATIC = os.path.join(REPO, 'shared', 'static')
+STATIC = os.path.join(REPO, "shared", "static")
 
 # osascript first, so the machine this is usually written on keeps running the pages
 # under the same engine it always has, and node is what CI resolves to.
-_ENGINE = 'jsc' if shutil.which('osascript') else ('node' if shutil.which('node') else None)
+_ENGINE = (
+    "jsc" if shutil.which("osascript") else ("node" if shutil.which("node") else None)
+)
 HAS_JS_ENGINE = _ENGINE is not None
 
 # node runs a file in the CommonJS module scope, so the stub DOM's `var document = ...`
@@ -55,7 +58,7 @@ _NODE_BOOTSTRAP = (
 # the pages ask of it. Widen it when a page needs something, rather than teaching it to
 # model layout — the moment it has opinions it starts passing pages a browser would
 # not, which is worse than not running them.
-_DOM = r'''
+_DOM = r"""
 var __calls = [];
 function __node(tag) {
   var n = {
@@ -165,12 +168,11 @@ var self = window;
 var crypto = window.crypto;
 function getComputedStyle() { return window.getComputedStyle(); }
 function matchMedia() { return window.matchMedia(); }
-'''
+"""
 
 
 class PageScriptError(AssertionError):
     pass
-
 
 
 def js_argv(path):
@@ -180,30 +182,35 @@ def js_argv(path):
     `foldName()` rather than a whole page, and which engine to reach for should be
     decided in exactly one place.
     """
-    return (['osascript', '-l', 'JavaScript', path] if _ENGINE == 'jsc'
-            else ['node', '-e', _NODE_BOOTSTRAP, path])
+    return (
+        ["osascript", "-l", "JavaScript", path]
+        if _ENGINE == "jsc"
+        else ["node", "-e", _NODE_BOOTSTRAP, path]
+    )
 
 
 def _scripts(html):
     """Every script in document order: (label, source). `src` is read off disk."""
     out = []
-    for i, m in enumerate(re.finditer(r'<script([^>]*)>(.*?)</script>', html, re.S)):
+    for i, m in enumerate(re.finditer(r"<script([^>]*)>(.*?)</script>", html, re.S)):
         attrs, body = m.group(1), m.group(2)
         src = re.search(r'src="([^"]+)"', attrs)
         if src:
             path = src.group(1)
-            if not path.startswith('/static/'):
-                continue                      # external; a browser would fetch it, we skip
-            disk = os.path.join(STATIC, path[len('/static/'):])
+            if not path.startswith("/static/"):
+                continue  # external; a browser would fetch it, we skip
+            disk = os.path.join(STATIC, path[len("/static/") :])
             if not os.path.isfile(disk):
-                raise PageScriptError('page references %s, which is not in shared/static' % path)
-            out.append((path, open(disk, encoding='utf-8').read()))
+                raise PageScriptError(
+                    "page references %s, which is not in shared/static" % path
+                )
+            out.append((path, open(disk, encoding="utf-8").read()))
         else:
-            out.append(('inline #%d' % i, body))
+            out.append(("inline #%d" % i, body))
     return out
 
 
-def run_page(html, extra=''):
+def run_page(html, extra=""):
     """Execute the page's scripts in order. Raises on the first uncaught error.
 
     Each script runs through an indirect `eval`, which is a separate program in the
@@ -218,23 +225,26 @@ def run_page(html, extra=''):
     """
     scripts = _scripts(html)
     program = [
-        _DOM, extra,
-        'var __src = %s;' % json.dumps([body for _, body in scripts]),
-        'var __labels = %s;' % json.dumps([label for label, _ in scripts]),
+        _DOM,
+        extra,
+        "var __src = %s;" % json.dumps([body for _, body in scripts]),
+        "var __labels = %s;" % json.dumps([label for label, _ in scripts]),
         'var __current = "harness";',
-        '__result = (function () {',
-        '  for (var i = 0; i < __src.length; i++) {',
-        '    __current = __labels[i];',
-        '    try { (0, eval)(__src[i]); }',
+        "__result = (function () {",
+        "  for (var i = 0; i < __src.length; i++) {",
+        "    __current = __labels[i];",
+        "    try { (0, eval)(__src[i]); }",
         r'    catch (e) { return ["ERROR", __current, e && e.name, e && e.message].join("\t"); }',
-        '  }',
+        "  }",
         '  return "OK";',
-        '})();',
+        "})();",
         r'__result + "\n" + __calls.join(",")',
     ]
 
-    with tempfile.NamedTemporaryFile('w', suffix='.js', delete=False, encoding='utf-8') as fh:
-        fh.write('\n'.join(program))
+    with tempfile.NamedTemporaryFile(
+        "w", suffix=".js", delete=False, encoding="utf-8"
+    ) as fh:
+        fh.write("\n".join(program))
         path = fh.name
     try:
         res = subprocess.run(js_argv(path), capture_output=True, text=True)
@@ -242,13 +252,16 @@ def run_page(html, extra=''):
         os.unlink(path)
 
     if res.returncode != 0:
-        raise PageScriptError('%s refused the program:\n%s' % (_ENGINE, res.stderr.strip()))
-
-    head, _, scheduled = res.stdout.strip().partition('\n')
-    if head.startswith('ERROR'):
-        _, where, name, message = head.split('\t', 3)
         raise PageScriptError(
-            'the page threw while executing %s\n    %s: %s\n'
-            'A browser stops the whole block there, so everything after it never runs.'
-            % (where, name, message))
+            "%s refused the program:\n%s" % (_ENGINE, res.stderr.strip())
+        )
+
+    head, _, scheduled = res.stdout.strip().partition("\n")
+    if head.startswith("ERROR"):
+        _, where, name, message = head.split("\t", 3)
+        raise PageScriptError(
+            "the page threw while executing %s\n    %s: %s\n"
+            "A browser stops the whole block there, so everything after it never runs."
+            % (where, name, message)
+        )
     return scheduled

@@ -73,16 +73,16 @@ last 128 hex chars → `mappings[0,2,4,…,30]` (even).
 
 ```python
 def remap_byte(src, state):
-    if src > 127:                          # high-bit byte: reset state
-        state.count   = 0
-        state.mapper  = mappings[src & 31]
-        state.is_odd  = (src % 2) == 1
-        return src                         # high-bit bytes pass through unchanged
-    elif state.count == 0:                 # first data byte after high-bit
+    if src > 127:  # high-bit byte: reset state
+        state.count = 0
+        state.mapper = mappings[src & 31]
+        state.is_odd = (src % 2) == 1
+        return src  # high-bit bytes pass through unchanged
+    elif state.count == 0:  # first data byte after high-bit
         state.map_len = (src ^ (state.mapper & 0x7F)) & 0xFFFFFFFF
-        state.count  += 1
+        state.count += 1
         return state.map_len & 0xFF
-    else:                                  # subsequent data bytes
+    else:  # subsequent data bytes
         rot = (state.map_len * state.count) & 0xFFFFFFFF
         if state.is_odd:
             xor_val = rotate_right32(state.mapper, rot) & 0x7F

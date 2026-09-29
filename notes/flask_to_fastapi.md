@@ -148,10 +148,11 @@ None of these require complex logic — they are one-line settings — but they 
 app.add_middleware(SessionMiddleware, secret_key=SECRET_KEY, https_only=True)
 
 # login handler
-if hmac.compare_digest(provided_password, state.settings['password']):
+if hmac.compare_digest(provided_password, state.settings["password"]):
     request.session.clear()
     request.session["logged_in"] = True
     return RedirectResponse("/", status_code=303)
+
 
 # dependency used on every protected route
 def require_login(request: Request):
@@ -180,12 +181,16 @@ Option B example:
 ```python
 def base_context(request: Request) -> dict:
     return dict(
-        request=request,   # required by FastAPI's TemplateResponse
+        request=request,  # required by FastAPI's TemplateResponse
         labels=state.load_locale(),
-        num_lanes=int(state.settings.get('num_lanes', 6)),
-        theme_colors={**state.DEFAULT_THEME_COLORS, **state.settings.get('theme_colors', {})},
+        num_lanes=int(state.settings.get("num_lanes", 6)),
+        theme_colors={
+            **state.DEFAULT_THEME_COLORS,
+            **state.settings.get("theme_colors", {}),
+        },
         # ... etc.
     )
+
 
 @router.get("/live")
 def route_live(ctx: dict = Depends(base_context)):

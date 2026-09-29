@@ -18,6 +18,7 @@ critical section here is a few dict operations with no ``await`` inside, and the
 blocking file I/O around them is pushed to a thread by the callers
 (``run_in_threadpool``). See notes/async_architecture.md.
 """
+
 import datetime
 import glob
 import hashlib
@@ -29,7 +30,6 @@ import threading
 import cloud_paths
 from cloud_paths import atomic_write
 
-
 # _meets: meet_id -> {
 #   relay_key, relay_sid, organizer, name, location, sport, meet_date,
 #   settings, connected_at, clock_at,
@@ -40,13 +40,22 @@ from cloud_paths import atomic_write
 #   disconnects, until it expires. Persisted per meet under RETAINED_DIR. Fields:
 #   organizer, relay_key, name, location, sport, app_window_title, meet_date,
 #   settings, schedule_data, last_seen (iso), expires_at (iso or None while live).
-_meets      = {}
-_relay_sids = {}   # relay connection id -> meet_id
-_lock       = threading.Lock()
+_meets = {}
+_relay_sids = {}  # relay connection id -> meet_id
+_lock = threading.Lock()
 
 # Fields copied from a live meet into its retained snapshot.
-_RETAINED_FIELDS = ('organizer', 'relay_key', 'name', 'location', 'sport',
-                    'app_window_title', 'meet_date', 'settings', 'schedule_data')
+_RETAINED_FIELDS = (
+    "organizer",
+    "relay_key",
+    "name",
+    "location",
+    "sport",
+    "app_window_title",
+    "meet_date",
+    "settings",
+    "schedule_data",
+)
 
 # The retained store is persisted as one small metadata file per meet plus
 # separate files for the big fields — so a persist writes only the meet that
@@ -58,13 +67,11 @@ _RETAINED_FIELDS = ('organizer', 'relay_key', 'name', 'location', 'sport',
 #   <id>.schedule.json   schedule_data (start list)
 #   <id>.icon / .picker  the home-icon / picker-image base64 strings
 # See info/async_architecture.md ("Scaling the cloud persistence").
-_ID_RE = re.compile(r'^[A-Za-z0-9_-]{1,64}$')   # meet id -> safe filename
-
+_ID_RE = re.compile(r"^[A-Za-z0-9_-]{1,64}$")  # meet id -> safe filename
 
 
 def _meet_file(meet_id, suffix):
     return os.path.join(cloud_paths.RETAINED_DIR, meet_id + suffix)
-
 
 
 def _write_blob(path, text):
@@ -80,12 +87,12 @@ def _split_record(rec):
 
     `meta` is a shallow copy safe to serialize — the big fields are pulled out of
     it, not out of the shared record."""
-    meta     = dict(rec)
-    schedule = meta.pop('schedule_data', None)
-    settings = dict(meta.get('settings') or {})
-    icon     = settings.pop('home_icon_b64', '')
-    picker   = settings.pop('picker_image_b64', '')
-    meta['settings'] = settings
+    meta = dict(rec)
+    schedule = meta.pop("schedule_data", None)
+    settings = dict(meta.get("settings") or {})
+    icon = settings.pop("home_icon_b64", "")
+    picker = settings.pop("picker_image_b64", "")
+    meta["settings"] = settings
     return meta, schedule, icon, picker
 
 
@@ -94,22 +101,24 @@ def _write_meet_files(meet_id, rec, write_schedule, write_images):
     loop. The metadata file is always written; the big blobs only when the event
     that changed them asks (register -> images, schedule_snapshot -> schedule), so
     an unchanged blob isn't rewritten on every reconnect."""
-    if not _ID_RE.match(meet_id or ''):
+    if not _ID_RE.match(meet_id or ""):
         return
     meta, schedule, icon, picker = _split_record(rec)
-    atomic_write(_meet_file(meet_id, '.json'), json.dumps(meta, indent=2))
+    atomic_write(_meet_file(meet_id, ".json"), json.dumps(meta, indent=2))
     if write_schedule:
-        _write_blob(_meet_file(meet_id, '.schedule.json'),
-                    json.dumps(schedule) if schedule else '')
+        _write_blob(
+            _meet_file(meet_id, ".schedule.json"),
+            json.dumps(schedule) if schedule else "",
+        )
     if write_images:
-        _write_blob(_meet_file(meet_id, '.icon'),   icon)
-        _write_blob(_meet_file(meet_id, '.picker'), picker)
+        _write_blob(_meet_file(meet_id, ".icon"), icon)
+        _write_blob(_meet_file(meet_id, ".picker"), picker)
 
 
 def _delete_meet_files(meet_id):
-    if not _ID_RE.match(meet_id or ''):
+    if not _ID_RE.match(meet_id or ""):
         return
-    for suffix in ('.json', '.schedule.json', '.icon', '.picker'):
+    for suffix in (".json", ".schedule.json", ".icon", ".picker"):
         try:
             os.remove(_meet_file(meet_id, suffix))
         except OSError:
@@ -120,24 +129,27 @@ def _load_retained():
     """Load every per-meet file back into one in-memory dict of full records."""
     os.makedirs(cloud_paths.RETAINED_DIR, exist_ok=True)
     store = {}
-    for path in glob.glob(os.path.join(cloud_paths.RETAINED_DIR, '*.json')):
-        if path.endswith('.schedule.json'):
+    for path in glob.glob(os.path.join(cloud_paths.RETAINED_DIR, "*.json")):
+        if path.endswith(".schedule.json"):
             continue
-        mid = os.path.basename(path)[:-len('.json')]
+        mid = os.path.basename(path)[: -len(".json")]
         try:
             with open(path) as f:
                 rec = json.load(f)
         except (json.JSONDecodeError, OSError):
             continue
-        sp = _meet_file(mid, '.schedule.json')
+        sp = _meet_file(mid, ".schedule.json")
         if os.path.exists(sp):
             try:
                 with open(sp) as f:
-                    rec['schedule_data'] = json.load(f)
+                    rec["schedule_data"] = json.load(f)
             except (json.JSONDecodeError, OSError):
                 pass
-        settings = rec.setdefault('settings', {})
-        for suffix, field in (('.icon', 'home_icon_b64'), ('.picker', 'picker_image_b64')):
+        settings = rec.setdefault("settings", {})
+        for suffix, field in (
+            (".icon", "home_icon_b64"),
+            (".picker", "picker_image_b64"),
+        ):
             bp = _meet_file(mid, suffix)
             if os.path.exists(bp):
                 try:
@@ -157,8 +169,8 @@ def _persist_meet_mem(meet_id, meet):
     Caller holds _lock."""
     snap = _retained.get(meet_id, {})
     snap.update({k: meet.get(k) for k in _RETAINED_FIELDS})
-    snap['last_seen']   = datetime.datetime.now().isoformat(timespec='seconds')
-    snap['expires_at']  = None   # live — never expires while connected
+    snap["last_seen"] = datetime.datetime.now().isoformat(timespec="seconds")
+    snap["expires_at"] = None  # live — never expires while connected
     _retained[meet_id] = snap
 
 
@@ -180,7 +192,9 @@ def _compute_expiry(meet_date, when=None):
             base = None
     if base is None:
         base = when.date()
-    return datetime.datetime.combine(base, datetime.time.min) + datetime.timedelta(days=1)
+    return datetime.datetime.combine(base, datetime.time.min) + datetime.timedelta(
+        days=1
+    )
 
 
 def _meet_id_for(key, meet_uid):
@@ -190,7 +204,7 @@ def _meet_id_for(key, meet_uid):
     separate LENEX files — each landing on its own stable picker card and
     reattaching on reload.
     """
-    return hashlib.sha256(f'{key}:{meet_uid}'.encode()).hexdigest()[:11]
+    return hashlib.sha256(f"{key}:{meet_uid}".encode()).hexdigest()[:11]
 
 
 def _retire_mem(meet_id):
@@ -201,8 +215,10 @@ def _retire_mem(meet_id):
         return
     snap = _retained.get(meet_id, {})
     snap.update({k: meet.get(k) for k in _RETAINED_FIELDS})
-    snap['last_seen']  = datetime.datetime.now().isoformat(timespec='seconds')
-    snap['expires_at'] = _compute_expiry(meet.get('meet_date', '')).isoformat(timespec='seconds')
+    snap["last_seen"] = datetime.datetime.now().isoformat(timespec="seconds")
+    snap["expires_at"] = _compute_expiry(meet.get("meet_date", "")).isoformat(
+        timespec="seconds"
+    )
     _retained[meet_id] = snap
 
 
@@ -214,7 +230,7 @@ def _sweep_expired():
         for meet_id in list(_retained):
             if meet_id in _meets:
                 continue  # still connected — keep visible regardless of expiry
-            exp = _retained[meet_id].get('expires_at')
+            exp = _retained[meet_id].get("expires_at")
             if exp and datetime.datetime.fromisoformat(exp) <= now:
                 del _retained[meet_id]
                 expired.append(meet_id)

@@ -56,13 +56,17 @@ how to add a console decoder.
 
 ## Before you open a pull request
 
-All three must pass:
+All four must pass:
 
 ```bash
 uv run pytest tests/      # about a minute with Qt, seconds without
+uv run ruff format --check
 uv run ruff check
 uv run ty check
 ```
+
+`uv run ruff format` and `uv run ruff check --fix` fix the first two for you, and
+VS Code with the recommended Ruff extension does both on save.
 
 They are clean on `master`, tests included, and are expected to stay that way. `ty` is
 still pre-1.0, so treat a new diagnostic from it as a question rather than a verdict —
@@ -75,9 +79,11 @@ but so far the answer has been worth having every time.
 These are the ones that trip people up. They are not style preferences for their own
 sake; each has a reason in the tree.
 
-**Don't run `ruff format`.** It rewrites 58% of the lines here, flattening the aligned
-assignments and hand-wrapped import blocks that make modules like `state` readable. Lint
-only — `uv run ruff check`.
+**Ruff owns layout and import order.** Code is formatted with `ruff format` and imports
+are sorted by Ruff's `I` rules, both on Ruff's defaults; CI fails on either drifting.
+Don't hand-align assignments or hand-wrap import blocks — the formatter will undo it.
+If a block genuinely reads better laid out by hand (a table of constants, say), wrap it
+in `# fmt: off` / `# fmt: on` with a reason, as sparingly as a `# noqa`.
 
 **No `per-file-ignores`.** Every suppression is a `# noqa` on the line it applies to,
 with a reason, so a silenced rule stays visible where it was silenced and the rest of the

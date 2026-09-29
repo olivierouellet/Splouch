@@ -47,8 +47,8 @@ Each data byte encodes one display digit in its high nibble and carries
 its own slot index in the high nibble:
 
 ```python
-slot  = (byte >> 4) & 0x0F    # which digit slot (0–7)
-value = byte & 0x0F            # raw nibble value
+slot = (byte >> 4) & 0x0F  # which digit slot (0–7)
+value = byte & 0x0F  # raw nibble value
 ```
 
 Converting a nibble to a display character:
@@ -56,7 +56,7 @@ Converting a nibble to a display character:
 ```python
 def hex_to_digit(c):
     c = (c & 0x0F) ^ 0x0F
-    return ' ' if c > 9 else str(c)
+    return " " if c > 9 else str(c)
 ```
 
 ### Time formatting (6 digits → string)
@@ -64,12 +64,12 @@ def hex_to_digit(c):
 Digits at slots 2–7 encode a time in `MM:SS.HH` format:
 
 ```python
-def format_time(a, b, c, d, e, f):   # slots 2,3,4,5,6,7
-    m1, m2 = hex_to_digit(a), hex_to_digit(b)   # minutes
-    s1, s2 = hex_to_digit(c), hex_to_digit(d)   # seconds
-    h1, h2 = hex_to_digit(e), hex_to_digit(f)   # hundredths
-    if s1 == s2 == h1 == h2 == ' ':
-        return ''                                 # blank = no time
+def format_time(a, b, c, d, e, f):  # slots 2,3,4,5,6,7
+    m1, m2 = hex_to_digit(a), hex_to_digit(b)  # minutes
+    s1, s2 = hex_to_digit(c), hex_to_digit(d)  # seconds
+    h1, h2 = hex_to_digit(e), hex_to_digit(f)  # hundredths
+    if s1 == s2 == h1 == h2 == " ":
+        return ""  # blank = no time
     ...
 ```
 

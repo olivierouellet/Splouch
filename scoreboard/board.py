@@ -22,16 +22,30 @@ Four things depart from the browser, deliberately:
 
 ``notes/scoreboard_parity.md`` is the full ledger of what matches and what does not.
 """
+
 import os
 import re
 import time
 
-from PySide6.QtCore import (QEasingCurve, QPropertyAnimation, Qt, QTimer,
-                          QVariantAnimation, Signal)
+from PySide6.QtCore import (
+    QEasingCurve,
+    QPropertyAnimation,
+    Qt,
+    QTimer,
+    QVariantAnimation,
+    Signal,
+)
 from PySide6.QtGui import QColor, QFont, QFontMetrics
-from PySide6.QtWidgets import (QApplication, QFrame, QGraphicsOpacityEffect,
-                               QHBoxLayout, QLabel, QSizePolicy, QVBoxLayout,
-                               QWidget)
+from PySide6.QtWidgets import (
+    QApplication,
+    QFrame,
+    QGraphicsOpacityEffect,
+    QHBoxLayout,
+    QLabel,
+    QSizePolicy,
+    QVBoxLayout,
+    QWidget,
+)
 
 # Qt's "no maximum" sentinel. PyQt5 exported it from QtWidgets; PySide6 does not,
 # so it is spelled out here — it is a fixed part of the Qt API, not a guess.
@@ -43,14 +57,14 @@ QWIDGETSIZE_MAX = 16777215
 from .format import fmt_clock, fmt_delta, parse_clock  # noqa: E402
 from .menu import OperatorMenu  # noqa: E402
 from .splash import SplashOverlay  # noqa: E402
-from .version import cached_version  # noqa: E402
 from .theme import Config  # noqa: E402
+from .version import cached_version  # noqa: E402
 from .widgets import FitLabel  # noqa: E402
 
 # Clock repaint cadence. 50ms matches the browser: fast enough that hundredths
 # look continuous, slow enough to stay cheap on a Pi.
 _CLOCK_TICK_MS = 50
-_WALL_CLOCK_TICK_MS = 10_000        # HH:MM only — no need to tick every second
+_WALL_CLOCK_TICK_MS = 10_000  # HH:MM only — no need to tick every second
 
 # Header bar height, as a fraction of the window. The browser's 85px at 1080p is
 # the floor of what is readable across a pool deck, so this is deliberately larger.
@@ -65,8 +79,8 @@ _H_BAR = 0.105
 # so there is no separate label ratio any more: `EV 12` is one phrase at _R_DIGITS.
 # It used to be 0.15 of the bar — 16px at 1080p — which is legible on a desk and not
 # at all across a pool deck, which is the only place this display is ever read.
-_R_VALUE  = 0.62    # event name
-_R_DIGITS = 0.57    # event/heat cells, both clocks
+_R_VALUE = 0.62  # event name
+_R_DIGITS = 0.57  # event/heat cells, both clocks
 
 # Header cell widths, as percentages of the bar. Fixed rather than content-derived,
 # so nothing shifts when the event number gains a digit or the race clock blanks
@@ -110,8 +124,8 @@ _W_LANE, _W_NAME, _W_CLUB, _W_TIME, _W_DELTA, _W_PLACE = 5, 49, 8, 17, 15, 6
 # on a centred label just shifts it off centre. Rows themselves have no margins and
 # no spacing, so the weights above apply to the full width exactly as the vw widths
 # do in the browser.
-_PAD_NAME  = 0.02
-_PAD_CLUB  = 0.01
+_PAD_NAME = 0.02
+_PAD_CLUB = 0.01
 
 # The three columns that slide in when a race starts, and how long that takes.
 # 500ms matches `.timing-anim { transition: … 0.5s ease }` in timing_display.css.
@@ -120,34 +134,34 @@ _COL_ANIM_MS = 500
 # Heat transition: the podium tints
 # fade, then the columns close, then the table fades out, is swapped while
 # invisible, and fades back in. Each step is 500ms in the browser.
-_PODIUM_FADE_MS  = 500
+_PODIUM_FADE_MS = 500
 _CONTENT_FADE_MS = 500
 _COL_TOTAL_WEIGHT = _W_LANE + _W_NAME + _W_CLUB + _W_TIME + _W_DELTA + _W_PLACE
 
 # Podium reveal, mirroring highlight_podium() in live.html: gold, silver and bronze
 # arrive 400ms apart, each easing in over the 0.5s the browser's `background-color`
 # transition takes.
-_PODIUM_STEP_MS    = 400
+_PODIUM_STEP_MS = 400
 _PODIUM_FADE_IN_MS = 500
 
 # Lane time colours while a race is on, from `.time-running` and the
 # `time-lock-flash` keyframes. Hardcoded in timing_display.css too — they are not
 # theme keys there, and inventing settings that exist on only one of the two
 # displays would be worse than matching the browser exactly.
-_TIME_RUNNING   = '#a0a0a0'
-_TIME_LOCK_FROM = '#ffffff'
-_TIME_LOCK_MS   = 800
+_TIME_RUNNING = "#a0a0a0"
+_TIME_LOCK_FROM = "#ffffff"
+_TIME_LOCK_MS = 800
 
 # The link-lost badge and the frozen clock share one colour, so the two obviously
 # belong to each other. It comes from the theme (`connection_lost`, Settings →
 # Theme → Status), like every other colour on the board — the stock value is a red
 # that stands clear of the gold `time` it replaces.
 
-_LANE_SUFFIX = re.compile(r'(\d+)$')
+_LANE_SUFFIX = re.compile(r"(\d+)$")
 
 # Fractions of a row's height used as the font ceiling for each kind of cell.
 _FONT_MAIN = 0.52
-_FONT_ALT  = 0.7 * _FONT_MAIN   # `.name-sub` is `0.7em` of the row's own text
+_FONT_ALT = 0.7 * _FONT_MAIN  # `.name-sub` is `0.7em` of the row's own text
 
 # Column titles are 3vh against the rows' 5vh — 60% of the row text. The header row
 # is half a lane row (stretch 1 against 2), so 62% of its own height lands there.
@@ -216,7 +230,7 @@ class LaneRow(QFrame):
     def __init__(self, lane: int, cfg: Config, parent=None):
         super().__init__(parent)
         self.lane = lane
-        self.cfg  = cfg
+        self.cfg = cfg
         # While True the time cell belongs to the board's clock ticker, not to
         # `lane_time<i>` — see BoardWindow._tick_clock.
         self.running = False
@@ -225,14 +239,14 @@ class LaneRow(QFrame):
         # Last `lane_place<i>` seen. Recorded rather than acted on: the podium tint
         # arrives at the end of the heat, not the moment a place lands — see
         # BoardWindow.highlight_podium.
-        self._place = ''
+        self._place = ""
         # Whether the delta cell is currently showing a lap count rather than a
         # delta, and whether that lap is the final stretch — `apply_theme` needs both
         # to know which of the three colours the cell owes after a reload.
         self._lap_shown = False
         self._lap_final = False
         self._podium_anim = None
-        self._time_anim   = None
+        self._time_anim = None
         self.setAutoFillBackground(True)
         self.setFrameShape(QFrame.Shape.NoFrame)
 
@@ -252,9 +266,13 @@ class LaneRow(QFrame):
         name_box.setContentsMargins(0, 0, 0, 0)
         name_box.setSpacing(0)
         self.name_label = FitLabel()
-        self.name_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+        self.name_label.setAlignment(
+            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
+        )
         self.alt_label = FitLabel()
-        self.alt_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+        self.alt_label.setAlignment(
+            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
+        )
         self.alt_label.hide()
         # Split in the browser's own proportion — 5vh of name over 3.5vh of relay
         # line — rather than evenly. The name's font ceiling is then taken from the
@@ -273,7 +291,9 @@ class LaneRow(QFrame):
         self.name_cell.setLayout(name_box)
 
         self.club_label = FitLabel()
-        self.club_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+        self.club_label.setAlignment(
+            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
+        )
 
         # All shrink-to-fit. Qt clips a label to its own rect, so an oversized
         # value is not lost into the neighbour — it is cut through a glyph, which
@@ -292,12 +312,14 @@ class LaneRow(QFrame):
         # the layout and inflate the window — a 1080p board came out 1460px tall,
         # which on a fullscreen TV means the bottom lane is cut off. Rows are sized
         # purely by their stretch weights.
-        for widget, weight in ((self.lane_label,  _W_LANE),
-                               (self.name_cell,   _W_NAME),
-                               (self.club_label,  _W_CLUB),
-                               (self.time_label,  _W_TIME),
-                               (self.delta_label, _W_DELTA),
-                               (self.place_label, _W_PLACE)):
+        for widget, weight in (
+            (self.lane_label, _W_LANE),
+            (self.name_cell, _W_NAME),
+            (self.club_label, _W_CLUB),
+            (self.time_label, _W_TIME),
+            (self.delta_label, _W_DELTA),
+            (self.place_label, _W_PLACE),
+        ):
             widget.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Ignored)
             widget.setMinimumSize(0, 0)
             row.addWidget(widget, weight)
@@ -312,8 +334,8 @@ class LaneRow(QFrame):
     # ── Appearance ─────────────────────────────────────────────────────────────
 
     def apply_theme(self):
-        cfg  = self.cfg
-        self._base_bg = cfg.color('row_odd' if self.lane % 2 else 'row_even')
+        cfg = self.cfg
+        self._base_bg = cfg.color("row_odd" if self.lane % 2 else "row_even")
         # Re-assert whatever tint is correct *now*: a `/config` reload runs this on a
         # board that may already be showing a podium, and repainting it to the plain
         # stripe would drop the tint until the next heat. Same reasoning as
@@ -321,10 +343,15 @@ class LaneRow(QFrame):
         key = self.podium_key()
         self._set_bg(cfg.color(key) if key else self._base_bg)
 
-        text_color = cfg.color('row_text')
-        for label in (self.lane_label, self.name_label, self.alt_label,
-                      self.club_label, self.place_label):
-            label.setStyleSheet(f'color: {text_color}; background: transparent;')
+        text_color = cfg.color("row_text")
+        for label in (
+            self.lane_label,
+            self.name_label,
+            self.alt_label,
+            self.club_label,
+            self.place_label,
+        ):
+            label.setStyleSheet(f"color: {text_color}; background: transparent;")
             label.setFont(QFont(cfg.family))
         # The lane number and the place take the *digits* font, matching
         # `tbody td:first-child, [id^="lane_place"]` in timing_display.css — on the
@@ -343,7 +370,7 @@ class LaneRow(QFrame):
         # Grey while the clock owns the cell, otherwise the time colour. Restated
         # here for the same reason as the tint above.
         self._stop_time_flash()
-        self._style_time(_TIME_RUNNING if self.running else cfg.color('time'))
+        self._style_time(_TIME_RUNNING if self.running else cfg.color("time"))
 
         self.name_cell.setVisible(cfg.show_name)
         self.club_label.setVisible(cfg.show_club)
@@ -352,11 +379,13 @@ class LaneRow(QFrame):
 
     def animated_cells(self):
         """(widget, weight) for the columns that slide in at race start."""
-        return ((self.time_label,  _W_TIME),
-                (self.delta_label, _W_DELTA),
-                (self.place_label, _W_PLACE))
+        return (
+            (self.time_label, _W_TIME),
+            (self.delta_label, _W_DELTA),
+            (self.place_label, _W_PLACE),
+        )
 
-    def resizeEvent(self, event):     # noqa: N802 — Qt naming
+    def resizeEvent(self, event):  # noqa: N802 — Qt naming
         super().resizeEvent(event)
         _pad_columns(self.width(), self.name_cell, self.club_label)
         self.set_row_height(self.height())
@@ -370,8 +399,13 @@ class LaneRow(QFrame):
         every cell was sized about three times too large.
         """
         main = max(8, int(height * _FONT_MAIN))
-        for label in (self.lane_label, self.club_label, self.time_label,
-                      self.delta_label, self.place_label):
+        for label in (
+            self.lane_label,
+            self.club_label,
+            self.time_label,
+            self.delta_label,
+            self.place_label,
+        ):
             label.set_max_px(main)
 
         # The name shares its cell with the relay line, so cap it from the slice it
@@ -384,10 +418,14 @@ class LaneRow(QFrame):
         else:
             share = 1.0
         self.name_label.set_max_px(
-            max(8, min(main, int(height * share * _FONT_OF_CELL))))
+            max(8, min(main, int(height * share * _FONT_OF_CELL)))
+        )
         self.alt_label.set_max_px(
-            max(8, min(int(height * _FONT_ALT),
-                       int(height * (1 - share) * _FONT_OF_CELL))))
+            max(
+                8,
+                min(int(height * _FONT_ALT), int(height * (1 - share) * _FONT_OF_CELL)),
+            )
+        )
 
     def _style_delta(self, better):
         """Colour the delta from `lane_delta_better<i>` (Settings → Theme).
@@ -403,8 +441,8 @@ class LaneRow(QFrame):
         self._delta_better = better
         if self._lap_shown:
             return
-        color = self.cfg.color('delta_better' if better else 'delta_worse')
-        self.delta_label.setStyleSheet(f'color: {color}; background: transparent;')
+        color = self.cfg.color("delta_better" if better else "delta_worse")
+        self.delta_label.setStyleSheet(f"color: {color}; background: transparent;")
 
     # ── Lap count ──────────────────────────────────────────────────────────────
     # The delta cell has two tenants: this lane's lengths while it is swimming, then
@@ -420,8 +458,8 @@ class LaneRow(QFrame):
         once this is the final stretch. `.td_delta.lap-count` and its `.lap-final`
         resolve to the same two variables in CSS.
         """
-        colour = self.cfg.color('time' if final else 'header_label')
-        self.delta_label.setStyleSheet(f'color: {colour}; background: transparent;')
+        colour = self.cfg.color("time" if final else "header_label")
+        self.delta_label.setStyleSheet(f"color: {colour}; background: transparent;")
 
     def set_lap(self, text, final: bool = False):
         """Show *text* in the delta cell, or hand the cell back when it is None."""
@@ -445,37 +483,37 @@ class LaneRow(QFrame):
         """1, 2 or 3 when this row belongs on the podium, else ``None``."""
         if not self.cfg.show_podium:
             return None
-        place = (self._place or '').strip()
-        return int(place) if place in ('1', '2', '3') else None
+        place = (self._place or "").strip()
+        return int(place) if place in ("1", "2", "3") else None
 
     def podium_key(self):
         """The theme key for this row's tint, or ``None`` for the plain stripe."""
         place = self.podium_place()
-        return {1: 'podium_gold', 2: 'podium_silver',
-                3: 'podium_bronze'}.get(place)
+        return {1: "podium_gold", 2: "podium_silver", 3: "podium_bronze"}.get(place)
 
     def _set_bg(self, colour: str):
         """Paint the row background at once, cancelling any fade in flight."""
         self._stop_podium_fade()
         self._current_bg = colour
-        self.setStyleSheet(f'background-color: {colour};')
+        self.setStyleSheet(f"background-color: {colour};")
 
     def _paint_bg(self, colour: QColor):
         self._current_bg = colour.name()
-        self.setStyleSheet(f'background-color: {colour.name()};')
+        self.setStyleSheet(f"background-color: {colour.name()};")
 
     def _fade_bg(self, target: str, duration_ms: int):
-        start = QColor(getattr(self, '_current_bg', self._base_bg))
-        end   = QColor(target)
+        start = QColor(getattr(self, "_current_bg", self._base_bg))
+        end = QColor(target)
         if start == end:
             return
         self._stop_podium_fade()
-        self._podium_anim = _animate_color(self, start, end, duration_ms,
-                                           QEasingCurve.Type.InOutQuad, self._paint_bg)
+        self._podium_anim = _animate_color(
+            self, start, end, duration_ms, QEasingCurve.Type.InOutQuad, self._paint_bg
+        )
         self._podium_anim.finished.connect(self._stop_podium_fade)
 
     def _stop_podium_fade(self):
-        anim = getattr(self, '_podium_anim', None)
+        anim = getattr(self, "_podium_anim", None)
         if anim is not None:
             anim.stop()
             self._podium_anim = None
@@ -518,17 +556,17 @@ class LaneRow(QFrame):
         # Case-insensitively: `_current_bg` comes back from a fade as QColor.name()
         # (lower case) while `_base_bg` is whatever the operator typed into the
         # theme form, so `#202020` and `#202020` could compare unequal.
-        current = getattr(self, '_current_bg', self._base_bg)
+        current = getattr(self, "_current_bg", self._base_bg)
         if current.lower() != self._base_bg.lower():
             self._fade_bg(self._base_bg, duration_ms)
 
     # ── Lane time ──────────────────────────────────────────────────────────────
 
     def _style_time(self, colour: str):
-        self.time_label.setStyleSheet(f'color: {colour}; background: transparent;')
+        self.time_label.setStyleSheet(f"color: {colour}; background: transparent;")
 
     def _stop_time_flash(self):
-        anim = getattr(self, '_time_anim', None)
+        anim = getattr(self, "_time_anim", None)
         if anim is not None:
             anim.stop()
             self._time_anim = None
@@ -551,21 +589,26 @@ class LaneRow(QFrame):
     def _flash_time(self):
         self._stop_time_flash()
         self._time_anim = _animate_color(
-            self, _TIME_LOCK_FROM, self.cfg.color('time'), _TIME_LOCK_MS,
-            QEasingCurve.Type.OutQuad, lambda colour: self._style_time(colour.name()))
+            self,
+            _TIME_LOCK_FROM,
+            self.cfg.color("time"),
+            _TIME_LOCK_MS,
+            QEasingCurve.Type.OutQuad,
+            lambda colour: self._style_time(colour.name()),
+        )
         self._time_anim.finished.connect(self._stop_time_flash)
 
     # ── Data ───────────────────────────────────────────────────────────────────
 
     def clear(self):
-        self.name_label.setText('')
-        self.alt_label.setText('')
+        self.name_label.setText("")
+        self.alt_label.setText("")
         self.alt_label.hide()
-        self.club_label.setText('')
-        self.time_label.setText('')
-        self.delta_label.setText('')
-        self.place_label.setText('')
-        self._place = ''
+        self.club_label.setText("")
+        self.time_label.setText("")
+        self.delta_label.setText("")
+        self.place_label.setText("")
+        self._place = ""
         # Hands the delta cell back before the next heat writes into it — otherwise
         # the pulse would run on under a blank cell, and the first delta of the new
         # heat would be painted in the lap's colour.
@@ -574,7 +617,7 @@ class LaneRow(QFrame):
         # The browser's `reset_times()`, called from mode_to_intro(): drop any
         # running grey or half-finished lock flash before the next heat is painted.
         self._stop_time_flash()
-        self._style_time(self.cfg.color('time'))
+        self._style_time(self.cfg.color("time"))
         self.set_row_height(self.height())
 
     def lap_for(self, snapshot: dict):
@@ -594,22 +637,24 @@ class LaneRow(QFrame):
         i = self.lane
         if not self.cfg.show_laps:
             return None, False
-        if (snapshot.get(f'lane_place{i}', '') or '').strip():
+        if (snapshot.get(f"lane_place{i}", "") or "").strip():
             return None, False
-        if fmt_delta(snapshot.get(f'lane_delta_seconds{i}')):
+        if fmt_delta(snapshot.get(f"lane_delta_seconds{i}")):
             return None, False
 
-        done     = int(snapshot.get(f'lane_splits{i}') or 0)
-        expected = int(snapshot.get('expected_splits') or 0)
-        step     = int(snapshot.get('split_step') or 1)
-        counting_down = self.cfg.lap_direction == 'down' and expected > 0
+        done = int(snapshot.get(f"lane_splits{i}") or 0)
+        expected = int(snapshot.get("expected_splits") or 0)
+        step = int(snapshot.get("split_step") or 1)
+        counting_down = self.cfg.lap_direction == "down" and expected > 0
         if done <= 0:
             # Nothing swum yet. Counting up has nothing to say — a column of noughts
             # under a start list is noise — but counting down has the whole race to
             # report, so it shows from the moment the heat loads. It needs a swimmer
             # in the lane to say it about: an empty lane in a short heat must not
             # advertise eight lengths nobody is swimming.
-            if not (counting_down and (snapshot.get(f'lane_name{i}', '') or '').strip()):
+            if not (
+                counting_down and (snapshot.get(f"lane_name{i}", "") or "").strip()
+            ):
                 return None, False
         # The final stretch, exactly as the browser's `lapIsFinal` puts it: the next
         # thing the console reports is the finish, so this cannot be taken back.
@@ -621,9 +666,9 @@ class LaneRow(QFrame):
     def update_from(self, snapshot: dict):
         """Re-render from the merged scoreboard state (only this lane's keys)."""
         i = self.lane
-        self.name_label.setText(snapshot.get(f'lane_name{i}', ''))
+        self.name_label.setText(snapshot.get(f"lane_name{i}", ""))
 
-        alt = snapshot.get(f'lane_name_alt{i}', '')
+        alt = snapshot.get(f"lane_name_alt{i}", "")
         was_showing = self.alt_label.isVisibleTo(self)
         self.alt_label.setText(alt)
         self.alt_label.setVisible(bool(alt))
@@ -631,24 +676,24 @@ class LaneRow(QFrame):
             # The name's ceiling depends on whether it is sharing the cell.
             self.set_row_height(self.height())
 
-        self.club_label.setText(snapshot.get(f'lane_club{i}', ''))
+        self.club_label.setText(snapshot.get(f"lane_club{i}", ""))
         # A running lane's time is driven by the ticker; writing `lane_time<i>`
         # here would stamp the last split back over the live clock on every frame.
         if not self.running:
-            self.time_label.setText(snapshot.get(f'lane_time{i}', ''))
+            self.time_label.setText(snapshot.get(f"lane_time{i}", ""))
 
         # The delta cell, then the lap that may be standing in for it. `set_lap`
         # overwrites the text it just wrote when there is a lap to show, and hands
         # the cell back — text and colour both — the moment there is not.
-        self.delta_label.setText(fmt_delta(snapshot.get(f'lane_delta_seconds{i}')))
-        self._style_delta(snapshot.get(f'lane_delta_better{i}'))
+        self.delta_label.setText(fmt_delta(snapshot.get(f"lane_delta_seconds{i}")))
+        self._style_delta(snapshot.get(f"lane_delta_better{i}"))
         self.set_lap(*self.lap_for(snapshot))
 
         # Recorded, not acted on. The browser tints only once the heat is over —
         # `highlight_podium()` runs from `mode_to_results()` and `race_finished`, not
         # from the update handler — so tinting here would send the first finisher's
         # row gold while everyone else is still swimming.
-        place = (snapshot.get(f'lane_place{i}', '') or '').strip()
+        place = (snapshot.get(f"lane_place{i}", "") or "").strip()
         self._place = place
         self.place_label.setText(place)
         self.drop_stale_podium(_PODIUM_FADE_MS)
@@ -667,10 +712,10 @@ class Badge(QLabel):
     """
 
     def __init__(self, parent=None, *, at_top=False):
-        super().__init__('', parent)
+        super().__init__("", parent)
         self.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.at_top = at_top
-        self._tint  = '#ffffff'
+        self._tint = "#ffffff"
         self.hide()
 
     def apply_theme(self, cfg: Config, tint: str, text: str | None = None):
@@ -684,10 +729,13 @@ class Badge(QLabel):
         self.setStyleSheet(
             f"color: {text or cfg.color('bg')};"
             f"background-color: rgba({colour.red()},{colour.green()},{colour.blue()},0.75);"
-            f"border-radius: 6px;")
+            f"border-radius: 6px;"
+        )
         font = QFont(cfg.family)
         font.setBold(True)
-        font.setLetterSpacing(QFont.SpacingType.PercentageSpacing, 115)   # `.test-overlay`'s 0.15em
+        font.setLetterSpacing(
+            QFont.SpacingType.PercentageSpacing, 115
+        )  # `.test-overlay`'s 0.15em
         _restyle(self, font)
 
     def place(self, width: int, height: int, top_offset: int = 0):
@@ -722,9 +770,9 @@ class HeaderBar(QFrame):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.scale_children = None      # set by BoardWindow once its cells exist
+        self.scale_children = None  # set by BoardWindow once its cells exist
 
-    def resizeEvent(self, event):     # noqa: N802 — Qt naming
+    def resizeEvent(self, event):  # noqa: N802 — Qt naming
         super().resizeEvent(event)
         if self.scale_children is not None:
             self.scale_children(self.height())
@@ -757,9 +805,13 @@ class HeaderCell(QWidget):
         # itself through the style.
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         self.label = FitLabel(parent=self)
-        self.label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        self.label.setAlignment(
+            Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
+        )
         self.value = FitLabel(parent=self)
-        self.value.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+        self.value.setAlignment(
+            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
+        )
         for part in (self.label, self.value):
             part.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Ignored)
             part.setMinimumSize(0, 0)
@@ -773,13 +825,18 @@ class HeaderCell(QWidget):
         #
         # Scoped to the type, so the divider does not propagate down to the two
         # labels — a Qt stylesheet applies to a widget *and* its descendants.
-        edge = (f"border-left: 1px solid {self.cfg.color('header_border')};"
-                if self.divider else 'border: none;')
+        edge = (
+            f"border-left: 1px solid {self.cfg.color('header_border')};"
+            if self.divider
+            else "border: none;"
+        )
         self.setStyleSheet(f"HeaderCell {{ background: transparent; {edge} }}")
         self.label.setStyleSheet(
-            f"color: {self.cfg.color('header_label')}; background: transparent; border: none;")
+            f"color: {self.cfg.color('header_label')}; background: transparent; border: none;"
+        )
         self.value.setStyleSheet(
-            f"color: {self.cfg.color('header_value')}; background: transparent; border: none;")
+            f"color: {self.cfg.color('header_value')}; background: transparent; border: none;"
+        )
         # `.header_label`'s `letter-spacing: 0.08em`, which is most of what makes the
         # word read as a label rather than as text that happens to be there.
         word = QFont(self.cfg.family)
@@ -819,11 +876,11 @@ class HeaderCell(QWidget):
     def set_text(self, label: str, value: str):
         # A word with no number is not a label, it is a stray `EV` — and at this size
         # it would be the loudest thing on an idle board. The cell blanks whole.
-        self.label.setText(label if value else '')
+        self.label.setText(label if value else "")
         self.value.setText(value)
         self._relayout()
 
-    def resizeEvent(self, event):     # noqa: N802 — Qt naming
+    def resizeEvent(self, event):  # noqa: N802 — Qt naming
         super().resizeEvent(event)
         self._relayout()
 
@@ -833,9 +890,11 @@ class HeaderCell(QWidget):
         word.setPixelSize(px)
         number = QFont(self.value.font())
         number.setPixelSize(px)
-        return (QFontMetrics(word).horizontalAdvance(self.label.text()),
-                int(px * _HDR_INLINE_GAP) if self.label.text() else 0,
-                QFontMetrics(number).horizontalAdvance(self.value.text()))
+        return (
+            QFontMetrics(word).horizontalAdvance(self.label.text()),
+            int(px * _HDR_INLINE_GAP) if self.label.text() else 0,
+            QFontMetrics(number).horizontalAdvance(self.value.text()),
+        )
 
     def _relayout(self):
         """Place the word and the number at whatever size this cell is to use.
@@ -853,8 +912,12 @@ class HeaderCell(QWidget):
         self.label.set_max_px(best)
         self.value.set_max_px(best)
         self.label.setGeometry(rect.x(), rect.y(), word_w + 2, rect.height())
-        self.value.setGeometry(rect.x() + word_w + gap, rect.y(),
-                               max(1, avail - word_w - gap) + 2, rect.height())
+        self.value.setGeometry(
+            rect.x() + word_w + gap,
+            rect.y(),
+            max(1, avail - word_w - gap) + 2,
+            rect.height(),
+        )
 
 
 class HeaderRow(QFrame):
@@ -877,12 +940,22 @@ class HeaderRow(QFrame):
         # browser's own inconsistency (`.td_delta` is right, the `th` is centre) and
         # it is kept, so the two boards read identically.
         self.cells = {}
-        spec = (('lane',  _W_LANE,  Qt.AlignmentFlag.AlignCenter),
-                ('name',  _W_NAME,  Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter),
-                ('club',  _W_CLUB,  Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter),
-                ('time',  _W_TIME,  Qt.AlignmentFlag.AlignCenter),
-                ('delta', _W_DELTA, Qt.AlignmentFlag.AlignCenter),
-                ('place', _W_PLACE, Qt.AlignmentFlag.AlignCenter))
+        spec = (
+            ("lane", _W_LANE, Qt.AlignmentFlag.AlignCenter),
+            (
+                "name",
+                _W_NAME,
+                Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
+            ),
+            (
+                "club",
+                _W_CLUB,
+                Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
+            ),
+            ("time", _W_TIME, Qt.AlignmentFlag.AlignCenter),
+            ("delta", _W_DELTA, Qt.AlignmentFlag.AlignCenter),
+            ("place", _W_PLACE, Qt.AlignmentFlag.AlignCenter),
+        )
         for key, weight, align in spec:
             label = FitLabel()
             label.setAlignment(align)
@@ -898,14 +971,17 @@ class HeaderRow(QFrame):
         cfg = self.cfg
         self.setStyleSheet(f"background-color: {cfg.color('th_bg')};")
         for label in self.cells.values():
-            label.setStyleSheet(f"color: {cfg.color('th_text')}; background: transparent;")
+            label.setStyleSheet(
+                f"color: {cfg.color('th_text')}; background: transparent;"
+            )
             label.setFont(QFont(cfg.family))
         # `#time-column` shares a CSS rule with `.td_time`, so the time title is the
         # only column heading that is not `th_text` — it takes the time colour and
         # the timing font, sitting directly above the values it names.
-        self.cells['time'].setStyleSheet(
-            f"color: {cfg.color('time')}; background: transparent;")
-        self.cells['time'].setFont(QFont(cfg.timing_family))
+        self.cells["time"].setStyleSheet(
+            f"color: {cfg.color('time')}; background: transparent;"
+        )
+        self.cells["time"].setFont(QFont(cfg.timing_family))
 
         # A column can be gone, or merely its title. The browser draws the first with
         # `display: none` — the width goes with it — and the second with
@@ -914,21 +990,31 @@ class HeaderRow(QFrame):
         # neighbours, so the titles stop lining up with the data underneath; blank
         # the text instead. `lane` and `time` have no column flag at all, so their
         # columns always stay.
-        shown  = {'lane': True, 'name': cfg.show_name, 'club': cfg.show_club,
-                  'time': True, 'delta': cfg.show_delta, 'place': cfg.show_position}
+        shown = {
+            "lane": True,
+            "name": cfg.show_name,
+            "club": cfg.show_club,
+            "time": True,
+            "delta": cfg.show_delta,
+            "place": cfg.show_position,
+        }
         # The delta title goes with the lap count: for most of a heat that column
         # holds lengths, not a time difference, and a `DELTA` over a column of small
         # integers reads as a claim about them. The column itself stays — only its
         # title is dropped, the same `visibility: hidden` the browser applies, so
         # nothing below it shifts. It stays dropped through the results too: a title
         # that appeared at the finish would be the moving header `L-23` refuses.
-        titled = {'lane': cfg.show_lane_header,  'name':  cfg.show_name_header,
-                  'club': cfg.show_club_header,  'time':  cfg.show_time_header,
-                  'delta': cfg.show_delta_header and not cfg.show_laps,
-                  'place': cfg.show_position_header}
+        titled = {
+            "lane": cfg.show_lane_header,
+            "name": cfg.show_name_header,
+            "club": cfg.show_club_header,
+            "time": cfg.show_time_header,
+            "delta": cfg.show_delta_header and not cfg.show_laps,
+            "place": cfg.show_position_header,
+        }
         for key, label in self.cells.items():
             label.setVisible(shown[key])
-            label.setText(cfg.labels.get(key, key.upper()) if titled[key] else '')
+            label.setText(cfg.labels.get(key, key.upper()) if titled[key] else "")
         self._refresh_time_title()
 
     def set_time_title(self, shown: bool):
@@ -939,17 +1025,19 @@ class HeaderRow(QFrame):
     def _refresh_time_title(self):
         cfg = self.cfg
         wanted = self._time_title_shown and cfg.show_time_header
-        self.cells['time'].setText(cfg.labels.get('time', 'TIME') if wanted else '')
+        self.cells["time"].setText(cfg.labels.get("time", "TIME") if wanted else "")
 
     def animated_cells(self):
         """(widget, weight) for the columns that slide in at race start."""
-        return ((self.cells['time'],  _W_TIME),
-                (self.cells['delta'], _W_DELTA),
-                (self.cells['place'], _W_PLACE))
+        return (
+            (self.cells["time"], _W_TIME),
+            (self.cells["delta"], _W_DELTA),
+            (self.cells["place"], _W_PLACE),
+        )
 
-    def resizeEvent(self, event):     # noqa: N802 — Qt naming
+    def resizeEvent(self, event):  # noqa: N802 — Qt naming
         super().resizeEvent(event)
-        _pad_columns(self.width(), self.cells['name'], self.cells['club'])
+        _pad_columns(self.width(), self.cells["name"], self.cells["club"])
         self.set_row_height(self.height())
 
     def set_row_height(self, height: int):
@@ -975,16 +1063,16 @@ class BoardWindow(QWidget):
 
     def __init__(self, cfg: Config, parent=None):
         super().__init__(parent)
-        self.cfg      = cfg
+        self.cfg = cfg
         self.snapshot = {}
-        self._windowed_size = None    # size to restore when leaving fullscreen
+        self._windowed_size = None  # size to restore when leaving fullscreen
 
         # ── Live clock ─────────────────────────────────────────────────────────
         # The console streams `running_time` a few times a second. Rendering only
         # those frames would make the clock visibly step, so we re-base on each
         # one and interpolate locally in between.
-        self._clock_base = None       # hundredths at the last console update
-        self._clock_at: float = 0.0   # monotonic() when that update arrived
+        self._clock_base = None  # hundredths at the last console update
+        self._clock_at: float = 0.0  # monotonic() when that update arrived
         self._clock_timer = QTimer(self)
         self._clock_timer.setInterval(_CLOCK_TICK_MS)
         self._clock_timer.timeout.connect(self._tick_clock)
@@ -995,11 +1083,11 @@ class BoardWindow(QWidget):
         # calm start list, then the race begins and the timing columns arrive.
         # Starts expanded so an idle board looks finished rather than half-drawn.
         self._col_fraction = 1.0
-        self._heat_key = None        # (event, heat) — a change starts the transition
+        self._heat_key = None  # (event, heat) — a change starts the transition
         # Podium reveal. Held back until the heat is over, then staggered, so the
         # timers have to be cancellable — see highlight_podium.
         self._podium_timers = []
-        self._podium_shown  = False
+        self._podium_shown = False
         # While True, frames merge into the snapshot but are not painted: the
         # outgoing heat stays on screen until the fade hides it.
         self.paused = False
@@ -1008,7 +1096,7 @@ class BoardWindow(QWidget):
         self._col_anim.setDuration(_COL_ANIM_MS)
         self._col_anim.setEasingCurve(QEasingCurve.Type.InOutCubic)
         self._col_anim.valueChanged.connect(self._apply_col_fraction)
-        self.setWindowTitle(cfg.meet_title or 'Splouch')
+        self.setWindowTitle(cfg.meet_title or "Splouch")
 
         root = QVBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
@@ -1028,7 +1116,7 @@ class BoardWindow(QWidget):
         # ever calls set_header_mode(true), which hides its title cell, so the
         # header the kiosk actually showed never carried one.
         self.event_cell = HeaderCell(cfg)
-        self.heat_cell  = HeaderCell(cfg)
+        self.heat_cell = HeaderCell(cfg)
         self.name_label = FitLabel()
         self.name_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.chrono_label = FitLabel()
@@ -1046,11 +1134,13 @@ class BoardWindow(QWidget):
         # does not reflow when the event number gains a digit. `.header_cells_fixed`
         # in timing_display.css carries the same five numbers.
         self.heat_cell.divider = True
-        for widget, weight in ((self.event_cell, _HW_EVENT),
-                               (self.heat_cell, _HW_HEAT),
-                               (self.name_label, _HW_NAME),
-                               (self.chrono_label, _HW_CHRONO),
-                               (self.wall_clock, _HW_CLOCK)):
+        for widget, weight in (
+            (self.event_cell, _HW_EVENT),
+            (self.heat_cell, _HW_HEAT),
+            (self.name_label, _HW_NAME),
+            (self.chrono_label, _HW_CHRONO),
+            (self.wall_clock, _HW_CLOCK),
+        ):
             widget.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Ignored)
             widget.setMinimumSize(0, 0)
             bar.addWidget(widget, weight)
@@ -1087,7 +1177,7 @@ class BoardWindow(QWidget):
         self._content_opacity = QGraphicsOpacityEffect(self.content)
         self._content_opacity.setOpacity(1.0)
         self.content.setGraphicsEffect(self._content_opacity)
-        self._content_fade = QPropertyAnimation(self._content_opacity, b'opacity', self)
+        self._content_fade = QPropertyAnimation(self._content_opacity, b"opacity", self)
         self._content_fade.setEasingCurve(QEasingCurve.Type.InOutQuad)
         # One permanent connection dispatching to a stored callback, rather than
         # connect/disconnect per fade. Blanket `disconnect()` raised TypeError with
@@ -1110,9 +1200,9 @@ class BoardWindow(QWidget):
         status_layout = QVBoxLayout(self.status_box)
         status_layout.setContentsMargins(0, 0, 0, 0)
         status_layout.setSpacing(0)
-        self.status = QLabel('')
+        self.status = QLabel("")
         self.status.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.status_detail = QLabel('')
+        self.status_detail = QLabel("")
         self.status_detail.setAlignment(Qt.AlignmentFlag.AlignCenter)
         status_layout.addStretch(1)
         status_layout.addWidget(self.status)
@@ -1138,7 +1228,7 @@ class BoardWindow(QWidget):
         # which a startup thread warms — shelling out to git on the GUI thread for a
         # string that cannot change while we run is exactly the blocking call this
         # app is built to avoid.
-        self.own_version = ''
+        self.own_version = ""
         # Last of all, so it is above everything including the splash: it is the
         # one overlay the operator opened deliberately.
         self.menu = OperatorMenu(cfg, self)
@@ -1155,13 +1245,15 @@ class BoardWindow(QWidget):
         # the bottom border would then be drawn under each header cell as well.
         self.header.setStyleSheet(
             f"HeaderBar {{ background-color: {cfg.color('header_bg')};"
-            f" border-bottom: 1px solid {cfg.color('header_border')}; }}")
+            f" border-bottom: 1px solid {cfg.color('header_border')}; }}"
+        )
         # `.header_cell`'s left divider, on every cell but the first.
         divider = f"border-left: 1px solid {cfg.color('header_border')};"
         for label in (self.name_label,):
             label.setStyleSheet(
                 f"color: {cfg.color('header_value')}; background: transparent;"
-                f" border: none; {divider}")
+                f" border: none; {divider}"
+            )
             label.setFont(QFont(cfg.family))
         for cell in (self.event_cell, self.heat_cell):
             cell.cfg = cfg
@@ -1171,7 +1263,8 @@ class BoardWindow(QWidget):
         # chrono is typically a seven-segment face and lane times are not.
         self.chrono_label.setStyleSheet(
             f"color: {cfg.color('time')}; background: transparent;"
-            f" border: none; {divider}")
+            f" border: none; {divider}"
+        )
         self.chrono_label.setFont(QFont(cfg.digits_family))
         # The accent blue, like the EV/HT words — the two ends of the bar then frame
         # the race clock, which is the one element up here meant to stand out and
@@ -1179,34 +1272,38 @@ class BoardWindow(QWidget):
         # urgent text; matching the labels is what stops it competing with the race.
         self.wall_clock.setStyleSheet(
             f"color: {cfg.color('header_label')}; background: transparent;"
-            f" border: none; {divider}")
+            f" border: none; {divider}"
+        )
         self.wall_clock.setFont(QFont(cfg.digits_family))
-        self.test_badge.apply_theme(cfg, cfg.color('row_text'))
+        self.test_badge.apply_theme(cfg, cfg.color("row_text"))
         # The link badge is the one an operator may want to tune: its pill is a
         # warning colour rather than a board colour, so the text on it does not
         # necessarily read against the background the other pill borrows.
-        self.link_badge.apply_theme(cfg, cfg.color('connection_lost'),
-                                    cfg.color('connection_lost_text'))
+        self.link_badge.apply_theme(
+            cfg, cfg.color("connection_lost"), cfg.color("connection_lost_text")
+        )
 
         self.status_box.setStyleSheet(f"background-color: {cfg.color('bg')};")
         self.status.setStyleSheet(
-            f"color: {cfg.color('header_value')}; background: transparent;")
+            f"color: {cfg.color('header_value')}; background: transparent;"
+        )
         _restyle(self.status, QFont(cfg.family))
         self.status_detail.setStyleSheet(
-            f"color: {cfg.color('th_text')}; background: transparent;")
+            f"color: {cfg.color('th_text')}; background: transparent;"
+        )
         _restyle(self.status_detail, QFont(cfg.family))
         self.header_row.apply_theme()
         for row in self.rows:
             row.apply_theme()
-        if hasattr(self, 'menu'):
+        if hasattr(self, "menu"):
             self.menu.apply_config(cfg)
         # Last, so it wins: both of the loops above repaint the clock and the lane
         # times for a healthy link.
         self._apply_link_tint()
-        if hasattr(self, 'splash'):
+        if hasattr(self, "splash"):
             self.splash.apply_config(cfg)
 
-    def keyPressEvent(self, event):   # noqa: N802 — Qt naming
+    def keyPressEvent(self, event):  # noqa: N802 — Qt naming
         """Operator keys: leave the board without an SSH session.
 
         The kiosk has no window decorations and no menu, so these are the only way
@@ -1228,7 +1325,7 @@ class BoardWindow(QWidget):
           *change* anything, so every entry on it refuses a board mid-race — see
           `menu_choose`.
         """
-        key  = event.key()
+        key = event.key()
         ctrl = bool(event.modifiers() & Qt.KeyboardModifier.ControlModifier)
         # Ctrl+Q is the one key the menu never holds: a wedged update must not be
         # able to trap the board with no way out.
@@ -1274,14 +1371,18 @@ class BoardWindow(QWidget):
         only names the action.
         """
         from .menu import MenuAction
+
         # Nothing on this menu may take the board down mid-race. Every entry here
         # blanks the TV for a few seconds at least, and two keys — F1 then a digit —
         # is nowhere near deliberate enough for that with somebody in the water.
         # Ctrl+Q is still the unconditional way out: it is two-handed, which is what
         # earns it the right to ignore this.
         if self.any_lane_running:
-            self.menu.set_note(self.cfg.strings.get(
-                'menu_race_on', 'A race is running — not updating now.'))
+            self.menu.set_note(
+                self.cfg.strings.get(
+                    "menu_race_on", "A race is running — not updating now."
+                )
+            )
             return
         if action == MenuAction.QUIT:
             app = QApplication.instance()
@@ -1293,12 +1394,15 @@ class BoardWindow(QWidget):
             os._exit(1)
         elif action == MenuAction.UPDATE:
             if not self.cfg.server_version:
-                self.menu.set_note(self.cfg.strings.get(
-                    'menu_no_target',
-                    'The server has not said which version to use.'))
+                self.menu.set_note(
+                    self.cfg.strings.get(
+                        "menu_no_target",
+                        "The server has not said which version to use.",
+                    )
+                )
                 return
             self.menu.set_busy(True)
-            self.menu.set_note(self.cfg.strings.get('menu_updating', 'Updating…'))
+            self.menu.set_note(self.cfg.strings.get("menu_updating", "Updating…"))
             self.update_requested.emit(self.cfg.server_version)
 
     def set_fullscreen(self, fullscreen: bool):
@@ -1334,13 +1438,13 @@ class BoardWindow(QWidget):
         """
         self._header_mode = active
         if not active:
-            self.event_cell.set_text('', '')
-            self.heat_cell.set_text('', '')
-            self.name_label.setText('')
+            self.event_cell.set_text("", "")
+            self.heat_cell.set_text("", "")
+            self.name_label.setText("")
             self._sync_header_cells()
 
     def _tick_wall_clock(self):
-        self.wall_clock.setText(time.strftime('%H:%M'))
+        self.wall_clock.setText(time.strftime("%H:%M"))
 
     def _scale_header(self, height: int):
         """Size the top bar's text from the bar's height.
@@ -1359,8 +1463,13 @@ class BoardWindow(QWidget):
         # `.header_cell`'s `6px 1vw`, kept proportional so it does not shrink to
         # nothing on a 4K panel.
         pad_x, pad_y = int(self.width() * _HDR_PAD_X), int(bar * _HDR_PAD_Y)
-        for widget in (self.event_cell, self.heat_cell, self.name_label,
-                       self.chrono_label, self.wall_clock):
+        for widget in (
+            self.event_cell,
+            self.heat_cell,
+            self.name_label,
+            self.chrono_label,
+            self.wall_clock,
+        ):
             widget.setContentsMargins(pad_x, pad_y, pad_x, pad_y)
 
     def _sync_header_cells(self):
@@ -1374,12 +1483,12 @@ class BoardWindow(QWidget):
         """
         cells = (self.event_cell, self.heat_cell)
         for cell in cells:
-            cell.set_shared_px(None)       # ask each for its own answer first
+            cell.set_shared_px(None)  # ask each for its own answer first
         shared = min(cell.solve_px() for cell in cells)
         for cell in cells:
             cell.set_shared_px(shared)
 
-    def resizeEvent(self, event):     # noqa: N802 — Qt naming
+    def resizeEvent(self, event):  # noqa: N802 — Qt naming
         super().resizeEvent(event)
         # Rows and the header bar scale themselves from their own resizeEvents —
         # see LaneRow.set_row_height for why reading their height from here does
@@ -1397,9 +1506,9 @@ class BoardWindow(QWidget):
         self.header.setFixedHeight(bar_height)
         self._scale_header(bar_height)
         if self._col_fraction < 1.0:
-            self._apply_col_fraction(self._col_fraction)   # widths are width-relative
+            self._apply_col_fraction(self._col_fraction)  # widths are width-relative
         self.splash.setGeometry(self.rect())
-        if hasattr(self, 'menu'):
+        if hasattr(self, "menu"):
             self.menu.setGeometry(self.rect())
         for badge in (self.test_badge, self.link_badge):
             if badge.isVisible():
@@ -1424,7 +1533,7 @@ class BoardWindow(QWidget):
         self.header_row.cfg = cfg
         for row in self.rows:
             row.cfg = cfg
-        self.setWindowTitle(cfg.meet_title or 'Splouch')
+        self.setWindowTitle(cfg.meet_title or "Splouch")
         self.apply_theme()
         self.refresh()
 
@@ -1435,8 +1544,10 @@ class BoardWindow(QWidget):
         has to stay fully visible — the badge only has to be impossible to miss.
         """
         self.test_badge.show_text(
-            self.cfg.strings.get('test_session', '⚠ TEST SESSION') if active else '',
-            self.width(), self.height())
+            self.cfg.strings.get("test_session", "⚠ TEST SESSION") if active else "",
+            self.width(),
+            self.height(),
+        )
 
     def set_link_lost(self, active: bool, detail: str | None = None):
         """Report a dropped connection without covering the board.
@@ -1472,10 +1583,11 @@ class BoardWindow(QWidget):
             self._apply_link_tint()
 
         if not active:
-            self.link_badge.show_text('', self.width(), self.height())
+            self.link_badge.show_text("", self.width(), self.height())
         elif detail is not None:
-            self.link_badge.show_text(detail, self.width(), self.height(),
-                                      self.header.height())
+            self.link_badge.show_text(
+                detail, self.width(), self.height(), self.header.height()
+            )
 
     def _apply_link_tint(self):
         """Colour the clock, and any lane still holding it, for the current link state.
@@ -1486,16 +1598,18 @@ class BoardWindow(QWidget):
         console were talking again.
         """
         cfg = self.cfg
-        colour = cfg.color('connection_lost') if self.link_lost else cfg.color('time')
+        colour = cfg.color("connection_lost") if self.link_lost else cfg.color("time")
         self.chrono_label.setStyleSheet(
             f"color: {colour}; background: transparent; border: none;"
-            f"border-left: 1px solid {cfg.color('header_border')};")
+            f"border-left: 1px solid {cfg.color('header_border')};"
+        )
         for row in self.rows:
             if row.running:
-                row._style_time(cfg.color('connection_lost') if self.link_lost
-                                else _TIME_RUNNING)
+                row._style_time(
+                    cfg.color("connection_lost") if self.link_lost else _TIME_RUNNING
+                )
 
-    def set_status(self, text: str, detail: str = ''):
+    def set_status(self, text: str, detail: str = ""):
         """Show (or clear, with ``''``) the full-screen status message.
 
         *text* is the headline, sized to be read from the stands. *detail* is a
@@ -1513,7 +1627,7 @@ class BoardWindow(QWidget):
 
     def status_text(self) -> str:
         """The current headline, or ``''`` when no status is showing."""
-        return self.status.text() if self.status_box.isVisible() else ''
+        return self.status.text() if self.status_box.isVisible() else ""
 
     # ── Splash overlay ─────────────────────────────────────────────────────────
 
@@ -1549,17 +1663,20 @@ class BoardWindow(QWidget):
         the heat number and a lane time in one packet, and wiping those would
         discard data we had just been given.
         """
-        stale = [key for key in self.snapshot
-                 if key.startswith(('lane_time', 'lane_place', 'lane_delta',
-                                    'lane_running', 'lane_splits'))
-                 and key not in keep]
+        stale = [
+            key
+            for key in self.snapshot
+            if key.startswith(
+                ("lane_time", "lane_place", "lane_delta", "lane_running", "lane_splits")
+            )
+            and key not in keep
+        ]
         for key in stale:
             del self.snapshot[key]
 
     def _has_results(self) -> bool:
         """True when finished times are on screen — something worth fading out."""
-        return any(row.place_label.text() or row.time_label.text()
-                   for row in self.rows)
+        return any(row.place_label.text() or row.time_label.text() for row in self.rows)
 
     # ── Podium ─────────────────────────────────────────────────────────────────
 
@@ -1600,8 +1717,7 @@ class BoardWindow(QWidget):
             timer = QTimer(self)
             timer.setSingleShot(True)
             timer.setInterval((place - 1) * _PODIUM_STEP_MS)
-            timer.timeout.connect(
-                lambda r=row: r.fade_podium_in(_PODIUM_FADE_IN_MS))
+            timer.timeout.connect(lambda r=row: r.fade_podium_in(_PODIUM_FADE_IN_MS))
             self._podium_timers.append(timer)
             timer.start()
 
@@ -1657,29 +1773,29 @@ class BoardWindow(QWidget):
         self.paused = True
         self.stop_clock()
 
-        for row in self.rows:                       # step 1
+        for row in self.rows:  # step 1
             row.fade_podium_out(_PODIUM_FADE_MS)
         QTimer.singleShot(_PODIUM_FADE_MS, lambda: self._transition_collapse(token))
 
     def _transition_collapse(self, token):
         if token != self._transition_token:
             return
-        self.set_columns_visible(False)              # step 2
+        self.set_columns_visible(False)  # step 2
         QTimer.singleShot(_COL_ANIM_MS, lambda: self._transition_fade_out(token))
 
     def _transition_fade_out(self, token):
         if token != self._transition_token:
             return
-        self._fade_content(0.0, lambda: self._transition_swap(token))   # step 3
+        self._fade_content(0.0, lambda: self._transition_swap(token))  # step 3
 
     def _transition_swap(self, token):
         if token != self._transition_token:
             return
         self.paused = False
-        for row in self.rows:                        # step 4, while invisible
+        for row in self.rows:  # step 4, while invisible
             row.clear()
         self.refresh()
-        self._fade_content(1.0, None)                # step 5
+        self._fade_content(1.0, None)  # step 5
 
     def _on_content_fade_finished(self):
         callback, self._content_fade_done = self._content_fade_done, None
@@ -1724,7 +1840,7 @@ class BoardWindow(QWidget):
         width = max(1, self.width())
         for cell, weight in self._animated_cells():
             if self._col_fraction >= 1.0:
-                cell.setMaximumWidth(QWIDGETSIZE_MAX)   # hand control back to the layout
+                cell.setMaximumWidth(QWIDGETSIZE_MAX)  # hand control back to the layout
             else:
                 natural = width * weight / _COL_TOTAL_WEIGHT
                 cell.setMaximumWidth(int(natural * self._col_fraction))
@@ -1807,7 +1923,7 @@ class BoardWindow(QWidget):
         out of the layout and every cell to its left slides right, so the meet
         title would jump each time a heat ended.
         """
-        self.chrono_label.setText('')
+        self.chrono_label.setText("")
 
     def apply_update(self, data: dict):
         """Merge a partial ``update_scoreboard`` frame and redraw what changed."""
@@ -1826,7 +1942,7 @@ class BoardWindow(QWidget):
         # time would be overwritten before anyone saw it.
         was_racing = any(row.running for row in self.rows)
         for key, value in data.items():
-            if not key.startswith('lane_running'):
+            if not key.startswith("lane_running"):
                 continue
             match = _LANE_SUFFIX.search(key)
             if not match:
@@ -1841,9 +1957,11 @@ class BoardWindow(QWidget):
         # brings the timing columns back. Collapsing is instant because it happens
         # while the previous heat's numbers are being cleared anyway — only the
         # reveal is worth animating.
-        if 'current_event' in data or 'current_heat' in data:
-            heat = (data.get('current_event', self.snapshot.get('current_event')),
-                    data.get('current_heat',  self.snapshot.get('current_heat')))
+        if "current_event" in data or "current_heat" in data:
+            heat = (
+                data.get("current_event", self.snapshot.get("current_event")),
+                data.get("current_heat", self.snapshot.get("current_heat")),
+            )
             if heat != self._heat_key:
                 first_heat = self._heat_key is None
                 self._heat_key = heat
@@ -1867,18 +1985,20 @@ class BoardWindow(QWidget):
             self.clear_podium()
             self.set_columns_visible(True)
 
-        if 'current_event' in data or 'current_heat' in data:
-            if 'current_event' in data:
-                self.event_cell.set_text(self.cfg.labels.get('event', 'EVENT'),
-                                         str(data['current_event']))
-            if 'current_heat' in data:
-                self.heat_cell.set_text(self.cfg.labels.get('heat', 'HEAT'),
-                                        str(data['current_heat']))
+        if "current_event" in data or "current_heat" in data:
+            if "current_event" in data:
+                self.event_cell.set_text(
+                    self.cfg.labels.get("event", "EVENT"), str(data["current_event"])
+                )
+            if "current_heat" in data:
+                self.heat_cell.set_text(
+                    self.cfg.labels.get("heat", "HEAT"), str(data["current_heat"])
+                )
             # An event number gaining a digit changes what fits, and both cells
             # follow so the pair stays level.
             self._sync_header_cells()
-        if 'event_name' in data:
-            self.name_label.setText(data['event_name'])
+        if "event_name" in data:
+            self.name_label.setText(data["event_name"])
         # `running_time` only means something while the heat is unfinished. The
         # console keeps streaming its clock long after the last lane touches — every
         # recording in `server/console_recordings/` carries hundreds of such frames,
@@ -1887,17 +2007,17 @@ class BoardWindow(QWidget):
         #
         # `/live` has always guarded this: its `if (any_running)` wraps the whole
         # block, over the same condition `heat_is_done` expresses here.
-        if 'running_time' in data and not self.heat_is_done():
+        if "running_time" in data and not self.heat_is_done():
             # Re-base the local clock on the console's authority. Between these
             # frames the ticker interpolates; it never free-runs for long.
-            hundredths = parse_clock(data['running_time'])
+            hundredths = parse_clock(data["running_time"])
             if hundredths is None:
                 # Unrecognised format — show whatever the console said rather than
                 # blanking the header.
-                self.chrono_label.setText(data['running_time'])
+                self.chrono_label.setText(data["running_time"])
             else:
                 self._clock_base = hundredths
-                self._clock_at   = time.monotonic()
+                self._clock_at = time.monotonic()
                 # Paint it now. The ticker only runs while a lane is swimming, so
                 # relying on it alone would freeze the header during the seconds
                 # when every lane is paused at a wall.
@@ -1913,7 +2033,7 @@ class BoardWindow(QWidget):
         # (`lane_time3`, `lane_delta_seconds3`, `lane_name_alt3`).
         touched = set()
         for key in data:
-            if not key.startswith('lane_'):
+            if not key.startswith("lane_"):
                 continue
             match = _LANE_SUFFIX.search(key)
             if match:
@@ -1921,7 +2041,7 @@ class BoardWindow(QWidget):
         # Neither of these names a lane, but both decide what every lane's delta cell
         # shows — `expected_splits` arrives with the heat, and `split_step` can move
         # on its own when the operator changes the touchpad setting mid-meet.
-        if 'expected_splits' in data or 'split_step' in data:
+        if "expected_splits" in data or "split_step" in data:
             touched.update(row.lane for row in self.rows)
         if not self.paused:
             for row in self.rows:
@@ -1929,7 +2049,7 @@ class BoardWindow(QWidget):
                     row.update_from(self.snapshot)
 
         if was_racing and not any(row.running for row in self.rows):
-            self._clear_chrono()    # heat over — the clock has nothing to say
+            self._clear_chrono()  # heat over — the clock has nothing to say
 
         # The heat being over is what releases the podium, mirroring the browser's
         # move into the results screen. `highlight_podium` is a no-op until there is
@@ -1939,7 +2059,7 @@ class BoardWindow(QWidget):
 
         self._sync_clock()
         if self._clock_timer.isActive():
-            self._tick_clock()      # paint now rather than up to 50ms from now
+            self._tick_clock()  # paint now rather than up to 50ms from now
 
     def refresh(self):
         for row in self.rows:
@@ -1954,9 +2074,9 @@ class BoardWindow(QWidget):
         self._heat_key = None
         self.set_columns_visible(True, animate=False)
         self.snapshot.clear()
-        self.event_cell.set_text('', '')
-        self.heat_cell.set_text('', '')
-        self.name_label.setText('')
-        self.chrono_label.setText('')
+        self.event_cell.set_text("", "")
+        self.heat_cell.set_text("", "")
+        self.name_label.setText("")
+        self.chrono_label.setText("")
         for row in self.rows:
             row.clear()

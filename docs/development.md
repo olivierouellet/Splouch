@@ -82,6 +82,7 @@ The file must define `CONSOLE_OPTIONS` and `DECODERS` at module level:
 ```python
 from console_decoders.base import ConsoleDecoder, SerialConfig
 
+
 class MyDecoder(ConsoleDecoder):
     def __init__(self, cfg):
         # Declared on ConsoleDecoder, but giving them values is __init__'s job:
@@ -94,7 +95,7 @@ class MyDecoder(ConsoleDecoder):
 
     @property
     def serial_config(self):
-        return SerialConfig(baud=9600, bytesize=8, parity='N', stopbits=1)
+        return SerialConfig(baud=9600, bytesize=8, parity="N", stopbits=1)
 
     def is_packet_start(self, byte, buffer):
         return byte == 0x02  # STX starts a new frame
@@ -104,20 +105,32 @@ class MyDecoder(ConsoleDecoder):
         # Keys: current_event, current_heat, lane_time{n}, lane_place{n}, etc.
         return {}
 
-    def reset_lanes(self):   return {}
-    def race_finished(self): return False
-    def set_seed_times(self, times): pass
-    def configure(self, cfg): pass
-    def get_lane_time(self, lane):  return ''
-    def get_lane_place(self, lane): return ''
+    def reset_lanes(self):
+        return {}
+
+    def race_finished(self):
+        return False
+
+    def set_seed_times(self, times):
+        pass
+
+    def configure(self, cfg):
+        pass
+
+    def get_lane_time(self, lane):
+        return ""
+
+    def get_lane_place(self, lane):
+        return ""
+
 
 # Both of these must be present for the decoder to be registered.
 CONSOLE_OPTIONS = [
     # (settings_key, dropdown_label, decoder_key)
-    ('my_console', 'My Console (Manufacturer)', 'my_console'),
+    ("my_console", "My Console (Manufacturer)", "my_console"),
 ]
 DECODERS = {
-    'my_console': MyDecoder,
+    "my_console": MyDecoder,
 }
 ```
 
