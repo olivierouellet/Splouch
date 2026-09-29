@@ -207,6 +207,12 @@ jobs:
           uv run taplo fmt --check
           uv run taplo lint
 
+      - name: Lockfile in step with pyproject.toml
+        # Every install here is --frozen, which trusts uv.lock as it stands: a
+        # dependency edited in pyproject.toml without `uv lock` would go unnoticed.
+        # (npm ci already refuses a package-lock.json out of step with package.json.)
+        run: uv lock --check
+
       - name: Cloud requirements
         # cloud/requirements.txt is generated from requirements.in and hash-pinned.
         # Re-running the command in its header keeps every existing pin (no

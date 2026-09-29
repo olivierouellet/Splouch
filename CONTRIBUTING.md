@@ -78,6 +78,7 @@ npx tsc -p shared/static/js/jsconfig.json
 uv run djlint server/templates cloud/templates shared/templates --lint
 uv run taplo fmt --check
 uv run taplo lint
+uv lock --check
 
 # Only if you touched cloud/requirements.in: regenerate, then commit the result.
 uv pip compile cloud/requirements.in --universal --python-version 3.13 \
