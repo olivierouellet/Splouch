@@ -6,9 +6,6 @@ widget behaviour (shrink-to-fit, frame merging) needs a QApplication and is
 covered separately — see scoreboard/README.md.
 """
 
-import os
-import sys
-
 import pytest
 
 from scoreboard.theme import DEFAULT_COLORS, DEFAULT_FONTS, Config
@@ -171,16 +168,13 @@ def test_the_cloud_fallback_palette_is_the_same_object():
     `shared/py/splouch_i18n.py`, so this asserts identity rather than comparing two
     literals — there is nothing left to drift."""
 
+    import cloud_server
+    import splouch_i18n
     import state
 
-    repo = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    sys.path.insert(0, os.path.join(repo, "cloud"))
-    import cloud_i18n
-    import splouch_i18n
-
-    assert cloud_i18n._DEFAULT_COLORS is splouch_i18n.DEFAULT_THEME_COLORS
+    assert cloud_server._DEFAULT_COLORS is splouch_i18n.DEFAULT_THEME_COLORS
     assert state.DEFAULT_THEME_COLORS is splouch_i18n.DEFAULT_THEME_COLORS
-    assert cloud_i18n._DEFAULT_FONTS is splouch_i18n.DEFAULT_THEME_FONTS
+    assert cloud_server._DEFAULT_FONTS is splouch_i18n.DEFAULT_THEME_FONTS
     assert state.DEFAULT_THEME_FONTS is splouch_i18n.DEFAULT_THEME_FONTS
 
 

@@ -74,7 +74,6 @@ from cloud_analytics import (
 )
 from cloud_auth import require_admin
 from cloud_bus import manager
-from cloud_i18n import _DEFAULT_COLORS, _DEFAULT_FONTS
 from cloud_paths import _HERE, DATA_DIR, KEYS_FILE, SHARED_TEMPLATES_DIR, STATIC_DIR
 from cloud_store import (
     _delete_meet_files,
@@ -90,6 +89,10 @@ from cloud_store import (
     _retire_mem,
     _sweep_expired,
     _write_meet_files,
+)
+from splouch_i18n import (
+    DEFAULT_THEME_COLORS as _DEFAULT_COLORS,
+    DEFAULT_THEME_FONTS as _DEFAULT_FONTS,
 )
 from splouch_links import INVITE_PARAM, INVITE_PATH
 

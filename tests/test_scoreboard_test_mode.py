@@ -7,45 +7,19 @@ at the bottom centre (`.test-overlay` in timing_display.css) and so do we.
 
 This started as a bug: `test_mode` reused the full-screen status overlay, which is
 opaque, so starting a test hid the entire scoreboard behind the words TEST SESSION.
+
+Needs PySide6 (`uv run pytest tests/`); skips without it. The badge's text, which
+does not, is checked in test_scoreboard_i18n.py.
 """
 
-import os
 from typing import cast
 
 import pytest
 
-import state
-from scoreboard.theme import DEFAULT_STRINGS, Config
-
-REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-
-# ── Qt-free ────────────────────────────────────────────────────────────────────
-
-
-def test_the_badge_text_is_a_display_string():
-    assert "test_session" in DEFAULT_STRINGS
-
-
-@pytest.mark.parametrize("code", ["en", "fr", "es"])
-def test_every_locale_translates_it(code):
-    strings = state.display_strings(code)
-    assert strings.get("test_session"), f"{code} has no test_session"
-
-
-def test_the_server_ships_it_in_config(monkeypatch):
-    import web
-
-    monkeypatch.setitem(state.settings, "locale", "fr")
-    cfg = Config(web.display_config())
-    assert cfg.strings["test_session"].startswith("⚠")
-    assert "TEST" in cfg.strings["test_session"].upper()
-
-
-# ── Qt ─────────────────────────────────────────────────────────────────────────
-
 pytest.importorskip("PySide6", reason="needs the `scoreboard` extra (PySide6)")
 
-from scoreboard.board import BoardWindow  # noqa: E402 — the Qt half, past its skip
+from scoreboard.board import BoardWindow
+from scoreboard.theme import DEFAULT_STRINGS, Config
 
 
 @pytest.fixture

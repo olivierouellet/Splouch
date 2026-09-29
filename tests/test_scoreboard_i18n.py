@@ -79,6 +79,32 @@ def test_config_endpoint_carries_locale_and_strings(monkeypatch, code):
     assert sorted(cfg["display_strings"]) == KEYS
 
 
+# ── The test-session badge's text ──────────────────────────────────────────────
+# The badge itself is drawn in test_scoreboard_test_mode.py, which needs Qt.
+
+
+def test_the_badge_text_is_a_display_string():
+    assert "test_session" in DEFAULT_STRINGS
+
+
+@pytest.mark.parametrize("code", ["en", "fr", "es"])
+def test_every_locale_translates_the_badge(code):
+    import state
+
+    strings = state.display_strings(code)
+    assert strings.get("test_session"), f"{code} has no test_session"
+
+
+def test_the_server_ships_the_badge_text_in_config(monkeypatch):
+    import state
+    import web
+
+    monkeypatch.setitem(state.settings, "locale", "fr")
+    cfg = Config(web.display_config())
+    assert cfg.strings["test_session"].startswith("⚠")
+    assert "TEST" in cfg.strings["test_session"].upper()
+
+
 # ── Config cache (what makes the first screen translated) ──────────────────────
 
 

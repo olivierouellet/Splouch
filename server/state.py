@@ -1,6 +1,7 @@
 import collections
 import glob
 import hashlib
+import importlib.util
 import json
 import os
 import os.path
@@ -9,32 +10,11 @@ import subprocess
 import sys
 from typing import Any, TextIO
 
+import i18n
 from console_decoders import make_decoder
 from console_decoders.base import ConsoleDecoder
-from meet_parsers.hytek_parser import HytekParser
-from meet_parsers.lenex_parser import load_lenex
 
-try:
-    # Imported to detect availability, not to call.
-    import fcntl  # noqa: F401
-    import pty  # noqa: F401
-    import termios  # noqa: F401
-
-    _PTY_AVAILABLE = True
-except ImportError:
-    _PTY_AVAILABLE = False
-
-# ── Re-exports ─────────────────────────────────────────────────────────────────
-# Where things live now: `paths` for the filesystem layout, `i18n` for anything
-# that needs only a language code. Both used to be sections of this module, and
-# almost every caller reaches them as `state.X`, so the names stay available here.
-#
-# Patch the owning module, not this one, when a test needs to redirect a
-# directory: `i18n` reads `paths.LOCALES_DIR` at call time, so a name rebound on
-# `state` alone would be read by nobody.
-import i18n
-
-# Re-export only — as above.
+# Re-export only — see Re-exports below.
 from i18n import (
     DEFAULT_THEME_COLORS,
     DEFAULT_THEME_FONTS,
@@ -49,6 +29,8 @@ from i18n import (
     resolve_labels as resolve_labels,
     translate_event_name as translate_event_name,
 )
+from meet_parsers.hytek_parser import HytekParser
+from meet_parsers.lenex_parser import load_lenex
 
 # Re-export only — nothing in this module reads these. The redundant `X as X` is
 # what says so: it is the explicit re-export form, so this block keeps being
@@ -80,11 +62,24 @@ from paths import (
     settings_file,
 )
 
+# ── Re-exports ─────────────────────────────────────────────────────────────────
+# Where things live now: `paths` for the filesystem layout, `i18n` for anything
+# that needs only a language code — the `from i18n` and `from paths` imports
+# above. Both used to be sections of this module, and almost every caller reaches
+# them as `state.X`, so the names stay available here.
+#
+# Patch the owning module, not this one, when a test needs to redirect a
+# directory: `i18n` reads `paths.LOCALES_DIR` at call time, so a name rebound on
+# `state` alone would be read by nobody.
+
 # Underscored, but reached from outside — keep them resolving off `state`.
 _locale_section = i18n.locale_section
 _panel_section = i18n.panel_section
 _FALLBACK_LABELS = i18n._FALLBACK_LABELS
 
+
+# The debug terminal needs all three; routes/debug.py imports them when it runs.
+_PTY_AVAILABLE = all(importlib.util.find_spec(m) for m in ("fcntl", "pty", "termios"))
 
 # ── Settings ───────────────────────────────────────────────────────────────────
 
