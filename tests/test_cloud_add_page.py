@@ -24,6 +24,7 @@ hides the affordance instead of showing a dead button.
 import json
 import os
 import re
+from pathlib import Path
 
 import pytest
 from starlette.requests import Request
@@ -395,7 +396,7 @@ def test_the_page_never_tries_to_reach_the_app(stores):
     # The template's own comments say all of this in prose and are stripped from
     # the output, so the check is against what is actually served.
     source = re.sub(
-        r"\{#.*?#\}", "", open(ADD_TEMPLATE, encoding="utf-8").read(), flags=re.S
+        r"\{#.*?#\}", "", Path(ADD_TEMPLATE).read_text(encoding="utf-8"), flags=re.S
     )
     html = get("server=http%3A%2F%2Fpoolpi.local%3A5000")
     for text in (source, html):

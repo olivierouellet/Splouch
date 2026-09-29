@@ -81,21 +81,22 @@ def _update_config():
 
 def _run_deploy(cmd):
     """Run the deploy command, stream output to LOG_FILE, self-restart when done."""
-    log = open(LOG_FILE, "wb", buffering=0)
-    log.write(b"##START##\n")
-    proc = subprocess.Popen(
-        ["bash", "-c", cmd],
-        stdout=log,
-        stderr=subprocess.STDOUT,
-        start_new_session=True,
-        env=_deploy_env(),
-    )
+    # The child gets its own copy of the descriptor, so ours can close as soon as
+    # it has started; the DONE marker is appended once it exits.
+    with open(LOG_FILE, "wb", buffering=0) as log:
+        log.write(b"##START##\n")
+        proc = subprocess.Popen(
+            ["bash", "-c", cmd],
+            stdout=log,
+            stderr=subprocess.STDOUT,
+            start_new_session=True,
+            env=_deploy_env(),
+        )
 
     def _wait():
         proc.wait()
-        log.write(f"\n##DONE:{proc.returncode}##\n".encode())
-        log.flush()
-        log.close()
+        with open(LOG_FILE, "ab") as log:
+            log.write(f"\n##DONE:{proc.returncode}##\n".encode())
         # Restart the webhook so the new deploy_webhook.py takes effect
         subprocess.Popen(["sudo", "systemctl", "restart", "deploy-webhook"])
 

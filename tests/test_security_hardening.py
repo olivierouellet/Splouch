@@ -28,6 +28,7 @@ import os
 import sys
 import tarfile
 import tempfile
+from pathlib import Path
 from typing import cast
 
 import pytest
@@ -118,7 +119,7 @@ def test_a_swimmer_name_cannot_break_out_of_the_script_tag(own_dir, template, ex
 def test_the_templates_do_not_reintroduce_safe_on_embedded_json():
     """A `| safe` inside a <script> is the exact shape of the bug — catch a repeat."""
     for path in ("shared/templates/schedule.html", "server/templates/manual.html"):
-        body = open(os.path.join(REPO, path), encoding="utf-8").read()
+        body = Path(os.path.join(REPO, path)).read_text(encoding="utf-8")
         assert "heats | tojson" in body, f"{path} stopped using tojson"
         assert "| safe" not in body, f"{path} reintroduced | safe"
 
@@ -131,7 +132,7 @@ _PUBLISHED_KEY = "rimnqiuqnewiornhf7nfwenjmqvliwynhtmlfnlsklrmqwe"
 
 
 def test_no_session_key_is_committed_in_the_source():
-    body = open(os.path.join(REPO, "server", "app.py"), encoding="utf-8").read()
+    body = Path(os.path.join(REPO, "server", "app.py")).read_text(encoding="utf-8")
     assert _PUBLISHED_KEY not in body
     assert "SECRET_KEY = state.session_secret()" in body
 
@@ -210,9 +211,9 @@ def test_the_terminal_socket_needs_a_session_not_just_a_local_address():
 
 
 def test_the_terminal_route_actually_calls_the_guard():
-    body = open(
-        os.path.join(REPO, "server", "routes", "debug.py"), encoding="utf-8"
-    ).read()
+    body = Path(os.path.join(REPO, "server", "routes", "debug.py")).read_text(
+        encoding="utf-8"
+    )
     ws_terminal = body.split('@router.websocket("/ws/terminal")')[1]
     assert "ws_guard(ws, login_required=True)" in ws_terminal.split("async def")[1]
 
@@ -441,7 +442,7 @@ def test_the_warning_is_read_from_the_defaults_file_not_restated(monkeypatch):
     import state
 
     monkeypatch.setattr(state, "_SHIPPED_CREDS", None)
-    shipped = _json.load(open(os.path.join(REPO, "server", "settings.default.json")))
+    shipped = _json.loads(Path(REPO, "server", "settings.default.json").read_text())
     assert state._shipped_credentials() == (shipped["username"], shipped["password"])
 
 
@@ -456,9 +457,9 @@ def test_the_banner_is_rendered_only_while_the_login_is_the_default(monkeypatch)
     monkeypatch.setitem(state.settings, "password", "a-real-password")
     assert web._globals()["default_credentials"] is False
 
-    body = open(
-        os.path.join(REPO, "server", "templates", "settings.html"), encoding="utf-8"
-    ).read()
+    body = Path(os.path.join(REPO, "server", "templates", "settings.html")).read_text(
+        encoding="utf-8"
+    )
     assert "{% if default_credentials %}" in body
     assert "t.default_password_banner" in body
 
@@ -485,7 +486,7 @@ def test_the_temporary_sudo_rule_is_removed_under_the_name_it_was_written():
     """It was written under one filename and the cleanup deleted another, so every
     cloud VM kept `NOPASSWD:ALL` while the installer printed that it had been
     removed. Hence the single constant, and the check on the result."""
-    body = open(os.path.join(REPO, "install", "install.sh"), encoding="utf-8").read()
+    body = Path(os.path.join(REPO, "install", "install.sh")).read_text(encoding="utf-8")
 
     assert "TEMP_SUDOERS_FILE=" in body
     write = [ln for ln in body.splitlines() if "NOPASSWD:ALL" in ln and "echo" in ln]

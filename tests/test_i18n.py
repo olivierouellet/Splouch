@@ -17,6 +17,7 @@ import os
 import re
 import sys
 import tomllib
+from pathlib import Path
 from typing import cast
 
 import pytest
@@ -111,9 +112,9 @@ def test_both_servers_agree_on_the_shipped_languages(build):
 def half_translated(monkeypatch, tmp_path):
     """A locale with one chrome string and one label, and nothing else."""
     (tmp_path / "en.toml").write_text(
-        open(
-            os.path.join(REPO, "shared", "locales", "en.toml"), encoding="utf-8"
-        ).read(),
+        Path(os.path.join(REPO, "shared", "locales", "en.toml")).read_text(
+            encoding="utf-8"
+        ),
         encoding="utf-8",
     )
     (tmp_path / "zz.toml").write_text(
@@ -293,9 +294,9 @@ def test_the_native_picker_reads_its_strings_from_the_served_table():
 
 def test_the_schedule_template_hard_codes_no_language():
     """Two French strings sat here for a season while the apps lacked the keys."""
-    src = open(
-        os.path.join(REPO, "shared", "templates", "schedule.html"), encoding="utf-8"
-    ).read()
+    src = Path(os.path.join(REPO, "shared", "templates", "schedule.html")).read_text(
+        encoding="utf-8"
+    )
     for word in ("Aucun", "Nageur"):
         assert word not in src, f"schedule.html still hard-codes {word!r}"
     for key in ("no_search_results", "no_matches", "swimmer", "club"):
@@ -514,7 +515,7 @@ def test_the_handshake_matches_the_contract_it_claims(doc, key):
 
     from routes.i18n import route_server as pi_server
 
-    text = open(os.path.join(REPO, "docs", doc), encoding="utf-8").read()
+    text = Path(os.path.join(REPO, "docs", doc)).read_text(encoding="utf-8")
     match = re.search(r"\*\*Contract version: `(v\d+)`\*\*", text)
     assert match, f"{doc} no longer states a contract version"
     stated = match.group(1)
@@ -851,7 +852,7 @@ def test_both_panels_read_the_chrome_section(lang):
     ],
 )
 def test_neither_panel_hard_codes_its_chrome(literal, template):
-    src = open(os.path.join(REPO, template), encoding="utf-8").read()
+    src = Path(os.path.join(REPO, template)).read_text(encoding="utf-8")
     body = re.sub(r"<script.*?</script>", "", src, flags=re.S)
     assert literal not in body, f"{literal!r} is back in {template}"
 
@@ -939,7 +940,7 @@ def test_no_string_a_template_reads_as_t_dot_key_is_shadowed_by_dict():
             dotted |= set(
                 re.findall(
                     r"\bt\.([a-zA-Z_][a-zA-Z0-9_]*)",
-                    open(path, encoding="utf-8").read(),
+                    Path(path).read_text(encoding="utf-8"),
                 )
             )
 
@@ -948,7 +949,7 @@ def test_no_string_a_template_reads_as_t_dot_key_is_shadowed_by_dict():
     for path in sorted(
         glob.glob(os.path.join(REPO, "shared/locales/**/*.toml"), recursive=True)
     ):
-        data = tomllib.load(open(path, "rb"))
+        data = tomllib.loads(Path(path).read_text(encoding="utf-8"))
         for section, body in data.items():
             if not isinstance(body, dict):
                 continue

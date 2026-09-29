@@ -30,6 +30,7 @@ than to whatever a screen wanted.
 
 import io
 import os
+from pathlib import Path
 
 import pytest
 from PIL import Image
@@ -240,7 +241,7 @@ def test_the_two_variants_are_told_apart_in_a_downloads_folder(cloud):
 
 
 def test_the_panel_offers_both(cloud):
-    tab = open(CLOUD_TAB, encoding="utf-8").read()
+    tab = Path(CLOUD_TAB).read_text(encoding="utf-8")
     assert 'href="/qr.png" download' in tab
     assert 'href="/qr.png?address=0" download' in tab
 
@@ -278,21 +279,21 @@ def test_a_cloud_url_the_app_would_refuse_is_the_same_answer(cloud):
 
 def test_the_button_lives_with_the_field_it_is_made_of():
     """The Cloud tab, because the code is built from the Server URL above it."""
-    tab = open(CLOUD_TAB, encoding="utf-8").read()
+    tab = Path(CLOUD_TAB).read_text(encoding="utf-8")
     assert 'href="/qr.png" download' in tab
     assert "cloud_relay_url" in tab
 
 
 def test_the_button_is_hidden_rather_than_dead_without_a_cloud():
     """And the line in its place names the field to fill."""
-    tab = open(CLOUD_TAB, encoding="utf-8").read()
+    tab = Path(CLOUD_TAB).read_text(encoding="utf-8")
     assert "{% if qr_link %}" in tab
     assert "t.qr_no_cloud" in tab
 
 
 def test_the_link_shape_is_the_shared_one():
     """The Pi and the cloud's `GET /add` must not drift, so neither owns the shape."""
-    source = open(QR_ROUTE, encoding="utf-8").read()
+    source = Path(QR_ROUTE).read_text(encoding="utf-8")
     assert "splouch_links" in source
     assert "/add?" not in source, "the link is built by the shared helper, not here"
     assert splouch_links.INVITE_PATH == "/add"

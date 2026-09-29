@@ -76,6 +76,7 @@ select = [
     "PIE",    # misc. no-ops: unnecessary pass, reimplemented builtins
     "RET",    # return: no else after return, no explicit `return None`
     "PERF",   # a loop that appends is a comprehension
+    "SIM115", # open() outside a `with` leaks the handle until the GC finds it
 ]
 
 # ── Type checking ──────────────────────────────────────────────────────────────

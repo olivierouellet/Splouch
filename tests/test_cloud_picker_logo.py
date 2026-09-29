@@ -23,6 +23,7 @@ Instead one rule covers both, and the three properties below are what make it wo
 
 import os
 import re
+from pathlib import Path
 
 import pytest
 
@@ -34,7 +35,7 @@ PICKER = os.path.join(REPO, "cloud", "templates", "picker.html")
 
 @pytest.fixture(scope="module")
 def src():
-    return open(PICKER, encoding="utf-8").read()
+    return Path(PICKER).read_text(encoding="utf-8")
 
 
 @pytest.fixture(scope="module")

@@ -26,6 +26,7 @@ import re
 import shutil
 import subprocess
 import tempfile
+from pathlib import Path
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 STATIC = os.path.join(REPO, "shared", "static")
@@ -204,7 +205,7 @@ def _scripts(html):
                 raise PageScriptError(
                     f"page references {path}, which is not in shared/static"
                 )
-            out.append((path, open(disk, encoding="utf-8").read()))
+            out.append((path, Path(disk).read_text(encoding="utf-8")))
         else:
             out.append((f"inline #{i}", body))
     return out

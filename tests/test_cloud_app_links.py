@@ -23,6 +23,7 @@ So the tests below pin the things that would silently break it:
 
 import json
 import os
+from pathlib import Path
 
 import pytest
 import yaml
@@ -101,9 +102,9 @@ def test_the_fingerprint_is_configuration_and_not_source():
     Not the upload key's, and different again for a debug build — a value this
     repo cannot know and must never carry.
     """
-    source = open(
-        os.path.join(REPO, "cloud", "cloud_server.py"), encoding="utf-8"
-    ).read()
+    source = Path(os.path.join(REPO, "cloud", "cloud_server.py")).read_text(
+        encoding="utf-8"
+    )
     assert "sha256_cert_fingerprints" in source, "sanity: this is the right file"
     assert RELEASE not in source
     # A colon-separated 32-byte hex string anywhere in the module would be one.
@@ -198,7 +199,7 @@ def test_the_ios_app_id_is_the_team_and_bundle_the_xcode_project_carries():
     )
     if not os.path.isfile(project):
         pytest.skip("Splouch-ios is not checked out beside this repo")
-    source = open(project, encoding="utf-8").read()
+    source = Path(project).read_text(encoding="utf-8")
     team, bundle = cs.IOS_APP_IDS[0].split(".", 1)
     assert f"DEVELOPMENT_TEAM = {team};" in source
     assert f"PRODUCT_BUNDLE_IDENTIFIER = {bundle};" in source
@@ -256,7 +257,7 @@ def test_caddy_sends_well_known_to_the_app():
     """
     directives = [
         line.strip()
-        for line in open(CADDYFILE, encoding="utf-8")
+        for line in Path(CADDYFILE).read_text(encoding="utf-8").splitlines()
         if line.strip() and not line.strip().startswith("#")
     ]
     body_lines = [d for d in directives if d not in ("}",) and not d.endswith("{")]
@@ -267,6 +268,6 @@ def test_caddy_sends_well_known_to_the_app():
 
 def test_the_deployment_passes_the_fingerprints_in():
     """The value lives in `cloud/.env`; compose is what carries it to the app."""
-    env = yaml.safe_load(open(COMPOSE))["services"]["app"]["environment"]
+    env = yaml.safe_load(Path(COMPOSE).read_text())["services"]["app"]["environment"]
     assert env["ANDROID_CERT_FINGERPRINTS"].startswith("${ANDROID_CERT_FINGERPRINTS")
     assert "app.splouch" not in json.dumps(env), "a fingerprint or id pinned in compose"

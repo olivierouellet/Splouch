@@ -15,6 +15,7 @@ Qt-free: the decoder and the worker's framing are driven directly.
 
 import os
 import re
+from pathlib import Path
 
 import pytest
 
@@ -55,7 +56,7 @@ def _replay(name, monkeypatch):
     monkeypatch.setattr(worker.bus, "run_bg", lambda fn, *a, **k: None)
     monkeypatch.setattr(worker, "send_event_info", lambda: None)
 
-    text = open(os.path.join(RECORDINGS, name), encoding="utf-8").read()
+    text = Path(os.path.join(RECORDINGS, name)).read_text(encoding="utf-8")
     packet = []
     for match in re.finditer(r"\[([0-9.]+)\]\s*|([0-9a-fA-F]{2})", text):
         if not match.group(1):

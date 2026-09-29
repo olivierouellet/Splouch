@@ -25,6 +25,7 @@ thread, which is where they run in production anyway (the decoder has one owner)
 """
 
 import os
+from pathlib import Path
 from typing import cast
 
 import pytest
@@ -440,14 +441,14 @@ def test_the_hold_duration_is_declared_once_and_read_by_both_halves():
     a different moment than the action it is a progress bar for. hold.js writes the
     duration into `--hold-ms`; the CSS reads it. Hardcoding 1.5s in only one of them
     is the bug this pins."""
-    hold_js = open(
-        os.path.join(REPO, "shared", "static", "js", "hold.js"), encoding="utf-8"
-    ).read()
+    hold_js = Path(os.path.join(REPO, "shared", "static", "js", "hold.js")).read_text(
+        encoding="utf-8"
+    )
     assert "data-hold-ms" in hold_js
     assert "setProperty('--hold-ms'" in hold_js
 
     for css in ("shared/static/css/panel.css", "server/templates/manual.html"):
-        src = open(os.path.join(REPO, css), encoding="utf-8").read()
+        src = Path(os.path.join(REPO, css)).read_text(encoding="utf-8")
         assert "animation: holdfill var(--hold-ms" in src, (
             f"{css} hardcodes the duration"
         )
@@ -479,18 +480,18 @@ def test_the_row_arrows_read_their_heat_off_the_button_that_was_held():
     assert "window.manualCommit = function (el)" in page
     assert "el.getAttribute('data-commit')" in page
 
-    hold_js = open(
-        os.path.join(REPO, "shared", "static", "js", "hold.js"), encoding="utf-8"
-    ).read()
+    hold_js = Path(os.path.join(REPO, "shared", "static", "js", "hold.js")).read_text(
+        encoding="utf-8"
+    )
     assert "window[fn](el)" in hold_js, "hold.js must hand the element to the handler"
 
 
 def test_the_preview_shows_swimmers_but_never_seed_times():
     """The page carries no times at all, so a seed time beside a name has nothing on
     this screen to be compared against."""
-    page = open(
-        os.path.join(REPO, "server", "templates", "manual.html"), encoding="utf-8"
-    ).read()
+    page = Path(os.path.join(REPO, "server", "templates", "manual.html")).read_text(
+        encoding="utf-8"
+    )
     assert "swimmer-name" in page and "swimmer-club" in page
     assert "seed_time" not in page and "seed-time" not in page
 
@@ -499,9 +500,9 @@ def test_the_preview_shows_swimmers_but_never_seed_times():
 
 
 def _manual_page():
-    return open(
-        os.path.join(REPO, "server", "templates", "manual.html"), encoding="utf-8"
-    ).read()
+    return Path(os.path.join(REPO, "server", "templates", "manual.html")).read_text(
+        encoding="utf-8"
+    )
 
 
 def test_the_steppers_live_in_the_sticky_header():
@@ -664,7 +665,7 @@ def test_the_hold_fill_survives_a_higher_specificity_background_rule():
     """Belt to the braces above: the gradient and its repeat carry !important in both
     copies of `.btn-holding`, so no page rule can silently blank the progress bar."""
     for path in ("shared/static/css/panel.css", "server/templates/manual.html"):
-        src = open(os.path.join(REPO, path), encoding="utf-8").read()
+        src = Path(os.path.join(REPO, path)).read_text(encoding="utf-8")
         rule = src[src.index(".btn-holding {") :]
         rule = rule[: rule.index("}")]
         assert (
@@ -678,7 +679,7 @@ def test_a_long_press_cannot_raise_the_phones_text_menu():
     and Writing Tools — the menu came up over the row arrow and took the press with
     it. Being a real <button> is not enough; the callout keys off selectable content."""
     for path in ("shared/static/css/panel.css", "server/templates/manual.html"):
-        src = open(os.path.join(REPO, path), encoding="utf-8").read()
+        src = Path(os.path.join(REPO, path)).read_text(encoding="utf-8")
         rule = src[src.index("[data-hold] {") :]
         rule = rule[: rule.index("}")]
         for prop in (
@@ -689,9 +690,9 @@ def test_a_long_press_cannot_raise_the_phones_text_menu():
         ):
             assert prop in rule, f"{path} is missing {prop}"
 
-    hold_js = open(
-        os.path.join(REPO, "shared", "static", "js", "hold.js"), encoding="utf-8"
-    ).read()
+    hold_js = Path(os.path.join(REPO, "shared", "static", "js", "hold.js")).read_text(
+        encoding="utf-8"
+    )
     assert "addEventListener('contextmenu'" in hold_js
 
 

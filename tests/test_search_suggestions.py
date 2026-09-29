@@ -18,6 +18,7 @@ import os
 import re
 import subprocess
 import tempfile
+from pathlib import Path
 
 import pytest
 
@@ -119,7 +120,7 @@ def test_neither_server_still_exposes_the_endpoint():
     for mod in (meet_routes, cs):
         assert not hasattr(mod, "route_search_suggestions")
     for name in ("server/routes/meet.py", "cloud/cloud_server.py"):
-        src = open(os.path.join(REPO, name), encoding="utf-8").read()
+        src = Path(os.path.join(REPO, name)).read_text(encoding="utf-8")
         assert "search_suggestions" not in src
 
 
@@ -129,9 +130,9 @@ def test_the_schedule_page_builds_its_own_suggestions():
     It existed to spare the server; over a local index it would only lag the sheet
     (`app.md` §0.4).
     """
-    src = open(
-        os.path.join(REPO, "shared", "templates", "schedule.html"), encoding="utf-8"
-    ).read()
+    src = Path(os.path.join(REPO, "shared", "templates", "schedule.html")).read_text(
+        encoding="utf-8"
+    )
     body = src[src.index("<script>") :]
     assert "buildSuggestIndex" in body
     assert not re.search(r"fetch\(\s*url", body)
@@ -171,7 +172,7 @@ _SCHEDULE_HTML = os.path.join(REPO, "shared", "templates", "schedule.html")
 def _template_js(*names):
     """Pull named top-level declarations out of the template, so the tests run the
     page's real code rather than a retyped copy of it."""
-    src = open(_SCHEDULE_HTML, encoding="utf-8").read()
+    src = Path(_SCHEDULE_HTML).read_text(encoding="utf-8")
     out = []
     for name in names:
         m = (

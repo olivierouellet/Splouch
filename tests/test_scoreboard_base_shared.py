@@ -16,6 +16,7 @@ is what these guard against.
 import json
 import os
 import re
+from pathlib import Path
 
 import pytest
 from jinja2 import Environment, FileSystemLoader
@@ -453,7 +454,7 @@ def test_every_shared_template_declares_a_language():
     import glob
 
     for path in glob.glob(os.path.join(REPO, "shared/templates/*.html")):
-        src = open(path).read()
+        src = Path(path).read_text()
         if "<html" not in src:
             continue  # a fragment, not a document
         assert '<html lang="{{ lang' in src, (
@@ -474,17 +475,17 @@ def test_pi_display_pages_declare_the_scoreboard_language(template):
     Scoreboard language. Declaring lang="en" while painting French headers is the
     mismatch these guard against; the admin pages are excluded on purpose, since
     they follow the per-device `ui_lang` cookie instead."""
-    src = open(os.path.join(REPO, "server/templates", template)).read()
+    src = Path(os.path.join(REPO, "server/templates", template)).read_text()
     assert '<html lang="{{ lang' in src
 
 
 def test_locale_fallbacks_agree_with_the_settings_default():
     """`load_locale()` used to default to 'fr' while DEFAULT_SETTINGS said 'en', so
     a config with no locale would paint French labels under lang="en"."""
-    state_src = open(os.path.join(REPO, "server/state.py")).read()
+    state_src = Path(os.path.join(REPO, "server/state.py")).read_text()
     assert '"locale": "en",' in state_src, "the settings default moved or changed"
     for path in ("server/state.py", "server/web.py", "server/routes/settings.py"):
-        src = open(os.path.join(REPO, path)).read()
+        src = Path(os.path.join(REPO, path)).read_text()
         assert 'get("locale", "fr")' not in src, f"{path} still falls back to fr"
 
 
@@ -538,7 +539,7 @@ def test_new_install_lands_on_english(scoreboard_locale):
 
 def test_settings_page_declares_the_panel_language_not_the_scoreboard_one():
     """It is the one page whose text comes from ui_locale rather than `labels`."""
-    src = open(os.path.join(REPO, "server/templates/settings.html")).read()
+    src = Path(os.path.join(REPO, "server/templates/settings.html")).read_text()
     assert '<html lang="{{ ui_locale' in src
 
 
@@ -546,14 +547,14 @@ def test_settings_page_declares_the_panel_language_not_the_scoreboard_one():
     "template", ["meet.html", "console.html", "operator.html", "login.html"]
 )
 def test_other_admin_pages_declare_the_scoreboard_language(template):
-    src = open(os.path.join(REPO, "server/templates", template)).read()
+    src = Path(os.path.join(REPO, "server/templates", template)).read_text()
     assert '<html lang="{{ lang' in src
 
 
 def test_login_is_rendered_with_the_globals():
     """A bare TemplateResponse would leave `lang` undefined, silently pinning the
     login page to the fallback whatever the server is set to."""
-    src = open(os.path.join(REPO, "server/app.py")).read()
+    src = Path(os.path.join(REPO, "server/app.py")).read_text()
     assert 'templates.TemplateResponse(request, "login.html"' not in src
     assert src.count('render(request, "login.html"') == 2
 
@@ -616,7 +617,7 @@ def test_podium_respects_the_setting(res_pi, res_cloud):
     for html in (res_pi, res_cloud):
         assert "var SHOW_PODIUM = true" in html
         assert "if (tr && SHOW_PODIUM)" in html
-    src = open(os.path.join(REPO, "cloud", "cloud_server.py")).read()
+    src = Path(os.path.join(REPO, "cloud", "cloud_server.py")).read_text()
     assert 'show_podium=s.get("show_podium", True),' in src
 
 
@@ -639,7 +640,7 @@ def test_every_board_shrinks_names_to_fit(pi, cloud, res_pi, res_cloud):
 def test_name_primary_is_styled_once_in_the_stylesheet(pi, res_pi):
     """Shared by four displays including the standalone kiosk page, so it lives in
     timing_display.css rather than being re-declared per template."""
-    css = open(os.path.join(REPO, "shared/static/css/timing_display.css")).read()
+    css = Path(os.path.join(REPO, "shared/static/css/timing_display.css")).read_text()
     assert ".name-primary {" in css
     for html in (pi, res_pi):
         assert ".name-primary {" not in html
@@ -657,7 +658,7 @@ def test_kiosk_page_shrinks_names_too():
     """server/templates/live.html is standalone — it does not extend the base, so
     it carries its own copy and can drift. notes/scoreboard_parity.md tracks it
     against the Qt board, which has always used FitLabel here."""
-    src = open(os.path.join(REPO, "server/templates/live.html")).read()
+    src = Path(os.path.join(REPO, "server/templates/live.html")).read_text()
     assert 'class="name-primary"' in src
     assert "function fitNameFontSize()" in src
     assert "if (names_changed) requestAnimationFrame(fitNameFontSize)" in src
@@ -671,7 +672,7 @@ def test_kiosk_binds_its_columns_before_the_socket_opens():
     `columns_state`, the heat's names, then the board cache), so on a cold load the
     first frame could reach `expand_cols` with all four still null and throw out of
     the message handler. Bind first, connect second."""
-    src = open(os.path.join(REPO, "server/templates/live.html")).read()
+    src = Path(os.path.join(REPO, "server/templates/live.html")).read_text()
     assert "function bind_dom()" in src
     assert src.index("bind_dom();") < src.index("splouchSocket('/ws/scoreboard')"), (
         "the socket opens before the columns are bound"
@@ -695,7 +696,7 @@ def test_waiting_message_is_translated_on_both(res_pi, res_cloud):
     exist, so its waiting screen was English whatever language the meet ran in."""
     for html in (res_pi, res_cloud):
         assert "Waiting…" in html  # the fixture's [mobile] string won
-    src = open(os.path.join(REPO, "cloud", "cloud_server.py")).read()
+    src = Path(os.path.join(REPO, "cloud", "cloud_server.py")).read_text()
     assert src.count('t=_strings(_client_lang(request, meet), "mobile")') == 3, (
         "every per-meet cloud page must pass the [mobile] strings"
     )
@@ -821,9 +822,9 @@ def test_the_schedule_page_only_calls_ws_js_helpers_it_has_loaded(sched_pi):
     helpers = set(
         re.findall(
             r"^function (\w+)",
-            open(
-                os.path.join(REPO, "shared", "static", "js", "ws.js"), encoding="utf-8"
-            ).read(),
+            Path(os.path.join(REPO, "shared", "static", "js", "ws.js")).read_text(
+                encoding="utf-8"
+            ),
             re.M,
         )
     )
@@ -851,10 +852,9 @@ def _code(text):
 def _shared_css():
     """`timing_display.css` itself — not the `_css(html)` above, which strips a
     rendered page's inline <style> block."""
-    return open(
-        os.path.join(REPO, "shared", "static", "css", "timing_display.css"),
-        encoding="utf-8",
-    ).read()
+    return Path(
+        os.path.join(REPO, "shared", "static", "css", "timing_display.css")
+    ).read_text(encoding="utf-8")
 
 
 def test_the_event_heat_word_sits_beside_its_number():
@@ -952,7 +952,9 @@ def test_the_header_padding_matches_the_qt_constant():
         i = css.index(block)
         rule = css[i : css.index("}", i)]
         assert "1vw" in rule and "2vw" not in rule, rule
-    board = open(os.path.join(REPO, "scoreboard", "board.py"), encoding="utf-8").read()
+    board = Path(os.path.join(REPO, "scoreboard", "board.py")).read_text(
+        encoding="utf-8"
+    )
     assert "_HDR_PAD_X = 0.01" in board, "the Qt side moved; the browser has not"
 
 
@@ -983,7 +985,9 @@ def test_the_header_shares_match_the_qt_weights():
         assert m, f"no fixed share for {cell}"
         shares[key] = int(m.group(1))
 
-    board = open(os.path.join(REPO, "scoreboard", "board.py"), encoding="utf-8").read()
+    board = Path(os.path.join(REPO, "scoreboard", "board.py")).read_text(
+        encoding="utf-8"
+    )
     m = re.search(
         r"_HW_EVENT, _HW_HEAT, _HW_NAME, _HW_CHRONO, _HW_CLOCK = "
         r"(\d+), (\d+), (\d+), (\d+), (\d+)",

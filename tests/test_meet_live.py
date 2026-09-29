@@ -11,6 +11,7 @@ powered-off console reports 'open' indefinitely.
 
 import asyncio
 import os
+from pathlib import Path
 
 import pytest
 
@@ -111,7 +112,11 @@ def test_stale_window_matches_the_qt_display():
     """The board and the TV must give up on the link at the same moment; if they
     disagree the TV shows CONNECTION LOST while phones still pulse, or vice versa."""
     client = os.path.join(REPO, "scoreboard", "client.py")
-    stale = next(line for line in open(client) if line.startswith("_STALE"))
+    stale = next(
+        line
+        for line in Path(client).read_text().splitlines()
+        if line.startswith("_STALE")
+    )
     assert int(stale.split("=")[1].strip()) == state.MEET_LIVE_STALE
 
 

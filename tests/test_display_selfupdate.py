@@ -19,6 +19,7 @@ Needs PySide6 (`scoreboard.updater` imports QtCore); skips without it.
 
 import os
 import re
+from pathlib import Path
 
 import pytest
 
@@ -73,7 +74,7 @@ def test_the_sync_keeps_the_qt_extra(ran):
 
 def _installer_kiosk_extras():
     """The `--extra` flags `install.sh kiosk` passes to `uv sync`."""
-    source = open(INSTALLER, encoding="utf-8").read()
+    source = Path(INSTALLER).read_text(encoding="utf-8")
     kiosk = source[source.index('ROLE" == "kiosk"') :]
     line = re.search(r"uv sync ([^\n;|&]*)", kiosk)
     assert line, "the kiosk role no longer runs uv sync"
@@ -163,7 +164,7 @@ def test_the_installer_never_runs_a_bare_git_pull():
     to a commit and therefore with no upstream. `git pull` there fails with "no
     tracking information", and `install.sh` runs under `set -e` — so the one command
     an operator reaches for when a display is broken aborted before repairing it."""
-    source = open(INSTALLER, encoding="utf-8").read()
+    source = Path(INSTALLER).read_text(encoding="utf-8")
     offenders = [
         line.strip()
         for line in source.splitlines()
@@ -173,7 +174,7 @@ def test_the_installer_never_runs_a_bare_git_pull():
 
 
 def test_the_installer_fetches_without_assuming_a_branch_is_tracked():
-    source = open(INSTALLER, encoding="utf-8").read()
+    source = Path(INSTALLER).read_text(encoding="utf-8")
     assert "fetch_and_ff()" in source, "the safe fetch helper is gone"
     assert source.count('fetch_and_ff "$INSTALL_DIR"') >= 3, (
         "a code path still fetches its own way"
@@ -185,7 +186,7 @@ def test_choosing_master_lands_on_the_remote_branch():
     """A display arriving here has just skipped its pull, so its *local* master is
     as old as the last install. Checking that out and calling it "master" is how a
     repaired display ends up months behind the server it has to match."""
-    source = open(INSTALLER, encoding="utf-8").read()
+    source = Path(INSTALLER).read_text(encoding="utf-8")
     body = source[source.index("checkout_version() {") :]
     body = body[: body.index("\n}")]
     assert "origin/$branch" in body, body

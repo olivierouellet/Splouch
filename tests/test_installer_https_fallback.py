@@ -21,6 +21,7 @@ See docs/troubleshooting-splouch-local-unreachable.md.
 
 import os
 import re
+from pathlib import Path
 
 import pytest
 
@@ -35,7 +36,7 @@ def server_path():
     Scoped deliberately: the kiosk Pi has its own firewall block and serves no web
     UI, so the rule is only asserted where someone actually types the hostname.
     """
-    src = open(INSTALLER, encoding="utf-8").read()
+    src = Path(INSTALLER).read_text(encoding="utf-8")
     end = src.index('section "Done — Pi #1 (server)"')
     return src[:end]
 

@@ -26,6 +26,7 @@ import os
 import re
 import subprocess
 import sys
+from pathlib import Path
 
 import pytest
 
@@ -42,7 +43,7 @@ OLD_CHROMIUM = (
 @pytest.fixture(scope="module")
 def helper():
     """The function itself, lifted out of the installer — not a copy of it."""
-    src = open(INSTALLER, encoding="utf-8").read()
+    src = Path(INSTALLER).read_text(encoding="utf-8")
     match = re.search(r"^strip_kiosk_autostart\(\) \{.*?^\}", src, re.S | re.M)
     assert match, "strip_kiosk_autostart is gone from install.sh"
     return match.group(0)
@@ -152,7 +153,7 @@ def test_the_installer_no_longer_offers_a_chromium_kiosk():
     """The role menu described the kiosk as "Chromium fullscreen" long after it had
     stopped being one — which is the answer an operator gets when they ask what the
     kiosk role does."""
-    src = open(INSTALLER, encoding="utf-8").read()
+    src = Path(INSTALLER).read_text(encoding="utf-8")
     menu = re.search(r'"Kiosk\s+\([^"]*\)"', src)
     assert menu, "the role menu entry moved"
     assert "Chromium" not in menu.group(0), menu.group(0)
@@ -160,7 +161,7 @@ def test_the_installer_no_longer_offers_a_chromium_kiosk():
 
 def test_the_hdmi_block_is_not_appended_twice():
     """Re-running the installer must not set the HDMI mode a second time."""
-    src = open(INSTALLER, encoding="utf-8").read()
+    src = Path(INSTALLER).read_text(encoding="utf-8")
     guard = re.search(r'if ! grep -q "([^"]*kiosk[^"]*)" "\$CONFIG_TXT"', src)
     assert guard, "the config.txt guard moved"
     assert "Splouch kiosk" in guard.group(1), guard.group(1)

@@ -16,6 +16,7 @@ along with its tests — every install has long since been deployed past it.
 
 import os
 import tempfile
+from pathlib import Path
 
 import pytest
 import yaml
@@ -31,7 +32,7 @@ ENV_EXAMPLE = os.path.join(REPO, "cloud", ".env.example")
 
 
 def _caddy_site_address():
-    for line in open(CADDYFILE, encoding="utf-8"):
+    for line in Path(CADDYFILE).read_text(encoding="utf-8").splitlines():
         line = line.strip()
         if line.startswith("#") or "{" not in line:
             continue
@@ -46,7 +47,7 @@ def test_the_caddyfile_carries_no_literal_domain():
 
 def test_compose_passes_the_domain_to_caddy_and_nothing_else():
     """Only this one key: `env_file` here would hand Caddy the app's secrets."""
-    caddy = yaml.safe_load(open(COMPOSE))["services"]["caddy"]
+    caddy = yaml.safe_load(Path(COMPOSE).read_text())["services"]["caddy"]
     assert "env_file" not in caddy
     assert list(caddy["environment"]) == ["SPLOUCH_DOMAIN"]
     # `:?` so an unset domain fails the compose command loudly, leaving the running
@@ -55,7 +56,7 @@ def test_compose_passes_the_domain_to_caddy_and_nothing_else():
 
 
 def test_the_env_template_documents_the_domain():
-    assert "SPLOUCH_DOMAIN=" in open(ENV_EXAMPLE, encoding="utf-8").read()
+    assert "SPLOUCH_DOMAIN=" in Path(ENV_EXAMPLE).read_text(encoding="utf-8")
 
 
 def test_the_env_file_is_ignored_but_its_template_is_not():
@@ -110,16 +111,16 @@ def test_the_deploy_subprocess_does_not_carry_stale_env_values():
 
 def test_the_deploy_runs_with_that_environment():
     """A plain Popen inherits os.environ, which is the whole bug."""
-    src = open(
-        os.path.join(REPO, "cloud", "deploy_webhook.py"), encoding="utf-8"
-    ).read()
+    src = Path(os.path.join(REPO, "cloud", "deploy_webhook.py")).read_text(
+        encoding="utf-8"
+    )
     body = src[src.index("def _run_deploy") : src.index("class Handler")]
     assert "env=_deploy_env()" in body
 
 
 def test_the_installer_asks_for_the_domain_before_starting_the_webhook():
     """The unit reads .env once, at start; anything set after that is ignored by it."""
-    sh = open(INSTALL_SH, encoding="utf-8").read()
+    sh = Path(INSTALL_SH).read_text(encoding="utf-8")
     assert sh.index('section "Domain"') < sh.index(
         "systemctl enable --now deploy-webhook"
     )
@@ -127,7 +128,7 @@ def test_the_installer_asks_for_the_domain_before_starting_the_webhook():
 
 def test_the_installer_does_not_offer_the_placeholder_as_the_current_domain():
     """.env.example ships it, so a fresh .env has it set and Enter would accept it."""
-    sh = open(INSTALL_SH, encoding="utf-8").read()
+    sh = Path(INSTALL_SH).read_text(encoding="utf-8")
     domain = sh[sh.index('section "Domain"') : sh.index("Enter domain name")]
     assert '_current_domain=""' in domain and "scores.example.com" in domain
 
@@ -139,7 +140,7 @@ SERVICE = os.path.join(REPO, "cloud", "deploy_webhook.service")
 
 def test_the_unit_keeps_its_placeholders_for_the_installer():
     """install.sh substitutes these; a literal path here would ship someone's homedir."""
-    unit = open(SERVICE, encoding="utf-8").read()
+    unit = Path(SERVICE).read_text(encoding="utf-8")
     body = unit[unit.index("[Service]") :]
     for line in (
         "WorkingDirectory=",
@@ -163,7 +164,7 @@ def test_the_unit_keeps_its_placeholders_for_the_installer():
 
 def test_the_unit_says_what_a_rename_costs():
     """The comment is the only warning at the point someone would move the checkout."""
-    unit = open(SERVICE, encoding="utf-8").read()
+    unit = Path(SERVICE).read_text(encoding="utf-8")
     header = unit[: unit.index("[Unit]")].lower()
     assert "renaming" in header or "rename" in header
     assert "install.sh" in header
@@ -187,8 +188,10 @@ def test_the_admin_page_reports_an_unreachable_webhook():
     assert "t.webhook_unreachable_hint" in src
     import tomllib
 
-    panel = tomllib.load(
-        open(os.path.join(REPO, "shared", "locales", "panel", "en.toml"), "rb")
+    panel = tomllib.loads(
+        Path(os.path.join(REPO, "shared", "locales", "panel", "en.toml")).read_text(
+            encoding="utf-8"
+        )
     )
     # Names the service, so the message points at the thing to look at.
     assert (
@@ -362,8 +365,10 @@ def test_the_accepted_formats_in_the_hint_are_the_ones_the_server_stores():
     """A hint that promises more than the server takes is the bug, rearranged."""
     import tomllib
 
-    panel = tomllib.load(
-        open(os.path.join(REPO, "shared", "locales", "panel", "en.toml"), "rb")
+    panel = tomllib.loads(
+        Path(os.path.join(REPO, "shared", "locales", "panel", "en.toml")).read_text(
+            encoding="utf-8"
+        )
     )
     hint = panel["cloud"]["logo_hint"].upper()
     for mime in cs.LOGO_MIME_TYPES:
@@ -375,7 +380,9 @@ def test_the_accepted_formats_in_the_hint_are_the_ones_the_server_stores():
 
 def test_an_svg_logo_cannot_run_script_on_this_origin():
     """SVG is a document. The picker's `<img>` inerts it; opening /picker_logo does not."""
-    src = open(os.path.join(REPO, "cloud", "cloud_server.py"), encoding="utf-8").read()
+    src = Path(os.path.join(REPO, "cloud", "cloud_server.py")).read_text(
+        encoding="utf-8"
+    )
     body = src[src.index("def route_picker_logo") :]
     body = body[: body.index("@app.get", 1)]
     assert "image/svg+xml" in cs.LOGO_MIME_TYPES, (

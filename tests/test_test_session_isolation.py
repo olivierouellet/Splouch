@@ -31,6 +31,7 @@ Qt-free: the routes are driven directly.
 
 import io
 import os
+from pathlib import Path
 
 import pytest
 from fastapi import UploadFile
@@ -559,7 +560,9 @@ def _announcement_packets(name):
 
     path = os.path.join(RECORDINGS, name + ".cts")
     packets, packet = [], []
-    for match in re.finditer(r"\[[0-9.]+\]\s*|([0-9a-fA-F]{2})", open(path).read()):
+    for match in re.finditer(
+        r"\[[0-9.]+\]\s*|([0-9a-fA-F]{2})", Path(path).read_text()
+    ):
         if not match.group(1):
             continue
         byte = int(match.group(1), 16)
@@ -648,7 +651,7 @@ def test_the_recording_really_decodes_under_a_manual_console(rig, monkeypatch):
 
     import re
 
-    text = open(os.path.join(RECORDINGS, SESSION)).read()
+    text = Path(os.path.join(RECORDINGS, SESSION)).read_text()
     buf = []
     for m in re.finditer(r"\[([0-9.]+)\]\s*|([0-9a-fA-F]{2})", text):
         if m.group(1):

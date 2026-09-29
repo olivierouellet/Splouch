@@ -9,6 +9,7 @@ import gc
 import os
 import re
 import tempfile
+from pathlib import Path
 
 import pytest
 
@@ -116,7 +117,7 @@ def admin_source():
     base = os.path.join(REPO, "cloud", "templates")
     paths = [os.path.join(base, "admin.html")]
     paths += sorted(glob.glob(os.path.join(base, "admin", "*.html")))
-    return "\n".join(open(p, encoding="utf-8").read() for p in paths)
+    return "\n".join(Path(p).read_text(encoding="utf-8") for p in paths)
 
 
 def settings_source():
@@ -140,7 +141,7 @@ def settings_source():
         glob.glob(os.path.join(base, "settings", "**", "*.html"), recursive=True)
     )
     paths += [os.path.join(REPO, "shared", "static", "js", "settings.js")]
-    return "\n".join(open(p, encoding="utf-8").read() for p in paths)
+    return "\n".join(Path(p).read_text(encoding="utf-8") for p in paths)
 
 
 def stub_url_for(env):

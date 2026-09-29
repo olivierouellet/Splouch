@@ -315,7 +315,8 @@ def route_test_record_start(body: NameBody):
         state._record_handle.close()
     code = re.sub(r"[^a-z0-9_-]", "_", body.name.strip().lower()) or "recording"
     path = os.path.join(state.CUSTOM_SESSIONS_FOLDER, code + ".cts")
-    state._record_handle = open(path, "w")
+    # Held open across requests until /test_record_stop, so no `with`.
+    state._record_handle = open(path, "w")  # noqa: SIM115
     return {"ok": True, "file": code + ".cts"}
 
 

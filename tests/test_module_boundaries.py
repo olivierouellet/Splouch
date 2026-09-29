@@ -24,6 +24,7 @@ that reads no settings is one that can move to `shared/` and be used by both
 import ast
 import os
 import re
+from pathlib import Path
 
 import pytest
 
@@ -34,7 +35,7 @@ SERVER = os.path.join(REPO, "server")
 def _imports(module):
     """Top-level module names `module` imports, ours and the stdlib's alike."""
     tree = ast.parse(
-        open(os.path.join(SERVER, module + ".py"), encoding="utf-8").read()
+        Path(os.path.join(SERVER, module + ".py")).read_text(encoding="utf-8")
     )
     found = set()
     for node in ast.walk(tree):
@@ -71,7 +72,7 @@ def test_i18n_reads_no_settings():
     one Pi's runtime, and it would not fail any other test — the wrappers in
     `state` would still work.
     """
-    src = open(os.path.join(SERVER, "i18n.py"), encoding="utf-8").read()
+    src = Path(os.path.join(SERVER, "i18n.py")).read_text(encoding="utf-8")
     tree = ast.parse(src)
     offenders = [
         n.lineno
@@ -165,7 +166,9 @@ CLOUD_MODULES = ("cloud_paths", "cloud_bus", "cloud_auth", "cloud_analytics")
 
 
 def _cloud_imports(module):
-    tree = ast.parse(open(os.path.join(CLOUD, module + ".py"), encoding="utf-8").read())
+    tree = ast.parse(
+        Path(os.path.join(CLOUD, module + ".py")).read_text(encoding="utf-8")
+    )
     found = set()
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
@@ -198,7 +201,7 @@ def test_every_cloud_module_carries_the_prefix():
 def test_the_dockerfile_ships_every_cloud_module():
     """The image used to copy one file. A module added without a Dockerfile edit
     would import fine in tests and crash the container on boot."""
-    dockerfile = open(os.path.join(CLOUD, "Dockerfile"), encoding="utf-8").read()
+    dockerfile = Path(os.path.join(CLOUD, "Dockerfile")).read_text(encoding="utf-8")
     assert "COPY cloud/cloud_*.py" in dockerfile, (
         "the image no longer globs the cloud modules — check every one is copied"
     )
@@ -207,7 +210,7 @@ def test_the_dockerfile_ships_every_cloud_module():
 
 
 def test_the_container_entrypoint_still_names_a_real_app():
-    dockerfile = open(os.path.join(CLOUD, "Dockerfile"), encoding="utf-8").read()
+    dockerfile = Path(os.path.join(CLOUD, "Dockerfile")).read_text(encoding="utf-8")
     assert "cloud_server:app" in dockerfile
     assert os.path.exists(os.path.join(CLOUD, "cloud_server.py"))
 
@@ -252,7 +255,7 @@ def test_a_write_through_one_name_is_seen_through_the_other():
 def test_cloud_store_never_rebinds_its_own_containers():
     """The source-level guard for the two tests above: after the initial binding,
     these names must only ever be subscripted, never assigned."""
-    src = open(os.path.join(CLOUD, "cloud_store.py"), encoding="utf-8").read()
+    src = Path(os.path.join(CLOUD, "cloud_store.py")).read_text(encoding="utf-8")
     tree = ast.parse(src)
     rebinds = []
     for node in ast.walk(tree):
@@ -287,7 +290,7 @@ def test_the_shared_module_knows_nothing_about_either_server():
     """The property that lets one file serve both. An import of `paths`,
     `cloud_paths`, `state` or `settings` here would tie it back to one of them."""
     tree = ast.parse(
-        open(os.path.join(SHARED_PY, "splouch_i18n.py"), encoding="utf-8").read()
+        Path(os.path.join(SHARED_PY, "splouch_i18n.py")).read_text(encoding="utf-8")
     )
     imported = set()
     for node in ast.walk(tree):
@@ -361,7 +364,7 @@ def test_the_relay_still_caches_and_the_pi_still_does_not():
 def test_the_image_ships_the_shared_module():
     """It is outside cloud/, so the `cloud_*.py` glob does not reach it. Without
     its own COPY the container imports fine in tests and dies on boot."""
-    dockerfile = open(os.path.join(CLOUD, "Dockerfile"), encoding="utf-8").read()
+    dockerfile = Path(os.path.join(CLOUD, "Dockerfile")).read_text(encoding="utf-8")
     assert "COPY shared/py/" in dockerfile
 
 
@@ -386,9 +389,9 @@ def _settings_sources():
 def test_every_tab_pane_lives_in_its_own_partial():
     """A pane added back into settings.html would work, and would start the file
     growing again — the reason this split happened."""
-    parent = open(
-        os.path.join(REPO, "server", "templates", "settings.html"), encoding="utf-8"
-    ).read()
+    parent = Path(os.path.join(REPO, "server", "templates", "settings.html")).read_text(
+        encoding="utf-8"
+    )
     panes = re.findall(r'<div class="tab-pane[^"]*" id="tab-([a-z-]+)"', parent)
     assert not panes, f"these panes are still inline in settings.html: {panes}"
 
@@ -399,7 +402,7 @@ def test_each_partial_is_named_for_the_tab_it_draws():
 
     for path in sorted(glob.glob(os.path.join(SETTINGS_DIR, "*.html"))):
         name = os.path.splitext(os.path.basename(path))[0]
-        body = open(path, encoding="utf-8").read()
+        body = Path(path).read_text(encoding="utf-8")
         # A group wrapper holds only includes; a leaf opens its own pane.
         if "{% include" in body and "tab-pane" in body:
             assert f'id="tab-{name}"' in body, f"{name}.html does not open #tab-{name}"
@@ -414,7 +417,9 @@ def test_the_include_tags_start_at_column_zero():
     pane's opening line. The render is byte-identical only because they are flush
     left, so this is worth a test rather than a comment alone."""
     for path in _settings_sources():
-        for n, line in enumerate(open(path, encoding="utf-8"), 1):
+        for n, line in enumerate(
+            Path(path).read_text(encoding="utf-8").splitlines(), 1
+        ):
             if "{% include" in line:
                 assert line.startswith("{% include"), (
                     f"{os.path.basename(path)}:{n} indents an include tag"
@@ -427,7 +432,7 @@ def test_no_jinja_block_straddles_a_partial():
     opener = re.compile(r"\{%-?\s*(if|for|with|macro)\b")
     closer = re.compile(r"\{%-?\s*end(if|for|with|macro)\b")
     for path in _settings_sources():
-        body = open(path, encoding="utf-8").read()
+        body = Path(path).read_text(encoding="utf-8")
         assert len(opener.findall(body)) == len(closer.findall(body)), (
             f"{os.path.basename(path)} has an unbalanced Jinja block"
         )
@@ -448,7 +453,7 @@ def test_the_fetched_fragments_are_not_included_anywhere():
     }
     assert fetched == {"clients.html", "wifi_networks.html"}
     for path in _settings_sources():
-        body = open(path, encoding="utf-8").read()
+        body = Path(path).read_text(encoding="utf-8")
         for name in fetched:
             assert f"include 'settings/fetched/{name}" not in body, (
                 f"{os.path.basename(path)} includes a fetched fragment"
@@ -460,7 +465,7 @@ def test_every_fetched_fragment_has_a_route_that_renders_it():
     import glob
 
     routes = "".join(
-        open(os.path.join(REPO, "server", "routes", f), encoding="utf-8").read()
+        Path(os.path.join(REPO, "server", "routes", f)).read_text(encoding="utf-8")
         for f in os.listdir(os.path.join(REPO, "server", "routes"))
         if f.endswith(".py")
     )
@@ -480,9 +485,9 @@ SETTINGS_JS = os.path.join(REPO, "shared", "static", "js", "settings.js")
 def test_the_page_carries_no_behaviour_inline():
     """A function creeping back into the template is how the file grew the first
     time, and it would not be caught by anything else."""
-    parent = open(
-        os.path.join(REPO, "server", "templates", "settings.html"), encoding="utf-8"
-    ).read()
+    parent = Path(os.path.join(REPO, "server", "templates", "settings.html")).read_text(
+        encoding="utf-8"
+    )
     inline = re.findall(r"<script>(.*?)</script>", parent, re.S)
     for block in inline:
         # The pre-paint theme applier is the one exception: it sets data-bs-theme
@@ -498,7 +503,7 @@ def test_the_page_carries_no_behaviour_inline():
 def test_the_script_is_static_with_no_template_syntax():
     """If a `{{ … }}` ever lands in here it will ship to the browser verbatim —
     the file is served by StaticFiles, which does not render templates."""
-    js = open(SETTINGS_JS, encoding="utf-8").read()
+    js = Path(SETTINGS_JS).read_text(encoding="utf-8")
     for marker in ("{{", "{%"):
         assert marker not in js, f"settings.js contains Jinja syntax ({marker})"
 
@@ -507,9 +512,9 @@ def test_the_script_tag_is_cache_busted():
     """This Pi updates itself. Without a changing query string a browser can hold a
     cached settings.js against markup deployed since, and the mismatch looks like a
     bug in the page rather than a stale file."""
-    parent = open(
-        os.path.join(REPO, "server", "templates", "settings.html"), encoding="utf-8"
-    ).read()
+    parent = Path(os.path.join(REPO, "server", "templates", "settings.html")).read_text(
+        encoding="utf-8"
+    )
     assert re.search(
         r'src="/static/js/settings\.js\?v=\{\{\s*server_version\s*\}\}"', parent
     ), "settings.js is loaded without a version key"
@@ -523,9 +528,9 @@ def test_the_script_tag_is_cache_busted():
 
 def test_the_island_is_set_before_the_script_loads():
     """`T` is a global the script reads at parse time; the order is load-bearing."""
-    parent = open(
-        os.path.join(REPO, "server", "templates", "settings.html"), encoding="utf-8"
-    ).read()
+    parent = Path(os.path.join(REPO, "server", "templates", "settings.html")).read_text(
+        encoding="utf-8"
+    )
     assert parent.index("var T = {{ t | tojson }}") < parent.index(
         "/static/js/settings.js"
     )
@@ -543,9 +548,9 @@ ADMIN_DIR = os.path.join(REPO, "cloud", "templates", "admin")
 
 
 def test_every_admin_tab_pane_lives_in_its_own_file():
-    parent = open(
-        os.path.join(REPO, "cloud", "templates", "admin.html"), encoding="utf-8"
-    ).read()
+    parent = Path(os.path.join(REPO, "cloud", "templates", "admin.html")).read_text(
+        encoding="utf-8"
+    )
     panes = re.findall(r'<div class="tab-pane[^"]*" id="tab-([a-z-]+)"', parent)
     assert not panes, f"these panes are still inline in admin.html: {panes}"
 
@@ -555,7 +560,7 @@ def test_each_admin_file_is_named_for_the_tab_it_draws():
 
     for path in sorted(glob.glob(os.path.join(ADMIN_DIR, "*.html"))):
         name = os.path.splitext(os.path.basename(path))[0]
-        body = open(path, encoding="utf-8").read()
+        body = Path(path).read_text(encoding="utf-8")
         assert f'id="tab-{name}"' in body, (
             f"admin/{name}.html does not open #tab-{name}"
         )
@@ -569,7 +574,9 @@ def test_the_admin_include_tags_start_at_column_zero():
     for path in [os.path.join(REPO, "cloud", "templates", "admin.html")] + sorted(
         glob.glob(os.path.join(ADMIN_DIR, "*.html"))
     ):
-        for n, line in enumerate(open(path, encoding="utf-8"), 1):
+        for n, line in enumerate(
+            Path(path).read_text(encoding="utf-8").splitlines(), 1
+        ):
             if "{% include" in line:
                 assert line.startswith("{% include"), (
                     f"{os.path.basename(path)}:{n} indents an include tag"
@@ -584,7 +591,7 @@ def test_no_jinja_block_straddles_an_admin_file():
     for path in [os.path.join(REPO, "cloud", "templates", "admin.html")] + sorted(
         glob.glob(os.path.join(ADMIN_DIR, "*.html"))
     ):
-        body = open(path, encoding="utf-8").read()
+        body = Path(path).read_text(encoding="utf-8")
         assert len(opener.findall(body)) == len(closer.findall(body)), (
             f"{os.path.basename(path)} has an unbalanced Jinja block"
         )
@@ -593,7 +600,7 @@ def test_no_jinja_block_straddles_an_admin_file():
 def test_the_image_ships_the_admin_tab_files():
     """`COPY cloud/templates/` takes the tree, so the subdirectory rides along — but
     a narrowing of that line would break /admin in the container only."""
-    dockerfile = open(os.path.join(CLOUD, "Dockerfile"), encoding="utf-8").read()
+    dockerfile = Path(os.path.join(CLOUD, "Dockerfile")).read_text(encoding="utf-8")
     assert "COPY cloud/templates/ templates/" in dockerfile
 
 
@@ -610,7 +617,7 @@ def test_the_image_ships_the_admin_tab_files():
 
 
 def test_the_updater_does_not_live_in_the_machine_module():
-    body = open(os.path.join(SERVER, "routes", "system.py"), encoding="utf-8").read()
+    body = Path(os.path.join(SERVER, "routes", "system.py")).read_text(encoding="utf-8")
     for name in (
         "_run_update",
         "_run_repair",
@@ -623,14 +630,18 @@ def test_the_updater_does_not_live_in_the_machine_module():
 
 def test_system_does_not_import_the_updater():
     """One-way, or the two become one module again with extra steps."""
-    body = open(os.path.join(SERVER, "routes", "system.py"), encoding="utf-8").read()
+    body = Path(os.path.join(SERVER, "routes", "system.py")).read_text(encoding="utf-8")
     assert "routes.update" not in body and "from routes import update" not in body
 
 
 def test_the_shared_runner_has_one_home():
     """Defined in system, imported by update — not copied into both."""
-    system = open(os.path.join(SERVER, "routes", "system.py"), encoding="utf-8").read()
-    update = open(os.path.join(SERVER, "routes", "update.py"), encoding="utf-8").read()
+    system = Path(os.path.join(SERVER, "routes", "system.py")).read_text(
+        encoding="utf-8"
+    )
+    update = Path(os.path.join(SERVER, "routes", "update.py")).read_text(
+        encoding="utf-8"
+    )
     assert "def run_cmd_blocking" in system
     assert "def run_cmd_blocking" not in update
     assert "from routes.system import run_cmd_blocking" in update
@@ -644,9 +655,9 @@ def test_the_log_models_are_shared_not_duplicated():
 
     assert hasattr(web, "LogTail") and hasattr(web, "LogLine")
     for mod in ("system", "update"):
-        body = open(
-            os.path.join(SERVER, "routes", f"{mod}.py"), encoding="utf-8"
-        ).read()
+        body = Path(os.path.join(SERVER, "routes", f"{mod}.py")).read_text(
+            encoding="utf-8"
+        )
         assert "class LogTail" not in body, f"routes/{mod}.py redefines LogTail"
         assert "LogTail" in body, f"routes/{mod}.py no longer uses the shared model"
 
@@ -654,6 +665,6 @@ def test_the_log_models_are_shared_not_duplicated():
 def test_the_update_router_is_registered():
     """A router that exists and is never included serves nothing, and every test
     that drives the handlers directly would still pass."""
-    body = open(os.path.join(SERVER, "app.py"), encoding="utf-8").read()
+    body = Path(os.path.join(SERVER, "app.py")).read_text(encoding="utf-8")
     assert "from routes.update" in body
     assert "app.include_router(update_router)" in body

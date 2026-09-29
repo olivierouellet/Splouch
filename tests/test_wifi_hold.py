@@ -24,6 +24,7 @@ import os
 import re
 import subprocess
 import tempfile
+from pathlib import Path
 
 import pytest
 
@@ -172,7 +173,7 @@ def test_reboot_and_shutdown_still_hold_the_same_way(src, label):
 def test_a_held_button_runs_its_function_and_a_tapped_one_does_not():
     """Driven through `hold.js` itself: the attribute is read at press time, which
     is what lets it be added and removed as the toggle flips."""
-    panel = open(HOLD_JS, encoding="utf-8").read()
+    panel = Path(HOLD_JS).read_text(encoding="utf-8")
     program = f"""
 var __ran = [], __timers = [];
 function setTimeout(fn, ms) {{ __timers.push([fn, ms]); return __timers.length; }}

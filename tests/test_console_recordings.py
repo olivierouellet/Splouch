@@ -26,6 +26,7 @@ Qt-free: the decoder and the worker's framing are driven directly.
 import os
 import re
 import sys
+from pathlib import Path
 
 import pytest
 
@@ -85,7 +86,7 @@ def _packets(name):
     """[(timestamp, [bytes])] for one recording."""
     out = []
     path = os.path.join(RECORDINGS, name + ".cts")
-    for line in open(path, encoding="utf-8"):
+    for line in Path(path).read_text(encoding="utf-8").splitlines():
         match = re.match(r"\[([0-9.]+)\]\s*(.*)", line.strip())
         if match:
             out.append(
@@ -487,7 +488,7 @@ def _as_binary(name):
     deleted, so a test that reached for `HEAD:…cap` passed for one commit and then
     skipped for good — which looks like coverage and is not.
     """
-    text = open(os.path.join(RECORDINGS, name + ".raw"), encoding="utf-8").read()
+    text = Path(os.path.join(RECORDINGS, name + ".raw")).read_text(encoding="utf-8")
     return bytes(int(b, 16) for b in re.findall(r"[0-9a-fA-F]{2}", text))
 
 
@@ -503,7 +504,7 @@ def test_it_reproduces_a_real_capture_exactly(tmp_path, name):
     )
     expected = re.findall(
         r"[0-9a-fA-F]{2}",
-        open(os.path.join(RECORDINGS, name + ".raw"), encoding="utf-8").read(),
+        Path(os.path.join(RECORDINGS, name + ".raw")).read_text(encoding="utf-8"),
     )
     assert converted == [b.lower() for b in expected]
 

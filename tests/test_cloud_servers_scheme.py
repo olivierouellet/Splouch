@@ -18,6 +18,7 @@ the deployment. These tests pin both directions.
 
 import asyncio
 import os
+from pathlib import Path
 
 import pytest
 import yaml
@@ -33,7 +34,7 @@ COMPOSE = os.path.join(REPO, "cloud", "docker-compose.yml")
 
 def _trusted():
     """The deployed trust list, read from compose so the tests follow the config."""
-    env = yaml.safe_load(open(COMPOSE))["services"]["app"]["environment"]
+    env = yaml.safe_load(Path(COMPOSE).read_text())["services"]["app"]["environment"]
     raw = env["FORWARDED_ALLOW_IPS"]
     return raw.split(":-", 1)[1].rstrip("}") if raw.startswith("${") else raw
 
@@ -133,6 +134,6 @@ def test_the_deployment_trusts_the_proxy_it_runs_behind():
 
 def test_the_app_container_is_not_directly_reachable():
     """What makes trusting a private range safe: only Caddy can reach the app."""
-    services = yaml.safe_load(open(COMPOSE))["services"]
+    services = yaml.safe_load(Path(COMPOSE).read_text())["services"]
     assert not services["app"].get("ports"), "app must stay behind Caddy"
     assert services["caddy"].get("ports") == ["80:80", "443:443"]

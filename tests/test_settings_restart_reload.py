@@ -23,6 +23,7 @@ actually costs on a given Pi is not something the suite can measure.
 
 import os
 import re
+from pathlib import Path
 
 import pytest
 
@@ -35,7 +36,7 @@ SETTINGS_JS = os.path.join(REPO, "shared", "static", "js", "settings.js")
 
 @pytest.fixture(scope="module")
 def js():
-    return open(SETTINGS_JS, encoding="utf-8").read()
+    return Path(SETTINGS_JS).read_text(encoding="utf-8")
 
 
 def _body(js, name):
@@ -91,9 +92,9 @@ def test_the_probe_outlasts_a_slow_pi(js):
 def test_the_update_publishes_done_before_it_restarts():
     """The fact the whole fix turns on, asserted against the server rather than
     assumed: `done` goes out first, and the restart follows it."""
-    src = open(
-        os.path.join(REPO, "server", "routes", "update.py"), encoding="utf-8"
-    ).read()
+    src = Path(os.path.join(REPO, "server", "routes", "update.py")).read_text(
+        encoding="utf-8"
+    )
     done = src.index("_update_log_done = True")
     restart = src.index('"systemctl", "restart"')
     assert done < restart, "the restart now precedes `done`; the grace period is moot"

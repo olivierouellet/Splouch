@@ -22,6 +22,7 @@ spread is the whole reason these tests exist:
 
 import os
 import re
+from pathlib import Path
 
 import pytest
 from jinja2 import Environment, FileSystemLoader
@@ -498,9 +499,9 @@ def test_a_heat_change_takes_the_lap_off_the_board(phone):
 def test_the_lap_colour_is_shared_between_the_boards():
     """One CSS file, so the kiosk and the phone cannot drift on what a lap looks
     like — the header's accent blue, the same key the EVENT/HEAT words take."""
-    css = open(
+    css = Path(
         os.path.join(REPO, "shared", "static", "css", "timing_display.css")
-    ).read()
+    ).read_text()
     rule = css[css.index(".td_delta.lap-count") :]
     assert "var(--color-header-label)" in rule[: rule.index("}")]
 
@@ -509,9 +510,9 @@ def test_the_delta_column_is_centred():
     """It was right-aligned while the delta was its only tenant. A one-digit lap
     right-aligned sat against the place column, where a bare `3` a glyph from a
     `#3` reads as a rank."""
-    css = open(
+    css = Path(
         os.path.join(REPO, "shared", "static", "css", "timing_display.css")
-    ).read()
+    ).read_text()
     # Anchored at the line start: `.timing-table.hide-delta .td_delta { display:
     # none }` contains the same substring and comes first in the file.
     rule = re.search(r"^\.td_delta \{([^}]*)\}", css, re.M)
@@ -523,10 +524,10 @@ def test_the_delta_column_is_centred():
 def test_no_board_still_pulses():
     """The last-length pulse was cut and replaced by a plain colour change. It lived
     in three places, so all three have to forget it."""
-    css = open(
+    css = Path(
         os.path.join(REPO, "shared", "static", "css", "timing_display.css")
-    ).read()
-    board = open(os.path.join(REPO, "scoreboard", "board.py")).read()
+    ).read_text()
+    board = Path(os.path.join(REPO, "scoreboard", "board.py")).read_text()
     lap_rules = css[css.index(".td_delta.lap-count") :]
     lap_rules = lap_rules[: lap_rules.index("/* ── Podium")]
     lap_rules = _code(lap_rules)  # the prose there says why there is no animation
@@ -538,12 +539,12 @@ def test_no_board_still_pulses():
 def test_the_final_stretch_is_the_timing_colour():
     """Same number, the colour a stopped chrono takes. One CSS file, so the two
     browser boards cannot drift; the Qt board reads the same theme key."""
-    css = open(
+    css = Path(
         os.path.join(REPO, "shared", "static", "css", "timing_display.css")
-    ).read()
+    ).read_text()
     rule = css[css.index(".td_delta.lap-count.lap-final") :]
     assert "var(--color-time)" in rule[: rule.index("}")]
-    board = open(os.path.join(REPO, "scoreboard", "board.py")).read()
+    board = Path(os.path.join(REPO, "scoreboard", "board.py")).read_text()
     assert 'self.cfg.color("time" if final else "header_label")' in board
 
 

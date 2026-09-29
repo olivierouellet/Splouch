@@ -23,6 +23,7 @@ sudoers entry carries `setenv`.
 import os
 import re
 import subprocess
+from pathlib import Path
 
 import pytest
 
@@ -32,7 +33,7 @@ INSTALLER = os.path.join(REPO, "install", "install.sh")
 
 @pytest.fixture(scope="module")
 def installer():
-    return open(INSTALLER, encoding="utf-8").read()
+    return Path(INSTALLER).read_text(encoding="utf-8")
 
 
 def test_the_script_is_valid_bash(installer):
