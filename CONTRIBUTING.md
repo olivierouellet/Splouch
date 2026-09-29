@@ -99,25 +99,26 @@ but so far the answer has been worth having every time.
 What checks each kind of file, and whether CI fails on it. Vendored minified files
 (Bootstrap, htmx) are shipped as-is and checked by nothing.
 
-| Language | Where | Linter | Formatter | Types / schema | Tests | Coverage | Gated in CI |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| **Python 3.13** | `server/`, `scoreboard/`, `cloud/`, `shared/py/`, `tests/` | Ruff (`ruff check`, rules in `pyproject.toml`) | Ruff (`ruff format`, imports by the `I` rules) | ty | pytest | pytest-cov, lines and branches — printed in the CI log, never gated; on pull requests, diff-cover lists the changed lines no test ran | Yes, all four |
-| **Shell** | `install.sh`, `install/` | ShellCheck (`-S warning`) | shfmt (settings in `.editorconfig`) | — | — | — | Yes, both |
-| **JavaScript** | `shared/static/js/` | Biome (`biome.jsonc`) | Biome | `// @ts-check`, run by `tsc` (`jsconfig.json`; page globals in `globals.d.ts`) | Each page's scripts run on load by [`tests/jsc.py`](tests/jsc.py) (JavaScriptCore on macOS, Node in CI) | — | Yes, Biome, tsc and pytest |
-| **HTML / Jinja** | `server/templates/`, `cloud/templates/`, `shared/templates/` | djLint (`[tool.djlint]` in `pyproject.toml`) | — (djLint's would reflow every inline script) | — | Rendered and asserted on by pytest | — | Yes, djLint and pytest |
-| **CSS** | `shared/static/css/` | Biome (`biome.jsonc`) | Biome | — | Some rules are asserted on by pytest, which reads the source | — | Yes, Biome and pytest |
-| **TOML** | `shared/locales/`, `server/themes/`, `pyproject.toml` | `taplo lint` (syntax) | Taplo (`taplo.toml`, columns kept aligned) | `taplo lint` checks `pyproject.toml` against its published schema | Locale key parity with English in [`tests/test_i18n.py`](tests/test_i18n.py) | — | Yes, Taplo and pytest |
-| **Markdown** | `*.md`, `docs/` | rumdl in CI, markdownlint in the editor — both read `.markdownlint.json` | `rumdl fmt` fixes what the check flags | — | — | — | Yes, rumdl |
-| **YAML** | `.github/`, `cloud/docker-compose.yml` | yamllint (`.yamllint.yml`); actionlint and zizmor (security) for workflows | — | SchemaStore schemas: check-jsonschema in CI for the issue forms, `dependabot.yml` and `docker-compose.yml` (actionlint covers the workflow); the Red Hat YAML extension in the editor | — | — | Yes, yamllint, actionlint, zizmor and check-jsonschema |
-| **JSON** | every `*.json` / `*.jsonc` but `package-lock.json` | Biome (`biome.jsonc`) | Biome, 2-space as npm writes it | — | — | — | Yes, Biome |
-| **Python requirements** | `cloud/requirements.txt` from `requirements.in` | CI regenerates it with the command in its header and fails on any difference | — | — | — | — | Yes |
+| Language | Where | Linter | Formatter | Types / schema | Tests | Coverage | Editor (VS Code) | Gated in CI |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| **Python 3.13** | `server/`, `scoreboard/`, `cloud/`, `shared/py/`, `tests/` | Ruff (`ruff check`, rules in `pyproject.toml`) | Ruff (`ruff format`, imports by the `I` rules) | ty | pytest | pytest-cov, lines and branches — printed in the CI log, never gated; on pull requests, diff-cover lists the changed lines no test ran | Ruff, ty | Yes, all four |
+| **Shell** | `install.sh`, `install/` | ShellCheck (`-S warning`) | shfmt (settings in `.editorconfig`) | — | Installer functions run under bash by pytest ([`tests/test_kiosk_autostart.py`](tests/test_kiosk_autostart.py), `test_installer_*.py`), plus assertions on what the installer writes | — | ShellCheck | Yes, both, and pytest |
+| **JavaScript** | `shared/static/js/` | Biome (`biome.jsonc`) | Biome | `// @ts-check`, run by `tsc` (`jsconfig.json`; page globals in `globals.d.ts`) | Each page's scripts run on load by [`tests/jsc.py`](tests/jsc.py) (JavaScriptCore on macOS, Node in CI) | — | Biome; VS Code reads `jsconfig.json` itself | Yes, Biome, tsc and pytest |
+| **HTML / Jinja** | `server/templates/`, `cloud/templates/`, `shared/templates/` | djLint (`[tool.djlint]` in `pyproject.toml`) | — (djLint's would reflow every inline script) | — | Rendered and asserted on by pytest | — | — (Better Jinja highlights; no djLint extension, so run it before pushing) | Yes, djLint and pytest |
+| **CSS** | `shared/static/css/` | Biome (`biome.jsonc`) | Biome | — | Some rules are asserted on by pytest, which reads the source | — | Biome | Yes, Biome and pytest |
+| **TOML** | `shared/locales/`, `server/themes/`, `pyproject.toml` | `taplo lint` (syntax) | Taplo (`taplo.toml`, columns kept aligned) | `taplo lint` checks `pyproject.toml` against its published schema | Locale key parity with English in [`tests/test_i18n.py`](tests/test_i18n.py) | — | Even Better TOML | Yes, Taplo and pytest |
+| **Markdown** | `*.md`, `docs/` | rumdl in CI, markdownlint in the editor — both read `.markdownlint.json` | `rumdl fmt` fixes what the check flags | — | — | — | markdownlint | Yes, rumdl |
+| **YAML** | `.github/`, `cloud/docker-compose.yml` | yamllint (`.yamllint.yml`); actionlint and zizmor (security) for workflows | — | SchemaStore schemas: check-jsonschema in CI for the issue forms, `dependabot.yml` and `docker-compose.yml` (actionlint covers the workflow); the Red Hat YAML extension in the editor | — | — | Red Hat YAML, GitHub Actions | Yes, yamllint, actionlint, zizmor and check-jsonschema |
+| **JSON** | every `*.json` / `*.jsonc` but `package-lock.json` | Biome (`biome.jsonc`) | Biome, 2-space as npm writes it | — | — | — | Biome | Yes, Biome |
+| **Cloud deployment** | `cloud/Dockerfile`, `cloud/Caddyfile`, `cloud/deploy_webhook.service` | — | — | — | Asserted on by pytest: the image copies every cloud module ([`tests/test_module_boundaries.py`](tests/test_module_boundaries.py)); the Caddyfile, compose file and webhook unit survive an update ([`tests/test_cloud_deployment.py`](tests/test_cloud_deployment.py)) | — | — | Yes, through pytest |
+| **Dependencies** | `uv.lock`, `package-lock.json`, `cloud/requirements.txt`, the actions in `ci.yml` | Pinning is checked: `uv lock --check` and `npm ci` fail on a lockfile out of step with its manifest; `requirements.txt` is regenerated and diffed; zizmor rejects an action not pinned to a commit | — | — | — | — | — | Yes |
 
-Every linter and formatter above is pinned: Biome and TypeScript by `package-lock.json`, the rest
-in the `lint` dependency group by `uv.lock`. Only Node, for the JavaScript smoke tests,
-comes from the CI image's apt. The VS Code extensions in `.vscode/extensions.json`
-run Ruff, ty, ShellCheck, markdownlint, Biome and Taplo, and VS Code reads
-`jsconfig.json` itself, so a file clean in the editor is one CI accepts. djLint has
-no editor extension here; run it before pushing a template change.
+How each set is kept current: Dependabot opens a pull request weekly for
+`cloud/requirements.txt` and monthly for the CI actions. `uv.lock` and
+`package-lock.json` move only when someone runs `uv lock --upgrade` or `npm update`
+— the pool-deck server runs on an isolated network, and a weekly PR against it
+would be noise (see the comment at the top of `.github/dependabot.yml`). Node, for
+the JavaScript smoke tests, comes from the CI image's apt.
 
 Biome's config turns off seven recommended rules, each with its reason in
 `biome.jsonc`. Most come from one mismatch: Biome reads every `.js` as an ES
