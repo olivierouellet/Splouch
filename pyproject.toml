@@ -48,6 +48,7 @@ lint = [
     "shfmt-py",      # settings in .editorconfig
     "taplo",         # TOML, settings in taplo.toml
     "yamllint",      # rules in .yamllint.yml
+    "zizmor",        # workflow security, run --offline
 ]
 
 # Both groups for a plain `uv sync`, so every command in CONTRIBUTING works locally.
