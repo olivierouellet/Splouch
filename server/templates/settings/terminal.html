@@ -13,13 +13,13 @@
                     </div></div>
                     <div class="card" style="max-width:860px;"><div class="card-body">
                         <div class="d-flex align-items-center gap-1 mb-2 flex-wrap">
-                            <button class="btn btn-secondary btn-sm" onclick="termLaunch('bash')">{{ t.term_shell }}</button>
-                            <button class="btn btn-secondary btn-sm" onclick="termLaunch('raspi-config')">raspi-config</button>
-                            <button class="btn btn-secondary btn-sm" onclick="termLaunch('logs')">{{ t.term_scoreboard_logs }}</button>
-                            <button class="btn btn-secondary btn-sm" onclick="termLaunch('dmesg-tty')">dmesg tty</button>
-                            <button class="btn btn-secondary btn-sm" onclick="termLaunch('serial-ports')">{{ t.term_serial_ports }}</button>
+                            <button type="button" class="btn btn-secondary btn-sm" onclick="termLaunch('bash')">{{ t.term_shell }}</button>
+                            <button type="button" class="btn btn-secondary btn-sm" onclick="termLaunch('raspi-config')">raspi-config</button>
+                            <button type="button" class="btn btn-secondary btn-sm" onclick="termLaunch('logs')">{{ t.term_scoreboard_logs }}</button>
+                            <button type="button" class="btn btn-secondary btn-sm" onclick="termLaunch('dmesg-tty')">dmesg tty</button>
+                            <button type="button" class="btn btn-secondary btn-sm" onclick="termLaunch('serial-ports')">{{ t.term_serial_ports }}</button>
                             <span class="flex-fill"></span>
-                            <button id="btn-term-stop" class="btn btn-danger btn-sm" style="display:none;" onclick="termStop()">{{ t.test_stop }}</button>
+                            <button type="button" id="btn-term-stop" class="btn btn-danger btn-sm" style="display:none;" onclick="termStop()">{{ t.test_stop }}</button>
                         </div>
                         <div id="terminal-container"></div>
                     </div></div>

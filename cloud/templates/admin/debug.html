@@ -6,7 +6,7 @@
                         <option value="caddy">Caddy</option>
                         <option value="webhook">{{ t.log_source_webhook }}</option>
                     </select>
-                    <button onclick="loadLogs()" class="btn btn-secondary btn-sm">{{ t.log_refresh }}</button>
+                    <button type="button" onclick="loadLogs()" class="btn btn-secondary btn-sm">{{ t.log_refresh }}</button>
                     <div class="form-check m-0">
                         <input class="form-check-input" type="checkbox" id="log-follow" onchange="toggleFollow()">
                         <label class="form-check-label" for="log-follow">{{ t.log_follow }}</label>

@@ -78,8 +78,8 @@
                 <div class="card mb-3"><div class="card-body">
                     <div class="d-flex align-items-center gap-2 mb-2">
                         <span class="fw-bold flex-fill">{{ t.timing_serial_monitor }}</span>
-                        <button id="btn-debug-toggle" class="btn btn-secondary btn-sm text-nowrap" style="min-width:70px;" onclick="debugToggle()">{{ t.btn_enable }}</button>
-                        <button class="btn btn-secondary btn-sm text-nowrap" style="min-width:70px;" onclick="debugClear()">{{ t.btn_clear }}</button>
+                        <button type="button" id="btn-debug-toggle" class="btn btn-secondary btn-sm text-nowrap" style="min-width:70px;" onclick="debugToggle()">{{ t.btn_enable }}</button>
+                        <button type="button" class="btn btn-secondary btn-sm text-nowrap" style="min-width:70px;" onclick="debugClear()">{{ t.btn_clear }}</button>
                     </div>
                     <pre id="debug-output" class="border rounded p-2 mb-0" style="background:#111; color:#e0e0e0; font-size:0.8em; height:300px; overflow-y:auto; white-space:pre-wrap; word-break:break-all;"></pre>
                 </div></div>

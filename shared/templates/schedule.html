@@ -383,7 +383,7 @@
 
 <div id="top-bar">
     <div id="top-title">{{ meet_name or t.schedule or 'Schedule' }}</div>
-    <button id="filter-btn" onclick="openFilter()">
+    <button type="button" id="filter-btn" onclick="openFilter()">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
             <line x1="4" y1="6" x2="20" y2="6"/>
             <line x1="8" y1="12" x2="16" y2="12"/>
@@ -405,17 +405,17 @@
                placeholder="{{ t.search_placeholder or 'Add a swimmer or a club…' }}"
                autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
                oninput="onSearchInput()">
-        <button id="close-filter-btn" onclick="closeFilter()">✓</button>
+        <button type="button" id="close-filter-btn" onclick="closeFilter()">✓</button>
     </div>
     <div id="upcoming-row">
-        <button id="btn-upcoming" onclick="toggleUpcoming()">{{ t.upcoming_only or 'Upcoming' }}</button>
-        <button id="btn-all-heats" onclick="toggleAllHeats()">☰ {{ t.show_all_heats or 'All heats' }}</button>
+        <button type="button" id="btn-upcoming" onclick="toggleUpcoming()">{{ t.upcoming_only or 'Upcoming' }}</button>
+        <button type="button" id="btn-all-heats" onclick="toggleAllHeats()">☰ {{ t.show_all_heats or 'All heats' }}</button>
     </div>
     <div id="chips-section" data-empty="{{ t.no_filters or 'No active filters' }}"></div>
     <div id="no-suggestions" class="hidden">{{ t.no_search_results or 'No results' }}</div>
     <div id="suggestions"></div>
     <div id="reset-row">
-        <button id="btn-reset" onclick="resetFilters()" data-confirm="{{ t.reset_confirm or 'Clear all filters?' }}">↺ {{ t.reset_filters or 'Reset' }}</button>
+        <button type="button" id="btn-reset" onclick="resetFilters()" data-confirm="{{ t.reset_confirm or 'Clear all filters?' }}">↺ {{ t.reset_filters or 'Reset' }}</button>
     </div>
 </div>
 

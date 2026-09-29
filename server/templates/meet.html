@@ -120,7 +120,7 @@ body {
             </div>
         </div>
         {% if not kiosk %}
-        <button onclick="window.print()" title="{{ strings.get('print', 'Print') }}"
+        <button type="button" onclick="window.print()" title="{{ strings.get('print', 'Print') }}"
                 style="margin-top:4px; flex-shrink:0; background:none; border:none; cursor:pointer; color:#7bc47b; font-size:1.4em; padding:2px 4px; line-height:1;">&#x1F5A8;</button>
         {% endif %}
     </div>

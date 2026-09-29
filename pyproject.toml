@@ -43,6 +43,7 @@ dev = [
     # Non-Python linters, as wheels so uv.lock pins them like the rest. CI's `lint`
     # job installs this group alone.
     "actionlint-py",  # .github/workflows/
+    "djlint",         # templates, rules in [tool.djlint] below
     "rumdl",          # Markdown, rules in .markdownlint.json
     "shellcheck-py",
     "shfmt-py",       # settings in .editorconfig
@@ -113,6 +114,34 @@ select = [
     "YTT",    # sys.version comparisons that break at 3.10 or 4.0
     "FA",     # `from __future__ import annotations` where it is needed
 ]
+
+# ── Templates ──────────────────────────────────────────────────────────────────
+# `uv run djlint server/templates cloud/templates shared/templates --lint`. Lint only:
+# its formatter rewrites every template and reflows the inline <script> blocks.
+# What stays on is what has caught something real — a <button> with no type submits
+# its form (the Wi-Fi join form's Cancel used to connect), an <img> without alt, an
+# empty src that re-requests the page. What is off is style, or advice for a site
+# this is not:
+[tool.djlint]
+profile = "jinja"
+ignore = """\
+H021,\
+H023,\
+H024,\
+H029,\
+H030,\
+H049,\
+J004,\
+J018,\
+T001,\
+T002,\
+T032\
+"""
+# H021 inline styles · H023 entity references · H024 type= on <link> · H029 POST in
+# capitals · H030 meta description (no page here is indexed) · J004/J018 url_for():
+# routes are written as literal paths throughout · T001/T002/T032 whitespace and
+# quotes inside tags, the formatter's job · H049: six board and phone pages set
+# `user-scalable=no`. Whether they should is a product call, not a lint.
 
 # ── Type checking ──────────────────────────────────────────────────────────────
 # `uv run ty check` is clean, tests included. ty is still pre-1.0 (0.0.x, beta),

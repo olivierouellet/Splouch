@@ -9,7 +9,7 @@
                         <td>{{ info.organizer }}</td>
                         <td>
                             <span class="font-monospace small text-body-secondary text-break">{{ key[:12] }}…</span>
-                            <button class="btn btn-outline-secondary btn-sm copy" data-copied="{{ t['copied'] }}" onclick="copyKey(this, '{{ key }}')">{{ t['copy'] }}</button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm copy" data-copied="{{ t['copied'] }}" onclick="copyKey(this, '{{ key }}')">{{ t['copy'] }}</button>
                         </td>
                         <td>{{ info.created }}</td>
                         <td><span class="badge rounded-pill {{ 'text-bg-success' if info.active else 'text-bg-secondary' }}">{{ t.badge_active if info.active else t.badge_revoked }}</span></td>
@@ -59,7 +59,7 @@
                             <div class="small text-body-secondary mb-1">{{ t.col_key }}</div>
                             <div class="d-flex align-items-center gap-2 flex-wrap mb-3">
                                 <span class="font-monospace small text-body-secondary text-break">{{ key[:12] }}…</span>
-                                <button class="btn btn-outline-secondary btn-sm copy" data-copied="{{ t['copied'] }}" onclick="copyKey(this, '{{ key }}')">{{ t['copy'] }}</button>
+                                <button type="button" class="btn btn-outline-secondary btn-sm copy" data-copied="{{ t['copied'] }}" onclick="copyKey(this, '{{ key }}')">{{ t['copy'] }}</button>
                             </div>
                             <div class="d-flex flex-wrap gap-1">
                                 {% if info.active %}

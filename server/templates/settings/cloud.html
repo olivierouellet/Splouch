@@ -6,7 +6,7 @@
                             <div class="d-flex align-items-center gap-2 mb-3">
                                 <span class="text-body-secondary small" style="min-width:70px;">{{ t.net_status }}</span>
                                 <span id="cloud-status-text" class="flex-fill small"></span>
-                                <button id="btn-cloud-toggle" class="btn btn-secondary btn-sm text-nowrap" onclick="toggleCloud(); return false;" disabled>…</button>
+                                <button type="button" id="btn-cloud-toggle" class="btn btn-secondary btn-sm text-nowrap" onclick="toggleCloud(); return false;" disabled>…</button>
                             </div>
                             <div class="mb-3">
                                 <label class="form-label">{{ t.cloud_server_url }}</label>
@@ -123,7 +123,7 @@
                     <a href="/picker_image_delete_all" class="btn btn-outline-danger btn-sm flex-shrink-0" data-hold data-hold-label="{{ t.hold_delete_all }}">{{ t.btn_delete_all }}</a>
                     {% endif %}
                     {% if active_picker_image %}
-                    <img src="/picker_image" style="height:28px; border-radius:4px; border:1px solid #ccc; flex-shrink:0;">
+                    <img src="/picker_image" alt="" style="height:28px; border-radius:4px; border:1px solid #ccc; flex-shrink:0;">
                     {% endif %}
                 </div>
 
@@ -152,7 +152,7 @@
                     <a href="/icon_delete_all" class="btn btn-outline-danger btn-sm flex-shrink-0" data-hold data-hold-label="{{ t.hold_delete_all }}">{{ t.btn_delete_all }}</a>
                     {% endif %}
                     {% if has_home_icon %}
-                    <img src="/home_icon" style="height:28px; width:28px; border-radius:6px; border:1px solid #ccc; flex-shrink:0;">
+                    <img src="/home_icon" alt="" style="height:28px; width:28px; border-radius:6px; border:1px solid #ccc; flex-shrink:0;">
                     {% endif %}
                 </div>
                 </form>

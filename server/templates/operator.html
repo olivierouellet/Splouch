@@ -167,8 +167,8 @@ td.td-place  { text-align: right; }
     <div class="hdr-cell hdr-cell-name">
         <span id="op-name"></span>
     </div>
-    <button id="overlay-toggle" title="Toggle carousel overlay" onclick="toggleOverlay()">&#9641;</button>
-    <button id="cols-toggle" title="Toggle time/delta/position columns" onclick="toggleColumns()">&#9637;</button>
+    <button type="button" id="overlay-toggle" title="Toggle carousel overlay" onclick="toggleOverlay()">&#9641;</button>
+    <button type="button" id="cols-toggle" title="Toggle time/delta/position columns" onclick="toggleColumns()">&#9637;</button>
     <div class="hdr-cell" id="op-chrono-cell" style="display:none;">
         <span id="op-chrono" style="color:#FFD700;"></span>
     </div>
@@ -201,9 +201,9 @@ td.td-place  { text-align: right; }
     <td class="td-status" id="status{{ i }}">—</td>
     <td class="td-time"   id="time{{ i }}">—</td>
     <td class="td-splits">
-        <button class="btn-split" onclick="adjustSplits({{ i }}, -1)">&#9664;</button>
+        <button type="button" class="btn-split" onclick="adjustSplits({{ i }}, -1)">&#9664;</button>
         <span class="split-val" id="splits{{ i }}">—</span>
-        <button class="btn-split" onclick="adjustSplits({{ i }}, +1)">&#9654;</button>
+        <button type="button" class="btn-split" onclick="adjustSplits({{ i }}, +1)">&#9654;</button>
     </td>
     <td class="td-place"  id="place{{ i }}">—</td>
 </tr>

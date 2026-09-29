@@ -98,7 +98,7 @@
                                 <a href="/splash_delete_all" class="btn btn-outline-danger btn-sm flex-shrink-0" data-hold data-hold-label="{{ t.hold_delete_all }}">{{ t.btn_delete_all }}</a>
                                 {% endif %}
                                 {% if splash_url %}
-                                <img src="{{ url_for('appearance.serve_image', filename=splash_url) }}" style="max-height:36px; max-width:72px; border-radius:3px; flex-shrink:0;"/>
+                                <img src="{{ url_for('appearance.serve_image', filename=splash_url) }}" alt="" style="max-height:36px; max-width:72px; border-radius:3px; flex-shrink:0;"/>
                                 {% endif %}
                             </div>
                         </div>

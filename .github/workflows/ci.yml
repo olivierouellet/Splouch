@@ -102,14 +102,14 @@ jobs:
         run: uv run pytest tests/ -q --cov --cov-report=term
 
   lint:
-    name: Shell, YAML, Markdown, JavaScript and CSS
+    name: Everything but Python
     # Nothing here depends on the Pi's platform, so it runs apart from the Qt suite and
     # reports in seconds rather than after it.
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
       # `uv run` would otherwise sync the whole project — FastAPI, and Qt with the
-      # extra — to run five linters that need none of it.
+      # extra — to run linters that need none of it.
       UV_NO_SYNC: "1"
     steps:
       - uses: actions/checkout@v7
@@ -148,3 +148,7 @@ jobs:
       - name: JavaScript and CSS
         # Lint and format check in one; rules in biome.jsonc. `npx biome check --write` fixes.
         run: npx biome ci
+
+      - name: Templates
+        # Lint only, rules in [tool.djlint] in pyproject.toml.
+        run: uv run djlint server/templates cloud/templates shared/templates --lint

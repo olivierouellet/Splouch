@@ -127,17 +127,17 @@
    send it has a console. #}
 {%- set with_results = show_results is not defined or show_results %}
     {% if meet_id %}
-    <iframe id="frame0" class="active" src="/mobile/live?meet={{ meet_id }}{{ ui }}"></iframe>
+    <iframe id="frame0" class="active" title="{{ t.scoreboard or 'Scoreboard' }}" src="/mobile/live?meet={{ meet_id }}{{ ui }}"></iframe>
     {% if with_results %}
-    <iframe id="frame1"               src="/mobile/results?meet={{ meet_id }}{{ ui }}"></iframe>
+    <iframe id="frame1" title="{{ t.results or 'Results' }}" src="/mobile/results?meet={{ meet_id }}{{ ui }}"></iframe>
     {% endif %}
-    <iframe id="frame2"               src="/mobile/schedule?meet={{ meet_id }}{{ ui }}"></iframe>
+    <iframe id="frame2" title="{{ t.schedule or 'Schedule' }}" src="/mobile/schedule?meet={{ meet_id }}{{ ui }}"></iframe>
     {% else %}
-    <iframe id="frame0" class="active" src="/live-mobile?{{ ui[1:] }}"></iframe>
+    <iframe id="frame0" class="active" title="{{ t.scoreboard or 'Scoreboard' }}" src="/live-mobile?{{ ui[1:] }}"></iframe>
     {% if with_results %}
-    <iframe id="frame1"               src="/results?{{ ui[1:] }}"></iframe>
+    <iframe id="frame1" title="{{ t.results or 'Results' }}" src="/results?{{ ui[1:] }}"></iframe>
     {% endif %}
-    <iframe id="frame2"               src="/schedule?{{ ui[1:] }}"></iframe>
+    <iframe id="frame2" title="{{ t.schedule or 'Schedule' }}" src="/schedule?{{ ui[1:] }}"></iframe>
     {% endif %}
 
     <div class="edge edge-left"  id="edgeL"></div>
@@ -150,18 +150,18 @@
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
         </a>
         {% endif %}
-        <button class="active" id="tab0">
-            <img src="/static/icons/swimming.svg" style="width:22px;height:22px;filter:invert(1);vertical-align:middle;margin-right:5px;">
+        <button type="button" class="active" id="tab0">
+            <img src="/static/icons/swimming.svg" alt="" style="width:22px;height:22px;filter:invert(1);vertical-align:middle;margin-right:5px;">
             <span class="tab-label">{{ t.scoreboard or 'Scoreboard' }}</span>
         </button>
         {% if with_results %}
-        <button id="tab1">
-            <img src="/static/icons/award.svg" style="width:22px;height:22px;filter:invert(1);vertical-align:middle;margin-right:5px;">
+        <button type="button" id="tab1">
+            <img src="/static/icons/award.svg" alt="" style="width:22px;height:22px;filter:invert(1);vertical-align:middle;margin-right:5px;">
             <span class="tab-label">{{ t.results or 'Results' }}</span>
         </button>
         {% endif %}
-        <button id="tab2">
-            <img src="/static/icons/clipboard-list.svg" style="width:22px;height:22px;filter:invert(1);vertical-align:middle;margin-right:5px;">
+        <button type="button" id="tab2">
+            <img src="/static/icons/clipboard-list.svg" alt="" style="width:22px;height:22px;filter:invert(1);vertical-align:middle;margin-right:5px;">
             <span class="tab-label">{{ t.schedule or 'Schedule' }}</span>
         </button>
     </nav>

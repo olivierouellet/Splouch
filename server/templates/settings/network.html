@@ -21,8 +21,8 @@
                             <input id="eth-ip-input" type="text" class="form-control form-control-sm" placeholder="10.10.10.10" maxlength="15" style="width:140px; flex:none;">
                             <span class="text-body-secondary">/</span>
                             <input id="eth-prefix-input" type="number" class="form-control form-control-sm" value="24" min="1" max="32" style="width:60px; flex:none;">
-                            <button class="btn btn-secondary btn-sm text-nowrap" style="min-width:80px;" onclick="setEthIp()">{{ t.net_static }}</button>
-                            <button class="btn btn-secondary btn-sm text-nowrap" style="min-width:80px;" onclick="setEthDhcp()">{{ t.net_dhcp }}</button>
+                            <button type="button" class="btn btn-secondary btn-sm text-nowrap" style="min-width:80px;" onclick="setEthIp()">{{ t.net_static }}</button>
+                            <button type="button" class="btn btn-secondary btn-sm text-nowrap" style="min-width:80px;" onclick="setEthDhcp()">{{ t.net_dhcp }}</button>
                         </div>
                         <div id="eth-ip-status" class="small mb-1"></div>
                         <div class="small" style="color:var(--bs-warning-text-emphasis);">{{ t.net_disconnect_warn }}</div>
@@ -34,7 +34,7 @@
                         <!-- Network list -->
                         <div class="d-flex align-items-center mb-2">
                             <span class="fw-bold flex-fill">{{ t.net_wifi_networks }}</span>
-                            <button class="btn btn-secondary btn-sm text-nowrap" style="min-width:80px;"
+                            <button type="button" class="btn btn-secondary btn-sm text-nowrap" style="min-width:80px;"
                                     hx-get="/wifi_scan" hx-target="#wifi-net-list" hx-disabled-elt="this"
                                     hx-on::before-request="document.getElementById('wifi-net-list').innerHTML = '<span class=&quot;text-body-secondary&quot;>{{ t.net_scanning }}</span>'">{{ t.net_scan }}</button>
                         </div>
@@ -45,7 +45,7 @@
                         <!-- Connected clients (HTMX-driven) -->
                         <div class="d-flex align-items-center mb-2">
                             <span class="fw-bold flex-fill">{{ t.net_connected_clients }}</span>
-                            <button class="btn btn-secondary btn-sm text-nowrap" hx-get="/clients_fragment" hx-target="#client-list" style="min-width:80px;">{{ t.btn_refresh }}</button>
+                            <button type="button" class="btn btn-secondary btn-sm text-nowrap" hx-get="/clients_fragment" hx-target="#client-list" style="min-width:80px;">{{ t.btn_refresh }}</button>
                         </div>
                         <div id="client-list" class="small" style="min-height:32px;"
                              hx-get="/clients_fragment" hx-trigger="load, every 10s" hx-target="#client-list">

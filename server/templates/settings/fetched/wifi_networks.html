@@ -10,9 +10,9 @@
     <span class="text-body-secondary text-nowrap" style="font-family:monospace;">{{ bars }}</span>
     <div class="flex-shrink-0" style="min-width:80px; text-align:center;">
         {% if n.active %}
-        <button class="btn btn-success btn-sm text-nowrap" style="min-width:80px;" disabled>Connected</button>
+        <button type="button" class="btn btn-success btn-sm text-nowrap" style="min-width:80px;" disabled>Connected</button>
         {% else %}
-        <button class="btn btn-secondary btn-sm text-nowrap" style="min-width:80px;" onclick='showJoinForm({{ n.ssid | tojson }}, {{ 'true' if n.security else 'false' }})'>Connect</button>
+        <button type="button" class="btn btn-secondary btn-sm text-nowrap" style="min-width:80px;" onclick='showJoinForm({{ n.ssid | tojson }}, {{ 'true' if n.security else 'false' }})'>Connect</button>
         {% endif %}
     </div>
 </div>

@@ -2,6 +2,7 @@
 <html lang="{{ lang | default('en', true) }}">
 <head>
 <meta charset="UTF-8">
+<title>Splouch</title>
 <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='css/timing_display.css') }}">
 <style>
 :root {
@@ -489,8 +490,8 @@ function mode_to_results() {
 <body style="margin:0px" onload="init();">
 
 <div id="carousel-overlay" style="display:none; position:fixed; inset:0; z-index:1000; background:#000; opacity:0; transition:opacity 0.8s ease;">
-    <img id="carousel-img-a" src="" style="position:absolute; inset:4%; width:92%; height:92%; object-fit:contain; transition:opacity 1s ease; opacity:1;">
-    <img id="carousel-img-b" src="" style="position:absolute; inset:4%; width:92%; height:92%; object-fit:contain; transition:opacity 1s ease; opacity:0;">
+    <img id="carousel-img-a" alt="" style="position:absolute; inset:4%; width:92%; height:92%; object-fit:contain; transition:opacity 1s ease; opacity:1;">
+    <img id="carousel-img-b" alt="" style="position:absolute; inset:4%; width:92%; height:92%; object-fit:contain; transition:opacity 1s ease; opacity:0;">
 </div>
 
 <div class="timing-outer">
