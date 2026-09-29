@@ -1,15 +1,23 @@
 {
-    // Type-checks the hand-written scripts; nothing is compiled or emitted. VS Code
-    // reads this for the editor, `npx tsc -p shared/static/js` for CI.
-    "compilerOptions": {
-        "checkJs": true,
-        "allowJs": true,
-        "noEmit": true,
-        "target": "es2015",
-        "lib": ["dom", "es2018"],
-        "skipLibCheck": true,
-        "strict": false
-    },
-    "include": ["*.js", "*.d.ts"],
-    "exclude": ["*.min.js"]
+  // Type-checks the hand-written scripts; nothing is compiled or emitted. VS Code
+  // reads this for the editor, `npx tsc -p shared/static/js` for CI.
+  "compilerOptions": {
+    "checkJs": true,
+    "allowJs": true,
+    "noEmit": true,
+    "target": "es2015",
+    "lib": [
+      "dom",
+      "es2018"
+    ],
+    "skipLibCheck": true,
+    "strict": false
+  },
+  "include": [
+    "*.js",
+    "*.d.ts"
+  ],
+  "exclude": [
+    "*.min.js"
+  ]
 }

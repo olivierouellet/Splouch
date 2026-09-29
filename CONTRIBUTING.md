@@ -106,6 +106,7 @@ What checks each kind of file, and whether CI fails on it. Vendored minified fil
 | **TOML** | `shared/locales/`, `server/themes/`, `pyproject.toml` | `taplo lint` (syntax; `pyproject.toml` against its schema) | Taplo (`taplo.toml`, columns kept aligned) | — | Locale key parity with English in [`tests/test_i18n.py`](tests/test_i18n.py) | — | Yes, Taplo and pytest |
 | **Markdown** | `*.md`, `docs/` | rumdl in CI, markdownlint in the editor — both read `.markdownlint.json` | `rumdl fmt` fixes what the check flags | — | — | — | Yes, rumdl |
 | **YAML** | `.github/`, `cloud/docker-compose.yml` | yamllint (`.yamllint.yml`); actionlint for workflows; schema validation in the editor (Red Hat YAML extension) | — | — | — | — | Yes, yamllint and actionlint |
+| **JSON** | every `*.json` / `*.jsonc` but `package-lock.json` | Biome (`biome.jsonc`) | Biome, 2-space as npm writes it | — | — | — | Yes, Biome |
 | **Python requirements** | `cloud/requirements.txt` from `requirements.in` | CI regenerates it with the command in its header and fails on any difference | — | — | — | — | Yes |
 
 Every linter and formatter above is pinned: Biome and TypeScript by `package-lock.json`, the rest

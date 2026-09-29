@@ -1,64 +1,100 @@
-// Biome lints and formats the hand-written JavaScript and CSS under shared/static.
+// Biome lints and formats the hand-written JavaScript and CSS under shared/static,
+// and every JSON file in the repository.
 // Installed by `npm ci` from package.json; `npx biome check --write` fixes.
 {
-    "$schema": "https://biomejs.dev/schemas/2.5.14/schema.json",
-    "vcs": { "enabled": true, "clientKind": "git", "useIgnoreFile": true },
-    "files": {
-        // Vendored Bootstrap and htmx ship as downloaded.
-        "includes": ["shared/static/js/**", "shared/static/css/**", "!**/*.min.js", "!**/*.min.css"]
-    },
+  "$schema": "https://biomejs.dev/schemas/2.5.14/schema.json",
+  "vcs": {
+    "enabled": true,
+    "clientKind": "git",
+    "useIgnoreFile": true
+  },
+  "files": {
+    // Vendored Bootstrap and htmx ship as downloaded; npm owns package-lock.json.
+    "includes": [
+      "shared/static/js/**",
+      "shared/static/css/**",
+      "!**/*.min.js",
+      "!**/*.min.css",
+      "**/*.json",
+      "**/*.jsonc",
+      "!package-lock.json"
+    ]
+  },
+  "formatter": {
+    "enabled": true,
+    "indentStyle": "space",
+    "indentWidth": 4,
+    "lineWidth": 100
+  },
+  "javascript": {
     "formatter": {
-        "enabled": true,
-        "indentStyle": "space",
-        "indentWidth": 4,
-        "lineWidth": 100
-    },
-    "javascript": { "formatter": { "quoteStyle": "single" } },
-    "overrides": [
-        {
-            // Declarations for untyped vendored libraries (htmx, Bootstrap, xterm):
-            // `any` is the accurate type there, not a shortcut.
-            "includes": ["**/*.d.ts"],
-            "linter": { "rules": { "suspicious": { "noExplicitAny": "off" } } }
-        }
-    ],
-    "linter": {
-        "enabled": true,
-        "rules": {
-            "preset": "recommended",
-            // Biome parses every .js as an ES module. These are classic <script> files,
-            // and three rules misread them because of it.
-            "correctness": {
-                // Top-level functions are the pages' API, called from onclick attributes
-                // in the templates and in HTML that settings.js builds — invisible here.
-                "noUnusedVariables": "off",
-                // `var` in a block is function-scoped by design in ES5 code; the rule
-                // assumes the author wanted `let`.
-                "noInnerDeclarations": "off"
-            },
-            "suspicious": {
-                // In a classic script 'use strict' is not redundant: it switches strict on.
-                "noRedundantUseStrict": "off",
-                // Its advice is the Cookie Store API, which Safari has only just shipped.
-                "noDocumentCookie": "off"
-            },
-            "complexity": {
-                // `?.` is ES2020. An older phone in the stands that cannot parse it drops
-                // the whole script, not one line — tests/jsc.py exists for that failure.
-                "useOptionalChain": "off",
-                // The pages override Bootstrap and the theme on purpose (podium colours over
-                // the time column, the panel's nav), and the fix is to delete !important.
-                "noImportantStyles": "off",
-                // The scripts are ES5-style throughout; converting the few that qualify
-                // would leave one file in two dialects.
-                "useArrowFunction": "off"
-            },
-            "style": {
-                // Same reason: string concatenation is the house style in these files.
-                "useTemplate": "off",
-                // Source order is deliberate, and the cascade resolves as intended.
-                "noDescendingSpecificity": "off"
-            }
-        }
+      "quoteStyle": "single"
     }
+  },
+  // 2 spaces, the way npm writes package.json back on every install. VS Code's
+  // settings and jsconfig.json are JSON with comments, as their tools accept.
+  "json": {
+    "formatter": {
+      "indentWidth": 2,
+      "expand": "always"
+    },
+    "parser": {
+      "allowComments": true
+    }
+  },
+  "overrides": [
+    {
+      // Declarations for untyped vendored libraries (htmx, Bootstrap, xterm):
+      // `any` is the accurate type there, not a shortcut.
+      "includes": [
+        "**/*.d.ts"
+      ],
+      "linter": {
+        "rules": {
+          "suspicious": {
+            "noExplicitAny": "off"
+          }
+        }
+      }
+    }
+  ],
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "preset": "recommended",
+      // Biome parses every .js as an ES module. These are classic <script> files,
+      // and three rules misread them because of it.
+      "correctness": {
+        // Top-level functions are the pages' API, called from onclick attributes
+        // in the templates and in HTML that settings.js builds — invisible here.
+        "noUnusedVariables": "off",
+        // `var` in a block is function-scoped by design in ES5 code; the rule
+        // assumes the author wanted `let`.
+        "noInnerDeclarations": "off"
+      },
+      "suspicious": {
+        // In a classic script 'use strict' is not redundant: it switches strict on.
+        "noRedundantUseStrict": "off",
+        // Its advice is the Cookie Store API, which Safari has only just shipped.
+        "noDocumentCookie": "off"
+      },
+      "complexity": {
+        // `?.` is ES2020. An older phone in the stands that cannot parse it drops
+        // the whole script, not one line — tests/jsc.py exists for that failure.
+        "useOptionalChain": "off",
+        // The pages override Bootstrap and the theme on purpose (podium colours over
+        // the time column, the panel's nav), and the fix is to delete !important.
+        "noImportantStyles": "off",
+        // The scripts are ES5-style throughout; converting the few that qualify
+        // would leave one file in two dialects.
+        "useArrowFunction": "off"
+      },
+      "style": {
+        // Same reason: string concatenation is the house style in these files.
+        "useTemplate": "off",
+        // Source order is deliberate, and the cascade resolves as intended.
+        "noDescendingSpecificity": "off"
+      }
+    }
+  }
 }
