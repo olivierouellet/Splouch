@@ -214,7 +214,7 @@
     {# Only once the list is long enough to need it: on a small server the picker looks
        as it always has. Rendered hidden and revealed by the script below, so a page
        without JavaScript never shows a box that does nothing. #}
-    {% if meets | length >= 5 %}
+    {% if meets | length >= 3 %}
     <input type="search" id="meet-search" class="meet-search" hidden
            placeholder="{{ t.meet_search or 'Search meets' }}"
            aria-label="{{ t.meet_search or 'Search meets' }}"

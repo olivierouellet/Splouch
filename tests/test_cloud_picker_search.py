@@ -58,11 +58,11 @@ def _render(meets):
 
 def test_a_short_list_has_no_search_box():
     """A small server's picker looks as it always has."""
-    assert 'id="meet-search"' not in _render([_meet(i) for i in range(4)])
+    assert 'id="meet-search"' not in _render([_meet(i) for i in range(2)])
 
 
-def test_five_meets_bring_the_search_box():
-    html = _render([_meet(i) for i in range(5)])
+def test_three_meets_bring_the_search_box():
+    html = _render([_meet(i) for i in range(3)])
     box = re.search(r'<input[^>]*id="meet-search"[^>]*>', html, re.DOTALL)
     assert box, "no search box at the threshold"
     assert "hidden" in box.group(0), (
