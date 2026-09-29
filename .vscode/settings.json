@@ -30,6 +30,16 @@
     "editor.formatOnSave": true
   },
 
+  // No YAML formatter: yamllint (.yamllint.yml) is the authority, and the Red Hat
+  // extension's built-in one would undo layout it accepts, such as the aligned
+  // values in docker-compose.yml.
+  "[yaml]": {
+    "editor.formatOnSave": false
+  },
+  "[github-actions-workflow]": {
+    "editor.formatOnSave": false
+  },
+
   // `ty` is this project's type authority and runs in CI. Pylance left on its own
   // defaults produces a second, differently-opinionated set of squiggles over the
   // same code, which is noise — it keeps completion and navigation either way.
