@@ -887,9 +887,28 @@ WALLEOF
 fi
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# CLOUD (Debian VM — public relay server)
+# CLOUD (Debian 12+ / Ubuntu 24.04+ VM — public relay server)
 # ═══════════════════════════════════════════════════════════════════════════════
 if [[ "$ROLE" == "cloud" ]]; then
+
+    # ── Python check ──────────────────────────────────────────────────────────
+    # The relay runs in Docker on its own Python, so the OS barely matters. The one
+    # thing that runs on the VM's python3 is the deploy webhook, which needs 3.11
+    # for `tomllib`: Debian 12 and Ubuntu 24.04 have it, Ubuntu 22.04 (3.10) does
+    # not (docs/cloud.md). Checked before the root bootstrap below locks root out,
+    # so a VM that cannot run the webhook is left exactly as it was found.
+    check_cloud_python() {
+        if ! python3 -c 'import sys; sys.exit(sys.version_info < (3, 11))' 2>/dev/null; then
+            error "The cloud server needs python3 3.11 or newer (Debian 12+, Ubuntu 24.04+);" \
+                  "this VM has $(python3 --version 2>/dev/null || echo 'no python3')."
+            exit 1
+        fi
+    }
+    if command -v python3 &>/dev/null; then
+        check_cloud_python
+    else
+        info "No python3 yet — installing the distribution's, then checking its version."
+    fi
 
     # ── User bootstrap (runs once as root on a fresh server) ──────────────────
     if [[ "$(id -u)" == "0" ]]; then
@@ -971,7 +990,8 @@ if [[ "$ROLE" == "cloud" ]]; then
     ensure_https_apt_sources
     sudo apt-get update -qq
     sudo apt-get upgrade -y
-    sudo apt-get install -y git curl fail2ban unattended-upgrades
+    sudo apt-get install -y git curl python3 fail2ban unattended-upgrades
+    check_cloud_python
 
     section "fail2ban"
     sudo tee /etc/fail2ban/jail.d/sshd.local > /dev/null <<'EOF'
