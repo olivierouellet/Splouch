@@ -129,6 +129,7 @@ where the user returns via `A-02`.
 | `P-12` | Servers on the local network are offered without anyone typing an address | mDNS browse for `_splouch._tcp` (do not use `splouch.local`) | native-only — should |
 | `P-13` | A server can be added by hand, checked before it is saved | `GET /server` must answer | native-only — must |
 | `P-14` | A server whose contract versions differ from the app's gets a one-line notice naming both; the app **connects regardless** | `GET /server` → `contract.api`, `contract.app`, compared for equality with the versions the app was built against ([`api.md`](api.md) §5.10) | native-only — should |
+| `P-15` | The reader's Appearance — Dark, Light or Automatic — chosen in the picker's menu and holding everywhere: the picker, the shell and every tab of every meet. **Dark is the default**, and Automatic follows the device | the stored preference; the two palettes are the server's own — `DEFAULT_THEME_COLORS` and `server/themes/white.toml` — never the meet's `settings.theme_colors` (`T-01`); menu words `strings.appearance`, `appearance_dark`, `appearance_light`, `appearance_auto` | should — see note |
 | `P-16` | A server can be added by scanning a QR code: the code opens the app, the app asks, and on a yes the server is added, selected, and the **meet list** is what the reader lands on. Without the app installed the same code lands on a web page offering the store | `https://<the app's default host>/add?server=<origin>`, percent-encoded; the host's `/.well-known/assetlinks.json` and `/.well-known/apple-app-site-association`, and its `GET /add` page ([`api.md`](api.md) §4, §5.7) | native-only — should |
 | `P-17` | Search the meet list: a box above the cards, shown once the list holds **3 or more** meets, narrowing it as the spectator types, with its own empty state when nothing matches | matches locally over `GET /meets` fields `name`, `meet_date`, `location`, `sport`, `organizer`; placeholder `strings.meet_search`, empty state `strings.no_meets_match` from `GET /picker/config` | should — see note |
 
@@ -275,8 +276,25 @@ where the user returns via `A-02`.
 >   programme or a slide that prints the address itself, where a second copy would
 >   be a duplicate to keep in sync.
 >
-> The number: `P-15` is claimed by the app ledgers and is not yet written here, so this
-> row is `P-16` and the gap is deliberate. **IDs are the join key — never renumber.**
+> The number: `P-15` was claimed by the app ledgers before it was written here, so this
+> row was numbered `P-16` around the gap. **IDs are the join key — never renumber.**
+
+> **`P-15` — the reader's palette, not the meet's.** A preference the next meet could
+> overrule is not a preference: a spectator who chose Light would get it until they
+> opened a meet, which is where they were going. So the choice replaces
+> `settings.theme_colors` on a phone rather than sitting beside it (`T-01`, `T-02`),
+> and the cost is named rather than hidden — an operator who themed a meet in club
+> colours sees them on the kiosk and the Qt display, not on a phone.
+>
+> **Dark by default** because the pages were dark before the choice existed, and a
+> spectator who never opens the menu should see what they saw yesterday.
+>
+> On the web the choice is a cookie, `splouch_theme` (`dark`, `light`, `auto`), set by
+> the picker, which restyles in place, and read by the cloud for the shell and its
+> tabs. Automatic draws dark and carries the light palette behind a
+> `prefers-color-scheme` query, since the server cannot see the device's setting. **The
+> Pi's phone pages keep the operator's palette**: it has no picker (`T-08`), so nothing
+> could set the cookie there. An app stores the choice itself.
 
 > **`P-12` — Cleartext for the local network only.** A Pi is plain HTTP, anything
 > remote must be HTTPS: a *scoped* ATS exception on iOS (local networking,
@@ -712,8 +730,8 @@ of its own.
 
 | ID | Feature | Driven by | Level |
 | --- | --- | --- | --- |
-| `T-01` | Palette from the meet's config: `bg`, `header_bg`, `header_border`, `header_label`, `header_value`, `th_text`, `th_bg`, `row_odd`, `row_even`, `row_text`, `time`, `delta_better`, `delta_worse` | `settings.theme_colors` | must |
-| `T-02` | Schedule-specific colours `schedule_event`, `schedule_time`, `schedule_name`, `schedule_club`, each with a built-in default | `settings.theme_colors` | should |
+| `T-01` | Palette from the meet's config: `bg`, `header_bg`, `header_border`, `header_label`, `header_value`, `th_text`, `th_bg`, `row_odd`, `row_even`, `row_text`, `time`, `delta_better`, `delta_worse` | `settings.theme_colors` — on a phone, `P-15`'s palette instead | must |
+| `T-02` | Schedule-specific colours `schedule_event`, `schedule_time`, `schedule_name`, `schedule_club`, each with a built-in default | `settings.theme_colors` — on a phone, `P-15`'s palette instead | should |
 | `T-03` | Three font roles — `family` (text), `digits` (clock), `timing` (times and deltas) | `settings.theme_fonts` | must |
 | `T-04` | Column headers and header labels are the server's words, never the app's | `settings.labels` for the default; `GET /i18n/{lang}` → `labels` when the user has chosen | must — see note |
 | `T-05` | The app's own chrome — tab names, empty states, filter UI — is **fetched and cached**, not translated in the app | `GET /i18n/{lang}` → `mobile` ([`api.md`](api.md) §5.9) | must |
@@ -889,6 +907,11 @@ Not on any phone client, now or planned:
 
 ## Changelog
 
+- **Added since v1** — `P-15`: the reader's Appearance, written here after the app
+  ledgers claimed it. It departs from `T-01` and `T-02` on purpose — a phone draws the
+  server's dark or light palette, not the meet's `theme_colors`. No bump: the row is a
+  `should`, and a client without it draws the meet's palette as it did.
+
 - **Added since v1** — `P-17`: search over the meet list, filtered on the device, and
   `GET /meets` now listing live meets before offline ones. No bump: the row is a
   `should`, a client without it shows the whole list as it did, and the new order is
@@ -897,8 +920,8 @@ Not on any phone client, now or planned:
 - **Added since v1** — `P-16`: a server added by scanning a QR code, and the three
   things the servers here owe it — the two `/.well-known/` files, `GET /add`, and the
   Pi's printable code. No bump: the row is `native-only`, nothing a conforming client
-  did became wrong, and a client that never scans anything is unaffected. `P-15` is
-  claimed by the app ledgers and still unwritten here, so the numbering skips it.
+  did became wrong, and a client that never scans anything is unaffected. `P-15` was
+  claimed by the app ledgers and still unwritten here, so the numbering skipped it.
 
   **A printed code names a cloud, never a Pi**, and the reader therefore ends on the
   picker rather than on a board. The first draft had the Pi mint its own `.local`

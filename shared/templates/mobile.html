@@ -23,7 +23,20 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="{{ app_title }}">
-    <meta name="theme-color" content="#000000">
+    {% import "_palette.html" as palette %}
+    {# The shell's own chrome in the reader's Appearance (docs/app.md `P-15`). Its
+       own greys rather than the board's, so Dark is exactly the shell it always was;
+       Light is `white.toml`'s. Automatic draws dark and lets the device switch. #}
+    {%- set shell_dark = {'bg': '#000000', 'nav': '#111111', 'line': '#333333',
+                          'muted': '#666666', 'strong': '#ffffff', 'back': '#555555',
+                          'back_active': '#cccccc', 'overlay': '255,255,255',
+                          'icon': 'invert(1)'} %}
+    {%- set shell_light = {'bg': '#f8f8f8', 'nav': '#ffffff', 'line': '#dddddd',
+                           'muted': '#888888', 'strong': '#111111', 'back': '#888888',
+                           'back_active': '#333333', 'overlay': '0,0,0',
+                           'icon': 'none'} %}
+    {%- set shell = shell_light if reader_theme == 'light' else shell_dark %}
+    {{ palette.theme_color_meta(shell.bg, shell_light.bg if reader_theme == 'auto' else '') }}
     {% if meet_id %}
     <link rel="icon" type="image/svg+xml" href="/favicon.ico">
     <link rel="apple-touch-icon" sizes="180x180" href="/icon/{{ meet_id }}">
@@ -36,9 +49,19 @@
     {# The visitor's language is a cookie (`splouch_lang`, app.md `T-08`) and the
        label style is always short (`T-09`), so the server resolved both before
        rendering this page and nothing has to be restored client-side. #}
+    {% macro shell_vars(c) -%}
+        --shell-bg: {{ c.bg }}; --shell-nav: {{ c.nav }}; --shell-line: {{ c.line }};
+        --shell-muted: {{ c.muted }}; --shell-strong: {{ c.strong }};
+        --shell-back: {{ c.back }}; --shell-back-active: {{ c.back_active }};
+        --shell-overlay: {{ c.overlay }}; --shell-icon: {{ c.icon }};
+    {%- endmacro %}
     <style>
+        :root { {{ shell_vars(shell) }} }
+        {% if reader_theme == 'auto' %}
+        @media (prefers-color-scheme: light) { :root { {{ shell_vars(shell_light) }} } }
+        {% endif %}
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        html, body { width: 100%; height: 100%; overflow: hidden; background: #000; }
+        html, body { width: 100%; height: 100%; overflow: hidden; background: var(--shell-bg); }
 
         /* 65px matches the tab header inside each page (.timing-header-bar, and
            schedule.html's #top-bar), so the three tabs line up when you swipe. */
@@ -54,26 +77,26 @@
         nav {
             position: fixed; bottom: 0; left: 0; right: 0;
             height: calc(65px + env(safe-area-inset-bottom));
-            display: flex; background: #111; border-top: 1px solid #333;
+            display: flex; background: var(--shell-nav); border-top: 1px solid var(--shell-line);
             padding-left: env(safe-area-inset-left);
             padding-right: env(safe-area-inset-right);
             padding-bottom: env(safe-area-inset-bottom);
         }
         nav button {
-            flex: 1; background: none; border: none; color: #666;
+            flex: 1; background: none; border: none; color: var(--shell-muted);
             font-size: 15px; font-family: -apple-system, sans-serif;
             cursor: pointer; transition: color 0.15s;
             -webkit-tap-highlight-color: transparent;
         }
-        nav button.active { color: #fff; border-top: 2px solid #fff; margin-top: -1px; }
+        nav button.active { color: var(--shell-strong); border-top: 2px solid var(--shell-strong); margin-top: -1px; }
         nav a.nav-back {
             flex: 0 0 52px;
             display: flex; align-items: center; justify-content: center;
-            color: #555; text-decoration: none;
+            color: var(--shell-back); text-decoration: none;
             -webkit-tap-highlight-color: transparent;
             transition: color 0.15s;
         }
-        nav a.nav-back:active { color: #ccc; }
+        nav a.nav-back:active { color: var(--shell-back-active); }
         nav a.nav-back svg { display: block; }
 
         /* Swipe strips. Narrow and at the edges so they intercept a horizontal
@@ -95,10 +118,10 @@
             position: absolute; top: -44px; left: 50%;
             transform: translateX(-50%);
             width: 36px; height: 36px; border-radius: 50%;
-            background: rgba(255,255,255,0.12);
-            border: 1.5px solid rgba(255,255,255,0.3);
+            background: rgba(var(--shell-overlay),0.12);
+            border: 1.5px solid rgba(var(--shell-overlay),0.3);
             display: flex; align-items: center; justify-content: center;
-            color: rgba(255,255,255,0.75); font-size: 20px; line-height: 1;
+            color: rgba(var(--shell-overlay),0.75); font-size: 20px; line-height: 1;
             opacity: 0;
         }
 
@@ -153,17 +176,17 @@
         </a>
         {% endif %}
         <button type="button" class="active" id="tab0">
-            <img src="/static/icons/swimming.svg" alt="" style="width:22px;height:22px;filter:invert(1);vertical-align:middle;margin-right:5px;">
+            <img src="/static/icons/swimming.svg" alt="" style="width:22px;height:22px;filter:var(--shell-icon);vertical-align:middle;margin-right:5px;">
             <span class="tab-label">{{ t.scoreboard or 'Scoreboard' }}</span>
         </button>
         {% if with_results %}
         <button type="button" id="tab1">
-            <img src="/static/icons/award.svg" alt="" style="width:22px;height:22px;filter:invert(1);vertical-align:middle;margin-right:5px;">
+            <img src="/static/icons/award.svg" alt="" style="width:22px;height:22px;filter:var(--shell-icon);vertical-align:middle;margin-right:5px;">
             <span class="tab-label">{{ t.results or 'Results' }}</span>
         </button>
         {% endif %}
         <button type="button" id="tab2">
-            <img src="/static/icons/clipboard-list.svg" alt="" style="width:22px;height:22px;filter:invert(1);vertical-align:middle;margin-right:5px;">
+            <img src="/static/icons/clipboard-list.svg" alt="" style="width:22px;height:22px;filter:var(--shell-icon);vertical-align:middle;margin-right:5px;">
             <span class="tab-label">{{ t.schedule or 'Schedule' }}</span>
         </button>
     </nav>
@@ -256,7 +279,7 @@
             ptr.style.top        = '-44px';
             ptr.style.opacity    = '0';
             ptr.style.transform  = 'translateX(-50%) rotate(0deg)';
-            ptr.style.background = 'rgba(255,255,255,0.12)';
+            ptr.style.background = 'rgba(var(--shell-overlay),0.12)';
         }
 
         function atTop(doc) {
@@ -275,7 +298,7 @@
             ptr.style.top        = Math.min(dy * 0.65 - 44, 8) + 'px';
             ptr.style.opacity    = Math.min(progress * 1.5, 1);
             ptr.style.transform  = `translateX(-50%) rotate(${progress * 270}deg)`;
-            ptr.style.background = progress >= 1 ? 'rgba(255,255,255,0.25)' : 'rgba(255,255,255,0.12)';
+            ptr.style.background = progress >= 1 ? 'rgba(var(--shell-overlay),0.25)' : 'rgba(var(--shell-overlay),0.12)';
         }
         function ptrEnd(e) {
             if (ptrY === null) return;

@@ -96,6 +96,12 @@ prefs_auto   = "Défaut de la compétition"
 prefs_labels = "Étiquettes des colonnes"
 prefs_short  = "Courtes"
 prefs_long   = "Longues"
+# Clair ou sombre, au choix du lecteur, pour le sélecteur et chaque compétition
+# (docs/app.md P-15).
+appearance       = "Apparence"
+appearance_dark  = "Sombre"
+appearance_light = "Clair"
+appearance_auto  = "Automatique"
 
 # Feuille de filtres.
 filter            = "Filtrer"

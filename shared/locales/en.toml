@@ -89,6 +89,11 @@ prefs_auto   = "Meet default"
 prefs_labels = "Column labels"
 prefs_short  = "Short"
 prefs_long   = "Long"
+# The reader's light or dark, for the picker and every meet page (docs/app.md P-15).
+appearance       = "Appearance"
+appearance_dark  = "Dark"
+appearance_light = "Light"
+appearance_auto  = "Automatic"
 
 # Filter sheet.
 filter            = "Filter"

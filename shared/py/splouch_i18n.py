@@ -60,6 +60,59 @@ DEFAULT_THEME_FONTS = {
     "timing": "Overpass Mono",
 }
 
+# `server/themes/white.toml`, the server's own light board. Here as well as there
+# because the cloud image ships `shared/` and not `server/`; a test keeps the two
+# equal. The phone pages' Light (docs/app.md `P-15`) — the same palette the iOS and
+# Android apps draw.
+LIGHT_THEME_COLORS = {
+    "bg": "#f8f8f8",
+    "header_bg": "#ffffff",
+    "header_border": "#dddddd",
+    "header_label": "#333333",
+    "header_value": "#111111",
+    "th_text": "#888888",
+    "th_bg": "#f0f0f0",
+    "row_odd": "#f5f5f5",
+    "row_even": "#ffffff",
+    "row_text": "#111111",
+    "time": "#0055aa",
+    "delta_better": "#2e7d32",
+    "delta_worse": "#757575",
+    "podium_gold": "#d0d0d0",
+    "podium_silver": "#dcdcdc",
+    "podium_bronze": "#e8e8e8",
+    "connection_lost": "#c62828",
+    "connection_lost_text": "#f8f8f8",
+    "schedule_event": "#0055cc",
+    "schedule_time": "#0055aa",
+    "schedule_name": "#111111",
+    "schedule_club": "#888888",
+}
+
+# The reader's Appearance (docs/app.md `P-15`), first the default: the pages were
+# dark before the choice existed, and a spectator who never opens the menu should
+# see the pages they saw yesterday.
+READER_THEMES = ("dark", "light", "auto")
+
+
+def reader_palette(theme):
+    """Template context for a phone page drawn in the reader's Appearance.
+
+    The meet's own `theme_colors` are not consulted, as in the apps: a preference
+    the next meet could overrule is not a preference. `auto` draws dark and hands
+    the template the light palette too, for a `prefers-color-scheme` block — the
+    server cannot see the device's setting, the page can.
+    """
+    theme = theme if theme in READER_THEMES else READER_THEMES[0]
+    return {
+        "reader_theme": theme,
+        "theme_colors": LIGHT_THEME_COLORS
+        if theme == "light"
+        else DEFAULT_THEME_COLORS,
+        "theme_colors_light": LIGHT_THEME_COLORS if theme == "auto" else None,
+    }
+
+
 _FALLBACK_LABELS = {
     "event": "EVENT",
     "heat": "HEAT",

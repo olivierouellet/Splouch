@@ -1,0 +1,50 @@
+{# The board's colour variables, from one palette dict — every key a phone page
+   reads, so the board, the results and the schedule declare the same set.
+
+   `reader_light` is the reader's Automatic (docs/app.md `P-15`): the server drew
+   the page dark and cannot see the device's setting, so the light palette rides
+   along behind a media query and the device picks. Empty for Dark, Light, and
+   every page that is not a phone page. #}
+{% macro color_vars(c) -%}
+    --color-bg:             {{ c.bg }};
+    --color-header-bg:      {{ c.header_bg }};
+    --color-header-border:  {{ c.header_border }};
+    --color-header-label:   {{ c.header_label }};
+    --color-header-value:   {{ c.header_value }};
+    --color-th-text:        {{ c.th_text }};
+    --color-th-bg:          {{ c.th_bg }};
+    --color-row-odd:        {{ c.row_odd }};
+    --color-row-even:       {{ c.row_even }};
+    --color-row-text:       {{ c.row_text }};
+    --color-time:           {{ c.time }};
+    --color-delta-better:   {{ c.delta_better }};
+    --color-delta-worse:    {{ c.delta_worse }};
+    --color-podium-gold:    {{ c.podium_gold }};
+    --color-podium-silver:  {{ c.podium_silver }};
+    --color-podium-bronze:  {{ c.podium_bronze }};
+    --color-schedule-event: {{ c.schedule_event }};
+    --color-schedule-time:  {{ c.schedule_time }};
+    --color-schedule-name:  {{ c.schedule_name }};
+    --color-schedule-club:  {{ c.schedule_club }};
+{%- endmacro %}
+
+{% macro reader_light(c) -%}
+{% if c %}
+@media (prefers-color-scheme: light) {
+    :root {
+    {{ color_vars(c) }}
+    }
+}
+{% endif %}
+{%- endmacro %}
+
+{# The browser's own bar colour — `theme-color` — following the same choice. Two
+   tags under Automatic, one per scheme. #}
+{% macro theme_color_meta(dark, light) -%}
+{% if light %}
+<meta name="theme-color" content="{{ dark }}" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="{{ light }}" media="(prefers-color-scheme: light)">
+{% else %}
+<meta name="theme-color" content="{{ dark }}">
+{% endif %}
+{%- endmacro %}

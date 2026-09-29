@@ -195,13 +195,15 @@ def test_the_cloud_fallback_palette_is_the_same_object():
     """It used to be a third hand-kept copy, for a relay whose Pi has not sent its
     settings yet, and the values had already drifted once. Both sides now import
     `shared/py/splouch_i18n.py`, so this asserts identity rather than comparing two
-    literals — there is nothing left to drift."""
+    literals — there is nothing left to drift. The cloud's phone pages draw the
+    reader's palette (docs/app.md `P-15`), whose Dark is that same object."""
 
     import cloud_server
     import splouch_i18n
     import state
 
-    assert cloud_server._DEFAULT_COLORS is splouch_i18n.DEFAULT_THEME_COLORS
+    dark = cloud_server.reader_palette("dark")["theme_colors"]
+    assert dark is splouch_i18n.DEFAULT_THEME_COLORS
     assert state.DEFAULT_THEME_COLORS is splouch_i18n.DEFAULT_THEME_COLORS
     assert cloud_server._DEFAULT_FONTS is splouch_i18n.DEFAULT_THEME_FONTS
     assert state.DEFAULT_THEME_FONTS is splouch_i18n.DEFAULT_THEME_FONTS

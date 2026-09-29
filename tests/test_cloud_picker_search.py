@@ -43,7 +43,12 @@ def _meet(i, **kw):
 
 def _render(meets):
     env = Environment(
-        loader=FileSystemLoader(os.path.join(REPO, "cloud", "templates")),
+        loader=FileSystemLoader(
+            [
+                os.path.join(REPO, "cloud", "templates"),
+                os.path.join(REPO, "shared", "templates"),
+            ]
+        ),
         autoescape=True,
     )
     return env.get_template("picker.html").render(

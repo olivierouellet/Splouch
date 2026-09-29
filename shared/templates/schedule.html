@@ -10,6 +10,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ meet_name or t.schedule or 'Schedule' }}</title>
+    {% import "_palette.html" as palette %}
     <style>
         @font-face { font-family: 'Overpass Mono';   font-style: normal; font-weight: 400; font-display: swap; src: url('/static/fonts/OverpassMono-Regular.woff2')   format('woff2'); }
         @font-face { font-family: 'DSEG7Classic';    font-style: normal; font-weight: 400; font-display: swap; src: url('/static/fonts/DSEG7Classic-Regular.woff2')    format('woff2'); }
@@ -19,25 +20,12 @@
         @font-face { font-family: 'Roboto Mono';     font-style: normal; font-weight: 400; font-display: swap; src: url('/static/fonts/RobotoMono-Regular.woff2')      format('woff2'); }
 
         :root {
-            --color-bg:            {{ theme_colors.bg }};
-            --color-header-bg:     {{ theme_colors.header_bg }};
-            --color-header-border: {{ theme_colors.header_border }};
-            --color-header-label:  {{ theme_colors.header_label }};
-            --color-header-value:  {{ theme_colors.header_value }};
-            --color-th-text:       {{ theme_colors.th_text }};
-            --color-th-bg:         {{ theme_colors.th_bg }};
-            --color-row-odd:       {{ theme_colors.row_odd }};
-            --color-row-even:      {{ theme_colors.row_even }};
-            --color-row-text:      {{ theme_colors.row_text }};
-            --color-time:          {{ theme_colors.time }};
-            --color-schedule-event: {{ theme_colors.schedule_event }};
-            --color-schedule-time:  {{ theme_colors.schedule_time }};
-            --color-schedule-name:  {{ theme_colors.schedule_name }};
-            --color-schedule-club:  {{ theme_colors.schedule_club }};
+            {{ palette.color_vars(theme_colors) }}
             --font-family:         '{{ theme_fonts.family }}', monospace;
             --font-digits:         '{{ theme_fonts.digits }}', monospace;
             --font-timing:         '{{ theme_fonts.timing }}', monospace;
         }
+        {{ palette.reader_light(theme_colors_light) }}
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
 

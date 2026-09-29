@@ -96,6 +96,12 @@ prefs_auto   = "Predeterminado de la competición"
 prefs_labels = "Etiquetas de columna"
 prefs_short  = "Cortas"
 prefs_long   = "Largas"
+# Claro u oscuro, a elección del lector, para el selector y cada competición
+# (docs/app.md P-15).
+appearance       = "Apariencia"
+appearance_dark  = "Oscuro"
+appearance_light = "Claro"
+appearance_auto  = "Automático"
 
 # Hoja de filtros.
 filter            = "Filtrar"

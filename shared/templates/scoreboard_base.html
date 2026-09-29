@@ -7,29 +7,15 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
 {# djlint:on #}
 <link rel="stylesheet" href="/static/css/timing_display.css">
+{% import "_palette.html" as palette %}
 <style>
 :root {
-    --color-bg:            {{ theme_colors.bg }};
-    --color-header-bg:     {{ theme_colors.header_bg }};
-    --color-header-border: {{ theme_colors.header_border }};
-    --color-header-label:  {{ theme_colors.header_label }};
-    --color-header-value:  {{ theme_colors.header_value }};
-    --color-th-text:       {{ theme_colors.th_text }};
-    --color-th-bg:         {{ theme_colors.th_bg }};
-    --color-row-odd:       {{ theme_colors.row_odd }};
-    --color-row-even:      {{ theme_colors.row_even }};
-    --color-row-text:      {{ theme_colors.row_text }};
-    --color-time:          {{ theme_colors.time }};
-    --color-delta-better:  {{ theme_colors.delta_better }};
-    --color-delta-worse:   {{ theme_colors.delta_worse }};
-    /* Used by the Results tab's podium tints; harmless on the live board. */
-    --color-podium-gold:   {{ theme_colors.podium_gold }};
-    --color-podium-silver: {{ theme_colors.podium_silver }};
-    --color-podium-bronze: {{ theme_colors.podium_bronze }};
+    {{ palette.color_vars(theme_colors) }}
     --font-family:         '{{ theme_fonts.family }}';
     --font-digits:         '{{ theme_fonts.digits }}', monospace;
     --font-timing:         '{{ theme_fonts.timing }}', monospace;
 }
+{{ palette.reader_light(theme_colors_light) }}
 .td_time, .td_delta { font-family: var(--font-timing), monospace; }
 
 @media (orientation: portrait) {

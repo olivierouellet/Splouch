@@ -91,8 +91,9 @@ from cloud_store import (
     _write_meet_files,
 )
 from splouch_i18n import (
-    DEFAULT_THEME_COLORS as _DEFAULT_COLORS,
     DEFAULT_THEME_FONTS as _DEFAULT_FONTS,
+    READER_THEMES,
+    reader_palette,
 )
 from splouch_links import INVITE_PARAM, INVITE_PATH
 
@@ -141,7 +142,11 @@ class StatsResult(BaseModel):
 # The visitor's choice, per device and per server (docs/app.md `T-08`): the picker
 # writes these, every meet page reads them, and the URL carries nothing. The Pi
 # uses the same names (server/web.py), so the rule is one rule.
-PREF_COOKIES = {"lang": "splouch_lang", "style": "splouch_style"}
+PREF_COOKIES = {
+    "lang": "splouch_lang",
+    "style": "splouch_style",
+    "theme": "splouch_theme",
+}
 PREF_MAX_AGE = 365 * 24 * 3600
 
 
@@ -213,6 +218,14 @@ def _client_style(request, meet):
     `splouch_style` cookie or `?style=` link is ignored rather than cleared, so a
     control that comes back finds each visitor's choice where they left it."""
     return "short"
+
+
+def _client_palette(request):
+    """The reader's Appearance (docs/app.md `P-15`), as template context: the
+    picker, the shell and the three tabs all draw from it, never from the meet's
+    `theme_colors`. Cookie only — the picker applies it in place, so there is no
+    link parameter to honour or remember."""
+    return reader_palette(request.cookies.get(PREF_COOKIES["theme"], ""))
 
 
 def _etagged(request, payload):
@@ -507,8 +520,11 @@ def route_index(request: Request):
             meets=meets,
             t=_strings(lang, "mobile"),
             lang=lang,
-            # For the display-preferences menu: the languages this server can serve.
+            # For the display-preferences menu: the languages this server can serve,
+            # and the Appearance choices.
             locales=_available_locales(),
+            reader_themes=READER_THEMES,
+            **_client_palette(request),
             picker_title=brand["title"],
             picker_window_title=brand["window_title"],
             picker_logo=brand["has_logo"],
@@ -940,6 +956,7 @@ def route_mobile(request: Request):
             show_results=meet.get("settings", {}).get("console", {}).get("timed", True),
             # Passed down to the tab iframes so one choice covers all three.
             ui_style=_client_style(request, meet),
+            **_client_palette(request),
         ),
     )
 
@@ -971,10 +988,9 @@ def route_live(request: Request):
         # for, so `results.html` does not take this.
         show_laps=s.get("show_laps", False),
         lap_direction=s.get("lap_direction", "up"),
-        # Merge over the defaults rather than falling back wholesale: a relay that
-        # sends a partial theme_colors would otherwise leave every unlisted CSS
-        # variable empty. Matches route_results and route_schedule.
-        theme_colors={**_DEFAULT_COLORS, **s.get("theme_colors", {})},
+        # The reader's palette, not the meet's (docs/app.md `P-15`). Matches
+        # route_results and route_schedule.
+        **_client_palette(request),
         theme_fonts={**_DEFAULT_FONTS, **s.get("theme_fonts", {})},
         labels=_client_labels(
             meet, _client_lang(request, meet), _client_style(request, meet)
@@ -1011,7 +1027,7 @@ def route_results(request: Request):
         show_position=s.get("show_position", True),
         show_podium=s.get("show_podium", True),
         t=_strings(_client_lang(request, meet), "mobile"),
-        theme_colors={**_DEFAULT_COLORS, **s.get("theme_colors", {})},
+        **_client_palette(request),
         # Merged, not a wholesale fallback: a relay sending only one font would
         # otherwise leave the other two CSS variables empty. Same as route_live.
         theme_fonts={**_DEFAULT_FONTS, **s.get("theme_fonts", {})},
@@ -1089,7 +1105,7 @@ def route_schedule(request: Request):
             meet, _client_lang(request, meet), _client_style(request, meet)
         ),
         event_vocab=_strings(_client_lang(request, meet), "event_name"),
-        theme_colors={**_DEFAULT_COLORS, **s.get("theme_colors", {})},
+        **_client_palette(request),
         theme_fonts={**_DEFAULT_FONTS, **s.get("theme_fonts", {})},
         lang=_client_lang(request, meet),
     )

@@ -266,6 +266,10 @@ PICKER_KEYS = (
     "prefs_labels",
     "prefs_short",
     "prefs_long",
+    "appearance",
+    "appearance_dark",
+    "appearance_light",
+    "appearance_auto",
 )
 FILTER_KEYS = (
     "filter",

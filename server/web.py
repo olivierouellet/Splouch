@@ -155,7 +155,13 @@ def _globals():
 
 # The visitor's choice lives in these cookies, one per device and per server
 # (docs/app.md `T-08`). A year, because the choice is meant to outlive the meet.
-PREF_COOKIES = {"lang": "splouch_lang", "style": "splouch_style"}
+# `theme` is the cloud picker's Appearance (docs/app.md `P-15`); nothing sets it
+# on a Pi, which has no picker, so its phone pages keep the operator's palette.
+PREF_COOKIES = {
+    "lang": "splouch_lang",
+    "style": "splouch_style",
+    "theme": "splouch_theme",
+}
 PREF_MAX_AGE = 365 * 24 * 3600
 
 

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="{{ lang | default('en', true) }}">
+<html lang="{{ lang | default('en', true) }}" data-theme="{{ reader_theme | default('dark', true) }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,7 +7,9 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="{{ picker_window_title or picker_title or 'Splouch' }}">
-    <meta name="theme-color" content="#000000">
+    {% import "_palette.html" as palette %}
+    {{ palette.theme_color_meta('#f8f8f8' if reader_theme == 'light' else '#0d0d0d',
+                                '#f8f8f8' if reader_theme == 'auto' else '') }}
     <link rel="icon" type="image/svg+xml" href="/favicon.ico">
     <link rel="apple-touch-icon" sizes="180x180" href="/picker_icon">
     <link rel="manifest" href="/picker_manifest">
@@ -17,14 +19,47 @@
         /* One content column for the whole page: the meet list and the logo share
            an edge, so a banner lines up with the cards under it. */
         :root { --column: 800px; }
+
+        /* ── Appearance (docs/app.md `P-15`) ──
+           The reader's Dark, Light or Automatic, on `<html data-theme>`: set by the
+           server from the `splouch_theme` cookie, and by the menu in place. Dark is
+           the page as it always was; Light is `white.toml`'s greys, the same board
+           the meet pages draw. The A2HS hint stays a dark toast in both. */
+        {% macro dark_vars() -%}
+            color-scheme: dark;
+            --bg: #0d0d0d; --text: #e0e0e0; --title: #888888;
+            --surface: #1a1a1a; --line: #2e2e2e; --hover-line: #555555; --hover-bg: #222222;
+            --muted: #666666; --empty: #444444; --accent: #5ab4e8;
+            --btn-line: #333333; --btn-text: #b0b0b0;
+            --panel: #141414; --panel-shadow: rgba(0,0,0,0.6); --group: #7c7c7c;
+            --opt-bg: #1e1e1e; --opt-line: #2c2c2c; --opt-text: #d0d0d0;
+            --note-text: #999999; --note-bg: #141414; --fine: #555555;
+            --overlay: 255,255,255;
+        {%- endmacro %}
+        {% macro light_vars() -%}
+            color-scheme: light;
+            --bg: #f8f8f8; --text: #111111; --title: #888888;
+            --surface: #ffffff; --line: #dddddd; --hover-line: #bbbbbb; --hover-bg: #f0f0f0;
+            --muted: #888888; --empty: #aaaaaa; --accent: #0055cc;
+            --btn-line: #dddddd; --btn-text: #555555;
+            --panel: #ffffff; --panel-shadow: rgba(0,0,0,0.15); --group: #888888;
+            --opt-bg: #f5f5f5; --opt-line: #e0e0e0; --opt-text: #111111;
+            --note-text: #666666; --note-bg: #ffffff; --fine: #999999;
+            --overlay: 0,0,0;
+        {%- endmacro %}
+        :root { {{ dark_vars() }} }
+        :root[data-theme="light"] { {{ light_vars() }} }
+        @media (prefers-color-scheme: light) {
+            :root[data-theme="auto"] { {{ light_vars() }} }
+        }
         body {
-            background: #0d0d0d; color: #e0e0e0;
+            background: var(--bg); color: var(--text);
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
             min-height: 100vh;
             display: flex; flex-direction: column; align-items: center;
             padding: 40px 20px;
         }
-        h1 { font-size: 1.4em; font-weight: 400; color: #888; margin-bottom: 32px; letter-spacing: 0.06em; text-transform: uppercase; }
+        h1 { font-size: 1.4em; font-weight: 400; color: var(--title); margin-bottom: 32px; letter-spacing: 0.06em; text-transform: uppercase; }
         .meets { display: flex; flex-wrap: wrap; gap: 16px; justify-content: center; max-width: var(--column); }
         /* Sized from the image's own proportions rather than an operator setting —
            the file already says whether it is a banner or a badge. `contain` is what
@@ -36,20 +71,20 @@
             object-fit: contain; margin-bottom: 16px; border-radius: 8px;
         }
         .card {
-            background: #1a1a1a; border: 1px solid #2e2e2e; border-radius: 10px;
+            background: var(--surface); border: 1px solid var(--line); border-radius: 10px;
             padding: 20px 24px; min-width: 260px; max-width: 340px; flex: 1;
             text-decoration: none; color: inherit;
             transition: border-color 0.15s, background 0.15s;
             display: flex; align-items: center; gap: 14px;
         }
-        .card:hover { border-color: #555; background: #222; }
+        .card:hover { border-color: var(--hover-line); background: var(--hover-bg); }
         /* `display: flex` above outranks the UA's rule for `hidden`, so a filtered-out
            card would otherwise stay on screen. */
         .card[hidden] { display: none; }
         .card-img { width: 56px; height: 56px; border-radius: 6px; object-fit: cover; flex-shrink: 0; }
         .card-body { flex: 1; min-width: 0; }
         .card-name { font-size: 1em; font-weight: 600; margin-bottom: 4px; }
-        .card-meta { font-size: 0.85em; color: #666; line-height: 1.5; }
+        .card-meta { font-size: 0.85em; color: var(--muted); line-height: 1.5; }
         .card-meta span + span::before { content: ' · '; }
         .status-dot {
             width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
@@ -58,7 +93,7 @@
         }
         .status-dot.off { background: transparent; box-shadow: none; animation: none; }
         @keyframes live-pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.45; } }
-        .empty { color: #444; font-size: 1.1em; margin-top: 60px; }
+        .empty { color: var(--empty); font-size: 1.1em; margin-top: 60px; }
         .empty[hidden] { display: none; }
 
         /* ── Meet search (docs/app.md `P-17`) ──
@@ -66,12 +101,12 @@
            any input smaller than that and leaves it zoomed. */
         .meet-search {
             display: block; width: 100%; max-width: var(--column); margin-bottom: 16px;
-            background: #1a1a1a; border: 1px solid #2e2e2e; border-radius: 10px;
-            color: #e0e0e0; font: inherit; font-size: 16px; padding: 12px 16px;
+            background: var(--surface); border: 1px solid var(--line); border-radius: 10px;
+            color: var(--text); font: inherit; font-size: 16px; padding: 12px 16px;
             -webkit-appearance: none; appearance: none;
         }
-        .meet-search::placeholder { color: #666; }
-        .meet-search:focus { outline: none; border-color: #5ab4e8; }
+        .meet-search::placeholder { color: var(--muted); }
+        .meet-search:focus { outline: none; border-color: var(--accent); }
         .meet-search[hidden] { display: none; }
 
         /* ── Pull-to-refresh ── */
@@ -88,10 +123,10 @@
             position: absolute; top: -44px; left: 50%;
             transform: translateX(-50%);
             width: 36px; height: 36px; border-radius: 50%;
-            background: rgba(255,255,255,0.12);
-            border: 1.5px solid rgba(255,255,255,0.3);
+            background: rgba(var(--overlay),0.12);
+            border: 1.5px solid rgba(var(--overlay),0.3);
             display: flex; align-items: center; justify-content: center;
-            color: rgba(255,255,255,0.75); font-size: 20px; line-height: 1;
+            color: rgba(var(--overlay),0.75); font-size: 20px; line-height: 1;
             opacity: 0;
         }
 
@@ -137,7 +172,7 @@
         #prefs-btn {
             position: fixed; top: max(10px, env(safe-area-inset-top)); right: 12px;
             z-index: 60; width: 40px; height: 40px; border-radius: 10px;
-            background: #1a1a1a; border: 1px solid #333; color: #b0b0b0;
+            background: var(--surface); border: 1px solid var(--btn-line); color: var(--btn-text);
             display: flex; align-items: center; justify-content: center; cursor: pointer;
         }
         #prefs-btn svg { width: 20px; height: 20px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; }
@@ -145,19 +180,19 @@
         #prefs-panel {
             position: fixed; top: max(56px, calc(env(safe-area-inset-top) + 46px)); right: 12px;
             z-index: 61; width: min(280px, calc(100vw - 24px));
-            background: #141414; border: 1px solid #333; border-radius: 12px;
-            padding: 12px; display: none; box-shadow: 0 8px 28px rgba(0,0,0,0.6);
+            background: var(--panel); border: 1px solid var(--btn-line); border-radius: 12px;
+            padding: 12px; display: none; box-shadow: 0 8px 28px var(--panel-shadow);
         }
         #prefs-panel.open { display: block; }
-        .prefs-group { font-size: 12px; color: #7c7c7c; text-transform: uppercase;
+        .prefs-group { font-size: 12px; color: var(--group); text-transform: uppercase;
                        letter-spacing: 0.04em; margin: 4px 2px 6px; }
         .prefs-group + .prefs-group { margin-top: 14px; }
         .prefs-opt {
             display: block; width: 100%; text-align: left; margin-bottom: 5px;
-            background: #1e1e1e; border: 1px solid #2c2c2c; border-radius: 8px;
-            color: #d0d0d0; font-size: 14px; padding: 9px 11px; cursor: pointer;
+            background: var(--opt-bg); border: 1px solid var(--opt-line); border-radius: 8px;
+            color: var(--opt-text); font-size: 14px; padding: 9px 11px; cursor: pointer;
         }
-        .prefs-opt[aria-pressed="true"] { border-color: #5ab4e8; color: #5ab4e8; }
+        .prefs-opt[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
         .prefs-opt:active { opacity: 0.7; }
     </style>
 </head>
@@ -170,6 +205,11 @@
         <button type="button" class="prefs-opt" data-pref="lang" data-value="">{{ t.language_auto or 'Auto' }}</button>
         {% for code, name in locales %}
         <button type="button" class="prefs-opt" data-pref="lang" data-value="{{ code }}">{{ name }}</button>
+        {% endfor %}
+        <div class="prefs-group">{{ t.appearance or 'Appearance' }}</div>
+        {%- set theme_floor = {'dark': 'Dark', 'light': 'Light', 'auto': 'Automatic'} %}
+        {% for theme in reader_themes | default(['dark', 'light', 'auto'], true) %}
+        <button type="button" class="prefs-opt" data-pref="theme" data-value="{{ theme }}">{{ t['appearance_' ~ theme] or theme_floor[theme] }}</button>
         {% endfor %}
     </div>
 
@@ -242,11 +282,11 @@
     {% else %}
     <div class="empty">{{ t.no_meets }}</div>
     {% endif %}
-    <p style="margin:28px auto 0;max-width:340px;text-align:center;font-size:0.74em;color:#999;line-height:1.5;border:1px solid #333;border-radius:8px;background:#141414;padding:12px 16px;">
+    <p style="margin:28px auto 0;max-width:340px;text-align:center;font-size:0.74em;color:var(--note-text);line-height:1.5;border:1px solid var(--btn-line);border-radius:8px;background:var(--note-bg);padding:12px 16px;">
         {{ t.get('results_disclaimer', 'These are live, unofficial results and are subject to validation. Validated results will be available on the SplashMe app.') }}
     </p>
     {% if analytics_enabled %}
-    <p style="margin:12px auto;max-width:340px;text-align:center;font-size:0.72em;color:#555;line-height:1.5;">
+    <p style="margin:12px auto;max-width:340px;text-align:center;font-size:0.72em;color:var(--fine);line-height:1.5;">
         {{ t.get('privacy_note', 'This site counts visitors anonymously to estimate attendance. No personal information is collected or shared.') }}
     </p>
     {% endif %}
@@ -298,20 +338,38 @@ function meetMatches(key, query) {
 })();
 
 /* ── Display preferences ──────────────────────────────────────────────────────
-   A cookie per device, read by the server for every page it renders, so the
-   meet cards below stay plain links and a bookmark opens right without a
-   parameter (docs/app.md `T-08`). A preference, not tracking: nothing here
-   identifies the visitor. Column labels are not offered: the cloud's meet pages
-   are always short (`T-09`).
+   A cookie per choice and device, read by the server for every page it renders,
+   so the meet cards below stay plain links and a bookmark opens right without a
+   parameter (docs/app.md `T-08`, `P-15`). A preference, not tracking: nothing
+   here identifies the visitor. Column labels are not offered: the meet pages are
+   always short (`T-09`).
 
-   Empty means "no choice": the picker keeps following the browser, and a meet page
-   keeps following the meet. That is the default, and clearing is how you get back
-   to it. */
-var PREFS = { lang: 'splouch_lang' };
+   An empty language means "no choice": the picker keeps following the browser, and
+   a meet page keeps following the meet. That is the default, and clearing is how
+   you get back to it. The appearance has no empty: no cookie is Dark. */
+var PREFS = { lang: 'splouch_lang', theme: 'splouch_theme' };
+var PREF_DEFAULTS = { lang: '', theme: 'dark' };
 
 function readPref(name) {
     var m = document.cookie.match('(?:^|; )' + PREFS[name] + '=([^;]*)');
-    return m ? decodeURIComponent(m[1]) : '';
+    return m ? decodeURIComponent(m[1]) : PREF_DEFAULTS[name];
+}
+
+/* The page restyles in place — every colour is a variable keyed on
+   `<html data-theme>` — and the browser's bar colour follows, as the server
+   would have drawn it: one tag, or two under Automatic. */
+function applyTheme(theme) {
+    document.documentElement.dataset.theme = theme;
+    document.querySelectorAll('meta[name="theme-color"]').forEach(function (m) { m.remove(); });
+    var tags = theme === 'auto'
+        ? [['#0d0d0d', '(prefers-color-scheme: dark)'], ['#f8f8f8', '(prefers-color-scheme: light)']]
+        : [[theme === 'light' ? '#f8f8f8' : '#0d0d0d', '']];
+    tags.forEach(function (t) {
+        var m = document.createElement('meta');
+        m.name = 'theme-color'; m.content = t[0];
+        if (t[1]) m.media = t[1];
+        document.head.appendChild(m);
+    });
 }
 
 function writePref(name, value) {
@@ -341,6 +399,10 @@ document.querySelectorAll('.prefs-opt').forEach(function (b) {
     b.addEventListener('click', function () {
         writePref(b.dataset.pref, b.dataset.value);
         markPrefs();
+        if (b.dataset.pref === 'theme') {
+            applyTheme(b.dataset.value);
+            return;
+        }
         /* This page is rendered server-side, so a language change is a reload: the
            server reads the cookie just written. A stale `?lang=` on the URL would
            outrank it, so drop it. */
@@ -419,7 +481,7 @@ markPrefs();
             ptr.style.top        = '-44px';
             ptr.style.opacity    = '0';
             ptr.style.transform  = 'translateX(-50%) rotate(0deg)';
-            ptr.style.background = 'rgba(255,255,255,0.12)';
+            ptr.style.background = 'rgba(var(--overlay),0.12)';
         }
 
         document.getElementById('ptr-edge').addEventListener('touchstart', e => {
@@ -434,7 +496,7 @@ markPrefs();
             ptr.style.top        = Math.min(dy * 0.65 - 44, 8) + 'px';
             ptr.style.opacity    = Math.min(progress * 1.5, 1);
             ptr.style.transform  = `translateX(-50%) rotate(${progress * 270}deg)`;
-            ptr.style.background = progress >= 1 ? 'rgba(255,255,255,0.25)' : 'rgba(255,255,255,0.12)';
+            ptr.style.background = progress >= 1 ? 'rgba(var(--overlay),0.25)' : 'rgba(var(--overlay),0.12)';
         }, { passive: true });
 
         document.addEventListener('touchend', e => {
