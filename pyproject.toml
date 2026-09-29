@@ -35,13 +35,12 @@ dependencies = [
 scoreboard = ["pyside6-essentials>=6.5"]
 
 [dependency-groups]
-dev = [
-    "pytest",
-    "pytest-cov",
-    "ruff",
-    "ty",
-    # Non-Python linters, as wheels so uv.lock pins them like the rest. CI's `lint`
-    # job installs this group alone.
+dev = ["pytest", "pytest-cov", "ruff", "ty"]
+# Non-Python linters, pinned by uv.lock like the rest. A group of their own because
+# three have no Linux aarch64 wheel — Taplo's source build is broken outright — and
+# the test job runs on aarch64 to match the Pi. It passes `--no-group lint`; CI's
+# x86 `lint` job installs this group alone.
+lint = [
     "actionlint-py", # .github/workflows/
     "djlint",        # templates, rules in [tool.djlint] below
     "rumdl",         # Markdown, rules in .markdownlint.json
@@ -50,6 +49,10 @@ dev = [
     "taplo",         # TOML, settings in taplo.toml
     "yamllint",      # rules in .yamllint.yml
 ]
+
+# Both groups for a plain `uv sync`, so every command in CONTRIBUTING works locally.
+[tool.uv]
+default-groups = ["dev", "lint"]
 
 [tool.pytest.ini_options]
 # Every import root, so no test needs `sys.path` surgery of its own. The same

@@ -104,7 +104,7 @@ What checks each kind of file, and whether CI fails on it. Vendored minified fil
 | **YAML** | `.github/`, `cloud/docker-compose.yml` | yamllint (`.yamllint.yml`); actionlint for workflows; schema validation in the editor (Red Hat YAML extension) | — | — | — | Yes, yamllint and actionlint |
 
 Every linter and formatter above is pinned: Biome and TypeScript by `package-lock.json`, the rest
-as wheels in the `dev` group by `uv.lock`. Only Node, for the JavaScript smoke tests,
+in the `lint` dependency group by `uv.lock`. Only Node, for the JavaScript smoke tests,
 comes from the CI image's apt. The VS Code extensions in `.vscode/extensions.json`
 run Ruff, ty, ShellCheck, markdownlint, Biome and Taplo, and VS Code reads
 `jsconfig.json` itself, so a file clean in the editor is one CI accepts. djLint has

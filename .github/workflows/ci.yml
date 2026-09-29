@@ -67,7 +67,9 @@ jobs:
       - name: Install dependencies
         # --frozen: uv.lock decides, nothing resolves fresh. It also pins ruff and a
         # pre-1.0 ty, so neither can turn this red overnight by releasing.
-        run: uv sync --extra scoreboard --frozen
+        # --no-group lint: the non-Python linters run in the lint job, and three of
+        # them have no aarch64 wheel (pyproject.toml).
+        run: uv sync --extra scoreboard --frozen --no-group lint
 
       - name: Check Qt is really here
         # The guard that makes green mean green. Every Qt test module skips at module
@@ -120,10 +122,10 @@ jobs:
           cache-dependency-glob: uv.lock
 
       - name: Install the linters
-        # Every one but Biome is a wheel in the dev group, so uv.lock pins them like Ruff
-        # and ty. Biome is npm-only; package-lock.json pins it the same way.
+        # Every one but Biome is in the lint group, so uv.lock pins them like Ruff and
+        # ty. Biome and TypeScript are npm-only; package-lock.json pins them the same way.
         run: |
-          uv sync --only-group dev --frozen
+          uv sync --only-group lint --frozen
           npm ci --no-fund --no-audit
 
       - name: ShellCheck

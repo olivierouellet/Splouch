@@ -868,16 +868,18 @@ scoreboard = [
 
 [package.dev-dependencies]
 dev = [
-    { name = "actionlint-py" },
-    { name = "djlint" },
     { name = "pytest" },
     { name = "pytest-cov" },
     { name = "ruff" },
+    { name = "ty" },
+]
+lint = [
+    { name = "actionlint-py" },
+    { name = "djlint" },
     { name = "rumdl" },
     { name = "shellcheck-py" },
     { name = "shfmt-py" },
     { name = "taplo" },
-    { name = "ty" },
     { name = "yamllint" },
 ]
 
@@ -898,16 +900,18 @@ provides-extras = ["scoreboard"]
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "actionlint-py" },
-    { name = "djlint" },
     { name = "pytest" },
     { name = "pytest-cov" },
     { name = "ruff" },
+    { name = "ty" },
+]
+lint = [
+    { name = "actionlint-py" },
+    { name = "djlint" },
     { name = "rumdl" },
     { name = "shellcheck-py" },
     { name = "shfmt-py" },
     { name = "taplo" },
-    { name = "ty" },
     { name = "yamllint" },
 ]
 
