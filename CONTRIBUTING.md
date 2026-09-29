@@ -76,6 +76,10 @@ npx tsc -p shared/static/js/jsconfig.json
 uv run djlint server/templates cloud/templates shared/templates --lint
 uv run taplo fmt --check
 uv run taplo lint
+
+# Only if you touched cloud/requirements.in: regenerate, then commit the result.
+uv pip compile cloud/requirements.in --universal --python-version 3.13 \
+  --generate-hashes -o cloud/requirements.txt
 ```
 
 `uv run ruff format` and `uv run ruff check --fix` fix the Ruff two for you, and
@@ -102,6 +106,7 @@ What checks each kind of file, and whether CI fails on it. Vendored minified fil
 | **TOML** | `shared/locales/`, `server/themes/`, `pyproject.toml` | `taplo lint` (syntax; `pyproject.toml` against its schema) | Taplo (`taplo.toml`, columns kept aligned) | — | Locale key parity with English in [`tests/test_i18n.py`](tests/test_i18n.py) | — | Yes, Taplo and pytest |
 | **Markdown** | `*.md`, `docs/` | rumdl in CI, markdownlint in the editor — both read `.markdownlint.json` | `rumdl fmt` fixes what the check flags | — | — | — | Yes, rumdl |
 | **YAML** | `.github/`, `cloud/docker-compose.yml` | yamllint (`.yamllint.yml`); actionlint for workflows; schema validation in the editor (Red Hat YAML extension) | — | — | — | — | Yes, yamllint and actionlint |
+| **Python requirements** | `cloud/requirements.txt` from `requirements.in` | CI regenerates it with the command in its header and fails on any difference | — | — | — | — | Yes |
 
 Every linter and formatter above is pinned: Biome and TypeScript by `package-lock.json`, the rest
 in the `lint` dependency group by `uv.lock`. Only Node, for the JavaScript smoke tests,

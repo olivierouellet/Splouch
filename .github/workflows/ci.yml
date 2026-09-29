@@ -168,3 +168,12 @@ jobs:
         run: |
           uv run taplo fmt --check
           uv run taplo lint
+
+      - name: Cloud requirements
+        # cloud/requirements.txt is generated from requirements.in and hash-pinned.
+        # Re-running the command in its header keeps every existing pin (no
+        # --upgrade), so the file changes only if the two have drifted apart.
+        run: |
+          uv pip compile cloud/requirements.in --universal --python-version 3.13 \
+            --generate-hashes -o cloud/requirements.txt --quiet
+          git diff --exit-code cloud/requirements.txt
