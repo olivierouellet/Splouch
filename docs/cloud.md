@@ -22,7 +22,10 @@ Pi #1 ──── outbound WebSocket ────► Cloud VM (Docker + Caddy)
 ## Deploying the cloud server
 
 **Requirements:**
-- A Debian 12+ or Ubuntu 22+ VM (any cloud provider)
+
+- A Debian 13 (Trixie) VM, any cloud provider — the same base and Python 3.13 as
+  Raspberry Pi OS Trixie, which is what CI tests. The relay itself runs in Docker;
+  the deploy webhook runs on the VM's own `python3`.
 - Ports 80 and 443 open in the VM's firewall / security group
 - A domain name with an `A` record pointing at the VM's public IP
 
