@@ -12,6 +12,7 @@ and returns without blocking.
 """
 
 import asyncio
+import contextlib
 import threading
 
 _loop: asyncio.AbstractEventLoop | None = None
@@ -40,10 +41,8 @@ class ConnectionManager:
 
     async def send(self, ws, event, data=None):
         """Send one frame to a single socket, ignoring a dead connection."""
-        try:
+        with contextlib.suppress(Exception):
             await ws.send_json({"event": event, "data": data})
-        except Exception:
-            pass
 
     async def broadcast(self, channel, event, data=None):
         """Send one frame to every socket in a channel; drop any that fail."""
@@ -75,10 +74,8 @@ def emit(channel, event, data=None):
     loop = _loop
     if loop is None:
         return
-    try:
+    with contextlib.suppress(Exception):
         asyncio.run_coroutine_threadsafe(manager.broadcast(channel, event, data), loop)
-    except Exception:
-        pass
 
 
 def run_bg(fn, *args):

@@ -68,7 +68,7 @@ def _resolve(target_user_env, sudo_user, user):
         "USER": user,
     }
     out = subprocess.run(
-        ["bash", "-c", script], capture_output=True, text=True, env=env
+        ["bash", "-c", script], capture_output=True, text=True, env=env, check=True
     )
     return out.stdout.strip()
 

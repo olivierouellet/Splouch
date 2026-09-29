@@ -8,6 +8,7 @@ Qt-free apart from one `ServerLink` test, which stubs the socket rather than
 opening one.
 """
 
+import contextlib
 import json
 import os
 
@@ -219,10 +220,8 @@ def test_the_link_registers_on_every_connect(monkeypatch):
     # recv() raises KeyboardInterrupt, which is not an Exception subclass, so it
     # escapes the loop's handler and ends _run after exactly one connect.
     link = ServerLink("http://127.0.0.1:1", register=lambda: {"role": "kiosk"})
-    try:
+    with contextlib.suppress(KeyboardInterrupt):
         link._run()
-    except KeyboardInterrupt:
-        pass
     assert sent and sent[0] == {"event": "register", "data": {"role": "kiosk"}}
 
 
@@ -254,8 +253,6 @@ def test_a_failing_register_does_not_stop_the_board(monkeypatch):
 
     link = ServerLink("http://127.0.0.1:1", register=lambda: {"role": "kiosk"})
     link.connected.connect(lambda ok: connected.append(ok))
-    try:
+    with contextlib.suppress(KeyboardInterrupt):
         link._run()
-    except KeyboardInterrupt:
-        pass
     assert True in connected, "the link should still report itself connected"

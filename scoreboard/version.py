@@ -26,7 +26,12 @@ _TIMEOUT = 8
 def _git(*args):
     try:
         result = subprocess.run(
-            ("git",) + args, cwd=_REPO, capture_output=True, text=True, timeout=_TIMEOUT
+            ("git", *args),
+            cwd=_REPO,
+            capture_output=True,
+            text=True,
+            timeout=_TIMEOUT,
+            check=False,
         )
     except (OSError, subprocess.SubprocessError):
         return None

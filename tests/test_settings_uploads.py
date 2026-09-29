@@ -184,7 +184,7 @@ def test_the_filename_listener_survives_a_picker_with_no_message_span(src):
         fh.write(harness)
         path = fh.name
     try:
-        res = subprocess.run(js_argv(path), capture_output=True, text=True)
+        res = subprocess.run(js_argv(path), capture_output=True, text=True, check=False)
     finally:
         os.remove(path)
     assert res.returncode == 0, res.stderr

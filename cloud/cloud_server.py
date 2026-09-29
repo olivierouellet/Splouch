@@ -21,7 +21,7 @@ import re
 import secrets
 import time
 import urllib.request
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 from typing import Any
 
 from fastapi import (
@@ -298,14 +298,11 @@ async def lifespan(app):
         yield
     finally:
         flush_task.cancel()
-        try:
+        with suppress(asyncio.CancelledError):
             await flush_task
-        except asyncio.CancelledError:
-            pass
-        try:
-            await run_in_threadpool(_flush_analytics)  # persist anything still queued
-        except Exception:
-            pass  # don't let a failed drain error shutdown
+        # Persist anything still queued, without letting a failed drain error shutdown.
+        with suppress(Exception):
+            await run_in_threadpool(_flush_analytics)
 
 
 # Built-in docs are disabled here and re-served below behind `require_admin`, so
@@ -1435,7 +1432,7 @@ async def route_restore_meets(request: Request):
         data = json.loads(await uploaded.read())
         if not isinstance(data, dict):
             raise ValueError("expected a JSON object")
-        meets = data["meets"] if "meets" in data else data
+        meets = data.get("meets", data)
         if not isinstance(meets, dict):
             raise ValueError("invalid meets section")
         with _lock:

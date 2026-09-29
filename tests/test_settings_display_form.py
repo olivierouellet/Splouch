@@ -10,6 +10,7 @@ Qt-free: this is the server, driven through the real route function.
 """
 
 import asyncio
+import contextlib
 import os
 from typing import cast
 
@@ -46,12 +47,10 @@ def _post(form, monkeypatch):
         bus, "emit", lambda channel, event, data=None: emitted.append((channel, event))
     )
     monkeypatch.setattr(state, "save_settings", lambda: None)
-    try:
+    # Rendering the template needs a real Request; the settings-writing half
+    # has already run by then, which is the half under test.
+    with contextlib.suppress(Exception):
         asyncio.run(route_settings(cast(Request, _FakeRequest(form))))
-    except Exception:
-        # Rendering the template needs a real Request; the settings-writing half
-        # has already run by then, which is the half under test.
-        pass
     return emitted
 
 

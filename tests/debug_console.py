@@ -24,9 +24,7 @@ def setdisplay(x, y):
 def c():
     if True:
         print("\n" * 35)
-    elif platform == "linux" or platform == "linux2":
-        os.system("clear")
-    elif platform == "darwin":
+    elif platform == "linux" or platform == "linux2" or platform == "darwin":
         os.system("clear")
     elif platform == "win32":
         os.system("cls")
@@ -43,11 +41,8 @@ def output(x, y, a):
     y = int(y)
 
     pointer = (y * displayX) + x
-    b = 0
-
-    for _ in range(len(a)):
-        display[pointer] = a[b]
-        b += 1
+    for ch in a:
+        display[pointer] = ch
         pointer += 1
 
 

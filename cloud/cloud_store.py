@@ -19,6 +19,7 @@ blocking file I/O around them is pushed to a thread by the callers
 (``run_in_threadpool``). See notes/async_architecture.md.
 """
 
+import contextlib
 import datetime
 import glob
 import hashlib
@@ -117,10 +118,8 @@ def _delete_meet_files(meet_id):
     if not _ID_RE.match(meet_id or ""):
         return
     for suffix in (".json", ".schedule.json", ".icon", ".picker"):
-        try:
+        with contextlib.suppress(OSError):
             os.remove(_meet_file(meet_id, suffix))
-        except OSError:
-            pass
 
 
 def _load_retained():

@@ -91,6 +91,15 @@ select = [
     "EXE",    # shebang and executable bit agree
     "FURB",   # refurb: the modern spelling (removeprefix, re.DOTALL over re.S)
     "FAST",   # FastAPI: Annotated[...] parameters, the form FastAPI now documents
+    "SIM",    # simplifications: contextlib.suppress, merged ifs, dict.get
+    "RUF005", # [*a, b] over a + [b]
+    "PLW1510", # subprocess.run() says whether a failure should raise (check=)
+    "SLOT",   # __slots__ on str/tuple subclasses
+    "TID",    # tidy imports: no relative imports reaching up a package
+    "ICN",    # conventional import aliases
+    "INT",    # gettext calls with a literal, not a pre-formatted string
+    "YTT",    # sys.version comparisons that break at 3.10 or 4.0
+    "FA",     # `from __future__ import annotations` where it is needed
 ]
 
 # ── Type checking ──────────────────────────────────────────────────────────────

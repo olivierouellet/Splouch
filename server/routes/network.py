@@ -41,7 +41,7 @@ class CloudStatus(BaseModel):
 
 def _nmcli(*args, timeout=8):
     return subprocess.run(
-        ["nmcli"] + list(args), capture_output=True, text=True, timeout=timeout
+        ["nmcli", *args], capture_output=True, text=True, timeout=timeout, check=False
     )
 
 
@@ -138,6 +138,7 @@ def route_wifi_scan(request: Request):
             capture_output=True,
             text=True,
             timeout=20,
+            check=False,
         )
         time.sleep(4)
         # Terse (-t) output is one AP per line with ':'-separated fields, far
@@ -193,7 +194,10 @@ def route_wifi_toggle():
         currently_on = "enabled" in r.stdout.lower()
         st = "off" if currently_on else "on"
         subprocess.run(
-            ["sudo", "nmcli", "radio", "wifi", st], capture_output=True, timeout=8
+            ["sudo", "nmcli", "radio", "wifi", st],
+            capture_output=True,
+            timeout=8,
+            check=True,
         )
         return {"enabled": not currently_on}
     except Exception as e:
@@ -246,6 +250,7 @@ def _wifi_connect(ssid, password):
             ["sudo", "nmcli", "connection", "delete", "--", ssid],
             capture_output=True,
             timeout=8,
+            check=False,
         )
 
         cmd = ["dev", "wifi", "connect", "--", ssid]
@@ -281,6 +286,7 @@ def route_eth_dhcp_set():
             capture_output=True,
             text=True,
             timeout=8,
+            check=False,
         )
         if r.returncode != 0:
             return {"ok": False, "error": r.stderr.strip() or "nmcli error"}
@@ -288,6 +294,7 @@ def route_eth_dhcp_set():
             ["sudo", "nmcli", "con", "up", "splouch-eth"],
             capture_output=True,
             timeout=8,
+            check=False,
         )
         return {"ok": True}
     except Exception as e:
@@ -310,6 +317,7 @@ def _eth_ip_set(ip_str, prefix):
             capture_output=True,
             text=True,
             timeout=8,
+            check=False,
         )
         if r.returncode != 0:
             return {"ok": False, "error": r.stderr.strip() or "nmcli error"}
@@ -317,6 +325,7 @@ def _eth_ip_set(ip_str, prefix):
             ["sudo", "nmcli", "con", "up", "splouch-eth"],
             capture_output=True,
             timeout=8,
+            check=False,
         )
         return {"ok": True}
     except Exception as e:

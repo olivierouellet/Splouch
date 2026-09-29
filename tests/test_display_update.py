@@ -192,6 +192,26 @@ def test_the_updater_refuses_a_dirty_checkout(monkeypatch):
     assert any("local changes" in text for text, _ in lines)
 
 
+def test_the_updater_refuses_when_it_cannot_tell_whether_the_checkout_is_dirty(
+    monkeypatch,
+):
+    """A failed `git status` prints nothing — which used to read as a clean tree,
+    and let the checkout go ahead over whatever it could not see."""
+    pytest.importorskip("PySide6", reason="needs the `scoreboard` extra (PySide6)")
+    import scoreboard.updater as updater
+
+    fake = _FakeSubprocess(
+        [_Res(), _Res(128, stderr="fatal: detected dubious ownership")]
+    )
+    monkeypatch.setattr(updater, "subprocess", fake)
+    up = updater.Updater()
+    lines = []
+    up.line.connect(lambda text, error: lines.append((text, error)))
+    assert up._update("v2026.08.1") is False
+    assert len(fake.calls) == 2, "it went on past the failed status check"
+    assert any("dubious ownership" in text and error for text, error in lines)
+
+
 def test_a_failed_step_stops_the_update(monkeypatch):
     """And crucially reports failure, so the caller does not restart into it."""
     pytest.importorskip("PySide6", reason="needs the `scoreboard` extra (PySide6)")

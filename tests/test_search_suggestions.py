@@ -203,7 +203,7 @@ def _run_fold(words):
         fh.write(js)
         path = fh.name
     try:
-        res = subprocess.run(js_argv(path), capture_output=True, text=True)
+        res = subprocess.run(js_argv(path), capture_output=True, text=True, check=False)
     finally:
         os.unlink(path)
     assert res.returncode == 0, res.stderr

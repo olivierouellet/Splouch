@@ -82,7 +82,7 @@ def test_the_race_starting_slides_them_open(board, qt_app):
 
     _seek(board, qt_app, 0.5)
     half = _timing_widths(board)
-    assert all(0 < w for w in half), "columns should be partly open mid-animation"
+    assert all(w > 0 for w in half), "columns should be partly open mid-animation"
 
     _seek(board, qt_app, 1.0)
     assert board.columns_visible

@@ -164,16 +164,21 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 capture_output=True,
                 text=True,
                 timeout=8,
+                check=False,
             )
             current = cur.stdout.strip() if cur.returncode == 0 else ""
             subprocess.run(
-                ["git", "-C", REPO, "fetch", "--tags"], capture_output=True, timeout=20
+                ["git", "-C", REPO, "fetch", "--tags"],
+                capture_output=True,
+                timeout=20,
+                check=False,
             )
             tags_r = subprocess.run(
                 ["git", "-C", REPO, "tag", "-l", "--sort=-version:refname"],
                 capture_output=True,
                 text=True,
                 timeout=8,
+                check=False,
             )
             extra_refs, max_versions = _update_config()
             tags = [
@@ -197,6 +202,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
                     ],
                     capture_output=True,
                     timeout=8,
+                    check=False,
                 )
                 if chk.returncode == 0:
                     branches.append(ref)
@@ -284,7 +290,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self._reply(400, b"unknown source")
             return
         try:
-            r = subprocess.run(cmds[source], capture_output=True, text=True, timeout=15)
+            r = subprocess.run(
+                cmds[source], capture_output=True, text=True, timeout=15, check=False
+            )
             output = r.stdout + (r.stderr if r.stderr and not r.stdout else "")
             body = json.dumps({"ok": True, "lines": output.splitlines()}).encode()
             self._reply(200, body, "application/json")

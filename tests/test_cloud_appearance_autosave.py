@@ -262,7 +262,7 @@ def test_the_whole_thing_behaves_when_driven(script):
         fh.write(harness)
         path = fh.name
     try:
-        res = subprocess.run(js_argv(path), capture_output=True, text=True)
+        res = subprocess.run(js_argv(path), capture_output=True, text=True, check=False)
     finally:
         os.remove(path)
     assert res.returncode == 0, res.stderr

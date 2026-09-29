@@ -1,4 +1,5 @@
 import collections
+import contextlib
 import glob
 import hashlib
 import importlib.util
@@ -514,7 +515,12 @@ def git_describe():
     def run(*args):
         try:
             r = subprocess.run(
-                ("git",) + args, cwd=app_dir, capture_output=True, text=True, timeout=8
+                ("git", *args),
+                cwd=app_dir,
+                capture_output=True,
+                text=True,
+                timeout=8,
+                check=False,
             )
         except (OSError, subprocess.SubprocessError):
             return ""
@@ -705,16 +711,12 @@ def load_settings():
     merge_theme_defaults()
     csv_files = glob.glob(os.path.join(MEET_FOLDER, "*.csv"))
     if csv_files:
-        try:
+        with contextlib.suppress(Exception):
             load_event_info(max(csv_files, key=os.path.getmtime))
-        except Exception:
-            pass
     lxf_files = glob.glob(os.path.join(MEET_FOLDER, "*.lxf"))
     if lxf_files:
-        try:
+        with contextlib.suppress(Exception):
             set_lenex(load_lenex(max(lxf_files, key=os.path.getmtime)))
-        except Exception:
-            pass
     _apply_console_type()
 
 

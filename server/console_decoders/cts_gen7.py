@@ -351,9 +351,7 @@ class CTSGen7Decoder(ConsoleDecoder):
                 if mod_idx == 0 or (dp and self._char(src, dig - 1) != " "):
                     out += ":"
                 out += ch
-            elif i == 3 and (dp or mod_idx == 0):
-                out += ch + "."
-            elif i == 1 and dp:
+            elif (i == 3 and (dp or mod_idx == 0)) or (i == 1 and dp):
                 out += ch + "."
             else:
                 out += ch

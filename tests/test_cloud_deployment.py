@@ -67,7 +67,9 @@ def test_the_env_file_is_ignored_but_its_template_is_not():
 
     def ignored(path):
         return (
-            subprocess.run(["git", "check-ignore", "-q", path], cwd=REPO).returncode
+            subprocess.run(
+                ["git", "check-ignore", "-q", path], cwd=REPO, check=False
+            ).returncode
             == 0
         )
 
@@ -308,7 +310,7 @@ def test_the_unavailable_state_is_what_the_operator_sees():
         fh.write(harness)
         path = fh.name
     try:
-        res = _sp.run(js_argv(path), capture_output=True, text=True)
+        res = _sp.run(js_argv(path), capture_output=True, text=True, check=False)
     finally:
         os.remove(path)
     assert res.returncode == 0, res.stderr

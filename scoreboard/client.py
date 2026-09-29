@@ -9,6 +9,7 @@ The thread never touches Qt widgets. It emits :class:`ServerLink` signals, which
 Qt queues onto the GUI thread — the only safe way to cross that boundary.
 """
 
+import contextlib
 import json
 import threading
 import time
@@ -153,10 +154,8 @@ class ServerLink(QObject):
         with self._lock:
             ws, self._ws = self._ws, None
         if ws is not None:
-            try:
+            with contextlib.suppress(Exception):
                 ws.close()
-            except Exception:
-                pass
 
     def send(self, event: str, data=None):
         """Fire-and-forget a client→server event (``set_overlay``, ``next_heat``…).
@@ -168,10 +167,8 @@ class ServerLink(QObject):
             ws = self._ws
         if ws is None:
             return
-        try:
+        with contextlib.suppress(Exception):
             ws.send(json.dumps({"event": event, "data": data or {}}))
-        except Exception:
-            pass
 
     # ── Background thread ──────────────────────────────────────────────────────
 
@@ -234,10 +231,8 @@ class ServerLink(QObject):
                 with self._lock:
                     self._ws = None
                 if ws is not None:
-                    try:
+                    with contextlib.suppress(Exception):
                         ws.close()
-                    except Exception:
-                        pass
                 if not self._stop.is_set():
                     self.connected.emit(False)
 

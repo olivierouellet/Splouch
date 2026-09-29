@@ -142,7 +142,7 @@ def test_autosave_debounces_and_reports(src):
         fh.write(harness)
         path = fh.name
     try:
-        res = subprocess.run(js_argv(path), capture_output=True, text=True)
+        res = subprocess.run(js_argv(path), capture_output=True, text=True, check=False)
     finally:
         os.unlink(path)
     assert res.returncode == 0, res.stderr
@@ -251,7 +251,7 @@ def test_the_warning_tracks_the_default_and_the_reset_saves(src):
         fh.write(harness)
         path = fh.name
     try:
-        res = subprocess.run(js_argv(path), capture_output=True, text=True)
+        res = subprocess.run(js_argv(path), capture_output=True, text=True, check=False)
     finally:
         os.unlink(path)
     assert res.returncode == 0, res.stderr
@@ -312,7 +312,7 @@ def test_a_failed_save_still_speaks(src):
         fh.write(harness)
         path = fh.name
     try:
-        res = subprocess.run(js_argv(path), capture_output=True, text=True)
+        res = subprocess.run(js_argv(path), capture_output=True, text=True, check=False)
     finally:
         os.unlink(path)
     assert res.returncode == 0, res.stderr
@@ -431,7 +431,7 @@ def test_the_shared_warning_helper_works_for_the_split_field(src):
         fh.write(harness)
         path = fh.name
     try:
-        res = subprocess.run(js_argv(path), capture_output=True, text=True)
+        res = subprocess.run(js_argv(path), capture_output=True, text=True, check=False)
     finally:
         os.unlink(path)
     assert res.returncode == 0, res.stderr

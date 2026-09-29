@@ -7,6 +7,7 @@ JSON frame ``{"event", "data"}`` — the same contract the cloud relay speaks.
 """
 
 import base64
+import contextlib
 import json
 import os
 import threading
@@ -162,10 +163,8 @@ def relay_emit(event, data):
     with _lock:
         c, ok = _client, _connected
     if c and ok:
-        try:
+        with contextlib.suppress(Exception):
             _send_raw(c, event, data)
-        except Exception:
-            pass
 
 
 def update_metadata():
@@ -176,10 +175,8 @@ def update_metadata():
         c, ok = _client, _connected
     if c and ok:
         key = state.settings.get("cloud_relay_key", "").strip()
-        try:
+        with contextlib.suppress(Exception):
             _send_raw(c, "register", {**_get_metadata(), "key": key})
-        except Exception:
-            pass
 
 
 def send_schedule(client=None):
@@ -368,7 +365,6 @@ def stop():
     with _lock:
         c = _client
     if c:
-        try:
-            c.close()  # unblocks the recv loop so the thread exits promptly
-        except Exception:
-            pass
+        # Closing unblocks the recv loop, so the thread exits promptly.
+        with contextlib.suppress(Exception):
+            c.close()

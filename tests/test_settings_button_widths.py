@@ -162,7 +162,9 @@ __html
         handle.write(program)
         path = handle.name
     try:
-        done = subprocess.run(js_argv(path), capture_output=True, text=True)
+        done = subprocess.run(
+            js_argv(path), capture_output=True, text=True, check=False
+        )
     finally:
         os.unlink(path)
 

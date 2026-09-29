@@ -10,6 +10,7 @@ Each constant resolves whichever exists, so the relay can be run and tested
 without building an image.
 """
 
+import contextlib
 import os
 import sys
 import tempfile
@@ -91,8 +92,6 @@ def atomic_write(path, text):
             f.write(text)
         os.replace(tmp, path)  # atomic — no torn file on crash
     except BaseException:
-        try:
+        with contextlib.suppress(OSError):
             os.remove(tmp)
-        except OSError:
-            pass
         raise

@@ -61,7 +61,12 @@ def run_cmd_blocking(cmd, cwd=None):
     owns it.
     """
     proc = subprocess.run(
-        cmd, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True
+        cmd,
+        cwd=cwd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        check=False,
     )
     return proc.stdout, proc.returncode
 
@@ -79,7 +84,7 @@ def route_time_status():
     timezone = ""
     try:
         result = subprocess.run(
-            ["timedatectl"], capture_output=True, text=True, timeout=5
+            ["timedatectl"], capture_output=True, text=True, timeout=5, check=False
         )
         for line in result.stdout.splitlines():
             ll = line.lower()
@@ -110,7 +115,9 @@ def route_time_sync():
         subprocess.run(
             ["sudo", "timedatectl", "set-ntp", "true"], timeout=5, check=True
         )
-        subprocess.run(["sudo", "systemctl", "restart", "systemd-timesyncd"], timeout=5)
+        subprocess.run(
+            ["sudo", "systemctl", "restart", "systemd-timesyncd"], timeout=5, check=True
+        )
         return {"ok": True}
     except Exception as e:
         return {"ok": False, "error": str(e)}
@@ -264,7 +271,7 @@ def route_logs_save():
 def route_system_reboot():
     def _reboot():
         time.sleep(1)
-        subprocess.run(["sudo", "reboot"])
+        subprocess.run(["sudo", "reboot"], check=False)
 
     bus.run_bg(_reboot)
     return {"ok": True}
@@ -278,7 +285,7 @@ def route_system_reboot():
 def route_system_shutdown():
     def _shutdown():
         time.sleep(1)
-        subprocess.run(["sudo", "poweroff"])
+        subprocess.run(["sudo", "poweroff"], check=False)
 
     bus.run_bg(_shutdown)
     return {"ok": True}
@@ -295,7 +302,9 @@ def route_service_restart():
     # before systemd kills the process serving it.
     def _restart():
         time.sleep(1)
-        subprocess.run(["sudo", "systemctl", "restart", state.SERVICE_NAME])
+        subprocess.run(
+            ["sudo", "systemctl", "restart", state.SERVICE_NAME], check=False
+        )
 
     bus.run_bg(_restart)
     return {"ok": True}
@@ -353,7 +362,9 @@ def _restore_backup(data):
     # Restart after a short delay so the response can be sent first
     def _restart():
         time.sleep(1)
-        subprocess.run(["sudo", "systemctl", "restart", state.SERVICE_NAME])
+        subprocess.run(
+            ["sudo", "systemctl", "restart", state.SERVICE_NAME], check=False
+        )
 
     bus.run_bg(_restart)
     return {"ok": True}

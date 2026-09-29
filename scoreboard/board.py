@@ -643,16 +643,15 @@ class LaneRow(QFrame):
         expected = int(snapshot.get("expected_splits") or 0)
         step = int(snapshot.get("split_step") or 1)
         counting_down = self.cfg.lap_direction == "down" and expected > 0
-        if done <= 0:
-            # Nothing swum yet. Counting up has nothing to say — a column of noughts
-            # under a start list is noise — but counting down has the whole race to
-            # report, so it shows from the moment the heat loads. It needs a swimmer
-            # in the lane to say it about: an empty lane in a short heat must not
-            # advertise eight lengths nobody is swimming.
-            if not (
-                counting_down and (snapshot.get(f"lane_name{i}", "") or "").strip()
-            ):
-                return None, False
+        # Nothing swum yet. Counting up has nothing to say — a column of noughts
+        # under a start list is noise — but counting down has the whole race to
+        # report, so it shows from the moment the heat loads. It needs a swimmer
+        # in the lane to say it about: an empty lane in a short heat must not
+        # advertise eight lengths nobody is swimming.
+        if done <= 0 and not (
+            counting_down and (snapshot.get(f"lane_name{i}", "") or "").strip()
+        ):
+            return None, False
         # The final stretch, exactly as the browser's `lapIsFinal` puts it: the next
         # thing the console reports is the finish, so this cannot be taken back.
         final = expected > 0 and (done + step) >= expected

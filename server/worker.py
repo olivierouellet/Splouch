@@ -1,3 +1,4 @@
+import contextlib
 import glob
 import os
 import queue
@@ -162,10 +163,8 @@ def _cleanup_test_meet():
     if not state._test_meet_active:
         return
     for f in glob.glob(os.path.join(state.TEST_MEET_FOLDER, "*")):
-        try:
+        with contextlib.suppress(Exception):
             os.remove(f)
-        except Exception:
-            pass
     if not _load_meet_from_disk(state._active_meet_file):
         state.clear_meet()  # nothing was loaded before the test, or it has gone
     state._test_meet_active = False

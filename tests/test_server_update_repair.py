@@ -137,12 +137,20 @@ def test_repair_leaves_untracked_files_alone(checkout):
 def test_repair_does_not_change_the_installed_version(checkout):
     """It resets *to* HEAD; it must never move HEAD."""
     before = subprocess.run(
-        ["git", "rev-parse", "HEAD"], cwd=checkout, capture_output=True, text=True
+        ["git", "rev-parse", "HEAD"],
+        cwd=checkout,
+        capture_output=True,
+        text=True,
+        check=True,
     ).stdout
     (checkout / "app.py").write_text("edited\n")
     system._run_repair()
     after = subprocess.run(
-        ["git", "rev-parse", "HEAD"], cwd=checkout, capture_output=True, text=True
+        ["git", "rev-parse", "HEAD"],
+        cwd=checkout,
+        capture_output=True,
+        text=True,
+        check=True,
     ).stdout
     assert before == after
 

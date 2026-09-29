@@ -250,7 +250,7 @@ def run_page(html, extra=""):
         fh.write("\n".join(program))
         path = fh.name
     try:
-        res = subprocess.run(js_argv(path), capture_output=True, text=True)
+        res = subprocess.run(js_argv(path), capture_output=True, text=True, check=False)
     finally:
         os.unlink(path)
 

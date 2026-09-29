@@ -179,7 +179,7 @@ def _cloud_imports(module):
 
 
 def test_cloud_paths_depends_on_nothing_of_ours():
-    assert not (_cloud_imports("cloud_paths") & set(CLOUD_MODULES + ("cloud_server",)))
+    assert not (_cloud_imports("cloud_paths") & {*CLOUD_MODULES, "cloud_server"})
 
 
 @pytest.mark.parametrize("module", CLOUD_MODULES)
@@ -257,14 +257,14 @@ def test_cloud_store_never_rebinds_its_own_containers():
     these names must only ever be subscripted, never assigned."""
     src = Path(os.path.join(CLOUD, "cloud_store.py")).read_text(encoding="utf-8")
     tree = ast.parse(src)
-    rebinds = []
-    for node in ast.walk(tree):
-        if isinstance(node, ast.Assign):
-            for target in node.targets:
-                if isinstance(target, ast.Name) and target.id in STORE_OBJECTS:
-                    # The one binding at module level is the definition itself.
-                    if node.col_offset != 0:
-                        rebinds.append((target.id, node.lineno))
+    # The one binding at module level is the definition itself.
+    rebinds = [
+        (target.id, node.lineno)
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Assign) and node.col_offset != 0
+        for target in node.targets
+        if isinstance(target, ast.Name) and target.id in STORE_OBJECTS
+    ]
     assert not rebinds, f"rebound inside a function: {rebinds}"
 
 
@@ -381,9 +381,10 @@ def _settings_sources():
     import glob
 
     base = os.path.join(REPO, "server", "templates")
-    return [os.path.join(base, "settings.html")] + sorted(
-        glob.glob(os.path.join(SETTINGS_DIR, "**", "*.html"), recursive=True)
-    )
+    return [
+        os.path.join(base, "settings.html"),
+        *sorted(glob.glob(os.path.join(SETTINGS_DIR, "**", "*.html"), recursive=True)),
+    ]
 
 
 def test_every_tab_pane_lives_in_its_own_partial():
@@ -571,9 +572,10 @@ def test_the_admin_include_tags_start_at_column_zero():
     top of the file's own indentation, which double-indents its opening line."""
     import glob
 
-    for path in [os.path.join(REPO, "cloud", "templates", "admin.html")] + sorted(
-        glob.glob(os.path.join(ADMIN_DIR, "*.html"))
-    ):
+    for path in [
+        os.path.join(REPO, "cloud", "templates", "admin.html"),
+        *sorted(glob.glob(os.path.join(ADMIN_DIR, "*.html"))),
+    ]:
         for n, line in enumerate(
             Path(path).read_text(encoding="utf-8").splitlines(), 1
         ):
@@ -588,9 +590,10 @@ def test_no_jinja_block_straddles_an_admin_file():
 
     opener = re.compile(r"\{%-?\s*(if|for|with|macro)\b")
     closer = re.compile(r"\{%-?\s*end(if|for|with|macro)\b")
-    for path in [os.path.join(REPO, "cloud", "templates", "admin.html")] + sorted(
-        glob.glob(os.path.join(ADMIN_DIR, "*.html"))
-    ):
+    for path in [
+        os.path.join(REPO, "cloud", "templates", "admin.html"),
+        *sorted(glob.glob(os.path.join(ADMIN_DIR, "*.html"))),
+    ]:
         body = Path(path).read_text(encoding="utf-8")
         assert len(opener.findall(body)) == len(closer.findall(body)), (
             f"{os.path.basename(path)} has an unbalanced Jinja block"

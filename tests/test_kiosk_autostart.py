@@ -62,7 +62,9 @@ def _run(helper, tmp_path, contents, times=1):
         f"  printf '\\n# Splouch kiosk\\n%s &\\n' '{KIOSK_CMD}' >> '{autostart}'\n"
         f"done\n"
     )
-    done = subprocess.run(["bash", "-c", script], capture_output=True, text=True)
+    done = subprocess.run(
+        ["bash", "-c", script], capture_output=True, text=True, check=False
+    )
     assert done.returncode == 0, done.stderr
     return autostart.read_text(encoding="utf-8")
 
@@ -144,7 +146,9 @@ def test_re_running_does_not_stack_launchers(helper, tmp_path):
 def test_a_missing_file_is_not_an_error(helper, tmp_path):
     """First install: the labwc config directory has only just been created."""
     script = f'{helper}\nstrip_kiosk_autostart "{tmp_path / "nope"}"\n'
-    done = subprocess.run(["bash", "-c", script], capture_output=True, text=True)
+    done = subprocess.run(
+        ["bash", "-c", script], capture_output=True, text=True, check=False
+    )
     assert done.returncode == 0, done.stderr
 
 

@@ -88,7 +88,12 @@ class Updater(QObject):
         self.line.emit("$ " + " ".join(args), False)
         try:
             result = subprocess.run(
-                args, cwd=_REPO, capture_output=True, text=True, timeout=timeout
+                args,
+                cwd=_REPO,
+                capture_output=True,
+                text=True,
+                timeout=timeout,
+                check=False,
             )
         except subprocess.TimeoutExpired:
             self.line.emit(f"timed out after {timeout}s", True)
@@ -121,6 +126,7 @@ class Updater(QObject):
             cwd=_REPO,
             capture_output=True,
             timeout=30,
+            check=False,
         )
         status = subprocess.run(
             ["git", "status", "--porcelain"],
@@ -128,7 +134,16 @@ class Updater(QObject):
             capture_output=True,
             text=True,
             timeout=30,
+            check=False,
         )
+        # A failed `git status` prints nothing, which would read as a clean tree.
+        if status.returncode != 0:
+            self.line.emit(
+                "Could not check this checkout for local changes — refusing to update. "
+                + status.stderr.strip(),
+                True,
+            )
+            return False
         if status.stdout.strip():
             self.line.emit(
                 "This checkout has local changes — refusing to update, "
@@ -141,9 +156,11 @@ class Updater(QObject):
             return False
         # -B so a branch target follows origin rather than staying on a stale local
         # tip; harmless for a tag, which resolves to a detached head either way.
-        if not self._cmd(["git", "checkout", "-B", "display", target], _FETCH_TIMEOUT):
-            if not self._cmd(["git", "checkout", target], _FETCH_TIMEOUT):
-                return False
+        # A plain checkout is the fallback, tried only if -B failed.
+        if not self._cmd(
+            ["git", "checkout", "-B", "display", target], _FETCH_TIMEOUT
+        ) and not self._cmd(["git", "checkout", target], _FETCH_TIMEOUT):
+            return False
         # `--extra scoreboard`, exactly as `install.sh kiosk` does. `uv sync` is
         # declarative: it makes the environment match the lockfile for the extras it
         # was *given*, and removes everything else. A bare sync here therefore

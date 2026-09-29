@@ -1,3 +1,4 @@
+import contextlib
 import os
 import re
 import select
@@ -275,10 +276,8 @@ def _test_meet_upload(file):
         state._test_meet_name = os.path.basename(file.filename)
         return {"ok": True, "name": os.path.basename(file.filename)}
     except Exception as e:
-        try:
+        with contextlib.suppress(Exception):
             os.remove(dest)
-        except Exception:
-            pass
         return {"ok": False, "error": str(e)}
 
 
@@ -486,25 +485,19 @@ def route_terminal_start(body: TerminalStart):
 )
 def route_terminal_stop():
     if state._pty_pid:
-        try:
+        with contextlib.suppress(Exception):
             os.kill(state._pty_pid, signal.SIGTERM)
-        except Exception:
-            pass
     if state._pty_fd:
-        try:
+        with contextlib.suppress(Exception):
             os.close(state._pty_fd)
-        except Exception:
-            pass
     state._pty_fd = state._pty_pid = None
     return {"ok": True}
 
 
 def _terminal_input(data):
     if state._pty_fd is not None:
-        try:
+        with contextlib.suppress(OSError):
             os.write(state._pty_fd, data.encode("utf-8"))
-        except OSError:
-            pass
 
 
 def _terminal_resize(data):

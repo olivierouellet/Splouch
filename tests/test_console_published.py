@@ -21,6 +21,7 @@ Two things here are worth guarding beyond the field existing:
   the spectator first loaded the page.
 """
 
+import contextlib
 import os
 import sys
 import tempfile
@@ -151,12 +152,10 @@ def _switch_console(monkeypatch, to, **also):
     form = {"timing_settings_submit": "1", **also}
     if to:
         form["console_type"] = to
-    try:
+    # Rendering the page back needs a real Request; the half under test — the
+    # saving half — has already run. Same bargain as test_settings_display_form.
+    with contextlib.suppress(Exception):
         asyncio.run(settings_route.route_settings(cast(Request, _FakeRequest(form))))
-    except Exception:
-        # Rendering the page back needs a real Request; the half under test — the
-        # saving half — has already run. Same bargain as test_settings_display_form.
-        pass
     return sent
 
 

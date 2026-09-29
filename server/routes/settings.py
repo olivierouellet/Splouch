@@ -543,7 +543,7 @@ def _settings_view(request, form):
             #    as `'1'`, and settings.json drifted to strings. Readers coerce,
             #    so nothing broke — but relay.py ships these values to the cloud
             #    as JSON, where a client checking `=== true` would.
-            for k in state.settings.keys():
+            for k in state.settings:
                 if k in ("username", "password") or k not in form:
                     continue
                 if state.settings[k] != before.get(k):

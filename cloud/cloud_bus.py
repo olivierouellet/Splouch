@@ -7,6 +7,7 @@ they joined.
 """
 
 import asyncio
+import contextlib
 
 
 class ConnectionManager:
@@ -23,10 +24,8 @@ class ConnectionManager:
             conns.discard(ws)
 
     async def send(self, ws, event, data=None):
-        try:
+        with contextlib.suppress(Exception):
             await ws.send_json({"event": event, "data": data})
-        except Exception:
-            pass
 
     async def broadcast(self, channel, event, data=None):
         targets = list(self.channels.get(channel, ()))

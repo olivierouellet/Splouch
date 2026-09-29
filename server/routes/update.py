@@ -219,7 +219,10 @@ def _run_update(target=None):
         if os.path.isfile(_REFRESH_SCRIPT):
             emit("$ sudo -n install/scripts/refresh-service.sh\n")
             r = subprocess.run(
-                ["sudo", "-n", _REFRESH_SCRIPT], capture_output=True, text=True
+                ["sudo", "-n", _REFRESH_SCRIPT],
+                capture_output=True,
+                text=True,
+                check=False,
             )
             if r.stdout:
                 emit(r.stdout)
@@ -230,7 +233,9 @@ def _run_update(target=None):
                 )
                 if r.stderr:
                     emit(r.stderr)
-        subprocess.run(["sudo", "systemctl", "restart", state.SERVICE_NAME])
+        subprocess.run(
+            ["sudo", "systemctl", "restart", state.SERVICE_NAME], check=False
+        )
     except Exception as e:
         emit(f"\nError: {e}\n", error=True)
         state._update_log_done = False
@@ -352,6 +357,7 @@ def route_version_list():
             text=True,
             cwd=state.REPO_DIR,
             timeout=8,
+            check=False,
         )
         current = r.stdout.strip() if r.returncode == 0 else ""
         subprocess.run(
@@ -359,6 +365,7 @@ def route_version_list():
             capture_output=True,
             cwd=state.REPO_DIR,
             timeout=20,
+            check=False,
         )
         r = subprocess.run(
             ["git", "tag", "-l", "--sort=-version:refname"],
@@ -366,6 +373,7 @@ def route_version_list():
             text=True,
             cwd=state.REPO_DIR,
             timeout=8,
+            check=False,
         )
         extra_refs, max_versions = _update_config()
         tags = [
@@ -388,6 +396,7 @@ def route_version_list():
                 capture_output=True,
                 cwd=state.REPO_DIR,
                 timeout=8,
+                check=False,
             )
             if chk.returncode == 0:
                 branches.append(ref)

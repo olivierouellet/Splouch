@@ -1,3 +1,4 @@
+import contextlib
 import xml.etree.ElementTree as ET
 import zipfile
 from typing import NamedTuple
@@ -196,10 +197,8 @@ def load_lenex(path):
         heat_times[ev_num] = {}
         style = find_first(event, "SWIMSTYLE")
         if style is not None:
-            try:
+            with contextlib.suppress(ValueError, TypeError):
                 event_distances[ev_num] = int(style.get("distance", 0))
-            except (ValueError, TypeError):
-                pass
         eid = event.get("eventid", "")
         if eid:
             eventid_map[eid] = ev_num

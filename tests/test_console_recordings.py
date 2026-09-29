@@ -469,7 +469,10 @@ def _convert(tmp_path, data, *args):
     source = tmp_path / "session.cap"
     source.write_bytes(data)
     done = subprocess.run(
-        [sys.executable, CONVERTER, str(source), *args], capture_output=True, text=True
+        [sys.executable, CONVERTER, str(source), *args],
+        capture_output=True,
+        text=True,
+        check=False,
     )
     return done, source
 
@@ -542,6 +545,7 @@ def test_an_empty_or_missing_file_is_refused(tmp_path):
         [sys.executable, CONVERTER, str(tmp_path / "nope.cap")],
         capture_output=True,
         text=True,
+        check=False,
     )
     assert missing.returncode == 1 and missing.stderr.strip()
 
