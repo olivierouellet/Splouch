@@ -656,7 +656,7 @@ def test_the_clear_button_does_not_reset_the_gradient_the_hold_fills():
     rule = page[page.index("\n        #btn-clear {") :]
     rule = rule[: rule.index("}")]
     # Declarations only — the comment above them names the shorthand it warns against.
-    decls = re.sub(r"/\*.*?\*/", "", rule, flags=re.S)
+    decls = re.sub(r"/\*.*?\*/", "", rule, flags=re.DOTALL)
     assert "background-color: transparent" in decls
     assert "background:" not in decls, "the shorthand resets background-image"
 

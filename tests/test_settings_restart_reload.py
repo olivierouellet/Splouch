@@ -47,7 +47,7 @@ def _body(js, name):
     """
     start = js.index(f"function {name}(")
     end = js.index("\n}\n", start) + 2
-    return re.sub(r"/\*.*?\*/", "", js[start:end], flags=re.S)
+    return re.sub(r"/\*.*?\*/", "", js[start:end], flags=re.DOTALL)
 
 
 def test_nothing_guesses_how_long_a_restart_takes(js):

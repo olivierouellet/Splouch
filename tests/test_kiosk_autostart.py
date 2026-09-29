@@ -44,7 +44,9 @@ OLD_CHROMIUM = (
 def helper():
     """The function itself, lifted out of the installer — not a copy of it."""
     src = Path(INSTALLER).read_text(encoding="utf-8")
-    match = re.search(r"^strip_kiosk_autostart\(\) \{.*?^\}", src, re.S | re.M)
+    match = re.search(
+        r"^strip_kiosk_autostart\(\) \{.*?^\}", src, re.DOTALL | re.MULTILINE
+    )
     assert match, "strip_kiosk_autostart is gone from install.sh"
     return match.group(0)
 

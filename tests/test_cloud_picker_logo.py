@@ -40,7 +40,7 @@ def src():
 
 @pytest.fixture(scope="module")
 def rule(src):
-    m = re.search(r"\.picker-logo\s*\{(.*?)\}", src, re.S)
+    m = re.search(r"\.picker-logo\s*\{(.*?)\}", src, re.DOTALL)
     assert m, ".picker-logo rule is gone"
     return " ".join(m.group(1).split())
 

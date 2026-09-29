@@ -54,8 +54,7 @@ class HytekParser:
 
         # ── Event number and name (column 6) ──────────────────────────────────
         cell = row[6].lstrip("#")
-        if cell.startswith("Event "):
-            cell = cell[6:]
+        cell = cell.removeprefix("Event ")
         num_str, _, evt_name = cell.strip().partition(" ")
         try:
             event_num = int(num_str)

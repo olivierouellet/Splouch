@@ -488,7 +488,7 @@ def test_the_page_carries_no_behaviour_inline():
     parent = Path(os.path.join(REPO, "server", "templates", "settings.html")).read_text(
         encoding="utf-8"
     )
-    inline = re.findall(r"<script>(.*?)</script>", parent, re.S)
+    inline = re.findall(r"<script>(.*?)</script>", parent, re.DOTALL)
     for block in inline:
         # The pre-paint theme applier is the one exception: it sets data-bs-theme
         # from localStorage before first paint, and an external file — deferred by

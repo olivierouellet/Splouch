@@ -34,7 +34,7 @@ def src():
 
 def _buttons(src):
     """Every `<button …>label</button>`, tag and label separately."""
-    return re.findall(r"(<button\b[^>]*>)(.*?)</button>", src, re.S)
+    return re.findall(r"(<button\b[^>]*>)(.*?)</button>", src, re.DOTALL)
 
 
 # ── The rule ───────────────────────────────────────────────────────────────────

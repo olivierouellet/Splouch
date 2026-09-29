@@ -43,7 +43,9 @@ def test_the_script_is_valid_bash(installer):
 def test_the_re_exec_passes_the_target_user(installer):
     """The one line that was missing."""
     exec_line = re.search(
-        r'exec sudo -H -u "\$CLOUD_USER".*?cloud "\$VERSION_CHOICE"', installer, re.S
+        r'exec sudo -H -u "\$CLOUD_USER".*?cloud "\$VERSION_CHOICE"',
+        installer,
+        re.DOTALL,
     )
     assert exec_line, "the cloud re-exec changed shape — check this still applies"
     assert 'SPLOUCH_TARGET_USER="$CLOUD_USER"' in exec_line.group(0), (

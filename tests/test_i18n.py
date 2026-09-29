@@ -853,7 +853,7 @@ def test_both_panels_read_the_chrome_section(lang):
 )
 def test_neither_panel_hard_codes_its_chrome(literal, template):
     src = Path(os.path.join(REPO, template)).read_text(encoding="utf-8")
-    body = re.sub(r"<script.*?</script>", "", src, flags=re.S)
+    body = re.sub(r"<script.*?</script>", "", src, flags=re.DOTALL)
     assert literal not in body, f"{literal!r} is back in {template}"
 
 
@@ -866,7 +866,7 @@ def test_neither_panel_hard_codes_its_chrome(literal, template):
 # far enough apart to contradict each other about whether a restore deletes anything.
 
 _FALLBACK_RE = re.compile(
-    r"""t\.get\(\s*'([a-z0-9_]+)'\s*,\s*(['"])((?:[^'"\\]|\\.)*)\2""", re.S
+    r"""t\.get\(\s*'([a-z0-9_]+)'\s*,\s*(['"])((?:[^'"\\]|\\.)*)\2""", re.DOTALL
 )
 
 

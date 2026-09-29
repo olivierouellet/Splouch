@@ -265,14 +265,14 @@ def test_the_unavailable_state_is_what_the_operator_sees():
     fn = _re.search(
         r"^        function updateUnavailable\(reason\) \{.*?^        \}",
         src,
-        _re.S | _re.M,
+        _re.DOTALL | _re.MULTILINE,
     )
     assert fn, "updateUnavailable is no longer a top-level function in admin.html"
 
     # `T` as the page itself renders it — lifted out of the data island rather than
     # written here, so this still proves the operator's own language reaches the
     # status line instead of proving that a hard-coded stub does.
-    island = _re.search(r"const T = \{.*?\};", src, _re.S)
+    island = _re.search(r"const T = \{.*?\};", src, _re.DOTALL)
     assert island, "the data island has moved; the harness below supplies T from it"
 
     harness = (

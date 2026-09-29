@@ -515,7 +515,7 @@ def test_the_delta_column_is_centred():
     ).read_text(encoding="utf-8")
     # Anchored at the line start: `.timing-table.hide-delta .td_delta { display:
     # none }` contains the same substring and comes first in the file.
-    rule = re.search(r"^\.td_delta \{([^}]*)\}", css, re.M)
+    rule = re.search(r"^\.td_delta \{([^}]*)\}", css, re.MULTILINE)
     assert rule, "no base .td_delta rule"
     assert "text-align: center" in rule.group(1), rule.group(1)
     assert "padding-right" not in rule.group(1), "a right padding shifts a centred cell"

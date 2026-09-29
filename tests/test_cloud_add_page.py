@@ -99,7 +99,7 @@ def get(query="", agent=None):
 
 def scanned(html):
     """The origin the page quoted back, or None when it drew no server at all."""
-    found = re.search(r'<div class="scanned-origin">(.*?)</div>', html, re.S)
+    found = re.search(r'<div class="scanned-origin">(.*?)</div>', html, re.DOTALL)
     return found.group(1).strip() if found else None
 
 
@@ -396,7 +396,10 @@ def test_the_page_never_tries_to_reach_the_app(stores):
     # The template's own comments say all of this in prose and are stripped from
     # the output, so the check is against what is actually served.
     source = re.sub(
-        r"\{#.*?#\}", "", Path(ADD_TEMPLATE).read_text(encoding="utf-8"), flags=re.S
+        r"\{#.*?#\}",
+        "",
+        Path(ADD_TEMPLATE).read_text(encoding="utf-8"),
+        flags=re.DOTALL,
     )
     html = get("server=http%3A%2F%2Fpoolpi.local%3A5000")
     for text in (source, html):
@@ -409,7 +412,7 @@ def test_the_page_never_tries_to_reach_the_app(stores):
 def test_the_page_carries_the_disclaimer_the_picker_does(stores):
     """`P-06` is not decoration, and this is a page a spectator reads before a board."""
     html = get("server=http%3A%2F%2Fpoolpi.local%3A5000")
-    assert "unofficial" in matched(r'<p class="note">(.*?)</p>', html, flags=re.S)
+    assert "unofficial" in matched(r'<p class="note">(.*?)</p>', html, flags=re.DOTALL)
 
 
 def test_the_page_follows_the_reader_s_language(stores):

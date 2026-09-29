@@ -42,7 +42,7 @@ def server_path():
 
 
 def test_server_pi_rejects_443(server_path):
-    assert re.search(r"^\s*sudo ufw reject 443/tcp\b", server_path, re.M), (
+    assert re.search(r"^\s*sudo ufw reject 443/tcp\b", server_path, re.MULTILINE), (
         "Pi #1 must `ufw reject 443/tcp`. Without it, a client reaching the Pi on any "
         "interface outside the eth0/wlan0 allow rules has its https SYN dropped, and "
         "the browser hangs instead of falling back to http."
@@ -51,7 +51,7 @@ def test_server_pi_rejects_443(server_path):
 
 def test_443_is_never_denied(server_path):
     """`deny` would look equivalent in the script and reintroduce the hang."""
-    assert not re.search(r"^\s*sudo ufw deny .*\b443\b", server_path, re.M), (
+    assert not re.search(r"^\s*sudo ufw deny .*\b443\b", server_path, re.MULTILINE), (
         "ufw `deny` is a silent DROP — use `reject` so the client gets a TCP reset."
     )
 

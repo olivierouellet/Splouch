@@ -176,9 +176,9 @@ def _template_js(*names):
     out = []
     for name in names:
         m = (
-            re.search(r"^var " + name + r" = \{.*?^\};", src, re.S | re.M)
-            or re.search(rf"^var {name} = .*?$", src, re.M)
-            or re.search(rf"^function {name}\(.*?^\}}", src, re.S | re.M)
+            re.search(r"^var " + name + r" = \{.*?^\};", src, re.DOTALL | re.MULTILINE)
+            or re.search(rf"^var {name} = .*?$", src, re.MULTILINE)
+            or re.search(rf"^function {name}\(.*?^\}}", src, re.DOTALL | re.MULTILINE)
         )
         assert m, name
         out.append(m.group(0))

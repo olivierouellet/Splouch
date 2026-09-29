@@ -7,6 +7,7 @@ import secrets
 import time
 import traceback
 from contextlib import asynccontextmanager
+from typing import Annotated
 
 from fastapi import Depends, FastAPI, Form, Request, WebSocket, WebSocketDisconnect
 from fastapi.exceptions import RequestValidationError
@@ -216,7 +217,9 @@ def _safe_next(target: str) -> str:
 
 @app.post("/login", tags=["Auth"])
 async def route_login(
-    request: Request, username: str = Form(""), password: str = Form("")
+    request: Request,
+    username: Annotated[str, Form()] = "",
+    password: Annotated[str, Form()] = "",
 ):
     # compare_digest, not ==: a plain comparison returns as soon as two characters
     # differ, which over enough tries measures out the password one character at a

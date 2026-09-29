@@ -106,7 +106,7 @@ def shell_cloud():
 
 def _body(html):
     """Markup only — CSS mentions classes for elements that may not be rendered."""
-    return re.sub(r"<style>.*?</style>", "", html, flags=re.S)
+    return re.sub(r"<style>.*?</style>", "", html, flags=re.DOTALL)
 
 
 # ── One template, two servers ──────────────────────────────────────────────────
@@ -234,7 +234,7 @@ def test_columns_never_animate(pi, cloud, res_cloud):
     """Nothing on a phone collapses them and an orientation flip must not slide
     them. `timing_display.css` is shared with the kiosk, which does animate."""
     for html in (pi, cloud, res_cloud):
-        style = matched(r"<style>(.*?)</style>", html, flags=re.S)
+        style = matched(r"<style>(.*?)</style>", html, flags=re.DOTALL)
         rules = re.findall(r"\.delta-column\s*{\s*transition:\s*([^;]+)", style)
         assert rules and rules[-1].strip() == "none"
         assert "timing-anim" not in html
@@ -719,8 +719,10 @@ def test_waiting_message_is_translated_on_both(res_pi, res_cloud):
 
 
 def _css(html):
-    style = matched(r"<style>(.*?)</style>", html, flags=re.S)
-    return re.sub(r"/\*.*?\*/", "", style, flags=re.S)  # comments mention z-index too
+    style = matched(r"<style>(.*?)</style>", html, flags=re.DOTALL)
+    return re.sub(
+        r"/\*.*?\*/", "", style, flags=re.DOTALL
+    )  # comments mention z-index too
 
 
 def _rule(css, selector, after=0):
@@ -841,7 +843,7 @@ def test_the_schedule_page_only_calls_ws_js_helpers_it_has_loaded(sched_pi):
             Path(os.path.join(REPO, "shared", "static", "js", "ws.js")).read_text(
                 encoding="utf-8"
             ),
-            re.M,
+            re.MULTILINE,
         )
     )
     body = sched_pi[sched_pi.index('src="/static/js/ws.js"') :]
@@ -862,7 +864,7 @@ def _code(text):
     approach is gone", and the comment recording what the old approach was is
     exactly the string they look for.
     """
-    return re.sub(r"/\*.*?\*/", "", text, flags=re.S)
+    return re.sub(r"/\*.*?\*/", "", text, flags=re.DOTALL)
 
 
 def _shared_css():
@@ -942,7 +944,7 @@ def test_the_kiosk_header_has_no_meet_title_cell(kiosk):
     assert "header_meet_title" not in kiosk
     assert "header_cell_grow" not in kiosk
     # Comments stripped: the prose there records where the rule went.
-    rules = re.sub(r"/\*.*?\*/", "", _shared_css(), flags=re.S)
+    rules = re.sub(r"/\*.*?\*/", "", _shared_css(), flags=re.DOTALL)
     assert "header_cell_grow" not in rules, "the rule outlived its only user"
 
 

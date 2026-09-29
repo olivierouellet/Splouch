@@ -89,6 +89,8 @@ select = [
     "RSE",    # `raise X()` with no arguments is `raise X`
     "PYI",    # typing hygiene: NamedTuple over namedtuple
     "EXE",    # shebang and executable bit agree
+    "FURB",   # refurb: the modern spelling (removeprefix, re.DOTALL over re.S)
+    "FAST",   # FastAPI: Annotated[...] parameters, the form FastAPI now documents
 ]
 
 # ── Type checking ──────────────────────────────────────────────────────────────

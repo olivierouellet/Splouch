@@ -150,7 +150,9 @@ def test_the_filename_listener_survives_a_picker_with_no_message_span(src):
     still attached, and threw a TypeError on every pick.
     """
     blk = re.search(
-        r"^document\.querySelectorAll\('\.file-picker input.*?^\}\);", src, re.S | re.M
+        r"^document\.querySelectorAll\('\.file-picker input.*?^\}\);",
+        src,
+        re.DOTALL | re.MULTILINE,
     )
     assert blk, "the shared .file-picker listener has moved"
     harness = (

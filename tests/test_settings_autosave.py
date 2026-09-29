@@ -94,7 +94,9 @@ def test_reverting_a_swatch_reaches_the_server(src):
 def test_autosave_debounces_and_reports(src):
     """Run the page's own `autoSave` and check what it does with one change."""
     fn = re.search(
-        r"^function autoSave\(form, noteId, opts\) \{.*?^\}", src, re.S | re.M
+        r"^function autoSave\(form, noteId, opts\) \{.*?^\}",
+        src,
+        re.DOTALL | re.MULTILINE,
     )
     assert fn, "autoSave is no longer a top-level function"
 
@@ -211,7 +213,7 @@ def test_the_warning_tracks_the_default_and_the_reset_saves(src):
     blk = re.search(
         r"^function defaultWarning\(inputId, warnId, resetId\) \{.*?^\}",
         src,
-        re.S | re.M,
+        re.DOTALL | re.MULTILINE,
     )
     assert blk, "defaultWarning is no longer a top-level function"
 
@@ -270,7 +272,9 @@ def test_a_failed_save_still_speaks(src):
     field still holds what you typed — so this is the one case the note exists for.
     """
     fn = re.search(
-        r"^function autoSave\(form, noteId, opts\) \{.*?^\}", src, re.S | re.M
+        r"^function autoSave\(form, noteId, opts\) \{.*?^\}",
+        src,
+        re.DOTALL | re.MULTILINE,
     )
     assert fn
     harness = (
@@ -334,7 +338,10 @@ def test_the_warning_is_hidden_by_class_not_by_hidden(src):
             f"{warn_id}: start state must be server-side"
         )
     block = matched(
-        r"^function defaultWarning\(.*?^\}", src, group=0, flags=re.S | re.M
+        r"^function defaultWarning\(.*?^\}",
+        src,
+        group=0,
+        flags=re.DOTALL | re.MULTILINE,
     )
     assert "warn.hidden" not in block
     assert "classList.toggle('d-none'" in block and "classList.toggle('d-flex'" in block
@@ -389,7 +396,7 @@ def test_the_shared_warning_helper_works_for_the_split_field(src):
     blk = re.search(
         r"^function defaultWarning\(inputId, warnId, resetId\) \{.*?^\}",
         src,
-        re.S | re.M,
+        re.DOTALL | re.MULTILINE,
     )
     assert blk
     harness = (

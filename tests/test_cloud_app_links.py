@@ -260,7 +260,7 @@ def test_caddy_sends_well_known_to_the_app():
         for line in Path(CADDYFILE).read_text(encoding="utf-8").splitlines()
         if line.strip() and not line.strip().startswith("#")
     ]
-    body_lines = [d for d in directives if d not in ("}",) and not d.endswith("{")]
+    body_lines = [d for d in directives if d != "}" and not d.endswith("{")]
     assert body_lines == ["reverse_proxy app:5000"], (
         "the site block gained a directive — check it cannot shadow /.well-known/"
     )

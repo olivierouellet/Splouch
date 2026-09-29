@@ -193,7 +193,9 @@ def js_argv(path):
 def _scripts(html):
     """Every script in document order: (label, source). `src` is read off disk."""
     out = []
-    for i, m in enumerate(re.finditer(r"<script([^>]*)>(.*?)</script>", html, re.S)):
+    for i, m in enumerate(
+        re.finditer(r"<script([^>]*)>(.*?)</script>", html, re.DOTALL)
+    ):
         attrs, body = m.group(1), m.group(2)
         src = re.search(r'src="([^"]+)"', attrs)
         if src:
