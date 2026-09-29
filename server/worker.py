@@ -163,7 +163,7 @@ def _cleanup_test_meet():
     if not state._test_meet_active:
         return
     for f in glob.glob(os.path.join(state.TEST_MEET_FOLDER, "*")):
-        with contextlib.suppress(Exception):
+        with contextlib.suppress(OSError):
             os.remove(f)
     if not _load_meet_from_disk(state._active_meet_file):
         state.clear_meet()  # nothing was loaded before the test, or it has gone

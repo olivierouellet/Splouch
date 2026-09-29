@@ -131,6 +131,35 @@ def test_an_old_settings_file_still_gets_new_theme_colours(monkeypatch):
     )
 
 
+def _load_settings_from(monkeypatch, tmp_path, content):
+    """`load_settings` against a given settings.json, with the meet folder empty
+    and the decoder left alone — the two other things it touches at boot."""
+    import state
+
+    path = tmp_path / "settings.json"
+    if content is not None:
+        path.write_text(content, encoding="utf-8")
+    monkeypatch.setattr(state, "settings_file", str(path))
+    monkeypatch.setattr(state, "MEET_FOLDER", str(tmp_path / "meets"))
+    monkeypatch.setattr(state, "_apply_console_type", lambda: None)
+    monkeypatch.setattr(state, "settings", dict(state.settings))
+    state.load_settings()
+
+
+def test_a_damaged_settings_file_is_reported_not_swallowed(
+    monkeypatch, tmp_path, capsys
+):
+    """The server still starts on defaults — but the operator's settings just went,
+    and that used to happen without a word in the log."""
+    _load_settings_from(monkeypatch, tmp_path, '{"num_lanes": 8,')  # cut off mid-write
+    assert "unreadable, using defaults" in capsys.readouterr().out
+
+
+def test_a_first_boot_without_settings_is_not_reported(monkeypatch, tmp_path, capsys):
+    _load_settings_from(monkeypatch, tmp_path, None)
+    assert "unreadable" not in capsys.readouterr().out
+
+
 def test_every_theme_key_survives_a_round_trip(monkeypatch):
     """The Settings form saves `{**DEFAULT, **posted}`, so the two must agree on
     the key set — a colour the form does not render would be silently reset."""

@@ -276,7 +276,7 @@ def _test_meet_upload(file):
         state._test_meet_name = os.path.basename(file.filename)
         return {"ok": True, "name": os.path.basename(file.filename)}
     except Exception as e:
-        with contextlib.suppress(Exception):
+        with contextlib.suppress(OSError):
             os.remove(dest)
         return {"ok": False, "error": str(e)}
 
@@ -485,10 +485,10 @@ def route_terminal_start(body: TerminalStart):
 )
 def route_terminal_stop():
     if state._pty_pid:
-        with contextlib.suppress(Exception):
+        with contextlib.suppress(OSError):  # already exited
             os.kill(state._pty_pid, signal.SIGTERM)
     if state._pty_fd:
-        with contextlib.suppress(Exception):
+        with contextlib.suppress(OSError):
             os.close(state._pty_fd)
     state._pty_fd = state._pty_pid = None
     return {"ok": True}

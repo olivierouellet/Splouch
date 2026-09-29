@@ -129,7 +129,7 @@ def available_locales(locales_dir):
         try:
             with open(path, "rb") as f:
                 data = tomllib.load(f)
-        except Exception:
+        except (OSError, tomllib.TOMLDecodeError):
             continue
         found[code] = data.get("meta", {}).get("name", code)
     return sorted(found.items())

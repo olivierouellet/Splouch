@@ -217,7 +217,7 @@ class ServerLink(QObject):
                     self._last_rx = last_rx = time.monotonic()
                     try:
                         msg = json.loads(raw)
-                    except Exception:
+                    except ValueError:  # malformed frame
                         continue
                     event = msg.get("event")
                     if not event or event == "pong":

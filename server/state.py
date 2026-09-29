@@ -706,8 +706,14 @@ def load_settings():
     try:
         with open(settings_file, encoding="utf-8") as f:
             settings.update(json.load(f))
-    except Exception:
-        pass
+    except FileNotFoundError:
+        pass  # first boot
+    except Exception as e:
+        # Broad so a damaged file cannot stop the server starting, but said out
+        # loud: the operator's settings have just been replaced by the defaults.
+        print(
+            f"[settings] {settings_file} unreadable, using defaults: {e!r}", flush=True
+        )
     merge_theme_defaults()
     csv_files = glob.glob(os.path.join(MEET_FOLDER, "*.csv"))
     if csv_files:

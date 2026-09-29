@@ -123,7 +123,7 @@ def _icon_b64():
         if os.path.exists(state.HOME_ICON_PATH):
             with open(state.HOME_ICON_PATH, "rb") as f:
                 return base64.b64encode(f.read()).decode()
-    except Exception:
+    except OSError:
         pass
     return None
 
@@ -136,7 +136,7 @@ def _picker_image_b64():
             if os.path.exists(path):
                 with open(path, "rb") as f:
                     return base64.b64encode(f.read()).decode()
-    except Exception:
+    except OSError:
         pass
     return None
 
@@ -213,8 +213,11 @@ def send_schedule(client=None):
             _send_raw(client, "schedule_snapshot", data)
         else:
             relay_emit("schedule_snapshot", data)
-    except Exception:
-        pass
+    except Exception as e:
+        # Broad on purpose — the relay must outlive a bad meet file — but not
+        # silent: this is our own code, and a failure here means the cloud never
+        # gets a schedule.
+        print(f"[relay] schedule snapshot failed: {e!r}", flush=True)
 
 
 def _serialise_start_list(sl):
@@ -305,7 +308,7 @@ def _run():
                 last_rx = time.time()
                 try:
                     obj = json.loads(raw)
-                except Exception:
+                except ValueError:  # malformed frame
                     continue
                 ev = obj.get("event")
                 if ev == "pong":

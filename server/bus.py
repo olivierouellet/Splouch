@@ -74,7 +74,8 @@ def emit(channel, event, data=None):
     loop = _loop
     if loop is None:
         return
-    with contextlib.suppress(Exception):
+    # RuntimeError: the loop has closed (shutdown). Nothing else can fail here.
+    with contextlib.suppress(RuntimeError):
         asyncio.run_coroutine_threadsafe(manager.broadcast(channel, event, data), loop)
 
 

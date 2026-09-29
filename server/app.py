@@ -446,7 +446,7 @@ def _register_locale_aliases():
                     return view
 
                 app.add_api_route("/" + alias, make_redirect(target), methods=["GET"])
-        except Exception:
+        except (OSError, tomllib.TOMLDecodeError):
             pass
 
 
