@@ -310,12 +310,12 @@ def route_test_set_speed(body: SpeedBody):
 
 
 @router.post("/test_record_start", dependencies=[Depends(require_login)])
-async def route_test_record_start(body: NameBody):
+def route_test_record_start(body: NameBody):
     if state._record_handle:
         state._record_handle.close()
     code = re.sub(r"[^a-z0-9_-]", "_", body.name.strip().lower()) or "recording"
     path = os.path.join(state.CUSTOM_SESSIONS_FOLDER, code + ".cts")
-    state._record_handle = open(path, "wt")
+    state._record_handle = open(path, "w")
     return {"ok": True, "file": code + ".cts"}
 
 
@@ -332,7 +332,7 @@ def route_test_record_stop():
 
 
 @router.post("/test_session_delete", dependencies=[Depends(require_login)])
-async def route_test_session_delete(body: NameBody):
+def route_test_session_delete(body: NameBody):
     path = os.path.join(state.CUSTOM_SESSIONS_FOLDER, body.name)
     if os.path.isfile(path) and path.endswith(SESSION_UPLOAD_EXTS):
         if state._test_session == path:
@@ -369,10 +369,7 @@ async def route_test_session_upload(request: Request):
     if not isinstance(file, UploadFile) or not file.filename:
         return {"ok": False, "error": "No file provided"}
     if not file.filename.lower().endswith(SESSION_UPLOAD_EXTS):
-        named = "%s or %s" % (
-            ", ".join(SESSION_UPLOAD_EXTS[:-1]),
-            SESSION_UPLOAD_EXTS[-1],
-        )
+        named = f"{', '.join(SESSION_UPLOAD_EXTS[:-1])} or {SESSION_UPLOAD_EXTS[-1]}"
         return {"ok": False, "error": "File must be " + named}
     # Writing the upload is blocking — run it off the event loop so live
     # scoreboard broadcasts keep flowing (a long capture is not small).
@@ -443,7 +440,7 @@ def _pty_reader():
     response_model=ActionResult,
     dependencies=[Depends(require_login)],
 )
-async def route_terminal_start(body: TerminalStart):
+def route_terminal_start(body: TerminalStart):
     if not state._PTY_AVAILABLE:
         return {"ok": False, "error": "PTY not available on this platform"}
     if state._pty_fd is not None:

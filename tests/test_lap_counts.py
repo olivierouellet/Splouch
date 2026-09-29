@@ -298,12 +298,12 @@ def test_laps_are_off_unless_the_setting_says_otherwise():
         extra = (
             {}
             if template == "live-mobile.html"
-            else dict(
-                nosplash=True,
-                test_background=False,
-                carousel_images=[],
-                carousel_interval=10,
-            )
+            else {
+                "nosplash": True,
+                "test_background": False,
+                "carousel_images": [],
+                "carousel_interval": 10,
+            }
         )
         html = _render(own, template, **extra)  # no show_laps passed at all
         assert re.search(r"var SHOW_LAPS\s*=\s*false", html), template
@@ -327,7 +327,7 @@ function cell(i) { return document.getElementById('lane_delta' + i).textContent
 def _drive(html, script):
     """Append a script to the rendered page and run the whole thing."""
     return run_page(
-        html.replace("</body>", "<script>%s\n%s</script></body>" % (_DRIVE, script))
+        html.replace("</body>", f"<script>{_DRIVE}\n{script}</script></body>")
     )
 
 
@@ -553,7 +553,7 @@ def test_both_boards_know_the_final_stretch(boards, fn):
     a `+ 1` test would never fire on the setup where the deck can least easily tell.
     """
     for name, html in boards.items():
-        body = html[html.index("function %s(" % fn) :]
+        body = html[html.index(f"function {fn}(") :]
         body = body[: body.index("\n}")]
         assert "split_step" in body, f"{name} ignores the step"
         assert "expected_splits" in body, f"{name} ignores the expected count"

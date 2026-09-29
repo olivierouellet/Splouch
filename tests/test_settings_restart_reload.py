@@ -44,7 +44,7 @@ def _body(js, name):
     Stripped because these tests read as "the old approach is gone", and the comment
     recording what the old approach was is exactly the string they look for.
     """
-    start = js.index("function %s(" % name)
+    start = js.index(f"function {name}(")
     end = js.index("\n}\n", start) + 2
     return re.sub(r"/\*.*?\*/", "", js[start:end], flags=re.S)
 

@@ -313,7 +313,7 @@ def _run():
                 ev = obj.get("event")
                 if ev == "pong":
                     continue
-                elif ev == "registered":
+                if ev == "registered":
                     _meet_id = (obj.get("data") or {}).get("meet_id")
                 elif ev == "stats":
                     with _lock:

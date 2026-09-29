@@ -360,18 +360,16 @@ def load_lenex(path):
         meet_info["course"] = course
         pool_el = find_first(meet_el, "POOL")
         meet_info["pool"] = pool_el.get("name", "") if pool_el is not None else ""
-        sessions = []
-        for s in find(meet_el, "SESSION"):
-            sessions.append(
-                {
-                    "date": s.get("date", ""),
-                    "daytime": s.get("daytime", ""),
-                    "endtime": s.get("endtime", ""),
-                    "warmupfrom": s.get("warmupfrom", ""),
-                    "warmupuntil": s.get("warmupuntil", ""),
-                }
-            )
-        meet_info["sessions"] = sessions
+        meet_info["sessions"] = [
+            {
+                "date": s.get("date", ""),
+                "daytime": s.get("daytime", ""),
+                "endtime": s.get("endtime", ""),
+                "warmupfrom": s.get("warmupfrom", ""),
+                "warmupuntil": s.get("warmupuntil", ""),
+            }
+            for s in find(meet_el, "SESSION")
+        ]
 
     return LenexData(
         event_names=event_names,

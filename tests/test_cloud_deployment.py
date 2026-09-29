@@ -333,7 +333,7 @@ def test_the_unavailable_state_is_what_the_operator_sees():
 @pytest.mark.parametrize("pane", ["picker-logo-preview", "picker-icon-preview"])
 def test_the_upload_previews_are_hidden_the_way_the_script_unhides_them(pane):
     src = admin_source()
-    div = src[src.index('id="%s"' % pane) :]
+    div = src[src.index(f'id="{pane}"') :]
     div = div[: div.index(">")]
     assert "hidden" in div, f"{pane} must use the attribute previewImage() clears"
     assert "display:none" not in div.replace(" ", ""), (
@@ -370,9 +370,7 @@ def test_the_accepted_formats_in_the_hint_are_the_ones_the_server_stores():
         assert mime.split("/")[-1].split("+")[0].upper() in hint, (
             f"{mime} is accepted but the operator is never told"
         )
-    assert (
-        "%d MB" % (cs.MAX_IMAGE_BYTES // (1024 * 1024)) in panel["cloud"]["logo_hint"]
-    )
+    assert f"{cs.MAX_IMAGE_BYTES // (1024 * 1024)} MB" in panel["cloud"]["logo_hint"]
 
 
 def test_an_svg_logo_cannot_run_script_on_this_origin():

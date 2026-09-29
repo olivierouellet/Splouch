@@ -11,16 +11,14 @@ from sys import platform
 displayX = 20
 displayY = 20
 display = [""]
-for _ in range(displayY * displayX):
-    display.append(" ")
+display.extend(" " * (displayY * displayX))
 
 
 def setdisplay(x, y):
     global displayX, displayY
     displayX = x
     displayY = y
-    for _ in range(displayY * displayX):
-        display.append(" ")
+    display.extend(" " * (displayY * displayX))
 
 
 def c():
@@ -37,8 +35,7 @@ def c():
 def clear():
     c()
     display = [""]
-    for _ in range(displayY * displayX):
-        display.append(" ")
+    display.extend(" " * (displayY * displayX))
 
 
 def output(x, y, a):

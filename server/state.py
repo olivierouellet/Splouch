@@ -698,7 +698,7 @@ def merge_theme_defaults():
 
 def load_settings():
     try:
-        with open(settings_file, "rt") as f:
+        with open(settings_file) as f:
             settings.update(json.load(f))
     except Exception:
         pass

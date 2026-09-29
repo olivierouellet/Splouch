@@ -13,7 +13,6 @@ operator's console and may be missing (docs/admin.md "Localisation").
 """
 
 import glob
-import io
 import os
 import re
 import sys
@@ -112,7 +111,7 @@ def test_both_servers_agree_on_the_shipped_languages(build):
 def half_translated(monkeypatch, tmp_path):
     """A locale with one chrome string and one label, and nothing else."""
     (tmp_path / "en.toml").write_text(
-        io.open(
+        open(
             os.path.join(REPO, "shared", "locales", "en.toml"), encoding="utf-8"
         ).read(),
         encoding="utf-8",
@@ -294,7 +293,7 @@ def test_the_native_picker_reads_its_strings_from_the_served_table():
 
 def test_the_schedule_template_hard_codes_no_language():
     """Two French strings sat here for a season while the apps lacked the keys."""
-    src = io.open(
+    src = open(
         os.path.join(REPO, "shared", "templates", "schedule.html"), encoding="utf-8"
     ).read()
     for word in ("Aucun", "Nageur"):
@@ -430,7 +429,7 @@ def test_the_picker_follows_the_cookie_before_the_browser(monkeypatch):
             super().__init__(cookies, **params)
             self.headers = {"Accept-Language": accept}
 
-    monkeypatch.setattr(cs, "_load_creds", lambda: {})
+    monkeypatch.setattr(cs, "_load_creds", dict)
     assert cs._picker_lang(_P(accept="es-ES,es;q=0.9")) == "es"
     assert cs._picker_lang(_P({"splouch_lang": "fr"}, accept="es-ES")) == "fr"
     assert (
@@ -515,7 +514,7 @@ def test_the_handshake_matches_the_contract_it_claims(doc, key):
 
     from routes.i18n import route_server as pi_server
 
-    text = io.open(os.path.join(REPO, "docs", doc), encoding="utf-8").read()
+    text = open(os.path.join(REPO, "docs", doc), encoding="utf-8").read()
     match = re.search(r"\*\*Contract version: `(v\d+)`\*\*", text)
     assert match, f"{doc} no longer states a contract version"
     stated = match.group(1)
@@ -772,7 +771,7 @@ def test_no_panel_language_invents_a_key_english_lacks(code):
 )
 def test_the_cloud_appearance_and_debug_tabs_look_their_words_up(key):
     src = admin_source()
-    assert "{{ t.%s }}" % key in src, f"{key} is not rendered from the panel table"
+    assert "{{ t." + key + " }}" in src, f"{key} is not rendered from the panel table"
     assert key in _panel("en")["cloud"]
 
 
@@ -953,9 +952,11 @@ def test_no_string_a_template_reads_as_t_dot_key_is_shadowed_by_dict():
         for section, body in data.items():
             if not isinstance(body, dict):
                 continue
-            for key in body:
-                if key in shadowed and key in dotted:
-                    offenders.append(f"{os.path.basename(path)} [{section}] {key}")
+            offenders.extend(
+                f"{os.path.basename(path)} [{section}] {key}"
+                for key in body
+                if key in shadowed and key in dotted
+            )
     assert not offenders, (
         "these keys render as a dict method, not their string: " + ", ".join(offenders)
     )

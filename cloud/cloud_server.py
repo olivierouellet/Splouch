@@ -659,13 +659,12 @@ def _app_links():
     file may override.
     """
     stored = _applinks_file()
-    ios = [
-        a
-        for a in dict.fromkeys(
+    ios = list(
+        dict.fromkeys(
             _as_list(os.environ.get("IOS_APP_IDS", ""))
             + _as_list(stored.get("ios_app_ids"))
         )
-    ]
+    )
     return {
         "android_package": (
             str(stored.get("android_package", ""))

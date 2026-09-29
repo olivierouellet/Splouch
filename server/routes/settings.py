@@ -580,7 +580,7 @@ def _settings_view(request, form):
     load_custom_decoders(state.CUSTOM_DECODERS_FOLDER)
 
     comm_port_list = [
-        (port, "%s: %s" % (port, desc))
+        (port, f"{port}: {desc}")
         for port, desc, id in serial.tools.list_ports.comports()
     ]
     if state.settings["serial_port"] not in [port for port, desc in comm_port_list]:

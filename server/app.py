@@ -73,6 +73,16 @@ async def _meet_live_watchdog():
         await asyncio.sleep(1)
 
 
+def _reload_last_meet(load_meet_file):
+    """Reopen the meet file that was loaded when the server last stopped. Parsing a
+    large Lenex file takes a while on a Pi, so it runs off the event loop."""
+    last = state.settings.get("last_meet_file", "")
+    if last:
+        path = os.path.join(state.MEET_FOLDER, last)
+        if os.path.isfile(path):
+            load_meet_file(path)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Capture the event loop so the serial worker thread can broadcast onto it.
@@ -86,11 +96,7 @@ async def lifespan(app: FastAPI):
     load_custom_decoders(state.CUSTOM_DECODERS_FOLDER)
     relay.start()
     _register_locale_aliases()
-    _last = state.settings.get("last_meet_file", "")
-    if _last:
-        _path = os.path.join(state.MEET_FOLDER, _last)
-        if os.path.isfile(_path):
-            _load_meet_file(_path)
+    await asyncio.to_thread(_reload_last_meet, _load_meet_file)
     _watchdog = asyncio.create_task(_meet_live_watchdog())
     try:
         yield

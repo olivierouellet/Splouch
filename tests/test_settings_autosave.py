@@ -48,14 +48,14 @@ def src():
     ],
 )
 def test_each_appearance_form_saves_itself(src, form_id, note_id):
-    assert 'id="%s"' % form_id in src
-    assert 'id="%s"' % note_id in src
-    assert "autoSave(document.getElementById('%s'), '%s'" % (form_id, note_id) in src
+    assert f'id="{form_id}"' in src
+    assert f'id="{note_id}"' in src
+    assert f"autoSave(document.getElementById('{form_id}'), '{note_id}'" in src
 
 
 @pytest.mark.parametrize("btn", ["btn-update-display", "btn-update-theme"])
 def test_the_appearance_update_buttons_are_gone(src, btn):
-    assert 'id="%s"' % btn not in src
+    assert f'id="{btn}"' not in src
 
 
 @pytest.mark.parametrize(
@@ -64,7 +64,7 @@ def test_the_appearance_update_buttons_are_gone(src, btn):
 def test_the_deliberate_buttons_stay(src, btn):
     """Not an oversight: a relay key, a password and a per-meet record each want an
     explicit press rather than saving on the way past."""
-    assert 'id="%s"' % btn in src
+    assert f'id="{btn}"' in src
     assert "markDirty(" in src
 
 
@@ -72,7 +72,7 @@ def test_the_note_is_announced_to_assistive_tech(src):
     """The receipt replaced a button going green, which a screen reader never saw
     either — but a live region is the reason to do it properly now."""
     for note in ("timing-tuning-note", "display-save-note", "theme-save-note"):
-        span = matched(r'<span id="%s"[^>]*>' % note, src, group=0)
+        span = matched(rf'<span id="{note}"[^>]*>', src, group=0)
         assert 'role="status"' in span and 'aria-live="polite"' in span
 
 
@@ -184,13 +184,13 @@ def test_race_detection_lives_in_the_timing_pane(src):
         else timing
     )
     for field in ("finish_debounce", "split_min_duration"):
-        assert 'name="%s"' % field in timing, f"{field} is not in the Timing pane"
+        assert f'name="{field}"' in timing, f"{field} is not in the Timing pane"
 
 
 def test_both_fields_are_explained(src):
     """They are the two settings most likely to be changed without knowing the cost."""
     for key in ("timing_finish_debounce_help", "timing_split_min_help"):
-        assert "{{ t.%s }}" % key in src
+        assert "{{ t." + key + " }}" in src
 
 
 def test_the_default_comes_from_the_server(src):
@@ -253,7 +253,7 @@ def test_the_warning_tracks_the_default_and_the_reset_saves(src):
     finally:
         os.unlink(path)
     assert res.returncode == 0, res.stderr
-    steps = dict((s[0], (s[1], s[2])) for s in json.loads(res.stdout)["steps"])
+    steps = {s[0]: (s[1], s[2]) for s in json.loads(res.stdout)["steps"]}
 
     assert steps["load"][1] is True, "warns on a value that is the default"
     assert steps["changed"][1] is False, "no warning on a non-default value"
@@ -328,7 +328,7 @@ def test_the_warning_is_hidden_by_class_not_by_hidden(src):
     before any script runs.
     """
     for warn_id in ("finish-debounce-warn", "split-min-warn"):
-        el = matched(r'<div id="%s"[^>]*>' % warn_id, src, group=0)
+        el = matched(rf'<div id="{warn_id}"[^>]*>', src, group=0)
         assert " hidden" not in el, f"{warn_id}: hidden is back and does nothing here"
         assert "d-none" in el and "d-flex" in el, (
             f"{warn_id}: start state must be server-side"
@@ -362,14 +362,14 @@ def test_both_race_detection_fields_warn_off_default(
 ):
     """Each changes how the meet is read, not how it looks, so neither should sit off
     its default quietly."""
-    assert 'data-default="{{ %s }}"' % default_var in src
-    el = re.search(r'<div id="%s"[^>]*>' % warn, src).group(0)
+    assert 'data-default="{{ ' + default_var + ' }}"' in src
+    el = matched(rf'<div id="{warn}"[^>]*>', src, group=0)
     assert " hidden" not in el, "hidden does not work here — see the Bootstrap note"
     assert "d-none" in el and "d-flex" in el, (
         "the start state must come from the server"
     )
-    assert 'id="%s"' % reset in src
-    assert "defaultWarning('%s'" % field in src
+    assert f'id="{reset}"' in src
+    assert f"defaultWarning('{field}'" in src
 
 
 def test_the_defaults_are_named_once(src):
@@ -428,7 +428,7 @@ def test_the_shared_warning_helper_works_for_the_split_field(src):
     finally:
         os.unlink(path)
     assert res.returncode == 0, res.stderr
-    steps = dict((s[0], (s[1], s[2])) for s in json.loads(res.stdout))
+    steps = {s[0]: (s[1], s[2]) for s in json.loads(res.stdout)}
     assert steps["load"][1] is True, "no warning when the value is the default"
     assert steps["changed"][1] is False
     assert steps["reset"] == ("1", True), "reset restores the default and clears"

@@ -125,7 +125,7 @@ def test_every_fetch_upload_clears_the_input_it_read(src, fn):
     Only the handlers that upload with `fetch` need this. The ones that submit the
     form navigate away, so the page (and the input) is rebuilt regardless.
     """
-    body = src[src.index("function %s(" % fn) :]
+    body = src[src.index(f"function {fn}(") :]
     body = body[: body.index("\n    }\n")]
     assert "input.value = ''" in body, (
         f"{fn} never clears its input, so the same file cannot be picked twice"

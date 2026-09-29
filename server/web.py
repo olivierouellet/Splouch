@@ -100,57 +100,57 @@ def _globals():
 
     Recomputed per render so live settings changes take effect immediately.
     """
-    return dict(
-        splash_url=state.settings.get("splash_url", ""),
-        labels=state.load_locale(),
+    return {
+        "splash_url": state.settings.get("splash_url", ""),
+        "labels": state.load_locale(),
         # The vocabulary `event_name_parts` composes against, in the same language
         # `labels` is read in (docs/app.md `T-11`).
-        event_vocab=state.load_event_translations(),
+        "event_vocab": state.load_event_translations(),
         # BCP-47 tag for <html lang>, from the same setting `labels` is read in.
         # Display pages only — the admin UI has its own per-device language
         # (`ui_lang`), so those templates deliberately keep lang="en".
-        lang=state.settings.get("locale", "en"),
-        show_lane_header=state.settings.get("show_lane_header", True),
-        show_name_header=state.settings.get("show_name_header", True),
-        show_club_header=state.settings.get("show_club_header", True),
-        show_time_header=state.settings.get("show_time_header", True),
-        show_delta_header=state.settings.get("show_delta_header", True),
-        show_position_header=state.settings.get("show_position_header", True),
-        show_name=state.settings.get("show_name", True),
-        show_club=state.settings.get("show_club", True),
-        show_delta=state.settings.get("show_delta", True),
-        show_position=state.settings.get("show_position", True),
-        show_podium=state.settings.get("show_podium", True),
-        show_laps=state.settings.get("show_laps", False),
-        lap_direction=state.settings.get("lap_direction", "up"),
-        num_lanes=int(state.settings.get("num_lanes", 6)),
-        finish_debounce=float(state.settings.get("finish_debounce", 3.0)),
+        "lang": state.settings.get("locale", "en"),
+        "show_lane_header": state.settings.get("show_lane_header", True),
+        "show_name_header": state.settings.get("show_name_header", True),
+        "show_club_header": state.settings.get("show_club_header", True),
+        "show_time_header": state.settings.get("show_time_header", True),
+        "show_delta_header": state.settings.get("show_delta_header", True),
+        "show_position_header": state.settings.get("show_position_header", True),
+        "show_name": state.settings.get("show_name", True),
+        "show_club": state.settings.get("show_club", True),
+        "show_delta": state.settings.get("show_delta", True),
+        "show_position": state.settings.get("show_position", True),
+        "show_podium": state.settings.get("show_podium", True),
+        "show_laps": state.settings.get("show_laps", False),
+        "lap_direction": state.settings.get("lap_direction", "up"),
+        "num_lanes": int(state.settings.get("num_lanes", 6)),
+        "finish_debounce": float(state.settings.get("finish_debounce", 3.0)),
         # The Timing pane warns when the delay is off the default and offers it
         # back, so the default has to reach the template rather than be retyped.
-        finish_debounce_default=state.FINISH_DEBOUNCE_DEFAULT,
-        split_min_duration=float(state.settings.get("split_min_duration", 1.0)),
-        split_min_duration_default=state.SPLIT_MIN_DEFAULT,
-        pool_length=int(state.settings.get("pool_length", 25)),
-        touchpad_sides=int(state.settings.get("touchpad_sides", 1)),
-        lenex_pool_length=int(state.meet.meet_info.get("pool_length_lenex") or 0),
-        theme_colors={
+        "finish_debounce_default": state.FINISH_DEBOUNCE_DEFAULT,
+        "split_min_duration": float(state.settings.get("split_min_duration", 1.0)),
+        "split_min_duration_default": state.SPLIT_MIN_DEFAULT,
+        "pool_length": int(state.settings.get("pool_length", 25)),
+        "touchpad_sides": int(state.settings.get("touchpad_sides", 1)),
+        "lenex_pool_length": int(state.meet.meet_info.get("pool_length_lenex") or 0),
+        "theme_colors": {
             **state.DEFAULT_THEME_COLORS,
             **state.settings.get("theme_colors", {}),
         },
-        theme_fonts={
+        "theme_fonts": {
             **state.DEFAULT_THEME_FONTS,
             **state.settings.get("theme_fonts", {}),
         },
-        provision_stale=state.provisioning_stale(),
+        "provision_stale": state.provisioning_stale(),
         # Cache key for the page's own static JS. This Pi updates itself, so a
         # browser can hold a cached script against markup deployed since; the ref
         # changes with every update and `git_describe()` is cached, so this costs
         # nothing per render.
-        server_version=state.git_describe()["version"],
+        "server_version": state.git_describe()["version"],
         # Shown as a banner on the settings panel until the login is changed off
         # the one every install ships with (and that the docs print).
-        default_credentials=state.using_default_credentials(),
-    )
+        "default_credentials": state.using_default_credentials(),
+    }
 
 
 # The visitor's choice lives in these cookies, one per device and per server
@@ -252,21 +252,21 @@ def client_strings(request: HasClientPrefs):
     default_lang = state.settings.get("locale", "en")
     default_style = state.settings.get("label_style", "long")
     if lang == default_lang and style == default_style:
-        return dict(
-            t=state._mobile_strings(),
-            labels=state.load_locale(),
-            event_vocab=state.load_event_translations(),
-            lang=lang,
-            ui_style=style,
-        )
+        return {
+            "t": state._mobile_strings(),
+            "labels": state.load_locale(),
+            "event_vocab": state.load_event_translations(),
+            "lang": lang,
+            "ui_style": style,
+        }
     bundle = state.i18n_bundle(lang)
-    return dict(
-        t=bundle["mobile"],
-        labels=bundle["labels"][style],
-        event_vocab=bundle["event_name"],
-        lang=lang,
-        ui_style=style,
-    )
+    return {
+        "t": bundle["mobile"],
+        "labels": bundle["labels"][style],
+        "event_vocab": bundle["event_name"],
+        "lang": lang,
+        "ui_style": style,
+    }
 
 
 def render(request: Request, name: str, **ctx):

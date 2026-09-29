@@ -89,7 +89,7 @@ def test_json_and_page_are_the_same_list(loaded_meet, monkeypatch):
 
     def fake_render(request, template, **ctx):
         captured.update(ctx)
-        return None
+        return
 
     monkeypatch.setattr(meet_routes, "render", fake_render)
     monkeypatch.setattr(meet_routes, "client_strings", lambda request: {})

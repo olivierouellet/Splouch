@@ -202,11 +202,11 @@ def _scripts(html):
             disk = os.path.join(STATIC, path[len("/static/") :])
             if not os.path.isfile(disk):
                 raise PageScriptError(
-                    "page references %s, which is not in shared/static" % path
+                    f"page references {path}, which is not in shared/static"
                 )
             out.append((path, open(disk, encoding="utf-8").read()))
         else:
-            out.append(("inline #%d" % i, body))
+            out.append((f"inline #{i}", body))
     return out
 
 
@@ -227,8 +227,8 @@ def run_page(html, extra=""):
     program = [
         _DOM,
         extra,
-        "var __src = %s;" % json.dumps([body for _, body in scripts]),
-        "var __labels = %s;" % json.dumps([label for label, _ in scripts]),
+        f"var __src = {json.dumps([body for _, body in scripts])};",
+        f"var __labels = {json.dumps([label for label, _ in scripts])};",
         'var __current = "harness";',
         "__result = (function () {",
         "  for (var i = 0; i < __src.length; i++) {",
@@ -252,16 +252,13 @@ def run_page(html, extra=""):
         os.unlink(path)
 
     if res.returncode != 0:
-        raise PageScriptError(
-            "%s refused the program:\n%s" % (_ENGINE, res.stderr.strip())
-        )
+        raise PageScriptError(f"{_ENGINE} refused the program:\n{res.stderr.strip()}")
 
     head, _, scheduled = res.stdout.strip().partition("\n")
     if head.startswith("ERROR"):
         _, where, name, message = head.split("\t", 3)
         raise PageScriptError(
-            "the page threw while executing %s\n    %s: %s\n"
+            f"the page threw while executing {where}\n    {name}: {message}\n"
             "A browser stops the whole block there, so everything after it never runs."
-            % (where, name, message)
         )
     return scheduled

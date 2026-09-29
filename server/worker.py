@@ -228,10 +228,10 @@ def _list_sessions():
         (state.CUSTOM_SESSIONS_FOLDER, "custom"),
     ]:
         for ext in ("*.cts", "*.raw"):
-            for path in sorted(glob.glob(os.path.join(folder, ext))):
-                result.append(
-                    {"name": os.path.basename(path), "source": source, "path": path}
-                )
+            result.extend(
+                {"name": os.path.basename(path), "source": source, "path": path}
+                for path in sorted(glob.glob(os.path.join(folder, ext)))
+            )
     return result
 
 
@@ -300,7 +300,7 @@ def _packet_summary(updates):
         place = updates.get(f"lane_place{i}", " ")
         running = updates.get(f"lane_running{i}", False)
         if not s:
-            s = "%4s: %s %s" % (i, place, "running" if running else lane_time)
+            s = f"{i:>4}: {place} {'running' if running else lane_time}"
     return s
 
 
@@ -545,8 +545,8 @@ def _handle_packet(buf):
 
     hex_str = ""
     if state._record_handle or state._debug_serial:
-        hex_str = " ".join(["%02X" % int(c) for c in buf])
-        log_line = "[%f] " % time.time() + hex_str + "\n"
+        hex_str = " ".join([f"{int(c):02X}" for c in buf])
+        log_line = f"[{time.time():f}] " + hex_str + "\n"
         if state._record_handle:
             state._record_handle.write(log_line)
 
@@ -615,7 +615,7 @@ def _ingest_byte(c, buf):
 
 def _play_cts_file(session_file, my_gen):
     """Play a timestamped or looping .cts/.raw session file."""
-    text = open(session_file, "rt").read()
+    text = open(session_file).read()
     has_timestamps = bool(re.search(r"\[[0-9.]+\]", text))
     start_time = None
     delay = 0.0

@@ -161,7 +161,7 @@ def test_there_is_no_second_hold_implementation(src):
 def test_reboot_and_shutdown_still_hold_the_same_way(src, label):
     """The comparison the fix is measured against."""
     button = re.search(
-        r"<button[^>]*>[^<]*(?:<i[^>]*></i>)?\s*\{\{ t\.%s \}\}" % label, src
+        r"<button[^>]*>[^<]*(?:<i[^>]*></i>)?\s*\{\{ t\." + label + r" \}\}", src
     ).group(0)
     assert "data-hold" in button and "data-hold-fn" in button, button
 

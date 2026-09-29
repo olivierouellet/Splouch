@@ -175,9 +175,9 @@ def _template_js(*names):
     out = []
     for name in names:
         m = (
-            re.search(r"^var %s = \{.*?^\};" % name, src, re.S | re.M)
-            or re.search(r"^var %s = .*?$" % name, src, re.M)
-            or re.search(r"^function %s\(.*?^\}" % name, src, re.S | re.M)
+            re.search(r"^var " + name + r" = \{.*?^\};", src, re.S | re.M)
+            or re.search(rf"^var {name} = .*?$", src, re.M)
+            or re.search(rf"^function {name}\(.*?^\}}", src, re.S | re.M)
         )
         assert m, name
         out.append(m.group(0))
@@ -188,12 +188,12 @@ def test_the_expansion_table_is_complete():
     """Portable guard: the table is the step a platform convenience API skips."""
     table = _template_js("FOLD_LETTERS")
     for letter, ascii_ in _EXPANSIONS.items():
-        assert "'%s': '%s'" % (letter, ascii_) in table, letter
+        assert f"'{letter}': '{ascii_}'" in table, letter
 
 
 def _run_fold(words):
     js = _template_js("FOLD_LETTERS", "FOLD_RE", "foldName")
-    js += "\nvar o = {}; var w = %s;" % json.dumps(words)
+    js += f"\nvar o = {{}}; var w = {json.dumps(words)};"
     js += "\nfor (var i = 0; i < w.length; i++) o[w[i]] = foldName(w[i]);"
     js += "\nJSON.stringify(o)\n"
     with tempfile.NamedTemporaryFile(

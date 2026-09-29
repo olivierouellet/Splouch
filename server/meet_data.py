@@ -242,42 +242,41 @@ def _build_meet_data():
             num: state.parse_event_name(name) for num, name in m.event_names.items()
         }
         events_grouped = [(ev, sorted(m.start_list[ev])) for ev in sorted(m.start_list)]
-        return dict(
-            events_grouped=events_grouped,
-            event_names=event_names,
-            event_name_parts=event_name_parts,
-            start_list=m.start_list,
-            heat_times=m.heat_times,
-            meet_info=m.meet_info,
-        )
-    else:
-        info = m.event_info
-        by_ev = {}
-        for ev, ht in sorted(info.events.keys()):
-            by_ev.setdefault(ev, []).append(ht)
-        events_grouped = list(sorted(by_ev.items()))
-        start_list = {}
-        for (ev, ht), lane_data in info.events.items():
-            sl_ht = start_list.setdefault(ev, {}).setdefault(ht, {})
-            for lane, display in lane_data.items():
-                if len(display) > 5 and display[4] == " ":
-                    name, club = display[5:], display[:4].strip()
-                else:
-                    name, club = "", display.strip()
-                seed = info.seed_times.get((ev, ht), {}).get(lane, "")
-                sl_ht[lane] = {
-                    "name": name,
-                    "club": club,
-                    "seed_time": seed,
-                    "swimmers": [],
-                }
-        return dict(
-            events_grouped=events_grouped,
-            event_names=dict(info.event_names),
-            start_list=start_list,
-            heat_times={},
-            meet_info={},
-        )
+        return {
+            "events_grouped": events_grouped,
+            "event_names": event_names,
+            "event_name_parts": event_name_parts,
+            "start_list": m.start_list,
+            "heat_times": m.heat_times,
+            "meet_info": m.meet_info,
+        }
+    info = m.event_info
+    by_ev = {}
+    for ev, ht in sorted(info.events.keys()):
+        by_ev.setdefault(ev, []).append(ht)
+    events_grouped = sorted(by_ev.items())
+    start_list = {}
+    for (ev, ht), lane_data in info.events.items():
+        sl_ht = start_list.setdefault(ev, {}).setdefault(ht, {})
+        for lane, display in lane_data.items():
+            if len(display) > 5 and display[4] == " ":
+                name, club = display[5:], display[:4].strip()
+            else:
+                name, club = "", display.strip()
+            seed = info.seed_times.get((ev, ht), {}).get(lane, "")
+            sl_ht[lane] = {
+                "name": name,
+                "club": club,
+                "seed_time": seed,
+                "swimmers": [],
+            }
+    return {
+        "events_grouped": events_grouped,
+        "event_names": dict(info.event_names),
+        "start_list": start_list,
+        "heat_times": {},
+        "meet_info": {},
+    }
 
 
 def build_heats():

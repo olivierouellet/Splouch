@@ -90,7 +90,7 @@ def test_the_inputs_that_do_want_a_fixed_width_still_have_one(src):
 def test_the_reported_buttons_are_covered(src, key):
     """Named explicitly so a future edit that re-pins one of these is caught by a
     test that says which button it was."""
-    tags = [tag for tag, label in _buttons(src) if "{{ t.%s }}" % key in label]
+    tags = [tag for tag, label in _buttons(src) if "{{ t." + key + " }}" in label]
     assert tags, f"no button renders t.{key} any more"
     for tag in tags:
         if "min-width" in tag or "width" in tag:

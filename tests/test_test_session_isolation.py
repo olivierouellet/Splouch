@@ -648,7 +648,7 @@ def test_the_recording_really_decodes_under_a_manual_console(rig, monkeypatch):
 
     import re
 
-    text = io.open(os.path.join(RECORDINGS, SESSION)).read()
+    text = open(os.path.join(RECORDINGS, SESSION)).read()
     buf = []
     for m in re.finditer(r"\[([0-9.]+)\]\s*|([0-9a-fA-F]{2})", text):
         if m.group(1):
