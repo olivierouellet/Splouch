@@ -11,6 +11,17 @@
     }
   },
 
+  // Biome does the same for shared/static/js and css — `npx biome ci` in CI, rules
+  // in biome.jsonc. It uses the copy `npm ci` installs, so the versions match.
+  "[javascript]": {
+    "editor.defaultFormatter": "biomejs.biome",
+    "editor.formatOnSave": true
+  },
+  "[css]": {
+    "editor.defaultFormatter": "biomejs.biome",
+    "editor.formatOnSave": true
+  },
+
   // `ty` is this project's type authority and runs in CI. Pylance left on its own
   // defaults produces a second, differently-opinionated set of squiggles over the
   // same code, which is noise — it keeps completion and navigation either way.

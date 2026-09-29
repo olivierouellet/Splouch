@@ -102,7 +102,7 @@ jobs:
         run: uv run pytest tests/ -q --cov --cov-report=term
 
   lint:
-    name: Shell, YAML and Markdown
+    name: Shell, YAML, Markdown, JavaScript and CSS
     # Nothing here depends on the Pi's platform, so it runs apart from the Qt suite and
     # reports in seconds rather than after it.
     runs-on: ubuntu-latest
@@ -120,8 +120,11 @@ jobs:
           cache-dependency-glob: uv.lock
 
       - name: Install the linters
-        # Every one is a wheel in the dev group, so uv.lock pins them like Ruff and ty.
-        run: uv sync --only-group dev --frozen
+        # Every one but Biome is a wheel in the dev group, so uv.lock pins them like Ruff
+        # and ty. Biome is npm-only; package-lock.json pins it the same way.
+        run: |
+          uv sync --only-group dev --frozen
+          npm ci --no-fund --no-audit
 
       - name: ShellCheck
         # -S warning: install.sh provisions both Pis
@@ -141,3 +144,7 @@ jobs:
       - name: Markdown
         # Rules in .markdownlint.json, which the VS Code extension reads too.
         run: uv run rumdl check .
+
+      - name: JavaScript and CSS
+        # Lint and format check in one; rules in biome.jsonc. `npx biome check --write` fixes.
+        run: npx biome ci

@@ -19,22 +19,52 @@
      primary confirm/submit -> .btn-primary
    ========================================================================== */
 
-:root { --bs-code-color: var(--bs-body-emphasis-color); }
+:root {
+    --bs-code-color: var(--bs-body-emphasis-color);
+}
 
 /* ── Typography ── */
-.form-label    { text-transform: uppercase; font-size: 0.78rem; letter-spacing: 0.03em; color: var(--bs-secondary-color); margin-bottom: 0.25rem; }
-.panel-eyebrow { text-transform: uppercase; font-size: 0.72rem; letter-spacing: 0.05em; color: var(--bs-secondary-color); margin-bottom: 0.35rem; }
-.panel-title   { font-weight: 600; color: var(--bs-body-emphasis-color); margin-bottom: 0.5rem; }
+.form-label {
+    text-transform: uppercase;
+    font-size: 0.78rem;
+    letter-spacing: 0.03em;
+    color: var(--bs-secondary-color);
+    margin-bottom: 0.25rem;
+}
+.panel-eyebrow {
+    text-transform: uppercase;
+    font-size: 0.72rem;
+    letter-spacing: 0.05em;
+    color: var(--bs-secondary-color);
+    margin-bottom: 0.35rem;
+}
+.panel-title {
+    font-weight: 600;
+    color: var(--bs-body-emphasis-color);
+    margin-bottom: 0.5rem;
+}
 
 /* Inline <code> as a subtle theme-aware chip instead of Bootstrap's pink text. */
-code:not(pre code) { background: var(--bs-secondary-bg); border: 1px solid var(--bs-border-color); padding: 0.1em 0.4em; border-radius: 4px; }
+code:not(pre code) {
+    background: var(--bs-secondary-bg);
+    border: 1px solid var(--bs-border-color);
+    padding: 0.1em 0.4em;
+    border-radius: 4px;
+}
 
 /* Tab panes toggled by the sidebar switcher (panel.js). */
-.tab-pane { display: none; }
-.tab-pane.active { display: block; }
+.tab-pane {
+    display: none;
+}
+.tab-pane.active {
+    display: block;
+}
 
 /* Copy-to-clipboard "copied!" feedback. */
-.copied { color: var(--bs-success) !important; border-color: var(--bs-success) !important; }
+.copied {
+    color: var(--bs-success) !important;
+    border-color: var(--bs-success) !important;
+}
 
 /* Keep autofilled inputs dark instead of the browser's white/yellow box. */
 input:-webkit-autofill,
@@ -45,22 +75,62 @@ input:-webkit-autofill:focus {
     caret-color: var(--bs-body-color);
 }
 /* Vertically center native time-picker text (webkit). */
-input[type="time"]::-webkit-datetime-edit { padding: 0; line-height: 1.4; }
+input[type="time"]::-webkit-datetime-edit {
+    padding: 0;
+    line-height: 1.4;
+}
 
 /* ── Responsive sidebar shell ── */
-.tab-content { padding-top: 0; }
-#app-sidebar { width: 240px; }
-#app-sidebar .offcanvas-body { padding: 10px; }
-.app-nav .nav-link { color: var(--bs-secondary-color); border-radius: 6px; padding: 6px 12px; font-size: 0.9em; cursor: pointer; }
-.app-nav .nav-link:hover { background: var(--bs-secondary-bg); color: var(--bs-body-color); }
-.app-nav .nav-link.active { background: var(--bs-primary); color: #fff; }
-.app-nav .nav-link.sub { padding-left: 28px; font-size: 0.86em; }
-.app-nav .group-toggle { display: flex; align-items: center; justify-content: space-between; }
-.app-nav .group-toggle .caret { transition: transform 0.15s; font-size: 0.8em; }
-.app-nav .group-toggle[aria-expanded="true"] .caret { transform: rotate(90deg); }
-.app-quicklinks .btn { --bs-btn-padding-y: 2px; --bs-btn-padding-x: 8px; --bs-btn-font-size: 0.78em; }
+.tab-content {
+    padding-top: 0;
+}
+#app-sidebar {
+    width: 240px;
+}
+#app-sidebar .offcanvas-body {
+    padding: 10px;
+}
+.app-nav .nav-link {
+    color: var(--bs-secondary-color);
+    border-radius: 6px;
+    padding: 6px 12px;
+    font-size: 0.9em;
+    cursor: pointer;
+}
+.app-nav .nav-link:hover {
+    background: var(--bs-secondary-bg);
+    color: var(--bs-body-color);
+}
+.app-nav .nav-link.active {
+    background: var(--bs-primary);
+    color: #fff;
+}
+.app-nav .nav-link.sub {
+    padding-left: 28px;
+    font-size: 0.86em;
+}
+.app-nav .group-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+.app-nav .group-toggle .caret {
+    transition: transform 0.15s;
+    font-size: 0.8em;
+}
+.app-nav .group-toggle[aria-expanded="true"] .caret {
+    transform: rotate(90deg);
+}
+.app-quicklinks .btn {
+    --bs-btn-padding-y: 2px;
+    --bs-btn-padding-x: 8px;
+    --bs-btn-font-size: 0.78em;
+}
 @media (min-width: 992px) {
-    #app-sidebar { min-height: calc(100vh - 57px); flex: 0 0 auto; }
+    #app-sidebar {
+        min-height: calc(100vh - 57px);
+        flex: 0 0 auto;
+    }
 }
 
 /* Hold-to-confirm: the button fills as a progress bar for the length of the hold.
@@ -75,12 +145,23 @@ input[type="time"]::-webkit-datetime-edit { padding: 0; line-height: 1.4; }
     border-color: var(--hold-fill, var(--bs-danger)) !important;
     /* !important here too: a higher-specificity rule setting the `background`
        shorthand resets the gradient, and the hold then shows no progress at all. */
-    background-image: linear-gradient(to right, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0.55)) !important;
+    background-image: linear-gradient(
+        to right,
+        rgba(255, 255, 255, 0.55),
+        rgba(255, 255, 255, 0.55)
+    ) !important;
     background-repeat: no-repeat !important;
     background-size: 0% 100%;
     animation: holdfill var(--hold-ms, 1200ms) linear forwards;
 }
-@keyframes holdfill { from { background-size: 0% 100%; } to { background-size: 100% 100%; } }
+@keyframes holdfill {
+    from {
+        background-size: 0% 100%;
+    }
+    to {
+        background-size: 100% 100%;
+    }
+}
 /* A hold is a long press, which is also the gesture iOS uses to raise the selection
    callout / Writing Tools and Android uses for text selection — so on a phone the
    menu came up over the button instead of the hold completing. `touch-action` keeps a

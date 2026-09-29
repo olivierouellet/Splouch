@@ -1,82 +1,83 @@
 @font-face {
-    font-family: 'Overpass Mono';
+    font-family: "Overpass Mono";
     font-style: normal;
     font-weight: 400;
     font-display: swap;
-    src: url('../fonts/OverpassMono-Regular.woff2') format('woff2');
+    src: url("../fonts/OverpassMono-Regular.woff2") format("woff2");
 }
 
 @font-face {
-    font-family: 'DSEG7Classic';
+    font-family: "DSEG7Classic";
     font-style: normal;
     font-weight: 400;
     font-display: swap;
-    src: url('../fonts/DSEG7Classic-Regular.woff2') format('woff2');
+    src: url("../fonts/DSEG7Classic-Regular.woff2") format("woff2");
 }
 
 @font-face {
-    font-family: 'Share Tech Mono';
+    font-family: "Share Tech Mono";
     font-style: normal;
     font-weight: 400;
     font-display: swap;
-    src: url('../fonts/ShareTechMono-Regular.woff2') format('woff2');
+    src: url("../fonts/ShareTechMono-Regular.woff2") format("woff2");
 }
 
 @font-face {
-    font-family: 'Orbitron';
+    font-family: "Orbitron";
     font-style: normal;
     font-weight: 400;
     font-display: swap;
-    src: url('../fonts/Orbitron-Regular.woff2') format('woff2');
+    src: url("../fonts/Orbitron-Regular.woff2") format("woff2");
 }
 
 @font-face {
-    font-family: 'Roboto Mono';
+    font-family: "Roboto Mono";
     font-style: normal;
     font-weight: 400;
     font-display: swap;
-    src: url('../fonts/RobotoMono-Regular.woff2') format('woff2');
+    src: url("../fonts/RobotoMono-Regular.woff2") format("woff2");
 }
 
 @font-face {
-    font-family: 'DSEG14Classic';
+    font-family: "DSEG14Classic";
     font-style: normal;
     font-weight: 400;
     font-display: swap;
-    src: url('../fonts/DSEG14Classic-Regular.woff2') format('woff2');
+    src: url("../fonts/DSEG14Classic-Regular.woff2") format("woff2");
 }
 
 /* ── Theme defaults (overridden by per-page <style> block) ─────────────────── */
 
 :root {
-    --color-bg:            #0d0d0d;
-    --color-header-bg:     #1a1a1a;
+    --color-bg: #0d0d0d;
+    --color-header-bg: #1a1a1a;
     --color-header-border: #2e2e2e;
-    --color-header-label:  #ffffff;
-    --color-header-value:  #e0e0e0;
-    --color-th-text:       #666666;
-    --color-th-bg:         #1a1a1a;
-    --color-row-odd:       #141414;
-    --color-row-even:      #202020;
-    --color-row-text:      #e0e0e0;
-    --color-time:          #FFD700;
-    --color-delta-better:  #4CAF50;
-    --color-delta-worse:   #808080;
-    --color-podium-gold:   #545454;
+    --color-header-label: #ffffff;
+    --color-header-value: #e0e0e0;
+    --color-th-text: #666666;
+    --color-th-bg: #1a1a1a;
+    --color-row-odd: #141414;
+    --color-row-even: #202020;
+    --color-row-text: #e0e0e0;
+    --color-time: #ffd700;
+    --color-delta-better: #4caf50;
+    --color-delta-worse: #808080;
+    --color-podium-gold: #545454;
     --color-podium-silver: #424242;
     --color-podium-bronze: #343434;
     /* EVENT/HEAT are one phrase at one size (see `#header_event_cell` below),
        so the word and the number read from a single variable. `fitHeaderCells()`
        overrides it per cell when a long label would not fit. */
-    --header-num-size:     4.5vh;
-    --font-family:         'Overpass Mono';
-    --font-digits:         'DSEG7Classic';
-    --font-timing:         'Overpass Mono';
+    --header-num-size: 4.5vh;
+    --font-family: "Overpass Mono";
+    --font-digits: "DSEG7Classic";
+    --font-timing: "Overpass Mono";
 }
 
 /* ── Reset ────────────────────────────────────────────────────────────────── */
 
-html, body {
+html,
+body {
     margin: 0;
     padding: 0;
     width: 100vw;
@@ -124,12 +125,20 @@ html, body {
     transition: opacity 0.6s;
 }
 
-.header_cell:first-child { border-left: none; }
+.header_cell:first-child {
+    border-left: none;
+}
 
 /* The event-name cell expands to fill the remaining space. (`.header_cell_grow` sat
    here too, for a meet-title cell both displays have now dropped — the title is on
    the splash.) */
-.header_cell_name { flex: 1; min-width: 0; background-color: var(--color-header-bg); align-items: center; overflow: hidden; }
+.header_cell_name {
+    flex: 1;
+    min-width: 0;
+    background-color: var(--color-header-bg);
+    align-items: center;
+    overflow: hidden;
+}
 
 #event_name {
     max-width: 100%;
@@ -168,7 +177,8 @@ html, body {
    them apart from their numbers. This used to be the label colour on this page and
    `header_value` on the Qt board — a divergence that existed only because both were
    near-identical greys and it made no visible difference. It does now. */
-#current_event, #current_heat {
+#current_event,
+#current_heat {
     font-family: var(--font-digits), monospace;
     font-size: var(--header-num-size);
     line-height: 1;
@@ -198,7 +208,7 @@ html, body {
     justify-content: flex-start;
 }
 #header_event_cell .header_label,
-#header_heat_cell  .header_label {
+#header_heat_cell .header_label {
     font-size: var(--header-num-size);
     margin-right: 0.45em;
 }
@@ -206,8 +216,12 @@ html, body {
 /* Grow the header bar on tall viewports so the Event/Heat digits can
    match the clock's height without cropping the label above them. */
 @media (min-height: 700px) {
-    .timing-header-bar   { height: 85px; }
-    .header_cell         { padding: 6px 1vw; }
+    .timing-header-bar {
+        height: 85px;
+    }
+    .header_cell {
+        padding: 6px 1vw;
+    }
 }
 
 /* ── Fixed header cell widths — `/live` only ──────────────────────────────────
@@ -237,11 +251,21 @@ html, body {
    nobody reads a race off. Measured on the Qt board, not guessed: at these weights
    `EV 12` and `HT 7` both reach the full digit size, and the race clock ends up with
    more room than it had at 16% of the old split. */
-.header_cells_fixed #header_event_cell  { flex: 0 0 13%; }
-.header_cells_fixed #header_heat_cell   { flex: 0 0 13%; }
-.header_cells_fixed .header_cell_name   { flex: 0 0 48%; }
-.header_cells_fixed #header_chrono_cell { flex: 0 0 16%; }
-.header_cells_fixed #header_clock_cell  { flex: 0 0 10%; }
+.header_cells_fixed #header_event_cell {
+    flex: 0 0 13%;
+}
+.header_cells_fixed #header_heat_cell {
+    flex: 0 0 13%;
+}
+.header_cells_fixed .header_cell_name {
+    flex: 0 0 48%;
+}
+.header_cells_fixed #header_chrono_cell {
+    flex: 0 0 16%;
+}
+.header_cells_fixed #header_clock_cell {
+    flex: 0 0 10%;
+}
 
 /* ── Scoreboard table — fills remaining height ────────────────────────────── */
 
@@ -273,7 +297,9 @@ table.timing-table td {
     white-space: pre;
     max-width: 0px;
     width: 0px;
-    transition: background-color 0.5s ease, transform 0.5s ease;
+    transition:
+        background-color 0.5s ease,
+        transform 0.5s ease;
 }
 
 table.timing-table th {
@@ -308,17 +334,42 @@ table.timing-table tbody td:first-child,
 
 /* ── Column widths — place and time are animated, name fills the rest ─────── */
 
-.timing-anim { transition: width 0.5s ease, max-width 0.5s ease, transform 0.5s ease; }
+.timing-anim {
+    transition:
+        width 0.5s ease,
+        max-width 0.5s ease,
+        transform 0.5s ease;
+}
 
-.lane-column  { width: 5vw; }
-.place-column { width: 0; max-width: 0; }
-.time-column  { width: 0; max-width: 0; }
-.delta-column { width: 0; max-width: 0; }
-.club-column  { width: 8vw; padding-right: 1vw; }
-[id^="lane_club"]     { padding-right: 1vw; }
+.lane-column {
+    width: 5vw;
+}
+.place-column {
+    width: 0;
+    max-width: 0;
+}
+.time-column {
+    width: 0;
+    max-width: 0;
+}
+.delta-column {
+    width: 0;
+    max-width: 0;
+}
+.club-column {
+    width: 8vw;
+    padding-right: 1vw;
+}
+[id^="lane_club"] {
+    padding-right: 1vw;
+}
 /* name column: no explicit width — fills remaining space; padding centers content symmetrically */
 #name-column,
-.lane-name-cell       { padding: 0 2vw; white-space: normal; vertical-align: middle; }
+.lane-name-cell {
+    padding: 0 2vw;
+    white-space: normal;
+    vertical-align: middle;
+}
 
 .name-sub {
     display: block;
@@ -329,7 +380,9 @@ table.timing-table tbody td:first-child,
     text-overflow: ellipsis;
     line-height: 1.2;
 }
-.name-sub:empty { display: none; }
+.name-sub:empty {
+    display: none;
+}
 
 /* The swimmer's own name, sized to fit by fitNameFontSize(). A measurable block so
    that pass can compare scroll width against client width; the ellipsis is the
@@ -345,24 +398,44 @@ table.timing-table tbody td:first-child,
 
 /* ── Display toggles ─────────────────────────────────────────────────────── */
 
-.timing-table.hide-lane-header .lane-column { visibility: hidden; }
-.timing-table.hide-name-header #name-column { visibility: hidden; }
-.timing-table.hide-club-header .club-column { visibility: hidden; }
-.timing-table.hide-time-header #time-column { visibility: hidden; }
-.timing-table.hide-delta-header #delta-column { visibility: hidden; }
-.timing-table.hide-position-header #place-column { visibility: hidden; }
+.timing-table.hide-lane-header .lane-column {
+    visibility: hidden;
+}
+.timing-table.hide-name-header #name-column {
+    visibility: hidden;
+}
+.timing-table.hide-club-header .club-column {
+    visibility: hidden;
+}
+.timing-table.hide-time-header #time-column {
+    visibility: hidden;
+}
+.timing-table.hide-delta-header #delta-column {
+    visibility: hidden;
+}
+.timing-table.hide-position-header #place-column {
+    visibility: hidden;
+}
 
 .timing-table.hide-name #name-column,
-.timing-table.hide-name .lane-name-cell { display: none; }
+.timing-table.hide-name .lane-name-cell {
+    display: none;
+}
 
 .timing-table.hide-club .club-column,
-.timing-table.hide-club [id^="lane_club"] { display: none; }
+.timing-table.hide-club [id^="lane_club"] {
+    display: none;
+}
 
 .timing-table.hide-delta #delta-column,
-.timing-table.hide-delta .td_delta { display: none; }
+.timing-table.hide-delta .td_delta {
+    display: none;
+}
 
 .timing-table.hide-position #place-column,
-.timing-table.hide-position [id^="lane_place"] { display: none; }
+.timing-table.hide-position [id^="lane_place"] {
+    display: none;
+}
 
 /* ── Test session overlay ─────────────────────────────────────────────────── */
 
@@ -383,7 +456,7 @@ table.timing-table tbody td:first-child,
     isolation: isolate;
 }
 .test-overlay::before {
-    content: '';
+    content: "";
     position: absolute;
     inset: 0;
     background-color: var(--color-row-text);
@@ -411,7 +484,7 @@ table.timing-table tbody td:first-child,
     width: 100%;
     z-index: 150;
     object-fit: contain;
-    transition: opacity 3.0s ease;
+    transition: opacity 3s ease;
 }
 
 /* ── Test controls ────────────────────────────────────────────────────────── */
@@ -425,17 +498,28 @@ table.timing-table tbody td:first-child,
 /* ── Time column — yellow; on podium rows the !important below overrides it ── */
 
 #time-column,
-.td_time { color: var(--color-time); font-family: var(--font-timing), monospace; }
+.td_time {
+    color: var(--color-time);
+    font-family: var(--font-timing), monospace;
+}
 
 /* ── Time lock animation ──────────────────────────────────────────────────── */
 
-[id^="lane_time"].time-running { color: #a0a0a0; }
+[id^="lane_time"].time-running {
+    color: #a0a0a0;
+}
 
 @keyframes time-lock-flash {
-    0%   { color: #ffffff; }
-    100% { color: var(--color-time); }
+    0% {
+        color: #ffffff;
+    }
+    100% {
+        color: var(--color-time);
+    }
 }
-[id^="lane_time"].time-locked { animation: time-lock-flash 0.8s ease-out forwards; }
+[id^="lane_time"].time-locked {
+    animation: time-lock-flash 0.8s ease-out forwards;
+}
 
 /* ── Seed-time delta ─────────────────────────────────────────────────────── */
 
@@ -443,9 +527,17 @@ table.timing-table tbody td:first-child,
    was its only tenant; a lap count is one or two digits, and right-aligning that
    pushed it against the place column, where a bare `3` sat a glyph away from a
    `#3` and read as a rank. */
-.td_delta { font-size: 5vh; text-align: center; font-family: var(--font-timing), monospace; }
-.delta-better { color: var(--color-delta-better); }
-.delta-worse  { color: var(--color-delta-worse); }
+.td_delta {
+    font-size: 5vh;
+    text-align: center;
+    font-family: var(--font-timing), monospace;
+}
+.delta-better {
+    color: var(--color-delta-better);
+}
+.delta-worse {
+    color: var(--color-delta-worse);
+}
 
 /* ── Lap count (shares the delta cell) ────────────────────────────────────────
    While a lane is swimming the delta cell carries the lengths it has completed;
@@ -456,7 +548,9 @@ table.timing-table tbody td:first-child,
    legible without the column header ever moving. Both boards render this
    (`renderDelta` in scoreboard_base.html and live.html), so the rule lives here
    rather than twice. */
-.td_delta.lap-count { color: var(--color-header-label); }
+.td_delta.lap-count {
+    color: var(--color-header-label);
+}
 /* The final stretch: the same number, in the timing colour the stopped chrono
    takes. Not an animation — the number is already the information, and this only
    has to say "this one is the last". It necessarily holds until the finish: once
@@ -464,10 +558,18 @@ table.timing-table tbody td:first-child,
    the finish, so no further split can change the cell. With touchpads at one end
    only that covers the last two lengths, because the swimmer is not seen in
    between. */
-.td_delta.lap-count.lap-final { color: var(--color-time); }
+.td_delta.lap-count.lap-final {
+    color: var(--color-time);
+}
 
 /* ── Podium highlight ─────────────────────────────────────────────────────── */
 
-tr.podium-gold   td { background-color: var(--color-podium-gold) !important; }
-tr.podium-silver td { background-color: var(--color-podium-silver) !important; }
-tr.podium-bronze td { background-color: var(--color-podium-bronze) !important; }
+tr.podium-gold td {
+    background-color: var(--color-podium-gold) !important;
+}
+tr.podium-silver td {
+    background-color: var(--color-podium-silver) !important;
+}
+tr.podium-bronze td {
+    background-color: var(--color-podium-bronze) !important;
+}

@@ -1,0 +1,7 @@
+{
+  "private": true,
+  "description": "Dev tooling only: Biome lints and formats shared/static/js and shared/static/css. Nothing here ships to a Pi.",
+  "devDependencies": {
+    "@biomejs/biome": "2.5.14"
+  }
+}

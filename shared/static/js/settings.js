@@ -17,56 +17,92 @@ function onPasswordInput(form) {
         form.password.value.length > 3 ? 'visible' : 'hidden';
 }
 
-
 // ── Restore tab + flash button after form submit ──────────────────────────
 // Deferred so all tab-init functions are defined first
 function _refreshMeetTab() {
-    fetch('/meet_status').then(function(r){ return r.json(); }).then(function(d){
-        var sel = document.getElementById('meet-file-select');
-        if (sel) {
-            sel.innerHTML = '<option value="">' + T.meet_no_file + '</option>';
-            (d.file_list || []).forEach(function(f) {
-                var opt = document.createElement('option');
-                opt.value = f; opt.textContent = f;
-                if (f === d.active) opt.selected = true;
-                sel.appendChild(opt);
-            });
-            if (!d.active) sel.value = '';
-            var loadBtn = sel.parentElement.querySelector('button[name="meet_file_load_submit"]');
-            if (loadBtn) loadBtn.disabled = !(d.file_list && d.file_list.length);
-        }
-        var actions = document.getElementById('meet-file-actions');
-        if (d.active) {
-            actions.innerHTML =
-                '<a id="meet-preview-btn" href="' + d.preview_url + '" class="btn btn-secondary btn-sm flex-shrink-0">' + T.btn_preview + '</a>' +
-                '<label class="btn btn-secondary btn-sm m-0 flex-shrink-0" style="cursor:pointer; white-space:nowrap;">' + T.meet_update_file_btn + '<input id="meet_update_file" type="file" accept=".csv,.lxf" style="display:none;" onchange="updateMeetFile(this)"></label>' +
-                '<button class="btn btn-outline-danger btn-sm flex-shrink-0" type="button" onclick="var f=document.getElementById(\'meet-file-select\').value;if(f&&confirm(T.js_delete_c+f+\'?\'))location.href=\'/meet_delete?file=\'+encodeURIComponent(f);">' + T.btn_delete + '</button>' +
-                '<button class="btn btn-outline-danger btn-sm flex-shrink-0" type="button" data-hold data-hold-href="/meet_clear" data-hold-label="' + T.hold_delete_all + '">' + T.btn_delete_all + '</button>';
-        } else {
-            actions.innerHTML = '';
-        }
-        var warn  = document.getElementById('meet-test-warning');
-        var input = document.getElementById('meet_file');
-        var label = document.querySelector('#tab-meet .file-picker label');
-        warn.style.display  = d.playing ? '' : 'none';
-        input.disabled      = d.playing;
-        if (label) label.style.opacity = d.playing ? '0.5' : '';
-    });
+    fetch('/meet_status')
+        .then(function (r) {
+            return r.json();
+        })
+        .then(function (d) {
+            var sel = document.getElementById('meet-file-select');
+            if (sel) {
+                sel.innerHTML = '<option value="">' + T.meet_no_file + '</option>';
+                (d.file_list || []).forEach(function (f) {
+                    var opt = document.createElement('option');
+                    opt.value = f;
+                    opt.textContent = f;
+                    if (f === d.active) opt.selected = true;
+                    sel.appendChild(opt);
+                });
+                if (!d.active) sel.value = '';
+                var loadBtn = sel.parentElement.querySelector(
+                    'button[name="meet_file_load_submit"]',
+                );
+                if (loadBtn) loadBtn.disabled = !(d.file_list && d.file_list.length);
+            }
+            var actions = document.getElementById('meet-file-actions');
+            if (d.active) {
+                actions.innerHTML =
+                    '<a id="meet-preview-btn" href="' +
+                    d.preview_url +
+                    '" class="btn btn-secondary btn-sm flex-shrink-0">' +
+                    T.btn_preview +
+                    '</a>' +
+                    '<label class="btn btn-secondary btn-sm m-0 flex-shrink-0" style="cursor:pointer; white-space:nowrap;">' +
+                    T.meet_update_file_btn +
+                    '<input id="meet_update_file" type="file" accept=".csv,.lxf" style="display:none;" onchange="updateMeetFile(this)"></label>' +
+                    '<button class="btn btn-outline-danger btn-sm flex-shrink-0" type="button" onclick="var f=document.getElementById(\'meet-file-select\').value;if(f&&confirm(T.js_delete_c+f+\'?\'))location.href=\'/meet_delete?file=\'+encodeURIComponent(f);">' +
+                    T.btn_delete +
+                    '</button>' +
+                    '<button class="btn btn-outline-danger btn-sm flex-shrink-0" type="button" data-hold data-hold-href="/meet_clear" data-hold-label="' +
+                    T.hold_delete_all +
+                    '">' +
+                    T.btn_delete_all +
+                    '</button>';
+            } else {
+                actions.innerHTML = '';
+            }
+            var warn = document.getElementById('meet-test-warning');
+            var input = document.getElementById('meet_file');
+            var label = document.querySelector('#tab-meet .file-picker label');
+            warn.style.display = d.playing ? '' : 'none';
+            input.disabled = d.playing;
+            if (label) label.style.opacity = d.playing ? '0.5' : '';
+        });
 }
 
 function _tabInitFor(tabHref) {
     var fns = {
-        '#tab-meet':    _refreshMeetTab,
-        '#tab-test':    function(){
+        '#tab-meet': _refreshMeetTab,
+        '#tab-test': function () {
             _loadTestStatus();
             _ensureUpdateSock();
             _updateSock.off('test_status').on('test_status', _loadTestStatus);
         },
-        '#tab-network': function(){ _netTabActive(); },
-        '#tab-netgroup':  function() { _netTabActive(); },
-        '#tab-time':    function(){ _loadTimeStatus(); _loadRtcStatus(); },
-        '#tab-update':  function(){ loadVersions(); },
-        '#tab-debug':   function(){ _loadXterm && _loadXterm(function(){}); fetch('/debug_status').then(function(r){return r.json();}).then(function(d){_applyDebugState(d.enabled);}); },
+        '#tab-network': function () {
+            _netTabActive();
+        },
+        '#tab-netgroup': function () {
+            _netTabActive();
+        },
+        '#tab-time': function () {
+            _loadTimeStatus();
+            _loadRtcStatus();
+        },
+        '#tab-update': function () {
+            loadVersions();
+        },
+        '#tab-debug': function () {
+            _loadXterm && _loadXterm(function () {});
+            fetch('/debug_status')
+                .then(function (r) {
+                    return r.json();
+                })
+                .then(function (d) {
+                    _applyDebugState(d.enabled);
+                });
+        },
     };
     if (fns[tabHref]) fns[tabHref]();
 }
@@ -75,21 +111,23 @@ function _tabInitFor(tabHref) {
 // per-tab side effects are wired via each tab's own click listener below and
 // _tabInitFor() on the post-submit restore path.
 
-(function() {
+(function () {
     var state = JSON.parse(localStorage.getItem('cts_tab_restore') || 'null');
     if (state) {
         localStorage.removeItem('cts_tab_restore');
         var target = state.nested || state.tab;
         if (target) {
             panelShowTab(target);
-            setTimeout(function(){ _tabInitFor(target); }, 0);
+            setTimeout(function () {
+                _tabInitFor(target);
+            }, 0);
         }
         if (state.btn) {
             var btn = document.getElementById(state.btn);
             if (btn) {
                 btn.classList.remove('btn-secondary', 'btn-warning');
                 btn.classList.add('btn-success');
-                setTimeout(function() {
+                setTimeout(function () {
                     btn.classList.remove('btn-success');
                     btn.classList.add('btn-secondary');
                 }, 2500);
@@ -102,20 +140,26 @@ function _tabInitFor(tabHref) {
 })();
 
 // Save active tab + button ID before any settings form submits
-document.querySelectorAll('form[action="/settings"]').forEach(function(form) {
-    form.addEventListener('submit', function() {
+document.querySelectorAll('form[action="/settings"]').forEach(function (form) {
+    form.addEventListener('submit', function () {
         var activeLink = document.querySelector('.app-nav .nav-link.active');
         var btn = form.querySelector('[type="submit"]');
         if (!btn && form.id)
             btn = document.querySelector('[form="' + form.id + '"][type="submit"]');
-        localStorage.setItem('cts_tab_restore', JSON.stringify({
-            tab:    activeLink ? activeLink.getAttribute('data-target') : null,
-            nested: null,
-            btn:    btn ? btn.id : null
-        }));
+        localStorage.setItem(
+            'cts_tab_restore',
+            JSON.stringify({
+                tab: activeLink ? activeLink.getAttribute('data-target') : null,
+                nested: null,
+                btn: btn ? btn.id : null,
+            }),
+        );
     });
 });
-function _fsubmit(f) { if (f.requestSubmit) f.requestSubmit(); else f.submit(); }
+function _fsubmit(f) {
+    if (f.requestSubmit) f.requestSubmit();
+    else f.submit();
+}
 // Replace the loaded meet's file in place. The server only accepts a file
 // that is the same meet (same meet_uid), so the cloud link is preserved.
 function updateMeetFile(input) {
@@ -128,18 +172,22 @@ function updateMeetFile(input) {
     var fd = new FormData();
     fd.append('meet_file', file);
     fetch('/meet_update_file', { method: 'POST', body: fd })
-        .then(function(r) { return r.json(); })
-        .then(function(d) {
+        .then(function (r) {
+            return r.json();
+        })
+        .then(function (d) {
             if (d.ok) {
                 _statusColor(msg, 'ok');
                 msg.textContent = T.js_updated_reloading;
-                setTimeout(function() { location.reload(); }, 3000);
+                setTimeout(function () {
+                    location.reload();
+                }, 3000);
             } else {
                 _statusColor(msg, 'err');
                 msg.textContent = d.error || T.js_update_failed;
             }
         })
-        .catch(function() {
+        .catch(function () {
             _statusColor(msg, 'err');
             msg.textContent = T.js_update_failed;
         });
@@ -151,11 +199,22 @@ function updateMeetFile(input) {
 // so "OK" greens / errors stay legible in BS5 dark mode.
 function _statusColor(el, kind) {
     if (!el) return;
-    el.classList.remove('text-success', 'text-danger', 'text-warning', 'text-secondary', 'text-body-secondary');
-    el.classList.add(kind === 'ok'   ? 'text-success'
-                   : kind === 'err'  ? 'text-danger'
-                   : kind === 'warn' ? 'text-warning'
-                   :                    'text-body-secondary');
+    el.classList.remove(
+        'text-success',
+        'text-danger',
+        'text-warning',
+        'text-secondary',
+        'text-body-secondary',
+    );
+    el.classList.add(
+        kind === 'ok'
+            ? 'text-success'
+            : kind === 'err'
+              ? 'text-danger'
+              : kind === 'warn'
+                ? 'text-warning'
+                : 'text-body-secondary',
+    );
 }
 
 // ── Apply-as-you-change ───────────────────────────────────────────────────
@@ -173,8 +232,9 @@ function _statusColor(el, kind) {
 // whole pool. Hence the debounce: one save once the changes stop.
 function autoSave(form, noteId, opts) {
     opts = opts || {};
-    var note  = document.getElementById(noteId);
-    var timer = null, inFlight = false;
+    var note = document.getElementById(noteId);
+    var timer = null,
+        inFlight = false;
 
     // Nothing is said on the way through. A "Saving…" then "Saved" on every
     // checkbox is noise: the panel is for a meet in progress, and the change is
@@ -189,7 +249,10 @@ function autoSave(form, noteId, opts) {
         if (note) note.textContent = '';
     }
     function save() {
-        if (inFlight) { schedule(); return; }   // coalesce onto the next window
+        if (inFlight) {
+            schedule();
+            return;
+        } // coalesce onto the next window
         inFlight = true;
         clear();
         fetch(form.action, { method: 'POST', body: new FormData(form) })
@@ -202,7 +265,9 @@ function autoSave(form, noteId, opts) {
             .catch(function (e) {
                 fail(T.js_request_failed_c + e.message);
             })
-            .finally(function () { inFlight = false; });
+            .finally(function () {
+                inFlight = false;
+            });
     }
     function schedule() {
         clearTimeout(timer);
@@ -219,9 +284,9 @@ function autoSave(form, noteId, opts) {
 }
 
 function markDirty(tabId, btnId) {
-    document.querySelectorAll('#' + tabId + ' input, #' + tabId + ' select').forEach(function(el) {
-        ['input', 'change'].forEach(function(evt) {
-            el.addEventListener(evt, function() {
+    document.querySelectorAll('#' + tabId + ' input, #' + tabId + ' select').forEach(function (el) {
+        ['input', 'change'].forEach(function (evt) {
+            el.addEventListener(evt, function () {
                 var btn = document.getElementById(btnId);
                 btn.classList.remove('btn-secondary');
                 btn.classList.add('btn-warning');
@@ -245,7 +310,9 @@ function _localeChanged() {
 autoSave(document.getElementById('display-settings-form'), 'display-save-note', {
     // Changing the scoreboard language changes this panel's own language too,
     // unless a ui_lang cookie overrides it — so re-render rather than sit stale.
-    reloadAfter: function () { return _localeChanged(); }
+    reloadAfter: function () {
+        return _localeChanged();
+    },
 });
 autoSave(document.getElementById('theme_update_form'), 'theme-save-note');
 
@@ -257,7 +324,7 @@ autoSave(document.getElementById('theme_update_form'), 'theme-save-note');
 // rediscovered mid-meet, so each gets a warning and its default back in one press.
 function defaultWarning(inputId, warnId, resetId) {
     var input = document.getElementById(inputId);
-    var warn  = document.getElementById(warnId);
+    var warn = document.getElementById(warnId);
     var reset = document.getElementById(resetId);
     if (!input || !warn || !reset) return;
 
@@ -283,8 +350,8 @@ function defaultWarning(inputId, warnId, resetId) {
 }
 
 autoSave(document.getElementById('timing_tuning_form'), 'timing-tuning-note');
-defaultWarning('finish_debounce',    'finish-debounce-warn', 'finish-debounce-reset');
-defaultWarning('split_min_duration', 'split-min-warn',       'split-min-reset');
+defaultWarning('finish_debounce', 'finish-debounce-warn', 'finish-debounce-reset');
+defaultWarning('split_min_duration', 'split-min-warn', 'split-min-reset');
 
 // ── Theme colour pickers: flag changes from default + per-swatch revert ────
 (function () {
@@ -296,7 +363,9 @@ defaultWarning('split_min_duration', 'split-min-warn',       'split-min-reset');
     }
     document.querySelectorAll('#tab-theme input[type="color"]').forEach(function (inp) {
         syncSwatch(inp);
-        inp.addEventListener('input', function () { syncSwatch(inp); });
+        inp.addEventListener('input', function () {
+            syncSwatch(inp);
+        });
     });
     document.querySelectorAll('#tab-theme .cs-reset').forEach(function (btn) {
         btn.addEventListener('click', function () {
@@ -306,7 +375,7 @@ defaultWarning('split_min_duration', 'split-min-warn',       'split-min-reset');
             // hint on the swatch, 'change' is what autoSave() listens for. A colour
             // set from script fires neither on its own, so reverting a swatch would
             // look reverted and never reach the server.
-            inp.dispatchEvent(new Event('input',  { bubbles: true }));
+            inp.dispatchEvent(new Event('input', { bubbles: true }));
             inp.dispatchEvent(new Event('change', { bubbles: true }));
         });
     });
@@ -316,148 +385,217 @@ defaultWarning('split_min_duration', 'split-min-warn',       'split-min-reset');
 var _recording = false;
 
 function _loadTestStatus() {
-    fetch('/test_status').then(function(r){ return r.json(); }).then(function(d){
-        var bar  = document.getElementById('test-status-bar');
-        var hr   = document.getElementById('test-status-hr');
-        var text = document.getElementById('test-status-text');
-        if (d.playing) {
-            bar.style.display = 'flex';
-            hr.style.display  = '';
-            text.textContent  = T.js_playing_c + d.session;
-        } else {
-            bar.style.display = 'none';
-            hr.style.display  = 'none';
-            text.textContent  = '';
-        }
-        if (d.speed !== undefined) _highlightSpeed(d.speed);
-        _recording = d.recording;
-        var btn = document.getElementById('btn-record');
-        btn.textContent = _recording ? T.test_stop : T.test_start;
-        btn.className   = _recording ? 'btn btn-danger btn-sm' : 'btn btn-secondary btn-sm';
-        btn.disabled    = d.playing;
-        document.getElementById('test-record-name').disabled = d.playing;
-        document.getElementById('test-record-status').textContent = _recording ? '● Recording' : '';
-
-        // A loaded meet is held aside for the test and put back afterwards —
-        // the operator no longer has to delete and re-upload it.
-        var aside = document.getElementById('test-meet-aside-note');
-        aside.style.display = (d.has_meet || d.meet_set_aside) ? '' : 'none';
-
-        // A console with no wire decodes a recording to nothing, so the replay runs
-        // under a CTS instead. Shown before Play as well as during, so the operator
-        // knows in advance that the board will not be their own console's.
-        var replayNote = document.getElementById('test-replay-console-note');
-        if (replayNote)
-            replayNote.style.display = (d.replay_console || d.replay_console_needed)
-                                     ? '' : 'none';
-
-        // Locked on with a meet loaded: a replay must never be published to
-        // the cloud under a live meet's identity. Also locked while a session
-        // is running, since the relay was already stopped (or not) at start.
-        var local = document.getElementById('test-local-only');
-        var hint  = document.getElementById('test-local-only-hint');
-        local.checked  = d.local_only;
-        local.disabled = d.local_only_forced || d.playing;
-        hint.textContent = d.local_only_forced ? T.test_local_only_forced
-                                               : T.test_local_only_hint;
-        _renderSessions(d.sessions, d.playing);
-
-        // Test meet section
-        var meetSection   = document.getElementById('test-meet-section');
-        var meetStatus    = document.getElementById('test-meet-status');
-        var meetUploadBtn = document.getElementById('test-meet-upload-btn');
-        if (d.playing && !d.has_meet) {
-            if (d.test_meet) {
-                meetSection.style.display = '';
-                meetStatus.textContent = '● Test meet loaded: ' + d.test_meet_name;
-                _statusColor(meetStatus, 'ok');
-                meetUploadBtn.style.display = 'none';
+    fetch('/test_status')
+        .then(function (r) {
+            return r.json();
+        })
+        .then(function (d) {
+            var bar = document.getElementById('test-status-bar');
+            var hr = document.getElementById('test-status-hr');
+            var text = document.getElementById('test-status-text');
+            if (d.playing) {
+                bar.style.display = 'flex';
+                hr.style.display = '';
+                text.textContent = T.js_playing_c + d.session;
             } else {
-                // Only show manual upload for custom sessions (built-ins auto-load their companion)
-                var isBuiltin = d.sessions.some(function(s){ return s.name === d.session && s.source === 'builtin'; });
-                meetSection.style.display = isBuiltin ? 'none' : '';
-                meetStatus.textContent = T.test_no_meet_hint;
-                _statusColor(meetStatus, 'muted');
-                meetUploadBtn.style.display = '';
+                bar.style.display = 'none';
+                hr.style.display = 'none';
+                text.textContent = '';
             }
-        } else {
-            meetSection.style.display = 'none';
-        }
+            if (d.speed !== undefined) _highlightSpeed(d.speed);
+            _recording = d.recording;
+            var btn = document.getElementById('btn-record');
+            btn.textContent = _recording ? T.test_stop : T.test_start;
+            btn.className = _recording ? 'btn btn-danger btn-sm' : 'btn btn-secondary btn-sm';
+            btn.disabled = d.playing;
+            document.getElementById('test-record-name').disabled = d.playing;
+            document.getElementById('test-record-status').textContent = _recording
+                ? '● Recording'
+                : '';
 
-        // Meet Setup tab warning
-        var testPlaying = d.playing;
-        document.getElementById('meet-test-warning').style.display = testPlaying ? '' : 'none';
-        document.getElementById('meet_file').disabled = testPlaying;
-        var meetFileLabel = document.querySelector('label[for="meet_file_label"], #tab-meet .file-picker label');
-        if (meetFileLabel) meetFileLabel.style.opacity = testPlaying ? '0.5' : '';
-    });
+            // A loaded meet is held aside for the test and put back afterwards —
+            // the operator no longer has to delete and re-upload it.
+            var aside = document.getElementById('test-meet-aside-note');
+            aside.style.display = d.has_meet || d.meet_set_aside ? '' : 'none';
+
+            // A console with no wire decodes a recording to nothing, so the replay runs
+            // under a CTS instead. Shown before Play as well as during, so the operator
+            // knows in advance that the board will not be their own console's.
+            var replayNote = document.getElementById('test-replay-console-note');
+            if (replayNote)
+                replayNote.style.display =
+                    d.replay_console || d.replay_console_needed ? '' : 'none';
+
+            // Locked on with a meet loaded: a replay must never be published to
+            // the cloud under a live meet's identity. Also locked while a session
+            // is running, since the relay was already stopped (or not) at start.
+            var local = document.getElementById('test-local-only');
+            var hint = document.getElementById('test-local-only-hint');
+            local.checked = d.local_only;
+            local.disabled = d.local_only_forced || d.playing;
+            hint.textContent = d.local_only_forced
+                ? T.test_local_only_forced
+                : T.test_local_only_hint;
+            _renderSessions(d.sessions, d.playing);
+
+            // Test meet section
+            var meetSection = document.getElementById('test-meet-section');
+            var meetStatus = document.getElementById('test-meet-status');
+            var meetUploadBtn = document.getElementById('test-meet-upload-btn');
+            if (d.playing && !d.has_meet) {
+                if (d.test_meet) {
+                    meetSection.style.display = '';
+                    meetStatus.textContent = '● Test meet loaded: ' + d.test_meet_name;
+                    _statusColor(meetStatus, 'ok');
+                    meetUploadBtn.style.display = 'none';
+                } else {
+                    // Only show manual upload for custom sessions (built-ins auto-load their companion)
+                    var isBuiltin = d.sessions.some(function (s) {
+                        return s.name === d.session && s.source === 'builtin';
+                    });
+                    meetSection.style.display = isBuiltin ? 'none' : '';
+                    meetStatus.textContent = T.test_no_meet_hint;
+                    _statusColor(meetStatus, 'muted');
+                    meetUploadBtn.style.display = '';
+                }
+            } else {
+                meetSection.style.display = 'none';
+            }
+
+            // Meet Setup tab warning
+            var testPlaying = d.playing;
+            document.getElementById('meet-test-warning').style.display = testPlaying ? '' : 'none';
+            document.getElementById('meet_file').disabled = testPlaying;
+            var meetFileLabel = document.querySelector(
+                'label[for="meet_file_label"], #tab-meet .file-picker label',
+            );
+            if (meetFileLabel) meetFileLabel.style.opacity = testPlaying ? '0.5' : '';
+        });
 }
 
 function _renderSessions(sessions, anyPlaying) {
     var div = document.getElementById('test-session-list');
-    if (!sessions.length) { div.innerHTML = '<span class="text-body-secondary">No sessions found.</span>'; return; }
+    if (!sessions.length) {
+        div.innerHTML = '<span class="text-body-secondary">No sessions found.</span>';
+        return;
+    }
     var html = '';
-    sessions.forEach(function(s) {
-        var isPlaying = document.getElementById('test-status-text').textContent === T.js_playing_c + s.name;
+    sessions.forEach(function (s) {
+        var isPlaying =
+            document.getElementById('test-status-text').textContent === T.js_playing_c + s.name;
         /* min-width, not width: `Reproduciendo` and `Supprimer` are half as
            long again as `Playing` and `Delete`, and a fixed width wraps them
            inside the button. */
         var W = 'min-width:70px;';
         var playBtn = isPlaying
-            ? '<button class="btn btn-success btn-sm text-nowrap" style="' + W + '" disabled>' + T.js_playing + '</button>'
-            : '<button class="btn btn-secondary btn-sm text-nowrap" style="' + W + '" onclick="testPlay(' + JSON.stringify(s.name).replace(/"/g, '&quot;') + ')"' + (anyPlaying ? ' disabled' : '') + '>' + T.js_play + '</button>';
+            ? '<button class="btn btn-success btn-sm text-nowrap" style="' +
+              W +
+              '" disabled>' +
+              T.js_playing +
+              '</button>'
+            : '<button class="btn btn-secondary btn-sm text-nowrap" style="' +
+              W +
+              '" onclick="testPlay(' +
+              JSON.stringify(s.name).replace(/"/g, '&quot;') +
+              ')"' +
+              (anyPlaying ? ' disabled' : '') +
+              '>' +
+              T.js_play +
+              '</button>';
         /* The placeholder for a built-in session, which has nothing to delete,
            is the delete button itself made invisible. An empty box of a fixed
            width only lined up while the button was one too — in French it left
            every built-in row short by the difference. */
-        var delBtn = s.source === 'custom'
-            ? '<button class="btn btn-secondary btn-sm me-1 text-nowrap" style="' + W + '" onclick="testDelete(' + JSON.stringify(s.name).replace(/"/g, '&quot;') + ')">' + T.btn_delete + '</button>'
-            : '<button class="btn btn-secondary btn-sm me-1 text-nowrap" style="' + W + ' visibility:hidden;" tabindex="-1" aria-hidden="true">' + T.btn_delete + '</button>';
-        var badge = s.source === 'builtin'
-            ? '<span class="small text-body-secondary ms-1">' + T.js_builtin + '</span>' : '';
-        html += '<div class="d-flex align-items-center border-bottom py-1 gap-1">' +
-                '<span class="flex-fill text-break" style="min-width:0;">' + s.name + badge + '</span>' +
-                '<div class="d-flex flex-shrink-0">' + delBtn + playBtn + '</div>' +
-                '</div>';
+        var delBtn =
+            s.source === 'custom'
+                ? '<button class="btn btn-secondary btn-sm me-1 text-nowrap" style="' +
+                  W +
+                  '" onclick="testDelete(' +
+                  JSON.stringify(s.name).replace(/"/g, '&quot;') +
+                  ')">' +
+                  T.btn_delete +
+                  '</button>'
+                : '<button class="btn btn-secondary btn-sm me-1 text-nowrap" style="' +
+                  W +
+                  ' visibility:hidden;" tabindex="-1" aria-hidden="true">' +
+                  T.btn_delete +
+                  '</button>';
+        var badge =
+            s.source === 'builtin'
+                ? '<span class="small text-body-secondary ms-1">' + T.js_builtin + '</span>'
+                : '';
+        html +=
+            '<div class="d-flex align-items-center border-bottom py-1 gap-1">' +
+            '<span class="flex-fill text-break" style="min-width:0;">' +
+            s.name +
+            badge +
+            '</span>' +
+            '<div class="d-flex flex-shrink-0">' +
+            delBtn +
+            playBtn +
+            '</div>' +
+            '</div>';
     });
     div.innerHTML = html;
 }
 
 function setSpeed(s) {
-    fetch('/test_set_speed', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({speed:s})})
-        .then(function(r){ return r.json(); }).then(function(d){ _highlightSpeed(d.speed); });
+    fetch('/test_set_speed', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ speed: s }),
+    })
+        .then(function (r) {
+            return r.json();
+        })
+        .then(function (d) {
+            _highlightSpeed(d.speed);
+        });
 }
 
 function _highlightSpeed(s) {
-    var map = {0.25:'¼×', 0.5:'½×', 1:'1×', 2:'2×', 4:'4×', 10:'10×'};
-    document.querySelectorAll('.speed-btn').forEach(function(btn) {
-        var match = Math.abs(parseFloat(btn.textContent) - s) < 0.01 ||
-                    btn.textContent === map[s];
+    var map = { 0.25: '¼×', 0.5: '½×', 1: '1×', 2: '2×', 4: '4×', 10: '10×' };
+    document.querySelectorAll('.speed-btn').forEach(function (btn) {
+        var match = Math.abs(parseFloat(btn.textContent) - s) < 0.01 || btn.textContent === map[s];
         btn.className = 'btn btn-sm speed-btn ' + (match ? 'btn-primary' : 'btn-secondary');
     });
 }
 
 function testPlay(name) {
     var localOnly = document.getElementById('test-local-only').checked;
-    fetch('/test_play', {method:'POST', headers:{'Content-Type':'application/json'},
-                         body:JSON.stringify({name:name, local_only:localOnly})})
-        .then(function(){ setTimeout(_loadTestStatus, 400); });
+    fetch('/test_play', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: name, local_only: localOnly }),
+    }).then(function () {
+        setTimeout(_loadTestStatus, 400);
+    });
 }
 
 // The preference for the next session only — a session already running keeps
 // what it started with, so the checkbox is disabled while one plays.
 function setTestLocalOnly(on) {
-    fetch('/test_set_local_only', {method:'POST', headers:{'Content-Type':'application/json'},
-                                   body:JSON.stringify({local_only:on})});
+    fetch('/test_set_local_only', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ local_only: on }),
+    });
 }
 
 function testStop() {
-    fetch('/test_stop', {method:'POST'}).then(function(){ setTimeout(_loadTestStatus, 400); });
+    fetch('/test_stop', { method: 'POST' }).then(function () {
+        setTimeout(_loadTestStatus, 400);
+    });
 }
 
 function testDelete(name) {
-    fetch('/test_session_delete', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({name:name})})
-        .then(function(){ _loadTestStatus(); });
+    fetch('/test_session_delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: name }),
+    }).then(function () {
+        _loadTestStatus();
+    });
 }
 
 function testUpload(input) {
@@ -467,14 +605,22 @@ function testUpload(input) {
     var status = document.getElementById('test-session-status');
     _statusColor(status, 'muted');
     status.textContent = T.loading;
-    fetch('/test_session_upload', {method:'POST', body:fd})
-        .then(function(r){ return r.json(); })
-        .then(function(d){
-            if (d.ok) { status.textContent = ''; _loadTestStatus(); }
-            else { _statusColor(status, 'err'); status.textContent = d.error || T.js_upload_failed; }
+    fetch('/test_session_upload', { method: 'POST', body: fd })
+        .then(function (r) {
+            return r.json();
         })
-        .catch(function(){
-            _statusColor(status, 'err'); status.textContent = T.js_upload_failed;
+        .then(function (d) {
+            if (d.ok) {
+                status.textContent = '';
+                _loadTestStatus();
+            } else {
+                _statusColor(status, 'err');
+                status.textContent = d.error || T.js_upload_failed;
+            }
+        })
+        .catch(function () {
+            _statusColor(status, 'err');
+            status.textContent = T.js_upload_failed;
         });
     // Cleared so re-picking the same file fires `change` again. Without it a
     // failed upload could not be retried with the same file — the value never
@@ -484,11 +630,18 @@ function testUpload(input) {
 
 function testRecordToggle() {
     if (_recording) {
-        fetch('/test_record_stop', {method:'POST'}).then(function(){ _loadTestStatus(); });
+        fetch('/test_record_stop', { method: 'POST' }).then(function () {
+            _loadTestStatus();
+        });
     } else {
         var name = document.getElementById('test-record-name').value.trim() || 'recording';
-        fetch('/test_record_start', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({name:name})})
-            .then(function(){ _loadTestStatus(); });
+        fetch('/test_record_start', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: name }),
+        }).then(function () {
+            _loadTestStatus();
+        });
     }
 }
 
@@ -499,26 +652,30 @@ function testMeetUpload(input) {
     var status = document.getElementById('test-meet-status');
     _statusColor(status, 'muted');
     status.textContent = T.loading;
-    fetch('/test_meet_upload', {method:'POST', body:fd}).then(function(r){ return r.json(); }).then(function(d){
-        if (d.ok) {
-            setTimeout(_loadTestStatus, 300);
-        } else {
-            _statusColor(status, 'err');
-            status.textContent = d.error || T.js_upload_failed;
-        }
-    });
-    input.value = '';   // so the same file can be picked again after a failure
+    fetch('/test_meet_upload', { method: 'POST', body: fd })
+        .then(function (r) {
+            return r.json();
+        })
+        .then(function (d) {
+            if (d.ok) {
+                setTimeout(_loadTestStatus, 300);
+            } else {
+                _statusColor(status, 'err');
+                status.textContent = d.error || T.js_upload_failed;
+            }
+        });
+    input.value = ''; // so the same file can be picked again after a failure
 }
 
-document.querySelectorAll('.app-nav .nav-link').forEach(function(link) {
+document.querySelectorAll('.app-nav .nav-link').forEach(function (link) {
     if (link.getAttribute('data-target') === '#tab-test')
-        link.addEventListener('click', function() {
+        link.addEventListener('click', function () {
             _ensureUpdateSock();
             _updateSock.off('test_status').on('test_status', _loadTestStatus);
             _loadTestStatus();
         });
     if (link.getAttribute('data-target') === '#tab-devtools')
-        link.addEventListener('click', function() {
+        link.addEventListener('click', function () {
             _ensureUpdateSock();
             _updateSock.off('test_status').on('test_status', _loadTestStatus);
             _loadTestStatus();
@@ -531,9 +688,9 @@ document.querySelectorAll('.app-nav .nav-link').forEach(function(link) {
 var _joinSsid = '';
 
 function _applyWifiStatus(d) {
-    var btn   = document.getElementById('btn-wifi-toggle');
+    var btn = document.getElementById('btn-wifi-toggle');
     var wtext = document.getElementById('wifi-status-text');
-    var eip   = document.getElementById('eth-ip-text');
+    var eip = document.getElementById('eth-ip-text');
     btn.disabled = false;
     btn.textContent = d.enabled ? T.js_disable_wifi : T.js_enable_wifi;
     // Turning WiFi *off* can drop the operator's own connection to this page, so
@@ -583,28 +740,51 @@ function setEthDhcp() {
     if (!confirm(T.js_dhcp_confirm)) return;
     _statusColor(status, 'muted');
     status.textContent = T.js_applying;
-    fetch('/eth_dhcp_set', {method:'POST'}).then(function(r){ return r.json(); }).then(function(d){
-        if (d.ok) {
-            _statusColor(status, 'ok');
-            status.textContent = T.js_dhcp_switched;
-        } else {
-            _statusColor(status, 'err');
-            status.textContent = d.error || T.js_failed;
-        }
-    });
+    fetch('/eth_dhcp_set', { method: 'POST' })
+        .then(function (r) {
+            return r.json();
+        })
+        .then(function (d) {
+            if (d.ok) {
+                _statusColor(status, 'ok');
+                status.textContent = T.js_dhcp_switched;
+            } else {
+                _statusColor(status, 'err');
+                status.textContent = d.error || T.js_failed;
+            }
+        });
 }
 
 function setEthIp() {
-    var ip     = document.getElementById('eth-ip-input').value.trim();
+    var ip = document.getElementById('eth-ip-input').value.trim();
     var prefix = document.getElementById('eth-prefix-input').value.trim();
     var status = document.getElementById('eth-ip-status');
-    if (!ip) { _statusColor(status, 'err'); status.textContent = T.js_enter_ip; return; }
-    if (!confirm(T.js_change_ip_c + ip + '/' + prefix + '?\n\nThis will disconnect your current session.')) return;
+    if (!ip) {
+        _statusColor(status, 'err');
+        status.textContent = T.js_enter_ip;
+        return;
+    }
+    if (
+        !confirm(
+            T.js_change_ip_c +
+                ip +
+                '/' +
+                prefix +
+                '?\n\nThis will disconnect your current session.',
+        )
+    )
+        return;
     _statusColor(status, 'muted');
     status.textContent = T.js_applying;
-    fetch('/eth_ip_set', {method:'POST', headers:{'Content-Type':'application/json'},
-                          body:JSON.stringify({ip:ip, prefix:prefix})})
-        .then(function(r){ return r.json(); }).then(function(d){
+    fetch('/eth_ip_set', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ip: ip, prefix: prefix }),
+    })
+        .then(function (r) {
+            return r.json();
+        })
+        .then(function (d) {
             if (d.ok) {
                 _statusColor(status, 'ok');
                 status.textContent = T.js_applied_reconnect_c + ip + ':5000/settings';
@@ -616,21 +796,36 @@ function setEthIp() {
 }
 
 function _netTabActive() {
-    fetch('/wifi_status').then(function(r){ return r.json(); }).then(function(d){
-        if (d.error) {
-            document.getElementById('wifi-status-text').textContent = d.error;
-            return;
-        }
-        _applyWifiStatus(d);
-    }).catch(function(){ document.getElementById('wifi-status-text').textContent = T.js_error_loading_status; });
+    fetch('/wifi_status')
+        .then(function (r) {
+            return r.json();
+        })
+        .then(function (d) {
+            if (d.error) {
+                document.getElementById('wifi-status-text').textContent = d.error;
+                return;
+            }
+            _applyWifiStatus(d);
+        })
+        .catch(function () {
+            document.getElementById('wifi-status-text').textContent = T.js_error_loading_status;
+        });
 }
 
 function toggleWifi() {
     document.getElementById('btn-wifi-toggle').disabled = true;
-    fetch('/wifi_toggle', {method:'POST'}).then(function(r){ return r.json(); }).then(function(d){
-        // Re-fetch full status so IPs are accurate after toggle
-        fetch('/wifi_status').then(function(r){ return r.json(); }).then(_applyWifiStatus);
-    });
+    fetch('/wifi_toggle', { method: 'POST' })
+        .then(function (r) {
+            return r.json();
+        })
+        .then(function () {
+            // Re-fetch full status so IPs are accurate after toggle
+            fetch('/wifi_status')
+                .then(function (r) {
+                    return r.json();
+                })
+                .then(_applyWifiStatus);
+        });
 }
 
 // Enabling is a plain tap. `panel.js` swallows the click on anything carrying
@@ -659,33 +854,50 @@ function cancelJoin() {
 }
 
 function connectWifi() {
-    var pw     = document.getElementById('wifi-join-pw').value;
+    var pw = document.getElementById('wifi-join-pw').value;
     var status = document.getElementById('wifi-join-status');
     _statusColor(status, 'muted');
     status.textContent = T.js_connecting;
     fetch('/wifi_connect', {
         method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ssid: _joinSsid, password: pw})
-    }).then(function(r){ return r.json(); }).then(function(d){
-        if (d.ok) {
-            _statusColor(status, 'ok');
-            status.textContent = T.js_connected_excl;
-            setTimeout(function(){ cancelJoin(); _netTabActive(); if (window.htmx) htmx.ajax('GET', '/wifi_scan', '#wifi-net-list'); }, 1500);
-        } else {
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ssid: _joinSsid, password: pw }),
+    })
+        .then(function (r) {
+            return r.json();
+        })
+        .then(function (d) {
+            if (d.ok) {
+                _statusColor(status, 'ok');
+                status.textContent = T.js_connected_excl;
+                setTimeout(function () {
+                    cancelJoin();
+                    _netTabActive();
+                    if (window.htmx) htmx.ajax('GET', '/wifi_scan', '#wifi-net-list');
+                }, 1500);
+            } else {
+                _statusColor(status, 'err');
+                status.textContent = d.error || T.js_connection_failed;
+            }
+        })
+        .catch(function () {
             _statusColor(status, 'err');
-            status.textContent = d.error || T.js_connection_failed;
-        }
-    }).catch(function(){ _statusColor(status, 'err'); status.textContent = T.js_request_failed; });
+            status.textContent = T.js_request_failed;
+        });
 }
 
 // Connected-clients list is now HTMX-driven (hx-get="/clients_fragment",
 // polled every 10s) — see the #client-list container in the Network tab.
 
 // Load network status when the Network tab is clicked
-document.querySelectorAll('.app-nav .nav-link').forEach(function(link) {
-    if (link.getAttribute('data-target') === '#tab-network' || link.getAttribute('data-target') === '#tab-netgroup')
-        link.addEventListener('click', function() { _netTabActive(); });
+document.querySelectorAll('.app-nav .nav-link').forEach(function (link) {
+    if (
+        link.getAttribute('data-target') === '#tab-network' ||
+        link.getAttribute('data-target') === '#tab-netgroup'
+    )
+        link.addEventListener('click', function () {
+            _netTabActive();
+        });
 });
 
 var _updateSock = null;
@@ -699,15 +911,22 @@ function startDisplaysUpdate() {
     var msg = document.getElementById('displays-update-status');
     btn.disabled = true;
     msg.textContent = T.loading;
-    fetch('/displays_update', {method: 'POST'})
-        .then(function(r){ return r.json().then(function(d){ return {ok: r.ok, d: d}; }); })
-        .then(function(res){
+    fetch('/displays_update', { method: 'POST' })
+        .then(function (r) {
+            return r.json().then(function (d) {
+                return { ok: r.ok, d: d };
+            });
+        })
+        .then(function (res) {
             btn.disabled = false;
-            msg.textContent = res.ok ? '' : (res.d.error || T.js_error);
+            msg.textContent = res.ok ? '' : res.d.error || T.js_error;
             // The list is polled every 5s and carries each display's progress.
             htmx.trigger('#displays-list', 'load');
         })
-        .catch(function(){ btn.disabled = false; msg.textContent = T.js_error; });
+        .catch(function () {
+            btn.disabled = false;
+            msg.textContent = T.js_error;
+        });
 }
 
 function loadVersions() {
@@ -716,33 +935,44 @@ function loadVersions() {
     var cur = document.getElementById('current-version');
     cur.textContent = T.loading;
     sel.disabled = true;
-    fetch('/version_list').then(function(r){ return r.json(); }).then(function(d){
-        sel.disabled = false;
-        if (!d.ok) { cur.textContent = d.error || T.js_error; return; }
-        cur.textContent = d.current || 'untagged';
-        sel.innerHTML = '';
-        d.versions.forEach(function(v, i) {
-            var opt = document.createElement('option');
-            opt.value = v;
-            opt.textContent = v + (i === 0 ? ' (latest)' : '')
-                                + (v === d.current ? '  ← current' : '');
-            sel.appendChild(opt);
+    fetch('/version_list')
+        .then(function (r) {
+            return r.json();
+        })
+        .then(function (d) {
+            sel.disabled = false;
+            if (!d.ok) {
+                cur.textContent = d.error || T.js_error;
+                return;
+            }
+            cur.textContent = d.current || 'untagged';
+            sel.innerHTML = '';
+            d.versions.forEach(function (v, i) {
+                var opt = document.createElement('option');
+                opt.value = v;
+                opt.textContent =
+                    v + (i === 0 ? ' (latest)' : '') + (v === d.current ? '  ← current' : '');
+                sel.appendChild(opt);
+            });
+            var sep = document.createElement('option');
+            sep.textContent = '------------';
+            sep.disabled = true; // separator: never selectable
+            sel.appendChild(sep);
+            var mopt = document.createElement('option');
+            mopt.value = 'master';
+            mopt.textContent = T.js_dev_master;
+            sel.appendChild(mopt);
+            (d.branches || []).forEach(function (b) {
+                var opt = document.createElement('option');
+                opt.value = b;
+                opt.textContent = b;
+                sel.appendChild(opt);
+            });
+        })
+        .catch(function () {
+            sel.disabled = false;
+            cur.textContent = T.js_error;
         });
-        var sep = document.createElement('option');
-        sep.textContent = '------------';
-        sep.disabled = true;              // separator: never selectable
-        sel.appendChild(sep);
-        var mopt = document.createElement('option');
-        mopt.value = 'master';
-        mopt.textContent = T.js_dev_master;
-        sel.appendChild(mopt);
-        (d.branches || []).forEach(function(b) {
-            var opt = document.createElement('option');
-            opt.value = b;
-            opt.textContent = b;
-            sel.appendChild(opt);
-        });
-    }).catch(function(){ sel.disabled = false; cur.textContent = T.js_error; });
 }
 
 /* Install and Repair write to the same log and share one output pane, so they
@@ -772,11 +1002,12 @@ function loadVersions() {
    seeing it and reloads anyway. */
 function reloadWhenServerReturns(statusEl, opts) {
     opts = opts || {};
-    var graceMs       = opts.graceMs       || 3000;
-    var everyMs       = opts.everyMs       || 1000;
+    var graceMs = opts.graceMs || 3000;
+    var everyMs = opts.everyMs || 1000;
     var assumeAfterMs = opts.assumeAfterMs || 20000;
-    var timeoutMs     = opts.timeoutMs     || 180000;
-    var waited = 0, sawDown = false;
+    var timeoutMs = opts.timeoutMs || 180000;
+    var waited = 0,
+        sawDown = false;
 
     setTimeout(function () {
         var poll = setInterval(function () {
@@ -789,42 +1020,59 @@ function reloadWhenServerReturns(statusEl, opts) {
                 }
                 return;
             }
-            fetch('/settings', { cache: 'no-store' }).then(function (r) {
-                if (!r.ok) { sawDown = true; return; }
-                if (sawDown || waited >= assumeAfterMs) {
-                    clearInterval(poll);
-                    location.reload();
-                }
-            }).catch(function () { sawDown = true; });
+            fetch('/settings', { cache: 'no-store' })
+                .then(function (r) {
+                    if (!r.ok) {
+                        sawDown = true;
+                        return;
+                    }
+                    if (sawDown || waited >= assumeAfterMs) {
+                        clearInterval(poll);
+                        location.reload();
+                    }
+                })
+                .catch(function () {
+                    sawDown = true;
+                });
         }, everyMs);
     }, graceMs);
 }
 
 function _followUpdateLog(onDone) {
-    var out  = document.getElementById('update-output');
-    var row  = document.getElementById('repair-row');
+    var out = document.getElementById('update-output');
+    var row = document.getElementById('repair-row');
     var seen = 0;
-    var poll = setInterval(function() {
-        fetch('/update_log').then(function(r){ return r.json(); }).then(function(d) {
-            for (var i = seen; i < d.lines.length; i++) {
-                var span = document.createElement('span');
-                span.textContent = d.lines[i].text;
-                if (d.lines[i].error) _statusColor(span, 'err');
-                out.appendChild(span);
-            }
-            seen = d.lines.length;
-            out.scrollTop = out.scrollHeight;
-            row.classList.toggle('d-none', !d.repair);
-            row.classList.toggle('d-flex', !!d.repair);
-            if (d.done !== null) { clearInterval(poll); onDone(d.done); }
-        }).catch(function(){});
+    var poll = setInterval(function () {
+        fetch('/update_log')
+            .then(function (r) {
+                return r.json();
+            })
+            .then(function (d) {
+                for (var i = seen; i < d.lines.length; i++) {
+                    var span = document.createElement('span');
+                    span.textContent = d.lines[i].text;
+                    if (d.lines[i].error) _statusColor(span, 'err');
+                    out.appendChild(span);
+                }
+                seen = d.lines.length;
+                out.scrollTop = out.scrollHeight;
+                row.classList.toggle('d-none', !d.repair);
+                row.classList.toggle('d-flex', !!d.repair);
+                if (d.done !== null) {
+                    clearInterval(poll);
+                    onDone(d.done);
+                }
+            })
+            .catch(function () {});
     }, 500);
-    return function() { clearInterval(poll); };
+    return function () {
+        clearInterval(poll);
+    };
 }
 
 function startUpdate() {
-    var btn    = document.getElementById('btn-run-update');
-    var out    = document.getElementById('update-output');
+    var btn = document.getElementById('btn-run-update');
+    var out = document.getElementById('update-output');
     var status = document.getElementById('update-status');
     var target = document.getElementById('version-select').value || null;
     btn.disabled = true;
@@ -833,7 +1081,7 @@ function startUpdate() {
     out.style.display = 'block';
     _statusColor(status, 'muted');
     status.textContent = T.js_running;
-    var stop = _followUpdateLog(function(ok) {
+    var stop = _followUpdateLog(function (ok) {
         document.getElementById('btn-os-update').disabled = false;
         if (ok) {
             _statusColor(status, 'ok');
@@ -845,31 +1093,36 @@ function startUpdate() {
             btn.disabled = false;
         }
     });
-    fetch('/update_start', {method: 'POST', headers: {'Content-Type': 'application/json'},
-                            body: JSON.stringify({target: target})}).then(function(r) {
-        if (!r.ok) {
+    fetch('/update_start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ target: target }),
+    })
+        .then(function (r) {
+            if (!r.ok) {
+                stop();
+                _statusColor(status, 'err');
+                status.textContent = T.js_could_not_start_update;
+                btn.disabled = false;
+                document.getElementById('btn-os-update').disabled = false;
+            }
+        })
+        .catch(function (e) {
             stop();
             _statusColor(status, 'err');
-            status.textContent = T.js_could_not_start_update;
+            status.textContent = T.js_request_failed_c + e;
             btn.disabled = false;
             document.getElementById('btn-os-update').disabled = false;
-        }
-    }).catch(function(e) {
-        stop();
-        _statusColor(status, 'err');
-        status.textContent = T.js_request_failed_c + e;
-        btn.disabled = false;
-        document.getElementById('btn-os-update').disabled = false;
-    });
+        });
 }
 
 /* Discards local edits, so it asks first — and names what it will throw away,
    which the log above has already listed. */
 function repairCheckout() {
     if (!confirm(T.js_repair_confirm)) return;
-    var btn    = document.getElementById('btn-repair-checkout');
-    var run    = document.getElementById('btn-run-update');
-    var out    = document.getElementById('update-output');
+    var btn = document.getElementById('btn-repair-checkout');
+    var run = document.getElementById('btn-run-update');
+    var out = document.getElementById('update-output');
     var status = document.getElementById('update-status');
     btn.disabled = true;
     run.disabled = true;
@@ -877,32 +1130,34 @@ function repairCheckout() {
     out.style.display = 'block';
     _statusColor(status, 'muted');
     status.textContent = T.js_running;
-    var stop = _followUpdateLog(function(ok) {
+    var stop = _followUpdateLog(function (ok) {
         btn.disabled = false;
         run.disabled = false;
         _statusColor(status, ok ? 'ok' : 'err');
         status.textContent = ok ? T.js_repair_done : T.js_failed_see_output;
     });
-    fetch('/repair_checkout', {method: 'POST'}).then(function(r) {
-        if (!r.ok) {
+    fetch('/repair_checkout', { method: 'POST' })
+        .then(function (r) {
+            if (!r.ok) {
+                stop();
+                _statusColor(status, 'err');
+                status.textContent = T.js_failed_see_output;
+                btn.disabled = false;
+                run.disabled = false;
+            }
+        })
+        .catch(function (e) {
             stop();
             _statusColor(status, 'err');
-            status.textContent = T.js_failed_see_output;
+            status.textContent = T.js_request_failed_c + e;
             btn.disabled = false;
             run.disabled = false;
-        }
-    }).catch(function(e) {
-        stop();
-        _statusColor(status, 'err');
-        status.textContent = T.js_request_failed_c + e;
-        btn.disabled = false;
-        run.disabled = false;
-    });
+        });
 }
 
 function startOsUpdate() {
-    var btn    = document.getElementById('btn-os-update');
-    var out    = document.getElementById('os-update-output');
+    var btn = document.getElementById('btn-os-update');
+    var out = document.getElementById('os-update-output');
     var status = document.getElementById('os-update-status');
     btn.disabled = true;
     document.getElementById('btn-run-update').disabled = true;
@@ -911,45 +1166,52 @@ function startOsUpdate() {
     _statusColor(status, 'muted');
     status.textContent = T.js_running;
     var seen = 0;
-    var poll = setInterval(function() {
-        fetch('/os_update_log').then(function(r){ return r.json(); }).then(function(d) {
-            for (var i = seen; i < d.lines.length; i++) {
-                var span = document.createElement('span');
-                span.textContent = d.lines[i].text;
-                if (d.lines[i].error) _statusColor(span, 'err');
-                out.appendChild(span);
-            }
-            seen = d.lines.length;
-            out.scrollTop = out.scrollHeight;
-            if (d.done !== null) {
-                clearInterval(poll);
-                document.getElementById('btn-run-update').disabled = false;
-                if (d.done) {
-                    _statusColor(status, 'ok');
-                    status.textContent = T.js_done;
-                } else {
-                    _statusColor(status, 'err');
-                    status.textContent = T.js_failed_see_output;
+    var poll = setInterval(function () {
+        fetch('/os_update_log')
+            .then(function (r) {
+                return r.json();
+            })
+            .then(function (d) {
+                for (var i = seen; i < d.lines.length; i++) {
+                    var span = document.createElement('span');
+                    span.textContent = d.lines[i].text;
+                    if (d.lines[i].error) _statusColor(span, 'err');
+                    out.appendChild(span);
                 }
-                btn.disabled = false;
-            }
-        }).catch(function(){});
+                seen = d.lines.length;
+                out.scrollTop = out.scrollHeight;
+                if (d.done !== null) {
+                    clearInterval(poll);
+                    document.getElementById('btn-run-update').disabled = false;
+                    if (d.done) {
+                        _statusColor(status, 'ok');
+                        status.textContent = T.js_done;
+                    } else {
+                        _statusColor(status, 'err');
+                        status.textContent = T.js_failed_see_output;
+                    }
+                    btn.disabled = false;
+                }
+            })
+            .catch(function () {});
     }, 500);
-    fetch('/os_update_start', {method: 'POST'}).then(function(r) {
-        if (!r.ok) {
+    fetch('/os_update_start', { method: 'POST' })
+        .then(function (r) {
+            if (!r.ok) {
+                clearInterval(poll);
+                _statusColor(status, 'err');
+                status.textContent = T.js_could_not_start_os;
+                btn.disabled = false;
+                document.getElementById('btn-run-update').disabled = false;
+            }
+        })
+        .catch(function (e) {
             clearInterval(poll);
             _statusColor(status, 'err');
-            status.textContent = T.js_could_not_start_os;
+            status.textContent = T.js_request_failed_c + e;
             btn.disabled = false;
             document.getElementById('btn-run-update').disabled = false;
-        }
-    }).catch(function(e) {
-        clearInterval(poll);
-        _statusColor(status, 'err');
-        status.textContent = T.js_request_failed_c + e;
-        btn.disabled = false;
-        document.getElementById('btn-run-update').disabled = false;
-    });
+        });
 }
 
 function restoreBackup(input) {
@@ -961,22 +1223,27 @@ function restoreBackup(input) {
     status.textContent = T.cloud_uploading;
     var fd = new FormData();
     fd.append('backup_file', file);
-    fetch('/backup_restore', {method: 'POST', body: fd}).then(function(r) { return r.json(); }).then(function(d) {
-        if (!d.ok) {
+    fetch('/backup_restore', { method: 'POST', body: fd })
+        .then(function (r) {
+            return r.json();
+        })
+        .then(function (d) {
+            if (!d.ok) {
+                _statusColor(status, 'err');
+                status.textContent = d.error || T.js_restore_failed;
+                return;
+            }
+            _statusColor(status, 'muted');
+            status.textContent = T.js_restored_restarting;
+            reloadWhenServerReturns(status);
+        })
+        .catch(function () {
             _statusColor(status, 'err');
-            status.textContent = d.error || T.js_restore_failed;
-            return;
-        }
-        _statusColor(status, 'muted');
-        status.textContent = T.js_restored_restarting;
-        reloadWhenServerReturns(status);
-    }).catch(function() {
-        _statusColor(status, 'err');
-        status.textContent = T.js_upload_failed;
-    });
+            status.textContent = T.js_upload_failed;
+        });
 }
 
-document.querySelectorAll('.app-nav .nav-link').forEach(function(link) {
+document.querySelectorAll('.app-nav .nav-link').forEach(function (link) {
     if (link.getAttribute('data-target') === '#tab-update')
         link.addEventListener('click', loadVersions);
 });
@@ -993,8 +1260,8 @@ function saveCustomTheme() {
     }
 }
 
-document.querySelectorAll('.file-picker input[type="file"]').forEach(function(input) {
-    input.addEventListener('change', function() {
+document.querySelectorAll('.file-picker input[type="file"]').forEach(function (input) {
+    input.addEventListener('change', function () {
         // A wrapper without a span is one that reports through its own status
         // line instead; it must not throw out of here, because this listener
         // shares the `change` event with the handler doing the actual upload.
@@ -1004,7 +1271,7 @@ document.querySelectorAll('.file-picker input[type="file"]').forEach(function(in
             msg.style.transition = 'none';
             msg.style.opacity = '1';
             var el = msg;
-            setTimeout(function() {
+            setTimeout(function () {
                 el.style.transition = 'opacity 2s';
                 el.style.opacity = '0';
             }, 2000);
@@ -1014,27 +1281,31 @@ document.querySelectorAll('.file-picker input[type="file"]').forEach(function(in
 
 // ── Time tab ─────────────────────────────────────────────────────────────
 function _loadTimeStatus() {
-    fetch('/time_status').then(function(r){ return r.json(); }).then(function(d){
-        document.getElementById('time-display').textContent = d.date + '  ' + d.time;
-        document.getElementById('time-tz').textContent = d.timezone;
-        var ntpEl = document.getElementById('ntp-status');
-        if (d.ntp_active && d.synchronized) {
-            ntpEl.textContent = '● NTP synchronized';
-            _statusColor(ntpEl, 'ok');
-        } else if (d.ntp_active) {
-            ntpEl.textContent = '○ NTP active, syncing…';
-            _statusColor(ntpEl, 'muted');
-        } else {
-            ntpEl.textContent = '○ NTP inactive';
-            _statusColor(ntpEl, 'err');
-        }
-        document.getElementById('time-set-date').value = d.date.replace(/-/g, '/');
-        document.getElementById('time-set-time').value = d.time;
-    });
+    fetch('/time_status')
+        .then(function (r) {
+            return r.json();
+        })
+        .then(function (d) {
+            document.getElementById('time-display').textContent = d.date + '  ' + d.time;
+            document.getElementById('time-tz').textContent = d.timezone;
+            var ntpEl = document.getElementById('ntp-status');
+            if (d.ntp_active && d.synchronized) {
+                ntpEl.textContent = '● NTP synchronized';
+                _statusColor(ntpEl, 'ok');
+            } else if (d.ntp_active) {
+                ntpEl.textContent = '○ NTP active, syncing…';
+                _statusColor(ntpEl, 'muted');
+            } else {
+                ntpEl.textContent = '○ NTP inactive';
+                _statusColor(ntpEl, 'err');
+            }
+            document.getElementById('time-set-date').value = d.date.replace(/-/g, '/');
+            document.getElementById('time-set-time').value = d.time;
+        });
 }
 
 function timeSync() {
-    var btn   = document.getElementById('btn-time-sync');
+    var btn = document.getElementById('btn-time-sync');
     var ntpEl = document.getElementById('ntp-status');
     btn.disabled = true;
     _statusColor(ntpEl, 'muted');
@@ -1042,47 +1313,72 @@ function timeSync() {
 
     function doSync() {
         ntpEl.textContent = T.js_syncing;
-        fetch('/time_sync', {method:'POST'}).then(function(r){ return r.json(); }).then(function(d){
-            btn.disabled = false;
-            if (d.ok) {
-                setTimeout(_loadTimeStatus, 2000);
-            } else {
-                _statusColor(ntpEl, 'err');
-                ntpEl.textContent = T.js_error_c + (d.error || T.js_sync_failed);
-            }
-        });
+        fetch('/time_sync', { method: 'POST' })
+            .then(function (r) {
+                return r.json();
+            })
+            .then(function (d) {
+                btn.disabled = false;
+                if (d.ok) {
+                    setTimeout(_loadTimeStatus, 2000);
+                } else {
+                    _statusColor(ntpEl, 'err');
+                    ntpEl.textContent = T.js_error_c + (d.error || T.js_sync_failed);
+                }
+            });
     }
 
-    fetch('/wifi_status').then(function(r){ return r.json(); }).then(function(net){
-        var hasWifi = net.wifi_ip && net.wifi_ip.trim();
-        var hasEth  = net.eth_ip  && net.eth_ip.trim() && net.eth_ip !== T.js_not_connected;
-        if (!hasWifi && !hasEth) {
-            btn.disabled = false;
-            _statusColor(ntpEl, 'err');
-            var msg;
-            if (!net.enabled)
-                msg = T.js_no_eth_wifi_off;
-            else if (!net.ssid)
-                msg = T.js_no_eth_wifi_disc;
-            else
-                msg = T.js_no_network_ntp;
-            ntpEl.innerHTML = msg + ' <a href="#" onclick="document.querySelector(\'[href=\\\"#tab-netgroup\\\"]\').click();return false;">' + T.js_go_to_network + '</a>';
-            return;
-        }
-        doSync();
-    }).catch(doSync);  // nmcli unavailable (dev machine) — try anyway
+    fetch('/wifi_status')
+        .then(function (r) {
+            return r.json();
+        })
+        .then(function (net) {
+            var hasWifi = net.wifi_ip && net.wifi_ip.trim();
+            var hasEth = net.eth_ip && net.eth_ip.trim() && net.eth_ip !== T.js_not_connected;
+            if (!hasWifi && !hasEth) {
+                btn.disabled = false;
+                _statusColor(ntpEl, 'err');
+                var msg;
+                if (!net.enabled) msg = T.js_no_eth_wifi_off;
+                else if (!net.ssid) msg = T.js_no_eth_wifi_disc;
+                else msg = T.js_no_network_ntp;
+                ntpEl.innerHTML =
+                    msg +
+                    ' <a href="#" onclick="document.querySelector(\'[href=\\"#tab-netgroup\\"]\').click();return false;">' +
+                    T.js_go_to_network +
+                    '</a>';
+                return;
+            }
+            doSync();
+        })
+        .catch(doSync); // nmcli unavailable (dev machine) — try anyway
 }
 
 function timeSet() {
-    var date   = document.getElementById('time-set-date').value.replace(/\//g, '-');
-    var time   = document.getElementById('time-set-time').value;
+    var date = document.getElementById('time-set-date').value.replace(/\//g, '-');
+    var time = document.getElementById('time-set-time').value;
     var status = document.getElementById('time-set-status');
-    if (!date || !time) { _statusColor(status, 'err'); status.textContent = T.js_enter_datetime; return; }
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) { _statusColor(status, 'err'); status.textContent = T.js_use_date_format; return; }
+    if (!date || !time) {
+        _statusColor(status, 'err');
+        status.textContent = T.js_enter_datetime;
+        return;
+    }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+        _statusColor(status, 'err');
+        status.textContent = T.js_use_date_format;
+        return;
+    }
     _statusColor(status, 'muted');
     status.textContent = T.js_setting;
-    fetch('/time_set', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({date:date, time:time})})
-        .then(function(r){ return r.json(); }).then(function(d){
+    fetch('/time_set', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ date: date, time: time }),
+    })
+        .then(function (r) {
+            return r.json();
+        })
+        .then(function (d) {
             if (d.ok) {
                 _statusColor(status, 'ok');
                 status.textContent = T.js_time_set;
@@ -1094,102 +1390,121 @@ function timeSet() {
         });
 }
 
-document.querySelectorAll('.app-nav .nav-link').forEach(function(link) {
+document.querySelectorAll('.app-nav .nav-link').forEach(function (link) {
     if (link.getAttribute('data-target') === '#tab-time')
-        link.addEventListener('click', function() { _loadTimeStatus(); _loadRtcStatus(); });
+        link.addEventListener('click', function () {
+            _loadTimeStatus();
+            _loadRtcStatus();
+        });
 });
 
 // ── RTC (Adafruit PiRTC DS3231) ─────────────────────────────────────────────
 function _loadRtcStatus() {
     var el = document.getElementById('rtc-status');
-    fetch('/rtc_status').then(function(r){ return r.json(); }).then(function(d){
-        if (d.active) {
-            _statusColor(el, 'ok');
-            el.textContent = '● RTC active (DS3231 detected)';
-        } else if (d.configured) {
-            _statusColor(el, 'muted');
-            el.textContent = '○ Configured — reboot required to activate';
-        } else {
-            _statusColor(el, 'muted');
-            el.textContent = '○ Not installed';
-        }
-    }).catch(function(){});
+    fetch('/rtc_status')
+        .then(function (r) {
+            return r.json();
+        })
+        .then(function (d) {
+            if (d.active) {
+                _statusColor(el, 'ok');
+                el.textContent = '● RTC active (DS3231 detected)';
+            } else if (d.configured) {
+                _statusColor(el, 'muted');
+                el.textContent = '○ Configured — reboot required to activate';
+            } else {
+                _statusColor(el, 'muted');
+                el.textContent = '○ Not installed';
+            }
+        })
+        .catch(function () {});
 }
 
-function _runRtc(action, startUrl) {
+function _runRtc(startUrl) {
     var btnInstall = document.getElementById('btn-rtc-install');
-    var btnRemove  = document.getElementById('btn-rtc-remove');
-    var out        = document.getElementById('rtc-output');
-    var status     = document.getElementById('rtc-status');
-    var rebootRow  = document.getElementById('rtc-reboot-row');
+    var btnRemove = document.getElementById('btn-rtc-remove');
+    var out = document.getElementById('rtc-output');
+    var status = document.getElementById('rtc-status');
+    var rebootRow = document.getElementById('rtc-reboot-row');
     btnInstall.disabled = true;
-    btnRemove.disabled  = true;
+    btnRemove.disabled = true;
     rebootRow.style.display = 'none';
     out.innerHTML = '';
     out.style.display = 'block';
     _statusColor(status, 'muted');
     status.textContent = T.js_running;
     var seen = 0;
-    var poll = setInterval(function() {
-        fetch('/rtc_log').then(function(r){ return r.json(); }).then(function(d) {
-            for (var i = seen; i < d.lines.length; i++) {
-                var span = document.createElement('span');
-                span.textContent = d.lines[i].text;
-                if (d.lines[i].error) _statusColor(span, 'err');
-                out.appendChild(span);
-            }
-            seen = d.lines.length;
-            out.scrollTop = out.scrollHeight;
-            if (d.done !== null) {
-                clearInterval(poll);
-                btnInstall.disabled = false;
-                btnRemove.disabled  = false;
-                if (d.done) {
-                    _statusColor(status, 'ok');
-                    status.textContent = T.js_done;
-                    rebootRow.style.display = 'flex';
-                } else {
-                    _statusColor(status, 'err');
-                    status.textContent = T.js_failed_see_output;
+    var poll = setInterval(function () {
+        fetch('/rtc_log')
+            .then(function (r) {
+                return r.json();
+            })
+            .then(function (d) {
+                for (var i = seen; i < d.lines.length; i++) {
+                    var span = document.createElement('span');
+                    span.textContent = d.lines[i].text;
+                    if (d.lines[i].error) _statusColor(span, 'err');
+                    out.appendChild(span);
                 }
-            }
-        }).catch(function(){});
+                seen = d.lines.length;
+                out.scrollTop = out.scrollHeight;
+                if (d.done !== null) {
+                    clearInterval(poll);
+                    btnInstall.disabled = false;
+                    btnRemove.disabled = false;
+                    if (d.done) {
+                        _statusColor(status, 'ok');
+                        status.textContent = T.js_done;
+                        rebootRow.style.display = 'flex';
+                    } else {
+                        _statusColor(status, 'err');
+                        status.textContent = T.js_failed_see_output;
+                    }
+                }
+            })
+            .catch(function () {});
     }, 500);
-    fetch(startUrl, {method: 'POST'}).then(function(r) {
-        if (!r.ok) {
+    fetch(startUrl, { method: 'POST' })
+        .then(function (r) {
+            if (!r.ok) {
+                clearInterval(poll);
+                _statusColor(status, 'err');
+                status.textContent = T.js_could_not_start;
+                btnInstall.disabled = false;
+                btnRemove.disabled = false;
+            }
+        })
+        .catch(function (e) {
             clearInterval(poll);
             _statusColor(status, 'err');
-            status.textContent = T.js_could_not_start;
+            status.textContent = T.js_request_failed_c + e;
             btnInstall.disabled = false;
-            btnRemove.disabled  = false;
-        }
-    }).catch(function(e) {
-        clearInterval(poll);
-        _statusColor(status, 'err');
-        status.textContent = T.js_request_failed_c + e;
-        btnInstall.disabled = false;
-        btnRemove.disabled  = false;
-    });
+            btnRemove.disabled = false;
+        });
 }
 
-function startRtcInstall() { _runRtc('enable', '/rtc_install_start'); }
-function startRtcRemove()  { _runRtc('disable', '/rtc_remove_start'); }
+function startRtcInstall() {
+    _runRtc('/rtc_install_start');
+}
+function startRtcRemove() {
+    _runRtc('/rtc_remove_start');
+}
 
 function rtcReboot() {
     var status = document.getElementById('rtc-status');
     document.getElementById('rtc-reboot-row').style.display = 'none';
     _statusColor(status, 'muted');
     status.textContent = T.js_rebooting;
-    fetch('/system_reboot', {method: 'POST'});
+    fetch('/system_reboot', { method: 'POST' });
 }
 
 // ── Save logs ────────────────────────────────────────────────────────────
 function toggleLogMenu(e) {
     e.stopPropagation();
     var m = document.getElementById('log-menu');
-    m.style.display = (m.style.display === 'block') ? 'none' : 'block';
+    m.style.display = m.style.display === 'block' ? 'none' : 'block';
 }
-document.addEventListener('click', function() {
+document.addEventListener('click', function () {
     var m = document.getElementById('log-menu');
     if (m) m.style.display = 'none';
 });
@@ -1201,20 +1516,28 @@ function saveLogsToPi() {
     document.getElementById('log-menu').style.display = 'none';
     var status = document.getElementById('log-save-status');
     status.textContent = T.js_saving_logs;
-    fetch('/logs_save', {method: 'POST'})
-        .then(function(r) { return r.json(); })
-        .then(function(d) {
-            status.textContent = d.ok ? (T.js_saved_c + d.path) : (T.js_save_failed_c + (d.error || ''));
-            setTimeout(function() { status.textContent = ''; }, 8000);
+    fetch('/logs_save', { method: 'POST' })
+        .then(function (r) {
+            return r.json();
         })
-        .catch(function() { status.textContent = T.js_save_failed; });
+        .then(function (d) {
+            status.textContent = d.ok
+                ? T.js_saved_c + d.path
+                : T.js_save_failed_c + (d.error || '');
+            setTimeout(function () {
+                status.textContent = '';
+            }, 8000);
+        })
+        .catch(function () {
+            status.textContent = T.js_save_failed;
+        });
 }
 
 // ── System power ─────────────────────────────────────────────────────────
 function serviceRestart() {
     var status = document.getElementById('system-power-status');
     status.textContent = T.js_restarting_service;
-    fetch('/system_service_restart', {method: 'POST'});
+    fetch('/system_service_restart', { method: 'POST' });
     // The app (which serves this page) goes down briefly; wait for it to answer
     // again rather than guessing how long that takes.
     reloadWhenServerReturns(status);
@@ -1222,12 +1545,12 @@ function serviceRestart() {
 
 function systemReboot() {
     document.getElementById('system-power-status').textContent = T.js_rebooting;
-    fetch('/system_reboot', {method: 'POST'});
+    fetch('/system_reboot', { method: 'POST' });
 }
 
 function systemShutdown() {
     document.getElementById('system-power-status').textContent = T.js_shutting_down;
-    fetch('/system_shutdown', {method: 'POST'});
+    fetch('/system_shutdown', { method: 'POST' });
 }
 
 // (Press-and-hold confirmation for [data-hold] destructive actions is in panel.js.)
@@ -1237,7 +1560,10 @@ var _term = null;
 var _termSock = null;
 
 function _loadXterm(callback) {
-    if (window.Terminal) { callback(); return; }
+    if (window.Terminal) {
+        callback();
+        return;
+    }
     var link = document.createElement('link');
     link.rel = 'stylesheet';
     link.href = '/static/css/xterm.min.css';
@@ -1245,7 +1571,7 @@ function _loadXterm(callback) {
     var script = document.createElement('script');
     script.src = '/static/js/xterm.min.js';
     script.onload = callback;
-    script.onerror = function() {
+    script.onerror = function () {
         document.getElementById('terminal-container').innerHTML =
             '<p class="text-danger" style="padding:8px 0;">xterm.js not found — run install.sh to download it.</p>';
     };
@@ -1254,38 +1580,59 @@ function _loadXterm(callback) {
 
 function _initTerminal() {
     if (_term) return;
-    _term = new Terminal({cursorBlink: true, fontSize: 14, fontFamily: '"Courier New", monospace', rows: 24, cols: 80});
+    _term = new Terminal({
+        cursorBlink: true,
+        fontSize: 14,
+        fontFamily: '"Courier New", monospace',
+        rows: 24,
+        cols: 80,
+    });
     _term.open(document.getElementById('terminal-container'));
-    _term.onData(function(data) { if (_termSock) _termSock.emit('input', data); });
+    _term.onData(function (data) {
+        if (_termSock) _termSock.emit('input', data);
+    });
     if (!_termSock) {
         _termSock = splouchSocket('/ws/terminal');
-        _termSock.on('output', function(data) { if (_term) _term.write(data); });
-        _termSock.on('exit', function() {
-            if (_term) { _term.write('\r\n\x1b[33m[Process exited]\x1b[0m\r\n'); }
+        _termSock.on('output', function (data) {
+            if (_term) _term.write(data);
+        });
+        _termSock.on('exit', function () {
+            if (_term) {
+                _term.write('\r\n\x1b[33m[Process exited]\x1b[0m\r\n');
+            }
             document.getElementById('btn-term-stop').style.display = 'none';
         });
     }
 }
 
 function termLaunch(cmdKey) {
-    _loadXterm(function() {
+    _loadXterm(function () {
         _initTerminal();
         function _doStart() {
-            fetch('/terminal_stop', {method:'POST'}).then(function() {
-                if (_term) _term.clear();
-                return fetch('/terminal_start', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({cmd: cmdKey || 'bash'})
+            fetch('/terminal_stop', { method: 'POST' })
+                .then(function () {
+                    if (_term) _term.clear();
+                    return fetch('/terminal_start', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ cmd: cmdKey || 'bash' }),
+                    });
+                })
+                .then(function (r) {
+                    return r.json();
+                })
+                .then(function (d) {
+                    if (d.ok) {
+                        document.getElementById('btn-term-stop').style.display = '';
+                        _termSock.emit('resize', { rows: _term.rows, cols: _term.cols });
+                    } else {
+                        _term.write(
+                            '\r\n\x1b[31mError: ' +
+                                (d.error || T.js_failed_to_start) +
+                                '\x1b[0m\r\n',
+                        );
+                    }
                 });
-            }).then(function(r){ return r.json(); }).then(function(d){
-                if (d.ok) {
-                    document.getElementById('btn-term-stop').style.display = '';
-                    _termSock.emit('resize', {rows: _term.rows, cols: _term.cols});
-                } else {
-                    _term.write('\r\n\x1b[31mError: ' + (d.error || T.js_failed_to_start) + '\x1b[0m\r\n');
-                }
-            });
         }
         // Wait for socket connection before starting — early output would be lost otherwise
         if (_termSock.connected) {
@@ -1298,14 +1645,16 @@ function termLaunch(cmdKey) {
 
 function termStop() {
     if (_term) _term.clear();
-    fetch('/terminal_stop', {method:'POST'}).then(function(){
+    fetch('/terminal_stop', { method: 'POST' }).then(function () {
         document.getElementById('btn-term-stop').style.display = 'none';
     });
 }
 
-document.querySelectorAll('.app-nav .nav-link').forEach(function(link) {
+document.querySelectorAll('.app-nav .nav-link').forEach(function (link) {
     if (link.getAttribute('data-target') === '#tab-terminal')
-        link.addEventListener('click', function() { _loadXterm(function(){}); });
+        link.addEventListener('click', function () {
+            _loadXterm(function () {});
+        });
 });
 
 // ── Debug tab ────────────────────────────────────────────────────────────
@@ -1318,9 +1667,13 @@ function _applyDebugState(enabled) {
 }
 
 function debugToggle() {
-    fetch('/debug_toggle', {method:'POST'}).then(function(r){ return r.json(); }).then(function(d){
-        _applyDebugState(d.enabled);
-    });
+    fetch('/debug_toggle', { method: 'POST' })
+        .then(function (r) {
+            return r.json();
+        })
+        .then(function (d) {
+            _applyDebugState(d.enabled);
+        });
 }
 
 function debugClear() {
@@ -1330,15 +1683,25 @@ function debugClear() {
 function _applySerialStatus(d) {
     var badge = document.getElementById('serial-status-badge');
     if (!badge) return;
-    var labels   = {idle: '—', opening: T.js_opening, open: T.js_connected, error: T.js_error,
-                    manual: T.js_manual};
-    var variants = {idle: 'text-bg-secondary', opening: 'text-bg-warning', open: 'text-bg-success', error: 'text-bg-danger',
-                    manual: 'text-bg-info'};
+    var labels = {
+        idle: '—',
+        opening: T.js_opening,
+        open: T.js_connected,
+        error: T.js_error,
+        manual: T.js_manual,
+    };
+    var variants = {
+        idle: 'text-bg-secondary',
+        opening: 'text-bg-warning',
+        open: 'text-bg-success',
+        error: 'text-bg-danger',
+        manual: 'text-bg-info',
+    };
     badge.textContent = labels[d.state] || d.state;
     badge.className = 'badge rounded-pill ' + (variants[d.state] || 'text-bg-secondary');
     if (d.msg) {
         var log = document.getElementById('serial-log');
-        var ts  = new Date().toLocaleTimeString();
+        var ts = new Date().toLocaleTimeString();
         log.textContent += '[' + ts + '] ' + d.msg + '\n';
         log.scrollTop = log.scrollHeight;
     }
@@ -1347,10 +1710,10 @@ function _applySerialStatus(d) {
 function _initDebugSock() {
     if (_debugSock) return;
     _debugSock = splouchSocket('/ws/settings');
-    _debugSock.on('debug_line', function(d) {
+    _debugSock.on('debug_line', function (d) {
         var out = document.getElementById('debug-output');
         var line = document.createElement('div');
-        var hex  = document.createElement('span');
+        var hex = document.createElement('span');
         hex.textContent = d.hex;
         _statusColor(hex, 'muted');
         hex.style.marginRight = '16px';
@@ -1364,21 +1727,29 @@ function _initDebugSock() {
         while (out.children.length > 200) out.removeChild(out.firstChild);
         out.scrollTop = out.scrollHeight;
     });
-    _debugSock.on('serial_log', function(d) {
+    _debugSock.on('serial_log', function (d) {
         _applySerialStatus(d);
     });
 }
 
-document.querySelectorAll('.app-nav .nav-link').forEach(function(link) {
+document.querySelectorAll('.app-nav .nav-link').forEach(function (link) {
     if (link.getAttribute('data-target') === '#tab-debug') {
-        link.addEventListener('click', function() {
+        link.addEventListener('click', function () {
             _initDebugSock();
-            fetch('/debug_status').then(function(r){ return r.json(); }).then(function(d){
-                _applyDebugState(d.enabled);
-            });
-            fetch('/serial_status').then(function(r){ return r.json(); }).then(function(d){
-                _applySerialStatus(d);
-            });
+            fetch('/debug_status')
+                .then(function (r) {
+                    return r.json();
+                })
+                .then(function (d) {
+                    _applyDebugState(d.enabled);
+                });
+            fetch('/serial_status')
+                .then(function (r) {
+                    return r.json();
+                })
+                .then(function (d) {
+                    _applySerialStatus(d);
+                });
         });
     }
 });
@@ -1386,27 +1757,27 @@ document.querySelectorAll('.app-nav .nav-link').forEach(function(link) {
 // ── Cloud relay status ────────────────────────────────────────────────────
 function _applyCloudStatus(d) {
     var text = document.getElementById('cloud-status-text');
-    var btn  = document.getElementById('btn-cloud-toggle');
+    var btn = document.getElementById('btn-cloud-toggle');
     if (!d.url) {
         _statusColor(text, 'muted');
         text.textContent = T.js_not_configured;
-        btn.textContent  = T.net_connect;
-        btn.disabled     = true;
+        btn.textContent = T.net_connect;
+        btn.disabled = true;
     } else if (d.connected) {
         _statusColor(text, 'ok');
         text.textContent = T.js_connected_c + d.url;
-        btn.textContent  = T.js_disconnect;
-        btn.disabled     = false;
+        btn.textContent = T.js_disconnect;
+        btn.disabled = false;
     } else if (d.running) {
         _statusColor(text, 'warn');
         text.textContent = T.js_connecting;
-        btn.textContent  = T.js_disconnect;
-        btn.disabled     = false;
+        btn.textContent = T.js_disconnect;
+        btn.disabled = false;
     } else {
         _statusColor(text, 'muted');
         text.textContent = T.js_disconnected;
-        btn.textContent  = T.net_connect;
-        btn.disabled     = false;
+        btn.textContent = T.net_connect;
+        btn.disabled = false;
     }
     _applyCloudAttendance(d);
 }
@@ -1418,32 +1789,57 @@ function _applyCloudAttendance(d) {
     var card = document.getElementById('cloud-attendance-card');
     var body = document.getElementById('cloud-attendance-body');
     if (!card || !body) return;
-    if (!d.connected || !d.stats) { card.style.display = 'none'; return; }
+    if (!d.connected || !d.stats) {
+        card.style.display = 'none';
+        return;
+    }
     card.style.display = '';
     if (!d.stats.enabled) {
-        body.innerHTML = '<span class="text-body-secondary small">' + T.cloud_att_disabled + '</span>';
+        body.innerHTML =
+            '<span class="text-body-secondary small">' + T.cloud_att_disabled + '</span>';
         return;
     }
     var c = d.stats.counts || {};
-    var wins = [['1h', T.cloud_att_1h], ['3h', T.cloud_att_3h], ['12h', T.cloud_att_12h],
-                ['24h', T.cloud_att_24h], ['7d', T.cloud_att_7d], ['all', T.cloud_att_all]];
+    var wins = [
+        ['1h', T.cloud_att_1h],
+        ['3h', T.cloud_att_3h],
+        ['12h', T.cloud_att_12h],
+        ['24h', T.cloud_att_24h],
+        ['7d', T.cloud_att_7d],
+        ['all', T.cloud_att_all],
+    ];
     var html = '<div class="d-flex flex-wrap gap-4">';
-    wins.forEach(function(w) {
-        var n = c[w[0]]; if (n == null) n = 0;
-        html += '<div class="text-center"><div class="fs-4 fw-bold lh-1">' + n +
-                '</div><div class="text-body-secondary small">' + w[1] + '</div></div>';
+    wins.forEach(function (w) {
+        var n = c[w[0]];
+        if (n == null) n = 0;
+        html +=
+            '<div class="text-center"><div class="fs-4 fw-bold lh-1">' +
+            n +
+            '</div><div class="text-body-secondary small">' +
+            w[1] +
+            '</div></div>';
     });
     html += '</div>';
     body.innerHTML = html;
 }
 
 function toggleCloud() {
-    fetch('/cloud_toggle', {method:'POST'})
-        .then(function(r){ return r.json(); })
+    fetch('/cloud_toggle', { method: 'POST' })
+        .then(function (r) {
+            return r.json();
+        })
         .then(_applyCloudStatus);
 }
 
-fetch('/cloud_status').then(function(r){ return r.json(); }).then(_applyCloudStatus);
-setInterval(function() {
-    fetch('/cloud_status').then(function(r){ return r.json(); }).then(_applyCloudStatus);
+fetch('/cloud_status')
+    .then(function (r) {
+        return r.json();
+    })
+    .then(_applyCloudStatus);
+setInterval(function () {
+    fetch('/cloud_status')
+        .then(function (r) {
+            return r.json();
+        })
+        .then(_applyCloudStatus);
 }, 2000);

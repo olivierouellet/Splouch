@@ -23,12 +23,17 @@
     'use strict';
 
     var HOLD_MS = 1200;
-    var active = null, timer = null, origLabel = null;
+    var active = null,
+        timer = null,
+        origLabel = null;
 
     function reset(el) {
         el.classList.remove('btn-holding');
         el.style.removeProperty('--hold-ms');
-        if (origLabel !== null) { el.textContent = origLabel; origLabel = null; }
+        if (origLabel !== null) {
+            el.textContent = origLabel;
+            origLabel = null;
+        }
     }
     function run(el) {
         var fn = el.getAttribute('data-hold-fn');
@@ -40,12 +45,22 @@
         else if (href) window.location.href = href;
     }
     function cancel() {
-        if (timer) { clearTimeout(timer); timer = null; }
-        if (active) { reset(active); active = null; }
+        if (timer) {
+            clearTimeout(timer);
+            timer = null;
+        }
+        if (active) {
+            reset(active);
+            active = null;
+        }
     }
-    document.addEventListener('click', function (e) {
-        if (e.target.closest('[data-hold]')) e.preventDefault();  // no plain-click action
-    }, true);
+    document.addEventListener(
+        'click',
+        function (e) {
+            if (e.target.closest('[data-hold]')) e.preventDefault(); // no plain-click action
+        },
+        true,
+    );
     /* A long press is also the gesture that raises the context menu — the selection
        callout and Writing Tools on iOS, the text-selection menu on Android — which
        came up over the button and took the press with it. The CSS in panel.css stops
@@ -66,11 +81,18 @@
         el.style.setProperty('--hold-ms', ms + 'ms');
         el.classList.add('btn-holding');
         var lbl = el.getAttribute('data-hold-label');
-        if (lbl !== null) { origLabel = el.textContent; el.textContent = lbl; }
+        if (lbl !== null) {
+            origLabel = el.textContent;
+            el.textContent = lbl;
+        }
         timer = setTimeout(function () {
             timer = null;
-            var el2 = active; active = null;
-            if (el2) { reset(el2); run(el2); }
+            var el2 = active;
+            active = null;
+            if (el2) {
+                reset(el2);
+                run(el2);
+            }
         }, ms);
     });
     document.addEventListener('pointerup', cancel);

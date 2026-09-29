@@ -894,7 +894,7 @@ def test_the_word_and_the_number_are_one_size():
     label = css[css.index("#header_event_cell .header_label") :]
     label = label[: label.index("}")]
     assert "var(--header-num-size)" in label, label
-    number = css[css.index("#current_event, #current_heat") :]
+    number = css[css.index("#current_event,") :]
     number = number[: number.index("}")]
     assert "var(--header-num-size)" in number, number
 
@@ -917,7 +917,7 @@ def test_the_word_keeps_the_accent_and_the_number_does_not(pi, cloud):
     css = _shared_css()
     label = css[css.index(".header_label {") :]
     assert "var(--color-header-label)" in label[: label.index("}")]
-    number = css[css.index("#current_event, #current_heat") :]
+    number = css[css.index("#current_event,") :]
     assert "var(--color-header-value)" in number[: number.index("}")]
 
 
@@ -966,8 +966,12 @@ def test_the_header_padding_matches_the_qt_constant():
     on whitespace, which is what left no room for the word beside its number.
     """
     css = _shared_css()
-    for block in (".header_cell {", ".header_cell         {"):
-        i = css.index(block)
+    # The base rule and the one inside the media query.
+    starts = [
+        m.start() for m in re.finditer(r"^\s*\.header_cell \{", css, re.MULTILINE)
+    ]
+    assert len(starts) == 2, starts
+    for i in starts:
         rule = css[i : css.index("}", i)]
         assert "1vw" in rule and "2vw" not in rule, rule
     board = Path(os.path.join(REPO, "scoreboard", "board.py")).read_text(
