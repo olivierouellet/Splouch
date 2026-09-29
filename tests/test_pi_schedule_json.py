@@ -8,18 +8,15 @@ the two cannot drift.
 """
 
 import os
-import sys
 from typing import cast
 
 import pytest
 from fastapi import Request
 
-REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, REPO)
-sys.path.insert(0, os.path.join(REPO, "server"))
+import state
+from routes import meet as meet_routes
 
-import state  # noqa: E402
-from routes import meet as meet_routes  # noqa: E402
+REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 _START_LIST = {
     3: {

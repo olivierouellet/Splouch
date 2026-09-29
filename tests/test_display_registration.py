@@ -10,17 +10,13 @@ opening one.
 
 import json
 import os
-import sys
 
 import pytest
 
+import state
+from scoreboard.version import describe, registration
+
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, REPO)
-sys.path.insert(0, os.path.join(REPO, "server"))
-
-from scoreboard.version import describe, registration  # noqa: E402
-
-import state  # noqa: E402
 
 TEMPLATE_DIR = os.path.join(REPO, "server", "templates")
 

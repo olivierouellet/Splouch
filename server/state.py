@@ -15,9 +15,10 @@ from meet_parsers.hytek_parser import HytekParser
 from meet_parsers.lenex_parser import load_lenex
 
 try:
-    import fcntl  # noqa: F401 — ditto
-    import pty  # noqa: F401 — imported to detect availability, not to call
-    import termios  # noqa: F401 — ditto
+    # Imported to detect availability, not to call.
+    import fcntl  # noqa: F401
+    import pty  # noqa: F401
+    import termios  # noqa: F401
 
     _PTY_AVAILABLE = True
 except ImportError:

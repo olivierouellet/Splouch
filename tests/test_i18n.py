@@ -17,26 +17,21 @@ import io
 import os
 import re
 import sys
-import tempfile
 import tomllib
 from typing import cast
 
 import pytest
 from fastapi import Request
 
-REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, REPO)
-sys.path.insert(0, os.path.join(REPO, "server"))
-os.environ.setdefault("DATA_DIR", tempfile.mkdtemp(prefix="splouch-i18n-test-"))
-sys.path.insert(0, os.path.join(REPO, "cloud"))
+import cloud_i18n
+import cloud_paths
+import cloud_server as cs
+import paths
+import state
+import web
+from conftest import admin_source
 
-import cloud_i18n  # noqa: E402
-import cloud_paths  # noqa: E402
-import cloud_server as cs  # noqa: E402
-import paths  # noqa: E402
-import state  # noqa: E402
-import web  # noqa: E402
-from conftest import admin_source  # noqa: E402
+REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
 class _Req:

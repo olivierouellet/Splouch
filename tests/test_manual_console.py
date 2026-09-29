@@ -25,29 +25,26 @@ thread, which is where they run in production anyway (the decoder has one owner)
 """
 
 import os
-import sys
 from typing import cast
 
 import pytest
 
-REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, REPO)
-sys.path.insert(0, os.path.join(REPO, "server"))
-
-import meet_data  # noqa: E402
-import state  # noqa: E402
-import worker  # noqa: E402
-from conftest import stub_url_for  # noqa: E402
-from console_decoders import (  # noqa: E402
+import meet_data
+import state
+import worker
+from conftest import stub_url_for
+from console_decoders import (
     CONSOLE_OPTIONS,
     DECODERS,
     console_info_for,
     make_decoder,
 )
-from console_decoders.base import ConsoleDecoder  # noqa: E402
-from console_decoders.manual import ManualDecoder  # noqa: E402
-from meet_parsers.hytek_parser import HytekParser  # noqa: E402
-from meet_parsers.lenex_parser import load_lenex  # noqa: E402
+from console_decoders.base import ConsoleDecoder
+from console_decoders.manual import ManualDecoder
+from meet_parsers.hytek_parser import HytekParser
+from meet_parsers.lenex_parser import load_lenex
+
+REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 LENEX = os.path.join(REPO, "tests", "fixtures", "splash.lxf")
 

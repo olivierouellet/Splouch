@@ -27,9 +27,10 @@ import tempfile
 
 import pytest
 
+from conftest import admin_source, stub_url_for
+from jsc import HAS_JS_ENGINE, js_argv
+
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-from conftest import admin_source, stub_url_for  # noqa: E402
-from jsc import HAS_JS_ENGINE, js_argv  # noqa: E402
 
 needs_js = pytest.mark.skipif(
     not HAS_JS_ENGINE, reason="needs a JavaScript engine (osascript or node)"

@@ -266,7 +266,7 @@ class OperatorMenu(QWidget):
 
     # ── Layout ─────────────────────────────────────────────────────────────────
 
-    def resizeEvent(self, event):  # noqa: N802 — Qt naming
+    def resizeEvent(self, event):
         super().resizeEvent(event)
         self._layout()
 

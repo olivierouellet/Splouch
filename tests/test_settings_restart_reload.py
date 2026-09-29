@@ -23,14 +23,12 @@ actually costs on a given Pi is not something the suite can measure.
 
 import os
 import re
-import sys
 
 import pytest
 
-REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, REPO)
+from conftest import matched
 
-from conftest import matched  # noqa: E402
+REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 SETTINGS_JS = os.path.join(REPO, "shared", "static", "js", "settings.js")
 

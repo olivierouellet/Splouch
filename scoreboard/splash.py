@@ -336,11 +336,11 @@ class SplashOverlay(QWidget):
                 self._scaled(self._pixmaps[self._index % len(self._pixmaps)])
             )
 
-    def resizeEvent(self, event):  # noqa: N802 — Qt naming
+    def resizeEvent(self, event):
         super().resizeEvent(event)
         self._layout_children()
 
-    def paintEvent(self, event):  # noqa: N802 — Qt naming
+    def paintEvent(self, event):
         """Draw `scoreboard_bg.png` behind the images, cropped to cover.
 
         Sponsor logos are usually transparent PNGs, so what sits behind them is

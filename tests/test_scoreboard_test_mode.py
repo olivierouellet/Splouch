@@ -10,18 +10,14 @@ opaque, so starting a test hid the entire scoreboard behind the words TEST SESSI
 """
 
 import os
-import sys
 from typing import cast
 
 import pytest
 
+import state
+from scoreboard.theme import DEFAULT_STRINGS, Config
+
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, REPO)
-sys.path.insert(0, os.path.join(REPO, "server"))
-
-from scoreboard.theme import DEFAULT_STRINGS, Config  # noqa: E402
-
-import state  # noqa: E402
 
 # ── Qt-free ────────────────────────────────────────────────────────────────────
 
@@ -49,7 +45,7 @@ def test_the_server_ships_it_in_config(monkeypatch):
 
 pytest.importorskip("PySide6", reason="needs the `scoreboard` extra (PySide6)")
 
-from scoreboard.board import BoardWindow  # noqa: E402
+from scoreboard.board import BoardWindow  # noqa: E402 — the Qt half, past its skip
 
 
 @pytest.fixture

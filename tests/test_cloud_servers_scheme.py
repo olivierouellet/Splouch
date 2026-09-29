@@ -18,22 +18,15 @@ the deployment. These tests pin both directions.
 
 import asyncio
 import os
-import sys
-import tempfile
 
 import pytest
 import yaml
+from starlette.requests import Request
+from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
+
+import cloud_server as cs
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, REPO)
-
-os.environ.setdefault("DATA_DIR", tempfile.mkdtemp(prefix="splouch-cloud-test-"))
-sys.path.insert(0, os.path.join(REPO, "cloud"))
-
-from starlette.requests import Request  # noqa: E402
-from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware  # noqa: E402
-
-import cloud_server as cs  # noqa: E402
 
 COMPOSE = os.path.join(REPO, "cloud", "docker-compose.yml")
 

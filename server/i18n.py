@@ -23,7 +23,7 @@ import os
 import re
 import tomllib
 
-import paths  # noqa: F401  — its import puts shared/py on sys.path
+import paths
 import splouch_i18n
 
 # The half both servers share, re-exported so `state` and the routes keep reaching

@@ -11,20 +11,17 @@ Qt-free: this is the server, driven through the real route function.
 
 import asyncio
 import os
-import sys
 from typing import cast
 
 import pytest
 from fastapi import Request
 
-REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, REPO)
-sys.path.insert(0, os.path.join(REPO, "server"))
+import bus
+import state
+from conftest import settings_source
+from routes.settings import route_settings
 
-import bus  # noqa: E402
-import state  # noqa: E402
-from conftest import settings_source  # noqa: E402
-from routes.settings import route_settings  # noqa: E402
+REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
 class _FakeRequest:

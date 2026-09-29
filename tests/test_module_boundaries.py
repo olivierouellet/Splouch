@@ -24,20 +24,11 @@ that reads no settings is one that can move to `shared/` and be used by both
 import ast
 import os
 import re
-import sys
-import tempfile
 
 import pytest
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SERVER = os.path.join(REPO, "server")
-sys.path.insert(0, SERVER)
-
-# The cloud modules read DATA_DIR at import time, so it has to be pointed
-# somewhere disposable before the first import — and `cloud/` has to be on the
-# path here rather than relied on from whichever test file happened to run first.
-os.environ.setdefault("DATA_DIR", tempfile.mkdtemp(prefix="splouch-boundaries-"))
-sys.path.insert(0, os.path.join(REPO, "cloud"))
 
 
 def _imports(module):

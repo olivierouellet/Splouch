@@ -22,10 +22,10 @@ import tempfile
 
 import pytest
 
-REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+from conftest import matched, settings_source
+from jsc import HAS_JS_ENGINE, js_argv
 
-from conftest import matched, settings_source  # noqa: E402
-from jsc import HAS_JS_ENGINE, js_argv  # noqa: E402
+REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 SETTINGS = os.path.join(REPO, "server", "templates", "settings.html")
 

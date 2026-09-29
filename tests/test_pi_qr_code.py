@@ -30,18 +30,15 @@ than to whatever a screen wanted.
 
 import io
 import os
-import sys
 
 import pytest
 from PIL import Image
 
-REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-for path in (REPO, os.path.join(REPO, "server"), os.path.join(REPO, "shared", "py")):
-    sys.path.insert(0, path)
+import splouch_links
+import state
+from routes.qr import invite, poster, route_qr_png
 
-import splouch_links  # noqa: E402
-import state  # noqa: E402
-from routes.qr import invite, poster, route_qr_png  # noqa: E402
+REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 QR_ROUTE = os.path.join(REPO, "server", "routes", "qr.py")
 CLOUD_TAB = os.path.join(REPO, "server", "templates", "settings", "cloud.html")

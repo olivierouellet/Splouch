@@ -20,20 +20,12 @@ way to say how old it is.
 
 import asyncio
 import os
-import sys
-import tempfile
 
 import pytest
 
+import cloud_server as cs
+
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-
-# Before the import: the module reads DATA_DIR at import time and every path in it
-# is derived from that. Point it at a throwaway so a test run cannot touch a real
-# retained store.
-os.environ.setdefault("DATA_DIR", tempfile.mkdtemp(prefix="splouch-cloud-test-"))
-sys.path.insert(0, os.path.join(REPO, "cloud"))
-
-import cloud_server as cs  # noqa: E402
 
 SID = "relay-sid"
 

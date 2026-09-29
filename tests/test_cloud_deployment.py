@@ -15,18 +15,15 @@ along with its tests — every install has long since been deployed past it.
 """
 
 import os
-import sys
 import tempfile
 
 import pytest
 import yaml
 
-REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, os.path.join(REPO, "cloud"))
-# Importing the module writes credentials.json on first load; keep that out of /data.
-os.environ.setdefault("DATA_DIR", tempfile.mkdtemp(prefix="splouch-cloud-test-"))
+import cloud_server as cs
+from conftest import admin_source, matched, stub_url_for
 
-import cloud_server as cs  # noqa: E402
+REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 CADDYFILE = os.path.join(REPO, "cloud", "Caddyfile")
 COMPOSE = os.path.join(REPO, "cloud", "docker-compose.yml")
@@ -138,7 +135,6 @@ def test_the_installer_does_not_offer_the_placeholder_as_the_current_domain():
 # ── The deploy webhook's unit, and how its failure reaches the operator ─────────
 
 SERVICE = os.path.join(REPO, "cloud", "deploy_webhook.service")
-from conftest import admin_source, matched, stub_url_for  # noqa: E402
 
 
 def test_the_unit_keeps_its_placeholders_for_the_installer():

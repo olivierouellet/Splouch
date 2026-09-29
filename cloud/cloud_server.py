@@ -45,21 +45,25 @@ from starlette.concurrency import run_in_threadpool
 # and route handlers reach many of these names directly, so they stay resolvable
 # here. Patch the owning module, not this one, when redirecting a path in a test:
 # the code that reads `CREDS_FILE` now lives in `paths`.
-# E402 on the imports below: this file binds module-level aliases (`_ch`,
-# `_load_creds`, …) between the import groups, so the later groups sit past
-# the top of the file on purpose.
 #
 # The `cloud_` prefix is not decoration: `server/` and `cloud/` are both flat on
 # sys.path when the suite runs, so a plain `bus.py` here would shadow the Pi's —
 # which is exactly why `cloud_server.py` is named that way too.
+#
+# `splouch_links` is the QR-code link shape, shared verbatim with the Pi that
+# mints one. It lives in `shared/py/`, which `cloud_paths` puts on the path —
+# and every `cloud_*` module above it imports `cloud_paths` first.
+#
+# The store's two dicts and their lock are imported as objects, not copied values:
+# they are bound once in `cloud_store` and only ever mutated in place, so every
+# `with _lock:` block and every `_meets[...]` in this file goes on addressing the
+# same thing it always did.
+import cloud_analytics
+import cloud_auth
 import cloud_bus
-from cloud_bus import manager
-from cloud_paths import _HERE, DATA_DIR, KEYS_FILE, SHARED_TEMPLATES_DIR, STATIC_DIR
-
-_ch = cloud_bus.ch
-import cloud_analytics  # noqa: E402
-import cloud_auth  # noqa: E402
-from cloud_analytics import (  # noqa: E402
+import cloud_i18n
+import splouch_links
+from cloud_analytics import (
     analytics_enabled as _analytics_enabled,
     analytics_flush_loop as _analytics_flush_loop,
     analytics_prune as _analytics_prune,
@@ -68,30 +72,11 @@ from cloud_analytics import (  # noqa: E402
     flush_analytics as _flush_analytics,
     log_connection as _log_connection,
 )
-from cloud_auth import require_admin  # noqa: E402
-
-_ANALYTICS_WINDOWS = cloud_analytics._ANALYTICS_WINDOWS
-# Names the routes and the tests still reach for directly.
-_load_keys = cloud_auth.load_keys
-_save_keys = cloud_auth.save_keys
-_load_creds = cloud_auth.load_creds
-_save_creds = cloud_auth.save_creds
-_hash_password = cloud_auth.hash_password
-_check_admin = cloud_auth.check_admin
-_ADMIN_FAIL_MAX = cloud_auth._ADMIN_FAIL_MAX
-_admin_fails = cloud_auth._admin_fails
-import cloud_i18n  # noqa: E402
-
-# The QR-code link shape, shared verbatim with the Pi that mints one — `cloud_paths`
-# has already put `shared/py/` on the path.
-import splouch_links  # noqa: E402
-from cloud_i18n import _DEFAULT_COLORS, _DEFAULT_FONTS  # noqa: E402
-
-# The store's two dicts and their lock are imported as objects, not copied values:
-# they are bound once in `cloud_store` and only ever mutated in place, so every
-# `with _lock:` block and every `_meets[...]` in this file goes on addressing the
-# same thing it always did.
-from cloud_store import (  # noqa: E402
+from cloud_auth import require_admin
+from cloud_bus import manager
+from cloud_i18n import _DEFAULT_COLORS, _DEFAULT_FONTS
+from cloud_paths import _HERE, DATA_DIR, KEYS_FILE, SHARED_TEMPLATES_DIR, STATIC_DIR
+from cloud_store import (
     _delete_meet_files,
     _get_meet,
     _lock,
@@ -106,7 +91,19 @@ from cloud_store import (  # noqa: E402
     _sweep_expired,
     _write_meet_files,
 )
-from splouch_links import INVITE_PARAM, INVITE_PATH  # noqa: E402
+from splouch_links import INVITE_PARAM, INVITE_PATH
+
+_ch = cloud_bus.ch
+_ANALYTICS_WINDOWS = cloud_analytics._ANALYTICS_WINDOWS
+# Names the routes and the tests still reach for directly.
+_load_keys = cloud_auth.load_keys
+_save_keys = cloud_auth.save_keys
+_load_creds = cloud_auth.load_creds
+_save_creds = cloud_auth.save_creds
+_hash_password = cloud_auth.hash_password
+_check_admin = cloud_auth.check_admin
+_ADMIN_FAIL_MAX = cloud_auth._ADMIN_FAIL_MAX
+_admin_fails = cloud_auth._admin_fails
 
 _available_locales = cloud_i18n.available_locales
 _strings = cloud_i18n.strings

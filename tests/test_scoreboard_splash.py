@@ -18,10 +18,11 @@ import pytest
 
 pytest.importorskip("PySide6", reason="needs the `scoreboard` extra (PySide6)")
 
-from PySide6.QtCore import QBuffer, QByteArray  # noqa: E402
-from PySide6.QtGui import QColor, QPixmap  # noqa: E402
-from scoreboard.board import BoardWindow  # noqa: E402
-from scoreboard.theme import Config  # noqa: E402
+from PySide6.QtCore import QBuffer, QByteArray
+from PySide6.QtGui import QColor, QPixmap
+
+from scoreboard.board import BoardWindow
+from scoreboard.theme import Config
 
 # `qt_app` comes from tests/conftest.py — session-scoped, fonts already loaded.
 
@@ -46,7 +47,7 @@ def image_server(qt_app):
             payloads["/images/" + name] = f.read()
 
     class Handler(http.server.BaseHTTPRequestHandler):
-        def do_GET(self):  # noqa: N802
+        def do_GET(self):
             body = payloads.get(self.path)
             if body is None:
                 self.send_error(404)

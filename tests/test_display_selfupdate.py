@@ -19,16 +19,15 @@ Needs PySide6 (`scoreboard.updater` imports QtCore); skips without it.
 
 import os
 import re
-import sys
 
 import pytest
 
 pytest.importorskip("PySide6", reason="needs the `scoreboard` extra (PySide6)")
 
-REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, REPO)
 
-from scoreboard.updater import Updater  # noqa: E402
+from scoreboard.updater import Updater
+
+REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 INSTALLER = os.path.join(REPO, "install", "install.sh")
 

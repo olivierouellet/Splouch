@@ -30,16 +30,14 @@ import pytest
 from fastapi import Request
 from jinja2 import Environment, FileSystemLoader
 
-REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, REPO)
-sys.path.insert(0, os.path.join(REPO, "server"))
+import relay
+import state
+import web
+from conftest import stub_url_for
+from console_decoders import make_decoder
+from console_decoders.base import ConsoleDecoder, SerialConfig
 
-import relay  # noqa: E402
-import state  # noqa: E402
-import web  # noqa: E402
-from conftest import stub_url_for  # noqa: E402
-from console_decoders import make_decoder  # noqa: E402
-from console_decoders.base import ConsoleDecoder, SerialConfig  # noqa: E402
+REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
 @pytest.fixture

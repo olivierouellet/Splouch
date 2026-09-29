@@ -11,9 +11,7 @@ import sys
 
 import pytest
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-from scoreboard.theme import DEFAULT_COLORS, DEFAULT_FONTS, Config  # noqa: E402
+from scoreboard.theme import DEFAULT_COLORS, DEFAULT_FONTS, Config
 
 
 def test_empty_config_falls_back_to_defaults():
@@ -172,7 +170,6 @@ def test_the_cloud_fallback_palette_is_the_same_object():
     settings yet, and the values had already drifted once. Both sides now import
     `shared/py/splouch_i18n.py`, so this asserts identity rather than comparing two
     literals — there is nothing left to drift."""
-    import sys
 
     import state
 

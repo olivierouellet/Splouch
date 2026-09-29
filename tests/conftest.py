@@ -8,7 +8,6 @@ would break that. The `qt_app` fixture skips instead.
 import gc
 import os
 import re
-import sys
 import tempfile
 
 import pytest
@@ -19,11 +18,12 @@ import pytest
 # next run silently picks up.
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 os.environ.setdefault("XDG_CACHE_HOME", tempfile.mkdtemp(prefix="splouch-test-"))
+# The cloud modules derive every path from DATA_DIR at import time, and default it
+# to /data. Set here, before any test module imports one, so a test run cannot
+# touch a real store. The import roots themselves are `pythonpath` in pyproject.
+os.environ.setdefault("DATA_DIR", tempfile.mkdtemp(prefix="splouch-cloud-test-"))
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-for path in (REPO, os.path.join(REPO, "server")):
-    if path not in sys.path:
-        sys.path.insert(0, path)
 
 # Module-level so the QApplication outlives every fixture scope. A fixture that
 # only yields it holds the sole Python reference, so PySide destroys the C++ object
@@ -40,6 +40,7 @@ def qt_app():
     global _QT_APP
     pytest.importorskip("PySide6", reason="needs the `scoreboard` extra (PySide6)")
     from PySide6.QtWidgets import QApplication
+
     from scoreboard.fonts import load_app_fonts
 
     if _QT_APP is None:

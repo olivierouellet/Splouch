@@ -17,25 +17,16 @@ import json
 import os
 import re
 import subprocess
-import sys
 import tempfile
 
 import pytest
 
+import cloud_server as cs
+import state
+from jsc import HAS_JS_ENGINE, js_argv
+from routes import meet as meet_routes
+
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, REPO)
-sys.path.insert(0, os.path.join(REPO, "server"))
-
-from jsc import HAS_JS_ENGINE, js_argv  # noqa: E402
-
-# Before the import, as `test_cloud_forward` does: the module derives every path
-# from DATA_DIR at import time.
-os.environ.setdefault("DATA_DIR", tempfile.mkdtemp(prefix="splouch-cloud-test-"))
-sys.path.insert(0, os.path.join(REPO, "cloud"))
-
-import cloud_server as cs  # noqa: E402
-import state  # noqa: E402
-from routes import meet as meet_routes  # noqa: E402
 
 # A relay and an individual, which between them carry every field the index reads.
 _START_LIST = {

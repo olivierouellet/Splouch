@@ -38,7 +38,7 @@ class FitLabel(QLabel):
             self._max_px = px
             self._refit()
 
-    def setFont(self, font):  # noqa: N802 — Qt naming
+    def setFont(self, font):
         """Adopt a new family or style, then fit it again.
 
         A ``QFont`` carries a size as well as a face, so the plain ``QLabel``
@@ -55,11 +55,11 @@ class FitLabel(QLabel):
         super().setFont(font)
         self._refit()
 
-    def setText(self, text):  # noqa: N802 — Qt naming
+    def setText(self, text):
         self._full = text if text is not None else ""
         self._refit()
 
-    def text(self):  # noqa: N802 — Qt naming
+    def text(self):
         """The full text, even when what is drawn has been elided."""
         return self._full
 
@@ -67,11 +67,11 @@ class FitLabel(QLabel):
         """What is actually painted — elided if it would not fit at *min_px*."""
         return super().text()
 
-    def resizeEvent(self, event):  # noqa: N802 — Qt naming
+    def resizeEvent(self, event):
         super().resizeEvent(event)
         self._refit()
 
-    def setContentsMargins(self, *args):  # noqa: N802 — Qt naming
+    def setContentsMargins(self, *args):
         """Remember the caller's padding; the vertical half is ours to adjust."""
         if len(args) == 1:  # a QMargins
             box = args[0]

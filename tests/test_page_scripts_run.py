@@ -11,18 +11,15 @@ list, while every substring assertion in `test_scoreboard_base_shared.py` still 
 
 import json
 import os
-import sys
 
 import pytest
 from jinja2 import Environment, FileSystemLoader
 
-REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, REPO)
-sys.path.insert(0, os.path.join(REPO, "server"))
+import state
+from conftest import stub_url_for
+from jsc import HAS_JS_ENGINE, run_page
 
-import state  # noqa: E402
-from conftest import stub_url_for  # noqa: E402
-from jsc import HAS_JS_ENGINE, run_page  # noqa: E402
+REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 pytestmark = pytest.mark.skipif(
     not HAS_JS_ENGINE, reason="needs a JavaScript engine (osascript or node)"

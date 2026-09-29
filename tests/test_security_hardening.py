@@ -34,11 +34,9 @@ import pytest
 from fastapi import Request
 from jinja2 import Environment, FileSystemLoader
 
-REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, REPO)
-sys.path.insert(0, os.path.join(REPO, "server"))
+from conftest import stub_url_for
 
-from conftest import stub_url_for  # noqa: E402
+REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # ── The start list cannot close the script it is embedded in ──────────────────
 

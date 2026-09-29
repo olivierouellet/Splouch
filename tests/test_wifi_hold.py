@@ -23,20 +23,15 @@ import json
 import os
 import re
 import subprocess
-import sys
 import tempfile
 
 import pytest
 
+import state
+from conftest import matched, settings_source
+from jsc import HAS_JS_ENGINE, js_argv
+
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-
-from conftest import matched, settings_source  # noqa: E402
-
-sys.path.insert(0, REPO)
-sys.path.insert(0, os.path.join(REPO, "server"))
-
-import state  # noqa: E402
-from jsc import HAS_JS_ENGINE, js_argv  # noqa: E402
 
 SETTINGS = os.path.join(REPO, "server", "templates", "settings.html")
 PANEL_JS = os.path.join(REPO, "shared", "static", "js", "panel.js")

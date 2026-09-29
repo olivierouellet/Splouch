@@ -22,10 +22,11 @@ import pytest
 
 pytest.importorskip("PySide6", reason="needs the `scoreboard` extra (PySide6)")
 
-from PySide6.QtCore import Qt  # noqa: E402
-from scoreboard.board import BoardWindow  # noqa: E402
-from scoreboard.menu import MenuAction  # noqa: E402
-from scoreboard.theme import Config  # noqa: E402
+from PySide6.QtCore import Qt
+
+from scoreboard.board import BoardWindow
+from scoreboard.menu import MenuAction
+from scoreboard.theme import Config
 
 # `qt_app` comes from tests/conftest.py — session-scoped, fonts already loaded.
 

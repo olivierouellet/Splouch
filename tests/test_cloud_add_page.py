@@ -24,21 +24,14 @@ hides the affordance instead of showing a dead button.
 import json
 import os
 import re
-import sys
-import tempfile
 
 import pytest
+from starlette.requests import Request
+
+import cloud_server as cs
+from conftest import matched
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, REPO)
-
-os.environ.setdefault("DATA_DIR", tempfile.mkdtemp(prefix="splouch-cloud-test-"))
-sys.path.insert(0, os.path.join(REPO, "cloud"))
-
-from starlette.requests import Request  # noqa: E402
-
-import cloud_server as cs  # noqa: E402
-from conftest import matched  # noqa: E402
 
 ADD_TEMPLATE = os.path.join(REPO, "cloud", "templates", "add.html")
 

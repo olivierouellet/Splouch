@@ -11,17 +11,14 @@ powered-off console reports 'open' indefinitely.
 
 import asyncio
 import os
-import sys
 
 import pytest
 
-REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, REPO)
-sys.path.insert(0, os.path.join(REPO, "server"))
+import bus
+import state
+from app import _meet_live_watchdog
 
-import bus  # noqa: E402
-import state  # noqa: E402
-from app import _meet_live_watchdog  # noqa: E402
+REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
 @pytest.fixture

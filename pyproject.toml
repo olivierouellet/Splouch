@@ -38,7 +38,9 @@ scoreboard = ["pyside6-essentials>=6.5"]
 dev = ["pytest", "pytest-cov", "ruff", "ty"]
 
 [tool.pytest.ini_options]
-pythonpath = ["server"]
+# Every import root, so no test needs `sys.path` surgery of its own. The same
+# list as `extra-paths` for ty and `src` for Ruff below.
+pythonpath = [".", "server", "shared/py", "cloud"]
 
 
 # ── Formatting and linting ─────────────────────────────────────────────────────
@@ -49,7 +51,7 @@ pythonpath = ["server"]
 # `src` lists the directories that are import roots, so the isort rules sort
 # `state`, `splouch_i18n` and the like as first-party, not third-party.
 [tool.ruff]
-src = ["server", "shared/py", "cloud", "scoreboard", "tests"]
+src = [".", "server", "shared/py", "cloud", "tests"]
 
 # Keep `from x import (a as _a, b as _b)` as one statement, not one line per alias.
 [tool.ruff.lint.isort]
@@ -67,6 +69,7 @@ select = [
     "B",    # bugbear: likely-wrong constructs the interpreter still accepts
     "PLE",  # pylint errors — the ones that are always bugs
     "I",    # isort: import order, the same fix organize-imports applies on save
+    "RUF100",  # a `# noqa` that no longer suppresses anything
 ]
 
 # ── Type checking ──────────────────────────────────────────────────────────────

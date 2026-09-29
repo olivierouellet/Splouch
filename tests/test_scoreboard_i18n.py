@@ -10,15 +10,12 @@ Qt-free: the locale lookup and the cache are both plain Python.
 
 import json
 import os
-import sys
 
 import pytest
 
-REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, REPO)
-sys.path.insert(0, os.path.join(REPO, "server"))
+from scoreboard.theme import DEFAULT_STRINGS, Config
 
-from scoreboard.theme import DEFAULT_STRINGS, Config  # noqa: E402
+REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 LOCALES = os.path.join(REPO, "shared", "locales")
 KEYS = sorted(DEFAULT_STRINGS)

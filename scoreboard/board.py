@@ -47,19 +47,16 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from .format import fmt_clock, fmt_delta, parse_clock
+from .menu import OperatorMenu
+from .splash import SplashOverlay
+from .theme import Config
+from .version import cached_version
+from .widgets import FitLabel
+
 # Qt's "no maximum" sentinel. PyQt5 exported it from QtWidgets; PySide6 does not,
 # so it is spelled out here — it is a fixed part of the Qt API, not a guess.
 QWIDGETSIZE_MAX = 16777215
-
-# E402 below: the sentinel above is kept with the Qt imports it belongs to,
-# which leaves this group past the top of the file. Nothing depends on the
-# order — it reads better this way.
-from .format import fmt_clock, fmt_delta, parse_clock  # noqa: E402
-from .menu import OperatorMenu  # noqa: E402
-from .splash import SplashOverlay  # noqa: E402
-from .theme import Config  # noqa: E402
-from .version import cached_version  # noqa: E402
-from .widgets import FitLabel  # noqa: E402
 
 # Clock repaint cadence. 50ms matches the browser: fast enough that hundredths
 # look continuous, slow enough to stay cheap on a Pi.
@@ -385,7 +382,7 @@ class LaneRow(QFrame):
             (self.place_label, _W_PLACE),
         )
 
-    def resizeEvent(self, event):  # noqa: N802 — Qt naming
+    def resizeEvent(self, event):
         super().resizeEvent(event)
         _pad_columns(self.width(), self.name_cell, self.club_label)
         self.set_row_height(self.height())
@@ -772,7 +769,7 @@ class HeaderBar(QFrame):
         super().__init__(parent)
         self.scale_children = None  # set by BoardWindow once its cells exist
 
-    def resizeEvent(self, event):  # noqa: N802 — Qt naming
+    def resizeEvent(self, event):
         super().resizeEvent(event)
         if self.scale_children is not None:
             self.scale_children(self.height())
@@ -880,7 +877,7 @@ class HeaderCell(QWidget):
         self.value.setText(value)
         self._relayout()
 
-    def resizeEvent(self, event):  # noqa: N802 — Qt naming
+    def resizeEvent(self, event):
         super().resizeEvent(event)
         self._relayout()
 
@@ -1035,7 +1032,7 @@ class HeaderRow(QFrame):
             (self.cells["place"], _W_PLACE),
         )
 
-    def resizeEvent(self, event):  # noqa: N802 — Qt naming
+    def resizeEvent(self, event):
         super().resizeEvent(event)
         _pad_columns(self.width(), self.cells["name"], self.cells["club"])
         self.set_row_height(self.height())
@@ -1303,7 +1300,7 @@ class BoardWindow(QWidget):
         if hasattr(self, "splash"):
             self.splash.apply_config(cfg)
 
-    def keyPressEvent(self, event):  # noqa: N802 — Qt naming
+    def keyPressEvent(self, event):
         """Operator keys: leave the board without an SSH session.
 
         The kiosk has no window decorations and no menu, so these are the only way
@@ -1488,7 +1485,7 @@ class BoardWindow(QWidget):
         for cell in cells:
             cell.set_shared_px(shared)
 
-    def resizeEvent(self, event):  # noqa: N802 — Qt naming
+    def resizeEvent(self, event):
         super().resizeEvent(event)
         # Rows and the header bar scale themselves from their own resizeEvents —
         # see LaneRow.set_row_height for why reading their height from here does

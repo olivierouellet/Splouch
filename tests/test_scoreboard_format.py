@@ -16,9 +16,7 @@ import sys
 
 import pytest
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-from scoreboard.format import fmt_clock, fmt_delta, parse_clock  # noqa: E402
+from scoreboard.format import fmt_clock, fmt_delta, parse_clock
 
 
 @pytest.mark.parametrize(

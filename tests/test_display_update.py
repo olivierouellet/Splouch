@@ -10,17 +10,14 @@ exits into a broken checkout. Both are tested here.
 
 import asyncio
 import os
-import sys
 
 import pytest
 
-REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, REPO)
-sys.path.insert(0, os.path.join(REPO, "server"))
+import bus
+import state
+from routes.update import route_displays_update
 
-import bus  # noqa: E402
-import state  # noqa: E402
-from routes.update import route_displays_update  # noqa: E402
+REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
 @pytest.fixture

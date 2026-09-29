@@ -15,16 +15,13 @@ developer was working on.
 
 import os
 import subprocess
-import sys
 
 import pytest
 
-REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, REPO)
-sys.path.insert(0, os.path.join(REPO, "server"))
+import routes.update as system
+import state
 
-import routes.update as system  # noqa: E402
-import state  # noqa: E402
+REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
 def _git(repo, *args):

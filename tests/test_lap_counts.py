@@ -22,21 +22,18 @@ spread is the whole reason these tests exist:
 
 import os
 import re
-import sys
 
 import pytest
 from jinja2 import Environment, FileSystemLoader
 
-REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, REPO)
-sys.path.insert(0, os.path.join(REPO, "server"))
+import state
+from conftest import stub_url_for
+from console_decoders import DECODERS, make_decoder
+from console_decoders.utils import split_step
+from jsc import HAS_JS_ENGINE, run_page
+from test_scoreboard_base_shared import _code
 
-import state  # noqa: E402
-from conftest import stub_url_for  # noqa: E402
-from console_decoders import DECODERS, make_decoder  # noqa: E402
-from console_decoders.utils import split_step  # noqa: E402
-from jsc import HAS_JS_ENGINE, run_page  # noqa: E402
-from test_scoreboard_base_shared import _code  # noqa: E402
+REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 _ALL = sorted(DECODERS)
 

@@ -31,19 +31,16 @@ Qt-free: the routes are driven directly.
 
 import io
 import os
-import sys
 
 import pytest
 from fastapi import UploadFile
 
-REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, REPO)
-sys.path.insert(0, os.path.join(REPO, "server"))
+import relay
+import routes.debug as debug
+import state
+import worker
 
-import relay  # noqa: E402
-import routes.debug as debug  # noqa: E402
-import state  # noqa: E402
-import worker  # noqa: E402
+REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 RECORDINGS = os.path.join(REPO, "server", "console_recordings")
 # A built-in recording that ships with a companion .lxf beside it. The companion

@@ -23,21 +23,14 @@ So the tests below pin the things that would silently break it:
 
 import json
 import os
-import sys
-import tempfile
 
 import pytest
 import yaml
+from fastapi import HTTPException
+
+import cloud_server as cs
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, REPO)
-
-os.environ.setdefault("DATA_DIR", tempfile.mkdtemp(prefix="splouch-cloud-test-"))
-sys.path.insert(0, os.path.join(REPO, "cloud"))
-
-from fastapi import HTTPException  # noqa: E402
-
-import cloud_server as cs  # noqa: E402
 
 COMPOSE = os.path.join(REPO, "cloud", "docker-compose.yml")
 CADDYFILE = os.path.join(REPO, "cloud", "Caddyfile")

@@ -16,17 +16,14 @@ is what these guard against.
 import json
 import os
 import re
-import sys
 
 import pytest
 from jinja2 import Environment, FileSystemLoader
 
-REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, REPO)
-sys.path.insert(0, os.path.join(REPO, "server"))
+import state
+from conftest import matched, stub_url_for
 
-import state  # noqa: E402
-from conftest import matched, stub_url_for  # noqa: E402
+REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 _LABELS = {
     "event": "Event",

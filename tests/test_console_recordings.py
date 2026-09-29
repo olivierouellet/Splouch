@@ -29,12 +29,9 @@ import sys
 
 import pytest
 
+from conftest import settings_source
+
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-
-from conftest import settings_source  # noqa: E402
-
-sys.path.insert(0, REPO)
-sys.path.insert(0, os.path.join(REPO, "server"))
 
 RECORDINGS = os.path.join(REPO, "server", "console_recordings")
 
