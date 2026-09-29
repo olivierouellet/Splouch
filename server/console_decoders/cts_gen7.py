@@ -319,7 +319,7 @@ class CTSGen7Decoder(ConsoleDecoder):
         """Command 18 carries meet/event/swimmer metadata sent natively by Gen7."""
         if len(cmd) < 3 or cmd[0] != 18:
             return
-        # pool = cmd[1] - 1   # 0-based pool; we only support pool 0 for now
+        # cmd[1] is the pool, 1-based; only the first pool is supported for now.
         # sub-case dispatch left as a future extension (swimmer names, meet title)
 
     # ── Scoreboard readout helpers ────────────────────────────────────────────

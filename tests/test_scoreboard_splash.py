@@ -13,6 +13,7 @@ import socketserver
 import tempfile
 import threading
 import time
+from typing import override
 
 import pytest
 
@@ -58,6 +59,7 @@ def image_server(qt_app):
             self.end_headers()
             self.wfile.write(body)
 
+        @override
         def log_message(self, format, *args):
             pass
 

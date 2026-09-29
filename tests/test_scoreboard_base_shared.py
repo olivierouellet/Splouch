@@ -454,7 +454,7 @@ def test_every_shared_template_declares_a_language():
     import glob
 
     for path in glob.glob(os.path.join(REPO, "shared/templates/*.html")):
-        src = Path(path).read_text()
+        src = Path(path).read_text(encoding="utf-8")
         if "<html" not in src:
             continue  # a fragment, not a document
         assert '<html lang="{{ lang' in src, (
@@ -475,17 +475,19 @@ def test_pi_display_pages_declare_the_scoreboard_language(template):
     Scoreboard language. Declaring lang="en" while painting French headers is the
     mismatch these guard against; the admin pages are excluded on purpose, since
     they follow the per-device `ui_lang` cookie instead."""
-    src = Path(os.path.join(REPO, "server/templates", template)).read_text()
+    src = Path(os.path.join(REPO, "server/templates", template)).read_text(
+        encoding="utf-8"
+    )
     assert '<html lang="{{ lang' in src
 
 
 def test_locale_fallbacks_agree_with_the_settings_default():
     """`load_locale()` used to default to 'fr' while DEFAULT_SETTINGS said 'en', so
     a config with no locale would paint French labels under lang="en"."""
-    state_src = Path(os.path.join(REPO, "server/state.py")).read_text()
+    state_src = Path(os.path.join(REPO, "server/state.py")).read_text(encoding="utf-8")
     assert '"locale": "en",' in state_src, "the settings default moved or changed"
     for path in ("server/state.py", "server/web.py", "server/routes/settings.py"):
-        src = Path(os.path.join(REPO, path)).read_text()
+        src = Path(os.path.join(REPO, path)).read_text(encoding="utf-8")
         assert 'get("locale", "fr")' not in src, f"{path} still falls back to fr"
 
 
@@ -539,7 +541,9 @@ def test_new_install_lands_on_english(scoreboard_locale):
 
 def test_settings_page_declares_the_panel_language_not_the_scoreboard_one():
     """It is the one page whose text comes from ui_locale rather than `labels`."""
-    src = Path(os.path.join(REPO, "server/templates/settings.html")).read_text()
+    src = Path(os.path.join(REPO, "server/templates/settings.html")).read_text(
+        encoding="utf-8"
+    )
     assert '<html lang="{{ ui_locale' in src
 
 
@@ -547,14 +551,16 @@ def test_settings_page_declares_the_panel_language_not_the_scoreboard_one():
     "template", ["meet.html", "console.html", "operator.html", "login.html"]
 )
 def test_other_admin_pages_declare_the_scoreboard_language(template):
-    src = Path(os.path.join(REPO, "server/templates", template)).read_text()
+    src = Path(os.path.join(REPO, "server/templates", template)).read_text(
+        encoding="utf-8"
+    )
     assert '<html lang="{{ lang' in src
 
 
 def test_login_is_rendered_with_the_globals():
     """A bare TemplateResponse would leave `lang` undefined, silently pinning the
     login page to the fallback whatever the server is set to."""
-    src = Path(os.path.join(REPO, "server/app.py")).read_text()
+    src = Path(os.path.join(REPO, "server/app.py")).read_text(encoding="utf-8")
     assert 'templates.TemplateResponse(request, "login.html"' not in src
     assert src.count('render(request, "login.html"') == 2
 
@@ -617,7 +623,9 @@ def test_podium_respects_the_setting(res_pi, res_cloud):
     for html in (res_pi, res_cloud):
         assert "var SHOW_PODIUM = true" in html
         assert "if (tr && SHOW_PODIUM)" in html
-    src = Path(os.path.join(REPO, "cloud", "cloud_server.py")).read_text()
+    src = Path(os.path.join(REPO, "cloud", "cloud_server.py")).read_text(
+        encoding="utf-8"
+    )
     assert 'show_podium=s.get("show_podium", True),' in src
 
 
@@ -640,7 +648,9 @@ def test_every_board_shrinks_names_to_fit(pi, cloud, res_pi, res_cloud):
 def test_name_primary_is_styled_once_in_the_stylesheet(pi, res_pi):
     """Shared by four displays including the standalone kiosk page, so it lives in
     timing_display.css rather than being re-declared per template."""
-    css = Path(os.path.join(REPO, "shared/static/css/timing_display.css")).read_text()
+    css = Path(os.path.join(REPO, "shared/static/css/timing_display.css")).read_text(
+        encoding="utf-8"
+    )
     assert ".name-primary {" in css
     for html in (pi, res_pi):
         assert ".name-primary {" not in html
@@ -658,7 +668,9 @@ def test_kiosk_page_shrinks_names_too():
     """server/templates/live.html is standalone — it does not extend the base, so
     it carries its own copy and can drift. notes/scoreboard_parity.md tracks it
     against the Qt board, which has always used FitLabel here."""
-    src = Path(os.path.join(REPO, "server/templates/live.html")).read_text()
+    src = Path(os.path.join(REPO, "server/templates/live.html")).read_text(
+        encoding="utf-8"
+    )
     assert 'class="name-primary"' in src
     assert "function fitNameFontSize()" in src
     assert "if (names_changed) requestAnimationFrame(fitNameFontSize)" in src
@@ -672,7 +684,9 @@ def test_kiosk_binds_its_columns_before_the_socket_opens():
     `columns_state`, the heat's names, then the board cache), so on a cold load the
     first frame could reach `expand_cols` with all four still null and throw out of
     the message handler. Bind first, connect second."""
-    src = Path(os.path.join(REPO, "server/templates/live.html")).read_text()
+    src = Path(os.path.join(REPO, "server/templates/live.html")).read_text(
+        encoding="utf-8"
+    )
     assert "function bind_dom()" in src
     assert src.index("bind_dom();") < src.index("splouchSocket('/ws/scoreboard')"), (
         "the socket opens before the columns are bound"
@@ -696,7 +710,9 @@ def test_waiting_message_is_translated_on_both(res_pi, res_cloud):
     exist, so its waiting screen was English whatever language the meet ran in."""
     for html in (res_pi, res_cloud):
         assert "Waiting…" in html  # the fixture's [mobile] string won
-    src = Path(os.path.join(REPO, "cloud", "cloud_server.py")).read_text()
+    src = Path(os.path.join(REPO, "cloud", "cloud_server.py")).read_text(
+        encoding="utf-8"
+    )
     assert src.count('t=_strings(_client_lang(request, meet), "mobile")') == 3, (
         "every per-meet cloud page must pass the [mobile] strings"
     )

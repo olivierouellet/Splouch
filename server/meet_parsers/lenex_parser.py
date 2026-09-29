@@ -1,11 +1,17 @@
 import xml.etree.ElementTree as ET
 import zipfile
-from collections import namedtuple
+from typing import NamedTuple
 
-LenexData = namedtuple(
-    "LenexData",
-    ["event_names", "start_list", "heat_times", "meet_info", "event_distances"],
-)
+
+class LenexData(NamedTuple):
+    """What `load_lenex` returns; the shapes are in its docstring."""
+
+    event_names: dict
+    start_list: dict
+    heat_times: dict
+    meet_info: dict
+    event_distances: dict
+
 
 # Biggest inner XML we will read out of a .lxf. A real meet's start list is a few
 # hundred KB; this is room for an unusually large one and a hard stop well before
@@ -93,7 +99,7 @@ def load_lenex(path):
     """
     Parse a Lenex .lxf file (zip containing a .lef XML).
 
-    Returns a LenexData namedtuple:
+    Returns a LenexData:
         event_names  — {event_number: str}
         start_list   — {event_number: {heat_number: {lane: {'name': str, 'club': str}}}}
     """

@@ -501,7 +501,7 @@ def test_the_lap_colour_is_shared_between_the_boards():
     like — the header's accent blue, the same key the EVENT/HEAT words take."""
     css = Path(
         os.path.join(REPO, "shared", "static", "css", "timing_display.css")
-    ).read_text()
+    ).read_text(encoding="utf-8")
     rule = css[css.index(".td_delta.lap-count") :]
     assert "var(--color-header-label)" in rule[: rule.index("}")]
 
@@ -512,7 +512,7 @@ def test_the_delta_column_is_centred():
     `#3` reads as a rank."""
     css = Path(
         os.path.join(REPO, "shared", "static", "css", "timing_display.css")
-    ).read_text()
+    ).read_text(encoding="utf-8")
     # Anchored at the line start: `.timing-table.hide-delta .td_delta { display:
     # none }` contains the same substring and comes first in the file.
     rule = re.search(r"^\.td_delta \{([^}]*)\}", css, re.M)
@@ -526,8 +526,10 @@ def test_no_board_still_pulses():
     in three places, so all three have to forget it."""
     css = Path(
         os.path.join(REPO, "shared", "static", "css", "timing_display.css")
-    ).read_text()
-    board = Path(os.path.join(REPO, "scoreboard", "board.py")).read_text()
+    ).read_text(encoding="utf-8")
+    board = Path(os.path.join(REPO, "scoreboard", "board.py")).read_text(
+        encoding="utf-8"
+    )
     lap_rules = css[css.index(".td_delta.lap-count") :]
     lap_rules = lap_rules[: lap_rules.index("/* ── Podium")]
     lap_rules = _code(lap_rules)  # the prose there says why there is no animation
@@ -541,10 +543,12 @@ def test_the_final_stretch_is_the_timing_colour():
     browser boards cannot drift; the Qt board reads the same theme key."""
     css = Path(
         os.path.join(REPO, "shared", "static", "css", "timing_display.css")
-    ).read_text()
+    ).read_text(encoding="utf-8")
     rule = css[css.index(".td_delta.lap-count.lap-final") :]
     assert "var(--color-time)" in rule[: rule.index("}")]
-    board = Path(os.path.join(REPO, "scoreboard", "board.py")).read_text()
+    board = Path(os.path.join(REPO, "scoreboard", "board.py")).read_text(
+        encoding="utf-8"
+    )
     assert 'self.cfg.color("time" if final else "header_label")' in board
 
 

@@ -120,7 +120,7 @@ def session_secret():
     session simply has to sign in again.
     """
     try:
-        with open(SESSION_KEY_FILE) as f:
+        with open(SESSION_KEY_FILE, encoding="utf-8") as f:
             key = f.read().strip()
         if key:
             return key

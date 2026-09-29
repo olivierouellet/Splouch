@@ -1350,7 +1350,7 @@ _LOGIN_FIELDS = ("user", "password_hash", "salt")
 @app.get("/admin/backup/keys", tags=["Admin"], dependencies=[Depends(require_admin)])
 def route_backup_keys(request: Request):
     try:
-        with open(KEYS_FILE) as f:
+        with open(KEYS_FILE, encoding="utf-8") as f:
             keys = json.load(f)
     except (FileNotFoundError, json.JSONDecodeError):
         keys = {}

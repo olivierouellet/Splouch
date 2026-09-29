@@ -338,9 +338,9 @@ def require_login(request: Request):
     display, curl, the native apps), which is why absence has to mean allow.
     """
     if request.headers.get("sec-fetch-site") == "cross-site":
-        raise CrossSiteRequest()
+        raise CrossSiteRequest
     if not request.session.get("user"):
-        raise NotAuthenticated()
+        raise NotAuthenticated
 
 
 def same_origin(ws) -> bool:

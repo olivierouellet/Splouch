@@ -627,7 +627,7 @@ def provisioning_stale():
 
     def _read(path):
         try:
-            with open(path) as f:
+            with open(path, encoding="utf-8") as f:
                 return int(f.read().strip() or "0")
         except (OSError, ValueError):
             return 0
@@ -646,7 +646,7 @@ def _shipped_credentials():
     global _SHIPPED_CREDS
     if _SHIPPED_CREDS is None:
         try:
-            with open(_settings_default) as f:
+            with open(_settings_default, encoding="utf-8") as f:
                 d = json.load(f)
             _SHIPPED_CREDS = (d.get("username", ""), d.get("password", ""))
         except (OSError, ValueError):
@@ -698,7 +698,7 @@ def merge_theme_defaults():
 
 def load_settings():
     try:
-        with open(settings_file) as f:
+        with open(settings_file, encoding="utf-8") as f:
             settings.update(json.load(f))
     except Exception:
         pass

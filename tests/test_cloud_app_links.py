@@ -268,6 +268,8 @@ def test_caddy_sends_well_known_to_the_app():
 
 def test_the_deployment_passes_the_fingerprints_in():
     """The value lives in `cloud/.env`; compose is what carries it to the app."""
-    env = yaml.safe_load(Path(COMPOSE).read_text())["services"]["app"]["environment"]
+    env = yaml.safe_load(Path(COMPOSE).read_text(encoding="utf-8"))["services"]["app"][
+        "environment"
+    ]
     assert env["ANDROID_CERT_FINGERPRINTS"].startswith("${ANDROID_CERT_FINGERPRINTS")
     assert "app.splouch" not in json.dumps(env), "a fingerprint or id pinned in compose"

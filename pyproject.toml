@@ -77,6 +77,18 @@ select = [
     "RET",    # return: no else after return, no explicit `return None`
     "PERF",   # a loop that appends is a comprehension
     "SIM115", # open() outside a `with` leaks the handle until the GC finds it
+    "W",      # whitespace the formatter cannot fix (inside strings, trailing in docstrings)
+    "ISC",    # implicit string concatenation — usually a missing comma in a list
+    "G",      # logging calls: pass args, don't pre-format the message
+    "LOG",    # logging misuse: wrong logger, exception() outside except
+    "PGH",    # blanket `# noqa` / `# type: ignore` — every suppression names its rule
+    "T10",    # a leftover breakpoint()
+    "FLY",    # "".join() of literals is an f-string
+    "ERA",    # commented-out code
+    "A",      # shadowing a builtin
+    "RSE",    # `raise X()` with no arguments is `raise X`
+    "PYI",    # typing hygiene: NamedTuple over namedtuple
+    "EXE",    # shebang and executable bit agree
 ]
 
 # ── Type checking ──────────────────────────────────────────────────────────────

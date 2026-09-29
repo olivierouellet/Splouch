@@ -442,7 +442,9 @@ def test_the_warning_is_read_from_the_defaults_file_not_restated(monkeypatch):
     import state
 
     monkeypatch.setattr(state, "_SHIPPED_CREDS", None)
-    shipped = _json.loads(Path(REPO, "server", "settings.default.json").read_text())
+    shipped = _json.loads(
+        Path(REPO, "server", "settings.default.json").read_text(encoding="utf-8")
+    )
     assert state._shipped_credentials() == (shipped["username"], shipped["password"])
 
 

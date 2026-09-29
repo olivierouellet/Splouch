@@ -561,7 +561,7 @@ def _announcement_packets(name):
     path = os.path.join(RECORDINGS, name + ".cts")
     packets, packet = [], []
     for match in re.finditer(
-        r"\[[0-9.]+\]\s*|([0-9a-fA-F]{2})", Path(path).read_text()
+        r"\[[0-9.]+\]\s*|([0-9a-fA-F]{2})", Path(path).read_text(encoding="utf-8")
     ):
         if not match.group(1):
             continue
@@ -651,7 +651,7 @@ def test_the_recording_really_decodes_under_a_manual_console(rig, monkeypatch):
 
     import re
 
-    text = Path(os.path.join(RECORDINGS, SESSION)).read_text()
+    text = Path(os.path.join(RECORDINGS, SESSION)).read_text(encoding="utf-8")
     buf = []
     for m in re.finditer(r"\[([0-9.]+)\]\s*|([0-9a-fA-F]{2})", text):
         if m.group(1):

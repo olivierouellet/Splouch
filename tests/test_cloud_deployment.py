@@ -47,7 +47,9 @@ def test_the_caddyfile_carries_no_literal_domain():
 
 def test_compose_passes_the_domain_to_caddy_and_nothing_else():
     """Only this one key: `env_file` here would hand Caddy the app's secrets."""
-    caddy = yaml.safe_load(Path(COMPOSE).read_text())["services"]["caddy"]
+    caddy = yaml.safe_load(Path(COMPOSE).read_text(encoding="utf-8"))["services"][
+        "caddy"
+    ]
     assert "env_file" not in caddy
     assert list(caddy["environment"]) == ["SPLOUCH_DOMAIN"]
     # `:?` so an unset domain fails the compose command loudly, leaving the running

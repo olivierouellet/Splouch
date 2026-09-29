@@ -30,11 +30,9 @@ import threading
 import cloud_paths
 from cloud_paths import atomic_write
 
-# _meets: meet_id -> {
-#   relay_key, relay_sid, organizer, name, location, sport, meet_date,
-#   settings, connected_at, clock_at,
-#   last_scoreboard, last_results, last_next_heats, schedule_data
-# }
+# _meets: meet_id -> a dict of relay_key, relay_sid, organizer, name, location,
+#   sport, meet_date, settings, connected_at, clock_at, last_scoreboard,
+#   last_results, last_next_heats and schedule_data.
 # _retained: meet_id -> persisted snapshot that outlives the relay connection, so
 #   a meet keeps showing (schedule, picker image, icon) after the console
 #   disconnects, until it expires. Persisted per meet under RETAINED_DIR. Fields:
@@ -134,14 +132,14 @@ def _load_retained():
             continue
         mid = os.path.basename(path)[: -len(".json")]
         try:
-            with open(path) as f:
+            with open(path, encoding="utf-8") as f:
                 rec = json.load(f)
         except (json.JSONDecodeError, OSError):
             continue
         sp = _meet_file(mid, ".schedule.json")
         if os.path.exists(sp):
             try:
-                with open(sp) as f:
+                with open(sp, encoding="utf-8") as f:
                     rec["schedule_data"] = json.load(f)
             except (json.JSONDecodeError, OSError):
                 pass
@@ -153,7 +151,7 @@ def _load_retained():
             bp = _meet_file(mid, suffix)
             if os.path.exists(bp):
                 try:
-                    with open(bp) as f:
+                    with open(bp, encoding="utf-8") as f:
                         settings[field] = f.read()
                 except OSError:
                     pass

@@ -157,7 +157,7 @@ def route_rtc_status():
 
     for config_txt in ("/boot/firmware/config.txt", "/boot/config.txt"):
         try:
-            with open(config_txt) as f:
+            with open(config_txt, encoding="utf-8") as f:
                 if any(line.strip() == "dtoverlay=i2c-rtc,ds3231" for line in f):
                     configured = True
                     break
@@ -165,7 +165,7 @@ def route_rtc_status():
             continue
 
     try:
-        with open("/sys/class/rtc/rtc0/name") as f:
+        with open("/sys/class/rtc/rtc0/name", encoding="utf-8") as f:
             name = f.read().lower()
         if "ds3231" in name or "rtc-ds1307" in name:
             active = True
@@ -251,7 +251,7 @@ def route_logs_save():
             + ".log"
         )
         path = os.path.join(state.LOGS_DIR, name)
-        with open(path, "w") as f:
+        with open(path, "w", encoding="utf-8") as f:
             f.write("\n".join(state._log_ring) + "\n")
         return {"ok": True, "path": path}
     except Exception as e:

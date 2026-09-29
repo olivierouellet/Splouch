@@ -114,7 +114,7 @@ def test_stale_window_matches_the_qt_display():
     client = os.path.join(REPO, "scoreboard", "client.py")
     stale = next(
         line
-        for line in Path(client).read_text().splitlines()
+        for line in Path(client).read_text(encoding="utf-8").splitlines()
         if line.startswith("_STALE")
     )
     assert int(stale.split("=")[1].strip()) == state.MEET_LIVE_STALE

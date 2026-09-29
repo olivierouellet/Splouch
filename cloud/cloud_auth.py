@@ -29,7 +29,7 @@ from cloud_paths import atomic_write
 
 def load_keys():
     try:
-        with open(cloud_paths.KEYS_FILE) as f:
+        with open(cloud_paths.KEYS_FILE, encoding="utf-8") as f:
             return json.load(f)
     except (FileNotFoundError, json.JSONDecodeError):
         return {}
@@ -48,7 +48,7 @@ def hash_password(password, salt=None):
 
 def load_creds():
     try:
-        with open(cloud_paths.CREDS_FILE) as f:
+        with open(cloud_paths.CREDS_FILE, encoding="utf-8") as f:
             return json.load(f)
     except (FileNotFoundError, json.JSONDecodeError):
         pass

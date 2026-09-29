@@ -311,7 +311,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
     # `format` shadows the builtin, but it is the name BaseHTTPRequestHandler gives
     # this parameter, and a caller is free to pass it by keyword.
-    def log_message(self, format, *args):
+    def log_message(self, format, *args):  # noqa: A002
         print(format % args, flush=True)
 
 

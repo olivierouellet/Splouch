@@ -615,7 +615,7 @@ def _ingest_byte(c, buf):
 
 def _play_cts_file(session_file, my_gen):
     """Play a timestamped or looping .cts/.raw session file."""
-    with open(session_file) as f:
+    with open(session_file, encoding="utf-8") as f:
         text = f.read()
     has_timestamps = bool(re.search(r"\[[0-9.]+\]", text))
     start_time = None

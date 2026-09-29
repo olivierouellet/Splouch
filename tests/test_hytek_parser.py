@@ -64,7 +64,7 @@ class TestHytekParser:
         assert loader.event_names[1] == "Girls 100 Freestyle"
 
     def test_display_string_format(self):
-        # Format is "(TEAM)[:4] Name Lastname"
+        # The format is the team code, cut to 4 characters, then the name.
         loader = load_rows(
             make_row("#1 Girls 100 Freestyle", 1, 3, "Smith, Jane", "AQUA")
         )

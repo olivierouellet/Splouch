@@ -428,7 +428,9 @@ def _settings_view(request, form):
                 for k, v in fonts.items():
                     lines.append(f'{k} = "{v}"\n')
                 with open(
-                    os.path.join(state.CUSTOM_THEME_FOLDER, code + ".toml"), "w"
+                    os.path.join(state.CUSTOM_THEME_FOLDER, code + ".toml"),
+                    "w",
+                    encoding="utf-8",
                 ) as fh:
                     fh.writelines(lines)
                 state.settings["active_theme"] = code
@@ -581,7 +583,7 @@ def _settings_view(request, form):
 
     comm_port_list = [
         (port, f"{port}: {desc}")
-        for port, desc, id in serial.tools.list_ports.comports()
+        for port, desc, _hwid in serial.tools.list_ports.comports()
     ]
     if state.settings["serial_port"] not in [port for port, desc in comm_port_list]:
         comm_port_list.insert(
