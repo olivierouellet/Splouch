@@ -101,16 +101,43 @@ jobs:
         # for. `term-missing` instead of `term` locally, for the line numbers.
         run: uv run pytest tests/ -q --cov --cov-report=term
 
-  shellcheck:
-    name: Shell scripts
+  lint:
+    name: Shell, YAML and Markdown
+    # Nothing here depends on the Pi's platform, so it runs apart from the Qt suite and
+    # reports in seconds rather than after it.
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    env:
+      # `uv run` would otherwise sync the whole project — FastAPI, and Qt with the
+      # extra — to run five linters that need none of it.
+      UV_NO_SYNC: "1"
     steps:
       - uses: actions/checkout@v7
 
-      - name: Install shellcheck
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends shellcheck
+      - uses: astral-sh/setup-uv@v10.2.0
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
 
-      - name: Check the installer and its scripts
+      - name: Install the linters
+        # Every one is a wheel in the dev group, so uv.lock pins them like Ruff and ty.
+        run: uv sync --only-group dev --frozen
+
+      - name: ShellCheck
         # -S warning: install.sh provisions both Pis
-        run: shellcheck -S warning install.sh install/*.sh install/scripts/*.sh
+        run: uv run shellcheck -S warning install.sh install/*.sh install/scripts/*.sh
+
+      - name: shfmt
+        # Check only. Its settings are in .editorconfig; `uv run shfmt -w install.sh install/` fixes.
+        run: uv run shfmt -d install.sh install/
+
+      - name: Workflows
+        # Expressions, runner labels, and ShellCheck over every `run:` block.
+        run: uv run actionlint
+
+      - name: YAML
+        run: uv run yamllint --strict .
+
+      - name: Markdown
+        # Rules in .markdownlint.json, which the VS Code extension reads too.
+        run: uv run rumdl check .

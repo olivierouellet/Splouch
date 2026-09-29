@@ -16,12 +16,14 @@ Tremplin currently serves its scoreboard and mobile views as HTML/CSS pages rend
 ## Why Move Away From HTML/CSS
 
 ### Mobile (phones)
+
 - Swimmer names truncate with CSS `text-overflow: ellipsis` — no way to shrink text to fit, only cut it
 - Safe area handling (`env(safe-area-inset-*)`) is fragile and leaks into complex layout hacks
 - The current `mobile.html` shell embeds 3 iframes inside a browser, adding a layer of complexity that causes its own rendering issues
 - Native `UILabel` (iOS) and `TextView` (Android) support auto-shrink to fit (`adjustsFontSizeToFitWidth`, `autoSizeTextType`) — the name truncation problem disappears
 
 ### Raspberry Pi / TV
+
 - Chromium uses significant RAM and CPU on RPi just to run a layout engine
 - 4K rendering in a browser on RPi is sluggish — the GPU is not used efficiently
 - Python + Qt (PySide6) renders natively, measures text precisely before drawing, and handles 4K/HiDPI as a first-class feature

@@ -6,7 +6,7 @@ On the Pi, `sudo apt update` fails for **every** repository with a `404 NOT FOUN
 on the `Release` file, even though the network is otherwise working (you can
 `ping` the mirrors fine):
 
-```
+```text
 Err:4 http://deb.debian.org/debian trixie Release
   404  NOT FOUND [IP: 151.101.138.132 80]
 Err:8 http://archive.raspberrypi.com/debian trixie Release
@@ -77,7 +77,7 @@ cat /etc/apt/sources.list.d/*.sources
 
 ### Before
 
-```
+```text
 Types: deb
 URIs: http://deb.debian.org/debian/
 Suites: trixie trixie-updates
@@ -87,7 +87,7 @@ Signed-By: /usr/share/keyrings/debian-archive-keyring.pgp
 
 ### After
 
-```
+```text
 Types: deb
 URIs: https://deb.debian.org/debian/
 Suites: trixie trixie-updates

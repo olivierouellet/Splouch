@@ -20,14 +20,15 @@
 
 ### Wiring (Male plug → FTDI adapter)
 
-```
+```text
 CTS pin 2 (Orange, Data+) → FTDI TXD+/RXD+ (orange/yellow wire)
 CTS pin 3 (Yellow, Data−) → FTDI TXD−/RXD− 
 CTS pin 4 (Black,  GND)   → FTDI GND
 ```
 
 Socket pinout (female socket on console, rear view):
-```
+
+```text
 TOP
 .---v---.
 /         \
@@ -59,7 +60,8 @@ The cipher uses a 32-entry lookup table of 32-bit words initialized from a
 256-character hex string. The state is per-stream and resets on any high-bit byte.
 
 **Mapping table** (hex string, 256 chars):
-```
+
+```text
 F37C65B454BD061AC3E2161EEBB26E8EEC95883E5CAB118EF3D7D3ACC6DA3754
 178C9A44414B16BC351AE48C30EA2D3839F009BCBC7F3AE4DECACED82AA0D794
 7A02E6B088BA6B4EA63D2E4463E1780A574169B4D0258F42023E04D0D0D19CF6
@@ -96,7 +98,7 @@ def remap_byte(src, state):
 
 State machine operating on remapped bytes:
 
-```
+```text
 IDLE
   byte & 0x80 != 0  →  store in buffer[0], checksum = raw_src & 0xFF
                      →  WAITING_LENGTH
@@ -124,7 +126,7 @@ After both remap passes, bytes describe a scoreboard as **modules** of **digits*
 
 ### Module header byte (bit 7 = 1)
 
-```
+```text
 Bit 7:    1   (marks module header)
 Bits 4-0: module number (0–30); 31 = non-module command
 Bit 6:    Universal flag (use module 0 as time display fallback)
@@ -136,14 +138,16 @@ Bit 5:    Horn active
 Two bytes per digit, alternating:
 
 **Descriptor byte:**
-```
+
+```text
 Bits 4-0: digit index (0–30); 31 = enter command mode (ignore following value byte)
 Bit 6:    decimal point lit
 Bit 5:    segment-mapped flag
 ```
 
 **Value byte:**
-```
+
+```text
 Bits 6-0: digit value; 0 is stored as 32 (space)
 ```
 
@@ -164,7 +168,7 @@ Bits 6-0: digit value; 0 is stored as 32 (space)
 
 ### Module 12 — Event / Heat
 
-```
+```text
 Event number: digits 1, 2, 3  (3 digits → integer)
 Heat  number: digits 7, 8, 9  (3 digits → integer)
 ```
@@ -180,6 +184,7 @@ Changes trigger `EventChange` / `HeatChange` events.
 | 4–9 | Time: `M M : S S . H H` (6 digits) |
 
 Time format produced by `GetTime(pool, module, startDigit=4, count=6)`:
+
 - `startDigit+2`: insert `':'` if decimal point lit at that digit
 - `startDigit+3`: insert `'.'` after digit if decimal point lit
 - Result: `MM:SS.HH` or `M:SS.HH`
@@ -268,6 +273,6 @@ Implemented in `console_decoders/cts_gen7.py` (`CTSGen7Decoder`).
 
 ## Sources
 
-- `fabriziobertocci/coloradoScoreboard` — `ctsScoreboardasync.js`: https://github.com/fabriziobertocci/coloradoScoreboard
-- Colorado Time Systems Gen7 product page: https://coloradotime.com/products/gen7-swim-timing-serial
+- `fabriziobertocci/coloradoScoreboard` — `ctsScoreboardasync.js`: <https://github.com/fabriziobertocci/coloradoScoreboard>
+- Colorado Time Systems Gen7 product page: <https://coloradotime.com/products/gen7-swim-timing-serial>
 - F1034 manual (Rev 202405) — not publicly accessible in text form

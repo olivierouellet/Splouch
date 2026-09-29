@@ -34,7 +34,7 @@ NAME="${1:-splouch}"
 RUN_USER="${SUDO_USER:-$(stat -c '%U' "$INSTALL_DIR")}"
 UVICORN_BIN="$INSTALL_DIR/.venv/bin/uvicorn"
 
-tee "/etc/systemd/system/${NAME}.service" > /dev/null <<EOF
+tee "/etc/systemd/system/${NAME}.service" >/dev/null <<EOF
 [Unit]
 Description=Splouch FastAPI server
 After=network.target

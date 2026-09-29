@@ -149,7 +149,7 @@ drained (and discarded, if analytics is disabled) on shutdown too.
 
 ### Diagram
 
-```
+```text
                        ┌─────────────────────────────────────────┐
    phones / TVs  <--->  WebSockets   (event loop, main thread)    │
    (JSON frames)       │  async handlers • bus.ConnectionManager  │

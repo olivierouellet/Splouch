@@ -20,19 +20,23 @@ TARGET_USER="${SPLOUCH_TARGET_USER:-${SUDO_USER:-$USER}}"
 TARGET_HOME="$(getent passwd "$TARGET_USER" | cut -d: -f6)"
 TARGET_HOME="${TARGET_HOME:-$HOME}"
 
-INSTALL_DIR="$TARGET_HOME/Splouch"          # default for fresh installs; existing checkouts are auto-detected
+INSTALL_DIR="$TARGET_HOME/Splouch" # default for fresh installs; existing checkouts are auto-detected
 SERVER_IP="10.10.10.10/24"
 KIOSK_GATEWAY="10.0.0.1"
 SERVER_HOSTNAME="splouch"                   # broadcasts as splouch.local on the network
-MDNS_ALIASES="tableau.local marcador.local"  # the board's name in each language it ships
+MDNS_ALIASES="tableau.local marcador.local" # the board's name in each language it ships
 SCOREBOARD_URL="http://${SERVER_HOSTNAME}.local"
 SERIAL_PORT="/dev/ttyUSB0"
 # ──────────────────────────────────────────────────────────────────────────────
 
-RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; BOLD='\033[1m'; NC='\033[0m'
-info()    { echo -e "${GREEN}[INFO]${NC}  $*"; }
-warn()    { echo -e "${YELLOW}[WARN]${NC}  $*"; }
-error()   { echo -e "${RED}[ERROR]${NC} $*" >&2; }
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BOLD='\033[1m'
+NC='\033[0m'
+info() { echo -e "${GREEN}[INFO]${NC}  $*"; }
+warn() { echo -e "${YELLOW}[WARN]${NC}  $*"; }
+error() { echo -e "${RED}[ERROR]${NC} $*" >&2; }
 section() { echo -e "\n${BOLD}──── $* ────${NC}"; }
 # Auto-answer No in non-interactive mode (the in-app Reinstall has no TTY), so
 # optional prompts (static IP, RTC, reboot) safely keep the current config.
@@ -41,7 +45,8 @@ confirm() {
         info "Non-interactive — skipping: $1"
         return 1
     fi
-    read -rp "$1 [y/N] " _r; [[ "${_r:-}" =~ ^[Yy]$ ]]
+    read -rp "$1 [y/N] " _r
+    [[ "${_r:-}" =~ ^[Yy]$ ]]
 }
 
 # Run a command as the target user when we're root (detached reinstall); run it
@@ -86,10 +91,19 @@ if [[ -z "$ROLE" ]]; then
         "Cloud   (Debian VM — public relay server)" \
         "Quit"; do
         case "$_choice" in
-            Server*) ROLE="server"; break ;;
-            Kiosk*)  ROLE="kiosk";  break ;;
-            Cloud*)  ROLE="cloud";  break ;;
-            Quit)    exit 0 ;;
+            Server*)
+                ROLE="server"
+                break
+                ;;
+            Kiosk*)
+                ROLE="kiosk"
+                break
+                ;;
+            Cloud*)
+                ROLE="cloud"
+                break
+                ;;
+            Quit) exit 0 ;;
         esac
     done
 fi
@@ -111,8 +125,14 @@ if [[ -z "$VERSION_CHOICE" ]]; then
         "Latest release (recommended)" \
         "Master (development branch)"; do
         case "$_choice" in
-            Latest*) VERSION_CHOICE="latest"; break ;;
-            Master*) VERSION_CHOICE="master"; break ;;
+            Latest*)
+                VERSION_CHOICE="latest"
+                break
+                ;;
+            Master*)
+                VERSION_CHOICE="master"
+                break
+                ;;
         esac
     done
 fi
@@ -131,7 +151,10 @@ configure_static_ip() {
     echo
     warn "About to set eth0 to static IP ${ip%/*}."
     warn "If you are connected via SSH over Ethernet this will disconnect you."
-    confirm "Configure static IP now?" || { info "Skipping network configuration."; return 0; }
+    confirm "Configure static IP now?" || {
+        info "Skipping network configuration."
+        return 0
+    }
 
     if systemctl is-active --quiet dhcpcd 2>/dev/null; then
         # Raspberry Pi OS Bullseye — dhcpcd
@@ -140,7 +163,7 @@ configure_static_ip() {
             {
                 printf '\n# Splouch\ninterface eth0\nstatic ip_address=%s\n' "$ip"
                 [[ -n "$gateway" ]] && printf 'static routers=%s\n' "$gateway"
-            } | sudo tee -a "$conf" > /dev/null
+            } | sudo tee -a "$conf" >/dev/null
         else
             warn "dhcpcd.conf already has a Splouch entry — skipping."
         fi
@@ -193,7 +216,6 @@ fetch_and_ff() {
         || warn "Could not fast-forward onto $upstream — using the on-disk code."
 }
 
-
 # ── Version checkout ───────────────────────────────────────────────────────────
 # Shared by the server and kiosk roles so both resolve $VERSION_CHOICE to the SAME
 # ref. That is what keeps the Qt display and the server speaking the same
@@ -203,7 +225,7 @@ checkout_version() {
     if [[ "$VERSION_CHOICE" == "latest" ]]; then
         local latest_tag
         latest_tag=$(git -C "$dir" tag -l --sort=-version:refname \
-                     | grep -E '^v[0-9]{4}\.[0-9]{2}\.[0-9]+$' | head -1)
+            | grep -E '^v[0-9]{4}\.[0-9]{2}\.[0-9]+$' | head -1)
         if [[ -n "$latest_tag" ]]; then
             git -C "$dir" checkout -B release "$latest_tag"
             info "Version: $latest_tag"
@@ -289,7 +311,7 @@ if [[ "$ROLE" == "server" ]]; then
 
     section "Sudo permissions"
     SUDOERS_FILE="/etc/sudoers.d/splouch"
-    sudo tee "$SUDOERS_FILE" > /dev/null <<EOF
+    sudo tee "$SUDOERS_FILE" >/dev/null <<EOF
 $TARGET_USER ALL=(ALL) NOPASSWD: /usr/bin/timedatectl, /usr/bin/systemctl restart systemd-timesyncd, /usr/bin/nmcli, /usr/bin/apt-get, /usr/bin/systemctl restart splouch, /usr/sbin/reboot, /usr/sbin/poweroff, $INSTALL_DIR/install/scripts/rtc_setup.sh *, $INSTALL_DIR/install/scripts/refresh-service.sh, $INSTALL_DIR/install/scripts/web-reinstall.sh *
 EOF
     sudo chmod 0440 "$SUDOERS_FILE"
@@ -305,7 +327,7 @@ EOF
 
     section "Data folders"
     as_user mkdir -p "$TARGET_HOME/SplouchData/meet" "$TARGET_HOME/SplouchData/images" \
-                     "$TARGET_HOME/SplouchData/icons" "$TARGET_HOME/SplouchData/recorded"
+        "$TARGET_HOME/SplouchData/icons" "$TARGET_HOME/SplouchData/recorded"
     # shellcheck disable=SC2088  # printed at the operator, never expanded — ~ is
     # what they see in the admin UI and the docs, so $HOME would read worse.
     info "~/SplouchData/{meet,images,icons,recorded} created."
@@ -327,7 +349,7 @@ EOF
     XTERM_CSS="$INSTALL_DIR/shared/static/css/xterm.min.css"
     if [[ ! -f "$XTERM_JS" ]]; then
         curl -fsSL "https://cdn.jsdelivr.net/npm/xterm@${XTERM_VER}/lib/xterm.min.js" -o "$XTERM_JS"
-        curl -fsSL "https://cdn.jsdelivr.net/npm/xterm@${XTERM_VER}/css/xterm.css"    -o "$XTERM_CSS"
+        curl -fsSL "https://cdn.jsdelivr.net/npm/xterm@${XTERM_VER}/css/xterm.css" -o "$XTERM_CSS"
         info "xterm.js ${XTERM_VER} downloaded."
     else
         info "xterm.js already present."
@@ -336,7 +358,7 @@ EOF
     section "Desktop shortcuts"
     mkdir -p "$TARGET_HOME/Desktop"
 
-    cat > "$TARGET_HOME/Desktop/Splouch.desktop" <<EOF
+    cat >"$TARGET_HOME/Desktop/Splouch.desktop" <<EOF
 [Desktop Entry]
 Version=1.0
 Type=Application
@@ -347,7 +369,7 @@ Icon=video-display
 Terminal=false
 StartupNotify=false
 EOF
-    cat > "$TARGET_HOME/Desktop/Settings.desktop" <<EOF
+    cat >"$TARGET_HOME/Desktop/Settings.desktop" <<EOF
 [Desktop Entry]
 Version=1.0
 Type=Application
@@ -358,7 +380,7 @@ Icon=preferences-system
 Terminal=false
 StartupNotify=false
 EOF
-    cat > "$TARGET_HOME/Desktop/Mobile.desktop" <<EOF
+    cat >"$TARGET_HOME/Desktop/Mobile.desktop" <<EOF
 [Desktop Entry]
 Version=1.0
 Type=Application
@@ -369,7 +391,7 @@ Icon=input-tablet
 Terminal=false
 StartupNotify=false
 EOF
-    cat > "$TARGET_HOME/Desktop/Reinstall.desktop" <<EOF
+    cat >"$TARGET_HOME/Desktop/Reinstall.desktop" <<EOF
 [Desktop Entry]
 Version=1.0
 Type=Application
@@ -381,16 +403,16 @@ Terminal=false
 StartupNotify=false
 EOF
     chmod +x "$TARGET_HOME/Desktop/Splouch.desktop" \
-              "$TARGET_HOME/Desktop/Settings.desktop" \
-              "$TARGET_HOME/Desktop/Mobile.desktop" \
-              "$TARGET_HOME/Desktop/Reinstall.desktop"
+        "$TARGET_HOME/Desktop/Settings.desktop" \
+        "$TARGET_HOME/Desktop/Mobile.desktop" \
+        "$TARGET_HOME/Desktop/Reinstall.desktop"
 
     # Disable the "executable script" dialog in PCManFM/libfm
     mkdir -p "$TARGET_HOME/.config/libfm"
     if grep -q "quick_exec" "$TARGET_HOME/.config/libfm/libfm.conf" 2>/dev/null; then
         sed -i 's/quick_exec=.*/quick_exec=1/' "$TARGET_HOME/.config/libfm/libfm.conf"
     else
-        echo -e "[config]\nquick_exec=1" >> "$TARGET_HOME/.config/libfm/libfm.conf"
+        echo -e "[config]\nquick_exec=1" >>"$TARGET_HOME/.config/libfm/libfm.conf"
     fi
     info "Desktop shortcuts created (Splouch, Settings, Mobile)."
 
@@ -461,7 +483,7 @@ PYEOF
         mkdir -p "$PCMANFM_CONF"
         # Set wallpaper for both monitor outputs (pcmanfm desktop config)
         for conf in "$PCMANFM_CONF/desktop-items-0.conf" "$PCMANFM_CONF/desktop-items-1.conf"; do
-            cat > "$conf" <<WALLEOF
+            cat >"$conf" <<WALLEOF
 [*]
 wallpaper_mode=fit
 wallpaper_common=1
@@ -523,7 +545,7 @@ WALLEOF
     if grep -q "127.0.1.1" /etc/hosts; then
         sudo sed -i "s/127\.0\.1\.1.*/127.0.1.1\t${SERVER_HOSTNAME}/" /etc/hosts
     else
-        echo "127.0.1.1	${SERVER_HOSTNAME}" | sudo tee -a /etc/hosts > /dev/null
+        echo "127.0.1.1	${SERVER_HOSTNAME}" | sudo tee -a /etc/hosts >/dev/null
     fi
     info "Hostname set to ${SERVER_HOSTNAME} — device will appear as ${SERVER_HOSTNAME}.local"
 
@@ -538,7 +560,7 @@ WALLEOF
     #   - publish-aaaa-on-ipv4=no stops the AAAA record being announced over
     #     IPv4 (this one defaults to YES and is the actual culprit)
     # See docs/troubleshooting-splouch-local-unreachable.md
-    _avahi_set() {  # _avahi_set <key> <value> <section>
+    _avahi_set() { # _avahi_set <key> <value> <section>
         if grep -q "^#*[[:space:]]*$1=" /etc/avahi/avahi-daemon.conf; then
             sudo sed -i "s/^#*[[:space:]]*$1=.*/$1=$2/" /etc/avahi/avahi-daemon.conf
         else
@@ -552,7 +574,7 @@ WALLEOF
     # Translated aliases are published at the live interface IP, re-detected at
     # service start by mdns-aliases.sh — so they resolve on a DHCP setup instead
     # of the old install-time-baked static 10.10.10.10.
-    sudo tee /etc/systemd/system/splouch-mdns-aliases.service > /dev/null <<EOF
+    sudo tee /etc/systemd/system/splouch-mdns-aliases.service >/dev/null <<EOF
 [Unit]
 Description=mDNS aliases for Splouch
 After=avahi-daemon.service
@@ -577,7 +599,7 @@ EOF
     # on the pool WiFi never types an address (docs/app.md `P-12`).
     # `kind` and `path` mirror GET /server so a client can list before it connects.
     sudo mkdir -p /etc/avahi/services
-    sudo tee /etc/avahi/services/splouch.service > /dev/null <<EOF
+    sudo tee /etc/avahi/services/splouch.service >/dev/null <<EOF
 <?xml version="1.0" standalone='no'?><!DOCTYPE service-group SYSTEM "avahi-service.dtd">
 <service-group>
   <name replace-wildcards="yes">Splouch on %h</name>
@@ -593,7 +615,7 @@ EOF
     info "Discoverable as _splouch._tcp on port 5000"
 
     section "Port 80 redirect"
-    sudo tee /etc/systemd/system/splouch-redirect.service > /dev/null <<EOF
+    sudo tee /etc/systemd/system/splouch-redirect.service >/dev/null <<EOF
 [Unit]
 Description=Splouch port 80 to 5000 redirect
 After=network.target
@@ -661,9 +683,8 @@ strip_kiosk_autostart() {
         /chromium.*--kiosk.*--app=/             { next }
         /start-scoreboard\.sh/                  { next }
         { print }
-    ' "$file" > "$file.tmp" && mv "$file.tmp" "$file"
+    ' "$file" >"$file.tmp" && mv "$file.tmp" "$file"
 }
-
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # KIOSK (Pi #2)
@@ -715,7 +736,7 @@ if [[ "$ROLE" == "kiosk" ]]; then
     # registers them itself, so no font packages are needed — fonts-dejavu-core is
     # only the last-resort monospace fallback if a theme names something we lack.
     sudo apt-get install -y libxcb-cursor0 libxkbcommon-x11-0 libgl1 \
-                            libxkbcommon0 libegl1 fonts-dejavu-core || true
+        libxkbcommon0 libegl1 fonts-dejavu-core || true
 
     # --extra scoreboard pulls PySide6, which only the display role needs; the
     # server Pi and the cloud VM stay Qt-free (see pyproject.toml).
@@ -737,7 +758,7 @@ if [[ "$ROLE" == "kiosk" ]]; then
     mkdir -p "$(dirname "$SCOREBOARD_ENV")"
     if [[ ! -f "$SCOREBOARD_ENV" ]]; then
         printf '# Splouch scoreboard — server this display connects to.\nSPLOUCH_SERVER=%s\n' \
-               "$SCOREBOARD_URL" > "$SCOREBOARD_ENV"
+            "$SCOREBOARD_URL" >"$SCOREBOARD_ENV"
         info "Server address written to $SCOREBOARD_ENV ($SCOREBOARD_URL)"
     else
         info "Server address already set in $SCOREBOARD_ENV — keeping it."
@@ -759,7 +780,7 @@ if [[ "$ROLE" == "kiosk" ]]; then
     fi
     # Appending a second copy would leave config.txt with the HDMI mode set twice.
     if ! grep -q "# Splouch kiosk" "$CONFIG_TXT"; then
-        sudo tee -a "$CONFIG_TXT" > /dev/null <<EOF
+        sudo tee -a "$CONFIG_TXT" >/dev/null <<EOF
 
 # Splouch kiosk — force 1920x1080 HDMI output
 hdmi_force_hotplug=1
@@ -783,12 +804,12 @@ EOF
     mkdir -p "$(dirname "$LABWC_AUTOSTART")"
     touch "$LABWC_AUTOSTART"
     strip_kiosk_autostart "$LABWC_AUTOSTART"
-    printf '\n# Splouch kiosk\n%s &\n' "$KIOSK_CMD" >> "$LABWC_AUTOSTART"
+    printf '\n# Splouch kiosk\n%s &\n' "$KIOSK_CMD" >>"$LABWC_AUTOSTART"
 
     # Older Raspberry Pi OS releases — LXDE / X11 session
     AUTOSTART_DIR=/etc/xdg/lxsession/LXDE-pi
     sudo mkdir -p "$AUTOSTART_DIR"
-    sudo tee "$AUTOSTART_DIR/autostart" > /dev/null <<EOF
+    sudo tee "$AUTOSTART_DIR/autostart" >/dev/null <<EOF
 @xset s off
 @xset -dpms
 @xset s noblank
@@ -800,7 +821,7 @@ EOF
     # Ctrl+Q quits the scoreboard to the desktop; this icon is how it gets back.
     # Without it the only way to restart the display is an SSH session.
     mkdir -p "$TARGET_HOME/Desktop"
-    cat > "$TARGET_HOME/Desktop/Scoreboard.desktop" <<EOF
+    cat >"$TARGET_HOME/Desktop/Scoreboard.desktop" <<EOF
 [Desktop Entry]
 Version=1.0
 Type=Application
@@ -811,7 +832,7 @@ Icon=video-display
 Terminal=false
 StartupNotify=false
 EOF
-    cat > "$TARGET_HOME/Desktop/Settings.desktop" <<EOF
+    cat >"$TARGET_HOME/Desktop/Settings.desktop" <<EOF
 [Desktop Entry]
 Version=1.0
 Type=Application
@@ -823,14 +844,14 @@ Terminal=false
 StartupNotify=false
 EOF
     chmod +x "$TARGET_HOME/Desktop/Scoreboard.desktop" \
-             "$TARGET_HOME/Desktop/Settings.desktop"
+        "$TARGET_HOME/Desktop/Settings.desktop"
 
     # Disable PCManFM's "execute this file?" dialog so one double-click launches.
     mkdir -p "$TARGET_HOME/.config/libfm"
     if grep -q "quick_exec" "$TARGET_HOME/.config/libfm/libfm.conf" 2>/dev/null; then
         sed -i 's/quick_exec=.*/quick_exec=1/' "$TARGET_HOME/.config/libfm/libfm.conf"
     else
-        echo -e "[config]\nquick_exec=1" >> "$TARGET_HOME/.config/libfm/libfm.conf"
+        echo -e "[config]\nquick_exec=1" >>"$TARGET_HOME/.config/libfm/libfm.conf"
     fi
     info "Desktop shortcuts created (Scoreboard, Settings)."
 
@@ -841,7 +862,7 @@ EOF
         PCMANFM_CONF="$HOME/.config/pcmanfm/LXDE-pi"
         mkdir -p "$PCMANFM_CONF"
         for conf in "$PCMANFM_CONF/desktop-items-0.conf" "$PCMANFM_CONF/desktop-items-1.conf"; do
-            cat > "$conf" <<WALLEOF
+            cat >"$conf" <<WALLEOF
 [*]
 wallpaper_mode=fit
 wallpaper_common=1
@@ -900,7 +921,7 @@ if [[ "$ROLE" == "cloud" ]]; then
     check_cloud_python() {
         if ! python3 -c 'import sys; sys.exit(sys.version_info < (3, 11))' 2>/dev/null; then
             error "The cloud server needs python3 3.11 or newer (Debian 12+, Ubuntu 24.04+);" \
-                  "this VM has $(python3 --version 2>/dev/null || echo 'no python3')."
+                "this VM has $(python3 --version 2>/dev/null || echo 'no python3')."
             exit 1
         fi
     }
@@ -927,8 +948,10 @@ if [[ "$ROLE" == "cloud" ]]; then
         # Set a password so splouch can use sudo normally after the install
         echo
         while true; do
-            read -rsp "Set a password for '$CLOUD_USER': " _pw1; echo
-            read -rsp "Confirm password: " _pw2; echo
+            read -rsp "Set a password for '$CLOUD_USER': " _pw1
+            echo
+            read -rsp "Confirm password: " _pw2
+            echo
             if [[ "$_pw1" == "$_pw2" && -n "$_pw1" ]]; then
                 echo "$CLOUD_USER:$_pw1" | chpasswd
                 info "Password set for '$CLOUD_USER'."
@@ -942,7 +965,7 @@ if [[ "$ROLE" == "cloud" ]]; then
         # named for what it is: the cleanup at the end of this role deletes it by
         # name, and a grant this broad must not be able to hide behind a filename
         # that looks like a permanent part of the install.
-        echo "$CLOUD_USER ALL=(ALL) NOPASSWD:ALL" > "$TEMP_SUDOERS_FILE"
+        echo "$CLOUD_USER ALL=(ALL) NOPASSWD:ALL" >"$TEMP_SUDOERS_FILE"
         chmod 0440 "$TEMP_SUDOERS_FILE"
         info "Temporary NOPASSWD sudo granted for install."
 
@@ -994,7 +1017,7 @@ if [[ "$ROLE" == "cloud" ]]; then
     check_cloud_python
 
     section "fail2ban"
-    sudo tee /etc/fail2ban/jail.d/sshd.local > /dev/null <<'EOF'
+    sudo tee /etc/fail2ban/jail.d/sshd.local >/dev/null <<'EOF'
 [sshd]
 enabled  = true
 maxretry = 5
@@ -1005,7 +1028,7 @@ EOF
     info "fail2ban enabled — SSH: 5 failures in 10 min → 1 h ban."
 
     section "Automatic security updates"
-    sudo tee /etc/apt/apt.conf.d/20auto-upgrades > /dev/null <<'EOF'
+    sudo tee /etc/apt/apt.conf.d/20auto-upgrades >/dev/null <<'EOF'
 APT::Periodic::Update-Package-Lists "1";
 APT::Periodic::Unattended-Upgrade "1";
 EOF
@@ -1059,7 +1082,7 @@ PYEOF
         # for the window in which SECRET_KEY, ADMIN_PASSWORD and DEPLOY_SECRET are
         # written into it.
         install -m 600 /dev/null "$CLOUD_DIR/.env"
-        cat "$CLOUD_DIR/.env.example" > "$CLOUD_DIR/.env"
+        cat "$CLOUD_DIR/.env.example" >"$CLOUD_DIR/.env"
         SECRET=$(python3 -c "import secrets; print(secrets.token_hex(32))")
         _set_env SECRET_KEY "$SECRET"
 
@@ -1070,8 +1093,10 @@ PYEOF
         info "ADMIN_USER set to '${_au}'."
 
         while true; do
-            read -rsp "Set the admin password for the /admin panel: " _ap1; echo
-            read -rsp "Confirm admin password: " _ap2; echo
+            read -rsp "Set the admin password for the /admin panel: " _ap1
+            echo
+            read -rsp "Confirm admin password: " _ap2
+            echo
             if [[ "$_ap1" == "$_ap2" && -n "$_ap1" ]]; then
                 _set_env ADMIN_PASSWORD "$_ap1"
                 info "ADMIN_PASSWORD set."
@@ -1109,7 +1134,7 @@ PYEOF
         # Pre-existing install: lift the domain out of the Caddyfile, where earlier
         # versions of this script sed-ed it in, so nobody has to retype it.
         _caddy_domain=$(grep -E '^[^#[:space:]]+[[:space:]]*\{' "$CLOUD_DIR/Caddyfile" \
-                        | awk '{print $1}' | head -1)
+            | awk '{print $1}' | head -1)
         if [[ "$_caddy_domain" != '{$SPLOUCH_DOMAIN}' && "$_caddy_domain" != "scores.example.com" ]]; then
             _current_domain="$_caddy_domain"
             [[ -n "$_current_domain" ]] && info "Recovered domain from Caddyfile: $_current_domain"
@@ -1125,18 +1150,18 @@ PYEOF
     if grep -q '^SPLOUCH_DOMAIN=' "$CLOUD_DIR/.env"; then
         sed -i "s|^SPLOUCH_DOMAIN=.*|SPLOUCH_DOMAIN=${_domain}|" "$CLOUD_DIR/.env"
     else
-        echo "SPLOUCH_DOMAIN=${_domain}" >> "$CLOUD_DIR/.env"
+        echo "SPLOUCH_DOMAIN=${_domain}" >>"$CLOUD_DIR/.env"
     fi
     info "Domain set in .env: ${_domain:-<unset>}"
 
     section "Deploy webhook"
-    if grep -q "^DEPLOY_SECRET=change_me" "$CLOUD_DIR/.env" 2>/dev/null || \
-       ! grep -q "^DEPLOY_SECRET=" "$CLOUD_DIR/.env" 2>/dev/null; then
+    if grep -q "^DEPLOY_SECRET=change_me" "$CLOUD_DIR/.env" 2>/dev/null \
+        || ! grep -q "^DEPLOY_SECRET=" "$CLOUD_DIR/.env" 2>/dev/null; then
         _deploy_secret=$(python3 -c "import secrets; print(secrets.token_hex(32))")
         if grep -q "^DEPLOY_SECRET=" "$CLOUD_DIR/.env" 2>/dev/null; then
             sed -i "s/^DEPLOY_SECRET=.*$/DEPLOY_SECRET=${_deploy_secret}/" "$CLOUD_DIR/.env"
         else
-            echo "DEPLOY_SECRET=${_deploy_secret}" >> "$CLOUD_DIR/.env"
+            echo "DEPLOY_SECRET=${_deploy_secret}" >>"$CLOUD_DIR/.env"
         fi
         info "DEPLOY_SECRET generated and saved to .env"
     else
@@ -1146,7 +1171,7 @@ PYEOF
         -e "s|YOUR_INSTALL_DIR|${INSTALL_DIR}|g" \
         -e "s|YOUR_USER|${USER}|g" \
         "$CLOUD_DIR/deploy_webhook.service" \
-        > /tmp/deploy-webhook.service
+        >/tmp/deploy-webhook.service
     sudo install -m 644 /tmp/deploy-webhook.service /etc/systemd/system/deploy-webhook.service
     rm /tmp/deploy-webhook.service
     sudo systemctl daemon-reload
@@ -1157,20 +1182,19 @@ PYEOF
 
     # Allow the webhook process to restart itself after a deploy (no password prompt)
     echo "${USER} ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart deploy-webhook" \
-        | sudo tee /etc/sudoers.d/splouch-webhook > /dev/null
+        | sudo tee /etc/sudoers.d/splouch-webhook >/dev/null
     sudo chmod 0440 /etc/sudoers.d/splouch-webhook
     info "Sudoers rule added: deploy-webhook can self-restart without a password."
-
 
     section "Firewall"
     if command -v ufw &>/dev/null; then
         sudo ufw --force enable
         sudo ufw default deny incoming
         sudo ufw default allow outgoing
-        sudo ufw allow 22/tcp    # SSH
-        sudo ufw allow 80/tcp    # HTTP  (Caddy ACME challenge + redirect)
-        sudo ufw allow 443/tcp   # HTTPS
-        sudo ufw allow 443/udp   # HTTP/3
+        sudo ufw allow 22/tcp  # SSH
+        sudo ufw allow 80/tcp  # HTTP  (Caddy ACME challenge + redirect)
+        sudo ufw allow 443/tcp # HTTPS
+        sudo ufw allow 443/udp # HTTP/3
         info "Firewall enabled — ports 22, 80, 443 open."
     else
         warn "ufw not found — configure firewall manually (open ports 22, 80, 443)."

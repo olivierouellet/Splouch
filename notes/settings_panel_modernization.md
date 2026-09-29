@@ -31,6 +31,7 @@ Goal: less code, no new runtime, identical appearance, incremental (tab by tab).
 ## The three levers
 
 ### Lever 1 — HTMX (removes the fetch/DOM glue)
+
 Keep the exact Jinja/Bootstrap markup; add declarative `hx-*` attributes and have the
 existing endpoints **return small HTML fragments instead of JSON**. Polling becomes
 `hx-trigger="every Ns"`; `confirm()` dialogs become `hx-confirm`; the DOM-building JS
@@ -41,6 +42,7 @@ strings move into terse Jinja partials. **The rendered HTML is identical → sam
 - Vendor `htmx.min.js` into `static/js/` (like `ws.js`) — one ~50 KB file, offline, shared by every tab.
 
 ### Lever 2 — extract inline styles into classes
+
 Replace the repeated inline-style patterns (the 18 cards, 83 flex rows, etc.) with a
 handful of reusable classes (`.scard`, `.frow`, …). Do it **as you touch each tab** in
 Lever 1 — you're already editing that markup. Removes most of the 449 inline styles and
@@ -48,6 +50,7 @@ makes the file dramatically more readable. On BS3 these are small custom CSS cla
 BS5 (Lever 3) they become Bootstrap utilities.
 
 ### Lever 3 — Bootstrap 3 → 5.3 + `data-bs-theme` color modes (the finisher)
+
 BS 5.3's [color modes](https://getbootstrap.com/docs/5.3/customize/color-modes/) give
 first-class light/dark theming: set `data-bs-theme="dark"` on `<html>` and every
 component (buttons, forms, tables, **modals**, dropdowns, cards) renders its dark variant

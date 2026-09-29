@@ -26,7 +26,8 @@ The Omnisport 2000 uses ASCII text packets delimited by control characters:
 | CR   | 0x0D | Packet terminator (follows EOT) |
 
 Packet structure:
-```
+
+```text
 SYN ... STX <payload> EOT CR
 ```
 
@@ -43,7 +44,7 @@ All payload data is ASCII text. The first character is a type prefix.
 
 ### Running Time — prefix `t`
 
-```
+```text
 t<MM:SS.T>
 ```
 
@@ -58,7 +59,7 @@ Example: `t1:02.4` → 1 minute, 2.4 seconds
 
 ### Lane Finish — prefix `l` (lowercase L)
 
-```
+```text
 l<lane> <place> <MM:SS.CC>
 ```
 
@@ -75,7 +76,7 @@ Example: `l3 1 1:11.63` → Lane 3, 1st place, 1:11.63
 
 Split times are transmitted **natively** in the serial stream (unlike CTS Gen6, which infers them server-side).
 
-```
+```text
 s<lane> <place> <MM:SS.CC> <laps>
 ```
 
@@ -101,6 +102,7 @@ Example: `s3 1 1:11.63 2` → Lane 3, 1st at split, 1:11.63, 2 lengths completed
 ## Split Handling
 
 Because split times arrive as explicit `s` packets, the decoder should:
+
 - Emit `lane_splits{n}` = `laps` value from each `s` packet
 - Update `lane_time{n}` with the split time string
 - Not rely on touchpad-transition inference (as Gen6 does)
@@ -126,7 +128,7 @@ The Omnisport 2000 **does not transmit event or heat numbers** over the RTD seri
 
 ## Sources
 
-- XY Kao — *Decoding the Daktronics Omnisport 2000*: https://xy-kao.com/projects/decoding-daktronics-omnisport-2000/
-- GitHub reverse-engineering project: https://github.com/xyk2/daktronics
-- Hy-Tek interface documentation: https://hytek.active.com/user_guides_html/swmm8/dak2000.htm
-- ManualsLib Omnisport 2000: https://www.manualslib.com/manual/1798873/Daktronics-Omnisport-2000.html
+- XY Kao — *Decoding the Daktronics Omnisport 2000*: <https://xy-kao.com/projects/decoding-daktronics-omnisport-2000/>
+- GitHub reverse-engineering project: <https://github.com/xyk2/daktronics>
+- Hy-Tek interface documentation: <https://hytek.active.com/user_guides_html/swmm8/dak2000.htm>
+- ManualsLib Omnisport 2000: <https://www.manualslib.com/manual/1798873/Daktronics-Omnisport-2000.html>

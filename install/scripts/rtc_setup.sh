@@ -50,7 +50,7 @@ case "$ACTION" in
 
         if ! grep -qxF "$OVERLAY_LINE" "$CONFIG_TXT"; then
             echo "Adding '$OVERLAY_LINE' to $CONFIG_TXT"
-            echo "$OVERLAY_LINE" >> "$CONFIG_TXT"
+            echo "$OVERLAY_LINE" >>"$CONFIG_TXT"
         else
             echo "'$OVERLAY_LINE' already present in $CONFIG_TXT"
         fi

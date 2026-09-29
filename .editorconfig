@@ -1,0 +1,10 @@
+# shfmt reads its settings from here, so the CLI, CI and the editor agree without
+# repeating flags. The shfmt keys match how install/ was already written: 4-space
+# indent, `case` arms indented, and `||` / `|` leading a continuation line.
+root = true
+
+[*.sh]
+indent_style = space
+indent_size = 4
+switch_case_indent = true
+binary_next_line = true

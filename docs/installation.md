@@ -66,6 +66,7 @@ curl -fsSL https://raw.githubusercontent.com/olivierouellet/Splouch/master/insta
 ```
 
 The script:
+
 - Installs Python dependencies via `uv`
 - Creates the `splouch` systemd service (starts on boot)
 - Adds the user to the `dialout` group for serial port access

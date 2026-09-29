@@ -35,7 +35,19 @@ dependencies = [
 scoreboard = ["pyside6-essentials>=6.5"]
 
 [dependency-groups]
-dev = ["pytest", "pytest-cov", "ruff", "ty"]
+dev = [
+    "pytest",
+    "pytest-cov",
+    "ruff",
+    "ty",
+    # Non-Python linters, as wheels so uv.lock pins them like the rest. CI's `lint`
+    # job installs this group alone.
+    "actionlint-py",  # .github/workflows/
+    "rumdl",          # Markdown, rules in .markdownlint.json
+    "shellcheck-py",
+    "shfmt-py",       # settings in .editorconfig
+    "yamllint",       # rules in .yamllint.yml
+]
 
 [tool.pytest.ini_options]
 # Every import root, so no test needs `sys.path` surgery of its own. The same

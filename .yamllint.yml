@@ -1,0 +1,15 @@
+# yamllint's defaults, minus the rules that fight how this tree is written.
+extends: default
+ignore-from-file: .gitignore
+
+rules:
+  # Same call as MD013 in .markdownlint.json: issue-template prose wraps where it reads well.
+  line-length: disable
+  # GitHub's own templates and workflows never start with `---`.
+  document-start: disable
+  # `on:` is a key in every workflow, not a boolean.
+  truthy:
+    check-keys: false
+  # docker-compose.yml aligns its environment values into a column.
+  colons:
+    max-spaces-after: -1

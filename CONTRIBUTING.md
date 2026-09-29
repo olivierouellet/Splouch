@@ -56,17 +56,25 @@ how to add a console decoder.
 
 ## Before you open a pull request
 
-All four must pass:
+All of these must pass. The first four are the Python suite; the rest take seconds
+and only matter if you touched shell, YAML or Markdown:
 
 ```bash
 uv run pytest tests/      # about a minute with Qt, seconds without
 uv run ruff format --check
 uv run ruff check
 uv run ty check
+
+uv run shellcheck -S warning install.sh install/*.sh install/scripts/*.sh
+uv run shfmt -d install.sh install/
+uv run actionlint
+uv run yamllint --strict .
+uv run rumdl check .
 ```
 
-`uv run ruff format` and `uv run ruff check --fix` fix the first two for you, and
-VS Code with the recommended Ruff extension does both on save.
+`uv run ruff format` and `uv run ruff check --fix` fix the Ruff two for you, and
+VS Code with the recommended Ruff extension does both on save. `uv run shfmt -w
+install.sh install/` and `uv run rumdl fmt .` do the same for shell and Markdown.
 
 They are clean on `master`, tests included, and are expected to stay that way. `ty` is
 still pre-1.0, so treat a new diagnostic from it as a question rather than a verdict —
@@ -80,17 +88,18 @@ What checks each kind of file, and whether CI fails on it. Vendored minified fil
 | Language | Where | Linter | Formatter | Types | Tests / coverage | Gated in CI |
 | --- | --- | --- | --- | --- | --- | --- |
 | **Python 3.13** | `server/`, `scoreboard/`, `cloud/`, `shared/py/`, `tests/` | Ruff (`ruff check`, rules in `pyproject.toml`) | Ruff (`ruff format`, imports by the `I` rules) | ty | pytest, coverage by pytest-cov — printed, never gated | Yes, all four |
-| **Shell** | `install.sh`, `install/` | ShellCheck (`-S warning`) | — | — | — | Yes, ShellCheck |
+| **Shell** | `install.sh`, `install/` | ShellCheck (`-S warning`) | shfmt (settings in `.editorconfig`) | — | — | Yes, both |
 | **JavaScript** | `shared/static/js/` | — | — | — | Each page's scripts run on load by [`tests/jsc.py`](tests/jsc.py) (JavaScriptCore on macOS, Node in CI); no coverage | Yes, through pytest |
 | **HTML / Jinja** | `server/templates/`, `cloud/templates/` | — | — | — | Rendered and asserted on by pytest | Yes, through pytest |
 | **CSS** | `shared/static/css/` | — | — | — | — | No |
 | **TOML** | `shared/locales/`, `server/themes/` | — | — | — | Locale key parity with English in [`tests/test_i18n.py`](tests/test_i18n.py) | Yes, through pytest |
-| **Markdown** | `*.md`, `docs/` | markdownlint, editor only (`.markdownlint.json`) | — | — | — | No |
-| **YAML** | `.github/`, `cloud/docker-compose.yml` | Schema validation in the editor (Red Hat YAML extension) | — | — | — | No |
+| **Markdown** | `*.md`, `docs/` | rumdl in CI, markdownlint in the editor — both read `.markdownlint.json` | `rumdl fmt` fixes what the check flags | — | — | Yes, rumdl |
+| **YAML** | `.github/`, `cloud/docker-compose.yml` | yamllint (`.yamllint.yml`); actionlint for workflows; schema validation in the editor (Red Hat YAML extension) | — | — | — | Yes, yamllint and actionlint |
 
-The Python tools are pinned by `uv.lock`; ShellCheck and Node come from the CI
-runner's apt and move with it. The VS Code extensions in `.vscode/extensions.json`
-run Ruff, ty and ShellCheck, so a file clean in the editor is one CI accepts.
+Every linter and formatter above is a wheel in the `dev` group, so `uv.lock` pins
+them all; only Node, for the JavaScript smoke tests, comes from the CI image's apt.
+The VS Code extensions in `.vscode/extensions.json` run Ruff, ty, ShellCheck and
+markdownlint, so a file clean in the editor is one CI accepts.
 
 ---
 

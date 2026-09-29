@@ -56,6 +56,7 @@ not apply to WebSockets. Native clients (the Qt display, iOS/Android) send no
 the admin session cookie.
 
 ### `/ws/scoreboard`
+
 On connect the server sends, in order: `test_mode`, `display_overlay`,
 `columns_state`, `meet_live`, then **two** `update_scoreboard` frames — the current
 heat's header and lane names, broadcast to everyone, followed by the board snapshot
@@ -69,7 +70,8 @@ frozen clock is worse than none — the client waits for the next re-base, at mo
 tick away. The cloud's `join_meet` replay (§3) works the same way and drops it for the
 same reason.
 
-**Server → client**
+#### Server → client
+
 | event | data | meaning |
 | --- | --- | --- |
 | `update_scoreboard` | *partial* scoreboard dict (§5.1) | live lane/time/place changes; **only changed fields** are sent |
@@ -121,7 +123,8 @@ the Qt display calls `BoardWindow.reset()`.
 The cloud never sends it: a local-only test never reaches the cloud, and a test that
 is allowed to reach it is a real session as far as the cloud is concerned.
 
-**Client → server**
+#### Client → server
+
 | event | data | effect |
 | --- | --- | --- |
 | `register` | `{ "role", "hostname", "version", "commit", "dirty" }` | identify a native client; sent on every (re)connect |
@@ -179,12 +182,14 @@ No `results_snapshot` and no `race_finished` ever follow: a manual console carri
 times, so nothing is ever finished.
 
 ### `/ws/results`
+
 On connect the server sends `meet_live` (§2.1), then the last `results_snapshot`
 (if any) and `next_heats`.
 **Server → client:** `results_snapshot` (§5.2), `next_heats` (§5.3), `meet_live`,
 `reload`. Client sends nothing.
 
 ### `/ws/schedule`
+
 **Server → client:** `schedule_update` `{}` — a meet file was loaded, so any start
 list a client is holding belongs to the previous meet. Carries no payload: it means
 *re-fetch*, not *here is the new data*. Client sends nothing.
@@ -193,10 +198,12 @@ Same name and shape as the cloud channel (§3), so the phone Schedule page behav
 identically against either server.
 
 ### `/ws/settings` (admin UI only)
+
 **Server → client:** `serial_log {state, msg}`, `test_status {}`, `test_mode {active}`,
 `debug_line {hex, text}`. Client sends nothing. Not needed by the TV display.
 
 ### `/ws/terminal` (admin UI only)
+
 Bidirectional PTY. Server → client: `output <string>`, `exit {}`.
 Client → server: `input <string>`, `resize {rows, cols}`.
 
@@ -215,14 +222,17 @@ Join handshake, then listen — identical pattern on all three attendee paths:
 ```
 
 ### `/ws/scoreboard`
+
 **Server → client:** `meet_live {live}` (sent first, then whenever the console
 connects/disconnects), `update_scoreboard` (§5.1; the cloud throttles
 `running_time` and never caches it), `reload`.
 
 ### `/ws/results`
+
 **Server → client:** `meet_live {live}`, `results_snapshot` (§5.2), `next_heats` (§5.3), `reload`.
 
 ### `/ws/schedule`
+
 **Server → client:** `schedule_update` (no data) — signal to re-fetch
 `GET /meet/{meet_id}/schedule` (§5.8).
 
@@ -237,6 +247,7 @@ connects/disconnects), `update_scoreboard` (§5.1; the cloud throttles
 > re-fetches it on every reconnect, foreground and refresh (`app.md` `A-09`).
 
 ### `/ws/relay` (the Pi relay — not a spectator)
+
 Documented for completeness; implemented by [`relay.py`](../server/relay.py). The Pi is a
 *producer*: it registers once, then forwards the same events it broadcasts locally.
 
@@ -251,6 +262,7 @@ Documented for completeness; implemented by [`relay.py`](../server/relay.py). Th
 JSON/asset endpoints (everything else the servers expose is HTML for the browser UI).
 
 ### Local (Pi)
+
 | method · path | returns |
 | --- | --- |
 | `GET /config` | **display config JSON** — `num_lanes`, `theme_colors`, `theme_fonts`, `show_*` flags, `labels`, `meet_title`, `locale`, `display_strings`, `carousel_images`, `carousel_interval`, `server_version`, `console` (§6). Lets the Qt display theme *and translate* itself without a rendered page |
@@ -264,6 +276,7 @@ JSON/asset endpoints (everything else the servers expose is HTML for the browser
 | `GET /images/{filename}` | splash/carousel images |
 
 ### Cloud
+
 | method · path | returns |
 | --- | --- |
 | `GET /` | picker page (HTML) — meet cards |
@@ -287,6 +300,7 @@ JSON/asset endpoints (everything else the servers expose is HTML for the browser
 ## 5. Payload shapes
 
 ### 5.1 `update_scoreboard` (partial)
+
 A flat dict; **only changed keys are sent** each frame — merge into local state.
 Lane keys are 1-indexed (`<i>` = 1…12).
 
@@ -357,23 +371,27 @@ every viewer who has not chosen a language, so a client may ignore the parts
 entirely.
 
 ### 5.2 `results_snapshot`
+
 ```json
 { "event": "3", "heat": "1", "event_name": "…", "sort": "lane"|"place",
   "lanes": [ { "channel": 4, "place": "1", "place_int": 1, "time": "2:20.92",
               "name": "…", "club": "…", "alt": "…",
               "delta": "<span …>", "delta_seconds": -0.46, "delta_better": true } ] }
 ```
+
 Lanes without a final time are omitted. `sort` tells the client whether to place each
 row by lane (blank gaps) or by finishing place. `delta` is browser HTML;
 `delta_seconds`/`delta_better` are the structured equivalents (`null` when no seed).
 
 ### 5.3 `next_heats`
+
 ```json
 { "heats": [ { "event": 3, "heat": 1, "event_name": "…", "time": "10:42",
               "swimmers": [ { "lane": 1, "name": "…", "club": "…", "alt": "…" } ] } ] }
 ```
 
 ### 5.4 relay `register` metadata (Pi → cloud)
+
 ```json
 { "key": "<relay key>", "meet_uid": "<stable per LENEX>", "name": "…",
   "location": "…", "sport": "…", "app_window_title": "…", "meet_date": "YYYY-MM-DD",
@@ -385,6 +403,7 @@ row by lane (blank gaps) or by finishing place. `delta` is browser HTML;
                 "console": { "key": "manual", "timed": false },
                 "home_icon_b64": "…?", "picker_image_b64": "…?" } }
 ```
+
 This `settings` block is the meet's display config — the same values a native
 attendee needs to render the board (lane count, visible columns, theme, labels).
 
@@ -422,23 +441,27 @@ one language at a time and cached (§5.9). There is no per-meet override of that
 table: `labels` is the operator's pick, resolved from the same file.
 
 ### 5.5 relay `schedule_snapshot` (Pi → cloud)
+
 ```json
 { "events": [ [3, [1,2]] ], "names": { "3": "…" }, "times": { "3": { "1": "10:42" } },
   "start_list": { "3": { "1": { "1": { "name":"…","club":"…","seed_time":"…","swimmers":[…] } } } } }
 ```
 
 ### 5.6 `GET /meets`
+
 ```json
 { "meets": [ { "id": "aBc123", "name": "…", "location": "…", "sport": "…",
                "organizer": "…", "meet_date": "YYYY-MM-DD",
                "offline": false, "has_picker_image": true } ] }
 ```
+
 `offline` marks a retained meet with no relay currently connected — still listed
 on purpose, so an attendee can read the last known state. `has_picker_image` says
 whether `GET /picker_image/{id}` will return an image. Both live and retained
 meets appear; expired ones are swept before the list is built.
 
 ### 5.7 `GET /picker/config`
+
 ```json
 { "title": "Splouch", "window_title": "Splouch", "has_logo": false,
   "logo_above": false, "lang": "fr", "analytics_enabled": true,
@@ -446,6 +469,7 @@ meets appear; expired ones are swept before the list is built.
   "strings": { "page_title": "…", "no_meets": "…", "unnamed_meet": "…",
                "results_disclaimer": "…", "privacy_note": "…" } }
 ```
+
 Language resolves from `?lang=` when it names an available locale, else
 `Accept-Language`, else the server default; the resolved code comes back as
 `lang`. The meet list has no locale of its own — per-meet language starts at
@@ -467,11 +491,13 @@ keys are in `GET /i18n/{lang}` → `mobile` (§5.9), which is where the rest of 
 picker's chrome — the language and label-style controls — comes from.
 
 ### 5.8 `GET /meet/{meet_id}/schedule`
+
 ```json
 { "heats": [ { "event": 3, "heat": 1, "event_name": "…", "time": "10:42",
                "lanes": [ { "lane": 4, "name": "…", "club": "…",
                             "seed_time": "…", "swimmers": [ … ] } ] } ] }
 ```
+
 Every heat in running order — the whole start list, not just the next few
 (compare `next_heats`, §5.3). Heats with no entries still appear with an empty
 `lanes`. An empty `heats` is not an error: the meet is loaded but carries no
@@ -621,12 +647,10 @@ have no template, so config is exposed as JSON — all three additions below are
 3. **Structured delta** — `lane_delta_seconds<i>`/`lane_delta_better<i>` in
    `update_scoreboard` and `delta_seconds`/`delta_better` in `results_snapshot`,
    alongside the browser's HTML `lane_delta<i>` (§5.1, §5.2).
-
 4. **Cloud `GET /meets`, `GET /picker/config`, `GET /meet/{id}/schedule`** (§5.6–5.8) —
    the picker and schedule screens as data. Previously both existed only as rendered
    HTML, so a native client had nothing to call; the browser pages now build on the
    same helpers and cannot drift from them.
-
 5. **`GET /i18n/{lang}` and `GET /locales`** (§5.9). The Qt display was already
    served its strings (`display_strings`) while the phone clients were told to
    embed theirs, which was the same problem answered two different ways: a
@@ -643,6 +667,7 @@ same `settings` shape, so the two config sources agree.
 ---
 
 ## Changelog
+
 - **v2** — `running_time` over the relay. It was stripped from every forwarded
   frame; the cloud now **throttles** it instead — at most one every 2s, plus any
   frame that also carries a `lane_running<i>` key — and deliberately keeps it out

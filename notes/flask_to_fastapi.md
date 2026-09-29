@@ -178,6 +178,7 @@ FastAPI has no built-in equivalent. Options:
 | **C — Pass variables per-route explicitly** | Each route calls `state.settings` directly and builds its own context dict. | No abstraction, but simple; may become verbose in routes that render templates |
 
 Option B example:
+
 ```python
 def base_context(request: Request) -> dict:
     return dict(
