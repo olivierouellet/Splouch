@@ -458,7 +458,9 @@ table: `labels` is the operator's pick, resolved from the same file.
 `offline` marks a retained meet with no relay currently connected — still listed
 on purpose, so an attendee can read the last known state. `has_picker_image` says
 whether `GET /picker_image/{id}` will return an image. Both live and retained
-meets appear; expired ones are swept before the list is built.
+meets appear; expired ones are swept before the list is built. Live meets
+(`offline: false`) come first; keep this order rather than re-sorting (`app.md`
+`P-17`).
 
 ### 5.7 `GET /picker/config`
 
@@ -467,6 +469,7 @@ meets appear; expired ones are swept before the list is built.
   "logo_above": false, "lang": "fr", "analytics_enabled": true,
   "stores": { "ios": "https://apps.apple.com/…", "android": "https://play.google.com/…" },
   "strings": { "page_title": "…", "no_meets": "…", "unnamed_meet": "…",
+               "meet_search": "…", "no_meets_match": "…",
                "results_disclaimer": "…", "privacy_note": "…" } }
 ```
 
@@ -683,7 +686,9 @@ same `settings` shape, so the two config sources agree.
   `settings.console` on the relay and on the Pi's `GET /config` (§5.4, §6). A v2
   client ignores all of it and is unaffected; `app.md` is what consumes them.
   `GET /i18n/{lang}` → `mobile` later gained the picker chrome and filter-sheet
-  keys (§5.9), also additive.
+  keys (§5.9), also additive. `GET /picker/config` → `strings` later gained
+  `meet_search` and `no_meets_match` for `app.md` `P-17`, and `GET /meets` states
+  its order, live meets first (§5.6); a client that ignores both is unaffected.
 
 - **Removed since v2, the version stands**: `settings.label_overrides` (§5.4),
   with the per-Pi locale file it carried. It was documented as normally absent,

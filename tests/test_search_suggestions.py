@@ -166,13 +166,15 @@ _EXPANSIONS = {
     "ſ": "s",
 }
 
-_SCHEDULE_HTML = os.path.join(REPO, "shared", "templates", "schedule.html")
+# The fold lives in its own script so the meet picker (`P-17`) folds exactly as the
+# typeahead does, rather than carrying a second copy that can drift.
+_FOLD_JS = os.path.join(REPO, "shared", "static", "js", "fold.js")
 
 
 def _template_js(*names):
-    """Pull named top-level declarations out of the template, so the tests run the
-    page's real code rather than a retyped copy of it."""
-    src = Path(_SCHEDULE_HTML).read_text(encoding="utf-8")
+    """Pull named top-level declarations out of the shipped script, so the tests run
+    the page's real code rather than a retyped copy of it."""
+    src = Path(_FOLD_JS).read_text(encoding="utf-8")
     out = []
     for name in names:
         m = (
@@ -211,7 +213,7 @@ def _run_fold(words):
 
 
 needs_js = pytest.mark.skipif(
-    not HAS_JS_ENGINE, reason="needs a JS engine to run the template's own foldName()"
+    not HAS_JS_ENGINE, reason="needs a JS engine to run the shipped foldName()"
 )
 
 

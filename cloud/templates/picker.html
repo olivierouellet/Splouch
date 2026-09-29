@@ -43,6 +43,9 @@
             display: flex; align-items: center; gap: 14px;
         }
         .card:hover { border-color: #555; background: #222; }
+        /* `display: flex` above outranks the UA's rule for `hidden`, so a filtered-out
+           card would otherwise stay on screen. */
+        .card[hidden] { display: none; }
         .card-img { width: 56px; height: 56px; border-radius: 6px; object-fit: cover; flex-shrink: 0; }
         .card-body { flex: 1; min-width: 0; }
         .card-name { font-size: 1em; font-weight: 600; margin-bottom: 4px; }
@@ -56,6 +59,20 @@
         .status-dot.off { background: transparent; box-shadow: none; animation: none; }
         @keyframes live-pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.45; } }
         .empty { color: #444; font-size: 1.1em; margin-top: 60px; }
+        .empty[hidden] { display: none; }
+
+        /* ── Meet search (docs/app.md `P-17`) ──
+           On the same column as the cards. 16px text, because iOS zooms the page into
+           any input smaller than that and leaves it zoomed. */
+        .meet-search {
+            display: block; width: 100%; max-width: var(--column); margin-bottom: 16px;
+            background: #1a1a1a; border: 1px solid #2e2e2e; border-radius: 10px;
+            color: #e0e0e0; font: inherit; font-size: 16px; padding: 12px 16px;
+            -webkit-appearance: none; appearance: none;
+        }
+        .meet-search::placeholder { color: #666; }
+        .meet-search:focus { outline: none; border-color: #5ab4e8; }
+        .meet-search[hidden] { display: none; }
 
         /* ── Pull-to-refresh ── */
         #ptr-edge {
@@ -194,9 +211,22 @@
     <img src="/picker_logo" class="picker-logo" alt="">
     {% endif %}
     {% if meets %}
+    {# Only once the list is long enough to need it: on a small server the picker looks
+       as it always has. Rendered hidden and revealed by the script below, so a page
+       without JavaScript never shows a box that does nothing. #}
+    {% if meets | length >= 5 %}
+    <input type="search" id="meet-search" class="meet-search" hidden
+           placeholder="{{ t.meet_search or 'Search meets' }}"
+           aria-label="{{ t.meet_search or 'Search meets' }}"
+           autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+           enterkeyhint="search">
+    {% endif %}
     <div class="meets">
         {% for meet in meets %}
-        <a class="card" href="/mobile?meet={{ meet.id }}">
+        {# What the search matches: what the card shows, plus the organizer, which a
+           spectator may know the meet by. #}
+        <a class="card" href="/mobile?meet={{ meet.id }}"
+           data-search="{{ [meet.name, meet.meet_date, meet.location, meet.sport, meet.organizer] | select | join(' ') }}">
             <span class="status-dot{% if meet.offline %} off{% endif %}"></span>
             {% if meet.has_picker_image %}
             <img src="/picker_image/{{ meet.id }}" class="card-img" alt="">
@@ -212,6 +242,7 @@
         </a>
         {% endfor %}
     </div>
+    <div class="empty" id="meet-search-empty" hidden>{{ t.no_meets_match or 'No meets match your search.' }}</div>
     {% else %}
     <div class="empty">{{ t.no_meets }}</div>
     {% endif %}
@@ -223,7 +254,53 @@
         {{ t.get('privacy_note', 'This site counts visitors anonymously to estimate attendance. No personal information is collected or shared.') }}
     </p>
     {% endif %}
+    <script src="/static/js/fold.js"></script>
     <script>
+/* ── Meet search (docs/app.md `P-17`) ───────────────────────────────────────
+   Filters the cards already on the page; nothing is fetched. Every word of the
+   query must appear somewhere in the card, in any order, and both sides go through
+   the typeahead's fold, so `montreal` finds `Montréal`.
+
+   The query is kept in sessionStorage, not the URL: it survives pull-to-refresh
+   and the back arrow from a meet, and ends with the tab. A shared link or a
+   home-screen launch always opens the whole list. */
+var MEET_SEARCH_KEY = 'splouch_meet_search';
+
+function meetMatches(key, query) {
+    var words = foldName(query).split(/\s+/);
+    for (var i = 0; i < words.length; i++) {
+        if (words[i] && key.indexOf(words[i]) === -1) return false;
+    }
+    return true;
+}
+
+(function () {
+    var input = document.getElementById('meet-search');
+    if (!input) return;
+    var empty = document.getElementById('meet-search-empty');
+    var cards = [];
+    document.querySelectorAll('.meets .card').forEach(function (el) {
+        cards.push({ el: el, key: foldName(el.dataset.search) });
+    });
+
+    function apply() {
+        var shown = 0;
+        cards.forEach(function (c) {
+            c.el.hidden = !meetMatches(c.key, input.value);
+            if (!c.el.hidden) shown++;
+        });
+        if (empty) empty.hidden = shown > 0;
+        try { sessionStorage.setItem(MEET_SEARCH_KEY, input.value); } catch (e) {}
+    }
+
+    try { input.value = sessionStorage.getItem(MEET_SEARCH_KEY) || ''; } catch (e) {}
+    input.hidden = false;
+    input.addEventListener('input', apply);
+    // Nothing to submit: Enter only puts the keyboard away so the results show.
+    input.addEventListener('keydown', function (e) { if (e.key === 'Enter') input.blur(); });
+    apply();
+})();
+
 /* ── Display preferences ──────────────────────────────────────────────────────
    Two cookies per device, read by the server for every page it renders, so the
    meet cards below stay plain links and a bookmark opens right without a

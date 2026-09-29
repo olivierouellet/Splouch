@@ -254,6 +254,8 @@ PICKER_KEYS = (
     "page_title",
     "no_meets",
     "unnamed_meet",
+    "meet_search",
+    "no_meets_match",
     "results_disclaimer",
     "privacy_note",
     "offline",

@@ -130,12 +130,36 @@ where the user returns via `A-02`.
 | `P-13` | A server can be added by hand, checked before it is saved | `GET /server` must answer | native-only — must |
 | `P-14` | A server whose contract versions differ from the app's gets a one-line notice naming both; the app **connects regardless** | `GET /server` → `contract.api`, `contract.app`, compared for equality with the versions the app was built against ([`api.md`](api.md) §5.10) | native-only — should |
 | `P-16` | A server can be added by scanning a QR code: the code opens the app, the app asks, and on a yes the server is added, selected, and the **meet list** is what the reader lands on. Without the app installed the same code lands on a web page offering the store | `https://<the app's default host>/add?server=<origin>`, percent-encoded; the host's `/.well-known/assetlinks.json` and `/.well-known/apple-app-site-association`, and its `GET /add` page ([`api.md`](api.md) §4, §5.7) | native-only — should |
+| `P-17` | Search the meet list: a box above the cards, shown once the list holds **5 or more** meets, narrowing it as the spectator types, with its own empty state when nothing matches | matches locally over `GET /meets` fields `name`, `meet_date`, `location`, `sport`, `organizer`; placeholder `strings.meet_search`, empty state `strings.no_meets_match` from `GET /picker/config` | should — see note |
 
 > **`P-06` is not decoration.** The disclaimer — live, unofficial results pending
 > validation, with SplashMe for validated ones — is the only thing between a live feed
 > and a spectator treating it as a result. It belongs on the meet list, not in an About
 > screen, and it renders the server's text rather than a compiled-in copy so wording can
 > be fixed without a store review.
+
+> **`P-17` filters what the list already holds. There is no search endpoint.** A cloud
+> serves tens of meets, rarely a couple of hundred, and `P-01` has already fetched them
+> all, so a query is a filter over the cards, answered on every keystroke without a
+> debounce, the same reasoning as `S-09`.
+>
+> - **Match every word, in any order.** Split the folded query on whitespace; a card is
+>   shown when each word is a substring of its folded fields joined by spaces. So
+>   `quebec 2026` finds a meet whose location holds one and date the other.
+> - **Fold with `S-09`'s four steps**, table included, on both sides. The web picker
+>   runs the typeahead's own `foldName()` from `shared/static/js/fold.js`; a second
+>   fold would make `montreal` find `Montréal` on one client and not another.
+> - **The organizer is searched but not shown.** A spectator may know the meet by the
+>   club running it.
+> - **`P-06` stays put.** The disclaimer is under the list whatever the filter hides.
+> - **The query outlives a return from a meet, not the session.** The web keeps it for
+>   the tab (`sessionStorage`), so the back arrow (`A-02`) and pull-to-refresh (`P-09`)
+>   come back to the same filtered list; a shared link or a home-screen launch opens
+>   the whole list. An app keeps it while the picker is on its navigation stack and
+>   drops it on a cold launch.
+> - **Live meets come first** in `GET /meets` ([`api.md`](api.md) §5.6), so an empty
+>   query and a filtered one both lead with what is running now. Keep the server's
+>   order; do not re-sort.
 
 > **`P-10` is a hand-off, not a feature of the apps.** Serve the store URLs from
 > `/picker/config` beside `P-06`'s disclaimer and hide the affordance when they are
@@ -856,6 +880,11 @@ Not on any phone client, now or planned:
 ---
 
 ## Changelog
+
+- **Added since v1** — `P-17`: search over the meet list, filtered on the device, and
+  `GET /meets` now listing live meets before offline ones. No bump: the row is a
+  `should`, a client without it shows the whole list as it did, and the new order is
+  one a client that kept the server's order simply inherits.
 
 - **Added since v1** — `P-16`: a server added by scanning a QR code, and the three
   things the servers here owe it — the two `/.well-known/` files, `GET /add`, and the

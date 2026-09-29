@@ -427,16 +427,20 @@ async def route_redoc():
 
 
 def _public_meet_list():
-    """Meets for the picker — live and retained alike, newest state first.
+    """Meets for the picker — live and retained alike, live ones first.
 
     Shared by the HTML picker and ``GET /meets`` so a native client's list can
     never drift from the web one. Deliberately excludes anything an attendee has
     no business seeing (relay keys, expiry, connection times); the admin table
     has its own builder, ``_admin_meet_list``.
+
+    Live first because a spectator opening the list is almost always after a
+    meet that is running now; a retained one is a meet they are looking back
+    at. The sort is stable, so within each group the order is unchanged.
     """
     _sweep_expired()
     with _lock:
-        return [
+        meets = [
             {
                 "id": mid,
                 "name": m["name"],
@@ -451,6 +455,7 @@ def _public_meet_list():
             }
             for mid, m in _merged_meets().items()
         ]
+    return sorted(meets, key=lambda m: m["offline"])
 
 
 def _picker_branding():
@@ -478,6 +483,8 @@ _PICKER_STRING_KEYS = (
     "page_title",
     "no_meets",
     "unnamed_meet",
+    "meet_search",
+    "no_meets_match",
     "results_disclaimer",
     "privacy_note",
 )
