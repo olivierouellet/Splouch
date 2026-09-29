@@ -29,8 +29,8 @@ body:
       label: Where
       description: Where it went wrong. Pick "Not sure" rather than guessing.
       options:
-        - Pi #1 — server / decoder
-        - Pi #2 — Qt kiosk on the TV
+        - "Pi #1 — server / decoder"
+        - "Pi #2 — Qt kiosk on the TV"
         - Admin UI in a browser
         - Cloud relay (remote viewing)
         - install.sh / updating
@@ -97,7 +97,7 @@ body:
     attributes:
       label: Before submitting
       options:
-        - label: Pi #1 and Pi #2 are on the same version.
+        - label: "Pi #1 and Pi #2 are on the same version."
           required: false
         - label: This is not a security issue (those go through SECURITY.md).
           required: true
