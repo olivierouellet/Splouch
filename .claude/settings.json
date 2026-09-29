@@ -2,6 +2,10 @@
   "sandbox": {
     "enabled": true,
     "autoAllowBashIfSandboxed": true,
+    "excludedCommands": [
+      "uv run djlint:*",
+      "uv run taplo:*"
+    ],
 
     "network": {
       "allowedDomains": [
