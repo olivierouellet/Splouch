@@ -35,7 +35,7 @@ dependencies = [
 scoreboard = ["pyside6-essentials>=6.5"]
 
 [dependency-groups]
-dev = ["pytest", "pytest-cov", "ruff", "ty"]
+dev = ["diff-cover", "pytest", "pytest-cov", "ruff", "ty"]
 # Non-Python linters, pinned by uv.lock like the rest. A group of their own because
 # three have no Linux aarch64 wheel — Taplo's source build is broken outright — and
 # the test job runs on aarch64 to match the Pi. It passes `--no-group lint`; CI's

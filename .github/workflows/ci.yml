@@ -109,8 +109,19 @@ jobs:
       - name: Tests
         # --cov prints the table into this log and stops there: nothing is uploaded,
         # nothing is gated. pyproject.toml says what the number is and is not good
-        # for. `term-missing` instead of `term` locally, for the line numbers.
-        run: uv run pytest tests/ -q --cov --cov-report=term
+        # for. `term-missing` instead of `term` locally, for the line numbers. The
+        # XML is for diff-cover below.
+        run: uv run pytest tests/ -q --cov --cov-report=term --cov-report=xml
+
+      - name: Coverage of the changed lines
+        # Which of this pull request's lines no test ran — the question the overall
+        # number cannot answer. Printed, never gated, like the table above. Pull
+        # requests only: a push to master has no base to compare against. The
+        # base branch is already here (fetch-depth: 0).
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: uv run diff-cover coverage.xml --compare-branch "origin/$BASE_REF"
 
   lint:
     name: Everything but Python

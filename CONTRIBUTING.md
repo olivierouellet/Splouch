@@ -100,7 +100,7 @@ What checks each kind of file, and whether CI fails on it. Vendored minified fil
 
 | Language | Where | Linter | Formatter | Types / schema | Tests | Coverage | Gated in CI |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| **Python 3.13** | `server/`, `scoreboard/`, `cloud/`, `shared/py/`, `tests/` | Ruff (`ruff check`, rules in `pyproject.toml`) | Ruff (`ruff format`, imports by the `I` rules) | ty | pytest | pytest-cov, lines and branches — printed in the CI log, never gated | Yes, all four |
+| **Python 3.13** | `server/`, `scoreboard/`, `cloud/`, `shared/py/`, `tests/` | Ruff (`ruff check`, rules in `pyproject.toml`) | Ruff (`ruff format`, imports by the `I` rules) | ty | pytest | pytest-cov, lines and branches — printed in the CI log, never gated; on pull requests, diff-cover lists the changed lines no test ran | Yes, all four |
 | **Shell** | `install.sh`, `install/` | ShellCheck (`-S warning`) | shfmt (settings in `.editorconfig`) | — | — | — | Yes, both |
 | **JavaScript** | `shared/static/js/` | Biome (`biome.jsonc`) | Biome | `// @ts-check`, run by `tsc` (`jsconfig.json`; page globals in `globals.d.ts`) | Each page's scripts run on load by [`tests/jsc.py`](tests/jsc.py) (JavaScriptCore on macOS, Node in CI) | — | Yes, Biome, tsc and pytest |
 | **HTML / Jinja** | `server/templates/`, `cloud/templates/`, `shared/templates/` | djLint (`[tool.djlint]` in `pyproject.toml`) | — (djLint's would reflow every inline script) | — | Rendered and asserted on by pytest | — | Yes, djLint and pytest |
