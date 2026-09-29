@@ -134,7 +134,6 @@ H023,\
 H024,\
 H029,\
 H030,\
-H049,\
 J004,\
 J018,\
 T001,\
@@ -144,8 +143,8 @@ T032\
 # H021 inline styles · H023 entity references · H024 type= on <link> · H029 POST in
 # capitals · H030 meta description (no page here is indexed) · J004/J018 url_for():
 # routes are written as literal paths throughout · T001/T002/T032 whitespace and
-# quotes inside tags, the formatter's job · H049: six board and phone pages set
-# `user-scalable=no`. Whether they should is a product call, not a lint.
+# quotes inside tags, the formatter's job. H049 (zoom disabled) stays on: the
+# three pages that need it silence it inline, each saying why.
 
 # ── Type checking ──────────────────────────────────────────────────────────────
 # `uv run ty check` is clean, tests included. ty is still pre-1.0 (0.0.x, beta),
