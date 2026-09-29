@@ -70,9 +70,9 @@ jobs:
         run: uv sync --extra scoreboard --frozen
 
       - name: Check Qt is really here
-        # The guard that makes green mean green. Seven test modules skip at module
-        # level when PySide6 is missing, and pytest reports that as seven skipped
-        # lines rather than the couple of hundred tests inside — a suite that never
+        # The guard that makes green mean green. Every Qt test module skips at module
+        # level when PySide6 is missing, and pytest reports that as one skipped line
+        # per module rather than the couple of hundred tests inside — a suite that never
         # touched the kiosk still looks passing. Fail loudly here instead.
         run: uv run python -c "import PySide6; print('PySide6', PySide6.__version__)"
 
