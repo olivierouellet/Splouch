@@ -130,7 +130,9 @@ def _board(template, theme):
 
 
 def _root_bg(html):
-    return re.search(r"--color-bg:\s*(#[0-9a-fA-F]+)", html).group(1)
+    match = re.search(r"--color-bg:\s*(#[0-9a-fA-F]+)", html)
+    assert match, "no --color-bg in the page"
+    return match.group(1)
 
 
 @pytest.mark.parametrize(
