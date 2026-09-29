@@ -72,6 +72,26 @@ They are clean on `master`, tests included, and are expected to stay that way. `
 still pre-1.0, so treat a new diagnostic from it as a question rather than a verdict —
 but so far the answer has been worth having every time.
 
+### Tooling by language
+
+What checks each kind of file, and whether CI fails on it. Vendored minified files
+(Bootstrap, htmx) are shipped as-is and checked by nothing.
+
+| Language | Where | Linter | Formatter | Types | Tests / coverage | Gated in CI |
+| --- | --- | --- | --- | --- | --- | --- |
+| **Python 3.13** | `server/`, `scoreboard/`, `cloud/`, `shared/py/`, `tests/` | Ruff (`ruff check`, rules in `pyproject.toml`) | Ruff (`ruff format`, imports by the `I` rules) | ty | pytest, coverage by pytest-cov — printed, never gated | Yes, all four |
+| **Shell** | `install.sh`, `install/` | ShellCheck (`-S warning`) | — | — | — | Yes, ShellCheck |
+| **JavaScript** | `shared/static/js/` | — | — | — | Each page's scripts run on load by [`tests/jsc.py`](tests/jsc.py) (JavaScriptCore on macOS, Node in CI); no coverage | Yes, through pytest |
+| **HTML / Jinja** | `server/templates/`, `cloud/templates/` | — | — | — | Rendered and asserted on by pytest | Yes, through pytest |
+| **CSS** | `shared/static/css/` | — | — | — | — | No |
+| **TOML** | `shared/locales/`, `server/themes/` | — | — | — | Locale key parity with English in [`tests/test_i18n.py`](tests/test_i18n.py) | Yes, through pytest |
+| **Markdown** | `*.md`, `docs/` | markdownlint, editor only (`.markdownlint.json`) | — | — | — | No |
+| **YAML** | `.github/`, `cloud/docker-compose.yml` | Schema validation in the editor (Red Hat YAML extension) | — | — | — | No |
+
+The Python tools are pinned by `uv.lock`; ShellCheck and Node come from the CI
+runner's apt and move with it. The VS Code extensions in `.vscode/extensions.json`
+run Ruff, ty and ShellCheck, so a file clean in the editor is one CI accepts.
+
 ---
 
 ## Conventions
