@@ -57,10 +57,9 @@
                             <div class="fw-bold mb-1" id="wifi-join-ssid"></div>
                             <form class="d-flex flex-wrap gap-1" onsubmit="connectWifi(); return false;">
                                 <input type="password" id="wifi-join-pw" class="form-control form-control-sm"
-                                       autocomplete="current-password" placeholder="{{ t.net_password_ph }}" style="flex:1; min-width:120px;"
-                                       onkeydown="if(event.key==='Enter') connectWifi();">
-                                <button class="btn btn-primary btn-sm" onclick="connectWifi()">{{ t.net_connect }}</button>
-                                <button class="btn btn-secondary btn-sm" onclick="cancelJoin()">{{ t.net_cancel }}</button>
+                                       autocomplete="current-password" placeholder="{{ t.net_password_ph }}" style="flex:1; min-width:120px;">
+                                <button type="submit" class="btn btn-primary btn-sm">{{ t.net_connect }}</button>
+                                <button type="button" class="btn btn-secondary btn-sm" onclick="cancelJoin()">{{ t.net_cancel }}</button>
                             </form>
                             <div id="wifi-join-status" class="mt-1 small"></div>
                         </div>
