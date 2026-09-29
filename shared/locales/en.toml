@@ -5,66 +5,66 @@
 name = "English"
 
 [labels]
-event = { short = "EV",   long = "EVENT" }
-heat  = { short = "HT",   long = "HEAT"  }
-lane  = { short = "LN",   long = "LANE"  }
-place = { short = "PL",   long = "PLACE" }
-time  = { short = "TIME", long = "TIME"  }
-name  = { short = "NAME", long = "NAME"  }
-club  = { short = "CLUB", long = "CLUB"  }
-delta  = { short = "DIFF",   long = "DIFF"   }
+event  = { short = "EV", long = "EVENT" }
+heat   = { short = "HT", long = "HEAT" }
+lane   = { short = "LN", long = "LANE" }
+place  = { short = "PL", long = "PLACE" }
+time   = { short = "TIME", long = "TIME" }
+name   = { short = "NAME", long = "NAME" }
+club   = { short = "CLUB", long = "CLUB" }
+delta  = { short = "DIFF", long = "DIFF" }
 chrono = { short = "CHRONO", long = "CHRONO" }
 
 [event_name]
-unit      = "m"
-separator = "  —  "
-girls     = "Girls"
-boys      = "Boys"
-women     = "Women"
-men       = "Men"
-mixed     = "Mixed"
-freestyle   = "Freestyle"
-backstroke  = "Backstroke"
+unit         = "m"
+separator    = "  —  "
+girls        = "Girls"
+boys         = "Boys"
+women        = "Women"
+men          = "Men"
+mixed        = "Mixed"
+freestyle    = "Freestyle"
+backstroke   = "Backstroke"
 breaststroke = "Breaststroke"
-butterfly   = "Butterfly"
-medley      = "Medley"
-relay       = "Relay"
-open        = "Open"
-senior      = "Senior"
+butterfly    = "Butterfly"
+medley       = "Medley"
+relay        = "Relay"
+open         = "Open"
+senior       = "Senior"
 
 [aliases]
 phone    = "/mobile"
 cellular = "/mobile"
 
 [mobile]
-scoreboard       = "Scoreboard"
-results          = "Results"
-next_heats       = "Next Heats"
-schedule         = "Schedule"
-waiting_results  = "Waiting for results…"
-no_schedule      = "No schedule available yet."
-no_upcoming      = "No upcoming heats"
-upcoming_only    = "Upcoming"
+scoreboard         = "Scoreboard"
+results            = "Results"
+next_heats         = "Next Heats"
+schedule           = "Schedule"
+waiting_results    = "Waiting for results…"
+no_schedule        = "No schedule available yet."
+no_upcoming        = "No upcoming heats"
+upcoming_only      = "Upcoming"
 search_placeholder = "Add a swimmer or a club…"
-show_all_heats   = "All heats"
-reset_filters    = "Reset"
-reset_confirm    = "Clear all filters?"
-no_meet          = "No meet file loaded"
-back_to_meets    = "Meets"
+show_all_heats     = "All heats"
+reset_filters      = "Reset"
+reset_confirm      = "Clear all filters?"
+no_meet            = "No meet file loaded"
+back_to_meets      = "Meets"
 
 # Picker chrome — the cloud meet list, the language and label-style controls,
 # and the compliance text a native picker fetches (docs/api.md §5.7).
-page_title      = "Splouch"
-no_meets        = "No active meets right now."
-unnamed_meet    = "Unnamed Meet"
-a2hs_action     = "Add to Home Screen"
-a2hs_ios_share  = "Share"
-a2hs_ios_more   = "Show more"
-a2hs_tap        = "Tap"
-a2hs_install    = "Install"
+page_title         = "Splouch"
+no_meets           = "No active meets right now."
+unnamed_meet       = "Unnamed Meet"
+a2hs_action        = "Add to Home Screen"
+a2hs_ios_share     = "Share"
+a2hs_ios_more      = "Show more"
+a2hs_tap           = "Tap"
+a2hs_install       = "Install"
 results_disclaimer = "These are live, unofficial results and are subject to validation. Validated results will be available on the SplashMe app."
-privacy_note      = "This site counts visitors anonymously to estimate attendance. No personal information is collected or shared."
-offline         = "Schedule only"
+privacy_note       = "This site counts visitors anonymously to estimate attendance. No personal information is collected or shared."
+offline            = "Schedule only"
 
 # The QR hand-off page (`GET /add`, docs/app.md `P-16`). Read only by a phone that
 # does not have the app — one with it never reaches this page, the OS opened the app
@@ -78,23 +78,23 @@ add_store_ios     = "Get it on the App Store"
 add_store_android = "Get it on Google Play"
 add_no_store      = "The app is not available for download yet."
 add_web           = "Follow the meets in this browser"
-language             = "Language"
-language_auto        = "Auto (browser)"
+language          = "Language"
+language_auto     = "Auto (browser)"
 # Visitor-side display preferences, offered on the picker and carried into every
 # meet opened afterwards (docs/app.md T-08, T-09).
-prefs_title          = "Display"
-prefs_auto           = "Meet default"
-prefs_labels         = "Column labels"
-prefs_short          = "Short"
-prefs_long           = "Long"
+prefs_title  = "Display"
+prefs_auto   = "Meet default"
+prefs_labels = "Column labels"
+prefs_short  = "Short"
+prefs_long   = "Long"
 
 # Filter sheet.
-filter             = "Filter"
-no_filters         = "No active filters"
-no_search_results  = "No results"
-no_matches         = "No swimmers match these filters"
-swimmer            = "Swimmer"
-club               = "Club"
+filter            = "Filter"
+no_filters        = "No active filters"
+no_search_results = "No results"
+no_matches        = "No swimmers match these filters"
+swimmer           = "Swimmer"
+club              = "Club"
 
 # Native TV display (scoreboard/) — status messages shown instead of the board.
 [display]

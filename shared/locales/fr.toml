@@ -5,24 +5,24 @@
 name = "Français"
 
 [labels]
-event = { short = "ÉP",    long = "ÉPREUVE" }
-heat  = { short = "SÉR",   long = "SÉRIE"   }
-lane  = { short = "CL",    long = "COULOIR" }
-place = { short = "POS",   long = "POS"     }
-time  = { short = "TEMPS", long = "TEMPS"   }
-name  = { short = "NOM",   long = "NOM"     }
-club  = { short = "CLUB",  long = "CLUB"    }
-delta  = { short = "ÉCART",  long = "ÉCART"  }
+event  = { short = "ÉP", long = "ÉPREUVE" }
+heat   = { short = "SÉR", long = "SÉRIE" }
+lane   = { short = "CL", long = "COULOIR" }
+place  = { short = "POS", long = "POS" }
+time   = { short = "TEMPS", long = "TEMPS" }
+name   = { short = "NOM", long = "NOM" }
+club   = { short = "CLUB", long = "CLUB" }
+delta  = { short = "ÉCART", long = "ÉCART" }
 chrono = { short = "CHRONO", long = "CHRONO" }
 
 [event_name]
-unit      = "m"
-separator = "  —  "
-girls     = "Filles"
-boys      = "Garçons"
-women     = "Femmes"
-men       = "Hommes"
-mixed     = "Mixte"
+unit         = "m"
+separator    = "  —  "
+girls        = "Filles"
+boys         = "Garçons"
+women        = "Femmes"
+men          = "Hommes"
+mixed        = "Mixte"
 freestyle    = "libre"
 backstroke   = "dos"
 breaststroke = "brasse"
@@ -33,44 +33,44 @@ open         = "Ouvert"
 senior       = "Sénior"
 
 [aliases]
-mobile          = "/mobile"
-telephone       = "/mobile"
-cellulaire      = "/mobile"
-tableau         = "/scoreboard"
-resultats       = "/results"
-prochaines      = "/next_heats"
-horaire         = "/lenex_preview"
-parametres      = "/settings"
+mobile     = "/mobile"
+telephone  = "/mobile"
+cellulaire = "/mobile"
+tableau    = "/scoreboard"
+resultats  = "/results"
+prochaines = "/next_heats"
+horaire    = "/lenex_preview"
+parametres = "/settings"
 
 [mobile]
-scoreboard       = "Tableau"
-results          = "Résultats"
-next_heats       = "Prochaines séries"
-schedule         = "Horaire"
-waiting_results  = "En attente des résultats…"
-no_schedule      = "Aucun horaire disponible."
-no_upcoming      = "Aucune série à venir"
-upcoming_only    = "À venir"
+scoreboard         = "Tableau"
+results            = "Résultats"
+next_heats         = "Prochaines séries"
+schedule           = "Horaire"
+waiting_results    = "En attente des résultats…"
+no_schedule        = "Aucun horaire disponible."
+no_upcoming        = "Aucune série à venir"
+upcoming_only      = "À venir"
 search_placeholder = "Ajouter un nageur ou un club…"
-show_all_heats   = "Toutes les séries"
-reset_filters    = "Réinitialiser"
-reset_confirm    = "Effacer tous les filtres ?"
-no_meet          = "Aucun fichier de compétition chargé"
-back_to_meets    = "Compétitions"
+show_all_heats     = "Toutes les séries"
+reset_filters      = "Réinitialiser"
+reset_confirm      = "Effacer tous les filtres ?"
+no_meet            = "Aucun fichier de compétition chargé"
+back_to_meets      = "Compétitions"
 
 # Sélecteur — liste des compétitions, contrôles de langue et d'étiquettes,
 # et texte de conformité récupéré par un sélecteur natif (docs/api.md §5.7).
-page_title      = "Splouch"
-no_meets        = "Aucune compétition en cours."
-unnamed_meet    = "Compétition sans nom"
-a2hs_action     = "Ajouter sur l'écran d'accueil"
-a2hs_ios_share  = "Partager"
-a2hs_ios_more   = "Afficher plus"
-a2hs_tap        = "Appuyez sur"
-a2hs_install    = "Installer"
+page_title         = "Splouch"
+no_meets           = "Aucune compétition en cours."
+unnamed_meet       = "Compétition sans nom"
+a2hs_action        = "Ajouter sur l'écran d'accueil"
+a2hs_ios_share     = "Partager"
+a2hs_ios_more      = "Afficher plus"
+a2hs_tap           = "Appuyez sur"
+a2hs_install       = "Installer"
 results_disclaimer = "Les résultats sont en direct, non officiels et sujets à une validation. Les résultats validés sont disponibles sur l'application SplashMe."
-privacy_note      = "Ce site compte les visiteurs de façon anonyme pour estimer l'assistance. Aucun renseignement personnel n'est recueilli ni partagé."
-offline         = "Horaire seulement"
+privacy_note       = "Ce site compte les visiteurs de façon anonyme pour estimer l'assistance. Aucun renseignement personnel n'est recueilli ni partagé."
+offline            = "Horaire seulement"
 
 # La page de redirection du code QR (`GET /add`, docs/app.md `P-16`). Lue seulement
 # par un téléphone qui n'a pas l'application — celui qui l'a n'arrive jamais ici, le
@@ -85,23 +85,23 @@ add_store_ios     = "Télécharger dans l'App Store"
 add_store_android = "Disponible sur Google Play"
 add_no_store      = "L'application n'est pas encore disponible au téléchargement."
 add_web           = "Suivre les compétitions dans ce navigateur"
-language             = "Langue"
-language_auto        = "Auto (navigateur)"
+language          = "Langue"
+language_auto     = "Auto (navigateur)"
 # Préférences d'affichage du visiteur, offertes sur le sélecteur et conservées pour
 # chaque compétition ouverte ensuite (docs/app.md T-08, T-09).
-prefs_title          = "Affichage"
-prefs_auto           = "Défaut de la compétition"
-prefs_labels         = "Étiquettes des colonnes"
-prefs_short          = "Courtes"
-prefs_long           = "Longues"
+prefs_title  = "Affichage"
+prefs_auto   = "Défaut de la compétition"
+prefs_labels = "Étiquettes des colonnes"
+prefs_short  = "Courtes"
+prefs_long   = "Longues"
 
 # Feuille de filtres.
-filter             = "Filtrer"
-no_filters         = "Aucun filtre actif"
-no_search_results  = "Aucun résultat"
-no_matches         = "Aucun nageur trouvé pour ces filtres"
-swimmer            = "Nageur"
-club               = "Club"
+filter            = "Filtrer"
+no_filters        = "Aucun filtre actif"
+no_search_results = "Aucun résultat"
+no_matches        = "Aucun nageur trouvé pour ces filtres"
+swimmer           = "Nageur"
+club              = "Club"
 
 # Affichage TV natif (scoreboard/) — messages affichés à la place du tableau.
 [display]

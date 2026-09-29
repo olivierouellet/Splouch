@@ -9,6 +9,7 @@
     "timonwong.shellcheck",
     "DavidAnson.vscode-markdownlint",
     "biomejs.biome",
+    "tamasfe.even-better-toml",
     "ms-python.python",
     "redhat.vscode-yaml",
     "samuelcolvin.jinjahtml"

@@ -152,3 +152,10 @@ jobs:
       - name: Templates
         # Lint only, rules in [tool.djlint] in pyproject.toml.
         run: uv run djlint server/templates cloud/templates shared/templates --lint
+
+      - name: TOML
+        # Format check, then syntax, and pyproject.toml against its published schema.
+        # Settings in taplo.toml; `uv run taplo fmt` fixes.
+        run: |
+          uv run taplo fmt --check
+          uv run taplo lint

@@ -42,12 +42,13 @@ dev = [
     "ty",
     # Non-Python linters, as wheels so uv.lock pins them like the rest. CI's `lint`
     # job installs this group alone.
-    "actionlint-py",  # .github/workflows/
-    "djlint",         # templates, rules in [tool.djlint] below
-    "rumdl",          # Markdown, rules in .markdownlint.json
+    "actionlint-py", # .github/workflows/
+    "djlint",        # templates, rules in [tool.djlint] below
+    "rumdl",         # Markdown, rules in .markdownlint.json
     "shellcheck-py",
-    "shfmt-py",       # settings in .editorconfig
-    "yamllint",       # rules in .yamllint.yml
+    "shfmt-py",      # settings in .editorconfig
+    "taplo",         # TOML, settings in taplo.toml
+    "yamllint",      # rules in .yamllint.yml
 ]
 
 [tool.pytest.ini_options]
@@ -75,44 +76,44 @@ combine-as-imports = true
 # a file keeps being checked for everything else.
 [tool.ruff.lint]
 select = [
-    "E4",   # imports — placement and form
-    "E7",   # statement-level mistakes
-    "E9",   # syntax and IO errors
-    "F",    # pyflakes: undefined names, unused imports and variables
-    "B",    # bugbear: likely-wrong constructs the interpreter still accepts
-    "PLE",  # pylint errors — the ones that are always bugs
-    "I",    # isort: import order, the same fix organize-imports applies on save
+    "E4",      # imports — placement and form
+    "E7",      # statement-level mistakes
+    "E9",      # syntax and IO errors
+    "F",       # pyflakes: undefined names, unused imports and variables
+    "B",       # bugbear: likely-wrong constructs the interpreter still accepts
+    "PLE",     # pylint errors — the ones that are always bugs
+    "I",       # isort: import order, the same fix organize-imports applies on save
     "RUF100",  # a `# noqa` that no longer suppresses anything
-    "ASYNC",  # blocking calls inside `async def` — they stall every connected board
-    "UP",     # pyupgrade: the 3.13 spelling of things
-    "C4",     # comprehensions: no list() around a generator, no dict() for a literal
-    "PIE",    # misc. no-ops: unnecessary pass, reimplemented builtins
-    "RET",    # return: no else after return, no explicit `return None`
-    "PERF",   # a loop that appends is a comprehension
-    "SIM115", # open() outside a `with` leaks the handle until the GC finds it
-    "W",      # whitespace the formatter cannot fix (inside strings, trailing in docstrings)
-    "ISC",    # implicit string concatenation — usually a missing comma in a list
-    "G",      # logging calls: pass args, don't pre-format the message
-    "LOG",    # logging misuse: wrong logger, exception() outside except
-    "PGH",    # blanket `# noqa` / `# type: ignore` — every suppression names its rule
-    "T10",    # a leftover breakpoint()
-    "FLY",    # "".join() of literals is an f-string
-    "ERA",    # commented-out code
-    "A",      # shadowing a builtin
-    "RSE",    # `raise X()` with no arguments is `raise X`
-    "PYI",    # typing hygiene: NamedTuple over namedtuple
-    "EXE",    # shebang and executable bit agree
-    "FURB",   # refurb: the modern spelling (removeprefix, re.DOTALL over re.S)
-    "FAST",   # FastAPI: Annotated[...] parameters, the form FastAPI now documents
-    "SIM",    # simplifications: contextlib.suppress, merged ifs, dict.get
-    "RUF005", # [*a, b] over a + [b]
+    "ASYNC",   # blocking calls inside `async def` — they stall every connected board
+    "UP",      # pyupgrade: the 3.13 spelling of things
+    "C4",      # comprehensions: no list() around a generator, no dict() for a literal
+    "PIE",     # misc. no-ops: unnecessary pass, reimplemented builtins
+    "RET",     # return: no else after return, no explicit `return None`
+    "PERF",    # a loop that appends is a comprehension
+    "SIM115",  # open() outside a `with` leaks the handle until the GC finds it
+    "W",       # whitespace the formatter cannot fix (inside strings, trailing in docstrings)
+    "ISC",     # implicit string concatenation — usually a missing comma in a list
+    "G",       # logging calls: pass args, don't pre-format the message
+    "LOG",     # logging misuse: wrong logger, exception() outside except
+    "PGH",     # blanket `# noqa` / `# type: ignore` — every suppression names its rule
+    "T10",     # a leftover breakpoint()
+    "FLY",     # "".join() of literals is an f-string
+    "ERA",     # commented-out code
+    "A",       # shadowing a builtin
+    "RSE",     # `raise X()` with no arguments is `raise X`
+    "PYI",     # typing hygiene: NamedTuple over namedtuple
+    "EXE",     # shebang and executable bit agree
+    "FURB",    # refurb: the modern spelling (removeprefix, re.DOTALL over re.S)
+    "FAST",    # FastAPI: Annotated[...] parameters, the form FastAPI now documents
+    "SIM",     # simplifications: contextlib.suppress, merged ifs, dict.get
+    "RUF005",  # [*a, b] over a + [b]
     "PLW1510", # subprocess.run() says whether a failure should raise (check=)
-    "SLOT",   # __slots__ on str/tuple subclasses
-    "TID",    # tidy imports: no relative imports reaching up a package
-    "ICN",    # conventional import aliases
-    "INT",    # gettext calls with a literal, not a pre-formatted string
-    "YTT",    # sys.version comparisons that break at 3.10 or 4.0
-    "FA",     # `from __future__ import annotations` where it is needed
+    "SLOT",    # __slots__ on str/tuple subclasses
+    "TID",     # tidy imports: no relative imports reaching up a package
+    "ICN",     # conventional import aliases
+    "INT",     # gettext calls with a literal, not a pre-formatted string
+    "YTT",     # sys.version comparisons that break at 3.10 or 4.0
+    "FA",      # `from __future__ import annotations` where it is needed
 ]
 
 # ── Templates ──────────────────────────────────────────────────────────────────
@@ -159,7 +160,7 @@ T032\
 #     the scoped spelling is in its stubs.
 [tool.ty.environment]
 python-version = "3.13"
-extra-paths = ["server", "shared/py", "cloud"]
+extra-paths    = ["server", "shared/py", "cloud"]
 
 # ── Coverage ───────────────────────────────────────────────────────────────────
 # Printed in the CI log. Never gated, never uploaded to a third party — the number

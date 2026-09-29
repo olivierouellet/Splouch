@@ -1,0 +1,22 @@
+# Taplo formats every tracked .toml: `uv run taplo fmt` fixes, `uv run taplo fmt
+# --check` is what CI runs. `uv run taplo lint` checks syntax, and pyproject.toml
+# against its published schema.
+include = [
+    "pyproject.toml",
+    "taplo.toml",
+    "server/**/*.toml",
+    "shared/**/*.toml",
+]
+
+[formatting]
+# 4 spaces, as pyproject.toml was already written.
+indent_string = "    "
+# The locales and themes are read as tables — a translator scans the value column
+# down the page — so keep them aligned, and let Taplo keep them so as keys change.
+align_entries  = true
+align_comments = true
+# Leave arrays laid out as written: one entry per line where each carries a comment.
+array_auto_collapse = false
+array_auto_expand   = false
+allowed_blank_lines = 2
+column_width        = 100
