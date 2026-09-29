@@ -181,6 +181,10 @@ extra-paths    = ["server", "shared/py", "cloud"]
 # relay and the authenticated routes are the thin spots worth watching.
 [tool.coverage.run]
 source = ["server", "scoreboard", "cloud", "shared/py"]
+# Branches, not just lines: an `if` with no `else` counts as covered once any test
+# runs it, even if none ever takes the other path. Those untaken paths — the
+# fallbacks, the console-gone and no-meet cases — are where the bugs have been.
+branch = true
 
 [tool.coverage.report]
 # Fractional percentages, so a real change is not rounded into invisibility.
