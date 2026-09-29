@@ -82,8 +82,6 @@ sake; each has a reason in the tree.
 **Ruff owns layout and import order.** Code is formatted with `ruff format` and imports
 are sorted by Ruff's `I` rules, both on Ruff's defaults; CI fails on either drifting.
 Don't hand-align assignments or hand-wrap import blocks — the formatter will undo it.
-If a block genuinely reads better laid out by hand (a table of constants, say), wrap it
-in `# fmt: off` / `# fmt: on` with a reason, as sparingly as a `# noqa`.
 
 **No `per-file-ignores`.** Every suppression is a `# noqa` on the line it applies to,
 with a reason, so a silenced rule stays visible where it was silenced and the rest of the
