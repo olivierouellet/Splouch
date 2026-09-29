@@ -32,6 +32,9 @@ jobs:
       # one on the pool deck.
       UV_PYTHON_DOWNLOADS: never
       UV_PYTHON_PREFERENCE: only-system
+      # Every `uv run` would otherwise re-sync the default groups first — lint
+      # included — and undo the install step's --no-group lint.
+      UV_NO_SYNC: "1"
     steps:
       - name: Install system packages
         # Qt needs these even headless: the offscreen platform plugin still links
