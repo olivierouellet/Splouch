@@ -92,16 +92,16 @@ but so far the answer has been worth having every time.
 What checks each kind of file, and whether CI fails on it. Vendored minified files
 (Bootstrap, htmx) are shipped as-is and checked by nothing.
 
-| Language | Where | Linter | Formatter | Types | Tests / coverage | Gated in CI |
-| --- | --- | --- | --- | --- | --- | --- |
-| **Python 3.13** | `server/`, `scoreboard/`, `cloud/`, `shared/py/`, `tests/` | Ruff (`ruff check`, rules in `pyproject.toml`) | Ruff (`ruff format`, imports by the `I` rules) | ty | pytest, coverage by pytest-cov — printed, never gated | Yes, all four |
-| **Shell** | `install.sh`, `install/` | ShellCheck (`-S warning`) | shfmt (settings in `.editorconfig`) | — | — | Yes, both |
-| **JavaScript** | `shared/static/js/` | Biome (`biome.jsonc`) | Biome | `// @ts-check`, run by `tsc` (`jsconfig.json`; page globals in `globals.d.ts`) | Each page's scripts run on load by [`tests/jsc.py`](tests/jsc.py) (JavaScriptCore on macOS, Node in CI); no coverage | Yes, Biome, tsc and pytest |
-| **HTML / Jinja** | `server/templates/`, `cloud/templates/`, `shared/templates/` | djLint (`[tool.djlint]` in `pyproject.toml`) | — (djLint's would reflow every inline script) | — | Rendered and asserted on by pytest | Yes, djLint and pytest |
-| **CSS** | `shared/static/css/` | Biome (`biome.jsonc`) | Biome | — | Some rules are asserted on by pytest, which reads the source | Yes, Biome and pytest |
-| **TOML** | `shared/locales/`, `server/themes/`, `pyproject.toml` | `taplo lint` (syntax; `pyproject.toml` against its schema) | Taplo (`taplo.toml`, columns kept aligned) | — | Locale key parity with English in [`tests/test_i18n.py`](tests/test_i18n.py) | Yes, Taplo and pytest |
-| **Markdown** | `*.md`, `docs/` | rumdl in CI, markdownlint in the editor — both read `.markdownlint.json` | `rumdl fmt` fixes what the check flags | — | — | Yes, rumdl |
-| **YAML** | `.github/`, `cloud/docker-compose.yml` | yamllint (`.yamllint.yml`); actionlint for workflows; schema validation in the editor (Red Hat YAML extension) | — | — | — | Yes, yamllint and actionlint |
+| Language | Where | Linter | Formatter | Types | Tests | Coverage | Gated in CI |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| **Python 3.13** | `server/`, `scoreboard/`, `cloud/`, `shared/py/`, `tests/` | Ruff (`ruff check`, rules in `pyproject.toml`) | Ruff (`ruff format`, imports by the `I` rules) | ty | pytest | pytest-cov — printed in the CI log, never gated | Yes, all four |
+| **Shell** | `install.sh`, `install/` | ShellCheck (`-S warning`) | shfmt (settings in `.editorconfig`) | — | — | — | Yes, both |
+| **JavaScript** | `shared/static/js/` | Biome (`biome.jsonc`) | Biome | `// @ts-check`, run by `tsc` (`jsconfig.json`; page globals in `globals.d.ts`) | Each page's scripts run on load by [`tests/jsc.py`](tests/jsc.py) (JavaScriptCore on macOS, Node in CI) | — | Yes, Biome, tsc and pytest |
+| **HTML / Jinja** | `server/templates/`, `cloud/templates/`, `shared/templates/` | djLint (`[tool.djlint]` in `pyproject.toml`) | — (djLint's would reflow every inline script) | — | Rendered and asserted on by pytest | — | Yes, djLint and pytest |
+| **CSS** | `shared/static/css/` | Biome (`biome.jsonc`) | Biome | — | Some rules are asserted on by pytest, which reads the source | — | Yes, Biome and pytest |
+| **TOML** | `shared/locales/`, `server/themes/`, `pyproject.toml` | `taplo lint` (syntax; `pyproject.toml` against its schema) | Taplo (`taplo.toml`, columns kept aligned) | — | Locale key parity with English in [`tests/test_i18n.py`](tests/test_i18n.py) | — | Yes, Taplo and pytest |
+| **Markdown** | `*.md`, `docs/` | rumdl in CI, markdownlint in the editor — both read `.markdownlint.json` | `rumdl fmt` fixes what the check flags | — | — | — | Yes, rumdl |
+| **YAML** | `.github/`, `cloud/docker-compose.yml` | yamllint (`.yamllint.yml`); actionlint for workflows; schema validation in the editor (Red Hat YAML extension) | — | — | — | — | Yes, yamllint and actionlint |
 
 Every linter and formatter above is pinned: Biome and TypeScript by `package-lock.json`, the rest
 in the `lint` dependency group by `uv.lock`. Only Node, for the JavaScript smoke tests,
