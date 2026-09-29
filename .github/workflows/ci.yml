@@ -160,6 +160,19 @@ jobs:
       - name: YAML
         run: uv run yamllint --strict .
 
+      - name: YAML schemas
+        # What the Red Hat extension checks in the editor, for the files actionlint
+        # does not cover. The schemas ship inside check-jsonschema, so this is
+        # offline. A broken issue form does not render on GitHub, and a broken
+        # dependabot.yml stops the updates, both silently. Every template but
+        # config.yml is an issue form, including ones added later.
+        run: |
+          find .github/ISSUE_TEMPLATE -name '*.yml' ! -name config.yml \
+            -exec uv run check-jsonschema --builtin-schema vendor.github-issue-forms {} +
+          uv run check-jsonschema --builtin-schema vendor.github-issue-config .github/ISSUE_TEMPLATE/config.yml
+          uv run check-jsonschema --builtin-schema vendor.dependabot .github/dependabot.yml
+          uv run check-jsonschema --builtin-schema vendor.compose-spec cloud/docker-compose.yml
+
       - name: Markdown
         # Rules in .markdownlint.json, which the VS Code extension reads too.
         run: uv run rumdl check .

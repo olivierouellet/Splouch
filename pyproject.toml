@@ -41,14 +41,15 @@ dev = ["pytest", "pytest-cov", "ruff", "ty"]
 # the test job runs on aarch64 to match the Pi. It passes `--no-group lint`; CI's
 # x86 `lint` job installs this group alone.
 lint = [
-    "actionlint-py", # .github/workflows/
-    "djlint",        # templates, rules in [tool.djlint] below
-    "rumdl",         # Markdown, rules in .markdownlint.json
+    "actionlint-py",    # .github/workflows/
+    "check-jsonschema", # issue forms, Dependabot and compose, against SchemaStore
+    "djlint",           # templates, rules in [tool.djlint] below
+    "rumdl",            # Markdown, rules in .markdownlint.json
     "shellcheck-py",
-    "shfmt-py",      # settings in .editorconfig
-    "taplo",         # TOML, settings in taplo.toml
-    "yamllint",      # rules in .yamllint.yml
-    "zizmor",        # workflow security, run --offline
+    "shfmt-py",         # settings in .editorconfig
+    "taplo",            # TOML, settings in taplo.toml
+    "yamllint",         # rules in .yamllint.yml
+    "zizmor",           # workflow security, run --offline
 ]
 
 # Both groups for a plain `uv sync`, so every command in CONTRIBUTING works locally.
