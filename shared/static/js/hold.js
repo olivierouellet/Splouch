@@ -1,3 +1,4 @@
+// @ts-check
 /* ============================================================================
    Press-and-hold confirmation for [data-hold] elements.
 
@@ -41,7 +42,8 @@
         /* The element is passed so one handler can serve many buttons — /manual has a
            hold on every row of the running order and reads the heat off the button
            that was held. Existing handlers take no arguments and ignore it. */
-        if (fn && typeof window[fn] === 'function') window[fn](el);
+        var handler = fn && /** @type {any} */ (window)[fn];
+        if (typeof handler === 'function') handler(el);
         else if (href) window.location.href = href;
     }
     function cancel() {
@@ -57,7 +59,7 @@
     document.addEventListener(
         'click',
         function (e) {
-            if (e.target.closest('[data-hold]')) e.preventDefault(); // no plain-click action
+            if (/** @type {Element} */ (e.target).closest('[data-hold]')) e.preventDefault(); // no plain-click action
         },
         true,
     );
@@ -67,10 +69,10 @@
        most of it; this catches what still gets through, and desktop right-click on a
        hold button, where a menu is equally unwanted. */
     document.addEventListener('contextmenu', function (e) {
-        if (e.target.closest('[data-hold]')) e.preventDefault();
+        if (/** @type {Element} */ (e.target).closest('[data-hold]')) e.preventDefault();
     });
     document.addEventListener('pointerdown', function (e) {
-        var el = e.target.closest('[data-hold]');
+        var el = /** @type {Element} */ (e.target).closest('[data-hold]');
         if (!el || el.disabled || el.classList.contains('disabled')) return;
         e.preventDefault();
         active = el;
@@ -98,6 +100,6 @@
     document.addEventListener('pointerup', cancel);
     document.addEventListener('pointercancel', cancel);
     document.addEventListener('pointermove', function (e) {
-        if (active && e.target.closest('[data-hold]') !== active) cancel();
+        if (active && /** @type {Element} */ (e.target).closest('[data-hold]') !== active) cancel();
     });
 })();

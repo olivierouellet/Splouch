@@ -23,7 +23,7 @@ By participating you agree to the [Code of Conduct](CODE_OF_CONDUCT.md).
 
 ```bash
 uv sync --extra scoreboard               # everything, PySide6 included
-npm ci                                   # Biome, for JS/CSS — dev only, never on a Pi
+npm ci                                   # Biome and TypeScript, for JS/CSS — dev only, never on a Pi
 cd server && uv run python app.py        # http://localhost:5000
 ```
 
@@ -72,6 +72,7 @@ uv run actionlint
 uv run yamllint --strict .
 uv run rumdl check .
 npx biome ci
+npx tsc -p shared/static/js/jsconfig.json
 uv run djlint server/templates cloud/templates shared/templates --lint
 uv run taplo fmt --check
 uv run taplo lint
@@ -95,19 +96,19 @@ What checks each kind of file, and whether CI fails on it. Vendored minified fil
 | --- | --- | --- | --- | --- | --- | --- |
 | **Python 3.13** | `server/`, `scoreboard/`, `cloud/`, `shared/py/`, `tests/` | Ruff (`ruff check`, rules in `pyproject.toml`) | Ruff (`ruff format`, imports by the `I` rules) | ty | pytest, coverage by pytest-cov — printed, never gated | Yes, all four |
 | **Shell** | `install.sh`, `install/` | ShellCheck (`-S warning`) | shfmt (settings in `.editorconfig`) | — | — | Yes, both |
-| **JavaScript** | `shared/static/js/` | Biome (`biome.jsonc`) | Biome | — | Each page's scripts run on load by [`tests/jsc.py`](tests/jsc.py) (JavaScriptCore on macOS, Node in CI); no coverage | Yes, Biome and pytest |
+| **JavaScript** | `shared/static/js/` | Biome (`biome.jsonc`) | Biome | `// @ts-check`, run by `tsc` (`jsconfig.json`; page globals in `globals.d.ts`) | Each page's scripts run on load by [`tests/jsc.py`](tests/jsc.py) (JavaScriptCore on macOS, Node in CI); no coverage | Yes, Biome, tsc and pytest |
 | **HTML / Jinja** | `server/templates/`, `cloud/templates/`, `shared/templates/` | djLint (`[tool.djlint]` in `pyproject.toml`) | — (djLint's would reflow every inline script) | — | Rendered and asserted on by pytest | Yes, djLint and pytest |
 | **CSS** | `shared/static/css/` | Biome (`biome.jsonc`) | Biome | — | Some rules are asserted on by pytest, which reads the source | Yes, Biome and pytest |
 | **TOML** | `shared/locales/`, `server/themes/`, `pyproject.toml` | `taplo lint` (syntax; `pyproject.toml` against its schema) | Taplo (`taplo.toml`, columns kept aligned) | — | Locale key parity with English in [`tests/test_i18n.py`](tests/test_i18n.py) | Yes, Taplo and pytest |
 | **Markdown** | `*.md`, `docs/` | rumdl in CI, markdownlint in the editor — both read `.markdownlint.json` | `rumdl fmt` fixes what the check flags | — | — | Yes, rumdl |
 | **YAML** | `.github/`, `cloud/docker-compose.yml` | yamllint (`.yamllint.yml`); actionlint for workflows; schema validation in the editor (Red Hat YAML extension) | — | — | — | Yes, yamllint and actionlint |
 
-Every linter and formatter above is pinned: Biome by `package-lock.json`, the rest
+Every linter and formatter above is pinned: Biome and TypeScript by `package-lock.json`, the rest
 as wheels in the `dev` group by `uv.lock`. Only Node, for the JavaScript smoke tests,
 comes from the CI image's apt. The VS Code extensions in `.vscode/extensions.json`
-run Ruff, ty, ShellCheck, markdownlint, Biome and Taplo, so a file clean in the
-editor is one CI accepts. djLint has no editor extension here; run it before
-pushing a template change.
+run Ruff, ty, ShellCheck, markdownlint, Biome and Taplo, and VS Code reads
+`jsconfig.json` itself, so a file clean in the editor is one CI accepts. djLint has
+no editor extension here; run it before pushing a template change.
 
 Biome's config turns off seven recommended rules, each with its reason in
 `biome.jsonc`. Most come from one mismatch: Biome reads every `.js` as an ES

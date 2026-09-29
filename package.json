@@ -1,7 +1,8 @@
 {
   "private": true,
-  "description": "Dev tooling only: Biome lints and formats shared/static/js and shared/static/css. Nothing here ships to a Pi.",
+  "description": "Dev tooling only: Biome lints and formats shared/static/js and css; TypeScript type-checks the JS (nothing is compiled). Nothing here ships to a Pi.",
   "devDependencies": {
-    "@biomejs/biome": "2.5.14"
+    "@biomejs/biome": "2.5.14",
+    "typescript": "7.0.2"
   }
 }

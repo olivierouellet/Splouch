@@ -1,3 +1,4 @@
+// @ts-check
 /*
  * splouchSocket(path) — tiny plain-WebSocket client that replaces socket.io.
  *

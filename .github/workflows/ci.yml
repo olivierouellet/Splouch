@@ -149,6 +149,10 @@ jobs:
         # Lint and format check in one; rules in biome.jsonc. `npx biome check --write` fixes.
         run: npx biome ci
 
+      - name: JavaScript types
+        # `// @ts-check` in each script; settings and page globals in shared/static/js.
+        run: npx tsc -p shared/static/js/jsconfig.json
+
       - name: Templates
         # Lint only, rules in [tool.djlint] in pyproject.toml.
         run: uv run djlint server/templates cloud/templates shared/templates --lint

@@ -483,7 +483,7 @@ def test_the_row_arrows_read_their_heat_off_the_button_that_was_held():
     hold_js = Path(os.path.join(REPO, "shared", "static", "js", "hold.js")).read_text(
         encoding="utf-8"
     )
-    assert "window[fn](el)" in hold_js, "hold.js must hand the element to the handler"
+    assert "handler(el)" in hold_js, "hold.js must hand the element to the handler"
 
 
 def test_the_preview_shows_swimmers_but_never_seed_times():

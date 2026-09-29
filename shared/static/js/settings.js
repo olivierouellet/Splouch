@@ -1,3 +1,4 @@
+// @ts-check
 // Settings page behaviour. Loaded by templates/settings.html.
 //
 // This was 1389 lines inline in that template. Exactly one thing in it was ever
@@ -1261,22 +1262,25 @@ function saveCustomTheme() {
 }
 
 document.querySelectorAll('.file-picker input[type="file"]').forEach(function (input) {
-    input.addEventListener('change', function () {
-        // A wrapper without a span is one that reports through its own status
-        // line instead; it must not throw out of here, because this listener
-        // shares the `change` event with the handler doing the actual upload.
-        var msg = this.closest('.file-picker').querySelector('.file-msg');
-        if (msg && this.files && this.files[0]) {
-            msg.textContent = this.files[0].name;
-            msg.style.transition = 'none';
-            msg.style.opacity = '1';
-            var el = msg;
-            setTimeout(function () {
-                el.style.transition = 'opacity 2s';
-                el.style.opacity = '0';
-            }, 2000);
-        }
-    });
+    input.addEventListener(
+        'change',
+        /** @this {HTMLInputElement} */ function () {
+            // A wrapper without a span is one that reports through its own status
+            // line instead; it must not throw out of here, because this listener
+            // shares the `change` event with the handler doing the actual upload.
+            var msg = this.closest('.file-picker').querySelector('.file-msg');
+            if (msg && this.files && this.files[0]) {
+                msg.textContent = this.files[0].name;
+                msg.style.transition = 'none';
+                msg.style.opacity = '1';
+                var el = msg;
+                setTimeout(function () {
+                    el.style.transition = 'opacity 2s';
+                    el.style.opacity = '0';
+                }, 2000);
+            }
+        },
+    );
 });
 
 // ── Time tab ─────────────────────────────────────────────────────────────
@@ -1510,7 +1514,7 @@ document.addEventListener('click', function () {
 });
 function downloadLogs() {
     document.getElementById('log-menu').style.display = 'none';
-    window.location = '/logs_download';
+    window.location.href = '/logs_download';
 }
 function saveLogsToPi() {
     document.getElementById('log-menu').style.display = 'none';

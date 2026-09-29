@@ -14,6 +14,14 @@
         "lineWidth": 100
     },
     "javascript": { "formatter": { "quoteStyle": "single" } },
+    "overrides": [
+        {
+            // Declarations for untyped vendored libraries (htmx, Bootstrap, xterm):
+            // `any` is the accurate type there, not a shortcut.
+            "includes": ["**/*.d.ts"],
+            "linter": { "rules": { "suspicious": { "noExplicitAny": "off" } } }
+        }
+    ],
     "linter": {
         "enabled": true,
         "rules": {

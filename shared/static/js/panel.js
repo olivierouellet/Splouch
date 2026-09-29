@@ -1,3 +1,4 @@
+// @ts-check
 /* ============================================================================
    Splouch operator panels — shared UI behaviour.
    Used by BOTH the Pi server Settings panel and the cloud Admin panel.
