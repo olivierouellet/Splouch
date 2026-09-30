@@ -1632,7 +1632,20 @@ async def route_admin(request: Request):
                 await run_in_threadpool(_delete_meet_files, meet_id)
         elif action == "set_analytics":
             creds = _load_creds()
-            creds["analytics_enabled"] = form.get("analytics_enabled") == "1"
+            enable = form.get("analytics_enabled") == "1"
+            # Turning counting on needs the administrator's acknowledgement from the
+            # consent dialog: the legal check is theirs, and the record of who
+            # accepted it and when stays with the setting. Turning it off never does.
+            if enable and form.get("analytics_ack") != "1":
+                return RedirectResponse("/admin", status_code=303)
+            creds["analytics_enabled"] = enable
+            if enable:
+                creds["analytics_ack"] = {
+                    "user": creds.get("user", ""),
+                    "at": datetime.datetime.now(datetime.UTC).isoformat(
+                        timespec="seconds"
+                    ),
+                }
             await run_in_threadpool(_save_creds, creds)
             return RedirectResponse("/admin", status_code=303)
         elif action == "change_locale":

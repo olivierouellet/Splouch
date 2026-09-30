@@ -166,6 +166,16 @@
         }
         window.addEventListener('DOMContentLoaded', refreshAllAttendees);
 
+        // ── Attendance consent ──────────────────────────────────────────────────
+        // However the dialog closes (Cancel, ×, Escape, backdrop), it reopens with the
+        // box unticked: an acknowledgement is given each time, never left over.
+        const consent = document.getElementById('analytics-consent');
+        if (consent) {
+            consent.addEventListener('hidden.bs.modal', function () {
+                consent.querySelector('form').reset();
+            });
+        }
+
         // ── Sidebar navigation ──────────────────────────────────────────────────
         // Generic switcher + copyKey are in panel.js; just pick the initial tab.
         panelShowTab(location.hash || '#tab-meets');
