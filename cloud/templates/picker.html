@@ -139,7 +139,7 @@
             background: var(--note-bg); border: 1px solid var(--btn-line); border-radius: 999px;
             padding: 6px 12px 6px 10px; cursor: pointer;
         }
-        .notice-pill svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; flex-shrink: 0; }
+        .notice-pill svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0; }
         .notice-pill:active { opacity: 0.7; }
         .notice-full[hidden], .notice-pill[hidden], .notice-close[hidden] { display: none; }
 
@@ -295,7 +295,13 @@
         {% for name, text, label in notices %}
         <div class="notice" data-notice="{{ name }}">
             <button type="button" class="notice-pill" aria-controls="notice-{{ name }}" aria-expanded="false" hidden>
-                <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 11v6M12 7.5v.01"/></svg>
+                {#- Lucide `hourglass` and `users` (ISC); the apps draw SF Symbols
+                    `hourglass`/`person.2` and Material `hourglass_top`/`group`. #}
+                {%- if name == 'results' %}
+                <svg viewBox="0 0 24 24"><path d="M5 22h14M5 2h14"/><path d="M17 22v-4.172a2 2 0 0 0-.586-1.414L12 12l-4.414 4.414A2 2 0 0 0 7 17.828V22"/><path d="M7 2v4.172a2 2 0 0 0 .586 1.414L12 12l4.414-4.414A2 2 0 0 0 17 6.172V2"/></svg>
+                {%- else %}
+                <svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                {%- endif %}
                 <span>{{ label }}</span>
             </button>
             <p class="notice-full" id="notice-{{ name }}">

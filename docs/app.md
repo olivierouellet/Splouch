@@ -144,7 +144,11 @@ where the user returns via `A-02`.
 > pushes them out of sight. Each shows its full text with an X; the X folds it to a
 > pill (`results_disclaimer_short`, `privacy_note_short`), and a tap on the pill
 > opens it again. Expanded, a notice has the row to itself; folded, the pills share
-> one. **Not a first-launch dialog, and not a consent**: a dialog accepted once
+> one. Each pill leads with its own icon, the same thing on every client: an
+> **hourglass** for `P-06` — pending validation, not an error — and **two people** for
+> `P-07`, the visitors being counted. SF Symbols `hourglass` and `person.2`, Material
+> Symbols `hourglass_top` and `group`; the web draws Lucide's `hourglass` and `users`.
+> Not a shield or a raised hand: those read as a privacy control, and there is none. **Not a first-launch dialog, and not a consent**: a dialog accepted once
 > would never show a second server's text (`P-11`, `P-16`), nor counting that a
 > server turns on later, and counting is not the reader's to refuse (`C-10`) — an
 > Accept button would promise a choice there is none of.
