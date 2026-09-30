@@ -502,6 +502,9 @@ _PICKER_STRING_KEYS = (
     "no_meets_match",
     "results_disclaimer",
     "privacy_note",
+    "results_disclaimer_short",
+    "privacy_note_short",
+    "notice_collapse",
 )
 
 

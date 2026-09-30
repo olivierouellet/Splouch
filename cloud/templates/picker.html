@@ -109,6 +109,40 @@
         .meet-search:focus { outline: none; border-color: var(--accent); }
         .meet-search[hidden] { display: none; }
 
+        /* ── Notices (docs/app.md `P-06`, `P-07`) ──
+           Above the list, so a long season of meets cannot push them out of sight.
+           Each one collapses to a pill and never further: the pill is the notice,
+           shorter. Expanded, a notice takes the whole row; collapsed, the pills
+           share one, centred like the cards. */
+        .notices {
+            display: flex; flex-wrap: wrap; justify-content: center; gap: 8px;
+            width: 100%; max-width: var(--column); margin-bottom: 16px;
+        }
+        .notice { flex: 1 1 100%; }
+        .notice.collapsed { flex: 0 0 auto; }
+        .notice-full {
+            position: relative; font-size: 0.8em; color: var(--note-text); line-height: 1.5;
+            border: 1px solid var(--btn-line); border-radius: 10px; background: var(--note-bg);
+            padding: 12px 16px;
+        }
+        /* Room for the X only once the script has revealed it. */
+        .notices.ready .notice-full { padding-right: 44px; }
+        .notice-close {
+            position: absolute; top: 4px; right: 4px; width: 36px; height: 36px;
+            background: none; border: none; color: var(--muted);
+            font-size: 20px; line-height: 1; cursor: pointer;
+        }
+        .notice-close:active { opacity: 0.6; }
+        .notice-pill {
+            display: inline-flex; align-items: center; gap: 6px;
+            font: inherit; font-size: 0.8em; color: var(--note-text);
+            background: var(--note-bg); border: 1px solid var(--btn-line); border-radius: 999px;
+            padding: 6px 12px 6px 10px; cursor: pointer;
+        }
+        .notice-pill svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; flex-shrink: 0; }
+        .notice-pill:active { opacity: 0.7; }
+        .notice-full[hidden], .notice-pill[hidden], .notice-close[hidden] { display: none; }
+
         /* ── Pull-to-refresh ── */
         #ptr-edge {
             position: fixed; top: 0; left: 0; right: 0;
@@ -246,6 +280,31 @@
     {% if picker_logo and not picker_logo_above %}
     <img src="/picker_logo" class="picker-logo" alt="">
     {% endif %}
+    {# `P-06` always, `P-07` while attendance counting is on. The full text is what a
+       page without JavaScript shows; the pill and the X are revealed by the script
+       below, which also remembers a collapse against the exact words collapsed. #}
+    {%- set notices = [('results',
+                        t.get('results_disclaimer', 'These are live, unofficial results and are subject to validation. Validated results will be available on the SplashMe app.'),
+                        t.get('results_disclaimer_short', 'Unofficial results'))] %}
+    {%- if analytics_enabled %}
+    {%- set notices = notices + [('privacy',
+                                  t.get('privacy_note', 'This site counts visitors anonymously to estimate attendance. No personal information is collected or shared.'),
+                                  t.get('privacy_note_short', 'Attendance counting'))] %}
+    {%- endif %}
+    <div class="notices">
+        {% for name, text, label in notices %}
+        <div class="notice" data-notice="{{ name }}">
+            <button type="button" class="notice-pill" aria-controls="notice-{{ name }}" aria-expanded="false" hidden>
+                <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 11v6M12 7.5v.01"/></svg>
+                <span>{{ label }}</span>
+            </button>
+            <p class="notice-full" id="notice-{{ name }}">
+                <span class="notice-text">{{ text }}</span>
+                <button type="button" class="notice-close" aria-label="{{ t.get('notice_collapse', 'Collapse') }}" hidden>&times;</button>
+            </p>
+        </div>
+        {% endfor %}
+    </div>
     {% if meets %}
     {# Only once the list is long enough to need it: on a small server the picker looks
        as it always has. Rendered hidden and revealed by the script below, so a page
@@ -282,16 +341,54 @@
     {% else %}
     <div class="empty">{{ t.no_meets }}</div>
     {% endif %}
-    <p style="margin:28px auto 0;max-width:340px;text-align:center;font-size:0.74em;color:var(--note-text);line-height:1.5;border:1px solid var(--btn-line);border-radius:8px;background:var(--note-bg);padding:12px 16px;">
-        {{ t.get('results_disclaimer', 'These are live, unofficial results and are subject to validation. Validated results will be available on the SplashMe app.') }}
-    </p>
-    {% if analytics_enabled %}
-    <p style="margin:12px auto;max-width:340px;text-align:center;font-size:0.72em;color:var(--fine);line-height:1.5;">
-        {{ t.get('privacy_note', 'This site counts visitors anonymously to estimate attendance. No personal information is collected or shared.') }}
-    </p>
-    {% endif %}
     <script src="/static/js/fold.js"></script>
     <script>
+/* ── Notices (docs/app.md `P-06`, `P-07`) ──────────────────────────────────
+   The X folds a notice to its pill; the pill opens it again. A collapse is
+   remembered against the words collapsed, not a flag: when the server rewords a
+   notice, or the reader switches language, the new text is shown in full once.
+
+   `P-07`'s note is not on the page while counting is off, and its collapse is
+   forgotten then, so a server that turns counting back on says so in full. */
+var NOTICE_KEY = 'splouch_notice_';
+
+(function () {
+    var box = document.querySelector('.notices');
+    if (!box) return;
+    box.querySelectorAll('.notice').forEach(function (el) {
+        var key = NOTICE_KEY + el.dataset.notice;
+        var text = el.querySelector('.notice-text').textContent.trim();
+        var pill = el.querySelector('.notice-pill');
+        var full = el.querySelector('.notice-full');
+        var close = el.querySelector('.notice-close');
+
+        function show(collapsed) {
+            el.classList.toggle('collapsed', collapsed);
+            pill.hidden = !collapsed;
+            full.hidden = collapsed;
+        }
+
+        var seen = null;
+        try { seen = localStorage.getItem(key); } catch (e) {}
+        close.hidden = false;
+        show(seen === text);
+        close.addEventListener('click', function () {
+            show(true);
+            try { localStorage.setItem(key, text); } catch (e) {}
+            pill.focus();
+        });
+        pill.addEventListener('click', function () {
+            show(false);
+            try { localStorage.removeItem(key); } catch (e) {}
+            close.focus();
+        });
+    });
+    if (!box.querySelector('[data-notice="privacy"]')) {
+        try { localStorage.removeItem(NOTICE_KEY + 'privacy'); } catch (e) {}
+    }
+    box.classList.add('ready');
+})();
+
 /* ── Meet search (docs/app.md `P-17`) ───────────────────────────────────────
    Filters the cards already on the page; nothing is fetched. Every word of the
    query must appear somewhere in the card, in any order, and both sides go through

@@ -470,7 +470,9 @@ meets appear; expired ones are swept before the list is built. Live meets
   "stores": { "ios": "https://apps.apple.com/…", "android": "https://play.google.com/…" },
   "strings": { "page_title": "…", "no_meets": "…", "unnamed_meet": "…",
                "meet_search": "…", "no_meets_match": "…",
-               "results_disclaimer": "…", "privacy_note": "…" } }
+               "results_disclaimer": "…", "privacy_note": "…",
+               "results_disclaimer_short": "…", "privacy_note_short": "…",
+               "notice_collapse": "…" } }
 ```
 
 Language resolves from `?lang=` when it names an available locale, else
@@ -489,8 +491,9 @@ app the slot renders nothing — an app cannot install itself.
 
 `strings` is served rather than shipped in the app because `results_disclaimer`
 and `privacy_note` are compliance text and must be correctable without an app
-release. Show `privacy_note` only when `analytics_enabled` is true. The same
-keys are in `GET /i18n/{lang}` → `mobile` (§5.9), which is where the rest of the
+release — and so are the `_short` pill labels they fold to (`app.md` `P-06`), and
+`notice_collapse`, the X's accessible name. Show `privacy_note` and its pill only
+when `analytics_enabled` is true. The same keys are in `GET /i18n/{lang}` → `mobile` (§5.9), which is where the rest of the
 picker's chrome — the language and label-style controls — comes from.
 
 ### 5.8 `GET /meet/{meet_id}/schedule`

@@ -120,8 +120,8 @@ where the user returns via `A-02`.
 | `P-03` | Offline meets stay listed, marked with a dimmed status dot | `offline` = meet retained but no relay connected | must |
 | `P-04` | Empty state when no meets are active | `strings.no_meets` | must |
 | `P-05` | Picker branding: title, logo, logo above or below the title | `GET /picker/config` → `title`, `has_logo`, `logo_above`; image at `GET /picker_logo` — PNG, JPEG, GIF, WebP or SVG, read the response's `Content-Type` rather than assuming. Size it from its own aspect ratio: operators upload both wide banners and square badges, so fit it inside the list's content width with a height cap rather than a fixed box | should |
-| `P-06` | Unofficial-results disclaimer under the list | `GET /picker/config` → `strings.results_disclaimer` | **must** — see note |
-| `P-07` | Privacy note, shown whenever attendance counting is on for this server | `strings.privacy_note`, gated on `analytics_enabled` | must |
+| `P-06` | Unofficial-results disclaimer **above** the list, in full until the reader folds it with an X to a pill that opens it again | `GET /picker/config` → `strings.results_disclaimer`, pill `strings.results_disclaimer_short`, X label `strings.notice_collapse` | **must** — see note |
+| `P-07` | Privacy note, shown whenever attendance counting is on for this server — beside `P-06`, folding the same way | `strings.privacy_note`, pill `strings.privacy_note_short`, gated on `analytics_enabled` | must |
 | `P-08` | Selecting a meet opens the app shell for it | `GET /meet/{id}/config` | must |
 | `P-09` | Pull-to-refresh re-fetches the meet list | — | should |
 | `P-10` | Install hand-off: store links to the native iOS/Android apps once they ship, Add-to-Home-Screen until then | — | web-only — see note |
@@ -138,6 +138,23 @@ where the user returns via `A-02`.
 > and a spectator treating it as a result. It belongs on the meet list, not in an About
 > screen, and it renders the server's text rather than a compiled-in copy so wording can
 > be fixed without a store review.
+>
+> **`P-06` and `P-07` fold; they never go away.** Both sit above the list — under the
+> title and logo, over `P-17`'s search box — because below it a season of meets
+> pushes them out of sight. Each shows its full text with an X; the X folds it to a
+> pill (`results_disclaimer_short`, `privacy_note_short`), and a tap on the pill
+> opens it again. Expanded, a notice has the row to itself; folded, the pills share
+> one. **Not a first-launch dialog, and not a consent**: a dialog accepted once
+> would never show a second server's text (`P-11`, `P-16`), nor counting that a
+> server turns on later, and counting is not the reader's to refuse (`C-10`) — an
+> Accept button would promise a choice there is none of.
+>
+> - **A fold is remembered per server, against the exact words folded** — store the
+>   text itself, not a flag. A reworded notice, or the same notice in another
+>   language, shows in full once. The web keeps it in `localStorage`, which is per
+>   origin and so per server already; an app keys it on the server's origin.
+> - **`P-07`'s fold is forgotten whenever the server reports counting off**, so a
+>   server that turns it back on says so in full.
 
 > **`P-17` filters what the list already holds. There is no search endpoint.** A cloud
 > serves tens of meets, rarely a couple of hundred, and `P-01` has already fetched them
@@ -152,7 +169,7 @@ where the user returns via `A-02`.
 >   fold would make `montreal` find `Montréal` on one client and not another.
 > - **The organizer is searched but not shown.** A spectator may know the meet by the
 >   club running it.
-> - **`P-06` stays put.** The disclaimer is under the list whatever the filter hides.
+> - **`P-06` stays put.** The disclaimer is above the list whatever the filter hides.
 > - **The query outlives a return from a meet, not the session.** The web keeps it for
 >   the tab (`sessionStorage`), so the back arrow (`A-02`) and pull-to-refresh (`P-09`)
 >   come back to the same filtered list; a shared link or a home-screen launch opens
