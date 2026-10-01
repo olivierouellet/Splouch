@@ -365,8 +365,12 @@ one broadcast frame serves viewers reading in different languages (`app.md` `T-0
 only one of `age`/`age_key` is ever set. `round` comes from the Lenex EVENT `round`,
 never from the name: `FIN` → `final`, `SEM` → `semifinal`, `QUA` → `quarterfinal`,
 `PRE` → `prelims`, `FHT` → `fastest_heat`, `TIM` → `timed_final`, and `SOP` / `SOQ`
-/ `SOS` → `swimoff`; no `round`, or an unknown code, is `""`. Compose as `dist + unit`, stroke, `relay` — then `separator`, then gender
-and age; fall back to `raw` when nothing parsed; then, when `round` is set,
+/ `SOS` → `swimoff`; no `round`, or an unknown code, is `""`. The operator picks
+which rounds show, separately for boards and phones (Settings → Display): the
+**board** choice decides whether `event_name` ends with the round, the **phone**
+choice whether `round` is set here — so one frame serves both, and a phone that
+composes from the parts follows the phone choice. Compose as `dist + unit`, stroke,
+`relay` — then `separator`, then gender and age; fall back to `raw` when nothing parsed; then, when `round` is set,
 `separator` and its word (`200 m dos  —  Filles < 12  —  Finale`). The same
 field rides on `results_snapshot` (§5.2) and each heat of `GET /meet/{id}/schedule`
 (§5.8), as `name_parts` in the relay's `schedule_snapshot` (§5.5).

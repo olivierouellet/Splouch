@@ -19,7 +19,7 @@ from console_decoders import (
     make_decoder,
 )
 from meet_data import announce_schedule, send_event_info
-from meet_parsers.lenex_parser import load_lenex
+from meet_parsers.lenex_parser import ROUND_NAMES, load_lenex
 from routes.qr import invite as qr_invite
 from web import render, require_login, save_upload
 from worker import _restart_worker
@@ -359,6 +359,23 @@ def _settings_view(request, form):
                 if key in form and state.settings.get(key) != form.get(key):
                     state.settings[key] = form.get(key)
                     modified = True
+            # Which Lenex rounds follow the event name. Checkboxes named per key
+            # rather than after the setting, so the generic sweep below never sees
+            # them; validated against `ROUND_NAMES` so a stale form cannot store a
+            # key no locale has a word for.
+            rounds_changed = False
+            for audience in ("board", "phone"):
+                setting = f"round_names_{audience}"
+                shown = [k for k in ROUND_NAMES if f"round_{audience}_{k}" in form]
+                if shown != list(state.settings.get(setting, ROUND_NAMES)):
+                    state.settings[setting] = shown
+                    modified = rounds_changed = True
+            if rounds_changed:
+                # The name is composed into the frame, so a board would keep the
+                # old one until the next heat; the start list is cached by every
+                # Schedule tab and by the cloud until told to re-fetch.
+                send_event_info()
+                announce_schedule()
 
         if "splash_settings_submit" in form:
             # meet_title moved here with its input: it heads the splash screen on
@@ -686,6 +703,10 @@ def _settings_view(request, form):
         show_position=state.settings.get("show_position", True),
         show_laps=state.settings.get("show_laps", False),
         lap_direction=state.settings.get("lap_direction", "up"),
+        round_names=ROUND_NAMES,
+        round_words=state.i18n_bundle(ui_lang)["event_name"],
+        round_names_board=state.settings.get("round_names_board", ROUND_NAMES),
+        round_names_phone=state.settings.get("round_names_phone", ROUND_NAMES),
         results_sort=state.settings.get("results_sort", "lane"),
         active_theme=state.settings.get("active_theme", "default"),
         theme_list=state.list_builtin_themes(),

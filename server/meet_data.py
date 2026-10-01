@@ -4,6 +4,7 @@ import bus
 import relay
 import state
 from console_decoders.utils import parse_time_hundredths
+from meet_parsers.lenex_parser import ROUND_NAMES
 
 
 def _delta_hundredths(finish_str, seed_str):
@@ -53,11 +54,24 @@ def _raw_event_name(event_num):
     return m.event_names.get(event_num) or m.event_info.get_event_name(event_num)
 
 
+def shown_round(event_num, audience, m=None):
+    """The event's round key if Settings shows it to *audience*, else ``""``.
+
+    Two audiences, one per wire field (docs/api.md §5.1): ``board`` decides the
+    composed `event_name`, which every board renders as sent; ``phone`` decides
+    `event_name_parts.round`, which every phone composes from instead.
+    """
+    m = m or state.meet
+    key = m.event_rounds.get(event_num, "")
+    shown = state.settings.get(f"round_names_{audience}", ROUND_NAMES)
+    return key if key in shown else ""
+
+
 def get_event_name_display(event_num):
     return state.translate_event_name(
         _raw_event_name(event_num),
         state.load_event_translations(),
-        state.meet.event_rounds.get(event_num, ""),
+        shown_round(event_num, "board"),
     )
 
 
@@ -69,7 +83,7 @@ def get_event_name_parts(event_num):
     anyone who has not chosen a language (docs/app.md `T-04`).
     """
     return state.parse_event_name(
-        _raw_event_name(event_num), state.meet.event_rounds.get(event_num, "")
+        _raw_event_name(event_num), shown_round(event_num, "phone")
     )
 
 
@@ -239,11 +253,13 @@ def _build_meet_data():
     if m.start_list:
         ev_trans = state.load_event_translations()
         event_names = {
-            num: state.translate_event_name(name, ev_trans, m.event_rounds.get(num, ""))
+            num: state.translate_event_name(
+                name, ev_trans, shown_round(num, "board", m)
+            )
             for num, name in m.event_names.items()
         }
         event_name_parts = {
-            num: state.parse_event_name(name, m.event_rounds.get(num, ""))
+            num: state.parse_event_name(name, shown_round(num, "phone", m))
             for num, name in m.event_names.items()
         }
         events_grouped = [(ev, sorted(m.start_list[ev])) for ev in sorted(m.start_list)]

@@ -19,6 +19,24 @@
   "show_position": true,
   "show_laps": false,
   "lap_direction": "up",
+  "round_names_board": [
+    "timed_final",
+    "fastest_heat",
+    "prelims",
+    "quarterfinal",
+    "semifinal",
+    "final",
+    "swimoff"
+  ],
+  "round_names_phone": [
+    "timed_final",
+    "fastest_heat",
+    "prelims",
+    "quarterfinal",
+    "semifinal",
+    "final",
+    "swimoff"
+  ],
   "active_theme": "default",
   "theme_colors": {
     "bg": "#0d0d0d",

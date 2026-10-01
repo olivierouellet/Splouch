@@ -59,7 +59,7 @@ no event or heat number at all, so `/manual` is how you supply it.
 | **Meet Setup** | Upload Lenex `.lxf` / Hytek `.csv` meet files; pool length, touchpads, lane count |
 | **Timing** | Console type and serial port, connection status, serial monitor (raw hex packets), finish debounce. Choosing **Manual — no timing console** drops the port, badge and monitor and links to `/manual` |
 | **Clock** | Sync with NTP; set date and time manually when offline; install/remove Adafruit PiRTC (DS3231) hardware clock |
-| **Display** | Show/hide column headers and columns (Name, Club, Delta, Position); podium highlighting |
+| **Display** | Show/hide column headers and columns (Name, Club, Delta, Position); podium highlighting; which Lenex rounds (Final, Prelims, …) follow the event name, once for the scoreboard and once for phones |
 | **Theme** | Built-in colour schemes; override individual colours and fonts; save as a custom theme |
 | **Network** | WiFi management; Ethernet DHCP or static IP (address, router, DNS); view connected scoreboard clients |
 | **Update & Backup** | Pull latest version from GitHub, sync dependencies, restart; download or restore a backup of `~/SplouchData` |
@@ -381,7 +381,7 @@ mais n'envoie aucun numéro d'épreuve ni de série ; c'est donc `/manual` qui l
 | **Compétition** | Téléverser les fichiers Lenex `.lxf` / Hytek `.csv` ; longueur du bassin, plaques de touche, nombre de couloirs |
 | **Chronométrage** | Type de console et port série, état de la connexion, moniteur série (paquets hexadécimaux bruts), anti-rebond d'arrivée. Choisir **Manuel — sans console de chronométrage** retire le port, le badge et le moniteur, et renvoie vers `/manual` |
 | **Horloge** | Synchronisation NTP ; réglage manuel de la date et de l'heure hors ligne ; installer/retirer l'horloge matérielle Adafruit PiRTC (DS3231) |
-| **Affichage** | Afficher/masquer les en-têtes et les colonnes (Nom, Club, Écart, Position) ; mise en valeur du podium |
+| **Affichage** | Afficher/masquer les en-têtes et les colonnes (Nom, Club, Écart, Position) ; mise en valeur du podium ; quelles phases Lenex (Finale, Préliminaires, …) suivent le nom de l’épreuve, une fois pour le tableau et une fois pour les téléphones |
 | **Thème** | Jeux de couleurs intégrés ; personnaliser couleurs et polices ; enregistrer comme thème personnalisé |
 | **Réseau** | Gestion du WiFi ; Ethernet en DHCP ou IP statique (adresse, routeur, DNS) ; clients d'affichage connectés |
 | **Mise à jour et sauvegarde** | Récupérer la dernière version depuis GitHub, synchroniser les dépendances, redémarrer ; télécharger ou restaurer une sauvegarde de `~/SplouchData` |

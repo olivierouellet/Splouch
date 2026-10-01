@@ -1,4 +1,15 @@
                 <div class="tab-pane active" id="tab-display">
+{% macro round_checks(audience, shown) %}
+                        <div class="mb-3">
+                            <div class="panel-eyebrow">{{ t.disp_rounds_shown }}</div>
+                            <div class="row row-cols-2 row-cols-sm-3 g-1">
+                            {% for key in round_names %}
+                                <div class="col"><div class="form-check"><input class="form-check-input" type="checkbox" id="round_{{ audience }}_{{ key }}" name="round_{{ audience }}_{{ key }}" value="1" {% if key in shown %}checked{% endif %}><label class="form-check-label" for="round_{{ audience }}_{{ key }}">{{ round_words.get(key, key) }}</label></div></div>
+                            {% endfor %}
+                            </div>
+                            <div class="form-text">{{ t.disp_rounds_help }}</div>
+                        </div>
+{% endmacro %}
                 <div class="row"><div class="col-lg-8"><form id="display-settings-form" action="/settings" method="POST" enctype="multipart/form-data">
                     <input type="hidden" name="display_settings_submit" value="1">
                     <div class="card"><div class="card-body">
@@ -60,7 +71,15 @@
                             <div class="form-check form-check-inline"><input class="form-check-input" type="radio" id="rs_lane"  name="results_sort" value="lane"  {% if results_sort == 'lane' %}checked{% endif %}><label class="form-check-label" for="rs_lane">{{ t.disp_by_lane }}</label></div>
                             <div class="form-check form-check-inline"><input class="form-check-input" type="radio" id="rs_place" name="results_sort" value="place" {% if results_sort == 'place' %}checked{% endif %}><label class="form-check-label" for="rs_place">{{ t.disp_by_position }}</label></div>
                         </div>
+                        {{ round_checks('board', round_names_board) }}
                         <span id="display-save-note" class="small ms-2" role="status" aria-live="polite"></span>
+                    </div></div>
+                    {# Phones compose the event name themselves (docs/app.md `T-11`), so
+                       they get their own choice rather than the board's. Same form, so
+                       it saves as you go like the card above. #}
+                    <div class="card mt-3"><div class="card-body">
+                        <div class="panel-title">{{ t.disp_phones }}</div>
+                        {{ round_checks('phone', round_names_phone) }}
                     </div></div>
                 </form>
                 <form id="splash-settings-form" action="/settings" method="POST" enctype="multipart/form-data" class="mt-3">

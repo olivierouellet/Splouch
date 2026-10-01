@@ -15,6 +15,26 @@ class LenexData(NamedTuple):
     event_rounds: dict
 
 
+# EVENT `round` codes, as `[event_name]` vocabulary keys. Every code the Lenex
+# spec defines; the three swim-offs share one word, since a spectator does not care
+# which round forced it. Which of them a board or a phone actually shows is a
+# setting (`round_names_board` / `round_names_phone`, meet_data.py).
+ROUND_KEYS = {
+    "TIM": "timed_final",
+    "FHT": "fastest_heat",
+    "PRE": "prelims",
+    "QUA": "quarterfinal",
+    "SEM": "semifinal",
+    "FIN": "final",
+    "SOP": "swimoff",
+    "SOQ": "swimoff",
+    "SOS": "swimoff",
+}
+
+# The distinct keys, in running order — the Settings checkboxes and their default.
+ROUND_NAMES = tuple(dict.fromkeys(ROUND_KEYS.values()))
+
+
 # Biggest inner XML we will read out of a .lxf. A real meet's start list is a few
 # hundred KB; this is room for an unusually large one and a hard stop well before
 # a crafted archive can exhaust the Pi's memory. `ZipFile.open` streams, so an
@@ -104,7 +124,7 @@ def load_lenex(path):
     Returns a LenexData:
         event_names  — {event_number: str}
         start_list   — {event_number: {heat_number: {lane: {'name': str, 'club': str}}}}
-        event_rounds — {event_number: round key}; see `_round_keys`
+        event_rounds — {event_number: round key}; see `ROUND_KEYS`
     """
     tree = _open_lenex_xml(path)
 
@@ -152,21 +172,6 @@ def load_lenex(path):
             if rid:
                 relay_clubs[rid] = shortname
 
-    # EVENT `round` codes, as `[event_name]` vocabulary keys. Every code the Lenex
-    # spec defines; the three swim-offs share one word, since a spectator does not
-    # care which round forced it.
-    _round_keys = {
-        "TIM": "timed_final",
-        "FHT": "fastest_heat",
-        "PRE": "prelims",
-        "QUA": "quarterfinal",
-        "SEM": "semifinal",
-        "FIN": "final",
-        "SOP": "swimoff",
-        "SOQ": "swimoff",
-        "SOS": "swimoff",
-    }
-
     _gender_map = {"M": "Men's", "F": "Women's", "X": "Mixed"}
     _stroke_map = {
         "FREESTYLE": "Freestyle",
@@ -213,7 +218,7 @@ def load_lenex(path):
         event_names[ev_num] = event_name_str(event)
         start_list[ev_num] = {}
         heat_times[ev_num] = {}
-        round_key = _round_keys.get(event.get("round", "").upper())
+        round_key = ROUND_KEYS.get(event.get("round", "").upper())
         if round_key:
             event_rounds[ev_num] = round_key
         style = find_first(event, "SWIMSTYLE")
