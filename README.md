@@ -50,10 +50,12 @@ Timing console
   Pi #2 ── eth0 ──┘
 ```
 
-| Device | IP | Role |
+| Device | Address | Role |
 | --- | --- | --- |
-| Pi #1 | `10.10.10.10` | Serial decoder + FastAPI server + admin UI |
-| Pi #2 | DHCP | Qt kiosk — fullscreen scoreboard on TV |
+| Pi #1 | `http://splouch.local` | Serial decoder + FastAPI server + admin UI |
+| Pi #2 | automatic | Qt kiosk — fullscreen scoreboard on TV |
+
+No device needs a fixed IP: everything reaches Pi #1 by name (`splouch.local`, via mDNS).
 
 | Item | Purpose |
 | --- | --- |

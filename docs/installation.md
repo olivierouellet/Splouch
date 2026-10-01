@@ -42,11 +42,14 @@ Timing console
 All pool-deck devices talk over a dedicated wired network on `eth0`. Pi #1 also joins home /
 venue WiFi (`wlan0`) for internet access and remote management.
 
-| Device | IP address | Role |
+| Device | Address | Role |
 | --- | --- | --- |
-| Pi #1 | `10.10.10.10/24` (static, `eth0`) | Serial decoder + FastAPI server + admin UI |
-| Pi #2 | DHCP | Qt kiosk — scoreboard on the TV |
-| Laptop | DHCP or static | Admin browser to `http://splouch.local` (or `10.10.10.10:5000`) |
+| Pi #1 | `splouch.local` (hostname, via mDNS) | Serial decoder + FastAPI server + admin UI |
+| Pi #2 | automatic | Qt kiosk — scoreboard on the TV |
+| Laptop | automatic | Admin browser to `http://splouch.local` |
+
+Devices find Pi #1 by name, so no IP needs to be configured. The installer *offers* to pin
+`eth0` to `10.10.10.10/24` as a fallback for typing a raw IP; declining is fine.
 
 **Firewall:** Pi #1 blocks incoming connections over WiFi — SSH and VNC are reachable only
 via `eth0`. Connect your laptop by Ethernet to reach the admin UI or terminal at the pool.
@@ -57,7 +60,7 @@ via `eth0`. Connect your laptop by Ethernet to reach the admin UI or terminal at
 
 Flash **Raspberry Pi OS Trixie** using Raspberry Pi Imager. Enable SSH during flash.
 
-> **Tip:** Configure WiFi in Imager before flashing. The Pi will have `wlan0` (home WiFi) and `eth0` (static pool network `10.10.10.10`) active simultaneously — useful for SSH access at home and a clean pool network at the venue.
+> **Tip:** Configure WiFi in Imager before flashing. The Pi will have `wlan0` (home WiFi) and `eth0` (pool network) active simultaneously — useful for SSH access at home and a clean pool network at the venue.
 
 SSH in and run:
 
@@ -73,7 +76,7 @@ The script:
 - Creates `~/SplouchData/` with `meet/`, `images/`, `icons/`, and `recorded/` subdirectories
 - Copies `settings.default.json` to `~/SplouchData/settings.json`
 - Downloads xterm.js
-- Sets the static IP to `10.10.10.10/24` (asks for confirmation — this will drop your SSH session if connected over Ethernet)
+- Optionally sets a static IP `10.10.10.10/24` on `eth0` (asks first; not required — `splouch.local` works either way. Accepting drops an SSH session running over Ethernet)
 - Sets the hostname to `splouch` (accessible as `splouch.local` on the network)
 
 ---
