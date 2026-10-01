@@ -16,11 +16,6 @@ computed per-entry (typically 6).
 | **Relay member names** | Rows 105–108 after the relay entry | Each row is `"Lastname, Firstname Age"`. Up to 4 swimmers per relay team. |
 | **Qualifying standard** | Two rows after seed time value | A label like `"DIST"`, `"AAA"`, `"BB"`. Not always present. |
 
-**Already parsed but worth noting:**
-
-- Relay letter (`A`, `B`, …) — added in this session.
-- Seed time — added in this session.
-
 ---
 
 ## Lenex XML (.lxf)
