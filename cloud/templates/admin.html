@@ -169,6 +169,10 @@
         // ── Attendance consent ──────────────────────────────────────────────────
         // However the dialog closes (Cancel, ×, Escape, backdrop), it reopens with the
         // box unticked: an acknowledgement is given each time, never left over.
+        // Enable is a hold that opens the dialog; the dialog is the consent itself.
+        function openAnalyticsConsent() {
+            bootstrap.Modal.getOrCreateInstance(document.getElementById('analytics-consent')).show();
+        }
         const consent = document.getElementById('analytics-consent');
         if (consent) {
             consent.addEventListener('hidden.bs.modal', function () {
@@ -245,9 +249,6 @@
         // ── Update ────────────────────────────────────────────────────────────
         function triggerUpdate() {
             const version = document.getElementById('update-version').value;
-            const label   = version === 'master' ? 'development (master)' : version;
-            if (!confirm('Pull ' + label + ' from GitHub and rebuild the server?')) return;
-
             const btn    = document.getElementById('update-btn');
             const status = document.getElementById('update-status');
             const out    = document.getElementById('update-output');
@@ -405,10 +406,9 @@
             input.value = '';
         }
 
-        // Still a button: removing an image is a deletion, and it asks first. The
+        // Still a button: removing an image is a deletion, so it is a hold. The
         // thumbnail vanishing is the receipt, so only a failure is announced.
-        function clearPickerImage(label, clearField, curId, removeBtnId) {
-            if (!confirm('Remove the ' + label + '?')) return;
+        function clearPickerImage(clearField, curId, removeBtnId) {
             pickerNote('');
             const fd = new FormData(); fd.append(clearField, '1');
             fetch('/admin/picker_appearance', { method: 'POST', body: fd })
@@ -420,8 +420,8 @@
                 })
                 .catch(() => pickerNote(T.saveFailed));
         }
-        function clearPickerLogo() { clearPickerImage('picker logo image', 'picker_logo_clear', 'picker-logo-current', 'picker-logo-remove-btn'); }
-        function clearPickerIcon() { clearPickerImage('home screen icon', 'picker_icon_clear', 'picker-icon-current', 'picker-icon-remove-btn'); }
+        function clearPickerLogo() { clearPickerImage('picker_logo_clear', 'picker-logo-current', 'picker-logo-remove-btn'); }
+        function clearPickerIcon() { clearPickerImage('picker_icon_clear', 'picker-icon-current', 'picker-icon-remove-btn'); }
 
         // ── Restore keys ──────────────────────────────────────────────────────
         function restoreKeys(input) {

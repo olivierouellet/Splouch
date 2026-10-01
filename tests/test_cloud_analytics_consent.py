@@ -78,7 +78,8 @@ def dialog(page):
 
 def test_enable_opens_the_dialog_instead_of_posting():
     page = render_admin(False)
-    assert 'data-bs-target="#analytics-consent"' in page
+    # A hold that opens the dialog — not a form of its own.
+    assert 'data-hold-fn="openAnalyticsConsent"' in page
     assert (
         'name="analytics_enabled" value="1"'
         not in page[: page.index('id="analytics-consent"')]

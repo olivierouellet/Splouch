@@ -92,3 +92,36 @@ def test_hold_submits_a_form_button():
     ) as f:
         js = f.read()
     assert "el.form.requestSubmit(el)" in js
+
+
+def test_cloud_admin_hold_buttons():
+    """Enable (attendance), Revoke, the Appearance Removes and Update all hold."""
+    base = os.path.join(REPO, "cloud", "templates")
+
+    def read(name):
+        with open(os.path.join(base, name), encoding="utf-8") as f:
+            return f.read()
+
+    for name, needles in (
+        ("admin/meets.html", ['data-hold-fn="openAnalyticsConsent"']),
+        ("admin/organizers.html", ["{{ t.revoke }}"]),
+        (
+            "admin/appearance.html",
+            ['id="picker-logo-remove-btn"', 'id="picker-icon-remove-btn"'],
+        ),
+        ("admin/update.html", ['id="update-btn"']),
+    ):
+        html = read(name)
+        for needle in needles:
+            i = 0
+            while (i := html.find(needle, i)) != -1:
+                tag = (
+                    _tag(html, needle)
+                    if needle.startswith(("id=", "data-"))
+                    else html[html.rindex("<button", 0, i) : i]
+                )
+                assert "data-hold" in tag and "data-hold-label" in tag, f"{name}: {tag}"
+                assert "onclick=" not in tag, f"{name}: hold and onclick both: {tag}"
+                i += len(needle)
+    admin = read("admin.html")
+    assert "confirm('Pull " not in admin and "confirm('Remove the " not in admin

@@ -20,14 +20,14 @@
                      only guards against a stray Enter navigating the page away. -->
                 <form id="picker-form" action="/admin/picker_appearance" onsubmit="return false;" enctype="multipart/form-data">
                     <div class="mb-3">
-                        <label class="form-label">{{ t.window_title }}</label>
-                        <input type="text" name="picker_window_title" value="{{ picker_window_title_form }}" class="form-control form-control-sm" style="max-width:360px;" placeholder="Splouch">
-                        <div class="form-text">{{ t.window_title_hint }}</div>
+                        <label class="form-label">{{ t.picker_title }}</label>
+                        <input type="text" name="picker_title" value="{{ picker_title_form }}" class="form-control form-control-sm" style="max-width:360px;">
+                        <div class="form-text">{{ t.picker_title_hint }}</div>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">{{ t.picker_title }}</label>
-                        <input type="text" name="picker_title" value="{{ picker_title_form }}" class="form-control form-control-sm" style="max-width:360px;" placeholder="Splouch">
-                        <div class="form-text">{{ t.picker_title_hint }}</div>
+                        <label class="form-label">{{ t.window_title }}</label>
+                        <input type="text" name="picker_window_title" value="{{ picker_window_title_form }}" class="form-control form-control-sm" style="max-width:360px;">
+                        <div class="form-text">{{ t.window_title_hint }}</div>
                     </div>
                     <div class="mb-3">
                         <label class="form-label">{{ t.logo }} <span class="text-body-secondary text-lowercase">{{ t.logo_hint }}</span></label>
@@ -35,7 +35,7 @@
                             <label class="btn btn-secondary btn-sm m-0" style="cursor:pointer;">
                                 {{ t.upload_image }}<input type="file" name="picker_logo" accept="image/png,image/jpeg,image/gif,image/webp,image/svg+xml" style="display:none;" onchange="previewPickerLogo(this)">
                             </label>
-                            <button type="button" class="btn btn-outline-danger btn-sm" id="picker-logo-remove-btn" onclick="clearPickerLogo()" {% if not has_picker_logo %}hidden{% endif %}>{{ t.remove }}</button>
+                            <button type="button" class="btn btn-outline-danger btn-sm" id="picker-logo-remove-btn" data-hold data-hold-fn="clearPickerLogo" data-hold-label="{{ t.hold_remove }}" {% if not has_picker_logo %}hidden{% endif %}>{{ t.remove }}</button>
                             <img id="picker-logo-current" alt="" src="{{ '/picker_logo' if has_picker_logo else '' }}" style="max-height:36px;max-width:72px;border-radius:4px;border:1px solid #333;flex-shrink:0;" {% if not has_picker_logo %}hidden{% endif %}>
                         </div>
                         <div id="picker-logo-preview" style="margin-top:4px;" hidden>
@@ -54,7 +54,7 @@
                             <label class="btn btn-secondary btn-sm m-0" style="cursor:pointer;">
                                 {{ t.upload_image }}<input type="file" name="picker_icon" accept="image/png" style="display:none;" onchange="previewPickerIcon(this)">
                             </label>
-                            <button type="button" class="btn btn-outline-danger btn-sm" id="picker-icon-remove-btn" onclick="clearPickerIcon()" {% if not has_picker_icon %}hidden{% endif %}>{{ t.remove }}</button>
+                            <button type="button" class="btn btn-outline-danger btn-sm" id="picker-icon-remove-btn" data-hold data-hold-fn="clearPickerIcon" data-hold-label="{{ t.hold_remove }}" {% if not has_picker_icon %}hidden{% endif %}>{{ t.remove }}</button>
                             <img id="picker-icon-current" alt="" src="{{ '/picker_icon' if has_picker_icon else '' }}" style="height:36px;width:36px;border-radius:8px;border:1px solid #333;flex-shrink:0;" {% if not has_picker_icon %}hidden{% endif %}>
                         </div>
                         <div id="picker-icon-preview" style="margin-top:4px;" hidden>

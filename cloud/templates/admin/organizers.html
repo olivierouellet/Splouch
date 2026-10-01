@@ -18,7 +18,7 @@
                             <form method="post" class="d-inline">
                                 <input type="hidden" name="action" value="revoke">
                                 <input type="hidden" name="key" value="{{ key }}">
-                                <button type="submit" class="btn btn-outline-danger btn-sm">{{ t.revoke }}</button>
+                                <button type="submit" class="btn btn-outline-danger btn-sm" data-hold data-hold-label="{{ t.hold_revoke }}">{{ t.revoke }}</button>
                             </form>
                             {% endif %}
                             <form method="post" class="d-inline ms-1">
@@ -66,7 +66,7 @@
                                 <form method="post" class="d-inline">
                                     <input type="hidden" name="action" value="revoke">
                                     <input type="hidden" name="key" value="{{ key }}">
-                                    <button type="submit" class="btn btn-outline-danger btn-sm">{{ t.revoke }}</button>
+                                    <button type="submit" class="btn btn-outline-danger btn-sm" data-hold data-hold-label="{{ t.hold_revoke }}">{{ t.revoke }}</button>
                                 </form>
                                 {% endif %}
                                 <form method="post" class="d-inline">

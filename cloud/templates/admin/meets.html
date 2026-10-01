@@ -26,7 +26,7 @@
                         </form>
                         {% else %}
                         <!-- Turning it on goes through the acknowledgement below; turning it off never does. -->
-                        <button type="button" class="btn btn-sm btn-secondary" data-bs-toggle="modal" data-bs-target="#analytics-consent">{{ t.get('analytics_enable', 'Enable') }}</button>
+                        <button type="button" class="btn btn-sm btn-secondary" data-hold data-hold-fn="openAnalyticsConsent" data-hold-label="{{ t.hold_enable }}">{{ t.get('analytics_enable', 'Enable') }}</button>
                         {% endif %}
                     </div>
                 </div>
