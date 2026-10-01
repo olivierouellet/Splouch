@@ -518,12 +518,23 @@ def route_index(request: Request):
     # The list spans meets that may each run in a different language, so this page
     # follows the visitor, not a meet. Per-meet language starts at /mobile.
     lang = _picker_lang(request)
+    # `P-10`: the reader's own store, narrowed exactly as `/add` narrows it, so the
+    # two pages cannot disagree about where the app lives. None until a listing
+    # exists for this platform, and the page offers Add to Home Screen instead.
+    platform = _phone_platform(request)
+    store_url = _store_links().get(platform) if platform else None
     return _remember_prefs(
         request,
         render(
             request,
             "picker.html",
             meets=meets,
+            store_url=store_url,
+            store_label=(
+                _strings(lang, "mobile").get(f"add_store_{platform}", "")
+                if store_url
+                else ""
+            ),
             t=_strings(lang, "mobile"),
             lang=lang,
             # For the display-preferences menu: the languages this server can serve,
