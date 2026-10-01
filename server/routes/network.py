@@ -184,7 +184,7 @@ def route_wifi_scan(request: Request):
         return render(
             request,
             "settings/fetched/wifi_networks.html",
-            error="WiFi not available (nmcli not found).",
+            error=t["net_wifi_unavailable"],
             t=t,
         )
     except Exception as e:

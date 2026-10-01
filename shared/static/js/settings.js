@@ -413,7 +413,7 @@ function _loadTestStatus() {
             document.getElementById('test-record-name').disabled = d.playing;
             document.getElementById('test-record-format').disabled = d.playing || _recording;
             document.getElementById('test-record-status').textContent = _recording
-                ? '● Recording'
+                ? T.js_recording
                 : '';
 
             // A loaded meet is held aside for the test and put back afterwards —
@@ -448,7 +448,7 @@ function _loadTestStatus() {
             if (d.playing && !d.has_meet) {
                 if (d.test_meet) {
                     meetSection.style.display = '';
-                    meetStatus.textContent = '● Test meet loaded: ' + d.test_meet_name;
+                    meetStatus.textContent = T.js_test_meet_loaded_c + d.test_meet_name;
                     _statusColor(meetStatus, 'ok');
                     meetUploadBtn.style.display = 'none';
                 } else {
@@ -742,7 +742,7 @@ function _applyWifiStatus(d) {
         wtext.textContent = d.ssid ? d.ssid + ' · ' + d.wifi_ip : d.wifi_ip;
     } else if (d.ssid) {
         _statusColor(wtext, 'muted');
-        wtext.textContent = d.ssid + ' · no IP';
+        wtext.textContent = d.ssid + ' · ' + T.js_no_ip;
     } else {
         _statusColor(wtext, 'muted');
         wtext.textContent = T.js_not_connected;
@@ -813,7 +813,7 @@ function setEthIp() {
         .then(function (d) {
             if (d.ok) {
                 _statusColor(status, 'ok');
-                status.textContent = T.js_applied_reconnect_c + ip + ':5000/settings';
+                status.textContent = T.js_applied_reconnect_c + ip + '/settings';
             } else {
                 _statusColor(status, 'err');
                 status.textContent = d.error || T.js_failed;
@@ -1319,13 +1319,13 @@ function _loadTimeStatus() {
             document.getElementById('time-tz').textContent = d.timezone;
             var ntpEl = document.getElementById('ntp-status');
             if (d.ntp_active && d.synchronized) {
-                ntpEl.textContent = '● NTP synchronized';
+                ntpEl.textContent = T.clock_ntp_synced;
                 _statusColor(ntpEl, 'ok');
             } else if (d.ntp_active) {
-                ntpEl.textContent = '○ NTP active, syncing…';
+                ntpEl.textContent = T.clock_ntp_syncing;
                 _statusColor(ntpEl, 'muted');
             } else {
-                ntpEl.textContent = '○ NTP inactive';
+                ntpEl.textContent = T.clock_ntp_inactive;
                 _statusColor(ntpEl, 'err');
             }
             document.getElementById('time-set-date').value = d.date.replace(/-/g, '/');
@@ -1437,13 +1437,13 @@ function _loadRtcStatus() {
         .then(function (d) {
             if (d.active) {
                 _statusColor(el, 'ok');
-                el.textContent = '● RTC active (DS3231 detected)';
+                el.textContent = T.clock_rtc_active;
             } else if (d.configured) {
                 _statusColor(el, 'muted');
-                el.textContent = '○ Configured — reboot required to activate';
+                el.textContent = T.clock_rtc_configured;
             } else {
                 _statusColor(el, 'muted');
-                el.textContent = '○ Not installed';
+                el.textContent = T.clock_rtc_not_installed;
             }
         })
         .catch(function () {});

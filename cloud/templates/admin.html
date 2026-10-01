@@ -141,6 +141,20 @@
         saveFailed:              {{ t.get('save_failed', 'Could not save.') | tojson }},
         imageFormatRejected:     {{ t.get('image_format_rejected', 'Unsupported image format.') | tojson }},
         imageTooLarge:           {{ t.get('image_too_large', 'Image is too large.') | tojson }},
+        starting:                {{ t.st_starting | tojson }},
+        updating:                {{ t.st_updating | tojson }},
+        running:                 {{ t.st_running | tojson }},
+        updateDone:              {{ t.st_update_done | tojson }},
+        updateFailed:            {{ t.st_update_failed | tojson }},
+        errorC:                  {{ t.st_error_c | tojson }},
+        failed:                  {{ t.st_failed | tojson }},
+        unreachable:             {{ t.st_unreachable | tojson }},
+        uploading:               {{ t.st_uploading | tojson }},
+        uploadFailed:            {{ t.st_upload_failed | tojson }},
+        keysRestored:            {{ t.st_keys_restored | tojson }},
+        meetsRestored:           {{ t.st_meets_restored | tojson }},
+        confirmRestoreKeys:      {{ t.confirm_restore_keys | tojson }},
+        confirmRestoreMeets:     {{ t.confirm_restore_meets | tojson }},
     };
     const PICKER_MAX_UPLOAD = {{ picker_max_upload }};
     </script>
@@ -265,7 +279,7 @@
             out.textContent = '';
             out.style.display = 'block';
             status.style.color = '#888';
-            status.textContent = 'Starting…';
+            status.textContent = T.starting;
 
             let seen = 0;
 
@@ -283,7 +297,7 @@
                             setTimeout(pollLog, 800);
                         } else if (d.done) {
                             status.style.color = '#4a4';
-                            status.textContent = 'Done — server restarting…';
+                            status.textContent = T.updateDone;
                             setTimeout(() => {
                                 const ping = setInterval(() => {
                                     fetch('/ping').then(r => {
@@ -293,7 +307,7 @@
                             }, 3000);
                         } else {
                             status.style.color = '#c55';
-                            status.textContent = 'Update failed — see output above.';
+                            status.textContent = T.updateFailed;
                             btn.disabled = false;
                             btn.textContent = origLabel;
                         }
@@ -307,15 +321,15 @@
                 .then(data => {
                     if (data.error) {
                         btn.disabled = false; btn.textContent = origLabel;
-                        status.textContent = 'Error: ' + data.error; return;
+                        status.textContent = T.errorC + data.error; return;
                     }
-                    btn.textContent = 'Updating…';
-                    status.textContent = 'Running…';
+                    btn.textContent = T.updating;
+                    status.textContent = T.running;
                     setTimeout(pollLog, 1000);
                 })
                 .catch(() => {
                     btn.disabled = false; btn.textContent = origLabel;
-                    status.textContent = 'Could not reach server.';
+                    status.textContent = T.unreachable;
                 });
         }
         {% endif %}
@@ -434,47 +448,47 @@
         function restoreKeys(input) {
             const status = document.getElementById('restore-status');
             if (!input.files.length) return;
-            if (!confirm('This will replace all current organizer keys and appearance settings. Are you sure?')) {
+            if (!confirm(T.confirmRestoreKeys)) {
                 input.value = ''; return;
             }
-            status.style.color = '#888'; status.textContent = 'Uploading…';
+            status.style.color = '#888'; status.textContent = T.uploading;
             const form = new FormData(); form.append('keys_file', input.files[0]);
             fetch('/admin/restore/keys', { method: 'POST', body: form })
                 .then(r => r.json())
                 .then(d => {
                     if (d.ok) {
                         status.style.color = '#4a4';
-                        status.textContent = d.count + ' key(s) restored.';
+                        status.textContent = T.keysRestored.replace('{n}', d.count);
                     } else {
                         status.style.color = '#c55';
-                        status.textContent = 'Error: ' + d.error;
+                        status.textContent = T.errorC + d.error;
                     }
                     input.value = '';
                 })
-                .catch(() => { status.style.color = '#c55'; status.textContent = 'Upload failed.'; input.value = ''; });
+                .catch(() => { status.style.color = '#c55'; status.textContent = T.uploadFailed; input.value = ''; });
         }
 
         function restoreMeets(input) {
             const status = document.getElementById('restore-meets-status');
             if (!input.files.length) return;
-            if (!confirm('This will replace all retained (offline) meets. Live meets are unaffected. Are you sure?')) {
+            if (!confirm(T.confirmRestoreMeets)) {
                 input.value = ''; return;
             }
-            status.style.color = '#888'; status.textContent = 'Uploading…';
+            status.style.color = '#888'; status.textContent = T.uploading;
             const form = new FormData(); form.append('meets_file', input.files[0]);
             fetch('/admin/restore/meets', { method: 'POST', body: form })
                 .then(r => r.json())
                 .then(d => {
                     if (d.ok) {
                         status.style.color = '#4a4';
-                        status.textContent = d.count + ' meet(s) restored.';
+                        status.textContent = T.meetsRestored.replace('{n}', d.count);
                     } else {
                         status.style.color = '#c55';
-                        status.textContent = 'Error: ' + d.error;
+                        status.textContent = T.errorC + d.error;
                     }
                     input.value = '';
                 })
-                .catch(() => { status.style.color = '#c55'; status.textContent = 'Upload failed.'; input.value = ''; });
+                .catch(() => { status.style.color = '#c55'; status.textContent = T.uploadFailed; input.value = ''; });
         }
 
         // ── Debug logs ────────────────────────────────────────────────────────
@@ -488,12 +502,12 @@
             fetch('/admin/logs?source=' + source + '&tail=300')
                 .then(r => r.json())
                 .then(d => {
-                    if (!d.ok) { status.textContent = 'Error: ' + (d.error || '?'); return; }
+                    if (!d.ok) { status.textContent = T.errorC + (d.error || '?'); return; }
                     out.textContent = d.lines.join('\n');
                     if (wasAtBottom) out.scrollTop = out.scrollHeight;
                     status.textContent = new Date().toLocaleTimeString();
                 })
-                .catch(() => { status.textContent = 'Failed'; });
+                .catch(() => { status.textContent = T.failed; });
         }
 
         function toggleFollow() {

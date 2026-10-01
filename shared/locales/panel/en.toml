@@ -27,12 +27,12 @@ col_console   = "Console"
 # The console the operator picked, straight off the relay. Shown as the key it
 # travels as (`cts_gen6`, `manual`, a plugin's own) — the human label stays on
 # the Pi, and this line answers a support question, not a spectator's.
-console_untimed     = "no times"
-no_meets_admin      = "No meets connected"
-badge_live          = "live"
-badge_retained      = "offline"
-expires_label       = "until"
-set_expiry          = "Set"
+console_untimed = "no times"
+no_meets_admin  = "No meets connected"
+badge_live      = "live"
+badge_retained  = "offline"
+expires_label   = "until"
+set_expiry      = "Set"
 # Attendance counting (opt-in analytics)
 analytics_title                  = "Attendance counting"
 analytics_desc                   = "Unique visitors per meet, over chosen window. Anonymous: random per-device id, never names or IPs."
@@ -106,9 +106,22 @@ restore_keys_note                = "Restores relay keys + settings (picker look,
 backup_meets                     = "Meets"
 restore_meets_note               = "Adds retained meets (schedules, images, icons). Removes nothing; live meets untouched."
 tab_debug                        = "Debug"
-tab_account                      = "Account"
 quick_open                       = "Open"
 quick_picker                     = "Picker"
+st_starting                      = "Starting…"
+st_updating                      = "Updating…"
+st_running                       = "Running…"
+st_update_done                   = "Done — restarting server…"
+st_update_failed                 = "Update failed — see output."
+st_error_c                       = "Error: "
+st_failed                        = "Failed"
+st_unreachable                   = "Server unreachable."
+st_uploading                     = "Uploading…"
+st_upload_failed                 = "Upload failed."
+st_keys_restored                 = "{n} keys restored."
+st_meets_restored                = "{n} meets restored."
+confirm_restore_keys             = "Replace all organizer keys + appearance settings?"
+confirm_restore_meets            = "Replace all retained (offline) meets? Live meets untouched."
 language_auto                    = "Auto (browser)"
 
 # ── Operator Settings panel (server admin UI) ──────────────────────────────
@@ -171,7 +184,6 @@ nav_timing     = "Timing"
 nav_scoreboard = "Scoreboard"
 nav_display    = "Display"
 nav_theme      = "Theme"
-nav_flow       = "Flow"
 nav_cloud      = "Cloud"
 nav_clock      = "Clock"
 nav_network    = "Network"
@@ -229,7 +241,7 @@ meet_howto_title     = "How to run a meet"
 meet_howto_1         = '''<strong>Splash Meet Manager</strong>: <em>File → Export → Lenex</em> → <code>.lxf</code>.'''
 meet_howto_2         = '''<strong>Add Meet File</strong> → upload <code>.lxf</code>; names live on scoreboard at once. <em>Or</em> Hytek <code>.csv</code> schedule for event names in header.'''
 meet_howto_3         = '''Scoreboard on TV: <a href="http://splouch.local/" target="_blank" rel="noopener"><code>http://splouch.local/</code></a> (Pi mDNS).'''
-meet_howto_4         = "Start CTS console — times appear as heats run."
+meet_howto_4         = "Start timing console (or manual console) — times appear as heats run."
 meet_test_warning    = "⚠ Test running — meet upload disabled."
 meet_files           = "Meet Files"
 meet_no_file         = "— No file —"
@@ -254,15 +266,21 @@ account_new_password_ph    = "New Password"
 account_verify_password_ph = "Verify Password"
 
 # Clock
-clock_current_time    = "Current Time"
-clock_sync_ntp        = "Sync NTP"
-clock_set_manual      = "Set Time Manually"
-clock_disables_ntp    = "Disables NTP."
-clock_set_time        = "Set Time"
-clock_rtc_title       = "Real-Time Clock (Adafruit PiRTC DS3231)"
-clock_rtc_desc        = '''Keeps time offline. <a href="https://learn.adafruit.com/adding-a-real-time-clock-to-raspberry-pi" target="_blank" rel="noopener">Setup guide</a>'''
-clock_reboot_now      = "Reboot Now"
-clock_reboot_required = "Reboot to apply."
+clock_current_time      = "Current Time"
+clock_sync_ntp          = "Sync NTP"
+clock_set_manual        = "Set Time Manually"
+clock_disables_ntp      = "Disables NTP."
+clock_set_time          = "Set Time"
+clock_rtc_title         = "Real-Time Clock (Adafruit PiRTC DS3231)"
+clock_rtc_desc          = '''Keeps time offline. <a href="https://learn.adafruit.com/adding-a-real-time-clock-to-raspberry-pi" target="_blank" rel="noopener">Setup guide</a>'''
+clock_reboot_now        = "Reboot Now"
+clock_reboot_required   = "Reboot to apply."
+clock_ntp_synced        = "● NTP synced"
+clock_ntp_syncing       = "○ NTP on, syncing…"
+clock_ntp_inactive      = "○ NTP off"
+clock_rtc_active        = "● RTC active (DS3231 found)"
+clock_rtc_configured    = "○ Configured — reboot to activate"
+clock_rtc_not_installed = "○ Not installed"
 
 # Update & Backup
 update_current_version = "Current version:"
@@ -290,13 +308,12 @@ timing_raw_data_btn   = "Raw data Scoreboard"
 timing_manual_hint    = "No console wired. Set event/heat on boards from a phone."
 timing_manual_open    = "Open manual console"
 
-# Flow
+# Units
 seconds = "seconds"
 
 # Display
 disp_scoreboard        = "Scoreboard"
 disp_title             = "Title"
-common_add             = "Add"
 disp_label_style       = "Label Style (Event & Heat)"
 disp_label_long        = "Long  (ex: EVENT)"
 disp_label_short       = "Short (ex: EV)"
@@ -385,6 +402,7 @@ net_wifi_networks     = "WiFi Networks"
 net_scan              = "Scan"
 net_scanning          = "Scanning…"
 net_click_scan        = "Scan to list networks."
+net_wifi_unavailable  = "WiFi unavailable (nmcli missing)."
 net_connected_clients = "Connected Clients"
 net_no_networks       = "No networks found"
 net_no_clients        = "No clients connected"
@@ -536,6 +554,9 @@ js_playing                = "Playing"
 js_play                   = "Play"
 js_builtin                = "built-in"
 js_go_to_network          = "Network tab"
+js_recording              = "● Recording"
+js_test_meet_loaded_c     = "● Test meet loaded: "
+js_no_ip                  = "no IP"
 
 
 # Race detection, in the Timing pane. These two are console behaviour, not
