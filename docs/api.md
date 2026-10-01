@@ -546,7 +546,8 @@ the server has no such locale.
   compliance text (§5.7). It does not carry words about the app or the device —
   a server sheet, a connection error, an OS requirement — which are native in
   each app (`app.md` `T-05`). Nor, for the apps, words they show before any server
-  answers: `appearance*` is served for the web picker, and native in each app.
+  answers: `appearance*`, `language` and `language_auto` are served for the web
+  picker, and native in each app.
 - **`event_name`** is the vocabulary `update_scoreboard.event_name_parts` composes
   against (§5.1) — strokes, genders, age words, the unit and the separator. It is
   what lets an event name follow the reader's language instead of the meet's.

@@ -625,7 +625,7 @@ client-produced.
 | [`T-05`](#t-05) | App chrome — tab names, empty states, filter UI — **fetched + cached**, not app-translated | `GET /i18n/{lang}` → `mobile` ([`api.md`](api.md) §5.9) | all | must |
 | `T-06` | Language defaults to **meet's** locale; spectator may override | `settings.locale`, then stored pref | all | must |
 | `T-07` | Missing theme keys fall back to defaults, never unstyled | two palettes + default faces, [`api.md`](api.md) §6.1 | all | must |
-| [`T-08`](#t-08) | Per-device language control, for every meet opened after | `GET /locales` for list | all | should |
+| [`T-08`](#t-08) | Per-device language control, for every meet opened after | `GET /locales` for list; control's words native in apps (`T-05`), web reads `strings.language`, `language_auto` | all | should |
 | [`T-09`](#t-09) | Board EVENT/HEAT **long** on every client; optional per-device control may switch those two only | stored pref; words from `GET /i18n/{lang}` → `labels` | all | should |
 | [`T-10`](#t-10) | Built-in strings snapshot = floor: compiled in, refreshed from server, cached to disk | — | all | must |
 | [`T-11`](#t-11) | Event name follows chosen language, composed from server parts | `update_scoreboard.event_name_parts` + `GET /i18n/{lang}` → `event_name`; else `event_name` | all | should |
@@ -650,7 +650,7 @@ Word web page also shows = server's, in `[mobile]`: tab names, empty states, fil
 sheet, picker chrome/controls, notices. Word about app/device = app's, native: server
 sheet, "nearby", connection/address errors, OS requirements, standard buttons. Word
 app shows before any server answers = app's too, even if web shows it: Appearance
-(`P-15`). English fills gaps in native table.
+(`P-15`), Language (`T-08`). English fills gaps in native table.
 
 ### <a id="t-08"></a>T-08 — one choice per device, on picker
 
