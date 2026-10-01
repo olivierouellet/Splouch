@@ -21,7 +21,7 @@ from starlette.concurrency import run_in_threadpool
 
 import bus
 import state
-from meet_data import send_event_info
+from meet_data import announce_schedule, send_event_info
 from meet_parsers.lenex_parser import load_lenex
 from web import (
     ActionResult,
@@ -206,6 +206,7 @@ def _test_play(name, local_only=True):
                 # — see worker.forget_current_heat.
                 forget_current_heat()
                 send_event_info()
+                announce_schedule()
             except Exception as e:
                 print(f"[test] Failed to load companion LXF: {e}", flush=True)
         return {"ok": True}
@@ -284,6 +285,7 @@ def _test_meet_upload(file):
         send_event_info()
         state._test_meet_active = True
         state._test_meet_name = os.path.basename(file.filename)
+        announce_schedule()
         return {"ok": True, "name": os.path.basename(file.filename)}
     except Exception as e:
         with contextlib.suppress(OSError):

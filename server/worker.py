@@ -16,6 +16,7 @@ from console_decoders.utils import split_step
 from meet_data import (
     _build_results_snapshot,
     _get_next_heats,
+    announce_schedule,
     delta_fields,
     get_event_name_display,
     get_event_name_parts,
@@ -170,6 +171,7 @@ def _cleanup_test_meet():
     state._test_meet_active = False
     state._test_meet_name = ""
     send_event_info()
+    announce_schedule()
 
 
 def end_test_session():

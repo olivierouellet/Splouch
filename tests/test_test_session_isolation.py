@@ -222,6 +222,30 @@ def test_the_meet_profile_is_not_disturbed(rig, monkeypatch):
     assert state.settings["cloud_meet_title"] == "Provincial Championship"
 
 
+def _schedule_updates(rig):
+    return [e for e in rig.events if e[:2] == ("/schedule", "schedule_update")]
+
+
+def test_the_start_list_is_announced_both_ways(rig):
+    """A phone open before the session has the real meet's Schedule, or none, and
+    re-fetches only on `schedule_update` (docs/app.md `S-21`)."""
+    _load_real_meet(rig)
+    debug._test_play(SESSION)
+    assert len(_schedule_updates(rig)) == 1, "the recording's start list went unsaid"
+
+    worker.end_test_session()
+    assert len(_schedule_updates(rig)) == 2, "the real meet came back unannounced"
+
+
+def test_an_uploaded_test_meet_is_announced(rig):
+    with open(os.path.join(RECORDINGS, COMPANION), "rb") as f:
+        upload = UploadFile(file=io.BytesIO(f.read()), filename="improvised.lxf")
+
+    state._test_session = "anything.serial"
+    assert debug._test_meet_upload(upload)["ok"] is True
+    assert len(_schedule_updates(rig)) == 1
+
+
 def test_an_uploaded_test_meet_lands_outside_the_meet_folder(rig):
     with open(os.path.join(RECORDINGS, COMPANION), "rb") as f:
         upload = UploadFile(file=io.BytesIO(f.read()), filename="improvised.lxf")

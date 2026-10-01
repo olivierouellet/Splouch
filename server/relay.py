@@ -270,6 +270,12 @@ def _run():
                 _client = ws
                 _connected = True
             send_schedule(client=ws)
+            # The cloud's join replay is only what it has merged since this
+            # register: after a dropped link it starts empty, and a late joiner got
+            # finals with no header or names until the next heat. The board cache
+            # holds every published frame, clock already stripped (state.record_board).
+            if state.board:
+                _send_raw(ws, "update_scoreboard", dict(state.board))
             if state._last_results_snapshot:
                 _send_raw(ws, "results_snapshot", state._last_results_snapshot)
             print("[relay] connected to cloud", flush=True)

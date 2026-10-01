@@ -332,6 +332,18 @@ def build_heats():
     return heats_out
 
 
+def announce_schedule():
+    """The start list changed: local Schedule tabs re-fetch, and the cloud gets it.
+
+    Loading a meet file announces its own (routes/settings._load_meet_file); this
+    is for the start lists a test session swaps in and out, which used to leave a
+    phone open before the session on "No schedule available yet." until
+    pull-to-refresh. The relay drops the snapshot while a test is local-only.
+    """
+    bus.emit("/schedule", "schedule_update")
+    relay.send_schedule()
+
+
 def send_event_info():
     ev, ht = state._decoder.last_event_sent
     # (0, 0) is the decoder's "nothing yet" sentinel, not event 0 of heat 0. Send it
