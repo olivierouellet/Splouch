@@ -69,7 +69,7 @@
                                 <option value="serial">{{ t.test_record_serial }}</option>
                                 <option value="raw">{{ t.test_record_raw }}</option>
                             </select>
-                            <button type="button" id="btn-record" class="btn btn-secondary btn-sm text-nowrap" style="min-width:70px;" onclick="testRecordToggle()">{{ t.test_start }}</button>
+                            <button type="button" id="btn-record" class="btn btn-secondary btn-sm text-nowrap" style="min-width:70px;" data-hold data-hold-fn="testRecordToggle" data-hold-label="{{ t.hold_start }}" onclick="if (!this.hasAttribute('data-hold')) testRecordToggle()">{{ t.test_start }}</button>
                             <span id="test-record-status" class="small text-body-secondary"></span>
                         </div>
 

@@ -24,7 +24,7 @@
                             <form method="post" class="d-inline ms-1">
                                 <input type="hidden" name="action" value="delete">
                                 <input type="hidden" name="key" value="{{ key }}">
-                                <button type="submit" class="btn btn-outline-danger btn-sm">{{ t.delete }}</button>
+                                <button type="submit" class="btn btn-outline-danger btn-sm" data-hold data-hold-label="{{ t.hold_delete }}">{{ t.delete }}</button>
                             </form>
                         </td>
                     </tr>
@@ -72,7 +72,7 @@
                                 <form method="post" class="d-inline">
                                     <input type="hidden" name="action" value="delete">
                                     <input type="hidden" name="key" value="{{ key }}">
-                                    <button type="submit" class="btn btn-outline-danger btn-sm">{{ t.delete }}</button>
+                                    <button type="submit" class="btn btn-outline-danger btn-sm" data-hold data-hold-label="{{ t.hold_delete }}">{{ t.delete }}</button>
                                 </form>
                             </div>
                         </div>

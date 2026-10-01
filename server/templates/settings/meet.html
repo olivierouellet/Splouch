@@ -50,7 +50,7 @@
                             <label class="btn btn-secondary btn-sm m-0 flex-shrink-0" style="cursor:pointer; white-space:nowrap;">
                                 {{ t.meet_update_file_btn }}<input id="meet_update_file" type="file" accept=".csv,.lxf" style="display:none;" onchange="updateMeetFile(this)">
                             </label>
-                            <button class="btn btn-outline-danger btn-sm flex-shrink-0" type="button" onclick="var f=document.getElementById('meet-file-select').value;if(f&&confirm('Delete '+f+'?'))location.href='/meet_delete?file='+encodeURIComponent(f);">{{ t.btn_delete }}</button>
+                            <button class="btn btn-outline-danger btn-sm flex-shrink-0" type="button" data-hold data-hold-fn="meetDeleteHeld" data-hold-label="{{ t.hold_delete }}">{{ t.btn_delete }}</button>
                             <button class="btn btn-outline-danger btn-sm flex-shrink-0" type="button" data-hold data-hold-href="/meet_clear" data-hold-label="{{ t.hold_delete_all }}">{{ t.btn_delete_all }}</button>
                             {% endif %}
                         </div>

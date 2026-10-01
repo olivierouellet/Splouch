@@ -117,10 +117,10 @@
                                 <input type="datetime-local" name="expires_at" value="{{ m.expires_input }}" class="form-control form-control-sm d-inline-block w-auto">
                                 <button type="submit" class="btn btn-secondary btn-sm">{{ t.set_expiry or 'Set' }}</button>
                             </form>
-                            <form method="post" class="d-inline ms-1" onsubmit="return confirm('{{ t.confirm_delete_meet or 'Remove this meet now?' }}');">
+                            <form method="post" class="d-inline ms-1">
                                 <input type="hidden" name="action" value="delete_meet">
                                 <input type="hidden" name="meet_id" value="{{ m.id }}">
-                                <button type="submit" class="btn btn-outline-danger btn-sm">{{ t.delete or 'Delete' }}</button>
+                                <button type="submit" class="btn btn-outline-danger btn-sm" data-hold data-hold-label="{{ t.hold_delete }}">{{ t.delete or 'Delete' }}</button>
                             </form>
                         </td>
                         {% endif %}
@@ -176,10 +176,10 @@
                                 <input type="datetime-local" name="expires_at" value="{{ m.expires_input }}" class="form-control form-control-sm w-auto">
                                 <button type="submit" class="btn btn-secondary btn-sm">{{ t.set_expiry or 'Set' }}</button>
                             </form>
-                            <form method="post" onsubmit="return confirm('{{ t.confirm_delete_meet or 'Remove this meet now?' }}');">
+                            <form method="post">
                                 <input type="hidden" name="action" value="delete_meet">
                                 <input type="hidden" name="meet_id" value="{{ m.id }}">
-                                <button type="submit" class="btn btn-outline-danger btn-sm">{{ t.delete or 'Delete' }}</button>
+                                <button type="submit" class="btn btn-outline-danger btn-sm" data-hold data-hold-label="{{ t.hold_delete }}">{{ t.delete or 'Delete' }}</button>
                             </form>
                             {% endif %}
                         </div>

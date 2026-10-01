@@ -6,7 +6,7 @@
                             <div class="d-flex align-items-center gap-2 mb-3">
                                 <span class="text-body-secondary small" style="min-width:70px;">{{ t.net_status }}</span>
                                 <span id="cloud-status-text" class="flex-fill small"></span>
-                                <button type="button" id="btn-cloud-toggle" class="btn btn-secondary btn-sm text-nowrap" onclick="toggleCloud(); return false;" disabled>…</button>
+                                <button type="button" id="btn-cloud-toggle" class="btn btn-secondary btn-sm text-nowrap" data-hold-fn="toggleCloud" onclick="if (!this.hasAttribute('data-hold')) toggleCloud(); return false;" disabled>…</button>
                             </div>
                             <div class="mb-3">
                                 <label class="form-label">{{ t.cloud_server_url }}</label>
@@ -117,7 +117,7 @@
                         <span class="file-msg small text-body-secondary ms-1"></span>
                     </div>
                     {% if active_picker_image %}
-                    <a href="/picker_image_delete?file={{ active_picker_image }}" class="btn btn-outline-danger btn-sm flex-shrink-0" onclick="return confirm('Delete {{ active_picker_image }}?')">{{ t.btn_delete }}</a>
+                    <a href="/picker_image_delete?file={{ active_picker_image }}" class="btn btn-outline-danger btn-sm flex-shrink-0" data-hold data-hold-label="{{ t.hold_delete }}">{{ t.btn_delete }}</a>
                     {% endif %}
                     {% if picker_image_list %}
                     <a href="/picker_image_delete_all" class="btn btn-outline-danger btn-sm flex-shrink-0" data-hold data-hold-label="{{ t.hold_delete_all }}">{{ t.btn_delete_all }}</a>
@@ -146,7 +146,7 @@
                         <span class="file-msg small text-body-secondary ms-1"></span>
                     </div>
                     {% if active_home_icon %}
-                    <a href="/icon_delete?file={{ active_home_icon }}" class="btn btn-outline-danger btn-sm flex-shrink-0" onclick="return confirm('Delete {{ active_home_icon }}?')">{{ t.btn_delete }}</a>
+                    <a href="/icon_delete?file={{ active_home_icon }}" class="btn btn-outline-danger btn-sm flex-shrink-0" data-hold data-hold-label="{{ t.hold_delete }}">{{ t.btn_delete }}</a>
                     {% endif %}
                     {% if icon_list %}
                     <a href="/icon_delete_all" class="btn btn-outline-danger btn-sm flex-shrink-0" data-hold data-hold-label="{{ t.hold_delete_all }}">{{ t.btn_delete_all }}</a>

@@ -10,7 +10,7 @@
                         <select id="version-select" class="form-select form-select-sm" style="flex:1;">
                             <option value="">{{ t.loading }}</option>
                         </select>
-                        <button type="button" id="btn-run-update" class="btn btn-secondary btn-sm" onclick="startUpdate()">{{ t.btn_install }}</button>
+                        <button type="button" id="btn-run-update" class="btn btn-secondary btn-sm" data-hold data-hold-fn="startUpdate" data-hold-label="{{ t.hold_install }}">{{ t.btn_install }}</button>
                         <span id="update-status" class="text-secondary small"></span>
                     </div>
                     <pre id="update-output" class="border rounded p-2" style="display:none; background:#111; color:#e0e0e0; min-height:80px; max-height:360px; overflow-y:auto; font-size:0.8em; margin:0;"></pre>
@@ -32,7 +32,7 @@
                        whole point — see routes/system.route_displays_update. #}
                     <div class="d-flex align-items-center gap-2 mb-1">
                         <button type="button" id="btn-update-displays" class="btn btn-secondary btn-sm"
-                                onclick="startDisplaysUpdate()">{{ t.update_displays }}</button>
+                                data-hold data-hold-fn="startDisplaysUpdate" data-hold-label="{{ t.hold_update }}">{{ t.update_displays }}</button>
                         <span id="displays-update-status" class="text-secondary small"></span>
                     </div>
                     <div class="text-body-secondary small mb-2">{{ t.update_displays_hint }}</div>
@@ -42,7 +42,7 @@
                     <hr>
 
                     <div class="d-flex align-items-center gap-2 mb-2">
-                        <button type="button" id="btn-os-update" class="btn btn-secondary btn-sm" onclick="startOsUpdate()">{{ t.update_update_os }}</button>
+                        <button type="button" id="btn-os-update" class="btn btn-secondary btn-sm" data-hold data-hold-fn="startOsUpdate" data-hold-label="{{ t.hold_update }}">{{ t.update_update_os }}</button>
                         <span id="os-update-status" class="text-secondary small"></span>
                     </div>
                     <pre id="os-update-output" class="border rounded p-2" style="display:none; background:#111; color:#e0e0e0; min-height:80px; max-height:360px; overflow-y:auto; font-size:0.8em; margin:0;"></pre>

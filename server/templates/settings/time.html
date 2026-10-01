@@ -30,7 +30,7 @@
                     <div class="d-flex align-items-center gap-2 mb-2">
                         <span id="rtc-status" class="flex-fill text-secondary small">—</span>
                         <button type="button" id="btn-rtc-install" class="btn btn-secondary btn-sm" onclick="startRtcInstall()">{{ t.btn_install }}</button>
-                        <button type="button" id="btn-rtc-remove" class="btn btn-secondary btn-sm" onclick="startRtcRemove()">{{ t.btn_remove }}</button>
+                        <button type="button" id="btn-rtc-remove" class="btn btn-secondary btn-sm" data-hold data-hold-fn="startRtcRemove" data-hold-label="{{ t.hold_remove }}">{{ t.btn_remove }}</button>
                     </div>
                     <pre id="rtc-output" class="border rounded p-2" style="display:none; background:#111; color:#e0e0e0; min-height:80px; max-height:240px; overflow-y:auto; font-size:0.8em; margin:0 0 8px;"></pre>
                     <div id="rtc-reboot-row" style="display:none; align-items:center; gap:8px;">

@@ -94,7 +94,7 @@
                                     <span class="file-msg small text-body-secondary ms-1"></span>
                                 </div>
                                 {% if splash_url %}
-                                <a href="/splash_delete" class="btn btn-outline-danger btn-sm flex-shrink-0" onclick="return confirm('Delete {{ splash_url }}?')">{{ t.btn_delete }}</a>
+                                <a href="/splash_delete" class="btn btn-outline-danger btn-sm flex-shrink-0" data-hold data-hold-label="{{ t.hold_delete }}">{{ t.btn_delete }}</a>
                                 {% endif %}
                                 {% if splash_url_list %}
                                 <a href="/splash_delete_all" class="btn btn-outline-danger btn-sm flex-shrink-0" data-hold data-hold-label="{{ t.hold_delete_all }}">{{ t.btn_delete_all }}</a>

@@ -13,6 +13,7 @@
      data-hold                 mark the element (required)
      data-hold-fn="name"       global function to call on completion
      data-hold-href="/path"    else navigate here (falls back to href)
+                               else a submit button submits its form
      data-hold-label="Hold…"   swap the text while holding
      data-hold-ms="1500"       override the ~1.2 s default
 
@@ -49,6 +50,11 @@
                off-site URL in the attribute is nothing a hold should follow. */
             var url = new URL(href, window.location.href);
             if (url.origin === window.location.origin) window.location.assign(url.href);
+        } else if (el.form && el.type === 'submit') {
+            /* The click that would have submitted was swallowed above. requestSubmit
+               with the button as submitter keeps its name/value and the form's own
+               validation, as a real click would. */
+            el.form.requestSubmit(el);
         }
     }
     function cancel() {

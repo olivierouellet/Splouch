@@ -53,7 +53,9 @@ function _refreshMeetTab() {
                     '<label class="btn btn-secondary btn-sm m-0 flex-shrink-0" style="cursor:pointer; white-space:nowrap;">' +
                     T.meet_update_file_btn +
                     '<input id="meet_update_file" type="file" accept=".csv,.lxf" style="display:none;" onchange="updateMeetFile(this)"></label>' +
-                    '<button class="btn btn-outline-danger btn-sm flex-shrink-0" type="button" onclick="var f=document.getElementById(\'meet-file-select\').value;if(f&&confirm(T.js_delete_c+f+\'?\'))location.href=\'/meet_delete?file=\'+encodeURIComponent(f);">' +
+                    '<button class="btn btn-outline-danger btn-sm flex-shrink-0" type="button" data-hold data-hold-fn="meetDeleteHeld" data-hold-label="' +
+                    T.hold_delete +
+                    '">' +
                     T.btn_delete +
                     '</button>' +
                     '<button class="btn btn-outline-danger btn-sm flex-shrink-0" type="button" data-hold data-hold-href="/meet_clear" data-hold-label="' +
@@ -405,6 +407,8 @@ function _loadTestStatus() {
             var btn = document.getElementById('btn-record');
             btn.textContent = _recording ? T.test_stop : T.test_start;
             btn.className = _recording ? 'btn btn-danger btn-sm' : 'btn btn-secondary btn-sm';
+            // Start is a hold, Stop a tap — the inline onclick only fires without it.
+            _setHold(btn, !_recording, T.hold_start);
             btn.disabled = d.playing;
             document.getElementById('test-record-name').disabled = d.playing;
             document.getElementById('test-record-format').disabled = d.playing || _recording;
@@ -494,9 +498,11 @@ function _renderSessions(sessions, anyPlaying) {
               '</button>'
             : '<button class="btn btn-secondary btn-sm text-nowrap" style="' +
               W +
-              '" onclick="testPlay(' +
-              JSON.stringify(s.name).replace(/"/g, '&quot;') +
-              ')"' +
+              '" data-hold data-hold-fn="testPlayHeld" data-hold-label="' +
+              T.hold_play +
+              '" data-session="' +
+              _escAttr(s.name) +
+              '"' +
               (anyPlaying ? ' disabled' : '') +
               '>' +
               T.js_play +
@@ -509,9 +515,11 @@ function _renderSessions(sessions, anyPlaying) {
             s.source === 'custom'
                 ? '<button class="btn btn-secondary btn-sm me-1 text-nowrap" style="' +
                   W +
-                  '" onclick="testDelete(' +
-                  JSON.stringify(s.name).replace(/"/g, '&quot;') +
-                  ')">' +
+                  '" data-hold data-hold-fn="testDeleteHeld" data-hold-label="' +
+                  T.hold_delete +
+                  '" data-session="' +
+                  _escAttr(s.name) +
+                  '">' +
                   T.btn_delete +
                   '</button>'
                 : '<button class="btn btn-secondary btn-sm me-1 text-nowrap" style="' +
@@ -536,6 +544,11 @@ function _renderSessions(sessions, anyPlaying) {
             '</div>';
     });
     div.innerHTML = html;
+}
+
+// For a value going into a double-quoted attribute of markup built as a string.
+function _escAttr(v) {
+    return String(v).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
 }
 
 function setSpeed(s) {
@@ -585,6 +598,21 @@ function testStop() {
     fetch('/test_stop', { method: 'POST' }).then(function () {
         setTimeout(_loadTestStatus, 400);
     });
+}
+
+// The Meet tab's Delete: held, then deletes whichever file the picker shows.
+function meetDeleteHeld() {
+    var f = document.getElementById('meet-file-select').value;
+    if (f) location.href = '/meet_delete?file=' + encodeURIComponent(f);
+}
+
+// Hold handlers get the button; the session rides on it as data-session.
+function testPlayHeld(el) {
+    testPlay(el.dataset.session);
+}
+
+function testDeleteHeld(el) {
+    testDelete(el.dataset.session);
 }
 
 function testDelete(name) {
@@ -705,13 +733,7 @@ function _applyWifiStatus(d) {
     // text for "Disable", which is a word that only appears in English. In French
     // and Spanish the hold never armed and the button fired on a single tap —
     // exactly the press it was there to prevent.
-    if (d.enabled) {
-        btn.setAttribute('data-hold', '');
-        btn.setAttribute('data-hold-label', T.js_hold_disable);
-    } else {
-        btn.removeAttribute('data-hold');
-        btn.removeAttribute('data-hold-label');
-    }
+    _setHold(btn, d.enabled, T.js_hold_disable);
     if (!d.enabled) {
         _statusColor(wtext, 'muted');
         wtext.textContent = T.js_disabled;
@@ -737,9 +759,21 @@ function _applyWifiStatus(d) {
     }
 }
 
+// Arm or disarm a press-and-hold on a toggle whose risky half is one state only
+// (WiFi off, cloud Disconnect, recording Start). hold.js reads the attribute at
+// press time, so flipping it is all a state change needs.
+function _setHold(btn, on, label) {
+    if (on) {
+        btn.setAttribute('data-hold', '');
+        btn.setAttribute('data-hold-label', label);
+    } else {
+        btn.removeAttribute('data-hold');
+        btn.removeAttribute('data-hold-label');
+    }
+}
+
 function setEthDhcp() {
     var status = document.getElementById('eth-ip-status');
-    if (!confirm(T.js_dhcp_confirm)) return;
     _statusColor(status, 'muted');
     status.textContent = T.js_applying;
     fetch('/eth_dhcp_set', { method: 'POST' })
@@ -766,16 +800,6 @@ function setEthIp() {
         status.textContent = T.js_enter_ip;
         return;
     }
-    if (
-        !confirm(
-            T.js_change_ip_c +
-                ip +
-                '/' +
-                prefix +
-                '?\n\nThis will disconnect your current session.',
-        )
-    )
-        return;
     _statusColor(status, 'muted');
     status.textContent = T.js_applying;
     fetch('/eth_ip_set', {
@@ -1768,21 +1792,25 @@ function _applyCloudStatus(d) {
         text.textContent = T.js_not_configured;
         btn.textContent = T.net_connect;
         btn.disabled = true;
+        _setHold(btn, false);
     } else if (d.connected) {
         _statusColor(text, 'ok');
         text.textContent = T.js_connected_c + d.url;
         btn.textContent = T.js_disconnect;
         btn.disabled = false;
+        _setHold(btn, true, T.hold_disconnect);
     } else if (d.running) {
         _statusColor(text, 'warn');
         text.textContent = T.js_connecting;
         btn.textContent = T.js_disconnect;
         btn.disabled = false;
+        _setHold(btn, true, T.hold_disconnect);
     } else {
         _statusColor(text, 'muted');
         text.textContent = T.js_disconnected;
         btn.textContent = T.net_connect;
         btn.disabled = false;
+        _setHold(btn, false);
     }
     _applyCloudAttendance(d);
 }

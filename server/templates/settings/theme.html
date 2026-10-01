@@ -20,7 +20,7 @@
                                         </select>
                                         <div class="d-flex flex-wrap gap-1">
                                             {% if active_theme in custom_theme_codes %}
-                                            <a href="/theme_delete" class="btn btn-outline-danger btn-sm">{{ t.btn_delete }}</a>
+                                            <a href="/theme_delete" class="btn btn-outline-danger btn-sm" data-hold data-hold-label="{{ t.hold_delete }}">{{ t.btn_delete }}</a>
                                             {% endif %}
                                             {% if custom_theme_list %}
                                             <a href="/theme_delete_all" class="btn btn-outline-danger btn-sm" data-hold data-hold-label="{{ t.hold_delete_all }}">{{ t.theme_delete_all_customs }}</a>
