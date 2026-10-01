@@ -184,6 +184,10 @@ all clients: **hourglass** for `P-06` (SF `hourglass`, Material `hourglass_top`,
 `hourglass`), **two people** for `P-07` (`person.2`, `group`, `users`) — never shield or
 raised hand (read as privacy control; none exists).
 
+**Only once server has sent text.** No `GET /picker/config` yet (first launch, offline)
+→ no notice, on every client: a notice is that server's words about that server's
+results, never a snapshot's copy. Pill label and X name may fall back to snapshot.
+
 **Not first-launch dialog, not consent.** Once-accepted dialog misses second server's
 text or counting enabled later; counting isn't spectator's to refuse (`C-10`).
 
