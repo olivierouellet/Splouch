@@ -168,15 +168,19 @@ where the user returns via `A-02`.
 > title and logo — because below them a season of meets pushes them out of sight.
 > Whether they also sit above `P-17`'s field depends on where the platform puts search:
 > the web draws the field in the list, under the notices; iOS and Android draw it in a
-> bar, outside the list. Above the meets is the requirement. Each shows its full text with an X; the X folds it to a
-> pill (`results_disclaimer_short`, `privacy_note_short`), and a tap on the pill
-> opens it again. Expanded, a notice has the row to itself; folded, the pills share
+> bar, outside the list. Above the meets is the requirement.
+>
+> Each shows its full text with an X; the X folds it to a pill
+> (`results_disclaimer_short`, `privacy_note_short`), and a tap on the pill opens it
+> again. Expanded, a notice has the row to itself; folded, the pills share
 > one. Each pill leads with its own icon, the same thing on every client: an
 > **hourglass** for `P-06` — pending validation, not an error — and **two people** for
 > `P-07`, the visitors being counted. SF Symbols `hourglass` and `person.2`, Material
 > Symbols `hourglass_top` and `group`; the web draws Lucide's `hourglass` and `users`.
-> Not a shield or a raised hand: those read as a privacy control, and there is none. **Not a first-launch dialog, and not a consent**: a dialog accepted once
-> would never show a second server's text (`P-11`, `P-16`), nor counting that a
+> Not a shield or a raised hand: those read as a privacy control, and there is none.
+>
+> **Not a first-launch dialog, and not a consent**: a dialog accepted once would never
+> show a second server's text (`P-11`, `P-16`), nor counting that a
 > server turns on later, and counting is not the reader's to refuse (`C-10`) — an
 > Accept button would promise a choice there is none of.
 >
@@ -334,7 +338,7 @@ where the user returns via `A-02`.
 | `A-04` | The selected tab survives a relaunch | web: `sessionStorage['tab']` | should |
 | `A-05` | Pull-to-refresh re-fetches config and rejoins the sockets | web: 80px threshold, rotating indicator | should |
 | `A-06` | Content clears notch, Dynamic Island, and home indicator | web: `env(safe-area-inset-*)` | must (free natively) |
-| `A-07` | On a short window the tabs stop costing height — compacted, or moved beside the content — rather than taking the same band as on a tall one | the platform's size classes | should |
+| `A-07` | On a short window the tabs stop costing height — compacted, or moved beside the content — rather than taking the same band as on a tall one | the window's height; where the tabs go is the platform's (§0.4) | should |
 | `A-08` | Window and home-screen title is the meet's `app_window_title`, falling back to its `name` | `settings.app_window_title`, then `name`, then `Splouch` | web-only |
 | `A-09` | Meet gone mid-session → return to the picker | cloud: `GET /meet/{id}/config` answers **404**. Re-fetch it on every reconnect, foreground, pull-to-refresh (`A-05`) and `reload` (`C-08`); web: `GET /mobile` 303s to `/` on page load. Pi: n/a (§0.2) | must — see note |
 | `A-10` | Where `A-03` includes a swipe, the movement is visible: the tabs follow the finger through the drag and settle on release, rather than changing on release alone | — | should — see note; n/a where the platform has no swipe between tabs |
@@ -501,9 +505,10 @@ Live lane state during a heat. The busiest screen and the one most worth getting
 > - **Freeze forward, and freeze rather than blank.** The digits stop three intervals past
 >   the last re-base, not back at it.
 >
-> **Throttle the field.** Forward `running_time` instead **at most
-> once every ~2s, plus on any frame carrying a `lane_running<i>` key**: one short string
-> every two seconds per meet rather than ten to twenty a second
+> **The relay throttles the field.** It forwards `running_time` **at most once every
+> ~2s, plus on any frame carrying a `lane_running<i>` key** — one short string every two
+> seconds per meet rather than ten to twenty a second — which is why the device ticks
+> the clock itself in between.
 >
 > **Parse it with the one pattern** [`api.md`](api.md) §5.1 gives — `m:ss.hh` or
 > `ss.hh` — and treat a value that does not match as no re-base at all: the ticker
@@ -527,9 +532,9 @@ Live lane state during a heat. The busiest screen and the one most worth getting
 | ID | Feature | Driven by | Level |
 | --- | --- | --- | --- |
 | `L-15` | **Under 600 wide**: two-line row — lane number spanning left, name on line 1 with club right-aligned, time and delta and place on line 2; a place is prefixed `#`, and nothing is when there is no place | the window's width, at 600pt/dp/px | must |
-| `L-24` | When the lanes do not fit a compact-width board, give up, in this order: the EVENT/HEAT row moves into the top bar (short labels, no wall clock) → the relay line (`L-06`) is dropped → the row type shrinks, to no less than 0.72× → the board scrolls | measured row heights, never device constants | should — see note |
 | `L-16` | **600 wide and up**: full table with a header row, row font scaled to the height each lane gets; on a short window the header row is the first thing dropped | the window's width, at 600pt/dp/px | should |
 | `L-17` | Long names shrink to fit their cell, ellipsis only as a floor | — | must — see note |
+| `L-24` | When the lanes do not fit a board under 600 wide, give up, in this order: the EVENT/HEAT row moves into the top bar (short labels, no wall clock) → the relay line (`L-06`) is dropped → the row type shrinks, to no less than 0.72× → the board scrolls | measured row heights, never device constants | should — see note |
 
 > **`L-15` / `L-16` — width decides, not orientation.** On a phone the two agree: portrait
 > is compact, landscape is regular. They part on a tablet or an unfolded foldable, where
@@ -557,8 +562,6 @@ Live lane state during a heat. The busiest screen and the one most worth getting
 > whether the header belongs in the bar from the height the lanes would have *with* it
 > there, so the decision cannot oscillate. The web has no top bar to move the header
 > into; it scrolls past a fixed row height.
->
-> (`L-24` takes the next free number in this section; §0.1.)
 
 > **`L-17` — shrink, on this tab and on Results (`R-08`).** Rows share the board's height
 > with a floor, so shrinking a name changes type size and nothing else.
@@ -621,7 +624,7 @@ find *their* swimmer among several hundred.
 
 | ID | Feature | Driven by | Level |
 | --- | --- | --- | --- |
-| `S-01` | Every heat as a card, its heading on one line: the heat identifier `EV 12  HT 3` in the **short** labels, the event name beside it, the scheduled time trailing |  `GET /meet/{id}/schedule` ([`api.md`](api.md) §5.8); Pi: `GET /schedule.json`, same body | must |
+| `S-01` | Every heat as a card, its heading on one line: the heat identifier `EV 12  HT 3` in the **short** labels, the event name beside it, the scheduled time trailing | `GET /meet/{id}/schedule` ([`api.md`](api.md) §5.8); Pi: `GET /schedule.json`, same body | must |
 | `S-02` | Each card lists its lanes: lane number, name, club, seed time | `lanes[]` | must |
 | `S-03` | Relay entries show member first names joined by `·` | `lane.swimmers[].first`, falling back to `.name` | should |
 | `S-04` | Alternating card backgrounds, computed over *visible* cards so filtering keeps the stripe | — | should |
@@ -788,8 +791,8 @@ every colour, face and word it draws on the board comes from the server.
 
 | ID | Feature | Driven by | Level |
 | --- | --- | --- | --- |
-| `T-01` | Palette from the meet's config: `bg`, `header_bg`, `header_border`, `header_label`, `header_value`, `th_text`, `th_bg`, `row_odd`, `row_even`, `row_text`, `time`, `delta_better`, `delta_worse` | `settings.theme_colors` — on a phone, `P-15`'s palette instead | must |
-| `T-02` | Schedule-specific colours `schedule_event`, `schedule_time`, `schedule_name`, `schedule_club`, each with a built-in default | `settings.theme_colors` — on a phone, `P-15`'s palette instead | should |
+| `T-01` | The board's palette — `bg`, `header_bg`, `header_border`, `header_label`, `header_value`, `th_text`, `th_bg`, `row_odd`, `row_even`, `row_text`, `time`, `delta_better`, `delta_worse` — is one of the server's two, chosen by the reader's Appearance (`P-15`); a meet's own `theme_colors` reach the kiosk and the Qt display, not a phone | [`api.md`](api.md) §6.1, copied key for key | must |
+| `T-02` | The schedule's colours — `schedule_event`, `schedule_time`, `schedule_name`, `schedule_club` — from the same palette as `T-01` | [`api.md`](api.md) §6.1 | should |
 | `T-03` | Three font roles — `family` (text), `digits` (clock), `timing` (times and deltas) | `settings.theme_fonts` | must |
 | `T-04` | Column headers and header labels are the server's words, never the app's | `settings.labels` for the default; `GET /i18n/{lang}` → `labels` when the user has chosen | must — see note |
 | `T-05` | The app's own chrome — tab names, empty states, filter UI — is **fetched and cached**, not translated in the app | `GET /i18n/{lang}` → `mobile` ([`api.md`](api.md) §5.9) | must |
@@ -869,31 +872,19 @@ every colour, face and word it draws on the board comes from the server.
 > `long` table whose narrow columns hold their short words, so a client that simply
 > renders what it is given is correct.
 >
-> **Two options, and it starts from long.** Short and long — there is no third "meet
-> default" row. `settings.label_style` is how the *server* resolves the `labels` it sends
-> (`T-04`); it is not an option the control offers back, and a preference whose third
-> value means "whatever this operator picked" changes meaning when the spectator opens
-> the next meet, which is not a choice anyone can hold in their head. Long is the
-> starting point because `EV` / `HT` are contractions an attendee has to decode, and the
-> header they sit in has room for the word (`L-01`) — it is the operator's fixed-width
-> board that needs the short form, not a phone.
+> **Long, and a control is optional.** A client may offer short/long over those two
+> headers, per device, starting from long — two options, never a third "meet default",
+> since `settings.label_style` is how the *server* resolves the `labels` it sends
+> (`T-04`), not a choice a reader can hold across meets. Long because `EV` / `HT` are
+> contractions an attendee has to decode, and the phone header has room for the word
+> (`L-01`); the short form is the operator's fixed-width kiosk board's.
 >
-> **A release may withdraw the control without discarding the choice.** `should` means
-> what §0.3 says it means: shipping with the headers fixed at long and no control at all
-> is within the contract. What is not within it is dropping a preference a user has
-> already set — resolve the stored value through something that answers long while the
-> control is away, so returning the control returns each user's choice rather than
-> resetting everyone to the default. The server side is unaffected either way:
+> **A client that withdraws the control keeps the choice.** Resolve a stored preference
+> through something that answers long while the control is away, so a control that
+> returns finds each reader's choice rather than resetting everyone. On the web the
+> `splouch_style` cookie and `?style=` are ignored, not cleared, for the same reason.
 > `prefs_labels`, `prefs_short` and `prefs_long` stay served and stay in `T-10`'s
-> snapshot, and `settings.label_style` stays in the config whether or not a client
-> consults it.
->
-> **No client offers the control today**, and all three are fixed at long. The web's
-> phone pages resolve their headers long whatever the operator's `label_style`, a
-> `?style=` link or a `splouch_style` cookie says; the cookie is ignored rather than
-> cleared, as above, so a control that returns finds each visitor's choice. The kiosk
-> board is unaffected: it is the operator's fixed-width display, and `label_style` is
-> still its setting.
+> snapshot.
 
 > **`T-10` — fetch, but never depend on the fetch.** Ship a snapshot of the strings and
 > treat the endpoint as a refresh: read the cache, draw, revalidate in the background,
@@ -962,17 +953,18 @@ not a level here.
 | `X-02` | The EVENT and HEAT words and their numbers read as one each, and say nothing before a number arrives | — | must |
 | `X-03` | A start-list lane is one utterance in the same words, seed time included; a heat's heading is one utterance in the **long** words (`S-01`) | `labels` | should |
 | `X-04` | Heat headings, the picker's title and every empty-state title are headings, so the reader can jump heat to heat | — | should |
-| `X-05` | Every tappable target is at least the platform's minimum — 44pt on iOS, 48dp on Android — the filter chip's × included, without growing the chip | — | must |
+| `X-05` | Every tappable target is at least the platform's minimum — 44pt on iOS, 48dp on Android, 44px on the web — the filter chip's × included, without growing the chip | — | must |
 | `X-06` | In a list of choices — server, language, Appearance — the current one is announced as selected, not only marked with a glyph | — | must |
 | `X-07` | Decorative glyphs beside text that already says the same thing are hidden; anything laid out only to be measured never reaches the accessibility tree | — | should |
 | `X-08` | Everything off the board follows the device's text size. The board sizes itself from the height it has (`L-16`, `L-24`) and does not scale a second time. **On the web** the reader's text size is the browser's zoom: at 200%, and at a 320px-wide window, nothing is cut off and nothing scrolls sideways | native: the platform's text-size setting; web: browser zoom (WCAG 1.4.4, 1.4.10) | should |
 | `X-09` | Decorative motion — the picker's live dot — honours the reduce-motion setting. `L-11`'s lock flash and `L-12`'s pulse are information, not decoration, and may keep running | — | should |
 | `X-10` | When a control replaces itself — `P-06`'s X folding to a pill, the pill opening again — focus moves to its replacement | — | should |
 
-> **`X-01` — the one word on the board that is the client's.** `L-23`'s lap count has no
-> column word on the wire (`labels` names six columns and stops), so a client speaks it
-> with a native string — *Laps 4* — in the app's languages rather than the meet's. Read
-> as a bare integer after the time, it would be heard as a second time.
+> **`X-01` — the one word on the board no column gives.** `L-23`'s lap count has no
+> column word on the wire (`labels` names six columns and stops), so it is spoken as
+> *Laps 4* with a word of the client's own: an app's native string, the web's
+> `[mobile] spoken_laps`. Read as a bare integer after the time, it would be heard as a
+> second time.
 
 > **Contrast is the palettes', and so checkable once.** A phone draws one of the two
 > palettes in [`api.md`](api.md) §6.1 (`P-15`), so contrast is a property of those two
@@ -1008,14 +1000,21 @@ Not on any phone client, now or planned:
     component, sizes and grouping are latitude.
   - **Changed rows.** `A-03` is the platform's own navigation between peer sections —
     a tab bar alone on iOS, a pager on Android — and `A-10` applies only where there
-    is a swipe. `A-07`, `L-15`, `L-16` switch on width class, not orientation. `T-09`:
+    is a swipe. `A-07` is written on the effect; `L-15` and `L-16` switch at 600
+    wide — points, dp or CSS px — not on orientation, nor on iOS's size class. `T-09`:
     the board's EVENT/HEAT read long on every client. `S-01`'s heading is the short
     `EV 12  HT 3`, spoken long. `P-11`: the picker always names the server. `P-17`'s
     field goes where the platform puts search, and `P-06` is required above the meets
     rather than above that field. `P-03`: an offline meet shows its last scoreboard and
     no results. `L-23`'s "centred" applies where the delta is a column. `T-01`: the
-    palettes are copied from [`api.md`](api.md) §6.1, dark `header_label` `#3b9eff`.
-  - **New rows.** `L-24`, the crowded-board order; §8, accessibility (`X-01`–`X-10`).
+    palettes are copied from [`api.md`](api.md) §6.1, dark `header_label` `#3b9eff` —
+    both apps had white, a transcription slip, now fixed and tested key for key.
+  - **New rows.** `L-24`, the crowded-board order; §8, accessibility (`X-01`–`X-10`),
+    where `X-08` holds the web to browser zoom — 200% and a 320px window with nothing
+    cut and nothing scrolling sideways — rather than to the OS text size.
+  - **New strings.** `[mobile] spoken_laps` (`X-01`) and `filter_done` (`X-06`): the
+    web's words for the lap count read aloud and the filter sheet's ✓. Additive; an app
+    that ignores them is unaffected.
   - **Folded in from "added since v1"**: `P-15` (the reader's Appearance, departing from
     `T-01`/`T-02` on purpose), `P-16` (a server added from a QR code; a printed code
     names a cloud, never a Pi, so the reader lands on the picker and `P-06`), `P-17`
