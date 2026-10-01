@@ -158,169 +158,101 @@ where the user returns via `A-02`.
 | `P-16` | A server can be added by scanning a QR code: the code opens the app, the app asks, and on a yes the server is added, selected, and the **meet list** is what the reader lands on. Without the app installed the same code lands on a web page offering the store | `https://<the app's default host>/add?server=<origin>`, percent-encoded; the host's `/.well-known/assetlinks.json` and `/.well-known/apple-app-site-association`, and its `GET /add` page ([`api.md`](api.md) §4, §5.7) | native-only — should |
 | `P-17` | Search the meet list, offered once the list holds **3 or more** meets, narrowing it as the spectator types, with its own empty state when nothing matches. The field goes where the platform puts search (§0.4) | matches locally over `GET /meets` fields `name`, `meet_date`, `location`, `sport`, `organizer`; placeholder `strings.meet_search`, empty state `strings.no_meets_match` from `GET /picker/config` | should — see note |
 
-> **`P-06` is not decoration.** The disclaimer — live, unofficial results pending
-> validation, with SplashMe for validated ones — is the only thing between a live feed
-> and a spectator treating it as a result. It belongs on the meet list, not in an About
-> screen, and it renders the server's text rather than a compiled-in copy so wording can
-> be fixed without a store review.
+> **`P-06` is not decoration.** It is the only thing between a live feed and a spectator
+> treating it as a result, so it sits on the meet list, never in an About screen, and
+> renders the server's text so the wording changes without a store review.
 >
-> **`P-06` and `P-07` fold; they never go away.** Both sit above the meets — under the
-> title and logo — because below them a season of meets pushes them out of sight.
-> Whether they also sit above `P-17`'s field depends on where the platform puts search:
-> the web draws the field in the list, under the notices; iOS and Android draw it in a
-> bar, outside the list. Above the meets is the requirement.
+> **Both notices fold; neither goes away.** They sit above the meets, under the title and
+> logo — below them a season of meets pushes them out of sight. Whether that is also above
+> `P-17`'s field depends on where the platform puts search. The X folds a notice to its
+> pill; the pill opens it again. Open, a notice has the row to itself; folded, the pills
+> share one. The pill icons are the same on every client: an **hourglass** for `P-06`
+> (SF `hourglass`, Material `hourglass_top`, Lucide `hourglass`) and **two people** for
+> `P-07` (`person.2`, `group`, `users`) — never a shield or a raised hand, which read as
+> a privacy control, and there is none.
 >
-> Each shows its full text with an X; the X folds it to a pill
-> (`results_disclaimer_short`, `privacy_note_short`), and a tap on the pill opens it
-> again. Expanded, a notice has the row to itself; folded, the pills share
-> one. Each pill leads with its own icon, the same thing on every client: an
-> **hourglass** for `P-06` — pending validation, not an error — and **two people** for
-> `P-07`, the visitors being counted. SF Symbols `hourglass` and `person.2`, Material
-> Symbols `hourglass_top` and `group`; the web draws Lucide's `hourglass` and `users`.
-> Not a shield or a raised hand: those read as a privacy control, and there is none.
+> **Not a first-launch dialog, and not a consent.** A dialog accepted once would never
+> show a second server's text or counting turned on later, and counting is not the
+> reader's to refuse (`C-10`).
 >
-> **Not a first-launch dialog, and not a consent**: a dialog accepted once would never
-> show a second server's text (`P-11`, `P-16`), nor counting that a
-> server turns on later, and counting is not the reader's to refuse (`C-10`) — an
-> Accept button would promise a choice there is none of.
->
-> - **A fold is remembered per server, against the exact words folded** — store the
->   text itself, not a flag. A reworded notice, or the same notice in another
->   language, shows in full once. The web keeps it in `localStorage`, which is per
->   origin and so per server already; an app keys it on the server's origin.
-> - **`P-07`'s fold is forgotten whenever the server reports counting off**, so a
->   server that turns it back on says so in full.
+> - **A fold is remembered per server, against the exact words folded**, so a reworded
+>   or re-translated notice shows in full once. The web's `localStorage` is per origin
+>   already; an app keys on the server's origin.
+> - **`P-07`'s fold is forgotten whenever the server reports counting off.**
 
-> **`P-17` filters what the list already holds. There is no search endpoint.** A cloud
-> serves tens of meets, rarely a couple of hundred, and `P-01` has already fetched them
-> all, so a query is a filter over the cards, answered on every keystroke without a
-> debounce, the same reasoning as `S-09`.
+> **`P-17` filters what the list already holds; there is no search endpoint.** `P-01`
+> already has every meet, so each keystroke filters the cards, with no debounce (`S-09`).
 >
-> - **Match every word, in any order.** Split the folded query on whitespace; a card is
->   shown when each word is a substring of its folded fields joined by spaces. So
->   `quebec 2026` finds a meet whose location holds one and date the other.
-> - **Fold with `S-09`'s four steps**, table included, on both sides. The web picker
->   runs the typeahead's own `foldName()` from `shared/static/js/fold.js`; a second
->   fold would make `montreal` find `Montréal` on one client and not another.
-> - **The organizer is searched but not shown.** A spectator may know the meet by the
->   club running it.
-> - **`P-06` stays put.** The disclaimer is above the list whatever the filter hides.
-> - **The query outlives a return from a meet, not the session.** The web keeps it for
->   the tab (`sessionStorage`), so the back arrow (`A-02`) and pull-to-refresh (`P-09`)
->   come back to the same filtered list; a shared link or a home-screen launch opens
->   the whole list. An app keeps it while the picker is on its navigation stack and
->   drops it on a cold launch.
-> - **Live meets come first** in `GET /meets` ([`api.md`](api.md) §5.6), so an empty
->   query and a filtered one both lead with what is running now. Keep the server's
->   order; do not re-sort.
+> - Every word of the query, in any order, must be a substring of the meet's folded
+>   fields joined by spaces — `quebec 2026` matches a location and a date.
+> - Fold both sides with `S-09`'s four steps; the web uses `foldName()` from
+>   `shared/static/js/fold.js`.
+> - The organizer is searched but not shown.
+> - `P-06` stays above the list whatever the filter hides.
+> - The query survives a return from a meet (`A-02`) and `P-09`, not a cold launch: the
+>   web keeps it in `sessionStorage`, an app while the picker is on its stack.
+> - Keep the server's order — live meets first ([`api.md`](api.md) §5.6).
 
-> **`P-10` is a hand-off, not a feature of the apps.** Serve the store URLs from
-> `/picker/config` beside `P-06`'s disclaimer and hide the affordance when they are
-> absent; a store listing that moves must not need a deploy. Inside a native app the
-> slot renders nothing — an app cannot install itself, which is what `web-only` means
-> here. The fields are `stores` in [`api.md`](api.md) §5.7, keyed by platform and
-> present only for a platform that has a listing. `P-16`'s `GET /add` renders its
-> buttons from the same dict, so the page a scanned code lands on and the native
-> picker cannot disagree about where the app lives.
+> **`P-10` is a hand-off.** The store URLs are `stores` in [`api.md`](api.md) §5.7, keyed
+> by platform and present only once listed, so a listing that moves needs no deploy and an
+> absent one hides the button. `P-16`'s `GET /add` draws from the same dict. Inside an app
+> the slot renders nothing.
 
-> **`P-11`–`P-13` — the server list is data, and the LAN is the case that matters.**
-> Fetched, never compiled in: the app ships knowing one URL, the default cloud, and
-> everything else arrives as data or is typed. At a pool the useful server is the Pi in
-> the building — no internet dependency, an unthrottled race clock — and it publishes
-> `_splouch._tcp` over mDNS, so `P-12` is a browse, not a prompt.
+> **`P-11`–`P-13` — the server list is data.** The app ships knowing one URL, the default
+> cloud; everything else is fetched or typed. At a pool the useful server is the Pi in the
+> building — no internet dependency, an unthrottled race clock — and it publishes
+> `_splouch._tcp`, so `P-12` is a browse.
 >
-> - **Ask `GET /server` before saving anything** (`P-13`) — a typo must fail at entry,
->   not at the first blank board. The same call says whether this is a Pi (no meet list;
->   open the board directly) and which contract versions it implements.
-> - **`vid` is per server, never shared** — see `C-10`.
-> - **The picker always names the server; a meet names it when it is not the default.**
->   A user who switched and forgot cannot answer "where did my meet go?" from a screen
->   that looks identical either way. On the meet list the server *is* the context — every
->   card came from it — so it is named whichever server it is. Inside a meet the bar
->   belongs to the meet, and the server earns a line there only when it is not the one
->   the app ships with. The menu changes it; the name keeps it visible.
+> - **Ask `GET /server` before saving anything** (`P-13`): a typo fails at entry, and the
+>   same answer says whether it is a Pi (no meet list) and which contract it speaks.
+> - **`vid` is per server** (`C-10`).
+> - **The picker always names the server; a meet names it when it is not the default**,
+>   so a reader who switched and forgot can tell why the meets changed.
 
-> **`P-14` — a notice, not a gate.** A newer server is additive by contract and an
-> older one degrades a feature (`L-12`'s clock against a v1 relay, say) rather than
-> breaking the board. Either is better than refusing a pool's only server because its
-> Pi is a release behind. Show the line once per session, where the server name
-> already shows (`P-11`), and never block a connect on it.
+> **`P-14` — a notice, not a gate.** A newer server is additive and an older one
+> degrades a feature (`L-12`'s clock against a v1 relay) rather than breaking the board.
+> Show the line once per session, beside the server name (`P-11`); never block a connect.
 
-> **`P-16` — the link shape is forced, and the web half is what makes it work.** The
-> code carries **`https://<the app's default host>/add?server=<origin>`**, the origin
-> percent-encoded, and nothing about that is a preference.
+> **`P-16` — the link shape is forced.** The code carries
+> `https://<the app's default host>/add?server=<origin>`, the origin percent-encoded.
 >
-> - **Not a `splouch://` scheme.** The reader uses the camera they already have, and no
->   stock camera opens a private scheme from a code taped to a pool wall — several
->   scanners refuse one outright. More to the point, a scheme has no answer for the case
->   the poster is printed for: the spectator who **does not have the app yet**. An
->   `https` URL answers it for free. With the app installed the verified link
->   intercepts it; without the app nothing intercepts it at all, the browser lands on
->   the page, and the page offers the store (`P-10`'s hand-off, still web-only).
-> - **The host is the app's own default server** — the one URL the app ships knowing
->   (`P-11`) — because a link is verified per host and no app can verify a pool's Pi,
->   which has no `https` and no certificate. A link naming any other host does not
->   parse: *a server cannot mint a code that adds a different server.*
-> - **The address inside is held to exactly what a typed one is** (`P-13`): the same
->   parse, so `http` only for a `.local` name or a developer loopback (`P-12`), and
->   then `GET /server` before anything is saved. A printed code is a stranger's input
->   in a way a typed address is not, so the floor cannot be lower here.
-> - **Scanning proposes; it does not act.** The prompt is the whole of the consent, so
->   it names the address being agreed to, and a scan makes no request of that address
->   until the reader says yes. It asks only what is left to ask — *add* for a server
->   offered nowhere yet, *switch* for one already listed, and nothing at all of the
->   network for the server already in use and answering. A link that does not parse
->   still raises the prompt: a code that opens the app and then appears to do nothing
->   cannot be told from a dead app.
-> - **However it resolves, the reader ends on the picker.** A code names a cloud (see
->   below), and a cloud session's launch screen is the meet list — so the yes leads to
->   the list rather than onto a board. That is not incidental: the picker is where
->   `P-06`'s unofficial-results disclaimer is, and a spectator who arrived by camera is
->   exactly the one who has never seen it. A scan must not be a way past a **must**.
+> - **Not a `splouch://` scheme.** Stock cameras will not open one, and it has no answer
+>   for a reader without the app. An `https` link is caught by the installed app and
+>   otherwise lands on `GET /add`, which offers the store (`P-10`).
+> - **The host is the app's default server**, since links are verified per host and a Pi
+>   has no certificate. A link naming another host does not parse: a server cannot mint
+>   a code that adds a different server.
+> - **The address inside is parsed exactly as a typed one** (`P-13`): `http` only for a
+>   `.local` name or a developer loopback, then `GET /server` before anything is saved.
+> - **Scanning proposes; it does not act.** The prompt names the address, and nothing is
+>   asked of it before the yes. It asks only what is left: *add* an unknown server,
+>   *switch* to a listed one, nothing for the one already in use and answering. A link
+>   that does not parse still raises the prompt, with the reason.
+> - **Every outcome ends on the picker**, where `P-06` is — a reader who arrived by
+>   camera is the one who has never seen it.
 >
-> **A printed code names a cloud, never a Pi.** The Pi in the building is the better
-> server — no internet dependency, an unthrottled race clock, which is what `P-11`'s
-> note is about — and it is still the wrong thing to put on a poster. A `.local` name
-> resolves only for a device already joined to the venue's wifi: a spectator on
-> cellular gets a handshake failure, a guest network with client isolation blocks mDNS
-> even for one that did join, and a poster cannot ask which network the reader is on.
-> So a code names the address that works from anywhere, and the Pi is offered *after*
-> the reader is on the picker, by `P-12`'s browse, to a phone that has by then joined
-> the right network. Nothing in the link shape enforces this — `server=` will carry any
-> address the client would accept — it is a rule about what a server **mints**.
+> **A printed code names a cloud, never a Pi.** A `.local` name resolves only on the
+> venue's wifi, and a poster cannot know its reader's network; the Pi is offered
+> afterwards by `P-12`'s browse. This rules what a server mints, not what a client accepts.
 >
-> **The server half is specified elsewhere**, and without it the feature is inert: the
-> two `/.well-known/` files and `GET /add` in [`api.md`](api.md) §4 (including how `/add`
-> narrows its store button by `User-Agent`), their deployment and fingerprints in
-> [`cloud.md`](cloud.md), and the Pi's downloadable poster code in `cloud.md` as well.
+> The server half — the two `/.well-known/` files and `GET /add` — is in
+> [`api.md`](api.md) §4; deployment, fingerprints and the Pi's poster code in
+> [`cloud.md`](cloud.md).
 
-> **`P-15` — the reader's palette, not the meet's.** A preference the next meet could
-> overrule is not a preference: a spectator who chose Light would get it until they
-> opened a meet, which is where they were going. So the choice replaces
-> `settings.theme_colors` on a phone rather than sitting beside it (`T-01`, `T-02`),
-> and the cost is named rather than hidden — an operator who themed a meet in club
-> colours sees them on the kiosk and the Qt display, not on a phone.
+> **`P-15` — the reader's palette, not the meet's.** A choice the next meet could
+> overrule is not a choice, so on a phone it replaces `settings.theme_colors` (`T-01`,
+> `T-02`); a meet's club colours reach the kiosk and the Qt display only. Dark is the
+> default, as the pages were before the choice existed.
 >
-> **Dark by default** because the pages were dark before the choice existed, and a
-> spectator who never opens the menu should see what they saw yesterday.
->
-> On the web the choice is a cookie, `splouch_theme` (`dark`, `light`, `auto`), set by
-> the picker, which restyles in place, and read by the cloud for the shell and its
-> tabs. Automatic draws dark and carries the light palette behind a
-> `prefers-color-scheme` query, since the server cannot see the device's setting. **The
-> Pi's phone pages keep the operator's palette**: it has no picker (`T-08`), so nothing
-> could set the cookie there. An app stores the choice itself.
->
-> **The two palettes are copied, key for key, from [`api.md`](api.md) §6.1** — never
-> re-picked by eye. A transcription that drifts is a board that no longer looks like
-> Splouch: the dark `header_label` is the accent blue `#3b9eff`, which is also what
-> `L-23`'s lap count leans on to read as a label rather than a number to race against.
+> The two palettes are copied key for key from [`api.md`](api.md) §6.1, never re-picked
+> by eye. The web keeps the choice in the `splouch_theme` cookie (`dark`, `light`,
+> `auto`), Automatic sending both palettes behind `prefers-color-scheme`. The Pi's phone
+> pages keep the operator's palette: with no picker (`T-08`), nothing sets the cookie
+> there. An app stores the choice itself.
 
-> **`P-12` — Cleartext for the local network only.** A Pi is plain HTTP, anything
-> remote must be HTTPS: a *scoped* ATS exception on iOS (local networking,
-> `NSLocalNetworkUsageDescription`, Bonjour service declared) and an Android
-> `network_security_config` allowing cleartext for `.local` and private ranges. A
-> blanket exception is a review risk on both stores and is not needed.
+> **`P-12` — cleartext for the local network only**, through a scoped exception: iOS
+> local networking (`NSLocalNetworkUsageDescription`, Bonjour service declared), Android
+> `network_security_config` for `.local` and private ranges. Never a blanket exception.
 
 > **Picker language is the device's, not a meet's.** The list spans meets that may each
 > run in a different language, so `/picker/config` resolves from `?lang=` or
@@ -345,54 +277,31 @@ where the user returns via `A-02`.
 | `A-11` | A meet run with **no timing console** has no Results tab at all — not an empty one | `settings.console.timed` false (cloud: `GET /meet/{id}/config`; Pi: `GET /config`) | must — see note |
 
 > **`A-03` is the platform's navigation; `A-10` is the pager where there is one.**
-> Moving between peer sections is something every platform does, and each has its own
-> way. On Android a full-width pager is the Material idiom: the tabs track the drag, and
-> one control meets both rows. On iOS a tab bar switches on tap — no Apple app swipes
-> between tab-bar sections, and the HIG keeps swipe paging for pages with a page control
-> — so the tab bar alone is the whole of `A-03` there, and `A-10` does not apply. The web
-> keeps its edge strips because a page has no platform to defer to. What is not allowed
-> is a client giving up the platform's real tab bar to imitate another platform's
-> gesture (§0.4).
+> Android's idiom is a full-width pager, which meets both rows. iOS switches its tab bar on
+> tap — the HIG keeps swipe paging for page controls — so the tab bar alone is `A-03`
+> there, and `A-10` does not apply. The web keeps its edge strips. No client gives up its
+> real tab bar to imitate another platform's gesture (§0.4).
 >
-> **The leading edge belongs to the system, not to the swipe.** Where the platform owns
-> an edge gesture — an interactive back, typically the leading ~24pt — the tab gesture
-> starts outside that strip and leaves it alone. This is not a detail: a full-width
-> drag-tracking pager claims that edge, and that is precisely why a pager and `A-02`'s
-> back swipe cannot both exist there. One of the two has to yield, and it is not the
-> system's gesture that gives way.
+> **The leading edge belongs to the system.** Where the platform owns an edge gesture —
+> an interactive back, the leading ~24pt — the tab gesture leaves it alone; a full-width
+> pager and `A-02`'s back swipe cannot share that edge.
 
-> **`A-09` has no socket signal, on purpose.** `join_meet` for a meet the cloud no
-> longer holds is silently ignored — no reply, no `meet_live`, nothing
-> ([`api.md`](api.md) §3) — and an expiring meet announces nothing to the sockets
-> already on it. So the app *asks*: the config fetch it already makes on the moments
-> listed is the check, and a 404 there means gone. A socket that connects and stays
-> silent is **not** the signal — it is also what a live meet between frames looks
-> like. Any other status, or no answer, is a network fault (`C-03`), not a missing
-> meet.
+> **`A-09` has no socket signal.** `join_meet` for a meet the cloud no longer holds is
+> silently ignored, so the app asks: a 404 on the config fetch it already makes at those
+> moments means gone. Any other failure is a network fault (`C-03`), and a silent socket
+> is not the signal.
 
-> **`A-11` — the tab goes, not its contents.** Some meets have no timing console: a
-> club time trial, or a console whose cable never turned up. The operator drives the
-> boards by hand from the Pi's `/manual` page, and the meet runs — names, heats, the
-> whole schedule — but nothing is ever timed, so no `results_snapshot` is ever sent
-> ([`api.md`](api.md) §2.3). A Results tab there is not empty for a while; it is empty
-> for the entire meet, and `R-01`'s "waiting for results…" turns from a status into a
-> falsehood. So the tab is removed, and a spectator is never offered a screen that
-> cannot fill.
+> **`A-11` — the tab goes, not its contents.** With no timing console the operator drives
+> the boards from the Pi's `/manual` page and no `results_snapshot` is ever sent
+> ([`api.md`](api.md) §2.3), so a Results tab would wait all meet and `R-01`'s line would
+> be false.
 >
-> The flag comes from the config fetch the client already makes (§0.2), so this costs
-> no request. **Re-evaluate it wherever that fetch is repeated** — reconnect,
-> foreground, pull-to-refresh, `reload` (`C-08`) — because the operator can switch
-> consoles mid-meet, in either direction. When the tab count changes under a selected
-> tab, keep the spectator on a tab that still exists rather than on an index (`A-04`
-> stores a choice, not a number).
->
-> Read `console.timed`; do not match on `console.key`. The server derives `timed` from
-> the decoder itself, so a console added as a local plugin and driven by hand is
-> covered too ([`api.md`](api.md) §5.4). A server too old to send `console` is a server
-> with a console: default to showing the tab.
->
-> Nothing else is conditional on this. The Scoreboard tab is exactly as useful — it is
-> what the operator is driving — and the Schedule tab is the full start list either way.
+> - Re-evaluate on every config fetch — reconnect, foreground, `A-05`, `C-08` — since the
+>   operator can switch consoles mid-meet. Keep the spectator on a tab that still exists
+>   (`A-04` stores a choice, not an index).
+> - Read `console.timed`, never `console.key`. A server too old to send `console` has a
+>   console.
+> - Nothing else changes: the Scoreboard and Schedule tabs are the same either way.
 
 ---
 
@@ -425,49 +334,30 @@ Live lane state during a heat. The busiest screen and the one most worth getting
 | `L-14` | Returning to the tab re-runs layout and refreshes the clock | web: parent re-dispatches `resize` | must (native: on-appear) |
 | `L-23` | While a lane is swimming the **delta cell** carries that lane's lengths — centred where the delta is a column, after the time where the row flows (`L-15`) — in the header's accent colour; the delta takes the cell back at the finish, in its better/worse colour. The column header never changes | `lane_splits<i>`, gated on meet `settings.show_laps`; direction from `settings.lap_direction` | should — see note |
 
-> **`L-23` — one cell, two tenants.** (`L-15`–`L-22` are spoken for further down and
-> §0.1 says never renumber, so the next free ID lands out of sequence here. The rule
-> belongs in this table, not at the end of the file.)
+> **`L-23` — one cell, two tenants.** (Out of sequence: `L-15`–`L-22` were taken.) A lap
+> is not a result, so it gets no column and never borrows the place's — `#3` and `3` a
+> length apart read the same. The delta column is empty until the finish, so the handover
+> is the signal: the colour changes, the header does not.
 >
-> A lap is not a result, so it is not given a
-> column of its own and it never borrows the place column: `#3` and `3` a length
-> apart are the same glyph, and swapping the header between them mid-heat is a
-> distinction nobody reads across a hall. The delta column is empty for the whole
-> race and fills only at the finish, so the handover is the signal — the colour
-> changes, the header does not.
->
-> **Show a lap when all of these hold**, and nothing when any fails:
+> **Show a lap only when all of these hold:**
 >
 > | condition | why |
 > | --- | --- |
 > | `settings.show_laps` | off by default; not every console's count is exact |
-> | `lane_splits<i> > 0`, **or** counting down in a lane that has a swimmer | counting up waits for the first wall — a column of noughts under a start list is noise. Counting down has the whole race to report, so it shows from the moment the heat loads; an empty lane in a short heat must not advertise lengths nobody swims |
-> | the lane has no place | the finish ends the lap, whatever the delta is doing — a swimmer with no seed time never gets a delta at all |
-> | the delta is empty | belt and braces for the frame where both arrive together |
+> | `lane_splits<i> > 0`, **or** counting down in a lane with a swimmer | counting up waits for the first wall; counting down shows from the start, but never in an empty lane |
+> | the lane has no place | the finish ends the lap, delta or not |
+> | the delta is empty | for the frame where both arrive together |
 >
-> **Which way it counts** is `settings.lap_direction`: `up` shows the lengths a lane
-> has completed — the console's own number — and `down` shows `expected_splits`
-> minus that, clamped at 0 so an over-count reads as the last length rather than a
-> negative one. `expected_splits` is 0 for any event whose meet file carries no
-> distance, and there is nothing to count down from, so `down` falls back to `up`
-> there rather than running to a number nobody reaches.
->
-> Note `split_step` (§5.1) when reading the count: in a pool with touchpads at one
-> end only the swimmer is seen every *second* length, so the number arrives in twos
-> and never lands on an odd length. Both numbers describe the venue, so neither
-> varies by console.
->
-> **Accuracy varies by console** (§5.1): exact from a Quantum or an Omnisport 2000,
-> inferred from touchpad stops on a CTS Gen6, absent on a Gen7 or an ARES 21. The
-> operator corrects a drifting count with `adjust_splits`, which is why the setting
-> exists and why it ships off.
+> **Direction** is `settings.lap_direction`: `up` shows the console's count, `down`
+> shows `expected_splits` minus it, clamped at 0; with `expected_splits` 0 (no distance
+> in the meet file) `down` falls back to `up`. **`split_step`** (§5.1) is 2 in a pool
+> with touchpads at one end, so the count arrives in twos. Counts are exact from a Quantum
+> or an Omnisport 2000, inferred on a CTS Gen6 and absent on a Gen7 or an ARES 21; the
+> operator corrects drift with `adjust_splits`, which is why the setting ships off.
 
 > **`L-12` — one clock per heat, re-based by the server, ticked by the device.** There
-> is **no per-lane elapsed time** — every running lane shows the same figure, and a
-> lane's own time only becomes meaningful at its split, `lane_time<i>`.
->
-> **What lane *i* shows**, from `lane_running<i>` and how recently a `running_time`
-> landed:
+> is no per-lane elapsed time: every running lane shows the same figure, and a lane's own
+> time exists only at its split, `lane_time<i>`.
 >
 > | `lane_running<i>` | Race clock | Time cell | Lane number |
 > | --- | --- | --- | --- |
@@ -477,12 +367,8 @@ Live lane state during a heat. The busiest screen and the one most worth getting
 > | false | — | `lane_time<i>`, held until the lane runs again | normal |
 > | either | `meet_live` false, or disconnected (`C-09`) | last value, held | normal |
 >
-> The pulse is the lane number cycling between row text colour and timing colour. Let a
-> cycle finish before dropping it: it begins and ends on the row colour, and every lane
-> re-bases off the same frame, so stopping them all mid-cycle flicks the whole column at
-> once.
->
-> **What moves the clock** — and, just as much, what does not:
+> The pulse cycles the lane number between the row colour and the timing colour; let a
+> cycle finish before stopping it, or the whole column flicks at once.
 >
 > | Event | Effect on the clock |
 > | --- | --- |
@@ -494,25 +380,14 @@ Live lane state during a heat. The busiest screen and the one most worth getting
 > | tab or app backgrounded | stop the ticker; never accumulate ticks across a suspend, and do not resume from a stale base |
 > | `meet_live` false, or a disconnect | every clock on the board stops, so stale lane state cannot masquerade as a live race |
 >
-> A split therefore freezes the lane, never the clock:
->
-> - **Never start or reset the clock from a lane edge** — it would restart at every
->   length. `lane_running<i>` decides only whether lane *i* displays the clock.
-> - **The hold is the console's, and a fixed length** — a set number of seconds from the
->   touch, unrelated to when the swimmer leaves the pad.
-> - **Show tenths** — `1:02.4`. Interpolation is good to well under a frame, but the
->   value carries the relay path's latency as a near-constant offset.
-> - **Freeze forward, and freeze rather than blank.** The digits stop three intervals past
->   the last re-base, not back at it.
->
-> **The relay throttles the field.** It forwards `running_time` **at most once every
-> ~2s, plus on any frame carrying a `lane_running<i>` key** — one short string every two
-> seconds per meet rather than ten to twenty a second — which is why the device ticks
-> the clock itself in between.
->
-> **Parse it with the one pattern** [`api.md`](api.md) §5.1 gives — `m:ss.hh` or
-> `ss.hh` — and treat a value that does not match as no re-base at all: the ticker
-> carries on from its last base. Not a freeze, not a blank.
+> - **Never start or reset the clock from a lane edge**; `lane_running<i>` only decides
+>   whether lane *i* shows it. A split freezes the lane, never the clock.
+> - **Show tenths** (`1:02.4`); the value carries the relay's near-constant latency.
+> - **Freeze forward, never blank**: three intervals past the last re-base.
+> - The relay forwards `running_time` **at most every ~2s, plus on any frame carrying a
+>   `lane_running<i>` key**, which is why the device ticks in between.
+> - Parse `m:ss.hh` or `ss.hh` ([`api.md`](api.md) §5.1); a value that does not match is
+>   no re-base — not a freeze, not a blank.
 
 > **`L-13` — three cases, two of them exceptions.**
 >
@@ -522,10 +397,8 @@ Live lane state during a heat. The busiest screen and the one most worth getting
 > | a lane was running on the previous frame | keep every time as a result: the console advanced before it published results, and the next frame moves on. Blanking here erases what the swimmers just posted |
 > | otherwise | blank all times, deltas and places; names and clubs arrive in the same frame |
 >
-> A lane running on *this* frame outranks all three: the lane shows the clock
-> (`L-12`). Start the remembered event and heat as *unseen*, not as `0`: a client
-> that starts at `0` reads the join replay as a change and blanks it — the web did,
-> until 2026-09-30.
+> A lane running on *this* frame outranks all three (`L-12`). Start the remembered event
+> and heat as *unseen*, not `0`, or the join replay reads as a change.
 
 ### 3.3 Layout
 
@@ -536,41 +409,23 @@ Live lane state during a heat. The busiest screen and the one most worth getting
 | `L-17` | Long names shrink to fit their cell, ellipsis only as a floor | — | must — see note |
 | `L-24` | When the lanes do not fit a board under 600 wide, give up, in this order: the EVENT/HEAT row moves into the top bar (short labels, no wall clock) → the relay line (`L-06`) is dropped → the row type shrinks, to no less than 0.72× → the board scrolls | measured row heights, never device constants | should — see note |
 
-> **`L-15` / `L-16` — width decides, not orientation.** On a phone the two agree: portrait
-> is compact, landscape is regular. They part on a tablet or an unfolded foldable, where
-> a portrait window is wide enough for the full table and the two-line row would waste
-> most of it. Branch on the window's width — the full table from **600** points, dp or
-> CSS px — never on which way the device is held. On Android that is
-> `WindowWidthSizeClass` leaving `Compact`; on the web a `min-width: 600px` query. On
-> iOS it is the width itself, **not** `horizontalSizeClass`: that stays compact on most
-> iPhones held sideways, and would hand them the two-line row.
+> **`L-15` / `L-16` — width decides, not orientation.** The full table from **600**
+> points, dp or CSS px: on a phone that means landscape; on a tablet, either way up.
+> Android: `WindowWidthSizeClass` leaving `Compact`. Web: `min-width: 600px`. iOS: the
+> width itself, **not** `horizontalSizeClass`, which stays compact on most iPhones held
+> sideways.
 
-> **`L-24` — what a crowded board gives up, cheapest first.** Twelve lanes in a phone's
-> portrait height is the case. Each step runs only when the one before was not enough:
->
-> 1. **The EVENT/HEAT row moves into the top bar**, with short labels and without the
->    wall clock (the status bar already shows the time). It costs the meet's title and
->    `P-11`'s server line, so a board that fits without it keeps them.
-> 2. **The relay line goes** (`L-06`): it is the one line on a row that is not a
->    swimmer, a time or a place.
-> 3. **The type shrinks**, everything in the row together, to no less than 0.72× its
->    size.
-> 4. **The board scrolls.** Twelve lanes at an unreadable size would fit; scrolling is
->    the honest answer past the floor.
->
-> Decide each step from measured heights — a real row laid out off screen — and decide
-> whether the header belongs in the bar from the height the lanes would have *with* it
-> there, so the decision cannot oscillate. The web has no top bar to move the header
-> into; it scrolls past a fixed row height.
+> **`L-24` — cheapest first, each step only if the last was not enough.** (1) The
+> EVENT/HEAT row moves into the top bar, short labels, no clock — it costs the meet's title
+> and `P-11`'s server line, so only on need. (2) The relay line goes. (3) The row's type
+> shrinks as one, to 0.72× at most. (4) The board scrolls. Decide from measured heights,
+> and decide the bar from the height the lanes would have *with* the row in it, so the
+> choice cannot oscillate. The web has no top bar and starts at step 2.
 
-> **`L-17` — shrink, on this tab and on Results (`R-08`).** Rows share the board's height
-> with a floor, so shrinking a name changes type size and nothing else.
->
-> **Keep the re-fit off the per-frame path**: measuring forces a synchronous layout per
-> lane. Don't re-fit every label on every update frame. Names arrive on a heat change,
-> so the web gates the call on a frame carrying a `lane_name` key, plus resize and
-> tab-reveal. The platform's own auto-shrink (§0.4)
-> does the same job properly and cheaply, with a real minimum size.
+> **`L-17` — shrink, here and on Results (`R-08`).** Rows share the board's height, so
+> shrinking a name changes only its type size. Keep the re-fit off the per-frame path:
+> names arrive on a heat change, so the web re-fits on a `lane_name` frame, a resize and a
+> tab reveal. A platform's own auto-shrink (§0.4) does it better.
 
 ### 3.4 Not on this tab
 
@@ -602,16 +457,10 @@ describes it where it exists.
 | `R-09` | Final times carry the "locked" styling | `r.time` non-empty | should |
 | `R-10` | Returning to the tab re-joins the meet, reconnecting first if needed | web: `on_tab_shown` | must |
 
-> **`R-01` — the waiting state replaces the table; it does not sit under it.** Blank rows
-> mean something on the Scoreboard: a heat is under way and they fill in as it runs, which
-> is why rows never collapse there (`L-09`). Results before the first snapshot has no heat
-> to fill them. The grid the web draws is there to occupy the page, and a spectator reads
-> nothing from it that the line does not already say — so the line is the screen, and the
-> table appears with the data.
->
-> The string does not change: `mobile.waiting_results` promises results rather than
-> reporting their absence, which during a meet is the truer of the two. `R-02`'s wipe
-> returns the tab to exactly this state.
+> **`R-01` — the line replaces the table.** Blank rows on the Scoreboard mean a heat is
+> filling in (`L-09`); before the first snapshot Results has no heat to fill, so the line
+> is the screen and the table arrives with the data. `R-02`'s wipe returns to exactly
+> this. `mobile.waiting_results` promises results rather than reporting their absence.
 
 ---
 
@@ -632,18 +481,12 @@ find *their* swimmer among several hundred.
 | `S-06` | The list auto-scrolls to the current heat once per appearance | re-armed on returning to the foreground | must |
 | `S-07` | Empty state when no meet file is loaded | `mobile.no_schedule` / `mobile.no_meet` | must |
 
-> **`S-01` — short on the card, long out loud.** The identifier repeats once per card,
-> and the long words buy nothing the numbers beside them do not already say, while the
-> width they cost is the event name's. So the card takes the short labels
-> (`labels.event` / `labels.heat` from the `short` table of `GET /i18n/{lang}`, or the
-> short form of `settings.labels`) — the board's own header keeps the long ones (`T-09`).
-> The two halves are separated by a doubled space rather than a dash: they are not a
-> range, and twice the within-pair gap is what groups `EV 12` against `HT 3` in a
-> monospaced face. A heat with no scheduled time draws nothing for it, and the name runs
-> to the edge.
->
-> **A screen reader hears the long words** — `EVENT 12, HEAT 3, <name>, <time>` as one
-> utterance. `EV` and `HT` are a width decision, and a listener has no width to save.
+> **`S-01` — short on the card, long out loud.** The identifier repeats on every card and
+> its width is the event name's, so the card takes the short labels (the `short` table of
+> `GET /i18n/{lang}`, or the short form of `settings.labels`); the board keeps the long
+> ones (`T-09`). The doubled space groups `EV 12` against `HT 3` — no dash, they are not a
+> range. A heat with no scheduled time draws nothing for it. A screen reader hears
+> `EVENT 12, HEAT 3, <name>, <time>`.
 
 > **`S-05` reads the current heat off the *other* two sockets, on purpose.** This tab has
 > no feed of its own for it — `/ws/schedule` only signals that the start list changed
@@ -668,32 +511,19 @@ find *their* swimmer among several hundred.
 | `S-19` | Distinct empty states for "no swimmers match these filters" and "no search results" | — | should |
 | `S-20` | Filters live only for the session — not persisted | — | should |
 
-> **`S-09` builds its own index. There is no endpoint for it.** `GET /search_suggestions`
-> was removed from both servers ([`api.md`](api.md) §7) — it read nothing `S-01` has
-> not already given you: every `lane.name`, `lane.club` and `lane.swimmers[].name`.
-> It also opened a window the local index closes by construction: the server answered
-> from *its* start list, so between a `schedule_update` and the re-fetch it could
-> offer a swimmer this list did not have, and the chip then matched nothing. Build the
-> index from the payload you rendered, and rebuild it with `S-21`.
+> **`S-09` builds its own index; there is no endpoint.** `GET /search_suggestions` was
+> removed ([`api.md`](api.md) §7): everything it read is in `S-01`'s payload, and
+> answering from the server's list could offer a name this one lacked. Build from what
+> you rendered; rebuild with `S-21`.
 
-> **What goes in the index, and how it matches.** One entry per distinct name:
-> every `lane.name` — relay **team** names included, since a spectator may know the
-> team and not one swimmer on it — and every `lane.swimmers[].name`, each carrying its
-> lane's club; then one entry per distinct club. A name in two lanes with different
-> clubs keeps the later one. Match is a substring of the *folded* name, folding both
-> the query and the indexed name, so `elise` finds `Élise`. Swimmers sort before clubs,
-> each group by name, and the list is cut to 20.
+> **The index.** One entry per distinct `lane.name` (relay team names included) and
+> `lane.swimmers[].name`, each with its lane's club — a name in two clubs keeps the later
+> one — then one per distinct club. Match a substring of the folded name against the
+> folded query. Swimmers before clubs, each by name, cut to 20.
 
-> **The fold, in four steps.** Lowercase; NFD-decompose; expand the letters in the
-> table below; drop every codepoint still above `U+007F`. Steps 2 and 4 are what make
-> accents transparent — `é` decomposes to `e` plus a combining acute, and the acute is
-> then swept away.
->
-> Step 3 is the one that is easy to omit, and must not be. These 17 letters have **no**
-> canonical decomposition, so NFD leaves them whole and step 4 would delete the letter
-> itself, punching a hole in the word. Expanding them after NFD also covers their
-> accented forms for nothing: `ǿ` decomposes to `ø` plus an acute, and the `ø` is then
-> expanded like any other.
+> **The fold, in four steps:** lowercase; NFD-decompose; expand the 17 letters below,
+> which have no canonical decomposition and would otherwise be deleted by the next step;
+> drop every codepoint above `U+007F`.
 >
 > | | | | | | | | |
 > | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -701,21 +531,15 @@ find *their* swimmer among several hundred.
 > | `ĳ`→`ij` | `ĸ`→`k` | `ŀ`→`l` | `ł`→`l` | `ŉ`→`n` | `ŋ`→`n` | `œ`→`oe` | `ŧ`→`t` |
 > | `ſ`→`s` | | | | | | | |
 >
-> Do not reach for a platform convenience — `String.folding(.diacriticInsensitive)`, or
-> a regex that strips only the combining range `U+0300`–`U+036F`. Both skip step 3, and
-> `Île-des-Sœurs` then indexes as `ile-des-surs`, which nobody will ever type. Fold
-> identically or `S-10`'s rows depend on which client the spectator is holding.
+> Not `String.folding(.diacriticInsensitive)`, nor a regex over `U+0300`–`U+036F`: both
+> skip step 3, and `Île-des-Sœurs` would index as `ile-des-surs`. Every client folds
+> identically.
 
-> **`S-16` exists to answer "when does my kid swim next?"** With filters on and All-heats
-> off, the list collapses to only the heats they are in — the common case. Toggled on,
-> the full running order returns with their lanes still highlighted, so the spectator can
-> see how many heats away it is.
+> **`S-16` answers "when does my kid swim next?"** Filters on and All-heats off shows only
+> their heats; on, the whole running order returns with their lanes still highlighted.
 
-> **`S-17` cuts by position in the start list, not by the clock.** It finds the current
-> heat's index and drops everything before it. Scheduled times are planning figures — a
-> session runs early or late all day — so filtering on them would hide heats that have
-> not swum yet. If the current heat is unknown (nothing has arrived on either socket) or
-> is not in this list, the toggle must change nothing rather than empty the screen.
+> **`S-17` cuts by position, not by the clock** — scheduled times are planning figures.
+> With the current heat unknown or not in the list, the toggle changes nothing.
 
 ### 5.3 Refresh
 
@@ -723,10 +547,9 @@ find *their* swimmer among several hundred.
 | --- | --- | --- | --- |
 | `S-21` | A new schedule from the Pi refreshes the list | `schedule_update` on `/ws/schedule` → re-fetch `GET /meet/{id}/schedule` | must |
 
-> `schedule_update` carries no payload — it is a signal to re-fetch
-> `GET /meet/{id}/schedule`. Preserve the user's active filters across it where the
-> filtered names still exist; silently dropping them mid-meet is worse than a stale list.
-> An empty `heats` means "loaded, no schedule yet" — show `S-07`, not an error.
+> `schedule_update` carries no payload; re-fetch `GET /meet/{id}/schedule`. Keep the
+> active filters whose names still exist. An empty `heats` is "loaded, no schedule yet":
+> show `S-07`, not an error.
 
 ---
 
@@ -768,17 +591,13 @@ wipes the results board (`R-02`).
 | `C-10` | Anonymous per-install, **per-server** id (`vid`) sent with `join_meet` | random UUID, created the first time a `join_meet` goes to that server and stored once, keyed by normalised scheme, host and port | must — see note |
 
 > **`C-05` is the one that bites phones.** iOS and Android freeze background sockets
-> without ever firing a close: the connection is dead but looks open, so backoff never
-> starts and the board sits frozen after every screen lock. The foreground probe is what
-> makes the reconnect prompt. Do not rely on `C-03` alone.
+> without a close, so backoff never starts and the board sits frozen after a screen lock.
+> The foreground probe is what reconnects; `C-03` alone is not enough.
 
-> **`C-10` — privacy constraints are binding.** `vid` is a random UUID generated once
-> **per server** and stored locally, used server-side only for `COUNT(DISTINCT)` to
-> estimate attendance. It exists only where something receives it: the key is the
-> server's normalised origin (scheme, host, port), created on the first `join_meet`
-> to that origin. A Pi has no `join_meet` (`C-02`), so pointing the app at one
-> creates nothing. Never derive one `vid` from another, and never send a server an
-> id minted for a different one.
+> **`C-10` — privacy is binding.** A random UUID per server origin (scheme, host, port),
+> stored locally, created on the first `join_meet` to that origin and used only for
+> `COUNT(DISTINCT)` attendance. A Pi never gets one (`C-02`). Never derive one `vid` from
+> another, or send one to a different server.
 
 ---
 
@@ -808,10 +627,8 @@ every colour, face and word it draws on the board comes from the server.
 > Apps embed them rather than downloading, and fall back to a system monospace for an
 > unknown name.
 
-> **`T-04` is not a translation, which is why it is not a `[mobile]` string.** The label
-> set is not a fixed vocabulary an app could ship. The server resolves each entry from
-> *two* settings — the meet's `locale` and the operator's `label_style` — so one column
-> header has six possible values before anyone customises anything:
+> **`T-04` is not a translation.** The server resolves each label from the meet's
+> `locale` and the operator's `label_style`, so the app never holds the table:
 >
 > | | `long` | `short` |
 > | --- | --- | --- |
@@ -819,124 +636,54 @@ every colour, face and word it draws on the board comes from the server.
 > | `locale = "fr"` | `ÉPREUVE` · `SÉRIE` | `ÉP` · `SÉR` |
 > | `locale = "es"` | `PRUEBA` · `SERIE` | `PR` · `SER` |
 >
-> Only those two keys have a long form (`T-09`). Every other header — lane, place,
-> time, name, club, delta — renders its short word in both styles.
->
-> **The app never holds this table.** It renders `settings.labels` as sent, or — if the
-> user has chosen a language or a style (`T-08`, `T-09`) — the matching entry from
-> `GET /i18n/{lang}`'s `labels` section. Both come from the server, so neither can drift
-> from `shared/locales/` and neither needs a release to gain a language.
+> Only EVENT and HEAT have a long form (`T-09`). Render `settings.labels` as sent, or,
+> once the reader has chosen a language, that language's `GET /i18n/{lang}` → `labels`.
 
-> **`T-04` + `T-06`: never translate anything the server sent.** `labels` and
-> `event_name` arrive already localised in the meet's language. `T-06` lets the user
-> pick, and the app asks the server for that language (`T-05`, `T-08`) rather than
-> translating anything itself. There is no per-meet override of the label table to
-> layer: `settings.labels` is the operator's pick and `GET /i18n/{lang}` is the
-> rest, both resolved from the same file.
+> **Never translate what the server sent.** `labels` and `event_name` arrive in the
+> meet's language; another language is asked of the server (`T-05`, `T-08`), never
+> produced by the client.
 
-> **`T-05` — which words are the server's, and which are the app's.** The line is
-> what the word is about, not which repo renders it. If the web page shows the same
-> word, the server owns it and it is in `[mobile]`: tab names, empty states, the
-> filter sheet (`filter`, `no_filters`, `no_search_results`, `no_matches`,
-> `swimmer`, `club`), and the picker's chrome and preference controls
-> (`language`, `language_auto`, `prefs_*`, `results_disclaimer`, `privacy_note`).
-> If the word is about the app or the device, the app owns it and translates it
-> natively: the server sheet, "nearby", connection and address errors, OS
-> requirements, and the standard buttons the platform localises anyway. A timing
-> server has no business translating an Android version requirement, and a new
-> language may reach the native table a release later than the server — English
-> fills the gap until it does.
+> **`T-05` — whose word is it?** A word the web page also shows is the server's, in
+> `[mobile]`: tab names, empty states, the filter sheet, the picker's chrome and controls,
+> the notices. A word about the app or the device is the app's, translated natively: the
+> server sheet, "nearby", connection and address errors, OS requirements, standard
+> buttons. English fills a language the native table lacks.
 
-> **`T-08` — one choice, stored per device, set where every meet is in view.** The
-> natural home is the meet picker, which already resolves the visitor's language
-> rather than a meet's ([`api.md`](api.md) §5.7): set once, every meet opened
-> afterwards follows. On the web the choice is a cookie, `splouch_lang`, written by
-> the picker and read by the server for every page it renders; `?lang=` on a link
-> wins for that one request so a shared link opens as sent, and the shell writes it
-> to the cookie. Neither server reads `splouch_style` / `?style=` any more (`T-09`).
-> An app stores the choice itself and sends `lang` on the request; it has no cookie
-> to keep.
->
-> **The picker is cloud-only.** The Pi serves the shell and the tabs but has no
-> picker (§0.2), so a picker-only control leaves its phone pages following the
-> operator's settings with no way to override.
+> **`T-08` — one choice per device, made on the picker**, where every meet is in view.
+> The web stores it in the `splouch_lang` cookie; `?lang=` wins for one request, and the
+> shell writes it to the cookie. An app stores it and sends `lang`. The Pi has no picker
+> (§0.2), so its phone pages follow the operator's language.
 
-> **`T-09` — the style reaches EVENT and HEAT, and nothing else.** The lane and place
-> columns are the two narrow ones on every board: a long word there either clips or
-> shrinks the whole row to fit it, and `POS` / `LN` are not the words a spectator has to
-> read anyway — the number under them is. So those headers resolve short whatever the
-> style says, and the control is worth offering only because EVENT and HEAT sit in a
-> header with room.
->
-> This is the server's rule, not the client's: `GET /i18n/{lang}` already returns a
-> `long` table whose narrow columns hold their short words, so a client that simply
-> renders what it is given is correct.
->
-> **Long, and a control is optional.** A client may offer short/long over those two
-> headers, per device, starting from long — two options, never a third "meet default",
-> since `settings.label_style` is how the *server* resolves the `labels` it sends
-> (`T-04`), not a choice a reader can hold across meets. Long because `EV` / `HT` are
-> contractions an attendee has to decode, and the phone header has room for the word
-> (`L-01`); the short form is the operator's fixed-width kiosk board's.
->
-> **A client that withdraws the control keeps the choice.** Resolve a stored preference
-> through something that answers long while the control is away, so a control that
-> returns finds each reader's choice rather than resetting everyone. On the web the
-> `splouch_style` cookie and `?style=` are ignored, not cleared, for the same reason.
-> `prefs_labels`, `prefs_short` and `prefs_long` stay served and stay in `T-10`'s
-> snapshot.
+> **`T-09` — EVENT and HEAT, nothing else.** Lane and place are the narrow columns and
+> resolve short whatever the style; the server's `long` table already says so, so a
+> client renders what it is given. Long because `EV` / `HT` must be decoded and the phone
+> header has room (`L-01`); short is the kiosk's. A control, if offered, has two options,
+> never a "meet default" — `settings.label_style` is how the server resolves `labels`, not
+> a reader's choice. A client that withdraws the control keeps the stored choice,
+> answering long until it returns; the web ignores rather than clears `splouch_style` and
+> `?style=`.
 
-> **`T-10` — fetch, but never depend on the fetch.** Ship a snapshot of the strings and
-> treat the endpoint as a refresh: read the cache, draw, revalidate in the background,
-> store what comes back. Resolve each key in this order, first hit wins:
+> **`T-10` — fetch, but never depend on the fetch.** Draw from the cache and
+> revalidate in the background. Resolve each key, first hit wins:
 >
 > ```text
 > key ─► cached server value ─► built-in value ─► built-in English ─► the key's own name
 > ```
 >
-> **Built-in** means compiled into the app at build time — not the server's
-> `shared/locales/`, which [`api.md`](api.md) calls the *bundled* table. The cache is the
-> live answer; the built-in copy is what a first launch, an offline start or a cleared
-> cache falls back to, and it has to carry English so a key the chosen language lacks
-> still lands somewhere.
->
-> The server already merges English per key ([`api.md`](api.md) §5.9), so the client
-> repeating the rule only matters when the two sides are different ages: an app newer
-> than its server asks for a key that server has never heard of, gets nothing back, and
-> falls through to English rather than rendering a gap.
->
-> **The snapshot is captured, never transcribed.** It is the JSON body of
-> `GET /i18n/{lang}`, verbatim, one checked-in file per language the default cloud
-> lists in `GET /locales`, written by a script in the app repo that fetches them from
-> a running server and regenerated on demand — before a release, and whenever
-> `shared/locales/` changes. Strings are data, so this is not a copy of the docs; but
-> a hand-maintained copy of the TOML would be a second source of truth and would
-> drift within a season, which is the problem `T-05` exists to remove. The file the
-> app reads at build time and the file it caches at run time have the **same
-> shape**, so there is one decoder and the fallback chain above is a lookup order,
-> not a format conversion.
+> **Built-in** is compiled into the app — not the server's bundled `shared/locales/` —
+> and carries English, so a first launch, an offline start, or a key an older server
+> lacks still lands. It is **captured, never transcribed**: the verbatim
+> `GET /i18n/{lang}` body for each language in `GET /locales`, written by a script in
+> the app repo before each release and whenever `shared/locales/` changes. The build-time
+> file and the run-time cache share one shape and one decoder.
 
-> **`T-11` — an event name follows the reader too.** It is meet data, composed on the
-> Pi from the LENEX entry, so it cannot simply be looked up the way a label is. It is
-> not a free string either: the server decomposes it into keys — distance, stroke,
-> relay, gender, age — and ships those as `event_name_parts` beside the composed
-> `event_name` ([`api.md`](api.md) §5.1). The vocabulary those keys name is the
-> `event_name` section of `GET /i18n/{lang}` (§5.9), fetched and cached exactly like
-> the chrome.
->
-> So the app joins, it does not parse. Given
-> `{dist: "200", stroke: "backstroke", gender: "girls", age: "< 12"}` and the Spanish
-> vocabulary, `200 m espalda  —  Niñas < 12` is a lookup and a concatenation —
-> `dist + unit`, stroke, relay, then `separator`, then gender and age. **Do not
-> re-implement the decomposition**: the regexes that turn `200 Backstroke Girls 12 &
-> Under` into those keys live on the server for the same reason the label table does
-> (`T-04`), and three client repos parsing event names would drift within a season.
->
-> Fall back to `event_name` whenever the parts are absent or compose to nothing — a
-> hand-entered name like `Club Handicap Final` parses into nothing, and a raw name in
-> the meet's language beats a blank header. That fallback is also what makes this
-> additive: a client that ignores the parts is still correct for every spectator who
-> has not chosen a language.
+> **`T-11` — the app joins, it does not parse.** The server decomposes each event name
+> into `event_name_parts` — distance, stroke, relay, gender, age — beside `event_name`
+> ([`api.md`](api.md) §5.1), and `GET /i18n/{lang}` → `event_name` holds the words. Given
+> `{dist: "200", stroke: "backstroke", gender: "girls", age: "< 12"}` and Spanish,
+> `200 m espalda  —  Niñas < 12` is a lookup and a join: `dist + unit`, stroke, relay,
+> `separator`, gender, age. Never re-implement the decomposition. Fall back to
+> `event_name` when the parts are absent or compose to nothing.
 
 ---
 
@@ -960,18 +707,13 @@ not a level here.
 | `X-09` | Decorative motion — the picker's live dot — honours the reduce-motion setting. `L-11`'s lock flash and `L-12`'s pulse are information, not decoration, and may keep running | — | should |
 | `X-10` | When a control replaces itself — `P-06`'s X folding to a pill, the pill opening again — focus moves to its replacement | — | should |
 
-> **`X-01` — the one word on the board no column gives.** `L-23`'s lap count has no
-> column word on the wire (`labels` names six columns and stops), so it is spoken as
-> *Laps 4* with a word of the client's own: an app's native string, the web's
-> `[mobile] spoken_laps`. Read as a bare integer after the time, it would be heard as a
-> second time.
+> **`X-01` — the lap count's word is the client's own.** No column names it (`L-23`), so
+> it is spoken as *Laps 4* — an app's native string, the web's `[mobile] spoken_laps` —
+> never as a bare number heard as a second time.
 
-> **Contrast is the palettes', and so checkable once.** A phone draws one of the two
-> palettes in [`api.md`](api.md) §6.1 (`P-15`), so contrast is a property of those two
-> tables rather than of each meet. One known shortfall: in the dark table `th_text`
-> `#666666` on `row_even` `#202020` is 2.84:1 — the club on every even row — under the
-> 3:1 large-text bar. The fix is a lighter `th_text` in the server's table, never a
-> client's own.
+> **Contrast is checkable once**, being the palettes' (`P-15`). Known shortfall: dark
+> `th_text` `#666666` on `row_even` `#202020` is 2.84:1, under the 3:1 large-text bar;
+> the fix belongs in the server's table.
 
 ## 9. Out of scope
 
