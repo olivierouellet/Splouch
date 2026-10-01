@@ -41,7 +41,10 @@ CASES = [
 
 def _server_ok(ip, prefix, gateway, dns):
     try:
-        EthIP(ip=ip, prefix=prefix, gateway=gateway or None, dns=dns or None)
+        # As the page posts it: a blank router arrives as null, which must fail.
+        EthIP.model_validate(
+            {"ip": ip, "prefix": prefix, "gateway": gateway or None, "dns": dns or None}
+        )
     except ValidationError:
         return False
     return True
