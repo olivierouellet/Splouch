@@ -3,11 +3,14 @@
   // one worth installing even if you never touch shell: it is gated in CI, and the
   // extension flags as you type what `uv run shellcheck` only reports on demand.
   // markdownlint reads the same .markdownlint.json that `uv run rumdl check` does.
+  // markdown-mermaid draws docs/app.md's diagrams in the built-in Markdown preview,
+  // as GitHub does.
   "recommendations": [
     "charliermarsh.ruff",
     "astral-sh.ty",
     "timonwong.shellcheck",
     "DavidAnson.vscode-markdownlint",
+    "bierner.markdown-mermaid",
     "biomejs.biome",
     "tamasfe.even-better-toml",
     "ms-python.python",
