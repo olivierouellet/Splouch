@@ -125,12 +125,14 @@
             opacity: 0;
         }
 
-        @media (orientation: portrait) and (max-width: 480px) {
+        /* `A-07`: a narrow window stacks each label under its icon; a short one
+           drops the labels, so the tabs stop costing height it does not have. */
+        @media (max-width: 480px) {
             nav button { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; font-size: 10px; }
             nav button img { margin-right: 0 !important; }
             .tab-label { display: block; }
         }
-        @media (orientation: landscape) and (max-height: 480px) {
+        @media (max-height: 480px) {
             .tab-label { display: none; }
             nav button img { margin-right: 0 !important; }
             iframe { left: env(safe-area-inset-left); width: calc(100% - env(safe-area-inset-left) - env(safe-area-inset-right)); }

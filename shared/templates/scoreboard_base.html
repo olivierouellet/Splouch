@@ -18,7 +18,13 @@
 {{ palette.reader_light(theme_colors_light) }}
 .td_time, .td_delta { font-family: var(--font-timing), monospace; }
 
-@media (orientation: portrait) {
+/* ── Compact versus regular width (docs/app.md `L-15`, `L-16`) ──
+   The two layouts switch on width, not orientation: below 600px — Material's
+   compact breakpoint, and every phone held upright — the two-line row; from
+   600px — a phone on its side, a tablet either way up — the full table. On a
+   phone the two rules agree; they part on a tablet, whose portrait window is
+   wide enough for the table the two-line row would waste. */
+@media (max-width: 599px) {
     .timing-header { display: none; }
     .timing-content { overflow-y: auto; }
     .timing-table,
@@ -40,9 +46,15 @@
     .timing-table tbody td:nth-child(5) { grid-column: 3; grid-row: 2; padding-top: 0; font-size: 0.78em; text-align: right !important; }
     .timing-table tbody td:nth-child(6) { grid-column: 4; grid-row: 2; text-align: right !important; padding-top: 0; font-size: 0.78em; }
     [id^="lane_place"].has-place::before { content: '#'; opacity: 0.5; }
-    /* A small word above a large number (docs/app.md `L-01`), not the kiosk's word
-       beside it at the number's size: with the long words (`T-09`) the inline
-       pair took most of a phone's width and pushed the wall clock off the bar. */
+}
+/* ── EVENT / HEAT: a small word above a large number (docs/app.md `L-01`) ──
+   Not the kiosk's word beside its number at the number's size: with the long words
+   (`T-09`) that pair took most of the bar, and the header sizes from the window's
+   height, so on a phone held upright or a tablet it pushed the event name down to
+   a word or the wall clock off the bar. Inline stays only where height is what
+   runs out — a phone on its side (`max-height: 500px` below), as the apps put the
+   pair in a one-line bar there. */
+@media (min-height: 501px) {
     #header_event_cell,
     #header_heat_cell { flex-direction: column; justify-content: center; }
     #header_event_cell .header_label,
@@ -52,14 +64,14 @@
     }
 }
 /* ── Columns ──
-   Always visible, and never animated: nothing on a phone collapses them, and an
-   orientation flip should not slide them. Widths come from the media queries
+   Always visible, and never animated: nothing on a phone collapses them, and
+   turning the phone should not slide them. Widths come from the media queries
    below — no JS touches these. `timing_display.css` is shared with the kiosk,
    which does animate them, hence the explicit override here. */
 .place-column,
 .time-column,
 .delta-column { transition: none; }
-@media (orientation: portrait) {
+@media (max-width: 599px) {
     .place-column { width: 10vw; max-width: 10vw; }
     .time-column  { width: 24vw; max-width: 24vw; }
     .delta-column { width: 12vw; max-width: 12vw; }
@@ -77,30 +89,28 @@
 /* The lap count's own colour lives in `timing_display.css`, beside the delta rules
    it shares a cell with — the kiosk renders the same thing and the two must not
    drift. */
-@media (orientation: portrait) and (min-width: 600px) {
-    .timing-table tbody td:nth-child(3) { font-size: 0.58em; }
-    .timing-table tbody td:nth-child(4) { font-size: 0.70em; }
-    .timing-table tbody td:nth-child(5) { font-size: 0.60em; }
-}
-@media (orientation: landscape) {
+@media (min-width: 600px) {
     .timing-row-odd, .timing-row-even { font-size: {{ (42 / num_lanes) | round(1) }}vh; }
     .td_time  { font-size: 0.72em; padding: 0 0.8vw; }
     .td_delta { font-size: 0.58em; padding: 0 0.8vw; }
     [id^="lane_club"] { font-size: 0.68em; }
     table.timing-table th { padding: 0.4vh 0.8vw; font-weight: normal; }
+    /* `3vh` from the kiosk's stylesheet is sized for a window wider than tall; an
+       upright tablet is regular width too, and there it clipped `CLUB`. */
+    .timing-header { font-size: min(3vh, 3vw); }
     .place-column { width: 6vw;  max-width: 6vw; }
     .time-column  { width: 17vw; max-width: 17vw; }
     .delta-column { width: 14vw; max-width: 14vw; }
     table.timing-table .lane-name-cell { font-size: 0.85em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 }
 /* Cap row font on tablets and desktops — phones are handled by max-height: 500px below */
-@media (orientation: landscape) and (min-height: 600px) {
+@media (min-width: 600px) and (min-height: 600px) {
     .timing-row-odd, .timing-row-even { font-size: 32px; }
 }
 /* Phone landscape: vh is ~375px so vh-based header fonts become tiny.
    Switch to vw-based sizing for screens shorter than 500px. Desktop/TV
    (height ≥ 768px) are unaffected and keep the original vh values. */
-@media (orientation: landscape) and (max-height: 500px) {
+@media (min-width: 600px) and (max-height: 500px) {
     /* The EVENT/HEAT word follows its number through `--header-num-size`; setting
        `.header_label` here would split the pair back into two sizes. */
     :root                          { --header-num-size: 3.5vw; }

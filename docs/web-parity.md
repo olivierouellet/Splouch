@@ -46,7 +46,7 @@ from; the `diverges` rows are where v2 moved past them.
 | `A-04` | `done` | `sessionStorage['tab']` |
 | `A-05` | `done` | hand-rolled pull, 80px threshold |
 | `A-06` | `done` | `env(safe-area-inset-*)` |
-| `A-07` | `diverges` | switches on `@media (orientation)`; v2 asks for width. Pending |
+| `A-07` | `done` | `mobile.html`: a narrow window (≤480px) stacks each label under its icon, a short one (≤480px tall) drops the labels |
 | `A-08` | `done` | |
 | `A-09` | `done` | `GET /mobile` 303s to `/` |
 | `A-10` | `deferred` | the edge-strip swipe changes tab on `touchend`; nothing follows the finger |
@@ -56,11 +56,12 @@ from; the `diverges` rows are where v2 moved past them.
 
 | ID | Status | Notes |
 | --- | --- | --- |
-| `L-01`–`L-12` | `done` | |
+| `L-01` | `done` | small word above the number on any window taller than 500px; inline only on a phone on its side, where height runs out |
+| `L-02`–`L-12` | `done` | |
 | `L-13` | `diverges` | blanks on the first event/heat after a connect: "last event" starts at `0`, so the join replay reads as a change. A bug, not a choice |
 | `L-14` | `done` | parent re-dispatches `resize` |
-| `L-15` | `diverges` | two-line row under `@media (orientation: portrait)`; v2 asks for compact width. Pending |
-| `L-16` | `diverges` | full table under `@media (orientation: landscape)`; v2 asks for regular width. Pending |
+| `L-15` | `done` | two-line row below 600px wide (`scoreboard_base.html`) |
+| `L-16` | `done` | full table from 600px wide, an upright tablet included; column titles capped at `3vw` so they fit there |
 | `L-17` | `done` | `scrollWidth`/`clientWidth` ratio, gated on `lane_name` frames |
 | `L-18`–`L-22` | `n/a` | not on a phone (`app.md`) |
 | `L-23` | `done` | `SHOW_LAPS`, `lane_splits_n` in `scoreboard_base.html` |
