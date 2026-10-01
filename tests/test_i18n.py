@@ -86,7 +86,8 @@ def test_a_bundle_carries_chrome_and_both_label_styles(build):
     b = build("fr")
     assert b["lang"] == "fr"
     assert b["mobile"]["scoreboard"] == "Tableau"
-    assert b["display"]["connection_lost"]
+    # The Qt display's words go by `/config` → `display_strings`, not here.
+    assert "display" not in b
     assert b["labels"]["short"]["event"] == "ÉP"
     assert b["labels"]["long"]["event"] == "ÉPREUVE"
 

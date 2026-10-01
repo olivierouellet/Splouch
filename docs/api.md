@@ -527,7 +527,6 @@ the server has no such locale.
 ```json
 { "lang": "fr",
   "mobile":  { "scoreboard": "Tableau", "results": "Résultats", … },
-  "display": { "waiting_server": "…", "connection_lost": "…", … },
   "labels":  { "short": { "event": "ÉP", "heat": "SÉR", "lane": "CL", … },
                "long":  { "event": "ÉPREUVE", "heat": "SÉRIE", "lane": "CL", … } },
   "event_name": { "unit": "m", "separator": "  —  ",
@@ -548,6 +547,9 @@ the server has no such locale.
   each app (`app.md` `T-05`). Nor, for the apps, words they show before any server
   answers: `appearance*`, `language` and `language_auto` are served for the web
   picker, and native in each app.
+- **No `display`.** The Qt display's status words (`waiting_server`, the menu) are
+  read from `GET /config` → `display_strings` (§6), in the meet's language. No phone
+  renders them, so they are not in the bundle an app snapshots.
 - **`event_name`** is the vocabulary `update_scoreboard.event_name_parts` composes
   against (§5.1) — strokes, genders, age words, the unit and the separator. It is
   what lets an event name follow the reader's language instead of the meet's.
@@ -744,6 +746,11 @@ can tell the console has stopped talking to it. Faces, both palettes: `family`
   with the per-Pi locale file it carried. It was documented as normally absent,
   so a client that read it already treated a missing key as `{}`; one that
   layered it now layers nothing. The `label_style` field beside it is unchanged.
+
+- **Removed since v2, the version stands**: `GET /i18n/{lang}` → `display` (§5.9).
+  No app read it, and the Qt display reads the same words from `GET /config` →
+  `display_strings`, which is unchanged. A client that decoded it as optional now
+  decodes nothing there.
 
 - **Also removed since v2, the version stands**: `GET /search_suggestions`, on
   both servers, and with it its §4 rows. It read only the start list (`lane.name`,

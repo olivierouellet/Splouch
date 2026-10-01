@@ -516,7 +516,7 @@ nothing. Screen reader: `EVENT 12, HEAT 3, <name>, <time>`.
 
 | ID | Feature | Driven by | Scope | Level |
 | --- | --- | --- | --- | --- |
-| `S-08` | Full-screen filter sheet, from top-bar button | — | all | must |
+| `S-08` | Full-screen filter sheet, from top-bar button | closed by `[mobile] filter_done` (`T-05`) | all | must |
 | [`S-09`](#s-09) | Typeahead over swimmers + clubs, local, no delay | index from `S-01` `heats[]` — `lane.name`, `lane.club`, `lane.swimmers[].name` | all | must |
 | `S-10` | Suggestions show type (swimmer/club), name, club; already-added marked + inert | — | all | should |
 | `S-11` | Active filters as chips; × removes | — | all | must |
@@ -702,7 +702,7 @@ including its known shortfall.
 
 | ID | Feature | Driven by | Scope | Level |
 | --- | --- | --- | --- | --- |
-| `X-01` | Board lane = **one** a11y element, whole lane in server's column words; empty lane says only number. Lap count (`L-23`, no column word) spoken *Laps 4*, never a bare number heard as a second time | `labels` (`T-04`); laps: app's native string, web `[mobile] spoken_laps` | all | must |
+| `X-01` | Board lane = **one** a11y element, whole lane in server's column words; empty lane says only number. Lap count (`L-23`, no column word) spoken *Laps 4*, never a bare number heard as a second time | `labels` (`T-04`); laps: `[mobile] spoken_laps` (`T-05`) | all | must |
 | `X-02` | EVENT, HEAT words + numbers read as one each; silent before number arrives | — | all | must |
 | `X-03` | Start-list lane = one utterance, same words, seed time incl.; heat heading = one utterance in **long** words (`S-01`) | `labels` | all | should |
 | `X-04` | Heat headings, picker title, every empty-state title are headings → jump heat to heat | — | all | should |

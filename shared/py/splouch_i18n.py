@@ -213,8 +213,8 @@ def panel_section(panel_dir, code, section):
 def i18n_bundle(code, read_section, available):
     """Client-facing strings for one language — ``GET /i18n/{lang}``, api.md §5.9.
 
-    Everything a client renders itself: its own chrome (``[mobile]``, ``[display]``)
-    and both label styles, so language and short/long are one fetch rather than two
+    Everything a phone client renders itself: its chrome (``[mobile]``) and both
+    label styles, so language and short/long are one fetch rather than two
     axes the client has to reassemble. English-merged per key — a half-translated
     locale falls back word by word instead of rendering blank.
 
@@ -236,7 +236,9 @@ def i18n_bundle(code, read_section, available):
     return {
         "lang": code,
         "mobile": merged("mobile"),
-        "display": merged("display"),
+        # Not `[display]`: those are the Qt TV's words, and it reads them from
+        # `GET /config` → `display_strings` in the meet's language. No phone
+        # renders one, so serving them here only padded every app's snapshot.
         # The vocabulary an event name is composed from, so a client that took
         # `event_name_parts` can render it in this language (api.md §5.1, §5.9).
         "event_name": merged("event_name"),
