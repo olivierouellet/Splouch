@@ -1,3 +1,5 @@
+<p><a href="#cloud-relay">English</a> · <a href="#cloud-relay-fr">Français</a></p>
+
 # Cloud Relay
 
 The cloud relay lets remote attendees (parents, coaches, officials) follow the scoreboard from their phones over the internet, without adding load to the pool-deck Pi.
@@ -52,7 +54,8 @@ When it finishes, open `https://yourdomain/admin` and add organizers.
 
 ## Managing organizers
 
-The `/admin` page (HTTP basic auth with the credentials from `.env`) lets you:
+The `/admin` page (HTTP basic auth — the login you chose at install; change it from the user
+menu → **Change password**) lets you, under **Organizers** and **Active Meets**:
 
 - **Add an organizer** — enter an organization name; a cryptographically random 32-byte key is generated automatically.
 - **Revoke a key** — the Pi with that key will be disconnected and refused on next connect.
@@ -82,6 +85,8 @@ In the admin UI on Pi #1 (`/settings` → **Cloud** tab):
 | **Sport** | Optional — shown on the meet picker (e.g. `Swimming`) |
 
 Click **Save**. The Pi connects immediately and appears in the cloud's meet picker.
+Location, sport and the rest of the picker card (title, image, home icon) only show once a
+meet file is loaded.
 
 ---
 
@@ -149,7 +154,7 @@ The same file also accepts `store_android`, `store_ios`, `android_package` and
 `ios_app_ids`.
 
 **The operator's side.** Each Pi can hand its operator a poster-ready code — Settings →
-**Cloud** → *Download QR code*. It carries **this cloud**, taken from the Pi's **Cloud →
+**Cloud** → **QR code for spectators**. It carries **this cloud**, taken from the Pi's **Cloud →
 Server URL**, so that field must be filled before the buttons appear. Both PNGs are ~10 cm
 across at 300 dpi:
 
@@ -170,7 +175,7 @@ server list afterwards, which is what that list is for.
 
 ## Updating the cloud server
 
-Click **Update** in `/admin` — it fetches from GitHub and rebuilds the container automatically. The page polls until the server is back up, then reloads. Prefer it: it resolves the right ref for the way this server was installed, which the manual commands below leave to you.
+Click **Update** in `/admin` → **Update & Backup** — it fetches from GitHub and rebuilds the container automatically. The page polls until the server is back up, then reloads. Prefer it: it resolves the right ref for the way this server was installed, which the manual commands below leave to you.
 
 To update over SSH, check which track the checkout is on first — `install.sh` offers two, and they update differently:
 
@@ -229,6 +234,274 @@ compose file (`cloud`), not its parent, so containers and the `data` volume that
 `keys.json` survive a rename of the checkout.
 
 ## Logs
+
+```bash
+cd ~/Splouch/cloud && docker compose logs -f
+```
+
+---
+
+<a id="cloud-relay-fr"></a>
+
+## Relais cloud — Français
+
+<p><a href="#cloud-relay">English</a> · <a href="#cloud-relay-fr">Français</a></p>
+
+Le relais cloud permet aux spectateurs à distance (parents, entraîneurs, officiels) de suivre
+le tableau sur leur téléphone par internet, sans charger le Pi du bord de piscine.
+
+```text
+Pi n° 1 ──── WebSocket sortant ────► VM cloud (Docker + Caddy)
+                                         │
+                             HTTPS ◄─────┼───── spectateurs (téléphones, portables)
+                                         │
+                                    /mobile  — tableau, résultats, programme
+                                    /admin   — gestion des clés
+```
+
+- Le Pi n° 1 ouvre une seule connexion sortante — fonctionne derrière un double NAT, sans
+  redirection de port.
+- Le serveur cloud relaie les événements à tous les spectateurs ; leur nombre n'affecte pas
+  le Pi n° 1.
+- Seules les données du tableau, des résultats et du programme sont exposées — les fichiers
+  de compétition (`.lxf`, `.csv`) ne sont jamais envoyés.
+- Plusieurs organisateurs peuvent partager un même serveur cloud en même temps, chacun avec
+  sa propre clé révocable.
+- Caddy gère le HTTPS et renouvelle automatiquement les certificats Let's Encrypt — aucune
+  gestion manuelle des certificats.
+
+---
+
+### Déployer le serveur cloud
+
+**Prérequis :**
+
+- Une VM Debian 12+ ou Ubuntu 24.04+, chez n'importe quel fournisseur. Le relais tourne dans
+  Docker avec son propre Python 3.13, donc l'OS importe peu ; le webhook de déploiement tourne
+  avec le `python3` de la VM et exige la 3.11 ou plus récente. L'installateur le vérifie avant
+  de modifier quoi que ce soit, et s'arrête sur Ubuntu 22.04 (Python 3.10).
+- Ports 80 et 443 ouverts dans le pare-feu / groupe de sécurité de la VM
+- Un nom de domaine avec un enregistrement `A` pointant vers l'IP publique de la VM
+
+Connectez-vous en SSH à la VM et lancez :
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/olivierouellet/Splouch/master/install/install.sh -o install.sh && bash install.sh cloud
+```
+
+Le script s'occupe de tout, de façon interactive :
+
+- Installe Docker, fail2ban et les mises à jour de sécurité automatiques
+- Clone le dépôt et génère une `SECRET_KEY`
+- Demande l'identifiant et le mot de passe d'administration
+- Demande votre nom de domaine et met à jour le `Caddyfile`
+- Génère un `DEPLOY_SECRET` et installe le webhook de déploiement comme service systemd
+- Configure `ufw` (ports 22, 80, 443 TCP + 443 UDP pour HTTP/3)
+- Construit et démarre la pile compose (application + Caddy)
+
+Une fois terminé, ouvrez `https://votredomaine/admin` et ajoutez des organisateurs.
+
+---
+
+### Gérer les organisateurs
+
+La page `/admin` (authentification HTTP basic — l'identifiant choisi à l'installation ; à
+changer depuis le menu utilisateur → **Changer le mot de passe**) permet, dans
+**Organisateurs** et **Compétitions actives** :
+
+- **Ajouter un organisateur** — saisissez le nom d'un organisme ; une clé aléatoire
+  cryptographique de 32 octets est générée automatiquement.
+- **Révoquer une clé** — le Pi qui l'utilise est déconnecté et refusé à sa prochaine
+  connexion.
+- **Supprimer une clé** — la retire complètement de la liste.
+- **Voir les compétitions actives** — montre chaque Pi connecté avec le nom de sa
+  compétition, le lieu, le sport, l'organisateur, la console et l'heure de connexion.
+
+La colonne **Console** indique la clé de console que rapporte le Pi (`cts_gen6`, `manual`,
+la clé propre d'un plugin) ; une question de support — *sur quelle console tournait cette
+compétition ?* — trouve donc sa réponse sans appeler l'opérateur. Une compétition dont la
+console ne produit aucun temps est marquée *no times* en dessous : ses spectateurs n'ont pas
+d'onglet Résultats, par conception ([Pas de console de
+chronométrage ?](admin.md#pas-de-console-de-chronométrage-)). Un Pi dont la version précède
+ce rapport de console affiche `—`.
+
+Transmettez la clé générée à l'organisateur. Il la colle dans l'onglet **Réglages → Nuage**
+de son Pi.
+
+---
+
+### Connecter un Pi au cloud
+
+Dans l'interface d'administration du Pi n° 1 (`/settings` → onglet **Nuage**) :
+
+| Champ | Valeur |
+| --- | --- |
+| **URL du serveur** | `https://votredomaine` |
+| **Clé de relais** | Clé obtenue dans `/admin` sur le serveur cloud |
+| **Lieu** | Lieu ou ville (rempli depuis le Lenex s'il est vide) |
+| **Sport** | Facultatif — affiché dans le sélecteur de compétitions (p. ex. `Natation`) |
+
+Cliquez sur **Enregistrer**. Le Pi se connecte aussitôt et apparaît dans le sélecteur de
+compétitions du cloud. Le lieu, le sport et le reste de la fiche du sélecteur (titre, image,
+icône) n'apparaissent qu'une fois un fichier de compétition chargé.
+
+---
+
+### Comment les spectateurs se connectent
+
+Les spectateurs vont à `https://votredomaine` sur n'importe quel téléphone ou navigateur :
+
+- Si une seule compétition est active, le tableau s'ouvre directement.
+- Si plusieurs sont actives, un sélecteur affiche le nom, le lieu et le sport de chacune.
+
+Le tableau (`/mobile`) a trois onglets — **Tableau**, **Résultats** et **Programme** — et
+reprend le thème et les réglages d'affichage du Pi de l'organisateur.
+
+Sur iOS, touchez **Partager → Sur l'écran d'accueil** pour une expérience plein écran façon
+application (l'invitation s'affiche automatiquement à la première visite).
+
+---
+
+### Ouvrir l'application depuis un code QR
+
+Une affiche à la piscine porte un code vers `https://votredomaine/add?server=<le Pi de la
+piscine>` ([`app.md`](app.md) `P-16`). Avec l'application installée, le téléphone l'ouvre
+dans l'application ; sans elle, le navigateur arrive sur `https://votredomaine/add`, qui
+indique le serveur nommé par le code et propose la boutique. La page fonctionne telle quelle.
+La partie qui ouvre l'**application** exige deux fichiers, et l'empreinte de l'un d'eux est
+propre à chaque déploiement.
+
+Ajoutez à `cloud/.env`, puis `docker compose up -d` (voir l'exemple commenté dans la
+[partie anglaise](#letting-a-qr-code-open-the-app)) :
+
+- `ANDROID_CERT_FINGERPRINTS` — empreinte SHA-256 du certificat de signature Android
+  (séparées par des virgules s'il y en a plusieurs). Avec Play App Signing, c'est la valeur de
+  la page *App signing* de la Play Console — **pas** celle de la clé d'envoi.
+- `STORE_URL_ANDROID`, `STORE_URL_IOS` — les fiches des boutiques, une fois les applications
+  publiées. Absentes, les boutons sont masqués, jamais morts.
+
+Vérifiez ensuite — les deux doivent répondre `200` avec `content-type: application/json` et
+**sans redirection**, car Android n'en suit aucune :
+
+```bash
+curl -i https://votredomaine/.well-known/assetlinks.json
+curl -i https://votredomaine/.well-known/apple-app-site-association
+```
+
+`assetlinks.json` renvoie **404 tant qu'aucune empreinte n'est définie**. C'est voulu : un
+fichier vide mais bien formé a l'air déployé et échoue plus tard, en silence, à l'installation
+sur le téléphone de quelqu'un — où le seul diagnostic est `adb shell pm get-app-links
+app.splouch.android` qui répond `1024` et l'OS qui affiche un sélecteur au lieu d'ouvrir
+l'application. Android vérifie une fois, à l'installation, et met la réponse en cache ; une
+piscine sans internet n'est donc pas affectée.
+
+**Une version de débogage, sans publier de version.** Tout ce qui se trouve dans
+`applinks.json` du volume de données *s'ajoute* à ce que fournit `.env` ; une empreinte de
+test n'exige donc ni modification du compose ni redémarrage :
+
+```bash
+docker compose exec app sh -c 'cat > /data/applinks.json' <<'JSON'
+{ "android_fingerprints": ["AA:11:…:FF:00"] }
+JSON
+```
+
+Le même fichier accepte aussi `store_android`, `store_ios`, `android_package` et
+`ios_app_ids`.
+
+**Côté opérateur.** Chaque Pi peut fournir à son opérateur un code prêt à afficher — Réglages
+→ **Nuage** → **Code QR pour les spectateurs**. Il porte **ce cloud**, tiré du champ **URL du
+serveur** du Pi ; ce champ doit donc être rempli pour que les boutons apparaissent. Les deux
+PNG font ~10 cm de large à 300 ppp :
+
+- **Code QR avec l'adresse** — l'adresse est imprimée sous le code. À utiliser pour tout ce
+  qui est collé au mur : c'est le recours quand un appareil photo ne fait pas la mise au point,
+  et la seule façon de vérifier que l'affiche dit la bonne chose.
+- **Code QR seul** — le code nu, pour un programme ou une diapositive qui imprime déjà
+  l'adresse.
+
+Il ne porte volontairement *pas* l'adresse propre du Pi, `http://splouch.local:5000`. Cette
+adresse ne se résout que pour un téléphone déjà connecté au WiFi du lieu — un spectateur en
+données mobiles n'obtient rien, et un réseau invité avec isolation des clients la bloque même
+pour qui s'y est connecté. Une affiche ne peut pas demander sur quel réseau se trouve le
+lecteur ; elle donne donc l'adresse qui fonctionne de partout. Les spectateurs sur le WiFi de
+la piscine peuvent ensuite choisir le Pi dans la liste de serveurs de l'application, qui sert
+précisément à cela.
+
+---
+
+### Mettre à jour le serveur cloud
+
+Cliquez sur **Mettre à jour** dans `/admin` → **Mise à jour & Sauvegarde** — il récupère le
+code depuis GitHub et reconstruit le conteneur automatiquement. La page interroge le serveur
+jusqu'à son retour, puis se recharge. Préférez cette voie : elle choisit la bonne référence
+selon la façon dont ce serveur a été installé, ce que les commandes manuelles ci-dessous vous
+laissent faire.
+
+Pour mettre à jour par SSH, vérifiez d'abord sur quelle voie se trouve le dépôt —
+`install.sh` en propose deux, qui se mettent à jour différemment :
+
+```bash
+cd ~/Splouch && git branch --show-current
+```
+
+**`master`** — une installation de développement. La branche suit le dépôt distant, un pull
+suffit :
+
+```bash
+git pull && cd cloud && docker compose up -d --build
+```
+
+**`release`** — une installation « Latest release ». `install.sh` a créé cette branche depuis
+une *étiquette* ; elle n'a donc pas d'amont et `git pull` échoue avec *« There is no tracking
+information for the current branch »*. Déplacez-la plutôt vers l'étiquette voulue :
+
+```bash
+git fetch --tags
+git checkout -B release "$(git tag -l --sort=-version:refname | grep -E '^v[0-9]{4}\.[0-9]{2}\.[0-9]+$' | head -1)"
+cd cloud && docker compose up -d --build
+```
+
+Pour faire passer une installation release sur la branche de développement, nommez la branche
+distante pour que l'amont soit défini — après quoi `git pull` y fonctionne aussi :
+
+```bash
+git fetch origin && git checkout -B master origin/master
+```
+
+Caddy et le volume `data` (qui contient `keys.json`) sont conservés d'une mise à jour à
+l'autre. Votre `Caddyfile` modifié aussi, tant que vous changez de référence avec `checkout`
+plutôt qu'avec `reset --hard` — le domaine défini à l'installation vit dans ce fichier suivi,
+et une réinitialisation forcée le rétablirait.
+
+### Déplacer ou renommer le dossier d'installation
+
+Le webhook de déploiement tourne comme unité systemd hors de Docker, et systemd exige des
+chemins absolus ; `install.sh` inscrit donc le dossier d'installation dans
+`/etc/systemd/system/deploy-webhook.service`. Renommez ou déplacez le dépôt et cette unité ne
+démarre plus — ce qui emporte **la liste des versions et le bouton Mettre à jour** de
+`/admin`, puisque tous deux sont servis par le webhook.
+
+Relancez `install.sh` après le déplacement (il réécrit l'unité pour le dossier actuel), ou
+réparez-la à la main :
+
+```bash
+sudo grep -n ANCIEN_NOM /etc/systemd/system/deploy-webhook.service
+sudo sed -i 's|ANCIEN_NOM|NOUVEAU_NOM|g' /etc/systemd/system/deploy-webhook.service
+sudo systemctl daemon-reload && sudo systemctl restart deploy-webhook
+systemctl status deploy-webhook --no-pager
+```
+
+Vérifiez ensuite que rien d'autre n'a gardé l'ancien chemin :
+
+```bash
+sudo grep -rl ANCIEN_NOM /etc/systemd/system/ /etc/sudoers.d/ 2>/dev/null
+```
+
+Docker n'est pas affecté : le projet compose porte le nom du dossier qui contient le fichier
+compose (`cloud`), pas celui de son parent ; les conteneurs et le volume `data` qui contient
+`keys.json` survivent donc au renommage du dépôt.
+
+### Journaux
 
 ```bash
 cd ~/Splouch/cloud && docker compose logs -f

@@ -1,14 +1,10 @@
+<p><a href="#admin-guide">English</a> · <a href="#admin-guide-fr">Français</a></p>
+
 # Admin Guide
 
-## Default credentials
-
-| | |
-| --- | --- |
-| URL | `http://splouch.local/settings` |
-| Username | `score` |
-| Password | `swimming` |
-
-Change these in **Settings → Account** before deploying at a meet.
+The admin UI is at `http://splouch.local/settings`. The default login is in
+[Credentials](installation.md#credentials) — change it before meet day from the user menu at
+the bottom of the sidebar → **Change password**.
 
 ---
 
@@ -26,7 +22,7 @@ Change these in **Settings → Account** before deploying at a meet.
 | `/console` | Live serial console viewer |
 | `/settings` | Admin settings (login required) |
 
-Append `?test` to any scoreboard URL to show mode control buttons (Splash, Intro, Running, Results, Next Heat) overlaid on the display — useful for testing without a live console.
+Append `?test` to `/live` to overlay mode buttons (Intro, Running, Results, Next Heat) on the board — useful for testing without a live console.
 
 ---
 
@@ -36,8 +32,9 @@ Append `?test` to any scoreboard URL to show mode control buttons (Splash, Intro
 2. In **Settings → Meet Setup**, click **Add Meet File** and upload the `.lxf` — swimmer and
    club names go live on the scoreboard immediately. *(Alternatively, upload a Hytek `.csv`
    event schedule so event names appear in the header.)*
-3. Open the scoreboard on the TV at `http://splouch.local/`.
-4. Start the CTS console — times appear automatically as heats run.
+3. Turn on Pi #2: the TV boots straight into the scoreboard. Any other screen can open
+   `http://splouch.local/` in a browser.
+4. Start the timing console — times appear automatically as heats run.
 
 > Prefer the command line? See [Manual and CLI reference](#manual-and-cli-reference) for
 > placing meet files directly in `~/SplouchData/meet/`.
@@ -60,9 +57,8 @@ no event or heat number at all, so `/manual` is how you supply it.
 | Tab | Description |
 | --- | --- |
 | **Meet Setup** | Upload Lenex `.lxf` / Hytek `.csv` meet files; pool length, touchpads, lane count |
-| **Timing** | Console type and serial port, connection status, serial monitor (raw hex packets). Choosing **Manual — no timing console** drops the port, badge and monitor and links to `/manual` |
+| **Timing** | Console type and serial port, connection status, serial monitor (raw hex packets), finish debounce. Choosing **Manual — no timing console** drops the port, badge and monitor and links to `/manual` |
 | **Clock** | Sync with NTP; set date and time manually when offline; install/remove Adafruit PiRTC (DS3231) hardware clock |
-| **Flow** | Intro, results, and server-update timeouts; finish debounce |
 | **Display** | Show/hide column headers and columns (Name, Club, Delta, Position); podium highlighting |
 | **Theme** | Built-in colour schemes; override individual colours and fonts; save as a custom theme |
 | **Network** | WiFi management; Ethernet DHCP or static IP (address, router, DNS); view connected scoreboard clients |
@@ -73,8 +69,8 @@ no event or heat number at all, so `/manual` is how you supply it.
 | **Power** | Restart the app service, reboot, or shut down the Pi — press-and-hold to confirm |
 | **Account** | Change the admin UI username and password (via the sidebar account menu) |
 
-> In the sidebar, **Flow / Display / Theme** live under the **Scoreboard** group; **Cloud**
-> and **Network** are top-level.
+> In the sidebar, **Display / Theme** live under the **Scoreboard** group, and **Test /
+> Terminal** under **Debug**; **Account** opens from the user menu at the bottom.
 
 ---
 
@@ -84,6 +80,9 @@ no event or heat number at all, so `/manual` is how you supply it.
 | --- | --- |
 | `~/SplouchData/meet/` | Lenex `.lxf` and Hytek `.csv` meet files (uploaded via Meet Setup, or [placed here manually](#manual-and-cli-reference)) |
 | `~/SplouchData/images/` | Sponsor or club logo images for the splash screen |
+| `~/SplouchData/icons/` | Home-screen icon for the phone pages (Cloud tab) |
+| `~/SplouchData/picker/` | Meet image shown on the cloud's meet picker (Cloud tab) |
+| `~/SplouchData/logs/` | Logs saved from the Terminal tab |
 | `~/SplouchData/recorded/` | Custom recorded sessions for playback in the Test tab |
 | `~/SplouchData/test_meet/` | Start lists for a running test session — cleared when it ends, never mixed with `meet/` |
 | `~/SplouchData/themes/` | Custom theme `.toml` files |
@@ -98,7 +97,7 @@ Three ways, and which one you reach for depends on what is in front of you.
 
 | From | How | Use when |
 | --- | --- | --- |
-| The server's admin page | Settings → Update → **Update displays** | The usual way. Moves every *registered* display to the ref this server is on. Update the server first. |
+| The server's admin page | Settings → Update & Backup → **Update displays** | The usual way. Moves every *registered* display to the ref this server is on. Update the server first. |
 | The display itself | **F1** on the TV's keyboard → *Update to the server's version* | No browser to hand, or the display is too old for the button above to see it. |
 | An SSH session | `bash install.sh kiosk` on the TV Pi | The display will not start, or is so old it does not have the menu. |
 
@@ -311,3 +310,316 @@ usermod -aG dialout <user>` and reboot. (The installer normally handles this.)
 The Pi never serves https — there is no public domain to get a certificate for — so
 browsers that upgrade the address have to fall back, and the two known causes of them
 failing to are covered there.
+
+---
+
+<a id="admin-guide-fr"></a>
+
+## Guide d'administration — Français
+
+<p><a href="#admin-guide">English</a> · <a href="#admin-guide-fr">Français</a></p>
+
+L'interface d'administration se trouve à `http://splouch.local/settings`. L'identifiant par
+défaut figure dans [Identifiants](installation.md#identifiants) — changez-le avant la
+compétition depuis le menu utilisateur en bas de la barre latérale → **Changer le mot de
+passe**.
+
+---
+
+### Les pages
+
+| URL | Description |
+| --- | --- |
+| `/` | Redirige vers `/live` |
+| `/live` | Le tableau (nombre de couloirs selon les réglages de Compétition) — l'affichage de référence, que le tableau Qt reproduit |
+| `/operator` | Vue de contrôle de l'opérateur |
+| `/manual` | Contrôle manuel des séries — choisir l'épreuve et la série en cours à la main ([guide](consoles/manual.md)) |
+| `/mobile` | Coquille mobile — trois onglets (Tableau, Résultats, Programme) |
+| `/results` | Résultats après chaque série |
+| `/schedule` | Programme de la compétition avec heures de départ et listes de départ par série |
+| `/console` | Visualiseur de la console série en direct |
+| `/settings` | Réglages d'administration (connexion requise) |
+
+Ajoutez `?test` à `/live` pour superposer des boutons de mode (Intro, Running, Results, Next
+Heat) sur le tableau — utile pour tester sans console branchée.
+
+---
+
+### Déroulement d'une compétition
+
+1. Dans Splash Meet Manager : **Fichier → Exporter → Lenex** → enregistrez un fichier `.lxf`.
+2. Dans **Réglages → Compétition**, cliquez sur **Ajouter un fichier** et téléversez le
+   `.lxf` — les noms des nageurs et des clubs apparaissent aussitôt sur le tableau.
+   *(Sinon, téléversez un programme d'épreuves Hytek `.csv` pour que le nom des épreuves
+   s'affiche dans l'en-tête.)*
+3. Allumez le Pi n° 2 : le téléviseur démarre directement sur le tableau. Tout autre écran peut
+   ouvrir `http://splouch.local/` dans un navigateur.
+4. Démarrez la console de chronométrage — les temps apparaissent automatiquement au fil des
+   séries.
+
+> Vous préférez la ligne de commande ? Voir [Référence manuelle et CLI](#référence-manuelle-et-cli)
+> pour déposer les fichiers de compétition directement dans `~/SplouchData/meet/`.
+
+#### Pas de console de chronométrage ?
+
+Réglez **Réglages → Chronométrage → type de console** sur **Manual — no timing console** et
+pilotez la compétition depuis `/manual` sur un téléphone : maintenez Précédente/Suivante
+pour parcourir les séries, ou touchez une série pour prévisualiser ses nageurs et validez-la
+avec **▸**. Les tableaux affichent alors l'épreuve, la série, le nom de l'épreuve, l'heure de
+la série et chaque nageur — tout sauf les temps, qui exigent une console. Guide complet :
+[manual.md](consoles/manual.md).
+
+Bon à savoir même avec une console : une Daktronics Omnisport 2000 chronomètre les courses
+mais n'envoie aucun numéro d'épreuve ni de série ; c'est donc `/manual` qui les fournit.
+
+---
+
+### Onglets des réglages
+
+| Onglet | Description |
+| --- | --- |
+| **Compétition** | Téléverser les fichiers Lenex `.lxf` / Hytek `.csv` ; longueur du bassin, plaques de touche, nombre de couloirs |
+| **Chronométrage** | Type de console et port série, état de la connexion, moniteur série (paquets hexadécimaux bruts), anti-rebond d'arrivée. Choisir **Manual — no timing console** retire le port, le badge et le moniteur, et renvoie vers `/manual` |
+| **Horloge** | Synchronisation NTP ; réglage manuel de la date et de l'heure hors ligne ; installer/retirer l'horloge matérielle Adafruit PiRTC (DS3231) |
+| **Affichage** | Afficher/masquer les en-têtes et les colonnes (Nom, Club, Écart, Position) ; mise en valeur du podium |
+| **Thème** | Jeux de couleurs intégrés ; personnaliser couleurs et polices ; enregistrer comme thème personnalisé |
+| **Réseau** | Gestion du WiFi ; Ethernet en DHCP ou IP statique (adresse, routeur, DNS) ; clients d'affichage connectés |
+| **Mise à jour et sauvegarde** | Récupérer la dernière version depuis GitHub, synchroniser les dépendances, redémarrer ; télécharger ou restaurer une sauvegarde de `~/SplouchData` |
+| **Test** | Rejouer des sessions enregistrées ; régler la vitesse de lecture ; enregistrer des sessions série en direct. Sans risque avec une compétition chargée — voir [Sessions de test](#sessions-de-test) |
+| **Terminal** | Terminal dans le navigateur — Shell, raspi-config, journaux du tableau, dmesg, ports série |
+| **Nuage** | URL et clé du relais cloud ; apparence de la compétition dans le sélecteur (titre, image, icône, lieu, sport) |
+| **Alimentation** | Redémarrer le service, redémarrer ou éteindre le Pi — maintenir appuyé pour confirmer |
+| **Compte** | Changer l'identifiant et le mot de passe d'administration (depuis le menu utilisateur de la barre latérale) |
+
+> Dans la barre latérale, **Affichage / Thème** sont regroupés sous **Tableau**, et **Test /
+> Terminal** sous **Débogage** ; **Compte** s'ouvre depuis le menu utilisateur en bas.
+
+---
+
+### Dossiers de données sur le Pi n° 1
+
+| Chemin | Contenu |
+| --- | --- |
+| `~/SplouchData/meet/` | Fichiers de compétition Lenex `.lxf` et Hytek `.csv` (téléversés via Compétition, ou [déposés ici à la main](#référence-manuelle-et-cli)) |
+| `~/SplouchData/images/` | Logos de commanditaires ou de clubs pour l'écran d'accueil |
+| `~/SplouchData/icons/` | Icône d'écran d'accueil des pages mobiles (onglet Nuage) |
+| `~/SplouchData/picker/` | Image de la compétition dans le sélecteur du cloud (onglet Nuage) |
+| `~/SplouchData/logs/` | Journaux enregistrés depuis l'onglet Terminal |
+| `~/SplouchData/recorded/` | Sessions enregistrées pour la lecture dans l'onglet Test |
+| `~/SplouchData/test_meet/` | Listes de départ d'une session de test en cours — vidé à la fin, jamais mêlé à `meet/` |
+| `~/SplouchData/themes/` | Thèmes personnalisés `.toml` |
+| `~/SplouchData/console_decoders/` | Décodeurs locaux (fichiers `.py`) — chargés au démarrage, non suivis par git |
+| `~/SplouchData/settings.json` | Tous les réglages de l'interface d'administration |
+
+---
+
+### Mettre à jour les afficheurs
+
+Trois façons ; le choix dépend de ce que vous avez sous la main.
+
+| Depuis | Comment | Quand |
+| --- | --- | --- |
+| La page d'administration du serveur | Réglages → Mise à jour et sauvegarde → **Mettre à jour les afficheurs** | La façon habituelle. Fait passer chaque afficheur *enregistré* à la référence du serveur. Mettez d'abord le serveur à jour. |
+| L'afficheur lui-même | **F1** sur le clavier du téléviseur → *mettre à jour vers la version du serveur* | Pas de navigateur sous la main, ou afficheur trop ancien pour que le bouton ci-dessus le voie. |
+| Une session SSH | `bash install.sh kiosk` sur le Pi du téléviseur | L'afficheur ne démarre plus, ou il est si ancien qu'il n'a pas le menu. |
+
+Les trois aboutissent au **même commit que celui du serveur** — jamais une branche, de sorte
+que les deux bouts ne peuvent pas diverger sur le contrat WebSocket. Le serveur doit être sur
+un commit propre et poussé ; être hors d'une étiquette de version est permis, avoir des
+modifications locales ne l'est pas.
+
+> **« Mettre à jour les afficheurs » dit qu'aucun afficheur n'est enregistré, mais j'en vois
+> un.** Un afficheur s'annonce par une trame `register`, et seul le tableau Qt en envoie une —
+> un onglet de navigateur non, et un kiosque Chromium affichant `/live` *est* un onglet de
+> navigateur. Un afficheur annoncé montre un nom d'hôte, un badge `kiosk` et une version dans
+> la liste ; une ligne avec seulement une IP est un navigateur, ou un kiosque installé avant
+> la v2026.09.0, lorsque l'afficheur Qt a remplacé Chromium.
+>
+> Ce kiosque plus ancien ne peut pas être récupéré à distance : il est trop ancien pour
+> s'annoncer et pour appliquer la mise à jour qu'on lui enverrait. Faites le premier saut sur
+> l'afficheur — F1 s'il a le menu, sinon `bash install.sh kiosk` — et le bouton à distance
+> fonctionne ensuite. Voir aussi [Passer de l'afficheur Chromium au kiosque
+> Qt](installation.md#passer-de-lafficheur-chromium-au-kiosque-qt).
+
+> **Un afficheur mis à jour ne démarre plus.** Les versions antérieures à ce correctif
+> lançaient un simple `uv sync` en se mettant à jour. `uv sync` aligne l'environnement sur le
+> fichier de verrouillage pour les extras *demandés* et retire tout le reste ; or le Qt du
+> kiosque vit dans l'extra optionnel `scoreboard` — la mise à jour désinstallait donc PySide6
+> et l'application revenait avec une trace d'erreur. Sur le Pi :
+>
+> ```bash
+> cd ~/Splouch && uv sync --extra scoreboard
+> install/scripts/start-scoreboard.sh
+> ```
+>
+> Relancer `install.sh kiosk` fait la même chose, et à partir de cette version l'afficheur
+> synchronise l'extra lui-même et refuse de redémarrer sur un dépôt dont le Qt ne s'importe
+> pas.
+
+---
+
+### Sessions de test
+
+L'onglet Test rejoue une session de console enregistrée, si bien que le tableau se comporte
+exactement comme pendant une vraie course. Deux choses rendaient cela pénible ; ce n'est plus
+le cas.
+
+**Votre compétition reste chargée.** Les numéros d'épreuve et de série d'un enregistrement
+renvoient aux listes de départ du `.lxf` livré à côté ; c'est donc sur lui que la lecture
+s'appuie. Votre propre compétition est mise de côté pendant ce temps : les fichiers de
+`~/SplouchData/meet/` ne sont jamais touchés, la compétition reste l'active, et elle est
+rechargée dès la fin de la session — que vous appuyiez sur **Arrêter** ou que
+l'enregistrement arrive simplement à son terme. Supprimer la compétition puis la téléverser à
+nouveau ne fait plus partie du travail.
+
+**Garder ce test local.** Coché, la lecture atteint le téléviseur et les téléphones du réseau
+de la piscine, et rien d'autre : le lien cloud est fermé pour la durée de la session, de sorte
+que les spectateurs à distance voient la compétition hors ligne plutôt qu'un enregistrement
+déguisé en course réelle. La case est cochée et verrouillée dès qu'une compétition est
+chargée — publier des temps inventés sous l'identité d'une compétition en direct n'est pas
+une chose qu'une case à cocher devrait permettre. Sans compétition chargée, le choix vous
+revient, et il est mémorisé.
+
+À la fin de la session, chaque tableau est vidé de la lecture, la compétition revient, le lien
+cloud est rétabli s'il était actif avant, et la vitesse de lecture revient à 1×.
+
+Démarrer une session efface l'épreuve et la série que la console croit en cours, et la
+terminer remet celles d'*avant* la session. Sans cela, changer de compétition publiait
+l'épreuve et la série de la session précédente face à des listes de départ qui ne les
+contiennent pas — un numéro plausible au-dessus de huit couloirs vides, jusqu'à ce que
+l'enregistrement annonce les siens. On aurait dit que « seul le premier enregistrement lu
+affiche les noms », car le premier après un redémarrage est le seul à ne rien trouver de
+périmé.
+
+La sortie restaure plutôt qu'elle n'efface, volontairement. Une CTS réannonce son épreuve et
+sa série plusieurs fois par seconde, donc oublier ne lui coûte rien ; une Quantum ne
+l'annonce qu'une fois, quand la série est préparée, de sorte qu'un tableau à qui l'on dirait
+d'oublier n'afficherait ni épreuve ni noms jusqu'à la préparation de la série suivante.
+Lancer une session de test en pleine compétition ne coûte donc rien, sur l'une comme sur
+l'autre console.
+
+#### Enregistrer une session
+
+Un enregistrement est la sortie série d'une console sauvegardée dans un fichier que l'onglet
+Test peut rejouer. Il existe deux formats ; lequel produire dépend de si Splouch décode déjà
+votre console.
+
+| Format | Contenu | Lecture | À produire quand |
+| --- | --- | --- | --- |
+| `.serial` | un paquet par ligne, chacun horodaté à son arrivée | au rythme de la console, une fois | Splouch décode déjà votre console |
+| `.raw` | les octets tels qu'ils sont arrivés, seize par ligne, sans horodatage | à ~720 octets/s, en boucle | Splouch ne décode pas encore votre console |
+
+Un `.serial` donne la meilleure lecture, mais ses paquets sont découpés par le décodeur de la
+console configurée. Sur une console que ce décodeur ne connaît pas, le découpage est une
+supposition, et le fichier la conserve. Un `.raw` garde le flux intact, ce dont a besoin
+quiconque écrit un décodeur pour votre console.
+
+**Avec l'enregistreur de Splouch.** Branchez la console et sélectionnez-la dans Réglages →
+Chronométrage, ouvrez l'onglet Test, saisissez un nom sous **Enregistrer une session en
+direct**, choisissez `.serial` ou `.raw`, puis appuyez sur **Démarrer**. Lancez une série ou
+deux, puis appuyez sur **Arrêter**. Le fichier arrive dans `~/SplouchData/recorded/` et
+apparaît aussitôt dans la liste **Sessions enregistrées**. Si votre console n'est pas encore
+dans la liste, choisissez-en une dont les paramètres série (affichés sous la forme
+« RS-232 · 9600 baud · 8-E-1 », etc.) correspondent aux vôtres, et enregistrez un `.raw`.
+
+**Avec PuTTY, ou tout autre outil de capture.** Utile quand la console est branchée à un
+portable plutôt qu'au Pi. Dans PuTTY, ouvrez le port série avec les paramètres de la console,
+puis sous Session → Logging choisissez **All session output** et un nom de fichier. Deux
+détails comptent :
+
+- Ne choisissez **pas** « Printable output ». Les protocoles de console sont surtout faits
+  d'octets non imprimables, et ce mode les supprime.
+- PuTTY écrit une ligne d'en-tête en haut du fichier
+  (`=~=~=~=~=~=~=~=~=~=~=~= PuTTY log …`). Supprimez-la, sinon ses caractères sont rejoués
+  comme si la console les avait envoyés.
+
+PuTTY enregistre du binaire (un `.cap`), et l'onglet Test attend de l'hexadécimal.
+Convertissez d'abord :
+
+```bash
+python3 server/console_recordings/cap-to-raw.py session.cap   # -> session.raw
+```
+
+Puis téléversez le `.raw` avec **Téléverser** dans la liste **Sessions enregistrées**. Le
+résultat est le même fichier que l'enregistreur de Splouch écrit en mode `.raw`.
+
+Pour joindre un enregistrement à un [rapport de console](https://github.com/olivierouellet/Splouch/issues/new?template=console_report.yml)
+ou à une pull request, copiez-le depuis `~/SplouchData/recorded/` et joignez-le.
+
+---
+
+### Traduction
+
+Un fichier dans `shared/locales/` correspond à une langue, et c'est ce que lit un spectateur :
+les intitulés de colonnes, le vocabulaire des noms d'épreuves, l'habillage des pages mobiles
+et les lignes d'état de l'afficheur TV. Le Pi, le cloud, les applications mobiles et le
+téléviseur le lisent tous, les applications via `GET /i18n/{lang}` ([api.md](api.md) §5.9).
+
+| Fichier | Langue |
+| --- | --- |
+| `shared/locales/en.toml` | English — la langue de repli pour chaque clé |
+| `shared/locales/fr.toml` | Français |
+| `shared/locales/es.toml` | Español |
+| `shared/locales/panel/<code>.toml` | le panneau de l'opérateur, l'aperçu de compétition et l'administration cloud — facultatif |
+
+Chaque fichier servi porte les mêmes sections (exemple dans la [partie anglaise](#localisation)),
+et la suite de tests échoue quand une langue n'a pas une clé que l'anglais possède.
+
+**Ajouter une langue**, c'est une pull request avec un nouveau fichier dans `shared/locales/`,
+complet par rapport à `en.toml`. Elle apparaît dans chaque sélecteur de langue au déploiement
+suivant ; les applications mobiles la récupèrent via `GET /locales` sans nouvelle version. Un
+`panel/<code>.toml` assorti est bienvenu mais pas requis — chaque chaîne du panneau qui
+manque s'affiche en anglais, clé par clé.
+
+**Ce qui n'est pas traduit ici.** Les mots qui parlent d'une application ou d'un appareil — la
+fiche du serveur, les erreurs de connexion, la version minimale de l'OS — vivent dans chaque
+dépôt d'application, en natif. La règle est dans [app.md](app.md) `T-05` : si la page web
+affiche le mot, le serveur en est responsable ; sinon, c'est l'application.
+
+Il n'y a pas de fichier de langue propre à un Pi. Un club qui veut une autre formulation
+modifie le fichier livré, pour que tous les serveurs et tous les clients s'accordent.
+
+---
+
+### Référence manuelle et CLI
+
+Tout ce qui suit peut aussi se faire depuis l'interface d'administration — ce sont les
+équivalents manuels et les outils de bas niveau pour quand vous êtes connecté en SSH au Pi
+n° 1.
+
+#### Charger des fichiers de compétition à la main
+
+Au lieu de les téléverser dans **Compétition**, copiez les fichiers `.lxf` / `.csv` dans
+`~/SplouchData/meet/`. Ils apparaissent dans la liste déroulante de Compétition —
+sélectionnez-en un pour le charger en direct.
+
+#### Gestion du service
+
+L'application tourne comme service systemd nommé **`splouch`**. L'onglet **Alimentation**
+redémarre / relance / éteint, et **Terminal** propose un lanceur « Journaux du tableau » et
+« Enregistrer les journaux », mais en SSH :
+
+```sh
+sudo systemctl restart splouch    # redémarrer après des modifications (comme l'onglet Alimentation)
+sudo systemctl stop splouch       # arrêter le service
+sudo systemctl start splouch      # le relancer
+systemctl status splouch          # état actuel
+journalctl -u splouch -f          # suivre les journaux en direct
+```
+
+#### Dépannage en ligne de commande
+
+**Le service ne démarre pas.** Lancez `journalctl -u splouch -f` pour voir l'erreur. Causes
+fréquentes : mauvais port série, dépendances Python manquantes (lancez `uv sync` dans le
+dossier du dépôt), ou un autre processus déjà lié au port 5000.
+
+**Adaptateur série non détecté.** Lancez `ls /dev/ttyUSB*` sur le Pi n° 1 pour lister les
+adaptateurs. L'utilisateur du service doit faire partie du groupe `dialout` — vérifiez avec
+`groups` ; s'il manque, `sudo usermod -aG dialout <utilisateur>` puis redémarrez.
+(L'installateur s'en charge normalement.)
+
+**`splouch.local` injoignable, ou bloqué tant qu'on ne tape pas `http://` devant.** Voir
+[troubleshooting-splouch-local-unreachable.md](troubleshooting-splouch-local-unreachable.md).
+Le Pi ne sert jamais en https — il n'y a pas de domaine public pour lequel obtenir un
+certificat — les navigateurs qui forcent l'adresse en https doivent donc revenir en http, et
+les deux causes connues de leur échec sont décrites là.
