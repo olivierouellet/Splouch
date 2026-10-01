@@ -101,7 +101,7 @@ the effect, never the mechanism:
 | Web mechanism | Why it exists there | Native equivalent |
 | --- | --- | --- |
 | 28px edge strips for the swipe (`A-03`) | a full-width listener would swallow touches meant for the schedule list inside the `<iframe>` tab | the platform's own way of moving between peer sections — a full-width pager that follows the finger where that is the platform's idiom (`A-10`), the tab bar alone where it is not |
-| `@media (orientation: …)` (`A-07`, `L-15`, `L-16`) | the only layout switch CSS had when the pages were written | the platform's width size class — compact or regular |
+| `@media (orientation: …)` (`A-07`, `L-15`, `L-16`) | the only layout switch CSS had when the pages were written | the window's width — the full table from 600pt/dp/px |
 | `sessionStorage['tab']` (`A-04`) | a browser page restores no state of its own | platform state restoration |
 | 80px pull threshold, rotating indicator (`A-05`) | hand-rolled; the browser has no refresh control | the platform's refresh control |
 | `env(safe-area-inset-*)` (`A-06`) | the only way a page learns where the notch is | safe-area layout guides — free |
@@ -126,7 +126,7 @@ driven by which field. Unless the row says otherwise, these are the client's own
   sheet;
 - **which** platform component draws it — a system search field, a pager, a rail;
 - sizes, spacing, type scale and the grouping of cells inside a row;
-- how the layout adapts to the window, within the compact/regular split the rows name.
+- how the layout adapts to the window, within the 600-wide split the rows name.
 
 A client exercising that latitude is `done`, not `diverges`. A row that needs a
 placement or a format — `P-06` above the meets, `S-01`'s heading — says so in its text.
@@ -526,17 +526,19 @@ Live lane state during a heat. The busiest screen and the one most worth getting
 
 | ID | Feature | Driven by | Level |
 | --- | --- | --- | --- |
-| `L-15` | **Compact width**: two-line row — lane number spanning left, name on line 1 with club right-aligned, time and delta and place on line 2; a place is prefixed `#`, and nothing is when there is no place | the window's width size class | must |
+| `L-15` | **Under 600 wide**: two-line row — lane number spanning left, name on line 1 with club right-aligned, time and delta and place on line 2; a place is prefixed `#`, and nothing is when there is no place | the window's width, at 600pt/dp/px | must |
 | `L-24` | When the lanes do not fit a compact-width board, give up, in this order: the EVENT/HEAT row moves into the top bar (short labels, no wall clock) → the relay line (`L-06`) is dropped → the row type shrinks, to no less than 0.72× → the board scrolls | measured row heights, never device constants | should — see note |
-| `L-16` | **Regular width**: full table with a header row, row font scaled to the height each lane gets; on a short window the header row is the first thing dropped | the window's width size class | should |
+| `L-16` | **600 wide and up**: full table with a header row, row font scaled to the height each lane gets; on a short window the header row is the first thing dropped | the window's width, at 600pt/dp/px | should |
 | `L-17` | Long names shrink to fit their cell, ellipsis only as a floor | — | must — see note |
 
 > **`L-15` / `L-16` — width decides, not orientation.** On a phone the two agree: portrait
 > is compact, landscape is regular. They part on a tablet or an unfolded foldable, where
 > a portrait window is wide enough for the full table and the two-line row would waste
-> most of it. Branch on the platform's width size class (iOS `horizontalSizeClass`,
-> Android `WindowWidthSizeClass`; the web a `min-width` query), never on which way the
-> device is held.
+> most of it. Branch on the window's width — the full table from **600** points, dp or
+> CSS px — never on which way the device is held. On Android that is
+> `WindowWidthSizeClass` leaving `Compact`; on the web a `min-width: 600px` query. On
+> iOS it is the width itself, **not** `horizontalSizeClass`: that stays compact on most
+> iPhones held sideways, and would hand them the two-line row.
 
 > **`L-24` — what a crowded board gives up, cheapest first.** Twelve lanes in a phone's
 > portrait height is the case. Each step runs only when the one before was not enough:
