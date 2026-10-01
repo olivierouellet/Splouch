@@ -168,7 +168,7 @@ Entry screen. Web: site root. App: launch screen, and `A-02`'s return target.
 | [`P-12`](#p-12) | LAN servers offered without typing | mDNS browse `_splouch._tcp` (not `splouch.local`) | native | should |
 | [`P-13`](#p-11) | Add server by hand, checked before save | `GET /server` must answer | native | must |
 | `P-14` | Server on other contract versions → one-line notice naming both, once per session, beside server name; **never blocks connect** (newer = additive, older degrades a feature, e.g. `L-12` clock vs v1 relay) | `GET /server` → `contract.api`, `contract.app` ([`api.md`](api.md) §5.10) | native | should |
-| [`P-15`](#p-15) | Spectator's Appearance — Dark (default), Light, Automatic — in picker menu, applies on every screen of every meet | stored pref; server's two palettes ([`api.md`](api.md) §6.1), never `settings.theme_colors`; `strings.appearance`, `appearance_dark` / `_light` / `_auto` | all | should |
+| [`P-15`](#p-15) | Spectator's Appearance — Dark (default), Light, Automatic — in picker menu, applies on every screen of every meet | stored pref; server's two palettes ([`api.md`](api.md) §6.1), never `settings.theme_colors`; words native in apps (`T-05`); web reads `strings.appearance`, `appearance_dark` / `_light` / `_auto` | all | should |
 | [`P-16`](#p-11) | QR scan adds server: app asks; yes → adds, selects, lands on **meet list**. No app → page offers store | `https://<default host>/add?server=<origin>`; host's two `/.well-known/` files, `GET /add` ([`api.md`](api.md) §4) | native | should |
 | [`P-17`](#p-17) | Search meet list from **3** meets, narrows as typed, own empty state; field where platform puts search | local over `GET /meets` → `name`, `meet_date`, `location`, `sport`, `organizer`; `strings.meet_search`, `no_meets_match` | all | should |
 
@@ -648,8 +648,9 @@ spectator chose language, `GET /i18n/{lang}` → `labels`.
 
 Word web page also shows = server's, in `[mobile]`: tab names, empty states, filter
 sheet, picker chrome/controls, notices. Word about app/device = app's, native: server
-sheet, "nearby", connection/address errors, OS requirements, standard buttons. English
-fills gaps in native table.
+sheet, "nearby", connection/address errors, OS requirements, standard buttons. Word
+app shows before any server answers = app's too, even if web shows it: Appearance
+(`P-15`). English fills gaps in native table.
 
 ### <a id="t-08"></a>T-08 — one choice per device, on picker
 

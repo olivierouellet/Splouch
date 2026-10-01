@@ -94,6 +94,8 @@ prefs_labels = "Column labels"
 prefs_short  = "Short"
 prefs_long   = "Long"
 # The reader's light or dark, for the picker and every meet page (docs/app.md P-15).
+# The web picker's words: the apps carry their own, since they show it before any
+# server answers (T-05).
 appearance       = "Appearance"
 appearance_dark  = "Dark"
 appearance_light = "Light"
