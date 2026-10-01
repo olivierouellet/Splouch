@@ -722,50 +722,27 @@ Not on any phone client, now or planned:
 
 ## Changelog
 
-- **v2** (2026-09-30) — the contract reconciled with the two native apps, which had
-  built ahead of it and recorded each departure as `diverges`. **`contract.app` is `v2`**,
-  so `P-14` tells a v1 client. Nothing a v1 client did breaks against a v2 server; what
-  changed is what counts as parity.
+- **v2** (2026-09-30) — reconciled with the two native apps, which had built ahead of
+  it. `contract.app` is `v2`, so `P-14` names it to a v1 client; nothing a v1 client does
+  breaks against a v2 server.
 
-  - **Model.** The web is a client of this file, not its reference (§0.1, §0.2), with
-    its own ledger, [`web-parity.md`](web-parity.md). `diverges` is a defined status
-    and a temporary one. §0.4 says what a row leaves to the client: placement,
-    component, sizes and grouping are latitude.
-  - **Changed rows.** `A-03` is the platform's own navigation between peer sections —
-    a tab bar alone on iOS, a pager on Android — and `A-10` applies only where there
-    is a swipe. `A-07` is written on the effect; `L-15` and `L-16` switch at 600
-    wide — points, dp or CSS px — not on orientation, nor on iOS's size class. `T-09`:
-    the board's EVENT/HEAT read long on every client. `S-01`'s heading is the short
-    `EV 12  HT 3`, spoken long. `P-11`: the picker always names the server. `P-17`'s
-    field goes where the platform puts search, and `P-06` is required above the meets
-    rather than above that field. `P-03`: an offline meet shows its last scoreboard and
-    no results. `L-23`'s "centred" applies where the delta is a column. `T-01`: the
-    palettes are copied from [`api.md`](api.md) §6.1, dark `header_label` `#3b9eff` —
-    both apps had white, a transcription slip, now fixed and tested key for key.
-  - **New rows.** `L-24`, the crowded-board order; §8, accessibility (`X-01`–`X-10`),
-    where `X-08` holds the web to browser zoom — 200% and a 320px window with nothing
-    cut and nothing scrolling sideways — rather than to the OS text size.
-  - **New strings.** `[mobile] spoken_laps` (`X-01`) and `filter_done` (`X-06`): the
-    web's words for the lap count read aloud and the filter sheet's ✓. Additive; an app
-    that ignores them is unaffected.
-  - **Folded in from "added since v1"**: `P-15` (the reader's Appearance, departing from
-    `T-01`/`T-02` on purpose), `P-16` (a server added from a QR code; a printed code
-    names a cloud, never a Pi, so the reader lands on the picker and `P-06`), `P-17`
-    (meet search, live meets first), `A-11` (no Results tab without a timing console).
-    `P-15` was claimed by the app ledgers before it was written here, which is why
-    `P-16` was numbered around it; §0.1 now has IDs claimed here first.
-  - **And the v1 revisions that were waiting on this bump**: `A-03`'s split from
-    `A-10`, `R-01`'s waiting line *instead of* the empty grid, `T-09`'s two options
-    starting from long.
-  - **Moved out.** `P-16`'s server obligations live in [`api.md`](api.md) §4 and
-    [`cloud.md`](cloud.md); the default palettes in [`api.md`](api.md) §6.1.
+  - **Model**: the web is a client with its own ledger, [`web-parity.md`](web-parity.md);
+    `diverges` is defined and temporary; §0.4 says what a row leaves to the client.
+  - **Changed**: `A-03` (the platform's own navigation; `A-10` only with a swipe), `A-07`
+    (written on the effect), `L-15`/`L-16` (600 wide, not orientation), `T-09` (long on
+    every client), `S-01` (short heading, spoken long), `P-03` (no results offline),
+    `P-06`/`P-17` (above the meets; search where the platform puts it), `P-11` (the
+    picker always names the server), `L-23` (centred only in a column), `T-01`/`T-02`
+    (the server's palettes from [`api.md`](api.md) §6.1; dark `header_label`
+    `#3b9eff`), `R-01` (the line replaces the grid).
+  - **Added**: `L-24`, `X-01`–`X-10`, and the `[mobile]` strings `spoken_laps` and
+    `filter_done`. Folded in from v1 addenda: `P-15`, `P-16`, `P-17`, `A-11`.
+  - **Moved out**: `P-16`'s server half to [`api.md`](api.md) §4 and
+    [`cloud.md`](cloud.md); the default palettes to [`api.md`](api.md) §6.1.
 
-- **v1, clarified while the iOS app was built** (no bump — nothing a conforming
-  client did became wrong): `L-13` states its two exceptions, the running-lane hold
-  and the post-connect baseline; `A-09` names its cloud signal, a 404 on the config
-  fetch; `C-02` and `C-10` are gated on `kind`; `S-05` compares as strings; `T-10`
-  says how the snapshot is made; `P-14` added; §0.2 gains the Pi-session table,
-  with `GET /schedule.json` added on the Pi to honour the no-HTML-only rule.
+- **v1, clarified** (no bump): `L-13`'s two exceptions, `A-09`'s 404 signal, `C-02` and
+  `C-10` gated on `kind`, `S-05` compared as strings, how `T-10`'s snapshot is made,
+  `P-14`, and §0.2's Pi-session table with `GET /schedule.json`.
 
 - **v1** — First statement of the mobile feature contract, taken from the cloud templates
   as of the FastAPI/plain-WebSocket server. Tracks `api.md` v2.
