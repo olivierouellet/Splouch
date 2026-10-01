@@ -16,7 +16,7 @@ page travels inside the TLS session, so sending either would need a certificate 
 browser already trusts. The reset is the only signal available, which is why the
 rule is load-bearing rather than cosmetic.
 
-See docs/troubleshooting-splouch-local-unreachable.md.
+See docs/troubleshooting.md.
 """
 
 import os

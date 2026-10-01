@@ -66,7 +66,7 @@ as_user() {
 # Some networks (corporate/intranet proxies) intercept plain HTTP and return a
 # fake 404 for apt's Release files, breaking `apt-get update`. Switching the apt
 # sources to HTTPS sidesteps that, and is harmless on networks without a proxy.
-# See docs/troubleshooting-apt-http-proxy.md
+# See docs/troubleshooting.md
 ensure_https_apt_sources() {
     sudo sed -i \
         -e 's|http://deb.debian.org|https://deb.debian.org|g' \
@@ -672,7 +672,7 @@ WALLEOF
     #   - use-ipv6=no            disables the IPv6 mDNS transport
     #   - publish-aaaa-on-ipv4=no stops the AAAA record being announced over
     #     IPv4 (this one defaults to YES and is the actual culprit)
-    # See docs/troubleshooting-splouch-local-unreachable.md
+    # See docs/troubleshooting.md
     _avahi_set() { # _avahi_set <key> <value> <section>
         if grep -q "^#*[[:space:]]*$1=" /etc/avahi/avahi-daemon.conf; then
             sudo sed -i "s/^#*[[:space:]]*$1=.*/$1=$2/" /etc/avahi/avahi-daemon.conf

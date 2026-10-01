@@ -48,6 +48,7 @@ Swimmers, clubs and times are fictional (a bundled test recording).
 | [Installation](docs/installation.md) | Pi #1 (server), Pi #2 (kiosk), updating, reinstalling |
 | [Admin guide](docs/admin.md) | Meet-day workflow, settings tabs, pages, localisation |
 | [Cloud relay](docs/cloud.md) | Public scoreboard for remote attendees |
+| [Troubleshooting](docs/troubleshooting.md) | `splouch.local` unreachable, browser stuck on https, `apt` behind a proxy |
 | [Development](docs/development.md) | Data flow, adding a console decoder, bundled assets |
 | [API contract](docs/api.md) | WebSocket + REST contract for native clients (TV / iOS / Android) |
 | [Mobile feature contract](docs/app.md) | What a spectator can see and do on a phone, for the web, iOS and Android clients · [web parity](docs/web-parity.md) |
@@ -173,6 +174,7 @@ Nageurs, clubs et temps fictifs (enregistrement de test inclus).
 | [Installation](docs/installation.md) | Pi n° 1 (serveur), Pi n° 2 (kiosque), mise à jour, réinstallation |
 | [Guide d'administration](docs/admin.md) | Déroulement d'une compétition, onglets des réglages, pages, localisation |
 | [Relais cloud](docs/cloud.md) | Tableau public pour les spectateurs à distance |
+| [Dépannage](docs/troubleshooting.md#troubleshooting-fr) | `splouch.local` injoignable, navigateur bloqué en https, `apt` derrière un proxy |
 | [Développement](docs/development.md) | Flux de données, ajout d'un décodeur de console, ressources incluses |
 | [Contrat d'API](docs/api.md) | Contrat WebSocket + REST pour les clients natifs (TV / iOS / Android) |
 | [Contrat fonctionnel mobile](docs/app.md) | Ce qu'un spectateur peut voir et faire sur un téléphone, pour les clients web, iOS et Android · [parité web](docs/web-parity.md) |

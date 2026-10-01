@@ -306,7 +306,7 @@ service user must be in the `dialout` group — check with `groups`; if missing,
 usermod -aG dialout <user>` and reboot. (The installer normally handles this.)
 
 **`splouch.local` unreachable, or it hangs unless you type `http://` in front.** See
-[troubleshooting-splouch-local-unreachable.md](troubleshooting-splouch-local-unreachable.md).
+[troubleshooting.md](troubleshooting.md).
 The Pi never serves https — there is no public domain to get a certificate for — so
 browsers that upgrade the address have to fall back, and the two known causes of them
 failing to are covered there.
@@ -619,7 +619,7 @@ adaptateurs. L'utilisateur du service doit faire partie du groupe `dialout` — 
 (L'installateur s'en charge normalement.)
 
 **`splouch.local` injoignable, ou bloqué tant qu'on ne tape pas `http://` devant.** Voir
-[troubleshooting-splouch-local-unreachable.md](troubleshooting-splouch-local-unreachable.md).
+[troubleshooting.md](troubleshooting.md).
 Le Pi ne sert jamais en https — il n'y a pas de domaine public pour lequel obtenir un
 certificat — les navigateurs qui forcent l'adresse en https doivent donc revenir en http, et
 les deux causes connues de leur échec sont décrites là.

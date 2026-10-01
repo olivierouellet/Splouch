@@ -10,5 +10,5 @@ contact_links:
     url: https://github.com/olivierouellet/Splouch/blob/master/docs/admin.md
     about: The admin UI, settings tabs, pages, localisation.
   - name: Something already broken at the pool
-    url: https://github.com/olivierouellet/Splouch/blob/master/docs/troubleshooting-splouch-local-unreachable.md
+    url: https://github.com/olivierouellet/Splouch/blob/master/docs/troubleshooting.md
     about: Start here if the scoreboard is unreachable and a meet is running.
