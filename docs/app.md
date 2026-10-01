@@ -523,22 +523,20 @@ flowchart LR
 
 Each runs this loop independently:
 
-```text
-  connect
-     │
-     ├─► join_meet {meet_id, vid}      cloud only: on every connect and reconnect     C-02
-     │   queued frames flush                                                         C-06
-     │
-     ├─► ping every 15s ──────────► pong                                             C-04
-     │
-     └─► dead, by either test:
-           no inbound frame for 35s                                                  C-04
-           foregrounded or network back: ping, no pong within ~4s                    C-05
-             │
-             └─► close ─► backoff 500ms → 5s ─► connect again                        C-03
+```mermaid
+flowchart TD
+  connect["connect"] -- cloud --> join["join_meet {meet_id, vid}<br/>every connect and reconnect (C-02)"]
+  connect -- Pi --> flush
+  join --> flush["flush queued frames (C-06)"]
+  flush --> open["open"]
+  open -- "ping every 15s → pong (C-04)" --> open
+  open -- "no inbound frame for 35s (C-04)" --> dead["dead"]
+  open -- "foreground or network back:<br/>ping, no pong in ~4s (C-05)" --> dead
+  dead --> close["close"]
+  close --> backoff["backoff 500ms → 5s (C-03)"]
+  backoff --> connect
+  dead -.-> live["meet_live = false (C-09):<br/>clocks stop (L-12), results wiped (R-02)"]
 ```
-
-Dead socket ⇒ `meet_live = false` (`C-09`) → clocks stop (`L-12`), results wiped (`R-02`).
 
 | ID | Feature | Driven by | Level |
 | --- | --- | --- | --- |
