@@ -21,8 +21,7 @@ TARGET_HOME="$(getent passwd "$TARGET_USER" | cut -d: -f6)"
 TARGET_HOME="${TARGET_HOME:-$HOME}"
 
 INSTALL_DIR="$TARGET_HOME/Splouch" # default for fresh installs; existing checkouts are auto-detected
-SERVER_IP="10.10.10.10/24"
-KIOSK_GATEWAY="10.0.0.1"
+SERVER_IP="10.10.10.10/24" # offered, never required: eth0 stays on DHCP unless the user opts in
 SERVER_HOSTNAME="splouch"                   # broadcasts as splouch.local on the network
 MDNS_ALIASES="tableau.local marcador.local" # the board's name in each language it ships
 SCOREBOARD_URL="http://${SERVER_HOSTNAME}.local"
@@ -40,6 +39,9 @@ error() { echo -e "${RED}[ERROR]${NC} $*" >&2; }
 section() { echo -e "\n${BOLD}──── $* ────${NC}"; }
 # Auto-answer No in non-interactive mode (the in-app Reinstall has no TTY), so
 # optional prompts (static IP, RTC, reboot) safely keep the current config.
+# STATIC_IP_SET records whether this run pinned eth0, so messages only quote
+# the raw IP when it is actually the Pi's address.
+STATIC_IP_SET=0
 confirm() {
     if [[ "${SPLOUCH_NONINTERACTIVE:-}" == "1" ]]; then
         info "Non-interactive — skipping: $1"
@@ -149,10 +151,11 @@ configure_static_ip() {
     local ip="$1" gateway="${2:-}"
 
     echo
-    warn "About to set eth0 to static IP ${ip%/*}."
-    warn "If you are connected via SSH over Ethernet this will disconnect you."
-    confirm "Configure static IP now?" || {
-        info "Skipping network configuration."
+    info "eth0 uses DHCP by default — every device reaches this Pi as ${SERVER_HOSTNAME}.local."
+    info "Optionally pin eth0 to ${ip%/*} as well, for typing a raw IP."
+    warn "Pinning drops an SSH session running over Ethernet."
+    confirm "Pin eth0 to static IP ${ip%/*}?" || {
+        info "Keeping eth0 on DHCP."
         return 0
     }
 
@@ -190,6 +193,7 @@ configure_static_ip() {
         return 0
     fi
 
+    STATIC_IP_SET=1
     info "Static IP configured: ${ip%/*}"
 }
 
@@ -515,7 +519,7 @@ WALLEOF
     sudo apt-get install -y realvnc-vnc-server
     if command -v raspi-config &>/dev/null; then
         sudo raspi-config nonint do_vnc 0
-        info "VNC enabled. Connect with RealVNC Viewer → ${SERVER_IP%/*}"
+        info "VNC enabled. Connect with RealVNC Viewer → ${SERVER_HOSTNAME}.local"
     else
         warn "raspi-config not found — enable VNC manually via: sudo raspi-config → Interface Options → VNC"
     fi
@@ -631,7 +635,7 @@ WantedBy=multi-user.target
 EOF
     sudo systemctl daemon-reload
     sudo systemctl enable --now splouch-redirect
-    info "Port 80 redirects to 5000 — http://${SERVER_IP%/*}/ reaches the scoreboard"
+    info "Port 80 redirects to 5000 — http://${SERVER_HOSTNAME}.local/ reaches the scoreboard"
 
     section "Network — Pi #1"
     configure_static_ip "$SERVER_IP"
@@ -650,7 +654,11 @@ EOF
     echo -e "  Install dir : $INSTALL_DIR"
     echo -e "  Start server: ${BOLD}sudo systemctl start splouch${NC}"
     echo -e "  Logs        : ${BOLD}journalctl -u splouch -f${NC}"
-    echo -e "  Scoreboard  : ${BOLD}http://${SERVER_HOSTNAME}.local/${NC}  or  http://${SERVER_IP%/*}/"
+    if [[ $STATIC_IP_SET == 1 ]]; then
+        echo -e "  Scoreboard  : ${BOLD}http://${SERVER_HOSTNAME}.local/${NC}  or  http://${SERVER_IP%/*}/"
+    else
+        echo -e "  Scoreboard  : ${BOLD}http://${SERVER_HOSTNAME}.local/${NC}"
+    fi
     echo -e "  Admin UI    : ${BOLD}http://${SERVER_HOSTNAME}.local/settings${NC}"
     echo -e "  Mobile view : ${BOLD}http://${SERVER_HOSTNAME}.local/mobile${NC}"
     echo -e "  Aliases     : $MDNS_ALIASES"
@@ -902,7 +910,7 @@ WALLEOF
     echo -e "  Run by hand : ${BOLD}$INSTALL_DIR/install/scripts/start-scoreboard.sh${NC}"
     echo -e "  Windowed    : ${BOLD}cd $INSTALL_DIR && .venv/bin/python -m scoreboard --windowed${NC}"
     echo
-    warn "Pi #1 (server) must be running and reachable at $KIOSK_GATEWAY before the kiosk boots."
+    warn "Pi #1 (server) must be running and reachable at ${SERVER_HOSTNAME}.local before the kiosk boots."
     echo
     confirm "Reboot now?" && sudo reboot
 fi
