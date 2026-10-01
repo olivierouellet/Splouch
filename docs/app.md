@@ -3,10 +3,9 @@
 **Contract version: `v2`** · Clients: the web phone pages (this repo), `Splouch-ios`,
 `Splouch-android` (see §0.1).
 
-This file is the *behaviour* contract: what a spectator can see and do on a phone, and
-what drives it. It is normative for all three phone clients, the web pages included:
-the web is a client of this file, not its reference, and where the web and this text
-disagree the web is the one that is behind.
+This file is the *behaviour* contract: what a spectator sees and does on a phone, and
+what drives it. It binds all three phone clients, the web pages included — where the web
+and this text disagree, the web is behind.
 
 [`api.md`](api.md) is the *data* contract — sockets, events, payload shapes.
 
@@ -21,31 +20,28 @@ disagree the web is the one that is behind.
 | **This file** | *what* each feature is, what drives it, whether it is required | Splouch (this repo) |
 | **Parity ledger** | *whether* it is implemented on that client, and why not | [`web-parity.md`](web-parity.md) here; `parity.md` in `Splouch-ios` and `Splouch-android` |
 
-Each client keeps a short ledger, one row per ID below. **Per-client status does not
-belong here.** A ledger note says where the feature lives, what tests it, and when it
-was last seen on a device — not why the feature exists, which is this file's job.
+Each client keeps a ledger, one row per ID below; **per-client status does not belong
+here.** A ledger note says where a feature lives, what tests it and when it was last seen
+on a device — why it exists is this file's job.
 
 | Status | Meaning |
 | --- | --- |
 | `done` | built as this file describes, within the latitude of §0.4 |
 | `deferred` | not built yet |
-| `diverges` | built, deliberately not what this file says. The note names what the client does instead and why. **A divergence is temporary**: within a release, either this file absorbs it (and the row becomes `done`) or the client reverts. A `diverges` row with no open change against this file is a stale ledger |
+| `diverges` | built, deliberately not what this file says; the note says what instead, and why. **Temporary**: within a release this file absorbs it or the client reverts |
 | `n/a — <reason>` | the level says it does not apply to this client (§0.3) |
 
-The IDs are the join key between the repos, so **never renumber**. A retired feature
-keeps its ID and gains a `**retired**` note; new ones take the next free number in
-their section. An ID a ledger needs before this file has it is claimed here first —
-a one-line row is enough — never in the ledger.
+IDs are the join key between the repos: **never renumber**. A retired feature keeps its
+ID with a `**retired**` note; a new one takes the next free number in its section, and is
+claimed here — a one-line row will do — before any ledger uses it.
 
 ### 0.2 What a client connects to
 
-Phones connect to the **cloud relay** by default, not the Pi ([`api.md`](api.md) §3),
-but an app is not fixed to one server the way a web page is fixed to its origin: it can
-be pointed at another cloud, or at a Pi on the pool's own network (`P-11`–`P-13`). Which
-one changes the shape of the session, not just the address — a Pi has one meet and no
-picker — so a client asks `GET /server` rather than inferring it. Both servers render
-the *same* web templates, differing only in whether `MEET_ID` is set. They are the web
-client, listed here because the payloads below were first shaped by them:
+Phones connect to the **cloud relay** by default ([`api.md`](api.md) §3). An app, unlike
+a web page, can also be pointed at another cloud or at a Pi on the pool's network
+(`P-11`–`P-13`), and the kind changes the session's shape — a Pi has one meet and no
+picker — so a client asks `GET /server`. Both servers render the same web templates,
+differing only in whether `MEET_ID` is set:
 
 | Surface | Web template |
 | --- | --- |
@@ -61,15 +57,13 @@ mirrored by the Qt display) keeps the carousel, the test banner and the operator
 collapse that the phone pages deliberately drop
 ([`notes/cloud_parity.md`](../notes/cloud_parity.md)).
 
-Everything a phone needs is reachable as JSON — no screen is HTML-only, nothing requires
-scraping ([`api.md`](api.md) §4). Each browser page renders from the same helper its
-JSON endpoint returns (`_public_meet_list`, `_build_heats_json`, `_picker_branding`,
-the Pi's `build_heats`), so web and native cannot drift: a field added for one appears
-in the other by construction. Extend the helper, never the route.
+Everything a phone needs is reachable as JSON ([`api.md`](api.md) §4). Each web page
+renders from the helper its JSON endpoint returns (`_public_meet_list`,
+`_build_heats_json`, `_picker_branding`, the Pi's `build_heats`), so a field added for one
+reaches the other. Extend the helper, never the route.
 
-**A Pi session is the same app with different addresses.** `GET /server` says
-`kind: "pi"`; from then on the rows below that name a cloud endpoint resolve as follows,
-and nothing else about the session changes:
+**A Pi session is the same app at different addresses.** Once `GET /server` says
+`kind: "pi"`, the cloud endpoints named below resolve as follows; nothing else changes:
 
 | Needed for | Cloud | Pi |
 | --- | --- | --- |
@@ -111,16 +105,13 @@ the effect, never the mechanism:
 | the ~220ms debounce on the filter search (`S-09`) | every keystroke was a request to the server for names the page already had | none — the index is local, so the wait is pure lag |
 | one `scrollWidth`/`clientWidth` ratio, applied on a gated frame (`L-17`) | CSS cannot shrink text to fit | `UILabel.adjustsFontSizeToFitWidth`, Android `autoSizeTextType` |
 
-The right-hand column is the requirement. Where the platform does the job better than the
-web can — `A-03`'s gesture, `L-17`'s auto-shrink — matching the web is the floor, not the
-target. Where the platform's own idiom is *narrower* than the web's mechanism, the idiom
-is still the requirement: a native equivalent that no platform convention supports is a
-workaround in the other direction, and the row says which half of the behaviour survives
-rather than asking for all of it everywhere.
+The right-hand column is the requirement. Where the platform does better — `A-03`'s
+gesture, `L-17`'s auto-shrink — the web is the floor. Where the platform's idiom is
+narrower, the idiom still wins, and the row says which part of the behaviour survives.
 
-**What a row requires, and what it leaves to the client.** A row's requirement is its
-observable outcome and its data source: what a spectator can see or do, with which words,
-driven by which field. Unless the row says otherwise, these are the client's own choice:
+**What a row requires, and what it leaves to the client.** A row requires an observable
+outcome and its data source: what a spectator sees or does, in which words, driven by
+which field. Unless the row says otherwise, these are the client's choice:
 
 - **where** a control sits — which bar, the top or the bottom of the screen, a menu or a
   sheet;
@@ -128,8 +119,8 @@ driven by which field. Unless the row says otherwise, these are the client's own
 - sizes, spacing, type scale and the grouping of cells inside a row;
 - how the layout adapts to the window, within the 600-wide split the rows name.
 
-A client exercising that latitude is `done`, not `diverges`. A row that needs a
-placement or a format — `P-06` above the meets, `S-01`'s heading — says so in its text.
+Using that latitude is `done`, not `diverges`. A row that needs a placement or a format —
+`P-06` above the meets, `S-01`'s heading — says so.
 
 ---
 
@@ -142,21 +133,21 @@ where the user returns via `A-02`.
 | --- | --- | --- | --- |
 | `P-01` | List of meets as cards: name, date, location, sport | `GET /meets` ([`api.md`](api.md) §5.6) | must |
 | `P-02` | Per-meet picker image on the card, when the meet supplies one | `settings.picker_image_b64` → `GET /picker_image/{meet_id}` | should |
-| `P-03` | Offline meets stay listed, marked with a dimmed status dot. Opened, an offline meet shows its last scoreboard frame; its Results tab is empty (`R-02`) | `offline` = meet retained but no relay connected | must |
+| `P-03` | Offline meets stay listed with a dimmed dot; opened, one shows its last scoreboard frame and an empty Results tab (`R-02`) | `offline`: retained, no relay connected | must |
 | `P-04` | Empty state when no meets are active | `strings.no_meets` | must |
-| `P-05` | Picker branding: title, logo, logo above or below the title | `GET /picker/config` → `title`, `has_logo`, `logo_above`; image at `GET /picker_logo` — PNG, JPEG, GIF, WebP or SVG, read the response's `Content-Type` rather than assuming. Size it from its own aspect ratio: operators upload both wide banners and square badges, so fit it inside the list's content width with a height cap rather than a fixed box | should |
-| `P-06` | Unofficial-results disclaimer **above** the list, in full until the reader folds it with an X to a pill that opens it again | `GET /picker/config` → `strings.results_disclaimer`, pill `strings.results_disclaimer_short`, X label `strings.notice_collapse` | **must** — see note |
+| `P-05` | Picker branding: a title, and a logo above or below it, sized from its own aspect ratio within the list's width under a height cap | `GET /picker/config` → `title`, `has_logo`, `logo_above`; `GET /picker_logo` (PNG, JPEG, GIF, WebP or SVG — read `Content-Type`) | should |
+| `P-06` | Unofficial-results disclaimer **above** the meets, in full until folded to a pill that reopens it | `GET /picker/config` → `strings.results_disclaimer`, `results_disclaimer_short`, `notice_collapse` | **must** — see note |
 | `P-07` | Privacy note, shown whenever attendance counting is on for this server — beside `P-06`, folding the same way | `strings.privacy_note`, pill `strings.privacy_note_short`, gated on `analytics_enabled` | must |
 | `P-08` | Selecting a meet opens the app shell for it | `GET /meet/{id}/config` | must |
 | `P-09` | Pull-to-refresh re-fetches the meet list | — | should |
 | `P-10` | Install hand-off: store links to the native iOS/Android apps once they ship, Add-to-Home-Screen until then | — | web-only — see note |
-| `P-11` | Choose which server to connect to, from a list, in the picker's menu. The meet list always names the server in use; inside a meet it is named when it is not the default | `GET /servers` ([`api.md`](api.md) §5.11), each entry verified with `GET /server` | native-only — see note |
+| `P-11` | Choose the server from a list in the picker's menu. The meet list always names it; a meet names it when it is not the default | `GET /servers` ([`api.md`](api.md) §5.11), each checked with `GET /server` | native-only — see note |
 | `P-12` | Servers on the local network are offered without anyone typing an address | mDNS browse for `_splouch._tcp` (do not use `splouch.local`) | native-only — should |
 | `P-13` | A server can be added by hand, checked before it is saved | `GET /server` must answer | native-only — must |
-| `P-14` | A server whose contract versions differ from the app's gets a one-line notice naming both; the app **connects regardless** | `GET /server` → `contract.api`, `contract.app`, compared for equality with the versions the app was built against ([`api.md`](api.md) §5.10) | native-only — should |
-| `P-15` | The reader's Appearance — Dark, Light or Automatic — chosen in the picker's menu and holding everywhere: the picker, the shell and every tab of every meet. **Dark is the default**, and Automatic follows the device | the stored preference; the two palettes are the server's own — [`api.md`](api.md) §6.1 — never the meet's `settings.theme_colors` (`T-01`); menu words `strings.appearance`, `appearance_dark`, `appearance_light`, `appearance_auto` | should — see note |
-| `P-16` | A server can be added by scanning a QR code: the code opens the app, the app asks, and on a yes the server is added, selected, and the **meet list** is what the reader lands on. Without the app installed the same code lands on a web page offering the store | `https://<the app's default host>/add?server=<origin>`, percent-encoded; the host's `/.well-known/assetlinks.json` and `/.well-known/apple-app-site-association`, and its `GET /add` page ([`api.md`](api.md) §4, §5.7) | native-only — should |
-| `P-17` | Search the meet list, offered once the list holds **3 or more** meets, narrowing it as the spectator types, with its own empty state when nothing matches. The field goes where the platform puts search (§0.4) | matches locally over `GET /meets` fields `name`, `meet_date`, `location`, `sport`, `organizer`; placeholder `strings.meet_search`, empty state `strings.no_meets_match` from `GET /picker/config` | should — see note |
+| `P-14` | A server on other contract versions gets a one-line notice naming both; the app **connects regardless** | `GET /server` → `contract.api`, `contract.app` ([`api.md`](api.md) §5.10) | native-only — should |
+| `P-15` | The reader's Appearance — Dark (default), Light or Automatic — chosen in the picker's menu, holding on every screen of every meet | the stored preference; the server's two palettes ([`api.md`](api.md) §6.1), never `settings.theme_colors`; `strings.appearance`, `appearance_dark` / `_light` / `_auto` | should — see note |
+| `P-16` | Scanning a QR code adds a server: the app asks, and on a yes adds it, selects it and lands on the **meet list**. Without the app, the code's page offers the store | `https://<default host>/add?server=<origin>`; the host's two `/.well-known/` files and `GET /add` ([`api.md`](api.md) §4) | native-only — should |
+| `P-17` | Search the meet list, from **3** meets, narrowing as the reader types, with its own empty state; the field goes where the platform puts search | matched locally over `GET /meets` → `name`, `meet_date`, `location`, `sport`, `organizer`; `strings.meet_search`, `no_meets_match` | should — see note |
 
 > **`P-06` is not decoration.** It is the only thing between a live feed and a spectator
 > treating it as a result, so it sits on the meet list, never in an About screen, and
@@ -266,14 +257,14 @@ where the user returns via `A-02`.
 | --- | --- | --- | --- |
 | `A-01` | Three tabs — Scoreboard, Results, Schedule — each with icon and label | `mobile.scoreboard` / `.results` / `.schedule` | must |
 | `A-02` | Back affordance to the meet picker | label `mobile.back_to_meets` where the client draws its own; a platform back button labels itself | must |
-| `A-03` | Move between the tabs the platform's own way for peer sections — a tab bar everywhere, plus a horizontal swipe where swiping between peer sections is the platform's idiom | web: tab bar, and 28px edge strips, ≥40px travel, switched on `touchend` | must — see note |
+| `A-03` | Move between tabs the platform's way: a tab bar, plus a swipe where swiping is the platform's idiom | web: tab bar and 28px edge strips | must — see note |
 | `A-04` | The selected tab survives a relaunch | web: `sessionStorage['tab']` | should |
 | `A-05` | Pull-to-refresh re-fetches config and rejoins the sockets | web: 80px threshold, rotating indicator | should |
 | `A-06` | Content clears notch, Dynamic Island, and home indicator | web: `env(safe-area-inset-*)` | must (free natively) |
-| `A-07` | On a short window the tabs stop costing height — compacted, or moved beside the content — rather than taking the same band as on a tall one | the window's height; where the tabs go is the platform's (§0.4) | should |
+| `A-07` | On a short window the tabs stop costing height — compacted, or moved aside | the window's height; placement is the platform's (§0.4) | should |
 | `A-08` | Window and home-screen title is the meet's `app_window_title`, falling back to its `name` | `settings.app_window_title`, then `name`, then `Splouch` | web-only |
-| `A-09` | Meet gone mid-session → return to the picker | cloud: `GET /meet/{id}/config` answers **404**. Re-fetch it on every reconnect, foreground, pull-to-refresh (`A-05`) and `reload` (`C-08`); web: `GET /mobile` 303s to `/` on page load. Pi: n/a (§0.2) | must — see note |
-| `A-10` | Where `A-03` includes a swipe, the movement is visible: the tabs follow the finger through the drag and settle on release, rather than changing on release alone | — | should — see note; n/a where the platform has no swipe between tabs |
+| `A-09` | Meet gone mid-session → back to the picker | cloud: `GET /meet/{id}/config` answers **404**, checked on reconnect, foreground, `A-05` and `C-08`; web: `GET /mobile` 303s to `/`; Pi: n/a | must — see note |
+| `A-10` | Where `A-03` has a swipe, the tabs follow the finger and settle on release | — | should — n/a without a swipe |
 | `A-11` | A meet run with **no timing console** has no Results tab at all — not an empty one | `settings.console.timed` false (cloud: `GET /meet/{id}/config`; Pi: `GET /config`) | must — see note |
 
 > **`A-03` is the platform's navigation; `A-10` is the pager where there is one.**
@@ -328,11 +319,11 @@ Live lane state during a heat. The busiest screen and the one most worth getting
 | `L-08` | Column *headers* hide independently of the columns: `show_*_header` | meet `settings` | should |
 | `L-09` | Empty lanes render blank in place — rows never collapse or shift | — | must |
 | `L-10` | Frames are partial: merge changed keys into local state, never replace | `update_scoreboard` (§5.1) | must |
-| `L-11` | A running lane's time is styled distinctly; on stop it plays a one-shot "locked" transition, cancelled if the lane starts running again | `lane_running<i>` false-edge | **must** — it is what separates a live clock from a frozen split (`L-12`) |
-| `L-12` | Every running lane's time cell shows the **race clock**: one value for the heat, re-based by the server every couple of seconds and ticked by the device in between | `running_time` (throttled by the relay) + `lane_running<i>` + `meet_live` — see note | **must** |
-| `L-13` | Event or heat change blanks all times, deltas, and places — **unless** a lane was running on the previous frame, in which case the times stay on screen as results. The first event and heat seen after a connect are a baseline, not a change | `current_event` / `current_heat` change, compared as strings | must — see note |
+| `L-11` | A running lane's time is styled distinctly; on stop it plays a one-shot "locked" transition, cancelled if it runs again | `lane_running<i>` false-edge | **must** — it tells a live clock from a frozen split |
+| `L-12` | Every running lane shows the **race clock**: one value per heat, re-based by the server, ticked by the device | `running_time` + `lane_running<i>` + `meet_live` — see note | **must** |
+| `L-13` | An event or heat change blanks times, deltas and places — except after a running lane, and for the first heat after a connect | `current_event` / `current_heat`, compared as strings | must — see note |
 | `L-14` | Returning to the tab re-runs layout and refreshes the clock | web: parent re-dispatches `resize` | must (native: on-appear) |
-| `L-23` | While a lane is swimming the **delta cell** carries that lane's lengths — centred where the delta is a column, after the time where the row flows (`L-15`) — in the header's accent colour; the delta takes the cell back at the finish, in its better/worse colour. The column header never changes | `lane_splits<i>`, gated on meet `settings.show_laps`; direction from `settings.lap_direction` | should — see note |
+| `L-23` | While a lane swims, its **delta cell** shows its lengths in the header's accent colour; the delta takes the cell back at the finish. The header never changes | `lane_splits<i>`, gated on `settings.show_laps`; `settings.lap_direction` | should — see note |
 
 > **`L-23` — one cell, two tenants.** (Out of sequence: `L-15`–`L-22` were taken.) A lap
 > is not a result, so it gets no column and never borrows the place's — `#3` and `3` a
@@ -404,10 +395,10 @@ Live lane state during a heat. The busiest screen and the one most worth getting
 
 | ID | Feature | Driven by | Level |
 | --- | --- | --- | --- |
-| `L-15` | **Under 600 wide**: two-line row — lane number spanning left, name on line 1 with club right-aligned, time and delta and place on line 2; a place is prefixed `#`, and nothing is when there is no place | the window's width, at 600pt/dp/px | must |
-| `L-16` | **600 wide and up**: full table with a header row, row font scaled to the height each lane gets; on a short window the header row is the first thing dropped | the window's width, at 600pt/dp/px | should |
+| `L-15` | **Under 600 wide**: a two-line row — lane number spanning; name, club right; time, delta, place (`#`-prefixed, nothing when empty) | the window's width | must |
+| `L-16` | **600 wide and up**: the full table with a header row, type scaled to each lane's height; on a short window the header row goes first | the window's width | should |
 | `L-17` | Long names shrink to fit their cell, ellipsis only as a floor | — | must — see note |
-| `L-24` | When the lanes do not fit a board under 600 wide, give up, in this order: the EVENT/HEAT row moves into the top bar (short labels, no wall clock) → the relay line (`L-06`) is dropped → the row type shrinks, to no less than 0.72× → the board scrolls | measured row heights, never device constants | should — see note |
+| `L-24` | A crowded board under 600 wide gives up, in order: the header row to the top bar → the relay line → type down to 0.72× → scrolling | measured row heights | should — see note |
 
 > **`L-15` / `L-16` — width decides, not orientation.** The full table from **600**
 > points, dp or CSS px: on a phone that means landscape; on a tablet, either way up.
@@ -434,7 +425,7 @@ Live lane state during a heat. The busiest screen and the one most worth getting
 | `L-18` | Carousel / fullscreen image overlay | n/a — images are local to the Pi and are never relayed |
 | `L-19` | Podium highlight animation | n/a — Pi-local, `race_finished` is not forwarded |
 | `L-20` | Animated column show/hide, operator-driven | n/a — cloud columns are always visible |
-| `L-21` | Any timed hold on a state — the kiosk's 3s `brief_results` flash, its results pause, its leave-results debounce | n/a — still real on the kiosk, still deliberately absent here: the phone shows the last frame received and runs no clock that decides *what* is on screen, so a client joining mid-sequence cannot land out of step with the console. `L-12`'s clock only fills a cell; it gates no transition |
+| `L-21` | Any timed hold on a state — the kiosk's `brief_results` flash, its results pause and debounce | n/a — the phone shows the last frame received, so a late joiner cannot fall out of step; `L-12`'s clock gates no transition |
 | `L-22` | Independent per-lane clock, each lane timing its own length | n/a — the console has one race clock and the lanes mirror it; a lane's own figure exists only as its split, `lane_time<i>`. See `L-12` |
 
 ---
@@ -473,11 +464,11 @@ find *their* swimmer among several hundred.
 
 | ID | Feature | Driven by | Level |
 | --- | --- | --- | --- |
-| `S-01` | Every heat as a card, its heading on one line: the heat identifier `EV 12  HT 3` in the **short** labels, the event name beside it, the scheduled time trailing | `GET /meet/{id}/schedule` ([`api.md`](api.md) §5.8); Pi: `GET /schedule.json`, same body | must |
+| `S-01` | Every heat as a card, heading on one line: `EV 12  HT 3` in the **short** labels, the event name, the scheduled time trailing | `GET /meet/{id}/schedule` ([`api.md`](api.md) §5.8); Pi: `GET /schedule.json` | must |
 | `S-02` | Each card lists its lanes: lane number, name, club, seed time | `lanes[]` | must |
 | `S-03` | Relay entries show member first names joined by `·` | `lane.swimmers[].first`, falling back to `.name` | should |
 | `S-04` | Alternating card backgrounds, computed over *visible* cards so filtering keeps the stripe | — | should |
-| `S-05` | The heat the meet is on is highlighted in the list | `update_scoreboard.current_event`/`current_heat` **and** `results_snapshot.event`/`heat`, compared to the schedule's `event`/`heat` **as strings** — they are integers there ([`api.md`](api.md) §5.1) | must |
+| `S-05` | The current heat is highlighted | `update_scoreboard.current_event` / `current_heat` and `results_snapshot.event` / `heat`, compared **as strings** ([`api.md`](api.md) §5.1) | must |
 | `S-06` | The list auto-scrolls to the current heat once per appearance | re-armed on returning to the foreground | must |
 | `S-07` | Empty state when no meet file is loaded | `mobile.no_schedule` / `mobile.no_meet` | must |
 
@@ -580,7 +571,7 @@ wipes the results board (`R-02`).
 | ID | Feature | Driven by | Level |
 | --- | --- | --- | --- |
 | `C-01` | Three independent sockets: `/ws/scoreboard`, `/ws/results`, `/ws/schedule` | §2–3 of `api.md` | must |
-| `C-02` | `join_meet {meet_id, vid}` on **every** connect, including every reconnect — **gated on `kind == "cloud"`** from `GET /server`. A Pi pushes on connect and ignores the frame, so nothing is sent there | `GET /server` → `kind` | must |
+| `C-02` | `join_meet {meet_id, vid}` on **every** connect and reconnect — cloud only; a Pi pushes on connect | `GET /server` → `kind` | must |
 | `C-03` | Automatic reconnect, capped exponential backoff (web: 500ms → 5s) | — | must |
 | `C-04` | Heartbeat `ping` every 15s; no inbound frame for 35s means dead — close and reconnect | server replies `pong` | must |
 | `C-05` | On foreground or network-restored: probe with a `ping`; no `pong` within ~4s means dead | — | **must** |
@@ -588,7 +579,7 @@ wipes the results board (`R-02`).
 | `C-07` | Unknown events are ignored, not treated as errors | — | must |
 | `C-08` | `reload` → re-fetch config and redraw (web: full page reload) | — | must |
 | `C-09` | `meet_live` gates live affordances; a `disconnect` implies `meet_live = false` | — | must |
-| `C-10` | Anonymous per-install, **per-server** id (`vid`) sent with `join_meet` | random UUID, created the first time a `join_meet` goes to that server and stored once, keyed by normalised scheme, host and port | must — see note |
+| `C-10` | Anonymous **per-server** id (`vid`) sent with `join_meet` | a random UUID per normalised origin, created on first use | must — see note |
 
 > **`C-05` is the one that bites phones.** iOS and Android freeze background sockets
 > without a close, so backoff never starts and the board sits frozen after a screen lock.
@@ -610,7 +601,7 @@ every colour, face and word it draws on the board comes from the server.
 
 | ID | Feature | Driven by | Level |
 | --- | --- | --- | --- |
-| `T-01` | The board's palette — `bg`, `header_bg`, `header_border`, `header_label`, `header_value`, `th_text`, `th_bg`, `row_odd`, `row_even`, `row_text`, `time`, `delta_better`, `delta_worse` — is one of the server's two, chosen by the reader's Appearance (`P-15`); a meet's own `theme_colors` reach the kiosk and the Qt display, not a phone | [`api.md`](api.md) §6.1, copied key for key | must |
+| `T-01` | The board's palette — `bg`, `header_*`, `th_*`, `row_*`, `time`, `delta_*` — is one of the server's two, chosen by `P-15`; a meet's `theme_colors` reach the kiosk and the Qt display only | [`api.md`](api.md) §6.1, key for key | must |
 | `T-02` | The schedule's colours — `schedule_event`, `schedule_time`, `schedule_name`, `schedule_club` — from the same palette as `T-01` | [`api.md`](api.md) §6.1 | should |
 | `T-03` | Three font roles — `family` (text), `digits` (clock), `timing` (times and deltas) | `settings.theme_fonts` | must |
 | `T-04` | Column headers and header labels are the server's words, never the app's | `settings.labels` for the default; `GET /i18n/{lang}` → `labels` when the user has chosen | must — see note |
@@ -618,7 +609,7 @@ every colour, face and word it draws on the board comes from the server.
 | `T-06` | Language defaults to the **meet's** locale and the user may override it | `settings.locale`, then the stored preference | must |
 | `T-07` | Missing theme keys fall back to the defaults rather than rendering unstyled | the two palettes and the default faces in [`api.md`](api.md) §6.1 | must |
 | `T-08` | A language control, per device, applying to every meet opened afterwards | `GET /locales` for the list | should — see note |
-| `T-09` | The board's EVENT and HEAT headers read **long** on every client; a client may offer a short/long control over those two only, per device, starting from long | the stored preference; the words themselves from `GET /i18n/{lang}` → `labels` | should — see note |
+| `T-09` | The board's EVENT and HEAT read **long** on every client; an optional per-device control may switch those two only | the stored preference; words from `GET /i18n/{lang}` → `labels` | should — see note |
 | `T-10` | A built-in snapshot of the strings is the floor: compiled into the app, refreshed from the server, cached to disk | — | must — see note |
 | `T-11` | The event name follows the chosen language, composed from parts the server sends | `update_scoreboard.event_name_parts` + `GET /i18n/{lang}` → `event_name`; falls back to `event_name` | should — see note |
 
@@ -696,14 +687,14 @@ not a level here.
 
 | ID | Feature | Driven by | Level |
 | --- | --- | --- | --- |
-| `X-01` | A lane on the board is **one** accessibility element saying the whole lane, in the server's column words — `LN 1, <name>, CLUB <club>, TIME <time>, DIFF <delta>, PL <place>`; an empty lane says only its number | `settings.labels` / `GET /i18n/{lang}` → `labels` (`T-04`) | must |
+| `X-01` | A board lane is **one** accessibility element saying the whole lane in the server's column words; an empty lane says only its number | `labels` (`T-04`) | must |
 | `X-02` | The EVENT and HEAT words and their numbers read as one each, and say nothing before a number arrives | — | must |
 | `X-03` | A start-list lane is one utterance in the same words, seed time included; a heat's heading is one utterance in the **long** words (`S-01`) | `labels` | should |
 | `X-04` | Heat headings, the picker's title and every empty-state title are headings, so the reader can jump heat to heat | — | should |
 | `X-05` | Every tappable target is at least the platform's minimum — 44pt on iOS, 48dp on Android, 44px on the web — the filter chip's × included, without growing the chip | — | must |
 | `X-06` | In a list of choices — server, language, Appearance — the current one is announced as selected, not only marked with a glyph | — | must |
 | `X-07` | Decorative glyphs beside text that already says the same thing are hidden; anything laid out only to be measured never reaches the accessibility tree | — | should |
-| `X-08` | Everything off the board follows the device's text size. The board sizes itself from the height it has (`L-16`, `L-24`) and does not scale a second time. **On the web** the reader's text size is the browser's zoom: at 200%, and at a 320px-wide window, nothing is cut off and nothing scrolls sideways | native: the platform's text-size setting; web: browser zoom (WCAG 1.4.4, 1.4.10) | should |
+| `X-08` | Text off the board follows the device's text size; the board sizes from its height and does not scale twice. On the web: at 200% zoom and 320px wide, nothing is cut and nothing scrolls sideways | native: the text-size setting; web: browser zoom (WCAG 1.4.4, 1.4.10) | should |
 | `X-09` | Decorative motion — the picker's live dot — honours the reduce-motion setting. `L-11`'s lock flash and `L-12`'s pulse are information, not decoration, and may keep running | — | should |
 | `X-10` | When a control replaces itself — `P-06`'s X folding to a pill, the pill opening again — focus moves to its replacement | — | should |
 
