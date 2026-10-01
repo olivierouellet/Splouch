@@ -30,7 +30,7 @@ PER_LINE = 16
 def to_hex(data: bytes, per_line: int = PER_LINE) -> str:
     """The byte stream as the `.raw` files spell it: lower-case hex, space-separated.
 
-    `worker._play_cts_file` reads a `.raw` with a regex that takes any run of two
+    `worker._play_recording` reads a `.raw` with a regex that takes any run of two
     hex digits and ignores everything else, so the line width and the spacing are
     for the reader, not the parser.
     """

@@ -152,8 +152,8 @@ var document = {{
     }}
 }};
 {body}
-_renderSessions([{{name: 'a.cts', source: 'builtin'}},
-                 {{name: 'b.cts', source: 'custom'}}], false);
+_renderSessions([{{name: 'a.serial', source: 'builtin'}},
+                 {{name: 'b.serial', source: 'custom'}}], false);
 __html
 """
     with tempfile.NamedTemporaryFile(

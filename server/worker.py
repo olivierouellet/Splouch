@@ -89,7 +89,7 @@ def forget_current_heat():
 def use_replay_decoder():
     """Lend the replay a decoder that can actually read it. Returns the key, or ''.
 
-    A recording is a capture of a wire, and `_play_cts_file` feeds its bytes to
+    A recording is a capture of a wire, and `_play_recording` feeds its bytes to
     whatever `state._decoder` happens to be. A console with no wire has a decoder to
     match — `ManualDecoder.feed` returns `{}` and `is_packet_start` is always False —
     so every byte of the recording decoded to nothing: no `event_changed`, no names,
@@ -226,7 +226,7 @@ def _list_sessions():
         (state.SESSIONS_FOLDER, "builtin"),
         (state.CUSTOM_SESSIONS_FOLDER, "custom"),
     ]:
-        for ext in ("*.cts", "*.raw"):
+        for ext in ("*.serial", "*.raw"):
             result.extend(
                 {"name": os.path.basename(path), "source": source, "path": path}
                 for path in sorted(glob.glob(os.path.join(folder, ext)))
@@ -612,8 +612,8 @@ def _ingest_byte(c, buf):
     return buf
 
 
-def _play_cts_file(session_file, my_gen):
-    """Play a timestamped or looping .cts/.raw session file."""
+def _play_recording(session_file, my_gen):
+    """Play a timestamped or looping .serial/.raw session file."""
     with open(session_file, encoding="utf-8") as f:
         text = f.read()
     has_timestamps = bool(re.search(r"\[[0-9.]+\]", text))
@@ -627,7 +627,7 @@ def _play_cts_file(session_file, my_gen):
                 break
             if d.group(1):
                 ts = float(d.group(1))
-                # Dispatch the line just read before pacing to this one. A `.cts`
+                # Dispatch the line just read before pacing to this one. A `.serial`
                 # line is exactly one packet, so it is complete the moment the next
                 # timestamp appears — and this runs *before* the sleep below, so it
                 # lands at its own timestamp rather than this one.
@@ -665,7 +665,7 @@ def _play_cts_file(session_file, my_gen):
 
 def _run_test_session(session_file, my_gen):
     """Play a recorded session file, then emit cleanup events if it finishes naturally."""
-    _play_cts_file(session_file, my_gen)
+    _play_recording(session_file, my_gen)
 
     if state._worker_gen != my_gen:  # superseded — the new worker owns cleanup
         return

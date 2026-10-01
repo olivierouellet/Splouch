@@ -313,10 +313,10 @@ def route_test_record_start(body: NameBody):
     if state._record_handle:
         state._record_handle.close()
     code = re.sub(r"[^a-z0-9_-]", "_", body.name.strip().lower()) or "recording"
-    path = os.path.join(state.CUSTOM_SESSIONS_FOLDER, code + ".cts")
+    path = os.path.join(state.CUSTOM_SESSIONS_FOLDER, code + ".serial")
     # Held open across requests until /test_record_stop, so no `with`.
     state._record_handle = open(path, "w", encoding="utf-8")  # noqa: SIM115
-    return {"ok": True, "file": code + ".cts"}
+    return {"ok": True, "file": code + ".serial"}
 
 
 @router.post(
@@ -343,13 +343,13 @@ def route_test_session_delete(body: NameBody):
 
 # The recording formats a session upload takes. `settings.html` puts the same list in
 # the file dialog's `accept`, and a test pins the two together: they disagreed, so the
-# dialog offered only .cts while the server stored more than that.
+# dialog offered only one format while the server stored more than that.
 #
 # `.cap` was a third, and is gone: it was the same bytes as a `.raw`, in binary rather
 # than hex, so every capture appeared twice in the operator's session list as two rows
 # that played identically. Convert one with
 # `server/console_recordings/cap-to-raw.py` — see that folder's README.
-SESSION_UPLOAD_EXTS = (".cts", ".raw")
+SESSION_UPLOAD_EXTS = (".serial", ".raw")
 
 
 @router.post(

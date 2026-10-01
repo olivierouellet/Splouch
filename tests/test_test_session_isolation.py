@@ -47,7 +47,7 @@ RECORDINGS = os.path.join(REPO, "server", "console_recordings")
 # A built-in recording that ships with a companion .lxf beside it. The companion
 # holds event 1; the file standing in for the operator's own meet below holds
 # event 3, so "which meet is loaded" is a question the assertions can actually ask.
-SESSION = "50m_sprint.cts"
+SESSION = "50m_sprint.serial"
 COMPANION = "50m_sprint.lxf"
 COMPANION_EVENT = 1
 REAL_MEET = "200m_medley_2heats.lxf"
@@ -226,7 +226,7 @@ def test_an_uploaded_test_meet_lands_outside_the_meet_folder(rig):
     with open(os.path.join(RECORDINGS, COMPANION), "rb") as f:
         upload = UploadFile(file=io.BytesIO(f.read()), filename="improvised.lxf")
 
-    state._test_session = "anything.cts"
+    state._test_session = "anything.serial"
     out = debug._test_meet_upload(upload)
 
     assert out["ok"] is True, out
@@ -558,7 +558,7 @@ def _announcement_packets(name):
     """The packets of a recording, up to and including its event announcement."""
     import re
 
-    path = os.path.join(RECORDINGS, name + ".cts")
+    path = os.path.join(RECORDINGS, name + ".serial")
     packets, packet = [], []
     for match in re.finditer(
         r"\[[0-9.]+\]\s*|([0-9a-fA-F]{2})", Path(path).read_text(encoding="utf-8")

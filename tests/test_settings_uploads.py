@@ -79,7 +79,7 @@ def sessions_dir(monkeypatch, tmp_path):
 # ── The session upload route ───────────────────────────────────────────────────
 
 
-@pytest.mark.parametrize("name", ["rec.cts", "rec.raw", "REC.CTS"])
+@pytest.mark.parametrize("name", ["rec.serial", "rec.raw", "REC.SERIAL"])
 def test_every_recording_format_is_stored(sessions_dir, name):
     """Upper case too: the check used to be `endswith`, so `.CTS` was dropped."""
     out = asyncio.run(
@@ -161,7 +161,7 @@ def test_the_filename_listener_survives_a_picker_with_no_message_span(src):
       var msg = hasMsg ? { textContent: '', style: {} } : null;
       var picker = { querySelector: function (s) { return s === '.file-msg' ? msg : null; } };
       var hs = [];
-      return { files: [{ name: 'rec.cts' }], closest: function () { return picker; },
+      return { files: [{ name: 'rec.serial' }], closest: function () { return picker; },
                addEventListener: function (e, fn) { hs.push(fn); },
                fire: function () { var s = this; hs.forEach(function (h) { h.call(s); }); } };
     }

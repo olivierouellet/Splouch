@@ -26,11 +26,11 @@ setting and the file have to agree. Two consequences:
 
 | | Contents | Timestamps | Playback |
 | --- | --- | --- | --- |
-| `.cts` | hex text, one packet per line, each prefixed `[unix_time]` | **yes** | real time, **once** |
+| `.serial` | hex text, one packet per line, each prefixed `[unix_time]` | **yes** | real time, **once** |
 | `.raw` | hex text, no line structure and no timestamps | no | ~720 bytes/s, **looped** |
 
-A `.cts` carries the console's own timing and plays through once, which is what
-makes it usable as a fixture. A `.raw` carries none, so `worker._play_cts_file`
+A `.serial` carries the console's own timing and plays through once, which is what
+makes it usable as a fixture. A `.raw` carries none, so `worker._play_recording`
 paces it artificially and loops it until stopped.
 
 ### What happened to `.cap`
@@ -55,10 +55,10 @@ way, if it is ever needed, is `xxd -r -p session.raw > session.cap`.
 
 | File | Event | Heats | Lanes | Splits | Start list | Source |
 | --- | --- | --- | --- | --- | --- | --- |
-| `50m_sprint.cts` | 1 · 50m Freestyle | 1 | 8 | — | 8s | authored |
-| `50m_sprint_2heats.cts` | 1 · 50m Freestyle | 2 | 8 | — | 8s | authored |
-| `100m_freestyle.cts` | 2 · 100m Freestyle | 1 | 6 | 50m | **11s** | authored |
-| `200m_medley_2heats.cts` | 3 · 200m Medley | 2 | 8 | 50m, 100m, 150m | 8s | authored |
+| `50m_sprint.serial` | 1 · 50m Freestyle | 1 | 8 | — | 8s | authored |
+| `50m_sprint_2heats.serial` | 1 · 50m Freestyle | 2 | 8 | — | 8s | authored |
+| `100m_freestyle.serial` | 2 · 100m Freestyle | 1 | 6 | 50m | **11s** | authored |
+| `200m_medley_2heats.serial` | 3 · 200m Medley | 2 | 8 | 50m, 100m, 150m | 8s | authored |
 | `real_console6.raw` | 1 · 50m Freestyle | 1 | 8 | — | — | captured, no finish |
 
 **Course.** All four authored races are long course, and the splits are what say

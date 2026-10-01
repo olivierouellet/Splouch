@@ -25,10 +25,10 @@ RECORDINGS = os.path.join(REPO, "server", "console_recordings")
 # The CTS recordings with a finished heat in them — the authored ones. The captured
 # `.raw` never reaches a finish, so it has nothing to say here.
 WITH_A_RACE = [
-    "50m_sprint.cts",
-    "100m_freestyle.cts",
-    "200m_medley_2heats.cts",
-    "50m_sprint_2heats.cts",
+    "50m_sprint.serial",
+    "100m_freestyle.serial",
+    "200m_medley_2heats.serial",
+    "50m_sprint_2heats.serial",
 ]
 
 
@@ -92,7 +92,7 @@ def test_the_console_keeps_its_clock_running_after_the_heat(name, monkeypatch):
 
 def test_the_recordings_are_actually_being_decoded(monkeypatch):
     """A guard against this file passing because the replay produced nothing."""
-    frames = _replay("50m_sprint.cts", monkeypatch)
+    frames = _replay("50m_sprint.serial", monkeypatch)
     assert len(frames) > 100, f"only {len(frames)} frames — the framing is wrong"
     assert any("lane_time1" in f for f in frames), "no lane times were decoded"
     assert any(f.get("current_event") for f in frames), "no event was decoded"

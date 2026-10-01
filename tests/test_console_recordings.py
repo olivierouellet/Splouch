@@ -85,7 +85,7 @@ HOLD = 3.0  # seconds a split stays on the display
 def _packets(name):
     """[(timestamp, [bytes])] for one recording."""
     out = []
-    path = os.path.join(RECORDINGS, name + ".cts")
+    path = os.path.join(RECORDINGS, name + ".serial")
     for line in Path(path).read_text(encoding="utf-8").splitlines():
         match = re.match(r"\[([0-9.]+)\]\s*(.*)", line.strip())
         if match:
@@ -246,7 +246,7 @@ def test_the_meet_file_states_the_distance_and_the_course(name):
 
 @pytest.mark.parametrize("name", sorted(AUTHORED))
 def test_the_distance_agrees_with_the_splits_the_recording_carries(name):
-    """The one check that ties the `.lxf` to the `.cts` beside it.
+    """The one check that ties the `.lxf` to the `.serial` beside it.
 
     A race of *n* lengths is touched *n-1* times before the finish, so the splits in
     the packets and the distance in the meet file are two statements of the same
@@ -449,7 +449,7 @@ def test_every_listed_session_is_a_format_we_still_play():
     import worker
 
     for session in worker._list_sessions():
-        assert session["name"].endswith((".cts", ".raw")), session["name"]
+        assert session["name"].endswith((".serial", ".raw")), session["name"]
 
 
 def test_a_capture_appears_once_in_the_list():
@@ -612,7 +612,7 @@ def test_the_start_list_is_on_screen_before_anyone_swims(name):
 # in the buffer for the entire pre-race window, and the board showed no event and no
 # names until the first lane went active.
 #
-# Driven through `worker._play_cts_file` itself, on a clock that only moves when the
+# Driven through `worker._play_recording` itself, on a clock that only moves when the
 # player sleeps. An earlier version of this check fed the bytes by hand and missed
 # the bug twice: once by ignoring the timestamps, once by stamping them in the wrong
 # order. The player is the thing under test, so the player is what runs.
@@ -671,7 +671,7 @@ def played(monkeypatch):
         )
         state.set_lenex(load_lenex(os.path.join(RECORDINGS, name + ".lxf")))
 
-        worker._play_cts_file(os.path.join(RECORDINGS, name + ".cts"), 1)
+        worker._play_recording(os.path.join(RECORDINGS, name + ".serial"), 1)
         base = frames[0][0] if frames else 0.0
         return [(round(t - base, 2), f) for t, f in frames]
 

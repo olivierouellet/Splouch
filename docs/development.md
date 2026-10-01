@@ -11,7 +11,7 @@ uv run --with pytest pytest tests/
 The server runs from `server/` (its working directory), so its flat modules import each
 other by bare name. `static/` and `locales/` live in the sibling `shared/` dir (shared
 with the cloud relay); `themes/` and bundled `console_recordings/` stay under `server/`
-(what is in them, and how `.cts` and `.raw` differ: [`server/console_recordings/README.md`](../server/console_recordings/README.md)).
+(what is in them, and how `.serial` and `.raw` differ: [`server/console_recordings/README.md`](../server/console_recordings/README.md)).
 
 Three of those modules have one direction of travel between them, and
 `tests/test_module_boundaries.py` fails if that is ever reversed:
@@ -32,7 +32,7 @@ duplicate copy (see [`notes/cloud_parity.md`](../notes/cloud_parity.md)).
 
 ## Testing with a live console
 
-Upload a recorded `.cts` or `.raw` session via the **Test** tab in the admin UI to replay timing data without a live console.
+Upload a recorded `.serial` or `.raw` session via the **Test** tab in the admin UI to replay timing data without a live console.
 
 ## Testing with swimmer names
 
