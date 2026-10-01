@@ -267,7 +267,7 @@ def test_the_tab_bar_is_not_numbered_three(monkeypatch):
     """The swipe, the restore and the buttons all read how many tabs there are."""
     html = _shell("server/templates", show_results=False)
     assert "frames.length - 1" in html
-    assert "Math.min(current + 1, last)" in html
+    assert "if (n >= 0 && n <= last)" in html  # the swipe's neighbour
 
 
 def test_the_selected_tab_is_remembered_by_name(monkeypatch):

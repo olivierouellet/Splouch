@@ -73,6 +73,9 @@
             border: none; display: none;
         }
         iframe.active { display: block; }
+        /* `A-10`: the tab beside the current one, drawn while a swipe drags it in. */
+        iframe.peek   { display: block; }
+        iframe.settling { transition: transform 0.25s ease-out; }
 
         nav {
             position: fixed; bottom: 0; left: 0; right: 0;
@@ -247,20 +250,79 @@
             }
         })();
 
-        // ── Swipe between tabs ────────────────────────────────────────────────
-        let swipeStartX = null;
-        function onTouchStart(e) { swipeStartX = e.touches[0].clientX; }
+        // ── Swipe between tabs (app.md `A-03`, `A-10`) ───────────────────────
+        // Only from the edge strips: a touch inside a tab belongs to that tab's own
+        // document — the schedule's scroll, a tap on a lane — and the shell never
+        // sees it. From a strip, the current tab follows the finger and its
+        // neighbour slides in beside it; on release it either settles on the
+        // neighbour or springs back. Past the first or last tab there is no
+        // neighbour, and the drag only gives a little before springing back.
+        const SWIPE_MIN   = 40;     // px — less than this is never a switch
+        const SWIPE_SHARE = 0.25;   // of the width, to commit on a slow drag
+        const SWIPE_FLICK = 0.5;    // px/ms — a flick commits from SWIPE_MIN
+        const reducedMotion = window.matchMedia &&
+                              window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        let drag = null;
+
+        function place(frame, x) { frame.style.transform = x ? `translateX(${x}px)` : ''; }
+
+        function onTouchStart(e) {
+            const t = e.touches[0];
+            drag = { x0: t.clientX, y0: t.clientY, t0: e.timeStamp, dx: 0,
+                     live: false, next: null };
+        }
+        function onTouchMove(e) {
+            if (!drag) return;
+            const t  = e.touches[0];
+            const dx = t.clientX - drag.x0, dy = t.clientY - drag.y0;
+            if (!drag.live) {
+                // A drag that starts mostly vertical is not ours.
+                if (Math.abs(dx) < 6 || Math.abs(dy) > Math.abs(dx)) return;
+                drag.live = true;
+                const n = dx < 0 ? current + 1 : current - 1;
+                if (n >= 0 && n <= last) {
+                    drag.next = n;
+                    frames[n].classList.add('peek');
+                    // A hidden frame has not laid out since it was hidden.
+                    try { frames[n].contentWindow.dispatchEvent(new Event('resize')); } catch(e) {}
+                }
+            }
+            const w = window.innerWidth;
+            // No neighbour that way: resist, rather than slide into nothing.
+            drag.dx = drag.next === null ? dx * 0.25 : Math.max(-w, Math.min(w, dx));
+            if (reducedMotion) return;
+            place(frames[current], drag.dx);
+            if (drag.next !== null) place(frames[drag.next], drag.dx + (drag.next > current ? w : -w));
+        }
+        function settle(commit) {
+            const d = drag; drag = null;
+            if (!d || !d.live) return;
+            const w = window.innerWidth;
+            const from = frames[current], to = d.next === null ? null : frames[d.next];
+            const done = () => {
+                [from, to].forEach(f => { if (f) { f.classList.remove('settling', 'peek'); place(f, 0); } });
+                if (commit) show(d.next);
+            };
+            if (reducedMotion) { done(); return; }
+            [from, to].forEach(f => { if (f) f.classList.add('settling'); });
+            const sign = to && d.next > current ? -1 : 1;
+            place(from, commit ? sign * w : 0);
+            if (to) place(to, commit ? 0 : -sign * w);
+            setTimeout(done, 260);
+        }
         function onTouchEnd(e) {
-            if (swipeStartX === null) return;
-            const dx = e.changedTouches[0].clientX - swipeStartX;
-            swipeStartX = null;
-            if (Math.abs(dx) < 40) return;
-            show(dx < 0 ? Math.min(current + 1, last) : Math.max(current - 1, 0));
+            if (!drag) return;
+            const ms   = Math.max(1, e.timeStamp - drag.t0);
+            const dist = Math.abs(drag.dx);
+            settle(drag.next !== null && dist >= SWIPE_MIN &&
+                   (dist >= window.innerWidth * SWIPE_SHARE || dist / ms >= SWIPE_FLICK));
         }
         ['edgeL','edgeR'].forEach(id => {
             const el = document.getElementById(id);
-            el.addEventListener('touchstart', onTouchStart, { passive: true });
-            el.addEventListener('touchend',   onTouchEnd,   { passive: true });
+            el.addEventListener('touchstart',  onTouchStart, { passive: true });
+            el.addEventListener('touchmove',   onTouchMove,  { passive: true });
+            el.addEventListener('touchend',    onTouchEnd,   { passive: true });
+            el.addEventListener('touchcancel', () => settle(false), { passive: true });
         });
 
         // ── Pull to refresh ───────────────────────────────────────────────────

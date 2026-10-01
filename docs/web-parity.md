@@ -49,7 +49,7 @@ from; the `diverges` rows are where v2 moved past them.
 | `A-07` | `done` | `mobile.html`: a narrow window (≤480px) stacks each label under its icon, a short one (≤480px tall) drops the labels |
 | `A-08` | `done` | |
 | `A-09` | `done` | `GET /mobile` 303s to `/` |
-| `A-10` | `deferred` | the edge-strip swipe changes tab on `touchend`; nothing follows the finger |
+| `A-10` | `done` | from the edge strips the current tab follows the finger and its neighbour slides in; a quarter of the width or a flick settles on it, less springs back, nothing past the first or last tab. Reduced motion switches without the slide. `tests/test_shell_swipe.py` |
 | `A-11` | `done` | `show_results` in `mobile.html` |
 
 ## 3. Scoreboard tab
