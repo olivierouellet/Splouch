@@ -77,7 +77,7 @@ def test_the_title_input_is_in_the_splash_form():
 
 def test_the_title_is_the_first_field_of_the_splash_card():
     splash = _form_body("splash-settings-form")
-    assert splash.index('name="meet_title"') < splash.index("t.disp_splash_screen")
+    assert splash.index('name="meet_title"') < splash.index("t.disp_images")
 
 
 def test_the_title_auto_submits_like_the_rest_of_that_card():

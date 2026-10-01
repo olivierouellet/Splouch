@@ -2,6 +2,7 @@
                 <div class="row"><div class="col-lg-8"><form id="display-settings-form" action="/settings" method="POST" enctype="multipart/form-data">
                     <input type="hidden" name="display_settings_submit" value="1">
                     <div class="card"><div class="card-body">
+                        <div class="panel-title">{{ t.disp_scoreboard }}</div>
                         <div class="mb-3">
                             <label for="locale" class="form-label">{{ t.disp_scoreboard_language }}</label>
                             <select id="locale" name="locale" class="form-select form-select-sm mb-1" style="max-width:220px;">
@@ -65,6 +66,7 @@
                 <form id="splash-settings-form" action="/settings" method="POST" enctype="multipart/form-data" class="mt-3">
                     <input type="hidden" name="splash_settings_submit" value="1">
                     <div class="card"><div class="card-body">
+                        <div class="panel-title">{{ t.disp_splash_screen }}</div>
                         <div class="mb-3">
                             {# The title heads the splash screen on the TV display, so it
                                belongs with the splash settings rather than the column ones.
@@ -77,7 +79,7 @@
                         </div>
                         <hr>
                         <div class="mb-3">
-                            <label class="form-label">{{ t.disp_splash_screen }}</label>
+                            <label class="form-label">{{ t.disp_images }}</label>
                             <select name="splash_url" class="form-select form-select-sm mb-1" onchange="_fsubmit(this.form)">
                                 <option value="" {% if not splash_url %}selected{% endif %}>{{ t.disp_none }}</option>
                                 {% for url in splash_url_list %}
