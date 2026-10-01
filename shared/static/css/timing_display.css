@@ -398,23 +398,17 @@ table.timing-table tbody td:first-child,
 
 /* ── Display toggles ─────────────────────────────────────────────────────── */
 
-.timing-table.hide-lane-header .lane-column {
-    visibility: hidden;
-}
-.timing-table.hide-name-header #name-column {
-    visibility: hidden;
-}
-.timing-table.hide-club-header .club-column {
-    visibility: hidden;
-}
-.timing-table.hide-time-header #time-column {
-    visibility: hidden;
-}
-.timing-table.hide-delta-header #delta-column {
-    visibility: hidden;
-}
+/* A hidden column title keeps its cell and loses only its word. The grey behind
+   the titles is the row's (`.timing-header`), and a browser paints a row's
+   background inside each cell — so `visibility: hidden` took the grey with it and
+   left a black hole in the band, which is what `show_laps` always does to Δ. */
+.timing-table.hide-lane-header .lane-column,
+.timing-table.hide-name-header #name-column,
+.timing-table.hide-club-header .club-column,
+.timing-table.hide-time-header #time-column,
+.timing-table.hide-delta-header #delta-column,
 .timing-table.hide-position-header #place-column {
-    visibility: hidden;
+    color: transparent;
 }
 
 .timing-table.hide-name #name-column,
