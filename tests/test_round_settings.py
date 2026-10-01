@@ -60,6 +60,17 @@ def test_a_missing_setting_shows_every_round(final_meet, monkeypatch):
     assert get_event_name_parts(3)["round"] == "final"
 
 
+@pytest.fixture(autouse=True)
+def _restore_settings():
+    """A Display-form post clears every `show_*` box it does not carry — on the
+    shared `state.settings`. Put them back, or `show_podium` stays off for every
+    test after this file (the Qt podium colour test, in CI's order)."""
+    saved = dict(state.settings)
+    yield
+    state.settings.clear()
+    state.settings.update(saved)
+
+
 def _post(form, monkeypatch):
     emitted = []
     monkeypatch.setattr(
