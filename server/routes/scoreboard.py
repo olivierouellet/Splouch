@@ -17,9 +17,18 @@ def route_config():
     return display_config()
 
 
+# What a phone's browser puts in its user agent. `/live` is the TV board — rows
+# sized from the screen's height, columns from its width — and on a phone held
+# upright it clips everything but the names. iPadOS Safari reports a Mac and so
+# still lands on `/live`, which a tablet's proportions can carry.
+_PHONE_UA = ("iPhone", "iPod", "Android", "Mobi")
+
+
 @router.get("/")
-def route_index():
-    return redirect("/live")
+def route_index(request: Request):
+    """`splouch.local` typed anywhere: the phone shell on a phone, else the board."""
+    ua = request.headers.get("user-agent", "")
+    return redirect("/mobile" if any(k in ua for k in _PHONE_UA) else "/live")
 
 
 @router.get("/live")
