@@ -410,6 +410,7 @@ function _loadTestStatus() {
             btn.className = _recording ? 'btn btn-danger btn-sm' : 'btn btn-secondary btn-sm';
             btn.disabled = d.playing;
             document.getElementById('test-record-name').disabled = d.playing;
+            document.getElementById('test-record-format').disabled = d.playing || _recording;
             document.getElementById('test-record-status').textContent = _recording
                 ? '● Recording'
                 : '';
@@ -639,7 +640,10 @@ function testRecordToggle() {
         fetch('/test_record_start', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name: name }),
+            body: JSON.stringify({
+                name: name,
+                format: document.getElementById('test-record-format').value,
+            }),
         }).then(function () {
             _loadTestStatus();
         });

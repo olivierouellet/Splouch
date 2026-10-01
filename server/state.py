@@ -397,6 +397,10 @@ _results_prev_race_finished: bool = False
 _worker_gen: int = 0
 _test_session: str | None = None
 _record_handle: TextIO | None = None
+# True while recording a `.raw` (bytes as read) rather than a `.serial` (packets as
+# decoded); the count is how many bytes it holds, which places its line breaks.
+_record_raw: bool = False
+_record_raw_count: int = 0
 _debug_serial: bool = False
 _serial_status = {"state": "idle", "msg": ""}
 # Invalidation token for the finish/reset debounce. Bumped by the worker on every

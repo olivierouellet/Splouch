@@ -32,7 +32,7 @@ duplicate copy (see [`notes/cloud_parity.md`](../notes/cloud_parity.md)).
 
 ## Testing with a live console
 
-Upload a recorded `.serial` or `.raw` session via the **Test** tab in the admin UI to replay timing data without a live console.
+Upload a recorded `.serial` or `.raw` session via the **Test** tab in the admin UI to replay timing data without a live console. To make one, see [Recording a session](admin.md#recording-a-session).
 
 ## Testing with swimmer names
 

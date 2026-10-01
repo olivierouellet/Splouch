@@ -33,6 +33,10 @@ A `.serial` carries the console's own timing and plays through once, which is wh
 makes it usable as a fixture. A `.raw` carries none, so `worker._play_recording`
 paces it artificially and loops it until stopped.
 
+Test → Record writes either one: `.serial` from the packets the decoder splits,
+`.raw` from the bytes ahead of it (`worker._record_raw_byte`). How to make one, with
+Splouch or with PuTTY, is in [docs/admin.md](../../docs/admin.md#recording-a-session).
+
 ### What happened to `.cap`
 
 A third format used to be listed: the same bytes as a `.raw`, binary rather than

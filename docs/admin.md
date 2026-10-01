@@ -173,6 +173,52 @@ when the heat is readied, so a board told to forget would show no event and no n
 until somebody readied the next one. Running a test session mid-meet therefore costs
 you nothing on either console.
 
+### Recording a session
+
+A recording is a console's serial output saved to a file the Test tab can replay.
+There are two formats, and which one to make depends on whether Splouch already
+decodes your console.
+
+| Format | What it holds | Replays | Make it when |
+| --- | --- | --- | --- |
+| `.serial` | one packet per line, each stamped with the time it arrived | at the console's own pace, once | Splouch already decodes your console |
+| `.raw` | the bytes exactly as they arrived, sixteen to a line, no timing | at ~720 bytes/s, looped | Splouch does not decode your console yet |
+
+A `.serial` is the better replay, but its packets are split by the configured
+console's decoder. On a console that decoder does not know, the split is a guess, and
+the file keeps the guess. A `.raw` keeps the wire untouched, which is what someone
+writing a decoder for your console needs.
+
+**With Splouch's recorder.** Connect the console and select it in Settings → Timing,
+open the Test tab, type a name under **Record Live Session**, pick `.serial` or
+`.raw`, and press **Start**. Run a heat or two, then press **Stop**. The file lands
+in `~/SplouchData/recorded/` and appears in the Recorded Sessions list straight away.
+If your console is not in the list yet, pick one whose serial settings (shown as
+"RS-232 · 9600 baud · 8-E-1" and so on) match yours, and record a `.raw`.
+
+**With PuTTY, or any other capture tool.** Useful when the console is wired to a
+laptop rather than the Pi. In PuTTY, open the serial port at the console's settings,
+then under Session → Logging choose **All session output** and a file name. Two
+details matter:
+
+- Do **not** choose "Printable output". Console protocols are mostly bytes that are
+  not printable, and that mode drops them.
+- PuTTY writes a header line at the top of the file
+  (`=~=~=~=~=~=~=~=~=~=~=~= PuTTY log …`). Delete it, or its characters are replayed
+  as if the console had sent them.
+
+What PuTTY saves is binary (a `.cap`), and the Test tab takes hex. Convert it first:
+
+```bash
+python3 server/console_recordings/cap-to-raw.py session.cap   # -> session.raw
+```
+
+Then upload the `.raw` with **Upload** in the Recorded Sessions list. The result is
+the same file Splouch's own recorder writes in `.raw` mode.
+
+To share a recording in a [console report](https://github.com/olivierouellet/Splouch/issues/new?template=console_report.yml)
+or a pull request, copy it out of `~/SplouchData/recorded/` and attach it.
+
 ---
 
 ## Localisation

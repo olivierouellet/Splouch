@@ -546,7 +546,7 @@ def _handle_packet(buf):
     if state._record_handle or state._debug_serial:
         hex_str = " ".join([f"{int(c):02X}" for c in buf])
         log_line = f"[{time.time():f}] " + hex_str + "\n"
-        if state._record_handle:
+        if state._record_handle and not state._record_raw:
             state._record_handle.write(log_line)
 
     try:
@@ -596,6 +596,23 @@ def _handle_packet(buf):
 
 
 # ── Session playback ───────────────────────────────────────────────────────────
+
+
+def _record_raw_byte(c):
+    """Append one byte to a `.raw` recording, exactly as it came off the wire.
+
+    Taken in the read loop, ahead of `_ingest_byte`: a `.raw` is for a console the
+    decoder does not know yet, whose packet boundaries it would only guess at.
+    Sixteen bytes a line, lower-case hex, the way `cap-to-raw.py` writes them.
+    """
+    handle = state._record_handle
+    if handle is None or not state._record_raw:
+        return
+    n = state._record_raw_count
+    if n:
+        handle.write("\n" if n % 16 == 0 else " ")
+    handle.write(f"{c:02x}")
+    state._record_raw_count = n + 1
 
 
 def _ingest_byte(c, buf):
@@ -730,6 +747,7 @@ def _run_live_serial(my_gen):
                 while state._worker_gen == my_gen:
                     c = f.read(1)
                     if c:
+                        _record_raw_byte(c[0])
                         # Accumulate bytes; _ingest_byte flushes completed packets.
                         buf = _ingest_byte(c[0], buf)
                         last_byte_time = time.time()

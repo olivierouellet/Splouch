@@ -79,8 +79,8 @@ body:
       description: >
         The single most valuable thing here — it lets the decoder be fixed and tested
         by someone who doesn't own your console. Paste a chunk from the serial monitor
-        (Settings → Timing), or attach a `.raw` capture by dragging it in. See
-        server/console_recordings/README.md.
+        (Settings → Timing), or attach a `.raw` capture by dragging it in — record one
+        from the Test tab, or with PuTTY. How: docs/admin.md, "Recording a session".
       render: text
     validations:
       required: false

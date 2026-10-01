@@ -46,6 +46,15 @@ class NameBody(BaseModel):
     name: str = ""
 
 
+class RecordBody(BaseModel):
+    name: str = ""
+    # `serial`: packets as the configured console's decoder splits them, each with
+    # the time it arrived — replays at the console's own pace. `raw`: the bytes as
+    # read, nothing split and nothing timed — for a console the decoder does not
+    # know yet, where its packet boundaries would be wrong.
+    format: Literal["serial", "raw"] = "serial"
+
+
 class PlayBody(BaseModel):
     name: str = ""
     # Keep this session off the cloud. Defaults on: a replay is for the people in
@@ -308,15 +317,29 @@ def route_test_set_speed(body: SpeedBody):
     return {"speed": state.in_speed}
 
 
+def _close_recording():
+    handle = state._record_handle
+    if handle is None:
+        return
+    # Detached before closing, so the worker never writes to a closed file.
+    state._record_handle = None
+    if state._record_raw and state._record_raw_count:
+        handle.write("\n")
+    handle.close()
+
+
 @router.post("/test_record_start", dependencies=[Depends(require_login)])
-def route_test_record_start(body: NameBody):
-    if state._record_handle:
-        state._record_handle.close()
+def route_test_record_start(body: RecordBody):
+    _close_recording()
     code = re.sub(r"[^a-z0-9_-]", "_", body.name.strip().lower()) or "recording"
-    path = os.path.join(state.CUSTOM_SESSIONS_FOLDER, code + ".serial")
+    name = f"{code}.{body.format}"
+    state._record_raw = body.format == "raw"
+    state._record_raw_count = 0
     # Held open across requests until /test_record_stop, so no `with`.
-    state._record_handle = open(path, "w", encoding="utf-8")  # noqa: SIM115
-    return {"ok": True, "file": code + ".serial"}
+    state._record_handle = open(  # noqa: SIM115
+        os.path.join(state.CUSTOM_SESSIONS_FOLDER, name), "w", encoding="utf-8"
+    )
+    return {"ok": True, "file": name}
 
 
 @router.post(
@@ -325,9 +348,7 @@ def route_test_record_start(body: NameBody):
     dependencies=[Depends(require_login)],
 )
 def route_test_record_stop():
-    if state._record_handle:
-        state._record_handle.close()
-        state._record_handle = None
+    _close_recording()
     return {"ok": True}
 
 

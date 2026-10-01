@@ -13,7 +13,7 @@ By participating you agree to the [Code of Conduct](CODE_OF_CONDUCT.md).
 | | |
 | --- | --- |
 | **Console decoders** | Most supported consoles are marked ⚠️ *Untested* in the [README](README.md#supported-consoles). If you have one on a wire, confirming a decoder — or fixing it — is the single most useful thing you can do. |
-| **Recorded sessions** | A `.raw` capture from a real meet lets everyone else test against your console without owning one. See [`server/console_recordings/README.md`](server/console_recordings/README.md). |
+| **Recorded sessions** | A `.raw` capture from a real meet lets everyone else test against your console without owning one. How to make one: [Recording a session](docs/admin.md#recording-a-session). |
 | **Translations** | Labels and event names live in `shared/locales/`. |
 | **Bug reports from real meets** | Anything that surprised you at the pool. |
 
