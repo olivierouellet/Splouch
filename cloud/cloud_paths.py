@@ -49,7 +49,7 @@ STATIC_DIR = next(
     os.path.join(_HERE, "static"),
 )
 # scoreboard_base.html lives in shared/ because the Pi's live-mobile.html extends
-# the same file — see notes/cloud_parity.md. Same in-container/from-source dance as
+# the same file — see docs/architecture/cloud-parity.md. Same in-container/from-source dance as
 # above (COPY shared/templates/ templates_shared/).
 # Python shared with the Pi server — `splouch_i18n`. The image copies shared/py/
 # flat into /app beside this file; from source it is two levels up. Same

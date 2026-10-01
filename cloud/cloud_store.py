@@ -16,7 +16,7 @@ is what lets ``cloud_server`` import the objects themselves and keep its existin
 The lock is a plain ``threading.Lock`` rather than an async one on purpose: every
 critical section here is a few dict operations with no ``await`` inside, and the
 blocking file I/O around them is pushed to a thread by the callers
-(``run_in_threadpool``). See notes/async_architecture.md.
+(``run_in_threadpool``). See docs/architecture/async-architecture.md.
 """
 
 import contextlib
@@ -65,7 +65,7 @@ _RETAINED_FIELDS = (
 #   <id>.json            metadata + settings MINUS the two *_b64 images
 #   <id>.schedule.json   schedule_data (start list)
 #   <id>.icon / .picker  the home-icon / picker-image base64 strings
-# See info/async_architecture.md ("Scaling the cloud persistence").
+# See docs/architecture/async-architecture.md ("Scaling the cloud persistence").
 _ID_RE = re.compile(r"^[A-Za-z0-9_-]{1,64}$")  # meet id -> safe filename
 
 

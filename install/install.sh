@@ -332,7 +332,7 @@ fetch_and_ff() {
 # ── Version checkout ───────────────────────────────────────────────────────────
 # Shared by the server and kiosk roles so both resolve $VERSION_CHOICE to the SAME
 # ref. That is what keeps the Qt display and the server speaking the same
-# WebSocket contract — see notes/native_app_strategy.md.
+# WebSocket contract — see docs/architecture/native-app-strategy.md.
 checkout_version() {
     local dir="$1"
     if [[ "$VERSION_CHOICE" == "latest" ]]; then
@@ -816,7 +816,7 @@ if [[ "$ROLE" == "kiosk" ]]; then
     # The kiosk now runs code (the Qt scoreboard in scoreboard/) rather than a
     # browser pointed at a URL, so it needs the repo — and, crucially, the SAME
     # git ref as the server, so the two agree on the WebSocket contract.
-    # See notes/native_app_strategy.md.
+    # See docs/architecture/native-app-strategy.md.
     SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-install.sh}")" 2>/dev/null && pwd)" || SCRIPT_DIR=""
 
     if [[ -n "$SCRIPT_DIR" && -f "$SCRIPT_DIR/../scoreboard/app.py" ]]; then

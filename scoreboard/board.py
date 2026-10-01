@@ -20,7 +20,7 @@ Four things depart from the browser, deliberately:
   its own clock to tenths while a race is on, so the last digit was ours alone and
   it changed twenty times a second under the number everyone is watching.
 
-``notes/scoreboard_parity.md`` is the full ledger of what matches and what does not.
+``docs/architecture/scoreboard-parity.md`` is the full ledger of what matches and what does not.
 """
 
 import os
@@ -445,7 +445,7 @@ class LaneRow(QFrame):
     # The delta cell has two tenants: this lane's lengths while it is swimming, then
     # the time difference once it has finished. See the `renderDelta` pair in
     # scoreboard_base.html and live.html — this is the same rule, and
-    # `notes/scoreboard_parity.md` records what the three owe each other.
+    # `docs/architecture/scoreboard-parity.md` records what the three owe each other.
 
     def _style_lap(self, final: bool):
         """Paint the cell as a lap: the header's accent blue, gold on the last one.

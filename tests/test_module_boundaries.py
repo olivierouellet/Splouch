@@ -18,7 +18,7 @@ The tests below guard the two properties that make that worth having: no cycles,
 and `i18n` staying free of runtime state. The second is the one with a payoff
 still to come — `cloud_server.py` carries its own copy of this logic, and a module
 that reads no settings is one that can move to `shared/` and be used by both
-(notes/cloud_parity.md).
+(docs/architecture/cloud-parity.md).
 """
 
 import ast

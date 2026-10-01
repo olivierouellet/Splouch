@@ -79,13 +79,13 @@ Carousel images are files local to the Pi. Relaying them would require encoding 
 
 ## Name overflow: every display now shrinks
 
-`fitNameFontSize()` measures each `.name-primary` against its cell and scales the cell's font down by the overflow ratio, keeping the ellipsis as a floor for a name too long to shrink in at all. It lives in `shared/templates/scoreboard_base.html` and runs on the phone board, the Results tab and the kiosk `live.html` alike. The Qt board does the same thing with `FitLabel` — see [`scoreboard_parity.md`](scoreboard_parity.md).
+`fitNameFontSize()` measures each `.name-primary` against its cell and scales the cell's font down by the overflow ratio, keeping the ellipsis as a floor for a name too long to shrink in at all. It lives in `shared/templates/scoreboard_base.html` and runs on the phone board, the Results tab and the kiosk `live.html` alike. The Qt board does the same thing with `FitLabel` — see [`scoreboard-parity.md`](scoreboard-parity.md).
 
 **This is not a cloud-versus-Pi difference and never really was.** It used to be Pi-results-only, and the entry here read as though clipping on a live board were a decision: uniform row heights and one font size across lanes. It was not. Portrait rows are floored by `min-height`, and landscape rows are table rows sharing the table's height, so shrinking a name changes type size and nothing else. The Qt display — the one spectators actually watch — had shrink-to-fit from the start.
 
 The cost is a synchronous layout pass per lane, so it is gated: it runs when a frame carries a `lane_name` key (a heat change), on resize, and when a hidden tab is revealed. Never per tick.
 
-What remains a real limitation is the *event name* in the header, which CSS can only wrap or clamp — see the header table in `scoreboard_parity.md`. That, and finer control at small sizes, is what `adjustsFontSizeToFitWidth` and `autoSizeTextType` still buy the native apps (`R-08` in [`../docs/app.md`](../docs/app.md)).
+What remains a real limitation is the *event name* in the header, which CSS can only wrap or clamp — see the header table in `scoreboard-parity.md`. That, and finer control at small sizes, is what `adjustsFontSizeToFitWidth` and `autoSizeTextType` still buy the native apps (`R-08` in [`docs/app.md`](../app.md)).
 
 ---
 

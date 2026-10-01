@@ -1,6 +1,6 @@
 # `/live` vs the Qt board — layout parity
 
-The Qt display in [`scoreboard/`](../scoreboard/) replaced a Chromium kiosk pointed at
+The Qt display in [`scoreboard/`](../../scoreboard/) replaced a Chromium kiosk pointed at
 `http://splouch.local`, which redirects to `/live`, so `/live` was the reference for every
 layout decision while the display was catching up to it. A second, diverged template
 (`scoreboard.html`) once sat beside it with different column widths and a different heat
@@ -9,7 +9,7 @@ transition; it has been deleted, and the rows that cited it now stand on their o
 **The Qt board is the reference now.** It is the display that actually hangs over the pool,
 it is where the layout questions get answered first — shrink-to-fit, the inline EVENT/HEAT
 word, the header shares, the 1% cell padding were all settled there — and `/live` and
-[`shared/static/css/timing_display.css`](../shared/static/css/timing_display.css) follow it.
+[`shared/static/css/timing_display.css`](../../shared/static/css/timing_display.css) follow it.
 A difference found from here on is the browser's to close unless there is a reason recorded
 against it, and the reason goes in this file.
 
@@ -331,7 +331,7 @@ fills only at the finish, so it was free.
 
 Three implementations of one rule (`live.html`, `scoreboard_base.html`, `board.py`) —
 the kiosk keeps its own frame handler because it predates the shared base. They are
-guarded together in [`tests/test_lap_counts.py`](../tests/test_lap_counts.py), which
+guarded together in [`tests/test_lap_counts.py`](../../tests/test_lap_counts.py), which
 drives the two browser copies under JavaScriptCore and the Qt one against real widgets.
 
 ### Column reveal
@@ -416,7 +416,7 @@ that all of it was a test.
 
 ## Known gaps
 
-Carried from [`scoreboard/README.md`](../scoreboard/README.md). These are missing work, not
+Carried from [`scoreboard/README.md`](../../scoreboard/README.md). These are missing work, not
 decisions.
 
 | Gap | Detail |
@@ -430,7 +430,7 @@ decisions.
 ## Rules that keep the two in step
 
 - **The Qt package must not import from `server/`.** It is a remote client of the API in
-  [`docs/api.md`](../docs/api.md), exactly like the phone apps. Sharing a repo is a
+  [`docs/api.md`](../api.md), exactly like the phone apps. Sharing a repo is a
   convenience, not a licence to cheat.
 - **Frames are partial.** `update_scoreboard` carries only changed keys; both sides merge.
 - **Deltas come from the structured fields** — `lane_delta_seconds<i>` and
@@ -440,4 +440,4 @@ decisions.
   contract; displays register their ref on connect and Settings → Network flags a mismatch.
 
 `cloud/templates/live-mobile.html` is a third, deliberately simpler display and is **not** in
-scope here — see [`cloud_parity.md`](cloud_parity.md).
+scope here — see [`cloud-parity.md`](cloud-parity.md).

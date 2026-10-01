@@ -734,11 +734,11 @@ Not on any phone client, now or planned:
 | Feature | Where it lives |
 | --- | --- |
 | Operator controls — start, heat advance, column toggles | Pi admin web UI |
-| Settings panel | browser, laptop on LAN ([`notes/native_app_strategy.md`](../notes/native_app_strategy.md)) |
+| Settings panel | browser, laptop on LAN ([`docs/architecture/native-app-strategy.md`](architecture/native-app-strategy.md)) |
 | Cloud admin — retention, relay keys, attendance stats | `cloud/templates/admin.html`, password-gated |
 | Console/terminal views, `/ws/settings`, `/ws/terminal` | admin only ([`api.md`](api.md) §2) |
-| Full-screen kiosk board | Qt display, [`notes/scoreboard_parity.md`](../notes/scoreboard_parity.md) |
-| Kiosk carousel, test banner, operator column collapse | kiosk board `server/templates/live.html`, mirrored by Qt display ([`notes/cloud_parity.md`](../notes/cloud_parity.md)) |
+| Full-screen kiosk board | Qt display, [`docs/architecture/scoreboard-parity.md`](architecture/scoreboard-parity.md) |
+| Kiosk carousel, test banner, operator column collapse | kiosk board `server/templates/live.html`, mirrored by Qt display ([`docs/architecture/cloud-parity.md`](architecture/cloud-parity.md)) |
 
 ---
 

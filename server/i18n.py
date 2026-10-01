@@ -12,7 +12,7 @@ What both servers agree on — the label-style rule, the locale file readers, th
 ``shared/py/splouch_i18n.py`` and is re-exported below. What stays here is what
 only a Pi does: reading themes off this machine, and decomposing an event name
 into the parts a client renders (the relay forwards those parts, it never parses
-them). See notes/cloud_parity.md.
+them). See docs/architecture/cloud-parity.md.
 
 Not to be confused with ``routes/i18n.py``, which is the HTTP endpoint that serves
 :func:`i18n_bundle` to clients.

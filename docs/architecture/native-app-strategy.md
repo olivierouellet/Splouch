@@ -2,7 +2,7 @@
 
 ## Context
 
-Tremplin currently serves its scoreboard and mobile views as HTML/CSS pages rendered in a browser. This document summarises a conversation about replacing those with native clients.
+Splouch currently serves its scoreboard and mobile views as HTML/CSS pages rendered in a browser. This document summarises a conversation about replacing those with native clients.
 
 ## Target Stack
 
@@ -30,7 +30,7 @@ Tremplin currently serves its scoreboard and mobile views as HTML/CSS pages rend
 
 ## Why Drop Socket.IO
 
-Socket.IO is a JavaScript-first library. Native clients exist (`socket.io-client-swift`, Paho Android) but are less maintained and add dependency risk. The actual usage in Tremplin is minimal:
+Socket.IO is a JavaScript-first library. Native clients exist (`socket.io-client-swift`, Paho Android) but are less maintained and add dependency risk. The actual usage in Splouch is minimal:
 
 1. Connect to a namespace
 2. Emit `join_meet` once with the meet ID
@@ -102,24 +102,6 @@ The settings panel stays as a browser-based web page — it is used by the meet 
 - **PWA**: already partially implemented (manifest, A2HS prompt), but iOS App Store does not accept PWAs; text rendering problems remain
 - **Capacitor / WebView wrapper**: gets onto the App Store with minimal code change, but the inner pages still render as HTML — the swimmer name problem is unchanged
 
-## Effort Estimate (with AI assistance)
-
-- **Coding only**: 1–2 weeks of developer time across all three clients
-- **Process overhead** (Apple Developer account, code signing, App Store review, Play Store review): adds days, cannot be compressed
-- **Server migration** (Flask → FastAPI + plain WebSockets): moderate, well-contained, and worth doing at the same time to avoid a second migration later
-
-## Open Questions
-
-- Whether the web browser scoreboard (for users who access via a laptop/desktop) is maintained in parallel with the native clients or deprecated
-
-## Validated Results from Meet Manager
-
-A separate idea explored: showing officially validated heat results (not just live timing console data) on the scoreboard, sourced from Splash Meet Manager.
-
-- **Live Results (PDF)**: Meet Manager can auto-publish start lists/results as PDF reports via FTP. An embedded FTP server (`pyftpdlib`) on the Tremplin Pi could receive these, but PDFs aren't structured data — parsing the result-list table with `pdfplumber` is feasible but template/locale-fragile. A simpler fallback is to just serve the PDFs as documents on a "Results" page rather than parsing them into live data.
-- **Database server (preferred, untested)**: Meet Manager can store meet data in PostgreSQL/MariaDB/MySQL instead of an `.mdb` file, with near-instant sync across clients. If Tremplin ran Postgres on the same Pi, it could query results directly — no FTP, no PDF parsing. The schema is undocumented, so this needs a spike: point a test Meet Manager install at a local Postgres DB, run a small meet, and inspect the resulting tables for result/heat/time data before committing to this approach.
-- Either way, no separate database is needed for Tremplin's own state — results would slot into the existing in-memory `state.py` structures (e.g., a `lenex_results` dict), broadcast over the existing `/results` Socket.IO namespace.
-
 ## Repository structure (multi-platform)
 
 The split is **per toolchain, not per surface**. A separate repo is worth its coordination cost only when a client has its own language, its own dependency manager, and its own release process. That is true of the phone apps and false of the Qt display:
@@ -142,4 +124,4 @@ This is not a one-way door in the expensive direction. Extracting `scoreboard/` 
 
 ### The shared contract
 
-Avoid a dedicated "common" repo unless real shared *logic* emerges across platforms (unlikely given how different Python/Qt/Swift/Kotlin are). Treat the WebSocket/REST API in `server/app.py` and `server/relay.py` as the shared contract: it is documented in [`docs/api.md`](../docs/api.md), versioned with the server's API version, and each *external* client repo follows it as the source of truth. `scoreboard/` follows the same document — living in this repo is a delivery convenience, not a licence to reach into `server/` internals.
+Avoid a dedicated "common" repo unless real shared *logic* emerges across platforms (unlikely given how different Python/Qt/Swift/Kotlin are). Treat the WebSocket/REST API in `server/app.py` and `server/relay.py` as the shared contract: it is documented in [`docs/api.md`](../api.md), versioned with the server's API version, and each *external* client repo follows it as the source of truth. `scoreboard/` follows the same document — living in this repo is a delivery convenience, not a licence to reach into `server/` internals.

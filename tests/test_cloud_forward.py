@@ -2,7 +2,7 @@
 
 The interesting one is `running_time`, the race clock. The console sends it on
 every timing tick; multiplying that by every phone watching every meet is the
-traffic `notes/cloud_parity.md` refused, and the cloud's first answer was to drop
+traffic `docs/architecture/cloud-parity.md` refused, and the cloud's first answer was to drop
 the field outright — which left the phone board with no sign at all that a race
 was under way.
 

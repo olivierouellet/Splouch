@@ -197,7 +197,7 @@ body {
 
    The gap is `0.45em` of the shared size, matching `_HDR_INLINE_GAP`. Centring
    stays the browser's: the Qt cell leads its bar and is left-aligned for that
-   reason, while this one sits after the meet-title cell (notes/scoreboard_parity.md). */
+   reason, while this one sits after the meet-title cell (docs/architecture/scoreboard-parity.md). */
 #header_event_cell,
 #header_heat_cell {
     flex-direction: row;
@@ -232,7 +232,7 @@ body {
    or the race clock appears, dragging the event name and both clocks sideways on
    every heat. Fixed shares hold everything still. `scoreboard/board.py` carries the
    same five numbers as layout stretch weights — they sum to 100, so they are the
-   percentages directly. See notes/scoreboard_parity.md.
+   percentages directly. See docs/architecture/scoreboard-parity.md.
 
    An idle board shows just the two clocks: event/heat/name are `display: none` until a
    heat loads, and nothing claims their share in the meantime. */

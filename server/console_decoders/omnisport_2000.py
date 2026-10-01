@@ -35,7 +35,7 @@ class Omnisport2000Decoder(ConsoleDecoder):
     Packets are ASCII text framed by SYN (0x16) / STX (0x02) / EOT (0x04).
     Split times are transmitted natively in the serial stream.
 
-    See info/omnisport_2000_serial.md for the full protocol reference.
+    See docs/consoles/omnisport-2000.md for the full protocol reference.
     """
 
     def __init__(self, cfg: dict):

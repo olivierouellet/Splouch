@@ -1861,7 +1861,7 @@ async def _forward(sid, event, data):
     if event == "update_scoreboard":
         # `running_time` is the race clock, and the console sends it on every
         # timing tick. Forwarding that to every attendee is the traffic
-        # notes/cloud_parity.md refused; dropping it outright left the phones with
+        # docs/architecture/cloud-parity.md refused; dropping it outright left the phones with
         # no clock at all. So throttle it: the client re-bases on what we send and
         # interpolates in between (docs/app.md `L-12`).
         clock = data.pop("running_time", None)

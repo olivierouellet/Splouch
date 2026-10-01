@@ -63,7 +63,7 @@ shared/static/css/xterm.min.css
 /server/BG
 
 # Private documents (legal analysis, not for public repo)
-notes/copyright_status.md
+private/
 server/BG/TestBG.lxf
 
 # Biome, installed by `npm ci` (package.json). Dev tooling only.

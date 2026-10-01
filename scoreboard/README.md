@@ -13,7 +13,7 @@ The native display for the kiosk Pi. Replaces the Chromium kiosk that rendered
 > | delta column | 15vw | 15vw |
 > | title on the splash | absent | present |
 >
-> [`notes/scoreboard_parity.md`](../notes/scoreboard_parity.md) is the full ledger —
+> [`docs/architecture/scoreboard-parity.md`](../docs/architecture/scoreboard-parity.md) is the full ledger —
 > every layout aspect of the two, marked *match*, *intentional* or *gap*. Read it
 > before changing anything visual on either side.
 
@@ -58,7 +58,7 @@ justify a separate repo for the iOS/Android clients apply here. More importantly
 one repo means `install.sh server <version>` and `install.sh kiosk <version>`
 resolve to the same git ref, so the display and the server can never disagree
 about the WebSocket contract. See
-[`notes/native_app_strategy.md`](../notes/native_app_strategy.md).
+[`docs/architecture/native-app-strategy.md`](../docs/architecture/native-app-strategy.md).
 
 The convenience is not a licence to cheat: this package **must not import from
 `server/`**. It is a remote client of the documented API in

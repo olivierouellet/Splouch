@@ -28,7 +28,7 @@ a test redirecting a directory must patch the module that *reads* it (`paths`,
 not `state`), and `i18n` deliberately reads no settings — every function there
 takes a language code, and `state` holds the wrappers that fill it in from the
 meet. That is what would let `i18n` move to `shared/` and end the cloud relay's
-duplicate copy (see [`notes/cloud_parity.md`](../notes/cloud_parity.md)).
+duplicate copy (see [`docs/architecture/cloud-parity.md`](architecture/cloud-parity.md)).
 
 ## Testing with a live console
 

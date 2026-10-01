@@ -1,9 +1,8 @@
 # Asynchronous architecture
 
-How Tremplin's local server runs concurrently: one event loop, a few background
-threads, and the rules that keep them from stepping on each other. The migration
-that produced this shape is described in `flask_to_fastapi.md`; this document is
-about the *runtime* model that resulted.
+How Splouch's local server runs concurrently: one event loop, a few background
+threads, and the rules that keep them from stepping on each other. The stack itself
+is listed in [`stack.md`](stack.md); this document is about the *runtime* model.
 
 ---
 
@@ -16,7 +15,7 @@ about the *runtime* model that resulted.
 sockets. Everything the loop does must be *fast and non-blocking* — while it runs
 one piece of work, every connected scoreboard is waiting.
 
-- **`async def` handlers** (WebSocket endpoints in `Tremplin.py`, a few routes)
+- **`async def` handlers** (WebSocket endpoints in `server/app.py`, a few routes)
   run **directly on the loop**. They may only `await` — never block.
 - **plain `def` handlers** (most routes in `routes/*.py`) are automatically run by
   Starlette in a **threadpool** (a small pool of helper OS threads), so their
@@ -173,7 +172,7 @@ If you're new to programming, here are the terms above, explained plainly.
 
 **Concurrency** is dealing with many things by switching between them quickly
 (one cook, many pots, stirring each in turn). **Parallelism** is many things truly
-at the same time (many cooks). Tremplin is mostly *concurrent*: one loop juggling
+at the same time (many cooks). Splouch is mostly *concurrent*: one loop juggling
 hundreds of phones, plus a few background threads for the genuinely parallel or
 blocking jobs.
 
@@ -195,7 +194,7 @@ runs on the loop.
 ### Thread
 
 A **thread** is a separate line of execution that the operating system can run
-independently. Tremplin uses threads for jobs that *must* block: reading the serial
+independently. Splouch uses threads for jobs that *must* block: reading the serial
 port never stops, so it lives in its own thread where blocking is fine — it isn't
 holding up the loop.
 
@@ -216,7 +215,7 @@ even on a multi-core CPU. Two consequences that shape this codebase:
   *why* the meet-snapshot swap and the boolean flags need no lock.
 - A **compound** operation is *not* safe. `x += 1` is really *read x, add 1, store
   x* — three steps, and another thread can slip in between them, so an update can be
-  lost. Tremplin only does this on the **generation counters**, where a lost count
+  lost. Splouch only does this on the **generation counters**, where a lost count
   is harmless (all that matters is that the number *changed*).
 - The GIL does **not** rescue you from blocking: a thread stuck in `time.sleep` or a
   slow read still holds up whatever is waiting on it. That's a separate problem the
@@ -237,7 +236,7 @@ a token only one thread can hold at a time, so others wait their turn to touch t
 shared thing. Locks are correct but easy to get wrong (forget one → race; hold two
 in the wrong order → deadlock; hold one too long → everything waits).
 
-Tremplin's **local** server deliberately avoids locks by removing the *sharing*
+Splouch's **local** server deliberately avoids locks by removing the *sharing*
 instead:
 
 - **Single owner** — only the worker touches the decoder, so there's nothing to
@@ -251,7 +250,7 @@ The **cloud** server, whose data has no natural single owner, uses real
 ### Queue
 
 A **queue** is a thread-safe line: one thread `put`s items on one end, another
-`get`s them off the other, and the queue handles the locking internally. Tremplin
+`get`s them off the other, and the queue handles the locking internally. Splouch
 uses `state._worker_cmds` so any thread can *request* a decoder operation and the
 worker performs it safely, one at a time, on its own thread.
 

@@ -16,7 +16,7 @@ spread is the whole reason these tests exist:
   four observations in a 200m whatever brand is on the deck. It is what tells a
   board how far through the race a count of 6 actually is.
 * The delta column has two tenants and one writer. Both boards render it the same
-  way — see `notes/scoreboard_parity.md` — and the Qt board is a third
+  way — see `docs/architecture/scoreboard-parity.md` — and the Qt board is a third
   implementation of the same rule.
 """
 
@@ -594,7 +594,7 @@ def test_the_diff_title_goes_away_with_lap_counts():
 
 # ── The Qt board ───────────────────────────────────────────────────────────────
 # A third implementation of the same rule, on the display that actually hangs over
-# the pool. `notes/scoreboard_parity.md` is the contract between the three; these
+# the pool. `docs/architecture/scoreboard-parity.md` is the contract between the three; these
 # assert the Qt half of it against real widgets.
 
 

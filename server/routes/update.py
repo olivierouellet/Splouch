@@ -482,7 +482,7 @@ async def route_displays_update():
     # this server is running rather than pointed at a branch, which is what makes
     # lockstep hold: a branch would drift the moment anything landed on it, and the
     # two ends would disagree about the WebSocket contract with nothing to show for it
-    # (notes/native_app_strategy.md).
+    # (docs/architecture/native-app-strategy.md).
     target = state.git_describe()["version"]
     # A dirty server has no ref a display could check out. `--dirty` appends a suffix
     # that is not a real object, so this would fail on every kiosk. Being off a tag is

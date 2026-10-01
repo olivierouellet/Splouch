@@ -2,7 +2,7 @@
 
 The single-repo decision rests on the kiosk and the server sitting on the *same*
 ref — that is what guarantees they agree about the WebSocket contract (see
-`notes/native_app_strategy.md`). Until now there was no way to check it short of
+`docs/architecture/native-app-strategy.md`). Until now there was no way to check it short of
 an SSH session, so the display reports its version when it registers and the
 server shows it in Settings → Network.
 

@@ -42,8 +42,6 @@
     "family": "Overpass Mono",
     "digits": "DSEG7Classic"
   },
-  "intro_timeout": 120,
-  "results_timeout": 120,
   "finish_debounce": 3.0,
   "console_type": "cts_gen6",
   "active_home_icon": "",

@@ -666,7 +666,7 @@ def test_refit_is_not_on_the_per_frame_path(pi, cloud):
 
 def test_kiosk_page_shrinks_names_too():
     """server/templates/live.html is standalone — it does not extend the base, so
-    it carries its own copy and can drift. notes/scoreboard_parity.md tracks it
+    it carries its own copy and can drift. docs/architecture/scoreboard-parity.md tracks it
     against the Qt board, which has always used FitLabel here."""
     src = Path(os.path.join(REPO, "server/templates/live.html")).read_text(
         encoding="utf-8"

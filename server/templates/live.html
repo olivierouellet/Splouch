@@ -246,7 +246,7 @@ function apply_state_transition() {
 /* Scale a name down until it fits its cell rather than cutting it, per row. This
    is what the Qt board has always done via FitLabel (scoreboard/board.py); this
    page used to be the one display that clipped instead — see
-   notes/scoreboard_parity.md. Reads laid-out widths, so callers run it after paint
+   docs/architecture/scoreboard-parity.md. Reads laid-out widths, so callers run it after paint
    and only when a name changed. */
 function fitNameFontSize() {
     document.querySelectorAll('.lane-name-cell').forEach(function(cell) {
@@ -328,7 +328,7 @@ function reset_times() {
 /* ── Delta cell: lap count, then the time difference ──────────────────────────
    The kiosk's copy of the phone board's renderer (scoreboard_base.html) — this
    page predates the shared base and keeps its own frame handler. Keep the two in
-   step; `notes/scoreboard_parity.md` records the behaviour they owe each other.
+   step; `docs/architecture/scoreboard-parity.md` records the behaviour they owe each other.
 
    One cell, two tenants. While a lane is swimming it carries the lengths that lane
    has completed, in the row's own colour — the colour the swimmer's name is in, so
@@ -500,7 +500,7 @@ function mode_to_results() {
     <!-- Header bar. `header_cells_fixed` gives the cells fixed shares of the width
          instead of sizing them to their content, so nothing shifts when the event
          number gains a digit or the race clock blanks between heats — see
-         notes/scoreboard_parity.md. -->
+         docs/architecture/scoreboard-parity.md. -->
     <div class="timing-header-bar header_cells_fixed">
         <div class="header_cell" id="header_event_cell" style="display:none;">
             <span class="header_label">{{ labels.event }}</span>
