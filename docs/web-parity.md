@@ -65,7 +65,7 @@ from; the `diverges` rows are where v2 moved past them.
 | `L-17` | `done` | `scrollWidth`/`clientWidth` ratio, gated on `lane_name` frames |
 | `L-18`–`L-22` | `n/a` | not on a phone (`app.md`) |
 | `L-23` | `done` | `SHOW_LAPS`, `lane_splits_n` in `scoreboard_base.html` |
-| `L-24` | `deferred` | no top bar to take the header; rows keep a minimum height and the board scrolls |
+| `L-24` | `done` | steps 2–4 in `fitCompactBoard` (`scoreboard_base.html`): the relay line goes, then the rows shrink to 0.72× at most, then the board scrolls. Step 1 is n/a — no top bar to take the header |
 
 ## 4. Results tab
 

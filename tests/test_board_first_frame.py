@@ -1,6 +1,6 @@
 """What a phone shows before it has seen anything (docs/app.md `L-13`, `R-01`).
 
-Two first moments, one on each board tab:
+Two first moments, one on each board tab — and, below, what a crowded board gives up (`L-24`):
 
 * **The Scoreboard's first heat is a baseline, not a change.** The join replay (cloud)
   or the push on connect (Pi) carries the current heat's times beside its number.
@@ -147,3 +147,45 @@ def test_a_snapshot_shows_the_table_and_a_wipe_brings_the_line_back(results):
 @needs_js
 def test_the_results_page_still_loads(results):
     run_page(results)
+
+
+# ── L-24 ──────────────────────────────────────────────────────────────────────
+#
+# The stub DOM has no layout, so the sizes are set by hand: a board 600px tall,
+# and a table whose height follows the row scale. `classList` is a no-op there, so the relay step is
+# read off the CSS and the type step off the `--row-scale` it writes.
+
+_CROWDED = r"""
+window.matchMedia = function () { return { matches: true }; };
+document.getElementById('scoreboard').clientHeight = 600;
+/* As real layout would: the table's height follows the row scale. */
+Object.defineProperty(document.getElementById('timing-board'), 'scrollHeight', {
+  get: function () {
+    return %d * parseFloat(document.documentElement.style
+                             .getPropertyValue('--row-scale') || '1');
+  }
+});
+fitNameFontSize();
+var scale = document.documentElement.style.getPropertyValue('--row-scale');
+assert(scale === '%s', 'row scale ' + JSON.stringify(scale));
+"""
+
+
+@needs_js
+@pytest.mark.parametrize(
+    "wants, scale",
+    [(500, "1"), (700, "0.857"), (2000, "0.720")],
+    ids=["fits", "shrinks", "floor-then-scroll"],
+)
+def test_a_crowded_board_shrinks_its_rows_to_a_floor(live, wants, scale):
+    """A board that fits is left alone; one that does not shrinks in proportion,
+    and never below 0.72 — past that it scrolls rather than become unreadable."""
+    _drive(live, _CROWDED % (wants, scale))
+
+
+def test_the_relay_line_goes_before_the_type_shrinks(live):
+    """The first thing a crowded board gives up, and only on a compact one."""
+    css = _css(live)
+    compact = css[css.index("@media (max-width: 599px)") :]
+    assert re.search(r"body\.crowded\s+\.name-sub\s*\{\s*display:\s*none", compact)
+    assert "var(--row-scale, 1)" in compact
