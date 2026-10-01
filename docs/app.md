@@ -165,7 +165,7 @@ Entry screen. Web: site root. App: launch screen, and `A-02`'s return target.
 | `P-09` | Pull-to-refresh re-fetches list | — | all | should |
 | `P-10` | Install hand-off: store links once apps ship, Add-to-Home-Screen until then. In an app the slot renders nothing | `stores` ([`api.md`](api.md) §5.7), per platform, present once listed → no deploy on move, absent hides button; `P-16`'s `GET /add` uses same dict | web | should |
 | [`P-11`](#p-11) | Pick server from list in picker menu. Meet list always names it; a meet names it when not default | `GET /servers` ([`api.md`](api.md) §5.11), each checked via `GET /server` | native | must |
-| [`P-12`](#p-12) | LAN servers offered without typing | mDNS browse `_splouch._tcp` (not `splouch.local`) | native | should |
+| [`P-12`](#p-12) | LAN servers offered without typing — on tap, in server sheet section *Officials' local server*; ~10 s with none → *No server found* + retry | mDNS browse `_splouch._tcp` (not `splouch.local`), only after tap, stopped when sheet closes; words native (`T-05`) | native | should |
 | [`P-13`](#p-11) | Add server by hand, checked before save | `GET /server` must answer | native | must |
 | `P-14` | Server on other contract versions → one-line notice naming both, once per session, beside server name; **never blocks connect** (newer = additive, older degrades a feature, e.g. `L-12` clock vs v1 relay) | `GET /server` → `contract.api`, `contract.app` ([`api.md`](api.md) §5.10) | native | should |
 | [`P-15`](#p-15) | Spectator's Appearance — Dark (default), Light, Automatic — in picker menu, applies on every screen of every meet | stored pref; server's two palettes ([`api.md`](api.md) §6.1), never `settings.theme_colors`; words native in apps (`T-05`); web reads `strings.appearance`, `appearance_dark` / `_light` / `_auto` | all | should |
@@ -204,7 +204,7 @@ server = building's Pi (no internet dependency, unthrottled race clock), publish
 ```mermaid
 flowchart TD
   dir["listed — GET /servers (P-11)"] --> check
-  mdns["nearby — mDNS _splouch._tcp (P-12)"] --> check
+  mdns["officials' local server — tap, mDNS _splouch._tcp (P-12)"] --> check
   typed["typed (P-13)"] --> parse
   qr["scanned link (P-16)"] --> host{"host = app's<br/>default server?"}
   host -- no --> reason["prompt shows reason"]
@@ -238,7 +238,13 @@ Server half (`/.well-known/` files, `GET /add`): [`api.md`](api.md) §4. Deploym
 fingerprints, Pi poster code, and why a printed code names a cloud, never a Pi:
 [`cloud.md`](cloud.md).
 
-### <a id="p-12"></a>P-12 — cleartext LAN only
+### <a id="p-12"></a>P-12 — browse on tap, cleartext LAN only
+
+**Asked for, never ambient.** No browse on launch, foreground or sheet open: one in an
+idle app costs battery, and iOS's local-network prompt must answer a tap, not a sheet
+opening. Section labelled for officials: they're on the venue's timing wifi; spectators
+arrive by `P-16` code, which names a cloud. Browse ends with the sheet; server in use
+stays listed (selected, not found).
 
 Scoped exception: iOS local networking (`NSLocalNetworkUsageDescription`, Bonjour
 service declared), Android `network_security_config` for `.local` + private ranges.
