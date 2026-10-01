@@ -1,4 +1,5 @@
-"""Touch targets, announced choices and silent decoration (docs/app.md `X-05`–`X-07`).
+"""Touch targets, announced choices, silent decoration, motion and focus
+(docs/app.md `X-05`–`X-07`, `X-09`, `X-10`).
 
 Sizes were measured in Chrome, not guessed: every control a finger is expected to
 hit is 44px in at least the direction it is crowded in. Where growing the drawn
@@ -69,3 +70,59 @@ def test_an_added_suggestion_is_inert():
     sched = _sched("server/templates")
     assert "(already ? ' aria-disabled=\"true\"' : '')" in sched
     assert "item.getAttribute('aria-disabled') === 'true'" in sched
+
+
+# ── X-09, X-10 ────────────────────────────────────────────────────────────────
+
+
+def test_decorative_motion_stands_still_on_request():
+    """The live dot is decoration; the board's lane pulse and lock flash are
+    information (`L-11`, `L-12`) and are deliberately left running."""
+    assert (
+        "@media (prefers-reduced-motion: reduce) { .status-dot { animation: none; } }"
+        in _picker()
+    )
+    sched = _sched("server/templates")
+    assert "behavior: still ? 'auto' : 'smooth'" in sched
+
+
+def test_focus_follows_a_fold():
+    """`X-10`: the control that replaced itself hands focus to its replacement."""
+    html = _picker()
+    close = html.index("close.addEventListener('click'")
+    assert "pill.focus();" in html[close : close + 200]
+    reopen = html.index("pill.addEventListener('click'")
+    assert "close.focus();" in html[reopen : reopen + 200]
+
+
+# ── X-08: 200% zoom ───────────────────────────────────────────────────────────
+#
+# At 200% a 390px phone is a 195px page. Measured in Chrome: the picker scrolled
+# sideways, its title ran under the menu button, the schedule cut names to "E…",
+# and the shell's tabs lost their names when a short window hid the labels.
+
+
+def test_the_picker_never_scrolls_sideways_or_hides_under_its_button():
+    html = _picker()
+    assert "min-width: min(260px, 100%)" in html
+    assert re.search(r"h1 \{[^}]*padding: 0 36px; text-align: center;", html)
+    assert re.search(
+        r"@media \(max-width: 359px\) \{\s*body \{ padding-top: 64px; \}", html
+    )
+
+
+def test_a_zoomed_schedule_wraps_rather_than_cuts():
+    narrow = _sched("server/templates").split("@media (max-width: 359px) {", 1)[1]
+    narrow = narrow[: narrow.index("\n        }\n")]
+    assert ".heat-header { flex-wrap: wrap; }" in narrow
+    assert ".swimmer-name, .sug-name { white-space: normal;" in narrow
+
+
+def test_a_hidden_tab_label_is_still_the_tabs_name():
+    html = _render("cloud/templates", "mobile.html", app_title="C", meet_id="m", t={})
+    short = html.split("@media (max-height: 480px) {", 1)[1]
+    label = short[
+        short.index(".tab-label {") : short.index("}", short.index(".tab-label {"))
+    ]
+    assert "display: none" not in label
+    assert "clip-path: inset(50%)" in label

@@ -963,7 +963,7 @@ not a level here.
 | `X-05` | Every tappable target is at least the platform's minimum — 44pt on iOS, 48dp on Android — the filter chip's × included, without growing the chip | — | must |
 | `X-06` | In a list of choices — server, language, Appearance — the current one is announced as selected, not only marked with a glyph | — | must |
 | `X-07` | Decorative glyphs beside text that already says the same thing are hidden; anything laid out only to be measured never reaches the accessibility tree | — | should |
-| `X-08` | Everything off the board follows the device's text size. The board sizes itself from the height it has (`L-16`, `L-24`) and does not scale a second time | — | should |
+| `X-08` | Everything off the board follows the device's text size. The board sizes itself from the height it has (`L-16`, `L-24`) and does not scale a second time. **On the web** the reader's text size is the browser's zoom: at 200%, and at a 320px-wide window, nothing is cut off and nothing scrolls sideways | native: the platform's text-size setting; web: browser zoom (WCAG 1.4.4, 1.4.10) | should |
 | `X-09` | Decorative motion — the picker's live dot — honours the reduce-motion setting. `L-11`'s lock flash and `L-12`'s pulse are information, not decoration, and may keep running | — | should |
 | `X-10` | When a control replaces itself — `P-06`'s X folding to a pill, the pill opening again — focus moves to its replacement | — | should |
 

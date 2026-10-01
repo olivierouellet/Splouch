@@ -59,7 +59,10 @@
             display: flex; flex-direction: column; align-items: center;
             padding: 40px 20px;
         }
-        h1 { font-size: 1.4em; font-weight: 400; color: var(--title); margin-bottom: 32px; letter-spacing: 0.06em; text-transform: uppercase; }
+        /* Clear of the fixed menu button on both sides, so a long title — or any
+           title at 200% zoom — wraps under itself instead of under the button
+           (docs/app.md `X-08`), and stays centred. */
+        h1 { font-size: 1.4em; font-weight: 400; color: var(--title); margin-bottom: 32px; letter-spacing: 0.06em; text-transform: uppercase; padding: 0 36px; text-align: center; }
         .meets { display: flex; flex-wrap: wrap; gap: 16px; justify-content: center; max-width: var(--column); }
         /* Sized from the image's own proportions rather than an operator setting —
            the file already says whether it is a banner or a badge. `contain` is what
@@ -70,9 +73,21 @@
             display: block; width: 100%; max-width: var(--column); max-height: 160px;
             object-fit: contain; margin-bottom: 16px; border-radius: 8px;
         }
+        /* Above the title it is the first thing on the page, at the menu button's
+           height; this starts it just below the button. */
+        .picker-logo.above { margin-top: 16px; }
+        /* Narrower than any phone held normally, which in practice means zoomed: one
+           word of title can be wider than the room beside the button, so the page
+           starts below it instead. */
+        @media (max-width: 359px) {
+            body { padding-top: 64px; }
+            .picker-logo.above { margin-top: 0; }
+        }
         .card {
             background: var(--surface); border: 1px solid var(--line); border-radius: 10px;
-            padding: 20px 24px; min-width: 260px; max-width: 340px; flex: 1;
+            /* `min()`: at 200% zoom a phone is ~195px wide, and a 260px floor made the
+               whole picker scroll sideways (docs/app.md `X-08`). */
+            padding: 20px 24px; min-width: min(260px, 100%); max-width: 340px; flex: 1;
             text-decoration: none; color: inherit;
             transition: border-color 0.15s, background 0.15s;
             display: flex; align-items: center; gap: 14px;
@@ -93,6 +108,9 @@
         }
         .status-dot.off { background: transparent; box-shadow: none; animation: none; }
         @keyframes live-pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.45; } }
+        /* Decoration — the dot's colour already says the meet is live — so it stands
+           still for a reader who asked for less motion (docs/app.md `X-09`). */
+        @media (prefers-reduced-motion: reduce) { .status-dot { animation: none; } }
         .empty { color: var(--empty); font-size: 1.1em; margin-top: 60px; }
         .empty[hidden] { display: none; }
 
@@ -289,7 +307,7 @@
         <button type="button" id="a2hs-install-btn" onclick="a2hsInstall()">{{ t.a2hs_install or 'Install' }}</button>
     </div>
     {% if picker_logo and picker_logo_above %}
-    <img src="/picker_logo" class="picker-logo" alt="">
+    <img src="/picker_logo" class="picker-logo above" alt="">
     {% endif %}
     {% if picker_title %}
     <h1>{{ picker_title }}</h1>

@@ -136,7 +136,12 @@
             .tab-label { display: block; }
         }
         @media (max-height: 480px) {
-            .tab-label { display: none; }
+            /* Out of sight, not out of the accessibility tree: the icon beside it is
+               decorative, so the label is the tab's only name (docs/app.md `X-06`). */
+            .tab-label {
+                position: absolute; width: 1px; height: 1px; overflow: hidden;
+                clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap;
+            }
             nav button img { margin-right: 0 !important; }
             iframe { left: env(safe-area-inset-left); width: calc(100% - env(safe-area-inset-left) - env(safe-area-inset-right)); }
             .edge-left  { left:  env(safe-area-inset-left); }

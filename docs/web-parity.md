@@ -110,7 +110,8 @@ from; the `diverges` rows are where v2 moved past them.
 | `X-05` | `done` | measured in Chrome: the menu button, menu rows, notice X, install-card close and store buttons, filter-sheet ✓ are 44px; chips, pills, the filter button, the two toggles and Reset keep their size and grow an invisible 44px band (chips up and down only) |
 | `X-06` | `done` | menu rows `aria-pressed`, the menu button `aria-expanded`, the tab bar `tablist`/`tab`/`aria-selected`, the schedule toggles `aria-pressed`, an added suggestion `aria-disabled` |
 | `X-07` | `done` | icons and glyphs beside words are `aria-hidden` (menu, pills, install card, filter, ☰, ↺, ✓, ×, pull-to-refresh). A chip still reads only its name — no `[mobile]` word says a tap removes it |
-| `X-09`, `X-10` | `deferred` | next accessibility batch |
-| `X-08` | `deferred` | open question: the pages size in `px`, the board in `vh`/`vw` |
+| `X-09` | `done` | the picker's live dot stands still and the schedule jumps rather than glides to the current heat under `prefers-reduced-motion`; the swipe settles without sliding (`A-10`). The board's lane pulse and lock flash keep running — they are information |
+| `X-10` | `done` | folding a notice focuses its pill; opening it focuses its X |
+| `X-08` | `done` | the browser's zoom, not the OS text size (the pages do not opt in to `-apple-system-body`). Checked at 200% — a 390px phone emulated as 195px at 4× — and at 320px: the picker's cards no longer force a 260px floor, its title and logo clear the menu button, the schedule wraps headings and names instead of cutting them below 360px, and the shell's hidden tab labels stay the tabs' names. Android Chrome's own text scaling is not emulated here |
 
 Checked against Chrome's accessibility tree (DevTools `Accessibility.getFullAXTree`), not yet heard under VoiceOver or TalkBack.

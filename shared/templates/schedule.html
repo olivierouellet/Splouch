@@ -363,6 +363,20 @@
             padding-left: 0.4em;
         }
 
+        /* ── Narrower than any phone held normally — in practice, zoomed ──
+           One line, cut with an ellipsis, is the design at a phone's width; at 200%
+           zoom it left "100 m F…" and "E…". So here the text wraps instead
+           (docs/app.md `X-08`): the heading's name takes its own line under
+           `EV 1  HT 1` and the time follows it, a name wraps under itself, and a
+           suggestion's name drops under its type. A seed time never wraps. */
+        @media (max-width: 359px) {
+            .heat-header { flex-wrap: wrap; }
+            .heat-name { flex-basis: 100%; white-space: normal; overflow: visible; }
+            .swimmer-name, .sug-name { white-space: normal; overflow-wrap: anywhere; }
+            .suggestion-item { flex-wrap: wrap; }
+            .sug-name { flex-basis: 100%; order: 1; }
+        }
+
         /* ── Current heat highlight ── */
         .heat-card.heat-current .heat-header { background: var(--color-header-border); }
         .heat-card.heat-current { outline: 2px solid var(--color-time); outline-offset: -2px; }
@@ -745,7 +759,10 @@ function highlight() {
         if (match) found = card;
     });
     if (found && needsScroll) {
-        found.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        /* Jump rather than glide for a reader who asked for less motion (`X-09`). */
+        var still = window.matchMedia &&
+                    window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        found.scrollIntoView({ behavior: still ? 'auto' : 'smooth', block: 'start' });
         needsScroll = false;
     }
 }

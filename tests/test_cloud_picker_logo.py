@@ -76,7 +76,8 @@ def test_neither_logo_slot_carries_its_own_inline_size(src):
     imgs = re.findall(r'<img src="/picker_logo"[^>]*>', src)
     assert len(imgs) == 2, "the two logo slots have changed shape"
     for img in imgs:
-        assert 'class="picker-logo"' in img
+        # The slot above the title adds `above`, which clears the menu button.
+        assert re.search(r'class="picker-logo( above)?"', img)
         assert "style=" not in img, "an inline size overrides the shared rule"
 
 
