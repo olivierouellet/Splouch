@@ -1054,6 +1054,17 @@ function reloadWhenServerReturns(statusEl, opts) {
                     }
                     if (sawDown || waited >= assumeAfterMs) {
                         clearInterval(poll);
+                        // Come back on the tab that started it (Update, Power…), not
+                        // Meet Setup: the same restore a settings form submit uses.
+                        var activeLink = document.querySelector('.app-nav .nav-link.active');
+                        localStorage.setItem(
+                            'cts_tab_restore',
+                            JSON.stringify({
+                                tab: activeLink ? activeLink.getAttribute('data-target') : null,
+                                nested: null,
+                                btn: null,
+                            }),
+                        );
                         location.reload();
                     }
                 })

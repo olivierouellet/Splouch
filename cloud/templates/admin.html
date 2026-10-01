@@ -302,7 +302,7 @@
                             setTimeout(() => {
                                 const ping = setInterval(() => {
                                     fetch('/ping').then(r => {
-                                        if (r.ok) { clearInterval(ping); location.reload(); }
+                                        if (r.ok) { clearInterval(ping); history.replaceState(null, '', '#tab-update'); location.reload(); }
                                     }).catch(() => {});
                                 }, 2000);
                             }, 3000);
