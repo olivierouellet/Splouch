@@ -104,6 +104,8 @@ backup_meets                     = "Compétitions"
 restore_meets_note               = "Ajoute les compétitions conservées (horaires, images, icônes). Rien supprimé ; compétitions en direct intactes."
 tab_debug                        = "Débogage"
 tab_account                      = "Compte"
+quick_open                       = "Ouvrir"
+quick_picker                     = "Sélecteur"
 language_auto                    = "Auto (navigateur)"
 
 # ── Panneau des réglages (interface admin serveur) ─────────────────────────

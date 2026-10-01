@@ -45,6 +45,13 @@
                     <a class="nav-link" data-target="#tab-debug"><i class="bi bi-bug me-2"></i>{{ t.get('tab_debug', 'Debug') }}</a>
                 </nav>
                 <hr>
+                <!-- Same pills as the Pi's Settings sidebar: the public page this server serves. -->
+                <div class="app-quicklinks mb-3">
+                    <div class="panel-eyebrow">{{ t.quick_open }}</div>
+                    <div class="d-flex flex-wrap gap-1">
+                        <a href="/" target="_blank" class="btn btn-secondary">{{ t.quick_picker }}</a>
+                    </div>
+                </div>
                 <div class="app-theme">
                     <div class="panel-eyebrow">{{ t.theme }}</div>
                     <div class="btn-group btn-group-sm w-100" role="group" aria-label="{{ t.theme }}">

@@ -107,6 +107,8 @@ backup_meets                     = "Meets"
 restore_meets_note               = "Adds retained meets (schedules, images, icons). Removes nothing; live meets untouched."
 tab_debug                        = "Debug"
 tab_account                      = "Account"
+quick_open                       = "Open"
+quick_picker                     = "Picker"
 language_auto                    = "Auto (browser)"
 
 # ── Operator Settings panel (server admin UI) ──────────────────────────────
