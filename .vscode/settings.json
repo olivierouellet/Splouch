@@ -30,6 +30,15 @@
     "editor.formatOnSave": true
   },
 
+  // Taplo through Even Better TOML, which reads taplo.toml — so the aligned value
+  // columns in shared/locales are re-aligned on save, the check CI runs
+  // (`uv run taplo fmt --check`). A comment line ends an aligned block, which is
+  // what used to slip through by hand.
+  "[toml]": {
+    "editor.defaultFormatter": "tamasfe.even-better-toml",
+    "editor.formatOnSave": true
+  },
+
   // No YAML formatter: yamllint (.yamllint.yml) is the authority, and the Red Hat
   // extension's built-in one would undo layout it accepts, such as the aligned
   // values in docker-compose.yml.
