@@ -40,13 +40,14 @@ restart. Update Pi #1 first, then Pi #2 to the same version — see
 
 ## What Splouch assumes
 
-Most of the design rests on the network in the [README](README.md#network): an unmanaged
-switch on the pool deck, with no route to the internet. Reports are most useful when they
-break one of these assumptions rather than start from a different one.
+Most of the design rests on the network in the [README](README.md#network): a router on the
+pool deck that Pi #1 reaches the internet through, with nothing forwarded inbound. Reports
+are most useful when they break one of these assumptions rather than start from a
+different one.
 
 | | |
 | --- | --- |
-| **The pool-deck LAN is trusted for reading** | Anyone on the switch can watch the scoreboard, results, and schedule. That is the point of it. |
+| **The pool-deck LAN is trusted for reading** | Anyone on the pool-deck network can watch the scoreboard, results, and schedule. That is the point of it. |
 | **Changing anything needs a session** | Meet files, settings, updates, backups, the serial terminal — all of it is behind the admin login, including the WebSockets, not just the pages that open them. |
 | **Meet files are untrusted text** | Swimmer and club names come from whoever typed them into Splash. They reach templates escaped, and the Lenex parser refuses a `DOCTYPE` outright. |
 | **Pi #1 is never internet-facing** | Remote viewing goes through the cloud relay, which Pi #1 reaches by an *outbound* WebSocket. No port forwarding, no inbound anything. |
@@ -57,7 +58,7 @@ break one of these assumptions rather than start from a different one.
 
 * Physical access to either Pi, or to the serial line.
 * Exposing Pi #1 directly to the internet, or putting it on a hostile network instead of
-  the isolated switch.
+  the pool-deck LAN.
 * A self-hosted cloud VM's own configuration — your firewall, your DNS, your Docker host.
   What the relay *serves* is in scope; the VM under it is yours.
 * Local decoders dropped in `~/SplouchData/console_decoders/`. They are arbitrary Python,

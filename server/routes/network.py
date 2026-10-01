@@ -326,7 +326,19 @@ def _eth_ip_set(ip_str, prefix):
     cidr = f"{ip_str}/{prefix}"
     try:
         r = subprocess.run(
-            ["sudo", "nmcli", "con", "mod", "splouch-eth", "ipv4.addresses", cidr],
+            # method too: after DHCP the profile is `auto`, where an address would
+            # only be added beside the leased one.
+            [
+                "sudo",
+                "nmcli",
+                "con",
+                "mod",
+                "splouch-eth",
+                "ipv4.method",
+                "manual",
+                "ipv4.addresses",
+                cidr,
+            ],
             capture_output=True,
             text=True,
             timeout=8,

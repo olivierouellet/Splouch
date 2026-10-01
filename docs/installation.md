@@ -17,8 +17,8 @@ Earlier releases (Bookworm / Python 3.11) are not supported.
 | --- | --- |
 | Raspberry Pi 3B+ or 4 | **Pi #1** — serial decoder + scoreboard server + admin UI |
 | Raspberry Pi 4 (64-bit OS) | **Pi #2** — Qt scoreboard driving the TV |
-| Unmanaged network switch | Wired pool-deck network for all devices |
-| Cat5e cables | Pi #1 ↔ switch ↔ Pi #2 (and a laptop) |
+| Router with internet access | Pool-deck network for all devices; carries Pi #1 to the Cloud |
+| Cat5e cables | Pi #1 and Pi #2 ↔ router |
 | Console serial adapter | Depends on your timing console — see the per-console guides in [`docs/consoles/`](consoles/) |
 
 The console-specific adapter and wiring (USB-to-RS232 vs RS-485, tap cable, pinout) live in
@@ -30,17 +30,21 @@ Topology:
 ```text
 Timing console
       │  serial tap / adapter (see docs/consoles/)
-   Pi #1 ── eth0 ───┐
-                    ├── Unmanaged switch ── Pi #2 (TV kiosk)
-   Laptop ── eth0 ──┘                    └─ Laptop (admin browser)
+   Pi #1 ── eth0 ──┐
+                   ├── Router ── internet (Cloud)
+   Pi #2 ── eth0 ──┤
+   Laptop ─────────┘  (Ethernet or the router's WiFi)
 ```
+
+A router is required: it hands out addresses (DHCP) and gives Pi #1 the internet access the
+Cloud needs. A bare switch with no router is not supported.
 
 ---
 
 ## Network & firewall
 
-All pool-deck devices talk over a dedicated wired network on `eth0`. Pi #1 also joins home /
-venue WiFi (`wlan0`) for internet access and remote management.
+All pool-deck devices join the router's network — the Pis over `eth0`. Pi #1 can also join
+WiFi (`wlan0`), handy for SSH at home.
 
 | Device | Address | Role |
 | --- | --- | --- |
@@ -48,11 +52,11 @@ venue WiFi (`wlan0`) for internet access and remote management.
 | Pi #2 | automatic | Qt kiosk — scoreboard on the TV |
 | Laptop | automatic | Admin browser to `http://splouch.local` |
 
-Devices find Pi #1 by name, so no IP needs to be configured. The installer *offers* to pin
-`eth0` to `10.10.10.10/24` as a fallback for typing a raw IP; declining is fine.
+Devices find Pi #1 by name, so no IP needs to be configured: the router assigns one by DHCP.
+The installer offers a static address instead, for typing a raw IP; DHCP is the default.
 
-**Firewall:** Pi #1 blocks incoming connections over WiFi — SSH and VNC are reachable only
-via `eth0`. Connect your laptop by Ethernet to reach the admin UI or terminal at the pool.
+**Firewall:** Pi #1 denies incoming traffic by default and allows everything arriving on
+`eth0` and `wlan0`.
 
 ---
 
@@ -60,7 +64,7 @@ via `eth0`. Connect your laptop by Ethernet to reach the admin UI or terminal at
 
 Flash **Raspberry Pi OS Trixie** using Raspberry Pi Imager. Enable SSH during flash.
 
-> **Tip:** Configure WiFi in Imager before flashing. The Pi will have `wlan0` (home WiFi) and `eth0` (pool network) active simultaneously — useful for SSH access at home and a clean pool network at the venue.
+> **Tip:** Configure WiFi in Imager before flashing. The Pi will have `wlan0` (home WiFi) and `eth0` (pool network) active simultaneously — useful for SSH access at home.
 
 SSH in and run:
 
@@ -76,7 +80,7 @@ The script:
 - Creates `~/SplouchData/` with `meet/`, `images/`, `icons/`, and `recorded/` subdirectories
 - Copies `settings.default.json` to `~/SplouchData/settings.json`
 - Downloads xterm.js
-- Optionally sets a static IP `10.10.10.10/24` on `eth0` (asks first; not required — `splouch.local` works either way. Accepting drops an SSH session running over Ethernet)
+- Asks how `eth0` gets its address: **DHCP** (default) or a **static IP** you enter, with its router and DNS (validated: must be a host address, router inside the same subnet). Choosing DHCP on a re-run clears a static address set earlier. Both live in the `splouch-eth` profile that **Settings → Network** edits too. Changing it drops an SSH session running over Ethernet
 - Sets the hostname to `splouch` (accessible as `splouch.local` on the network)
 
 ---

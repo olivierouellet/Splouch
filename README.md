@@ -46,8 +46,9 @@ Timing console
    Serial adapter (see console doc)
       │
   Pi #1 ── eth0 ──┐
-                  ├── Unmanaged switch ── Laptop
-  Pi #2 ── eth0 ──┘
+                  ├── Router ── internet (Cloud)
+  Pi #2 ── eth0 ──┤
+  Laptop ─────────┘
 ```
 
 | Device | Address | Role |
@@ -55,13 +56,15 @@ Timing console
 | Pi #1 | `http://splouch.local` | Serial decoder + FastAPI server + admin UI |
 | Pi #2 | automatic | Qt kiosk — fullscreen scoreboard on TV |
 
-No device needs a fixed IP: everything reaches Pi #1 by name (`splouch.local`, via mDNS).
+A router is required — it assigns addresses (DHCP) and gives Pi #1 the internet access the
+Cloud needs. No device needs a fixed IP: everything reaches Pi #1 by name (`splouch.local`,
+via mDNS).
 
 | Item | Purpose |
 | --- | --- |
 | Raspberry Pi 3B+ or 4 | Pi #1 — scoreboard server |
 | Raspberry Pi 4 | Pi #2 — TV kiosk |
-| Cat5e cable + unmanaged switch | Connect all pool-deck devices |
+| Router + Cat5e cables | Connect all pool-deck devices and reach the Cloud |
 
 ---
 

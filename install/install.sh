@@ -21,7 +21,6 @@ TARGET_HOME="$(getent passwd "$TARGET_USER" | cut -d: -f6)"
 TARGET_HOME="${TARGET_HOME:-$HOME}"
 
 INSTALL_DIR="$TARGET_HOME/Splouch" # default for fresh installs; existing checkouts are auto-detected
-SERVER_IP="10.10.10.10/24" # offered, never required: eth0 stays on DHCP unless the user opts in
 SERVER_HOSTNAME="splouch"                   # broadcasts as splouch.local on the network
 MDNS_ALIASES="tableau.local marcador.local" # the board's name in each language it ships
 SCOREBOARD_URL="http://${SERVER_HOSTNAME}.local"
@@ -39,9 +38,9 @@ error() { echo -e "${RED}[ERROR]${NC} $*" >&2; }
 section() { echo -e "\n${BOLD}──── $* ────${NC}"; }
 # Auto-answer No in non-interactive mode (the in-app Reinstall has no TTY), so
 # optional prompts (static IP, RTC, reboot) safely keep the current config.
-# STATIC_IP_SET records whether this run pinned eth0, so messages only quote
-# the raw IP when it is actually the Pi's address.
-STATIC_IP_SET=0
+# STATIC_IP holds eth0's address once this run pinned one, so messages only quote
+# a raw IP when it is actually the Pi's address.
+STATIC_IP=
 confirm() {
     if [[ "${SPLOUCH_NONINTERACTIVE:-}" == "1" ]]; then
         info "Non-interactive — skipping: $1"
@@ -146,55 +145,157 @@ sudo apt-get update -qq
 sudo apt-get upgrade -y
 sudo apt-get install -y git curl ufw
 
-# ── Static IP helper ───────────────────────────────────────────────────────────
-configure_static_ip() {
-    local ip="$1" gateway="${2:-}"
+# ── eth0 addressing ────────────────────────────────────────────────────────────
+# eth0 joins the venue router (which also carries the Pi to the cloud). DHCP is
+# the default; a static address is opt-in. Both live in one NetworkManager
+# profile, `splouch-eth`, which Settings → Network also edits — so it always
+# exists after install, and choosing DHCP clears any static address left in it.
+ETH_CON="splouch-eth"
 
+# Dotted quad <-> integer, for validating an address against its subnet.
+ip_to_int() {
+    local IFS=. a b c d
+    read -r a b c d <<<"$1"
+    echo $(((10#$a << 24) | (10#$b << 16) | (10#$c << 8) | 10#$d))
+}
+int_to_ip() {
+    echo "$((($1 >> 24) & 255)).$((($1 >> 16) & 255)).$((($1 >> 8) & 255)).$(($1 & 255))"
+}
+valid_ipv4() {
+    [[ $1 =~ ^([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})$ ]] || return 1
+    local o
+    for o in "${BASH_REMATCH[@]:1}"; do ((10#$o <= 255)) || return 1; done
+}
+
+# Ask until valid. Prints the answer on stdout; prompts go to stderr.
+ask_static_address() {
+    local def="$1" ans addr prefix host mask
+    while :; do
+        read -rp "Static address for eth0 (CIDR, /24 if omitted)${def:+ [$def]}: " ans >&2
+        ans="${ans:-$def}"
+        addr="${ans%/*}"
+        prefix=24
+        [[ $ans == */* ]] && prefix="${ans#*/}"
+        if ! valid_ipv4 "$addr"; then
+            warn "Not an IPv4 address: $addr" >&2
+            continue
+        fi
+        if ! [[ $prefix =~ ^[0-9]+$ ]] || ((prefix < 8 || prefix > 30)); then
+            warn "Prefix must be 8–30, got /$prefix" >&2
+            continue
+        fi
+        mask=$(((0xFFFFFFFF << (32 - prefix)) & 0xFFFFFFFF))
+        host=$(($(ip_to_int "$addr") & ~mask & 0xFFFFFFFF))
+        if ((host == 0 || host == (~mask & 0xFFFFFFFF))); then
+            warn "$addr is the network or broadcast address of /$prefix" >&2
+            continue
+        fi
+        echo "$addr/$prefix"
+        return
+    done
+}
+
+# Ask for an address inside the static subnet (the router). Prints it on stdout.
+ask_gateway() {
+    local cidr="$1" addr="${1%/*}" prefix="${1#*/}" mask net def ans
+    mask=$(((0xFFFFFFFF << (32 - prefix)) & 0xFFFFFFFF))
+    net=$(($(ip_to_int "$addr") & mask))
+    def="$(int_to_ip $((net + 1)))"
+    [[ $def == "$addr" ]] && def=""
+    while :; do
+        read -rp "Router (gateway) address${def:+ [$def]}: " ans >&2
+        ans="${ans:-$def}"
+        if ! valid_ipv4 "$ans"; then
+            warn "Not an IPv4 address: ${ans:-(empty)}" >&2
+        elif ((($(ip_to_int "$ans") & mask) != net)); then
+            warn "$ans is outside $cidr" >&2
+        elif [[ $ans == "$addr" ]]; then
+            warn "The router can't share this Pi's address" >&2
+        else
+            echo "$ans"
+            return
+        fi
+    done
+}
+
+configure_network() {
     echo
-    info "eth0 uses DHCP by default — every device reaches this Pi as ${SERVER_HOSTNAME}.local."
-    info "Optionally pin eth0 to ${ip%/*} as well, for typing a raw IP."
-    warn "Pinning drops an SSH session running over Ethernet."
-    confirm "Pin eth0 to static IP ${ip%/*}?" || {
-        info "Keeping eth0 on DHCP."
+    if [[ "${SPLOUCH_NONINTERACTIVE:-}" == "1" ]]; then
+        info "Non-interactive — keeping the current eth0 configuration."
         return 0
-    }
-
-    if systemctl is-active --quiet dhcpcd 2>/dev/null; then
-        # Raspberry Pi OS Bullseye — dhcpcd
-        local conf=/etc/dhcpcd.conf
-        if ! grep -q "# Splouch" "$conf" 2>/dev/null; then
-            {
-                printf '\n# Splouch\ninterface eth0\nstatic ip_address=%s\n' "$ip"
-                [[ -n "$gateway" ]] && printf 'static routers=%s\n' "$gateway"
-            } | sudo tee -a "$conf" >/dev/null
-        else
-            warn "dhcpcd.conf already has a Splouch entry — skipping."
-        fi
-        sudo systemctl restart dhcpcd
-
-    elif command -v nmcli &>/dev/null; then
-        # Raspberry Pi OS Bookworm — NetworkManager
-        local con="splouch-eth"
-        local -a args=(type ethernet ifname eth0 con-name "$con"
-            ipv4.method manual ipv4.addresses "$ip"
-            connection.autoconnect yes)
-        [[ -n "$gateway" ]] && args+=(ipv4.gateway "$gateway")
-
-        if nmcli con show "$con" &>/dev/null; then
-            sudo nmcli con mod "$con" ipv4.addresses "$ip" \
-                ${gateway:+ipv4.gateway "$gateway"}
-        else
-            sudo nmcli con add "${args[@]}"
-        fi
-        sudo nmcli con up "$con"
-
-    else
-        warn "Cannot detect network manager (no dhcpcd or nmcli). Configure static IP manually."
+    fi
+    if ! command -v nmcli &>/dev/null; then
+        warn "NetworkManager (nmcli) not found — configure eth0 manually."
         return 0
     fi
 
-    STATIC_IP_SET=1
-    info "Static IP configured: ${ip%/*}"
+    local exists=0 method="" current=""
+    if nmcli -t con show "$ETH_CON" &>/dev/null; then
+        exists=1
+        method="$(nmcli -g ipv4.method con show "$ETH_CON" 2>/dev/null)"
+        [[ $method == manual ]] &&
+            current="$(nmcli -g ipv4.addresses con show "$ETH_CON" 2>/dev/null)"
+    fi
+    info "Every device reaches this Pi as ${SERVER_HOSTNAME}.local — no fixed IP needed."
+    info "eth0 is currently: ${current:+static $current}${current:-DHCP}"
+    echo "  1) DHCP — address from the venue router (default)"
+    echo "  2) Static IP"
+    local choice
+    while :; do
+        read -rp "eth0 addressing [1]: " choice
+        case "${choice:-1}" in
+        1 | 2) break ;;
+        *) warn "Enter 1 or 2." ;;
+        esac
+    done
+
+    # Priority above NetworkManager's default wired profile, so ours wins at boot.
+    local -a base=(connection.autoconnect yes connection.autoconnect-priority 100)
+
+    if [[ ${choice:-1} == 1 ]]; then
+        local -a dhcp=(ipv4.method auto ipv4.addresses "" ipv4.gateway "" ipv4.dns "")
+        if ((!exists)); then
+            # Takes over from the default profile at the next boot — no drop now.
+            sudo nmcli con add type ethernet ifname eth0 con-name "$ETH_CON" "${base[@]}" "${dhcp[@]}"
+            info "eth0 on DHCP."
+        elif [[ -n $current ]]; then
+            warn "Switching eth0 to DHCP drops an SSH session running over Ethernet."
+            sudo nmcli con mod "$ETH_CON" "${base[@]}" "${dhcp[@]}"
+            sudo nmcli con up "$ETH_CON" ||
+                warn "eth0 didn't come up — check the cable and router."
+            info "eth0 back on DHCP (removed static $current)."
+        else
+            info "Keeping eth0 on DHCP."
+        fi
+        return 0
+    fi
+
+    local cidr gateway dns
+    cidr="$(ask_static_address "$current")"
+    gateway="$(ask_gateway "$cidr")"
+    while :; do
+        read -rp "DNS server [$gateway]: " dns
+        dns="${dns:-$gateway}"
+        valid_ipv4 "$dns" && break
+        warn "Not an IPv4 address: $dns"
+    done
+
+    warn "Applying ${cidr%/*} drops an SSH session running over Ethernet."
+    confirm "Set eth0 to $cidr via $gateway (DNS $dns)?" || {
+        info "Leaving eth0 unchanged."
+        return 0
+    }
+    local -a props=("${base[@]}" ipv4.method manual ipv4.addresses "$cidr"
+        ipv4.gateway "$gateway" ipv4.dns "$dns")
+    if ((exists)); then
+        sudo nmcli con mod "$ETH_CON" "${props[@]}"
+    else
+        sudo nmcli con add type ethernet ifname eth0 con-name "$ETH_CON" "${props[@]}"
+    fi
+    sudo nmcli con up "$ETH_CON"
+
+    STATIC_IP="${cidr%/*}"
+    info "Static IP configured: $STATIC_IP"
 }
 
 # ── Fetching without assuming a tracked branch ────────────────────────────────
@@ -638,7 +739,7 @@ EOF
     info "Port 80 redirects to 5000 — http://${SERVER_HOSTNAME}.local/ reaches the scoreboard"
 
     section "Network — Pi #1"
-    configure_static_ip "$SERVER_IP"
+    configure_network
 
     section "Real-time clock (Adafruit PiRTC DS3231)"
     echo "Adds a hardware clock so the Pi keeps accurate time without network access."
@@ -654,8 +755,8 @@ EOF
     echo -e "  Install dir : $INSTALL_DIR"
     echo -e "  Start server: ${BOLD}sudo systemctl start splouch${NC}"
     echo -e "  Logs        : ${BOLD}journalctl -u splouch -f${NC}"
-    if [[ $STATIC_IP_SET == 1 ]]; then
-        echo -e "  Scoreboard  : ${BOLD}http://${SERVER_HOSTNAME}.local/${NC}  or  http://${SERVER_IP%/*}/"
+    if [[ -n $STATIC_IP ]]; then
+        echo -e "  Scoreboard  : ${BOLD}http://${SERVER_HOSTNAME}.local/${NC}  or  http://${STATIC_IP}/"
     else
         echo -e "  Scoreboard  : ${BOLD}http://${SERVER_HOSTNAME}.local/${NC}"
     fi
