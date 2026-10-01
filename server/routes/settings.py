@@ -18,7 +18,7 @@ from console_decoders import (
     load_custom_decoders,
     make_decoder,
 )
-from meet_data import send_event_info
+from meet_data import announce_schedule, send_event_info
 from meet_parsers.lenex_parser import load_lenex
 from routes.qr import invite as qr_invite
 from web import render, require_login, save_upload
@@ -228,6 +228,7 @@ def _settings_view(request, form):
                 state._active_meet_file = ""
                 state.settings["last_meet_file"] = ""
                 send_event_info()
+                announce_schedule()
                 modified = True
 
         if "pool_setup_submit" in form:

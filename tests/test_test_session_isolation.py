@@ -335,6 +335,31 @@ def test_a_replay_result_does_not_reach_the_cloud_on_the_next_connect(
     assert state._last_results_snapshot == real
 
 
+def _schedules(cloud):
+    return [d for ev, d in cloud.sent if ev == "schedule_snapshot"]
+
+
+def test_a_test_with_no_meet_to_go_back_to_clears_the_cloud_schedule(rig, cloud):
+    """No meet before, cloud allowed: the recording's start list reached the
+    cloud, and with nothing to replace it the cloud kept serving it after the test.
+    """
+    state.clear_meet()
+    debug._test_play(SESSION, local_only=False)
+    assert _schedules(cloud)[-1]["events"], "the test's start list never went out"
+
+    worker.end_test_session()
+
+    assert _schedules(cloud)[-1]["events"] == [], "the test's start list outlived it"
+
+
+def test_a_connect_with_no_meet_leaves_the_cloud_schedule_alone(rig, cloud):
+    """At boot the relay connects before the last meet file is re-read: an empty
+    snapshot then would wipe the cloud's schedule on every restart."""
+    state.clear_meet()
+    relay.send_schedule(client=object())
+    assert _schedules(cloud) == []
+
+
 def test_a_meet_loaded_forces_local_only(rig, cloud):
     """Not the operator's choice: a replay under a live meet's identity would show
     spectators invented times as the race in front of them."""

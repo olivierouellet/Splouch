@@ -179,11 +179,16 @@ def update_metadata():
             _send_raw(c, "register", {**_get_metadata(), "key": key})
 
 
-def send_schedule(client=None):
+def send_schedule(client=None, clear=False):
     """Send the current schedule snapshot to the cloud. Call after a meet file is loaded.
 
     Pass `client` directly when calling from inside a connect handler, because
     _client is not yet assigned at that point and relay_emit would silently drop.
+
+    With no start list nothing is sent, unless `clear`: the start list was taken
+    away (a test ending with no meet to go back to, a meet unloaded) and the cloud
+    must stop serving the old one. Not on connect — at boot the relay starts before
+    the last meet file has been re-read.
     """
     if _local_only():
         return
@@ -191,6 +196,8 @@ def send_schedule(client=None):
 
     m = state.meet
     if not (m.start_list or m.event_info.events):
+        if clear:
+            _send_schedule_data(client, _EMPTY_SCHEDULE)
         return
     try:
         md = _build_meet_data()
@@ -209,15 +216,29 @@ def send_schedule(client=None):
             },
             "start_list": _serialise_start_list(md["start_list"]),
         }
-        if client is not None:
-            _send_raw(client, "schedule_snapshot", data)
-        else:
-            relay_emit("schedule_snapshot", data)
+        _send_schedule_data(client, data)
     except Exception as e:
         # Broad on purpose — the relay must outlive a bad meet file — but not
         # silent: this is our own code, and a failure here means the cloud never
         # gets a schedule.
         print(f"[relay] schedule snapshot failed: {e!r}", flush=True)
+
+
+# What `cloud_server._build_heats_json` reads as a meet with no heats.
+_EMPTY_SCHEDULE = {
+    "events": [],
+    "names": {},
+    "name_parts": {},
+    "times": {},
+    "start_list": {},
+}
+
+
+def _send_schedule_data(client, data):
+    if client is not None:
+        _send_raw(client, "schedule_snapshot", data)
+    else:
+        relay_emit("schedule_snapshot", data)
 
 
 def _serialise_start_list(sl):

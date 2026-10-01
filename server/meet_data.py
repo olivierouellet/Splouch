@@ -338,10 +338,12 @@ def announce_schedule():
     Loading a meet file announces its own (routes/settings._load_meet_file); this
     is for the start lists a test session swaps in and out, which used to leave a
     phone open before the session on "No schedule available yet." until
-    pull-to-refresh. The relay drops the snapshot while a test is local-only.
+    pull-to-refresh, and for a meet being unloaded. No start list goes to the cloud
+    as an empty one, so it stops serving the last. The relay drops the snapshot
+    while a test is local-only.
     """
     bus.emit("/schedule", "schedule_update")
-    relay.send_schedule()
+    relay.send_schedule(clear=True)
 
 
 def send_event_info():
