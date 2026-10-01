@@ -167,17 +167,19 @@ Nageurs, clubs et temps fictifs (enregistrement de test inclus).
 
 ---
 
-## Documentation (en anglais)
+## Guides et documentation
+
+Les trois derniers documents n'existent qu'en anglais.
 
 | | |
 | --- | --- |
-| [Installation](docs/installation.md) | Pi n° 1 (serveur), Pi n° 2 (kiosque), mise à jour, réinstallation |
-| [Guide d'administration](docs/admin.md) | Déroulement d'une compétition, onglets des réglages, pages, localisation |
-| [Relais cloud](docs/cloud.md) | Tableau public pour les spectateurs à distance |
+| [Installation](docs/installation.md#installation-fr) | Pi n° 1 (serveur), Pi n° 2 (kiosque), mise à jour, réinstallation |
+| [Guide d'administration](docs/admin.md#admin-guide-fr) | Déroulement d'une compétition, onglets des réglages, pages, localisation |
+| [Relais cloud](docs/cloud.md#cloud-relay-fr) | Tableau public pour les spectateurs à distance |
 | [Dépannage](docs/troubleshooting.md#troubleshooting-fr) | `splouch.local` injoignable, navigateur bloqué en https, `apt` derrière un proxy |
-| [Développement](docs/development.md) | Flux de données, ajout d'un décodeur de console, ressources incluses |
-| [Contrat d'API](docs/api.md) | Contrat WebSocket + REST pour les clients natifs (TV / iOS / Android) |
-| [Contrat fonctionnel mobile](docs/app.md) | Ce qu'un spectateur peut voir et faire sur un téléphone, pour les clients web, iOS et Android · [parité web](docs/web-parity.md) |
+| [Développement](docs/development.md) | Flux de données, ajout d'un décodeur de console, ressources incluses *(en anglais)* |
+| [Contrat d'API](docs/api.md) | Contrat WebSocket + REST pour les clients natifs (TV / iOS / Android) *(en anglais)* |
+| [Contrat fonctionnel mobile](docs/app.md) | Ce qu'un spectateur peut voir et faire sur un téléphone, pour les clients web, iOS et Android · [parité web](docs/web-parity.md) *(en anglais)* |
 
 ---
 
