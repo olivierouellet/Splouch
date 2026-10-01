@@ -31,6 +31,8 @@ medley       = "estilos"
 relay        = "relevos"
 open         = "Abierto"
 senior       = "Sénior"
+final        = "Final"
+semifinal    = "Semifinal"
 
 [aliases]
 movil         = "/mobile"

@@ -129,6 +129,23 @@ class TestLenexParser:
         data = load_lenex(make_lxf(lenex2_xml(EVENTS_XML)))
         assert 9 not in data.start_list[1][1]
 
+    def test_round_keeps_only_final_and_semifinal(self):
+        """`S-01`: only the two rounds a spectator asks about get a word; a timed
+        final, prelims and an event with no `round` stay out of the map."""
+        events = "".join(
+            f'<EVENT number="{n}" name="50 Free" {attr}><HEATS/></EVENT>'
+            for n, attr in [
+                (1, 'round="FIN"'),
+                (2, 'round="sem"'),
+                (3, 'round="TIM"'),
+                (4, 'round="PRE"'),
+                (5, ""),
+            ]
+        )
+        for wrap in (lenex2_xml, lenex3_xml):
+            data = load_lenex(make_lxf(wrap(events)))
+            assert data.event_rounds == {1: "final", 2: "semifinal"}
+
     def test_missing_event_not_in_event_names(self):
         data = load_lenex(make_lxf(lenex2_xml(EVENTS_XML)))
         assert 99 not in data.event_names

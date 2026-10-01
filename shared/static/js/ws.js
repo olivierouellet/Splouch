@@ -229,8 +229,10 @@ function composeEventName(parts, vocab) {
     var age = parts.age || word(parts.age_key);
     var right = [word(parts.gender), age].filter(Boolean).join(' ');
     var l = left.join(' ');
-    if (l && right) return l + (vocab.separator || '  \u2014  ') + right;
-    return l || right || parts.raw || '';
+    var sep = vocab.separator || '  \u2014  ';
+    var name = l && right ? l + sep + right : l || right || parts.raw || '';
+    if (parts.round) name += sep + word(parts.round);
+    return name;
 }
 
 /* The composed name for a payload carrying either shape, `event_name` being the

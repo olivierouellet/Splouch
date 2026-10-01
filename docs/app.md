@@ -524,7 +524,8 @@ hundreds.
 Identifier repeats per card, its width is event name's → short labels (`short` table of
 `GET /i18n/{lang}`, or short form of `settings.labels`); board keeps long (`T-09`).
 Double space groups `EV 12` vs `HT 3` — no dash, not a range. No scheduled time → draw
-nothing. Screen reader: `EVENT 12, HEAT 3, <name>, <time>`.
+nothing. Final and semifinal are part of the name (`T-11` `round`), not a badge; no
+other round is shown. Screen reader: `EVENT 12, HEAT 3, <name>, <time>`.
 
 ### 5.2 Filtering
 
@@ -697,11 +698,12 @@ Build-time file and run-time cache share one shape, one decoder.
 
 ### <a id="t-11"></a>T-11 — app joins, doesn't parse
 
-Server splits event name into `event_name_parts` — distance, stroke, relay, gender, age
-— beside `event_name` ([`api.md`](api.md) §5.1); `GET /i18n/{lang}` → `event_name` holds
+Server splits event name into `event_name_parts` — distance, stroke, relay, gender, age,
+round — beside `event_name` ([`api.md`](api.md) §5.1); `GET /i18n/{lang}` → `event_name` holds
 words. `{dist: "200", stroke: "backstroke", gender: "girls", age: "< 12"}` + Spanish →
 `200 m espalda  —  Niñas < 12`: lookup + join of `dist + unit`, stroke, relay,
-`separator`, gender, age. Never re-implement split. Parts absent or compose to nothing →
+`separator`, gender, age; `round` set → `separator` + its word (`… Niñas < 12  —  Final`).
+Never re-implement split. Parts absent or compose to nothing →
 `event_name`.
 
 ---

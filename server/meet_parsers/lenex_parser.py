@@ -12,6 +12,7 @@ class LenexData(NamedTuple):
     heat_times: dict
     meet_info: dict
     event_distances: dict
+    event_rounds: dict
 
 
 # Biggest inner XML we will read out of a .lxf. A real meet's start list is a few
@@ -103,6 +104,7 @@ def load_lenex(path):
     Returns a LenexData:
         event_names  — {event_number: str}
         start_list   — {event_number: {heat_number: {lane: {'name': str, 'club': str}}}}
+        event_rounds — {event_number: 'final' | 'semifinal'}; only those two rounds
     """
     tree = _open_lenex_xml(path)
 
@@ -150,6 +152,12 @@ def load_lenex(path):
             if rid:
                 relay_clubs[rid] = shortname
 
+    # EVENT `round` codes worth a word on screen, as `[event_name]` vocabulary keys.
+    # Only the two a spectator reads as "this one decides it": `TIM` (timed final)
+    # is nearly every event at an age-group meet and `PRE` / `QUA` / swim-offs are
+    # not asked for (docs/app.md `S-01`).
+    _round_keys = {"FIN": "final", "SEM": "semifinal"}
+
     _gender_map = {"M": "Men's", "F": "Women's", "X": "Mixed"}
     _stroke_map = {
         "FREESTYLE": "Freestyle",
@@ -187,6 +195,7 @@ def load_lenex(path):
     start_list = {}
     heat_times = {}  # {event_num: {heat_num: daytime_str}}
     event_distances = {}  # {event_num: int} distance in metres
+    event_rounds = {}  # {event_num: 'final' | 'semifinal'}
     eventid_map = {}  # eventid  → event_number  (Splash-style)
     heatid_map = {}  # heatid   → (event_number, heat_number)
 
@@ -195,6 +204,9 @@ def load_lenex(path):
         event_names[ev_num] = event_name_str(event)
         start_list[ev_num] = {}
         heat_times[ev_num] = {}
+        round_key = _round_keys.get(event.get("round", "").upper())
+        if round_key:
+            event_rounds[ev_num] = round_key
         style = find_first(event, "SWIMSTYLE")
         if style is not None:
             with contextlib.suppress(ValueError, TypeError):
@@ -382,4 +394,5 @@ def load_lenex(path):
         heat_times=heat_times,
         meet_info=meet_info,
         event_distances=event_distances,
+        event_rounds=event_rounds,
     )

@@ -198,7 +198,7 @@ _DIST_WITH_UNIT = re.compile(
 _DIST_BARE = re.compile(r"\b(\d+\s*[xX]\s*\d+|\d+)\b")
 
 
-def parse_event_name(raw):
+def parse_event_name(raw, round_key=""):
     """Decompose a raw event name into language-neutral parts.
 
     Keys, not words: ``stroke``, ``gender`` and ``age_key`` name entries in a
@@ -209,6 +209,9 @@ def parse_event_name(raw):
 
     ``age`` carries a numeric band verbatim (``< 12``, ``12-13``) because a number
     needs no translation; ``age_key`` carries ``open`` / ``senior``, which do.
+
+    ``round`` (``final`` / ``semifinal``) is not in the name at all: it comes from
+    the Lenex EVENT and is passed in, so the parts carry everything a composer needs.
     """
     if not raw:
         return None
@@ -276,6 +279,7 @@ def parse_event_name(raw):
         "gender": gender,
         "age": age,
         "age_key": age_key,
+        "round": round_key,
     }
 
 
@@ -308,13 +312,16 @@ def compose_event_name(parts, ev):
     gender = ev.get(parts["gender"], parts["gender"]) if parts.get("gender") else ""
     right = " ".join(p for p in [gender, age] if p)
 
-    if left and right:
-        return left + sep + right
-    return left or right or parts.get("raw", "")
+    name = (
+        left + sep + right if left and right else left or right or parts.get("raw", "")
+    )
+    if parts.get("round"):
+        name += sep + ev.get(parts["round"], parts["round"])
+    return name
 
 
-def translate_event_name(raw, ev):
+def translate_event_name(raw, ev, round_key=""):
     """One raw name rendered in one locale — ``compose(parse(raw))``."""
     if not ev or not raw:
         return raw
-    return compose_event_name(parse_event_name(raw), ev)
+    return compose_event_name(parse_event_name(raw, round_key), ev)

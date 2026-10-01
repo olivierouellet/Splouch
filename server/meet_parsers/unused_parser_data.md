@@ -44,14 +44,8 @@ computed per-entry (typically 6).
 
 | Attribute | Example | Notes |
 | --- | --- | --- |
-| `round` | `"HEATS"` / `"FINAL"` / `"SEMIFINAL"` | Could replace or augment the heat number in the header (e.g. show "Final" instead of "Heat 1 of 1"). |
 | `timing` | `"AUTOMATIC"` / `"MANUAL"` | Timing system type for the event. |
-
-### `HEAT` element
-
-| Attribute | Example | Notes |
-| --- | --- | --- |
-| `daytime` | `"10:30"` | Scheduled start time of the heat. Could be shown in the header. |
+| `round` (other codes) | `"PRE"` / `"QUA"` / `"FHT"` / `"SOP"` | Only `FIN` and `SEM` are parsed (into `event_rounds`); the rest, `TIM` included, are dropped on purpose. |
 
 ### `SWIMSTYLE` element
 

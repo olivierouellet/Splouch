@@ -83,6 +83,14 @@ def test_carries_event_name_parts_like_the_cloud(loaded_meet):
     assert parts["stroke"] == "backstroke"
 
 
+def test_a_final_carries_its_round(loaded_meet, monkeypatch):
+    """`S-01`: the round rides in the parts and in the composed name."""
+    monkeypatch.setattr(state.meet, "event_rounds", {3: "final"})
+    first = meet_routes.route_schedule_json()["heats"][0]
+    assert first["event_name_parts"]["round"] == "final"
+    assert first["event_name"].endswith("Final")
+
+
 def test_json_and_page_are_the_same_list(loaded_meet, monkeypatch):
     """One builder for both, so an app and a browser see the same start list."""
     captured = {}

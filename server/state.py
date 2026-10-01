@@ -186,6 +186,7 @@ class _Meet:
         "heat_times",
         "meet_info",
         "event_distances",
+        "event_rounds",
         "event_info",
     )
 
@@ -196,6 +197,7 @@ class _Meet:
         heat_times=None,
         meet_info=None,
         event_distances=None,
+        event_rounds=None,
         event_info=None,
     ):
         self.event_names = event_names or {}
@@ -203,6 +205,7 @@ class _Meet:
         self.heat_times = heat_times or {}
         self.meet_info = meet_info or {}
         self.event_distances = event_distances or {}
+        self.event_rounds = event_rounds or {}
         self.event_info = event_info if event_info is not None else HytekParser()
 
 
@@ -218,6 +221,7 @@ def set_lenex(data):
         heat_times=data.heat_times,
         meet_info=data.meet_info,
         event_distances=data.event_distances,
+        event_rounds=data.event_rounds,
     )
 
 

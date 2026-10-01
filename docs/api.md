@@ -356,13 +356,17 @@ one broadcast frame serves viewers reading in different languages (`app.md` `T-0
 "event_name": "200 m dos  —  Filles < 12",
 "event_name_parts": { "raw": "200 Backstroke Girls 12 & Under",
                       "dist": "200", "stroke": "backstroke", "relay": false,
-                      "gender": "girls", "age": "< 12", "age_key": "" }
+                      "gender": "girls", "age": "< 12", "age_key": "",
+                      "round": "" }
 ```
 
-`stroke`, `gender` and `age_key` name entries in `GET /i18n/{lang}`'s `event_name`
-section (§5.9); `age` is a numeric band that needs no translation, and only one of
-`age`/`age_key` is ever set. Compose as `dist + unit`, stroke, `relay` — then
-`separator`, then gender and age; fall back to `raw` when nothing parsed. The same
+`stroke`, `gender`, `age_key` and `round` name entries in `GET /i18n/{lang}`'s
+`event_name` section (§5.9); `age` is a numeric band that needs no translation, and
+only one of `age`/`age_key` is ever set. `round` is `final`, `semifinal` or `""` —
+from the Lenex EVENT `round` (`FIN`, `SEM`), never from the name; every other round
+is `""`. Compose as `dist + unit`, stroke, `relay` — then `separator`, then gender
+and age; fall back to `raw` when nothing parsed; then, when `round` is set,
+`separator` and its word (`200 m dos  —  Filles < 12  —  Finale`). The same
 field rides on `results_snapshot` (§5.2) and each heat of `GET /meet/{id}/schedule`
 (§5.8), as `name_parts` in the relay's `schedule_snapshot` (§5.5).
 
@@ -741,6 +745,11 @@ can tell the console has stopped talking to it. Faces, both palettes: `family`
   keys (§5.9), also additive. `GET /picker/config` → `strings` later gained
   `meet_search` and `no_meets_match` for `app.md` `P-17`, and `GET /meets` states
   its order, live meets first (§5.6); a client that ignores both is unaffected.
+
+- **Added since v2, additive**: `event_name_parts.round` (§5.1) — `final` /
+  `semifinal` from a Lenex meet, with the words in `GET /i18n/{lang}` →
+  `event_name`. `event_name` already ends with the round in the meet's language, so
+  a client that composes from parts and ignores `round` only loses it there.
 
 - **Removed since v2, the version stands**: `settings.label_overrides` (§5.4),
   with the per-Pi locale file it carried. It was documented as normally absent,

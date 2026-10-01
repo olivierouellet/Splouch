@@ -31,6 +31,8 @@ medley       = "Medley"
 relay        = "Relay"
 open         = "Open"
 senior       = "Senior"
+final        = "Final"
+semifinal    = "Semifinal"
 
 [aliases]
 phone    = "/mobile"

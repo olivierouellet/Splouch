@@ -731,6 +731,33 @@ def test_every_shipped_recording_name_keeps_its_distance():
                 )
 
 
+@pytest.mark.parametrize(
+    "lang, expected",
+    [
+        ("en", "100 m Freestyle  —  Women  —  Final"),
+        ("fr", "100 m libre  —  Femmes  —  Demi-finale"),
+        ("es", "100 m libre  —  Mujeres  —  Final"),
+    ],
+)
+def test_a_round_follows_the_name_in_the_readers_language(lang, expected):
+    """`S-01`: the round comes from the Lenex EVENT, not the name, and rides in the
+    parts as a key so a client composes it in its own language."""
+    round_key = "semifinal" if lang == "fr" else "final"
+    parts = state.parse_event_name("100 Free Women", round_key)
+    assert parts["round"] == round_key
+    assert (
+        state.compose_event_name(parts, state.i18n_bundle(lang)["event_name"])
+        == expected
+    )
+
+
+def test_no_round_adds_nothing():
+    parts = state.parse_event_name("100 Free Women")
+    assert parts["round"] == ""
+    ev = state._locale_section("en", "event_name")
+    assert state.compose_event_name(parts, ev) == "100 m Freestyle  —  Women"
+
+
 def test_composing_survives_a_name_that_parses_into_nothing():
     """Hand-entered names exist. Falling back to the raw string beats a blank header."""
     parts = state.parse_event_name("Club Handicap Final")

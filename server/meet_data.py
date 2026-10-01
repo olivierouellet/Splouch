@@ -55,7 +55,9 @@ def _raw_event_name(event_num):
 
 def get_event_name_display(event_num):
     return state.translate_event_name(
-        _raw_event_name(event_num), state.load_event_translations()
+        _raw_event_name(event_num),
+        state.load_event_translations(),
+        state.meet.event_rounds.get(event_num, ""),
     )
 
 
@@ -66,7 +68,9 @@ def get_event_name_parts(event_num):
     that does not compose keeps rendering the string, which is already correct for
     anyone who has not chosen a language (docs/app.md `T-04`).
     """
-    return state.parse_event_name(_raw_event_name(event_num))
+    return state.parse_event_name(
+        _raw_event_name(event_num), state.meet.event_rounds.get(event_num, "")
+    )
 
 
 def get_lane_parts(event_num, heat_num, lane):
@@ -235,11 +239,12 @@ def _build_meet_data():
     if m.start_list:
         ev_trans = state.load_event_translations()
         event_names = {
-            num: state.translate_event_name(name, ev_trans)
+            num: state.translate_event_name(name, ev_trans, m.event_rounds.get(num, ""))
             for num, name in m.event_names.items()
         }
         event_name_parts = {
-            num: state.parse_event_name(name) for num, name in m.event_names.items()
+            num: state.parse_event_name(name, m.event_rounds.get(num, ""))
+            for num, name in m.event_names.items()
         }
         events_grouped = [(ev, sorted(m.start_list[ev])) for ev in sorted(m.start_list)]
         return {

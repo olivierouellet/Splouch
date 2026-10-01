@@ -31,6 +31,8 @@ medley       = "quatre nages"
 relay        = "relais"
 open         = "Ouvert"
 senior       = "Sénior"
+final        = "Finale"
+semifinal    = "Demi-finale"
 
 [aliases]
 mobile     = "/mobile"
