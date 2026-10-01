@@ -328,17 +328,31 @@ def _close_recording():
     handle.close()
 
 
+def _session_path(name):
+    """`name` in the sessions folder, or None when it would resolve outside it.
+
+    The name comes from the request: `../` in it would otherwise reach any file the
+    service user can write — and /test_session_delete removes what it names.
+    """
+    folder = os.path.realpath(state.CUSTOM_SESSIONS_FOLDER)
+    path = os.path.realpath(os.path.join(folder, name))
+    if not path.startswith(folder + os.sep):
+        return None
+    return path
+
+
 @router.post("/test_record_start", dependencies=[Depends(require_login)])
 def route_test_record_start(body: RecordBody):
     _close_recording()
     code = re.sub(r"[^a-z0-9_-]", "_", body.name.strip().lower()) or "recording"
     name = f"{code}.{body.format}"
+    path = _session_path(name)
+    if path is None:
+        return {"ok": False, "error": "invalid name"}
     state._record_raw = body.format == "raw"
     state._record_raw_count = 0
     # Held open across requests until /test_record_stop, so no `with`.
-    state._record_handle = open(  # noqa: SIM115
-        os.path.join(state.CUSTOM_SESSIONS_FOLDER, name), "w", encoding="utf-8"
-    )
+    state._record_handle = open(path, "w", encoding="utf-8")  # noqa: SIM115
     return {"ok": True, "file": name}
 
 
@@ -354,9 +368,9 @@ def route_test_record_stop():
 
 @router.post("/test_session_delete", dependencies=[Depends(require_login)])
 def route_test_session_delete(body: NameBody):
-    path = os.path.join(state.CUSTOM_SESSIONS_FOLDER, body.name)
-    if os.path.isfile(path) and path.endswith(SESSION_UPLOAD_EXTS):
-        if state._test_session == path:
+    path = _session_path(body.name)
+    if path and os.path.isfile(path) and path.endswith(SESSION_UPLOAD_EXTS):
+        if state._test_session and os.path.realpath(state._test_session) == path:
             bus.run_bg(_restart_worker, None)
         os.remove(path)
     return redirect("/settings")

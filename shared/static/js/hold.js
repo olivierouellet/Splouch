@@ -44,7 +44,12 @@
            that was held. Existing handlers take no arguments and ignore it. */
         var handler = fn && /** @type {any} */ (window)[fn];
         if (typeof handler === 'function') handler(el);
-        else if (href) window.location.href = href;
+        else if (href) {
+            /* Same-origin only: a hold moves around the app, and a `javascript:` or
+               off-site URL in the attribute is nothing a hold should follow. */
+            var url = new URL(href, window.location.href);
+            if (url.origin === window.location.origin) window.location.assign(url.href);
+        }
     }
     function cancel() {
         if (timer) {

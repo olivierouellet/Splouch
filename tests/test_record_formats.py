@@ -87,3 +87,20 @@ def test_raw_recording_is_listed_and_accepted(sessions_dir):
     debug.route_test_record_stop()
     names = [s["name"] for s in worker._list_sessions() if s["source"] == "custom"]
     assert "new.raw" in names
+
+
+def test_deleting_a_session_stays_inside_the_sessions_folder(sessions_dir):
+    """The name is the request's: `../` must not reach a recording elsewhere."""
+    inside = sessions_dir / "sessions"
+    inside.mkdir()
+    outside = sessions_dir / "elsewhere.raw"
+    outside.write_text("")
+    kept = inside / "kept.raw"
+    kept.write_text("")
+    state.CUSTOM_SESSIONS_FOLDER = str(inside)
+
+    debug.route_test_session_delete(debug.NameBody(name="../elsewhere.raw"))
+    assert outside.exists()
+
+    debug.route_test_session_delete(debug.NameBody(name="kept.raw"))
+    assert not kept.exists()
