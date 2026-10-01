@@ -38,7 +38,7 @@ so most "match" rows below mean *the same result by unrelated means*.
 | layout model | flex column; the table is `table-layout: fixed` | `QVBoxLayout` + `QHBoxLayout` with stretch weights |
 | sizing unit | `vw` / `vh`, off the viewport | fractions of the **parent widget** — row height, bar height |
 | where sizes are computed | the CSS engine, continuously | each widget's own `resizeEvent` |
-| text overflow | `fitNameFontSize()` scales the cell down by the overflow ratio, ellipsis as the floor | `FitLabel` binary-searches the font size, elides at the 10px floor |
+| text overflow | `fitNameFontSize()` scales the cell down by the overflow ratio, to half size at most, then ellipsis | `FitLabel` binary-searches the font size, elides at the 10px floor |
 | row backgrounds | a `linear-gradient` synthesized into `#timing-bg` from each row's computed colour | `autoFillBackground` per `LaneRow` |
 | animation | CSS `transition` / `@keyframes` | `QVariantAnimation` / `QPropertyAnimation`, interpolating by hand |
 | colour changes | `transition: background-color` gives them free | Qt stylesheets do not animate — every fade is interpolated and re-applied |

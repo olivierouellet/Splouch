@@ -189,3 +189,64 @@ def test_the_relay_line_goes_before_the_type_shrinks(live):
     compact = css[css.index("@media (max-width: 599px)") :]
     assert re.search(r"body\.crowded\s+\.name-sub\s*\{\s*display:\s*none", compact)
     assert "var(--row-scale, 1)" in compact
+
+
+# ── L-15 / L-16 / L-17: sizing ────────────────────────────────────────────────
+
+
+_SHARE = r"""
+document.getElementById('scoreboard').clientHeight = 600;
+sizeRows();
+var share = document.documentElement.style.getPropertyValue('--lane-share');
+assert(share === '93px', 'lane share ' + JSON.stringify(share));
+"""
+
+
+@needs_js
+def test_the_lanes_share_the_board_less_the_column_titles(live, results):
+    """Six lanes divide a 600px board less its 40px title row: whole pixels, so the
+    rows never add up past the board and read as crowded."""
+    _drive(live, _SHARE)
+    _drive(results, _SHARE)
+
+
+@needs_js
+def test_a_hidden_board_keeps_its_last_share(live):
+    """A tab behind another measures 0; sizing from that would set the type to 0."""
+    _drive(
+        live,
+        r"""
+document.getElementById('scoreboard').clientHeight = 0;
+sizeRows();
+assert(document.documentElement.style.getPropertyValue('--lane-share') === '',
+       'a hidden board wrote a share');
+""",
+    )
+
+
+_CLUB_FIT = r"""
+var club = document.getElementById('lane_club1');
+club.scrollWidth = %d; club.clientWidth = 320;
+fitNameFontSize();
+assert(club.style.fontSize === '%s', 'club size ' + JSON.stringify(club.style.fontSize));
+"""
+
+
+@needs_js
+@pytest.mark.parametrize(
+    "wants, size",
+    [(320, ""), (400, "12.42px"), (5000, "10.00px")],
+    ids=["fits", "shrinks", "floor"],
+)
+def test_a_long_club_shrinks_to_a_floor(live, wants, size):
+    """A club that fits is left alone; one that does not shrinks in proportion, and
+    never below 10px (from a 16px cell) — past that the ellipsis takes over."""
+    _drive(live, _CLUB_FIT % (wants, size))
+
+
+def test_the_full_table_has_no_32px_ceiling(live):
+    """The row type follows the lane's share up to 56px; the old 32px stop left
+    most of every row empty on a tablet."""
+    css = _css(live)
+    assert "font-size: 32px" not in css
+    assert "min(56px, calc(var(--lane-share" in css

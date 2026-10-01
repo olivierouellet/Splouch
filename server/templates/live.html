@@ -253,9 +253,11 @@ function fitNameFontSize() {
         cell.style.fontSize = '';
         var primary = cell.querySelector('.name-primary');
         if (!primary || primary.scrollWidth <= primary.clientWidth) return;
-        var ratio  = primary.clientWidth / primary.scrollWidth;
+        /* Never below half size: past that the ellipsis says "there is more"
+           better than a name nobody can read from the stands. */
+        var ratio  = Math.max(0.5, primary.clientWidth / primary.scrollWidth * 0.97);
         var basePx = parseFloat(window.getComputedStyle(cell).fontSize);
-        cell.style.fontSize = (basePx * ratio * 0.97).toFixed(2) + 'px';
+        cell.style.fontSize = (basePx * ratio).toFixed(2) + 'px';
     });
 }
 

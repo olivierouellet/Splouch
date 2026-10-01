@@ -33,19 +33,31 @@
         display: grid;
         grid-template-columns: 9vw 1fr 22vw 12vw;
         grid-template-rows: auto auto;
+        /* A row taller than its two lines keeps them together, centred, rather
+           than spreading them to the row's edges. */
+        align-content: center;
         border-bottom: 1px solid var(--color-header-border);
         padding: 0.4vw 0;
-        /* `--row-scale` is `fitCompactBoard`'s, 1 unless the lanes do not fit. */
-        font-size: calc(min(4.2vh, 4.5vw) * var(--row-scale, 1));
-        min-height: calc(min(4.2vh, 4.5vw) * 2.8 * var(--row-scale, 1));
+        box-sizing: border-box;
+        /* The lanes share the board's height (`--lane-share`, from `sizeRows`) and
+           the type follows that share the way the Android board's does, capped by
+           the width the grid's vw columns give it. `--row-scale` is
+           `fitCompactBoard`'s, 1 unless the lanes do not fit. The fallbacks hold
+           until the first measure: about the 4.2vh this used to be. */
+        --row-font: calc(min(4.5vw, var(--lane-share, 16vh) * 0.26) * var(--row-scale, 1));
+        font-size: var(--row-font);
+        /* A board fills its board: six lanes do not stop at mid-screen. The share
+           is floored to whole pixels, so the rows never sum past the height and
+           read as crowded. */
+        min-height: max(calc(var(--row-font) * 2.8), var(--lane-share, 0px));
     }
     body.crowded .name-sub { display: none; }
     .timing-table tbody td { width: auto !important; max-width: none !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 1.5vw; }
     .timing-table tbody td:nth-child(1) { grid-column: 1; grid-row: 1 / 3; display: flex; align-items: center; justify-content: center; }
     .timing-table tbody td:nth-child(2) { grid-column: 2 / 4; grid-row: 1; padding-bottom: 0; }
     .timing-table tbody td:nth-child(3) { grid-column: 4; grid-row: 1; font-size: 0.75em; color: var(--color-th-text); text-align: right !important; padding-bottom: 0; }
-    .timing-table tbody td:nth-child(4) { grid-column: 2; grid-row: 2; padding-top: 0; font-size: 0.92em; text-align: left !important; }
-    .timing-table tbody td:nth-child(5) { grid-column: 3; grid-row: 2; padding-top: 0; font-size: 0.78em; text-align: right !important; }
+    .timing-table tbody td:nth-child(4) { grid-column: 2; grid-row: 2; padding-top: 0; font-size: calc(0.92em * var(--time-fit, 1)); text-align: left !important; }
+    .timing-table tbody td:nth-child(5) { grid-column: 3; grid-row: 2; padding-top: 0; font-size: calc(0.78em * var(--delta-fit, 1)); text-align: right !important; }
     .timing-table tbody td:nth-child(6) { grid-column: 4; grid-row: 2; text-align: right !important; padding-top: 0; font-size: 0.78em; }
     [id^="lane_place"].has-place::before { content: '#'; opacity: 0.5; }
 }
@@ -98,23 +110,38 @@
 /* The lap count's own colour lives in `timing_display.css`, beside the delta rules
    it shares a cell with — the kiosk renders the same thing and the two must not
    drift. */
+/* ── The full table (`L-16`) ──
+   Type is 55% of each lane's share of the board (`--lane-share`, measured by
+   `sizeRows`), the rule both apps use, with a 56px ceiling so four lanes in a
+   desktop window are not set at poster size. The fallback is about the 42/lanes
+   vh this used to be, until the first measure. It used to stop at 32px on any
+   window 600px tall, which on a tablet left most of every row empty.
+
+   Time and delta are set near the name's size: they are what a spectator came to
+   read. Each takes `--time-fit` / `--delta-fit`, one factor for the whole column,
+   so a long time shrinks its column rather than clipping and the column never
+   goes ragged.
+
+   Column shares are the ones the apps use too — lane 6, club 14, time 17,
+   delta 12, place 6, the name the rest. A hidden column is `display: none` and
+   `table-layout: fixed` hands its width to the name. */
 @media (min-width: 600px) {
-    .timing-row-odd, .timing-row-even { font-size: {{ (42 / num_lanes) | round(1) }}vh; }
-    .td_time  { font-size: 0.72em; padding: 0 0.8vw; }
-    .td_delta { font-size: 0.58em; padding: 0 0.8vw; }
-    [id^="lane_club"] { font-size: 0.68em; }
+    .timing-row-odd, .timing-row-even {
+        font-size: min(56px, calc(var(--lane-share, {{ (76 / num_lanes) | round(1) }}vh) * 0.55));
+    }
+    .td_time  { font-size: calc(0.85em * var(--time-fit, 1)); padding: 0 0.8vw; }
+    .td_delta { font-size: calc(0.85em * var(--delta-fit, 1)); padding: 0 0.8vw; }
+    [id^="lane_club"] { font-size: 0.75em; text-overflow: ellipsis; }
     table.timing-table th { padding: 0.4vh 0.8vw; font-weight: normal; }
     /* `3vh` from the kiosk's stylesheet is sized for a window wider than tall; an
        upright tablet is regular width too, and there it clipped `CLUB`. */
     .timing-header { font-size: min(3vh, 3vw); }
+    .lane-column  { width: 6vw; }
+    .club-column  { width: 14vw; }
     .place-column { width: 6vw;  max-width: 6vw; }
     .time-column  { width: 17vw; max-width: 17vw; }
-    .delta-column { width: 14vw; max-width: 14vw; }
+    .delta-column { width: 12vw; max-width: 12vw; }
     table.timing-table .lane-name-cell { font-size: 0.85em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-}
-/* Cap row font on tablets and desktops — phones are handled by max-height: 500px below */
-@media (min-width: 600px) and (min-height: 600px) {
-    .timing-row-odd, .timing-row-even { font-size: 32px; }
 }
 /* Phone landscape: vh is ~375px so vh-based header fonts become tiny.
    Switch to vw-based sizing for screens shorter than 500px. Desktop/TV
@@ -250,22 +277,101 @@ function fitCompactBoard() {
     }
 }
 
-/* Runs the board fit first: a name is fitted to the cell it will actually have. */
+/* ── Each lane's share of the board (docs/app.md `L-15`, `L-16`) ──
+   The height the lanes divide, less the column titles when they are drawn,
+   floored to whole pixels so the rows never sum past the board. The type on both
+   layouts is a fraction of this, in CSS. A hidden tab measures 0 and keeps what
+   it had; `on_tab_shown` measures again. */
+function sizeRows() {
+    var board = document.getElementById('scoreboard');
+    var head  = document.querySelector('#timing-board thead');
+    var room  = board ? board.clientHeight - (head ? head.offsetHeight : 0) : 0;
+    if (!(room > 0)) return;
+    document.documentElement.style.setProperty(
+        '--lane-share', Math.floor(room / Math.max(1, NUM_LANES)) + 'px');
+}
+
+/* A shrunk cell never goes below half its size, nor below 10px — the Qt board's
+   floor: past that the text is too small to read from a seat, and the ellipsis
+   says there is more instead (`L-17`). The pixel floor matters for the club,
+   which starts at three-quarters of the row and would otherwise end at six. */
+var FIT_FLOOR = 0.5, FIT_FLOOR_PX = 10;
+function fitCell(cell, primary) {
+    cell.style.fontSize = '';
+    if (!primary || primary.scrollWidth <= primary.clientWidth) return;
+    var ratio  = Math.max(FIT_FLOOR, primary.clientWidth / primary.scrollWidth * 0.97);
+    var basePx = parseFloat(window.getComputedStyle(cell).fontSize);
+    if (basePx) cell.style.fontSize =
+        Math.max(basePx * ratio, Math.min(basePx, FIT_FLOOR_PX)).toFixed(2) + 'px';
+}
+
+/* ── Time and delta: one size per column ──
+   Fitted to the widest thing the column can hold rather than to what it holds
+   now. The running clock rewrites the time cell ten times a second, and a size
+   fitted to each value would re-measure on every tick (`L-17` keeps fits off that
+   path) and jump in front of everyone the moment `59.9` became `1:00.0`. So the
+   time column is sized once for `88:88.88` — a 1500 included — and only a resize
+   moves it. A delta does not tick: it lands once, at the finish, so its column
+   is sized for `+88.88` or the longest delta on the board, whichever is wider. */
+var TIME_TEMPLATE = '88:88.88', DELTA_TEMPLATE = '+88.88';
+var _ruler = null;
+function textWidth(text, style) {
+    if (!_ruler) {
+        var c = document.createElement('canvas');
+        _ruler = c.getContext ? c.getContext('2d') : null;
+    }
+    if (!_ruler || !_ruler.measureText) return 0;
+    _ruler.font = style.fontWeight + ' ' + style.fontSize + ' ' + style.fontFamily;
+    return _ruler.measureText(text).width;
+}
+/* Sizes the column `cell` sits in so the widest of `texts` fits it. */
+function fitColumn(cell, prop, texts) {
+    var root = document.documentElement;
+    root.style.setProperty(prop, '1');
+    if (!cell) return;
+    var style = window.getComputedStyle(cell);
+    var room  = cell.clientWidth - (parseFloat(style.paddingLeft) || 0)
+                                 - (parseFloat(style.paddingRight) || 0);
+    var need  = 0;
+    texts.forEach(function(t) { need = Math.max(need, textWidth(t, style)); });
+    if (!(room > 0) || !(need > room)) return;
+    root.style.setProperty(prop, Math.max(FIT_FLOOR, room / need * 0.97).toFixed(3));
+}
+/* The template alone: the clock's own digits must not move the size. */
+function fitTimeColumn() {
+    var span = document.getElementById('lane_time1');
+    fitColumn(span && span.parentNode, '--time-fit', [TIME_TEMPLATE]);
+}
+function fitDeltaColumn() {
+    var texts = [DELTA_TEMPLATE];
+    for (var i = 1; i <= NUM_LANES; i++) texts.push(cellText('lane_delta' + i));
+    fitColumn(document.getElementById('lane_delta1'), '--delta-fit', texts);
+}
+
+/* Runs the board fit first: a name is fitted to the cell it will actually have.
+   Names and clubs arrive together, on a heat change, so the club is fitted here
+   too — per row, like the name. */
 function fitNameFontSize() {
+    sizeRows();
     fitCompactBoard();
     document.querySelectorAll('.lane-name-cell').forEach(function(cell) {
-        cell.style.fontSize = '';
-        var primary = cell.querySelector('.name-primary');
-        if (!primary || primary.scrollWidth <= primary.clientWidth) return;
-        var ratio  = primary.clientWidth / primary.scrollWidth;
-        var basePx = parseFloat(window.getComputedStyle(cell).fontSize);
-        cell.style.fontSize = (basePx * ratio * 0.97).toFixed(2) + 'px';
+        fitCell(cell, cell.querySelector('.name-primary'));
     });
+    for (var i = 1; i <= NUM_LANES; i++) {
+        var club = document.getElementById('lane_club' + i);
+        if (club) fitCell(club, club);
+    }
+    fitTimeColumn();
+    fitDeltaColumn();
 }
 window.addEventListener('resize', function() {
     requestAnimationFrame(fitNameFontSize);
     requestAnimationFrame(fitHeaderCells);
 });
+/* A canvas measures in whatever face is loaded, and the timing font arrives after
+   the first layout. */
+if (document.fonts && document.fonts.ready)
+    document.fonts.ready.then(function() { requestAnimationFrame(fitNameFontSize); });
 
 /* ── Race clock ───────────────────────────────────────────────────────────────
    `running_time` is one clock for the heat, not one per lane, and every running
@@ -652,8 +758,9 @@ function applyScoreboardFrame(new_s) {
     if ("expected_splits" in s) expected_splits = s["expected_splits"] || 0;
     if ("split_step" in s)      split_step      = s["split_step"] || 1;
 
-    var names_changed = false;
-    var delta_lanes   = {};
+    var names_changed  = false;
+    var deltas_changed = false;
+    var delta_lanes    = {};
     for (var k in s) {
         /* A running lane's time cell belongs to the ticker. The split stays in
            the server's snapshot and comes back on the join replay, so without
@@ -678,6 +785,7 @@ function applyScoreboardFrame(new_s) {
             var di = k.replace("lane_delta", "");
             lane_delta_html[di] = s[k] || '';
             delta_lanes[di] = true;
+            deltas_changed = true;
         }
         if (k.startsWith("lane_name")) names_changed = true;
         if (k.startsWith("lane_name") && !k.startsWith("lane_name_alt"))
@@ -739,6 +847,8 @@ function applyScoreboardFrame(new_s) {
     /* Only when a name actually arrived — which is a heat change, not every tick.
        Re-fitting on each frame would force a layout pass per lane mid-race. */
     if (names_changed) requestAnimationFrame(fitNameFontSize);
+    /* A delta lands once per lane, at the finish — not a per-tick fit either. */
+    else if (deltas_changed) requestAnimationFrame(fitDeltaColumn);
     /* The header phrase changes with the heat, not with every tick. */
     if ('current_event' in s || 'current_heat' in s)
         requestAnimationFrame(fitHeaderCells);
@@ -750,6 +860,7 @@ function init() {
     on_timer();
     window.setInterval(on_timer, 1000);
     requestAnimationFrame(fitHeaderCells);   /* the labels are server-rendered */
+    requestAnimationFrame(fitNameFontSize);  /* the rows' share, before any frame */
 {% block init_extra %}{% endblock %}
 }
 </script>
