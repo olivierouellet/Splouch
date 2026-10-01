@@ -94,6 +94,16 @@ VS Code with the recommended Ruff extension does both on save. `uv run shfmt -w
 install.sh install/`, `uv run rumdl fmt .`, `npx biome check --write` and `uv run taplo
 fmt` do the same for shell, Markdown, JavaScript and CSS, and TOML.
 
+One of them also runs before each commit, once enabled per clone:
+
+```sh
+git config core.hooksPath .githooks
+```
+
+[`.githooks/pre-commit`](.githooks/pre-commit) runs `taplo fmt --check` on the staged
+TOML only — the check that kept reaching CI, since a comment or a new key in an aligned
+locale block quietly needs the block realigned. VS Code formats TOML on save as well.
+
 They are clean on `master`, tests included, and are expected to stay that way. `ty` is
 still pre-1.0, so treat a new diagnostic from it as a question rather than a verdict —
 but so far the answer has been worth having every time.
