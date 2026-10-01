@@ -364,8 +364,8 @@ one broadcast frame serves viewers reading in different languages (`app.md` `T-0
 `event_name` section (§5.9); `age` is a numeric band that needs no translation, and
 only one of `age`/`age_key` is ever set. `round` comes from the Lenex EVENT `round`,
 never from the name: `FIN` → `final`, `SEM` → `semifinal`, `QUA` → `quarterfinal`,
-`PRE` → `prelims`, `FHT` → `fastest_heat`, `SOP` → `swimoff`; anything else (`TIM`,
-`SOS`, `SOQ`, none) is `""`. Compose as `dist + unit`, stroke, `relay` — then `separator`, then gender
+`PRE` → `prelims`, `FHT` → `fastest_heat`, `TIM` → `timed_final`, and `SOP` / `SOQ`
+/ `SOS` → `swimoff`; no `round`, or an unknown code, is `""`. Compose as `dist + unit`, stroke, `relay` — then `separator`, then gender
 and age; fall back to `raw` when nothing parsed; then, when `round` is set,
 `separator` and its word (`200 m dos  —  Filles < 12  —  Finale`). The same
 field rides on `results_snapshot` (§5.2) and each heat of `GET /meet/{id}/schedule`

@@ -37,6 +37,7 @@ quarterfinal = "Quarterfinal"
 prelims      = "Prelims"
 fastest_heat = "Fastest heat"
 swimoff      = "Swim-off"
+timed_final  = "Timed final"
 
 [aliases]
 phone    = "/mobile"

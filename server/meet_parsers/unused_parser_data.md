@@ -45,7 +45,6 @@ computed per-entry (typically 6).
 | Attribute | Example | Notes |
 | --- | --- | --- |
 | `timing` | `"AUTOMATIC"` / `"MANUAL"` | Timing system type for the event. |
-| `round` (other codes) | `"TIM"` / `"SOS"` / `"SOQ"` | Dropped on purpose; `FIN`, `SEM`, `QUA`, `PRE`, `FHT`, `SOP` are parsed into `event_rounds`. |
 
 ### `SWIMSTYLE` element
 

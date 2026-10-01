@@ -753,7 +753,15 @@ def test_a_round_follows_the_name_in_the_readers_language(lang, expected):
 
 @pytest.mark.parametrize(
     "round_key",
-    ["final", "semifinal", "quarterfinal", "prelims", "fastest_heat", "swimoff"],
+    [
+        "final",
+        "semifinal",
+        "quarterfinal",
+        "prelims",
+        "fastest_heat",
+        "swimoff",
+        "timed_final",
+    ],
 )
 @pytest.mark.parametrize("lang", ["en", "fr", "es"])
 def test_every_round_has_a_word_in_every_language(lang, round_key):

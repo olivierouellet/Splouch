@@ -152,16 +152,19 @@ def load_lenex(path):
             if rid:
                 relay_clubs[rid] = shortname
 
-    # EVENT `round` codes worth a word on screen, as `[event_name]` vocabulary keys.
-    # `TIM` (timed final) is nearly every event at an age-group meet and gets none;
-    # `SOS` / `SOQ` (later swim-offs) are not asked for (docs/app.md `S-01`).
+    # EVENT `round` codes, as `[event_name]` vocabulary keys. Every code the Lenex
+    # spec defines; the three swim-offs share one word, since a spectator does not
+    # care which round forced it.
     _round_keys = {
-        "FIN": "final",
-        "SEM": "semifinal",
-        "QUA": "quarterfinal",
-        "PRE": "prelims",
+        "TIM": "timed_final",
         "FHT": "fastest_heat",
+        "PRE": "prelims",
+        "QUA": "quarterfinal",
+        "SEM": "semifinal",
+        "FIN": "final",
         "SOP": "swimoff",
+        "SOQ": "swimoff",
+        "SOS": "swimoff",
     }
 
     _gender_map = {"M": "Men's", "F": "Women's", "X": "Mixed"}

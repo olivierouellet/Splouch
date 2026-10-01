@@ -37,6 +37,7 @@ quarterfinal = "Quart de finale"
 prelims      = "Préliminaires"
 fastest_heat = "Série la plus rapide"
 swimoff      = "Barrage"
+timed_final  = "Finale par temps"
 
 [aliases]
 mobile     = "/mobile"
