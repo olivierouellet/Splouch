@@ -74,6 +74,10 @@ A security audit in September 2026 found and fixed defects in session key handli
 WebSocket origin checking, terminal access, start-list escaping, backup extraction,
 update targets, and the installer's sudo grant.
 
+A follow-up review in October 2026 found two more: the scoreboard wrote meet-file
+names into the page as markup — on the Pi and on the relay's public pages — and the
+relay admin panel accepted form posts from other sites.
+
 Every one of them is pinned to a regression test in
 [`tests/test_security_hardening.py`](tests/test_security_hardening.py), grouped by what
 the attacker needed to be able to do — from "nothing at all" upward. It is worth reading
