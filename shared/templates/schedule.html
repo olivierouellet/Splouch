@@ -274,6 +274,11 @@
             background: var(--color-bg);
             border-bottom: 1px solid var(--color-header-border);
         }
+        /* Read by a screen reader, never drawn (docs/app.md `X-03`). */
+        .sr-only {
+            position: absolute; width: 1px; height: 1px; overflow: hidden;
+            clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap;
+        }
         .heat-card.heat-odd  { background: var(--color-row-odd); }
         .heat-card.heat-even { background: var(--color-row-even); }
         .heat-header {
@@ -386,7 +391,7 @@
 </div>
 
 {% if not has_meet %}
-<div id="waiting">{{ labels.no_schedule or t.no_meet or 'No meet file loaded' }}</div>
+<div id="waiting" role="heading" aria-level="2">{{ labels.no_schedule or t.no_meet or 'No meet file loaded' }}</div>
 {% else %}
 
 <!-- Filter overlay -->
@@ -412,7 +417,7 @@
 
 <!-- Schedule content -->
 <div id="schedule"></div>
-<div id="no-matches" class="hidden">{{ t.no_matches or 'No swimmers match these filters' }}</div>
+<div id="no-matches" class="hidden" role="heading" aria-level="2">{{ t.no_matches or 'No swimmers match these filters' }}</div>
 
 {# ws.js and the vocab first: the script below ends by calling renderSchedule(),
    which composes each heat's event name through eventNameOf() (docs/app.md `T-11`).
@@ -559,12 +564,12 @@ function renderSchedule() {
         if (h.time) spoken.push(h.time);
         html += '<div class="heat-header" role="heading" aria-level="2" aria-label="' +
                 esc(spoken.join(', ')) + '">';
-        html += '<span class="heat-title">' +
+        html += '<span class="heat-title" aria-hidden="true">' +
                 esc(LABELS.event) + ' ' + esc(evStr) + '  ' +
                 esc(LABELS.heat)  + ' ' + esc(htStr) + '</span>';
-        html += '<span class="heat-name">' + esc(heatName || '') + '</span>';
-        if (h.time) html += '<span class="heat-time">' + esc(h.time) + '</span>';
-        html += '</div><div class="swimmer-list">';
+        html += '<span class="heat-name" aria-hidden="true">' + esc(heatName || '') + '</span>';
+        if (h.time) html += '<span class="heat-time" aria-hidden="true">' + esc(h.time) + '</span>';
+        html += '</div><div class="swimmer-list" role="list">';
         for (var j = 0; j < visibleLanes.length; j++) {
             var lane = visibleLanes[j];
             var displayName;
@@ -574,11 +579,18 @@ function renderSchedule() {
             } else {
                 displayName = lane.name || '—';
             }
-            html += '<div class="swimmer-row">';
-            html += '<div class="lane-num">' + esc(lane.lane) + '</div>';
-            html += '<div class="swimmer-name">' + esc(displayName) + '</div>';
-            if (lane.club)      html += '<span class="swimmer-club">'  + esc(lane.club)      + '</span>';
-            if (lane.seed_time) html += '<span class="seed-time">'     + esc(lane.seed_time) + '</span>';
+            /* One utterance per lane, in the server's long column words, rather
+               than four unlabelled stops — `NT` alone tells a listener nothing
+               (docs/app.md `X-03`). The drawn row is hidden from the reader. */
+            var spokenLane = [SPOKEN_LABELS.lane + ' ' + lane.lane, displayName];
+            if (lane.club)      spokenLane.push(SPOKEN_LABELS.club + ' ' + lane.club);
+            if (lane.seed_time) spokenLane.push(SPOKEN_LABELS.time + ' ' + lane.seed_time);
+            html += '<div class="swimmer-row" role="listitem">';
+            html += '<span class="sr-only">' + esc(spokenLane.join(', ')) + '</span>';
+            html += '<div class="lane-num" aria-hidden="true">' + esc(lane.lane) + '</div>';
+            html += '<div class="swimmer-name" aria-hidden="true">' + esc(displayName) + '</div>';
+            if (lane.club)      html += '<span class="swimmer-club" aria-hidden="true">' + esc(lane.club) + '</span>';
+            if (lane.seed_time) html += '<span class="seed-time" aria-hidden="true">' + esc(lane.seed_time) + '</span>';
             html += '</div>';
         }
         html += '</div></div>';

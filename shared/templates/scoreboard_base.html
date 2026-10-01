@@ -78,6 +78,13 @@
     .time-column  { width: 24vw; max-width: 24vw; }
     .delta-column { width: 12vw; max-width: 12vw; }
 }
+/* Read by a screen reader, never drawn (docs/app.md `X-01`, `X-02`). */
+.sr-only {
+    position: absolute; width: 1px; height: 1px; overflow: hidden;
+    clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap;
+}
+/* No bullet to read out; `role="list"` keeps the list in Safari without one. */
+#spoken_lanes { list-style: none; }
 /* ── Typography ── */
 #event_name              { font-family: var(--font-family), monospace; }
 .name-sub                { opacity: 1; color: var(--color-th-text); }
@@ -167,6 +174,56 @@ function reset_times() {
 /* Scale a name down until it fits its cell, per row — one long name must not
    shrink the others. Reads laid-out widths, so it forces synchronous layout:
    callers run it after paint and only when a name actually changed. */
+/* ── What a screen reader hears (docs/app.md `X-01`, `X-02`) ──
+   The drawn board is hidden from assistive technology and these two stand in for
+   it, rebuilt from the cells themselves so they can never say something the screen
+   does not. The words are the server's column words (`T-04`), so a lane is spoken
+   in the meet's language; the lap count is the one exception, since no column
+   names it — said bare after a time, it would be heard as a second time. */
+var SPOKEN = {{ {
+    'lane': labels.lane or 'Lane', 'club': labels.club or 'Club',
+    'time': labels.time or 'Time', 'delta': labels.delta or 'Diff',
+    'place': labels.place or 'Place', 'event': labels.event or 'Event',
+    'heat': labels.heat or 'Heat',
+    'laps': (t | default({})).spoken_laps or 'Laps',
+} | tojson }};
+var _spoken_at = 0;
+function cellText(id) {
+    var e = document.getElementById(id);
+    return e ? String(e.textContent || '').trim() : '';
+}
+function speakLane(i) {
+    var li = document.getElementById('spoken_lane' + i);
+    if (!li) return;
+    var parts = [SPOKEN.lane + ' ' + (cellText('lane_num' + i) || i)];
+    var name = cellText('lane_name' + i), alt = cellText('lane_name_alt' + i);
+    var club = cellText('lane_club' + i), time = cellText('lane_time' + i);
+    var delta = cellText('lane_delta' + i), place = cellText('lane_place' + i);
+    var deltaEl = document.getElementById('lane_delta' + i);
+    if (name) parts.push(name);
+    /* Even on a crowded board (`L-24`): a listener has no height to save. */
+    if (alt) parts.push(alt);
+    if (club) parts.push(SPOKEN.club + ' ' + club);
+    if (time && time !== '—') parts.push(SPOKEN.time + ' ' + time);
+    if (delta) {
+        var lap = deltaEl && deltaEl.classList.contains('lap-count');
+        parts.push((lap ? SPOKEN.laps : SPOKEN.delta) + ' ' + delta);
+    }
+    if (place) parts.push(SPOKEN.place + ' ' + place);
+    var text = parts.join(', ');
+    if (li.textContent !== text) li.textContent = text;
+}
+function speakBoard() {
+    _spoken_at = performance.now();
+    for (var i = 1; i <= NUM_LANES; i++) speakLane(i);
+    var ev = cellText('current_event'), ht = cellText('current_heat');
+    var heat = [];
+    if (ev) heat.push(SPOKEN.event + ' ' + ev);
+    if (ht) heat.push(SPOKEN.heat + ' ' + ht);
+    var el = document.getElementById('spoken_heat');
+    if (el && el.textContent !== heat.join(', ')) el.textContent = heat.join(', ');
+}
+
 /* ── A crowded compact board (docs/app.md `L-24`) ──
    When the lanes do not fit the height they have, give up the cheapest thing
    first: the relay line, then type size down to 0.72x, and only past that let the
@@ -257,6 +314,8 @@ function tickClock() {
     if (age > CLOCK_STALE_MS) { stopClock(); return; }
 
     var text = formatTenths(_clock_h + Math.floor(age / 10));
+    /* The spoken lanes follow the running clock once a second, not ten times. */
+    if (performance.now() - _spoken_at >= 1000) requestAnimationFrame(speakBoard);
     for (var i = 1; i <= NUM_LANES; i++) {
         if (!lane_running[i]) continue;
         var el = document.getElementById('lane_time' + i);
@@ -682,6 +741,7 @@ function applyScoreboardFrame(new_s) {
     /* The header phrase changes with the heat, not with every tick. */
     if ('current_event' in s || 'current_heat' in s)
         requestAnimationFrame(fitHeaderCells);
+    speakBoard();
     s = {};
 }
 
@@ -696,11 +756,15 @@ function init() {
 <body style="margin:0" onload="init();">
 <div class="timing-outer">
     <div class="timing-header-bar">
-        <div class="header_cell" id="header_event_cell">
+        {# One utterance for the heat — the word with its number, and nothing at all
+           before a number arrives (docs/app.md `X-02`). The cells themselves are
+           hidden from a screen reader, which would otherwise stop on each half. #}
+        <span class="sr-only" id="spoken_heat"></span>
+        <div class="header_cell" id="header_event_cell" aria-hidden="true">
             <span class="header_label">{{ labels.event or 'Event' }}</span>
             <span class="header_value" id="current_event"></span>
         </div>
-        <div class="header_cell" id="header_heat_cell">
+        <div class="header_cell" id="header_heat_cell" aria-hidden="true">
             <span class="header_label">{{ labels.heat or 'Heat' }}</span>
             <span class="header_value" id="current_heat"></span>
         </div>
@@ -713,7 +777,7 @@ function init() {
     </div>
 
     <div class="timing-content" id="scoreboard">
-        <table id="timing-board" class="timing-table{% if not show_lane_header %} hide-lane-header{% endif %}{% if not show_name_header %} hide-name-header{% endif %}{% if not show_club_header %} hide-club-header{% endif %}{% if not show_time_header %} hide-time-header{% endif %}{% if not show_delta_header or show_laps %} hide-delta-header{% endif %}{% if not show_position_header %} hide-position-header{% endif %}{% if not show_name %} hide-name{% endif %}{% if not show_club %} hide-club{% endif %}{% if not show_delta %} hide-delta{% endif %}{% if not show_position %} hide-position{% endif %}">
+        <table id="timing-board" aria-hidden="true" class="timing-table{% if not show_lane_header %} hide-lane-header{% endif %}{% if not show_name_header %} hide-name-header{% endif %}{% if not show_club_header %} hide-club-header{% endif %}{% if not show_time_header %} hide-time-header{% endif %}{% if not show_delta_header or show_laps %} hide-delta-header{% endif %}{% if not show_position_header %} hide-position-header{% endif %}{% if not show_name %} hide-name{% endif %}{% if not show_club %} hide-club{% endif %}{% if not show_delta %} hide-delta{% endif %}{% if not show_position %} hide-position{% endif %}">
             <thead>
                 <tr class="timing-header">
                     <th class="lane-column" style="text-align:center;">{{ labels.lane or 'Lane' }}</th>
@@ -739,6 +803,12 @@ function init() {
                 {% endfor %}
             </tbody>
         </table>
+        {# The table, as a screen reader hears it: one sentence per lane, in the
+           server's own column words, not six cells read as unrelated fragments
+           (docs/app.md `X-01`). Kept in step by `speakBoard`. #}
+        <ul class="sr-only" id="spoken_lanes" role="list">
+            {% for i in range(1, num_lanes + 1) %}<li id="spoken_lane{{ i }}">{{ labels.lane or 'Lane' }} {{ i }}</li>{% endfor %}
+        </ul>
     </div>
     {% block body_extra %}{% endblock %}
 </div>

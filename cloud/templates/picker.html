@@ -354,9 +354,9 @@
         </a>
         {% endfor %}
     </div>
-    <div class="empty" id="meet-search-empty" hidden>{{ t.no_meets_match or 'No meets match your search.' }}</div>
+    <div class="empty" id="meet-search-empty" role="heading" aria-level="2" hidden>{{ t.no_meets_match or 'No meets match your search.' }}</div>
     {% else %}
-    <div class="empty">{{ t.no_meets }}</div>
+    <div class="empty" role="heading" aria-level="2">{{ t.no_meets }}</div>
     {% endif %}
     <script src="/static/js/fold.js"></script>
     <script>

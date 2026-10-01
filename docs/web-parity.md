@@ -103,4 +103,11 @@ from; the `diverges` rows are where v2 moved past them.
 
 | ID | Status | Notes |
 | --- | --- | --- |
-| `X-01`–`X-10` | `deferred` | not audited. The board, results and schedule templates carry no `aria-*` or `role` attributes today, so `X-01`–`X-04` are expected to fail |
+| `X-01` | `done` | the drawn table is `aria-hidden`; a visually hidden list holds one sentence per lane, rebuilt from the cells on every frame and once a second while the clock runs (`speakBoard`). The lap count says `[mobile] spoken_laps`, the one word no column gives |
+| `X-02` | `done` | `#spoken_heat`: `EVENT 12, HEAT 3`, empty before a number arrives; the two drawn cells are `aria-hidden` |
+| `X-03` | `done` | each start-list lane is one hidden sentence in the long words, its drawn fragments `aria-hidden`; the heat heading likewise |
+| `X-04` | `done` | heat headings, the picker's `<h1>`, and every empty state (`role="heading"`) |
+| `X-05`–`X-07`, `X-09`, `X-10` | `deferred` | next accessibility batches |
+| `X-08` | `deferred` | open question: the pages size in `px`, the board in `vh`/`vw` |
+
+Checked against Chrome's accessibility tree (DevTools `Accessibility.getFullAXTree`), not yet heard under VoiceOver or TalkBack.

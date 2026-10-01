@@ -69,6 +69,7 @@ privacy_note             = "This site counts visitors anonymously to estimate at
 results_disclaimer_short = "Unofficial results"
 privacy_note_short       = "Attendance counting"
 notice_collapse          = "Collapse"
+spoken_laps              = "Laps"
 offline                  = "Schedule only"
 
 # The QR hand-off page (`GET /add`, docs/app.md `P-16`). Read only by a phone that

@@ -75,6 +75,7 @@ privacy_note             = "Este sitio cuenta visitantes de forma anónima para 
 results_disclaimer_short = "Resultados no oficiales"
 privacy_note_short       = "Conteo de asistencia"
 notice_collapse          = "Contraer"
+spoken_laps              = "Largos"
 offline                  = "Solo horario"
 
 # La página de destino del código QR (`GET /add`, docs/app.md `P-16`). Solo la lee un

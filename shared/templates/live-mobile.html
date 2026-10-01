@@ -54,7 +54,7 @@ socket.on('reload', function() {
 /* The server says this board is stale — a test session just ended and the real
    meet is back. The Pi sends it; the cloud never does, since a local-only test
    never reaches the cloud and one that does is a real session as far as it knows. */
-socket.on('reset', function() { reset_state(); mode_to_intro(); });
+socket.on('reset', function() { reset_state(); mode_to_intro(); speakBoard(); });
 bindLanePulse(socket);
 socket.on('update_scoreboard', applyScoreboardFrame);
 {% endblock %}

@@ -34,7 +34,7 @@ body.has-results #waiting               { display: none; }
 {% block body_extra %}
 {# `waiting_results` is a [mobile] string, not a [labels] one — the cloud used to
    read it off `labels`, where it never existed, and so always showed English. #}
-<div id="waiting">{{ t.waiting_results or 'Waiting for results…' }}</div>
+<div id="waiting" role="heading" aria-level="2">{{ t.waiting_results or 'Waiting for results…' }}</div>
 {% endblock %}
 
 {% block socket %}
@@ -67,6 +67,7 @@ function clearResults() {
     document.getElementById('event_name').innerHTML    = '';
     reset_times();
     for (var i = 1; i <= NUM_LANES; i++) blankRow(i, i);
+    speakBoard();
 }
 
 function renderResults(d) {
@@ -115,6 +116,7 @@ function renderResults(d) {
         }
     }
     document.body.classList.add('has-results');
+    speakBoard();
     requestAnimationFrame(fitNameFontSize);
 }
 

@@ -75,6 +75,7 @@ privacy_note             = "Ce site compte les visiteurs de façon anonyme pour 
 results_disclaimer_short = "Résultats non officiels"
 privacy_note_short       = "Comptage de l'assistance"
 notice_collapse          = "Réduire"
+spoken_laps              = "Longueurs"
 offline                  = "Horaire seulement"
 
 # La page de redirection du code QR (`GET /add`, docs/app.md `P-16`). Lue seulement
