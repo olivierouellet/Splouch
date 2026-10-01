@@ -33,6 +33,10 @@ open         = "Open"
 senior       = "Senior"
 final        = "Final"
 semifinal    = "Semifinal"
+quarterfinal = "Quarterfinal"
+prelims      = "Prelims"
+fastest_heat = "Fastest heat"
+swimoff      = "Swim-off"
 
 [aliases]
 phone    = "/mobile"

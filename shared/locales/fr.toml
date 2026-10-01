@@ -33,6 +33,10 @@ open         = "Ouvert"
 senior       = "Sénior"
 final        = "Finale"
 semifinal    = "Demi-finale"
+quarterfinal = "Quart de finale"
+prelims      = "Préliminaires"
+fastest_heat = "Série la plus rapide"
+swimoff      = "Barrage"
 
 [aliases]
 mobile     = "/mobile"

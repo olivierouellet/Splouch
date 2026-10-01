@@ -104,7 +104,7 @@ def load_lenex(path):
     Returns a LenexData:
         event_names  — {event_number: str}
         start_list   — {event_number: {heat_number: {lane: {'name': str, 'club': str}}}}
-        event_rounds — {event_number: 'final' | 'semifinal'}; only those two rounds
+        event_rounds — {event_number: round key}; see `_round_keys`
     """
     tree = _open_lenex_xml(path)
 
@@ -153,10 +153,16 @@ def load_lenex(path):
                 relay_clubs[rid] = shortname
 
     # EVENT `round` codes worth a word on screen, as `[event_name]` vocabulary keys.
-    # Only the two a spectator reads as "this one decides it": `TIM` (timed final)
-    # is nearly every event at an age-group meet and `PRE` / `QUA` / swim-offs are
-    # not asked for (docs/app.md `S-01`).
-    _round_keys = {"FIN": "final", "SEM": "semifinal"}
+    # `TIM` (timed final) is nearly every event at an age-group meet and gets none;
+    # `SOS` / `SOQ` (later swim-offs) are not asked for (docs/app.md `S-01`).
+    _round_keys = {
+        "FIN": "final",
+        "SEM": "semifinal",
+        "QUA": "quarterfinal",
+        "PRE": "prelims",
+        "FHT": "fastest_heat",
+        "SOP": "swimoff",
+    }
 
     _gender_map = {"M": "Men's", "F": "Women's", "X": "Mixed"}
     _stroke_map = {
@@ -195,7 +201,7 @@ def load_lenex(path):
     start_list = {}
     heat_times = {}  # {event_num: {heat_num: daytime_str}}
     event_distances = {}  # {event_num: int} distance in metres
-    event_rounds = {}  # {event_num: 'final' | 'semifinal'}
+    event_rounds = {}  # {event_num: round key}
     eventid_map = {}  # eventid  → event_number  (Splash-style)
     heatid_map = {}  # heatid   → (event_number, heat_number)
 

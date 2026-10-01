@@ -524,8 +524,8 @@ hundreds.
 Identifier repeats per card, its width is event name's → short labels (`short` table of
 `GET /i18n/{lang}`, or short form of `settings.labels`); board keeps long (`T-09`).
 Double space groups `EV 12` vs `HT 3` — no dash, not a range. No scheduled time → draw
-nothing. Final and semifinal are part of the name (`T-11` `round`), not a badge; no
-other round is shown. Screen reader: `EVENT 12, HEAT 3, <name>, <time>`.
+nothing. The round is part of the name (`T-11` `round`), not a badge; a timed final
+shows none. Screen reader: `EVENT 12, HEAT 3, <name>, <time>`.
 
 ### 5.2 Filtering
 

@@ -751,6 +751,16 @@ def test_a_round_follows_the_name_in_the_readers_language(lang, expected):
     )
 
 
+@pytest.mark.parametrize(
+    "round_key",
+    ["final", "semifinal", "quarterfinal", "prelims", "fastest_heat", "swimoff"],
+)
+@pytest.mark.parametrize("lang", ["en", "fr", "es"])
+def test_every_round_has_a_word_in_every_language(lang, round_key):
+    """An unknown key renders as itself; a round must never reach a board as `swimoff`."""
+    assert state.i18n_bundle(lang)["event_name"].get(round_key)
+
+
 def test_no_round_adds_nothing():
     parts = state.parse_event_name("100 Free Women")
     assert parts["round"] == ""

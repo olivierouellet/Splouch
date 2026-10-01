@@ -362,9 +362,10 @@ one broadcast frame serves viewers reading in different languages (`app.md` `T-0
 
 `stroke`, `gender`, `age_key` and `round` name entries in `GET /i18n/{lang}`'s
 `event_name` section (§5.9); `age` is a numeric band that needs no translation, and
-only one of `age`/`age_key` is ever set. `round` is `final`, `semifinal` or `""` —
-from the Lenex EVENT `round` (`FIN`, `SEM`), never from the name; every other round
-is `""`. Compose as `dist + unit`, stroke, `relay` — then `separator`, then gender
+only one of `age`/`age_key` is ever set. `round` comes from the Lenex EVENT `round`,
+never from the name: `FIN` → `final`, `SEM` → `semifinal`, `QUA` → `quarterfinal`,
+`PRE` → `prelims`, `FHT` → `fastest_heat`, `SOP` → `swimoff`; anything else (`TIM`,
+`SOS`, `SOQ`, none) is `""`. Compose as `dist + unit`, stroke, `relay` — then `separator`, then gender
 and age; fall back to `raw` when nothing parsed; then, when `round` is set,
 `separator` and its word (`200 m dos  —  Filles < 12  —  Finale`). The same
 field rides on `results_snapshot` (§5.2) and each heat of `GET /meet/{id}/schedule`
@@ -746,8 +747,8 @@ can tell the console has stopped talking to it. Faces, both palettes: `family`
   `meet_search` and `no_meets_match` for `app.md` `P-17`, and `GET /meets` states
   its order, live meets first (§5.6); a client that ignores both is unaffected.
 
-- **Added since v2, additive**: `event_name_parts.round` (§5.1) — `final` /
-  `semifinal` from a Lenex meet, with the words in `GET /i18n/{lang}` →
+- **Added since v2, additive**: `event_name_parts.round` (§5.1) — the round of a
+  Lenex event, with the words in `GET /i18n/{lang}` →
   `event_name`. `event_name` already ends with the round in the meet's language, so
   a client that composes from parts and ignores `round` only loses it there.
 
