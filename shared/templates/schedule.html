@@ -309,6 +309,10 @@
             white-space: pre;
             flex-shrink: 0;
         }
+        /* The words keep `schedule_event` and the numbers take `schedule_name`, as
+           the board header splits `header_label` from `header_value`: the colour is
+           what tells a word from its number on one line. */
+        .heat-title .heat-num { color: var(--color-schedule-name); }
         .heat-time {
             color: var(--color-schedule-time);
             font-size: 1em;
@@ -590,8 +594,8 @@ function renderSchedule() {
         html += '<div class="heat-header" role="heading" aria-level="2" aria-label="' +
                 esc(spoken.join(', ')) + '">';
         html += '<span class="heat-title" aria-hidden="true">' +
-                esc(LABELS.event) + ' ' + esc(evStr) + '  ' +
-                esc(LABELS.heat)  + ' ' + esc(htStr) + '</span>';
+                esc(LABELS.event) + ' <span class="heat-num">' + esc(evStr) + '</span>  ' +
+                esc(LABELS.heat)  + ' <span class="heat-num">' + esc(htStr) + '</span></span>';
         html += '<span class="heat-name" aria-hidden="true">' + esc(heatName || '') + '</span>';
         if (h.time) html += '<span class="heat-time" aria-hidden="true">' + esc(h.time) + '</span>';
         html += '</div><div class="swimmer-list" role="list">';

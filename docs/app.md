@@ -336,7 +336,7 @@ Live lane state during a heat. Busiest screen, most worth getting right.
 
 | ID | Feature | Driven by | Scope | Level |
 | --- | --- | --- | --- | --- |
-| `L-01` | EVENT, HEAT numbers: small label over large value | `current_event`, `current_heat` | all | must |
+| `L-01` | EVENT, HEAT numbers: small label over large value; word `header_label`, number `header_value` | `current_event`, `current_heat` | all | must |
 | `L-02` | Event name | `event_name` — server-localised | all | must |
 | `L-03` | Wall clock `HH:MM`, ticks each second | **device local time**, not server | all | must |
 
@@ -524,7 +524,7 @@ hundreds.
 Identifier repeats per card, its width is event name's → short labels (`short` table of
 `GET /i18n/{lang}`, or short form of `settings.labels`); board keeps long (`T-09`).
 Double space groups `EV 12` vs `HT 3` — no dash, not a range. No scheduled time → draw
-nothing. The round is part of the name (`T-11` `round`), not a badge. Screen reader: `EVENT 12, HEAT 3, <name>, <time>`.
+nothing. Words `schedule_event`, numbers `schedule_name` — `L-01`'s split. The round is part of the name (`T-11` `round`), not a badge. Screen reader: `EVENT 12, HEAT 3, <name>, <time>`.
 
 ### 5.2 Filtering
 

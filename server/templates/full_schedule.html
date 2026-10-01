@@ -75,6 +75,8 @@
             justify-content: space-between;
             align-items: baseline;
         }
+        /* Words in `schedule_event`, numbers in `schedule_name` — the board header's split. */
+        .heat-title .heat-num { color: var(--color-schedule-name); }
         .heat-time {
             color: var(--color-schedule-time);
             font-size: 1em;
@@ -159,7 +161,7 @@
     <div class="heat-card" data-event="{{ event }}" data-heat="{{ heat }}">
         <div class="heat-header">
             <div class="heat-title">
-                <span>{{ labels.event }} {{ event }} — {{ labels.heat }} {{ heat }}</span>
+                <span>{{ labels.event }} <span class="heat-num">{{ event }}</span> — {{ labels.heat }} <span class="heat-num">{{ heat }}</span></span>
                 {% if heat_times.get(event, {}).get(heat) %}
                 <span class="heat-time">{{ heat_times[event][heat] }}</span>
                 {% endif %}
