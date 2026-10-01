@@ -109,6 +109,7 @@ appearance_auto  = "Automático"
 
 # Hoja de filtros.
 filter            = "Filtrar"
+filter_done       = "Listo"
 no_filters        = "Sin filtros activos"
 no_search_results = "Sin resultados"
 no_matches        = "Ningún nadador coincide con estos filtros"

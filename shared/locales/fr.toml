@@ -109,6 +109,7 @@ appearance_auto  = "Automatique"
 
 # Feuille de filtres.
 filter            = "Filtrer"
+filter_done       = "Terminé"
 no_filters        = "Aucun filtre actif"
 no_search_results = "Aucun résultat"
 no_matches        = "Aucun nageur trouvé pour ces filtres"

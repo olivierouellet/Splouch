@@ -101,6 +101,7 @@ appearance_auto  = "Automatic"
 
 # Filter sheet.
 filter            = "Filter"
+filter_done       = "Done"
 no_filters        = "No active filters"
 no_search_results = "No results"
 no_matches        = "No swimmers match these filters"

@@ -107,7 +107,10 @@ from; the `diverges` rows are where v2 moved past them.
 | `X-02` | `done` | `#spoken_heat`: `EVENT 12, HEAT 3`, empty before a number arrives; the two drawn cells are `aria-hidden` |
 | `X-03` | `done` | each start-list lane is one hidden sentence in the long words, its drawn fragments `aria-hidden`; the heat heading likewise |
 | `X-04` | `done` | heat headings, the picker's `<h1>`, and every empty state (`role="heading"`) |
-| `X-05`–`X-07`, `X-09`, `X-10` | `deferred` | next accessibility batches |
+| `X-05` | `done` | measured in Chrome: the menu button, menu rows, notice X, install-card close and store buttons, filter-sheet ✓ are 44px; chips, pills, the filter button, the two toggles and Reset keep their size and grow an invisible 44px band (chips up and down only) |
+| `X-06` | `done` | menu rows `aria-pressed`, the menu button `aria-expanded`, the tab bar `tablist`/`tab`/`aria-selected`, the schedule toggles `aria-pressed`, an added suggestion `aria-disabled` |
+| `X-07` | `done` | icons and glyphs beside words are `aria-hidden` (menu, pills, install card, filter, ☰, ↺, ✓, ×, pull-to-refresh). A chip still reads only its name — no `[mobile]` word says a tap removes it |
+| `X-09`, `X-10` | `deferred` | next accessibility batch |
 | `X-08` | `deferred` | open question: the pages size in `px`, the board in `vh`/`vw` |
 
 Checked against Chrome's accessibility tree (DevTools `Accessibility.getFullAXTree`), not yet heard under VoiceOver or TalkBack.

@@ -127,10 +127,21 @@
             color: #4caf50;
             font-size: 1.6em;
             cursor: pointer;
-            padding: 2px 6px;
+            width: 44px; height: 44px;
+            display: flex; align-items: center; justify-content: center;
             line-height: 1;
         }
         #close-filter-btn:active { opacity: 0.6; }
+
+        /* 44px to the finger without growing the control (docs/app.md `X-05`): an
+           invisible band centred on each. Chips sit shoulder to shoulder, so theirs
+           grows up and down only — a slightly-off tap must not remove a neighbour. */
+        #filter-btn, .filter-chip, #btn-upcoming, #btn-all-heats, #btn-reset { position: relative; }
+        #filter-btn::after, .filter-chip::after,
+        #btn-upcoming::after, #btn-all-heats::after, #btn-reset::after {
+            content: ''; position: absolute; left: 0; right: 0;
+            top: 50%; height: 44px; transform: translateY(-50%);
+        }
 
         /* ── Active filter chips ── */
         #chips-section {
@@ -380,12 +391,12 @@
 <div id="top-bar">
     <div id="top-title">{{ meet_name or t.schedule or 'Schedule' }}</div>
     <button type="button" id="filter-btn" onclick="openFilter()">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true">
             <line x1="4" y1="6" x2="20" y2="6"/>
             <line x1="8" y1="12" x2="16" y2="12"/>
             <line x1="11" y1="18" x2="13" y2="18"/>
         </svg>
-        Filtrer
+        {{ t.filter or 'Filter' }}
         <span id="filter-count" class="hidden">0</span>
     </button>
 </div>
@@ -401,17 +412,17 @@
                placeholder="{{ t.search_placeholder or 'Add a swimmer or a club…' }}"
                autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
                oninput="onSearchInput()">
-        <button type="button" id="close-filter-btn" onclick="closeFilter()">✓</button>
+        <button type="button" id="close-filter-btn" onclick="closeFilter()" aria-label="{{ t.filter_done or 'Done' }}"><span aria-hidden="true">✓</span></button>
     </div>
     <div id="upcoming-row">
-        <button type="button" id="btn-upcoming" onclick="toggleUpcoming()">{{ t.upcoming_only or 'Upcoming' }}</button>
-        <button type="button" id="btn-all-heats" onclick="toggleAllHeats()">☰ {{ t.show_all_heats or 'All heats' }}</button>
+        <button type="button" id="btn-upcoming" onclick="toggleUpcoming()" aria-pressed="false">{{ t.upcoming_only or 'Upcoming' }}</button>
+        <button type="button" id="btn-all-heats" onclick="toggleAllHeats()" aria-pressed="false"><span aria-hidden="true">☰</span> {{ t.show_all_heats or 'All heats' }}</button>
     </div>
     <div id="chips-section" data-empty="{{ t.no_filters or 'No active filters' }}"></div>
     <div id="no-suggestions" class="hidden">{{ t.no_search_results or 'No results' }}</div>
     <div id="suggestions"></div>
     <div id="reset-row">
-        <button type="button" id="btn-reset" onclick="resetFilters()" data-confirm="{{ t.reset_confirm or 'Clear all filters?' }}">↺ {{ t.reset_filters or 'Reset' }}</button>
+        <button type="button" id="btn-reset" onclick="resetFilters()" data-confirm="{{ t.reset_confirm or 'Clear all filters?' }}"><span aria-hidden="true">↺</span> {{ t.reset_filters or 'Reset' }}</button>
     </div>
 </div>
 
@@ -606,7 +617,7 @@ function renderChips() {
         var f = activeFilters[i];
         html += '<button class="filter-chip type-' + esc(f.type) + '"' +
                 ' data-type="' + esc(f.type) + '" data-name="' + esc(f.name) + '">' +
-                esc(f.name) + ' <span class="chip-remove">×</span></button>';
+                esc(f.name) + ' <span class="chip-remove" aria-hidden="true">×</span></button>';
     }
     document.getElementById('chips-section').innerHTML = html;
     var count = activeFilters.length;
@@ -640,11 +651,13 @@ function addFilter(type, name) {
 function toggleUpcoming() {
     upcomingOnly = !upcomingOnly;
     document.getElementById('btn-upcoming').classList.toggle('active', upcomingOnly);
+    document.getElementById('btn-upcoming').setAttribute('aria-pressed', String(upcomingOnly));
     renderSchedule();
 }
 function toggleAllHeats() {
     showAllHeats = !showAllHeats;
     document.getElementById('btn-all-heats').classList.toggle('active', showAllHeats);
+    document.getElementById('btn-all-heats').setAttribute('aria-pressed', String(showAllHeats));
     renderSchedule();
 }
 function resetFilters() {
@@ -654,6 +667,8 @@ function resetFilters() {
     showAllHeats  = false;
     document.getElementById('btn-upcoming').classList.remove('active');
     document.getElementById('btn-all-heats').classList.remove('active');
+    document.getElementById('btn-upcoming').setAttribute('aria-pressed', 'false');
+    document.getElementById('btn-all-heats').setAttribute('aria-pressed', 'false');
     renderChips();
     renderSchedule();
 }
@@ -693,20 +708,31 @@ function renderSuggestions(items) {
         var it = items[i];
         var already = filterExists(it.type, it.name);
         var typeLabel = TYPE_LABELS[it.type] || it.type;
+        /* A button to a screen reader and a keyboard, and an inert one once added
+           (docs/app.md `S-10`, `X-06`). */
         html += '<div class="suggestion-item' + (already ? ' already-added' : '') + '"' +
+                ' role="button" tabindex="' + (already ? '-1' : '0') + '"' +
+                (already ? ' aria-disabled="true"' : '') +
                 ' data-type="' + esc(it.type) + '" data-name="' + esc(it.name) + '">';
         html += '<span class="sug-type ' + esc(it.type) + '">' + typeLabel + '</span>';
         html += '<span class="sug-name">' + esc(it.name) + '</span>';
         if (it.club) html += '<span class="sug-club">' + esc(it.club) + '</span>';
-        if (already) html += '<span class="sug-check">✓</span>';
+        if (already) html += '<span class="sug-check" aria-hidden="true">✓</span>';
         html += '</div>';
     }
     sugEl.innerHTML = html;
 }
 
-document.getElementById('suggestions').addEventListener('click', function(e) {
+document.getElementById('suggestions').addEventListener('keydown', function(e) {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
     var item = e.target.closest('.suggestion-item');
     if (!item) return;
+    e.preventDefault();
+    item.click();
+});
+document.getElementById('suggestions').addEventListener('click', function(e) {
+    var item = e.target.closest('.suggestion-item');
+    if (!item || item.getAttribute('aria-disabled') === 'true') return;
     addFilter(item.dataset.type, item.dataset.name);
     refreshSuggestions();
 });

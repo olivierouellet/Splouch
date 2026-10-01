@@ -172,25 +172,25 @@
 
     <div class="edge edge-left"  id="edgeL"></div>
     <div class="edge edge-right" id="edgeR"></div>
-    <div id="ptr-wrap"><div id="ptr-indicator">↻</div></div>
+    <div id="ptr-wrap" aria-hidden="true"><div id="ptr-indicator">↻</div></div>
 
-    <nav>
+    <nav role="tablist">
         {% if meet_id %}
         <a href="/" class="nav-back" aria-label="{{ t.back_to_meets or 'Meets' }}">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
         </a>
         {% endif %}
-        <button type="button" class="active" id="tab0">
+        <button type="button" class="active" id="tab0" role="tab" aria-selected="true">
             <img src="/static/icons/swimming.svg" alt="" style="width:22px;height:22px;filter:var(--shell-icon);vertical-align:middle;margin-right:5px;">
             <span class="tab-label">{{ t.scoreboard or 'Scoreboard' }}</span>
         </button>
         {% if with_results %}
-        <button type="button" id="tab1">
+        <button type="button" id="tab1" role="tab" aria-selected="false">
             <img src="/static/icons/award.svg" alt="" style="width:22px;height:22px;filter:var(--shell-icon);vertical-align:middle;margin-right:5px;">
             <span class="tab-label">{{ t.results or 'Results' }}</span>
         </button>
         {% endif %}
-        <button type="button" id="tab2">
+        <button type="button" id="tab2" role="tab" aria-selected="false">
             <img src="/static/icons/clipboard-list.svg" alt="" style="width:22px;height:22px;filter:var(--shell-icon);vertical-align:middle;margin-right:5px;">
             <span class="tab-label">{{ t.schedule or 'Schedule' }}</span>
         </button>
@@ -222,9 +222,11 @@
             try { frames[current].contentWindow.on_tab_hidden(); } catch(e) {}
             frames[current].classList.remove('active');
             tabs[current].classList.remove('active');
+            tabs[current].setAttribute('aria-selected', 'false');
             current = idx;
             frames[current].classList.add('active');
             tabs[current].classList.add('active');
+            tabs[current].setAttribute('aria-selected', 'true');
             // The tab's name, not its position: a meet that loses its Results tab
             // between two visits would otherwise restore a spectator who was on
             // Schedule to whatever now sits at index 2 (app.md `A-04`, `A-11`).
@@ -244,9 +246,11 @@
             if (idx > 0) {
                 frames[0].classList.remove('active');
                 tabs[0].classList.remove('active');
+                tabs[0].setAttribute('aria-selected', 'false');
                 current = idx;
                 frames[idx].classList.add('active');
                 tabs[idx].classList.add('active');
+                tabs[idx].setAttribute('aria-selected', 'true');
             }
         })();
 

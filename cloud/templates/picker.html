@@ -128,7 +128,7 @@
         /* Room for the X only once the script has revealed it. */
         .notices.ready .notice-full { padding-right: 44px; }
         .notice-close {
-            position: absolute; top: 4px; right: 4px; width: 36px; height: 36px;
+            position: absolute; top: 0; right: 0; width: 44px; height: 44px;
             background: none; border: none; color: var(--muted);
             font-size: 20px; line-height: 1; cursor: pointer;
         }
@@ -138,7 +138,10 @@
             font: inherit; font-size: 0.8em; color: var(--note-text);
             background: var(--note-bg); border: 1px solid var(--btn-line); border-radius: 999px;
             padding: 6px 12px 6px 10px; cursor: pointer;
+            position: relative;
         }
+        /* A 44px target around a 29px pill (docs/app.md `X-05`), without growing it. */
+        .notice-pill::after { content: ''; position: absolute; inset: -8px 0; }
         .notice-pill svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0; }
         .notice-pill:active { opacity: 0.7; }
         .notice-full[hidden], .notice-pill[hidden], .notice-close[hidden] { display: none; }
@@ -178,7 +181,8 @@
             box-shadow: 0 10px 34px rgba(0,0,0,0.55);
         }
         #a2hs-hint .dismiss {
-            position: absolute; top: 9px; right: 11px;
+            position: absolute; top: 0; right: 0; width: 44px; height: 44px;
+            display: flex; align-items: center; justify-content: center;
             background: none; border: none; color: #888;
             font-size: 18px; line-height: 1; cursor: pointer; padding: 0;
         }
@@ -196,6 +200,7 @@
         .a2hs-steps .sep { color: #5c5c5c; font-size: 13px; }
         #a2hs-stores { display: flex; flex-wrap: wrap; gap: 8px; margin-right: 24px; }
         .a2hs-store {
+            display: inline-flex; align-items: center; min-height: 44px; box-sizing: border-box;
             background: #1a3a5c; border: 1px solid #5ab4e8; color: #5ab4e8;
             font-size: 14px; padding: 9px 16px; border-radius: 10px; text-decoration: none;
         }
@@ -210,7 +215,7 @@
            and title, which are centred and may be either order. */
         #prefs-btn {
             position: fixed; top: max(10px, env(safe-area-inset-top)); right: 12px;
-            z-index: 60; width: 40px; height: 40px; border-radius: 10px;
+            z-index: 60; width: 44px; height: 44px; border-radius: 10px;
             background: var(--surface); border: 1px solid var(--btn-line); color: var(--btn-text);
             display: flex; align-items: center; justify-content: center; cursor: pointer;
         }
@@ -230,14 +235,15 @@
             display: block; width: 100%; text-align: left; margin-bottom: 5px;
             background: var(--opt-bg); border: 1px solid var(--opt-line); border-radius: 8px;
             color: var(--opt-text); font-size: 14px; padding: 9px 11px; cursor: pointer;
+            min-height: 44px; /* docs/app.md `X-05` */
         }
         .prefs-opt[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
         .prefs-opt:active { opacity: 0.7; }
     </style>
 </head>
 <body>
-    <button type="button" id="prefs-btn" onclick="togglePrefs(event)" aria-label="{{ t.prefs_title or 'Display' }}">
-        <svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+    <button type="button" id="prefs-btn" onclick="togglePrefs(event)" aria-label="{{ t.prefs_title or 'Display' }}" aria-expanded="false" aria-controls="prefs-panel">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
     </button>
     <div id="prefs-panel">
         <div class="prefs-group">{{ t.language or 'Language' }}</div>
@@ -253,7 +259,7 @@
     </div>
 
     <div id="ptr-edge"></div>
-    <div id="ptr-wrap"><div id="ptr-indicator">↻</div></div>
+    <div id="ptr-wrap" aria-hidden="true"><div id="ptr-indicator">↻</div></div>
 
     <!-- Install hand-off (docs/app.md `P-10`): the reader's store once their
          platform has a listing, Add to Home Screen until then. -->
@@ -265,7 +271,7 @@
         </div>
         {% endif %}
         <div class="a2hs-title">
-            <svg viewBox="0 0 24 24"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/></svg>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/></svg>
             <span>{{ t.a2hs_action or 'Add to Home Screen' }}</span>
         </div>
         <div id="a2hs-ios-text" class="a2hs-steps">
@@ -309,9 +315,9 @@
                 {#- Lucide `hourglass` and `users` (ISC); the apps draw SF Symbols
                     `hourglass`/`person.2` and Material `hourglass_top`/`group`. #}
                 {%- if name == 'results' %}
-                <svg viewBox="0 0 24 24"><path d="M5 22h14M5 2h14"/><path d="M17 22v-4.172a2 2 0 0 0-.586-1.414L12 12l-4.414 4.414A2 2 0 0 0 7 17.828V22"/><path d="M7 2v4.172a2 2 0 0 0 .586 1.414L12 12l4.414-4.414A2 2 0 0 0 17 6.172V2"/></svg>
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 22h14M5 2h14"/><path d="M17 22v-4.172a2 2 0 0 0-.586-1.414L12 12l-4.414 4.414A2 2 0 0 0 7 17.828V22"/><path d="M7 2v4.172a2 2 0 0 0 .586 1.414L12 12l4.414-4.414A2 2 0 0 0 17 6.172V2"/></svg>
                 {%- else %}
-                <svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
                 {%- endif %}
                 <span>{{ label }}</span>
             </button>
@@ -500,13 +506,17 @@ function markPrefs() {
 
 function togglePrefs(e) {
     if (e) e.stopPropagation();
-    document.getElementById('prefs-panel').classList.toggle('open');
+    var open = document.getElementById('prefs-panel').classList.toggle('open');
+    document.getElementById('prefs-btn').setAttribute('aria-expanded', open ? 'true' : 'false');
     markPrefs();
 }
 
 document.addEventListener('click', function (e) {
     var panel = document.getElementById('prefs-panel');
-    if (panel.classList.contains('open') && !panel.contains(e.target)) panel.classList.remove('open');
+    if (panel.classList.contains('open') && !panel.contains(e.target)) {
+        panel.classList.remove('open');
+        document.getElementById('prefs-btn').setAttribute('aria-expanded', 'false');
+    }
 });
 
 document.querySelectorAll('.prefs-opt').forEach(function (b) {
