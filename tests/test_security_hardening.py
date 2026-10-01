@@ -563,3 +563,27 @@ def test_the_temporary_sudo_rule_is_removed_under_the_name_it_was_written():
     # passwordless, so a second call would stall an unattended install.
     cleanup = body.split("# Remove the temporary NOPASSWD rule")[1]
     assert cleanup.count("sudo ") == 1 or cleanup.count("\n    sudo ") <= 1
+
+
+# ── Every script the sudo rule grants exists ──────────────────────────────────
+
+
+def test_every_script_the_sudo_rule_grants_is_in_the_repo():
+    """The rule once granted root to `install/scripts/web-reinstall.sh`, scaffolding
+    for an in-app reinstall that never shipped. A passwordless grant on a path
+    nothing occupies is root for whoever creates the file first, so every repo
+    script named in the rule must be one the repo actually ships."""
+    body = Path(os.path.join(REPO, "install", "install.sh")).read_text(encoding="utf-8")
+    rule = next(
+        ln
+        for ln in body.splitlines()
+        if ln.startswith("$TARGET_USER ALL=(ALL) NOPASSWD:")
+    )
+    scripts = [
+        cmd.strip().split()[0].replace("$INSTALL_DIR/", "")
+        for cmd in rule.split("NOPASSWD:", 1)[1].split(",")
+        if "$INSTALL_DIR/" in cmd
+    ]
+    assert scripts, "the rule no longer names any repo script — update this test"
+    missing = [s for s in scripts if not os.path.isfile(os.path.join(REPO, s))]
+    assert not missing, f"sudo rule grants scripts the repo does not ship: {missing}"

@@ -425,7 +425,7 @@ if [[ "$ROLE" == "server" ]]; then
     section "Sudo permissions"
     SUDOERS_FILE="/etc/sudoers.d/splouch"
     sudo tee "$SUDOERS_FILE" >/dev/null <<EOF
-$TARGET_USER ALL=(ALL) NOPASSWD: /usr/bin/timedatectl, /usr/bin/systemctl restart systemd-timesyncd, /usr/bin/nmcli, /usr/bin/apt-get, /usr/bin/systemctl restart splouch, /usr/sbin/reboot, /usr/sbin/poweroff, $INSTALL_DIR/install/scripts/rtc_setup.sh *, $INSTALL_DIR/install/scripts/refresh-service.sh, $INSTALL_DIR/install/scripts/web-reinstall.sh *
+$TARGET_USER ALL=(ALL) NOPASSWD: /usr/bin/timedatectl, /usr/bin/systemctl restart systemd-timesyncd, /usr/bin/nmcli, /usr/bin/apt-get, /usr/bin/systemctl restart splouch, /usr/sbin/reboot, /usr/sbin/poweroff, $INSTALL_DIR/install/scripts/rtc_setup.sh *, $INSTALL_DIR/install/scripts/refresh-service.sh
 EOF
     sudo chmod 0440 "$SUDOERS_FILE"
     info "Sudoers rules written to $SUDOERS_FILE"
