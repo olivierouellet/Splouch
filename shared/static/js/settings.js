@@ -323,20 +323,17 @@ autoSave(document.getElementById('theme_update_form'), 'theme-save-note');
 // the cloud — and `split_min_duration` decides whether a turn is counted at all. A
 // value left off the default is worth saying out loud rather than being
 // rediscovered mid-meet, so each gets a warning and its default back in one press.
-function defaultWarning(inputId, warnId, resetId) {
+function defaultWarning(inputId, fieldId, resetId) {
     var input = document.getElementById(inputId);
-    var warn = document.getElementById(warnId);
+    var field = document.getElementById(fieldId);
     var reset = document.getElementById(resetId);
-    if (!input || !warn || !reset) return;
+    if (!input || !field || !reset) return;
 
     function sync() {
         // Compare as numbers: "3" and "3.0" are the same delay.
         var isDefault = parseFloat(input.value) === parseFloat(input.dataset.default);
-        // Both classes, never `hidden`: Bootstrap's `[hidden]` and `.d-flex` are
-        // equally specific and both important, and `.d-flex` comes later, so it
-        // wins. See the note on the element.
-        warn.classList.toggle('d-none', isDefault);
-        warn.classList.toggle('d-flex', !isDefault);
+        // `.changed` highlights the label and shows ↺, like a Theme swatch.
+        field.classList.toggle('changed', !isDefault);
     }
     input.addEventListener('input', sync);
     input.addEventListener('change', sync);
@@ -351,8 +348,8 @@ function defaultWarning(inputId, warnId, resetId) {
 }
 
 autoSave(document.getElementById('timing_tuning_form'), 'timing-tuning-note');
-defaultWarning('finish_debounce', 'finish-debounce-warn', 'finish-debounce-reset');
-defaultWarning('split_min_duration', 'split-min-warn', 'split-min-reset');
+defaultWarning('finish_debounce', 'finish-debounce-field', 'finish-debounce-reset');
+defaultWarning('split_min_duration', 'split-min-field', 'split-min-reset');
 
 // ── Theme colour pickers: flag changes from default + per-swatch revert ────
 (function () {

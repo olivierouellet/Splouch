@@ -90,53 +90,56 @@
                     </div>
                 </div></div>
                 {% endif %}
-                <div class="card mt-3"><div class="card-body">
-                    <div class="panel-title">{{ t.timing_tuning }}</div>
-                    <form id="timing_tuning_form" action="/settings" method="POST">
-                        <input type="hidden" name="timing_tuning_submit" value="1">
-                        <div class="mb-3">
-                            <label class="form-label mb-1" for="finish_debounce">{{ t.timing_finish_debounce }}</label>
-                            <div class="input-group input-group-sm" style="max-width:220px;">
-                                <input id="finish_debounce" type="number" name="finish_debounce" value="{{ finish_debounce }}"
-                                       min="0.5" max="10" step="0.1" class="form-control"
-                                       data-default="{{ finish_debounce_default }}">
-                                <span class="input-group-text">{{ t.seconds }}</span>
-                            </div>
-                            <div class="form-text">{{ t.timing_finish_debounce_help }}</div>
-                            {# Shown whenever the value is off the default — this one delays every
-                               screen in the building, so drifting off 3s should not be quiet. #}
-                            {# `hidden` is useless here: Bootstrap's `[hidden]` and `.d-flex`
-                               are both `!important` at equal specificity and `.d-flex` comes
-                               later, so it wins. The two display utilities are toggled
-                               instead, and the server picks the starting one so the warning
-                               is right before any script runs. #}
-                            <div id="finish-debounce-warn" class="alert alert-warning py-2 px-3 mt-2 mb-0 flex-wrap align-items-center gap-2 {% if finish_debounce == finish_debounce_default %}d-none{% else %}d-flex{% endif %}">
-                                <span class="small flex-fill">{{ t.timing_finish_debounce_warn }}</span>
-                                <button type="button" id="finish-debounce-reset" class="btn btn-outline-secondary btn-sm">
-                                    {{ t.timing_restore_default }} ({{ finish_debounce_default }}&nbsp;{{ t.seconds }})
-                                </button>
+                <!-- ── Advanced: race detection, closed unless a value is off its default ── -->
+                {% set fd_changed = finish_debounce != finish_debounce_default %}
+                {% set sm_changed = split_min_duration != split_min_duration_default %}
+                <div class="accordion mt-3" id="advancedAcc">
+                    <div class="accordion-item">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button{% if not (fd_changed or sm_changed) %} collapsed{% endif %}" type="button" data-bs-toggle="collapse" data-bs-target="#advancedSettings" aria-expanded="{{ 'true' if fd_changed or sm_changed else 'false' }}" aria-controls="advancedSettings">
+                                <i class="bi bi-sliders me-2"></i>{{ t.timing_advanced }}
+                            </button>
+                        </h2>
+                        <div id="advancedSettings" class="accordion-collapse collapse{% if fd_changed or sm_changed %} show{% endif %}" data-bs-parent="#advancedAcc">
+                            <div class="accordion-body">
+                                <p class="small text-body-secondary mb-3"><i class="bi bi-exclamation-triangle me-1"></i>{{ t.timing_advanced_note }}</p>
+                                <div class="panel-title">{{ t.timing_tuning }}</div>
+                                <form id="timing_tuning_form" action="/settings" method="POST">
+                                    <input type="hidden" name="timing_tuning_submit" value="1">
+                                    {# Off the default: label highlighted and ↺ shown, as the
+                                       Theme swatches do (`.dflt.changed`). The server sets the
+                                       starting class so it is right before any script runs. #}
+                                    <div id="finish-debounce-field" class="dflt mb-3{% if fd_changed %} changed{% endif %}">
+                                        <label class="form-label mb-1 dflt-name" for="finish_debounce">{{ t.timing_finish_debounce }}</label>
+                                        <div class="d-flex align-items-center gap-1">
+                                            <div class="input-group input-group-sm" style="max-width:220px;">
+                                                <input id="finish_debounce" type="number" name="finish_debounce" value="{{ finish_debounce }}"
+                                                       min="0.5" max="10" step="0.1" class="form-control"
+                                                       data-default="{{ finish_debounce_default }}">
+                                                <span class="input-group-text">{{ t.seconds }}</span>
+                                            </div>
+                                            <button type="button" id="finish-debounce-reset" class="cs-reset" title="{{ t.theme_reset_default }} ({{ finish_debounce_default }} {{ t.seconds }})" aria-label="{{ t.theme_reset_default }} ({{ finish_debounce_default }} {{ t.seconds }})">↺</button>
+                                        </div>
+                                        <div class="form-text">{{ t.timing_finish_debounce_help }}</div>
+                                    </div>
+                                    <div id="split-min-field" class="dflt mb-0{% if sm_changed %} changed{% endif %}">
+                                        <label class="form-label mb-1 dflt-name" for="split_min_duration">{{ t.timing_split_min }}</label>
+                                        <div class="d-flex align-items-center gap-1">
+                                            <div class="input-group input-group-sm" style="max-width:220px;">
+                                                <input id="split_min_duration" type="number" name="split_min_duration" value="{{ split_min_duration }}"
+                                                       min="0.5" max="10" step="0.1" class="form-control"
+                                                       data-default="{{ split_min_duration_default }}">
+                                                <span class="input-group-text">{{ t.seconds }}</span>
+                                            </div>
+                                            <button type="button" id="split-min-reset" class="cs-reset" title="{{ t.theme_reset_default }} ({{ split_min_duration_default }} {{ t.seconds }})" aria-label="{{ t.theme_reset_default }} ({{ split_min_duration_default }} {{ t.seconds }})">↺</button>
+                                        </div>
+                                        <div class="form-text">{{ t.timing_split_min_help }}</div>
+                                    </div>
+                                    <span id="timing-tuning-note" class="small ms-2" role="status" aria-live="polite"></span>
+                                </form>
                             </div>
                         </div>
-                        <div class="mb-0">
-                            <label class="form-label mb-1" for="split_min_duration">{{ t.timing_split_min }}</label>
-                            <div class="input-group input-group-sm" style="max-width:220px;">
-                                <input id="split_min_duration" type="number" name="split_min_duration" value="{{ split_min_duration }}"
-                                       min="0.5" max="10" step="0.1" class="form-control"
-                                       data-default="{{ split_min_duration_default }}">
-                                <span class="input-group-text">{{ t.seconds }}</span>
-                            </div>
-                            <div class="form-text">{{ t.timing_split_min_help }}</div>
-                            {# Same class-toggle as the debounce above: `hidden` loses to
-                               `.d-flex`, and the server picks the starting one. #}
-                            <div id="split-min-warn" class="alert alert-warning py-2 px-3 mt-2 mb-0 flex-wrap align-items-center gap-2 {% if split_min_duration == split_min_duration_default %}d-none{% else %}d-flex{% endif %}">
-                                <span class="small flex-fill">{{ t.timing_split_min_warn }}</span>
-                                <button type="button" id="split-min-reset" class="btn btn-outline-secondary btn-sm">
-                                    {{ t.timing_restore_default }} ({{ split_min_duration_default }}&nbsp;{{ t.seconds }})
-                                </button>
-                            </div>
-                        </div>
-                        <span id="timing-tuning-note" class="small ms-2" role="status" aria-live="polite"></span>
-                    </form>
-                </div></div>
+                    </div>
+                </div>
             </div></div>
         </div>

@@ -211,7 +211,7 @@ def test_the_warning_tracks_the_default_and_the_reset_saves(src):
     """`3` and `3.0` are the same delay, so the comparison has to be numeric — and
     the reset sets the value from script, which fires no event by itself."""
     blk = re.search(
-        r"^function defaultWarning\(inputId, warnId, resetId\) \{.*?^\}",
+        r"^function defaultWarning\(inputId, fieldId, resetId\) \{.*?^\}",
         src,
         re.DOTALL | re.MULTILINE,
     )
@@ -226,17 +226,15 @@ def test_the_warning_tracks_the_default_and_the_reset_saves(src):
       o.classList = { toggle: function (c, on) { o._cls[c] = !!on; } };
       els[id]=o; return o; }
     var input = mk('finish_debounce'); input.dataset.default = '3'; input.value = '3.0';
-    var warn = mk('finish-debounce-warn'), reset = mk('finish-debounce-reset');
+    var field = mk('finish-debounce-field'), reset = mk('finish-debounce-reset');
     var document = { getElementById: function (id) { return els[id] || null; } };
     function Event(t) { this.type = t; }
     """
         + blk.group(0)
         + """
-    defaultWarning('finish_debounce', 'finish-debounce-warn', 'finish-debounce-reset');
+    defaultWarning('finish_debounce', 'finish-debounce-field', 'finish-debounce-reset');
     var steps = [];
-    // What the browser actually goes by — `hidden` loses to `.d-flex` in Bootstrap.
-    function snap(l) { steps.push([l, input.value,
-                       warn._cls['d-none'] === true && warn._cls['d-flex'] === false]); }
+    function snap(l) { steps.push([l, input.value, field._cls['changed'] === false]); }
     snap('load');
     input.value = '5';   input.dispatchEvent(new Event('change')); snap('changed');
     input.value = '3.0'; input.dispatchEvent(new Event('change')); snap('back to default');
@@ -257,8 +255,8 @@ def test_the_warning_tracks_the_default_and_the_reset_saves(src):
     assert res.returncode == 0, res.stderr
     steps = {s[0]: (s[1], s[2]) for s in json.loads(res.stdout)["steps"]}
 
-    assert steps["load"][1] is True, "warns on a value that is the default"
-    assert steps["changed"][1] is False, "no warning on a non-default value"
+    assert steps["load"][1] is True, "flagged on a value that is the default"
+    assert steps["changed"][1] is False, "not flagged on a non-default value"
     assert steps["back to default"][1] is True, '"3.0" and "3" are the same delay'
     assert steps["low"][1] is False
     assert steps["reset"] == ("3", True), "reset must restore the default and clear"
@@ -321,60 +319,52 @@ def test_a_failed_save_still_speaks(src):
     assert "text-danger" in out["cls"]
 
 
-def test_the_warning_is_hidden_by_class_not_by_hidden(src):
-    """`hidden` does not work on this element, and the failure is invisible in a stub.
+def test_off_default_is_flagged_like_a_theme_swatch(src):
+    """Same look as a changed colour swatch: label highlighted, ↺ revealed — and the
+    server renders the starting `changed` class so it is right before any script runs."""
+    for field_id, var in (
+        ("finish-debounce-field", "fd_changed"),
+        ("split-min-field", "sm_changed"),
+    ):
+        el = matched(rf'<div id="{field_id}"[^>]*>', src, group=0)
+        assert "dflt" in el and "{% if " + var + " %} changed{% endif %}" in el, field_id
+    assert ".dflt.changed .dflt-name" in src and ".dflt.changed .cs-reset" in src
 
-    Bootstrap's reboot has `[hidden]{display:none!important}` and its utilities have
-    `.d-flex{display:flex!important}` — equal specificity, both important, and
-    `.d-flex` comes later in `bootstrap-5.3.3.min.css`, so it wins and the alert stays
-    on screen however often the script sets `hidden`. The JS toggles the two display
-    utilities instead, and the server renders the right one so the warning is correct
-    before any script runs.
-    """
-    for warn_id in ("finish-debounce-warn", "split-min-warn"):
-        el = matched(rf'<div id="{warn_id}"[^>]*>', src, group=0)
-        assert " hidden" not in el, f"{warn_id}: hidden is back and does nothing here"
-        assert "d-none" in el and "d-flex" in el, (
-            f"{warn_id}: start state must be server-side"
-        )
-    block = matched(
-        r"^function defaultWarning\(.*?^\}",
-        src,
-        group=0,
-        flags=re.DOTALL | re.MULTILINE,
-    )
-    assert "warn.hidden" not in block
-    assert "classList.toggle('d-none'" in block and "classList.toggle('d-flex'" in block
+
+def test_race_detection_is_advanced_and_opens_when_changed(src):
+    """Closed by default; a value off its default must not hide behind a fold."""
+    assert 'id="advancedSettings"' in src
+    assert "{{ t.timing_advanced_note }}" in src
+    el = matched(r'<div id="advancedSettings"[^>]*>', src, group=0)
+    assert "{% if fd_changed or sm_changed %} show{% endif %}" in el
+    adv = src[src.index('id="advancedSettings"') :]
+    assert 'id="timing_tuning_form"' in adv
 
 
 @pytest.mark.parametrize(
-    "field,warn,reset,default_var",
+    "field,field_id,reset,default_var",
     [
         (
             "finish_debounce",
-            "finish-debounce-warn",
+            "finish-debounce-field",
             "finish-debounce-reset",
             "finish_debounce_default",
         ),
         (
             "split_min_duration",
-            "split-min-warn",
+            "split-min-field",
             "split-min-reset",
             "split_min_duration_default",
         ),
     ],
 )
-def test_both_race_detection_fields_warn_off_default(
-    src, field, warn, reset, default_var
+def test_both_race_detection_fields_flag_off_default(
+    src, field, field_id, reset, default_var
 ):
     """Each changes how the meet is read, not how it looks, so neither should sit off
     its default quietly."""
     assert 'data-default="{{ ' + default_var + ' }}"' in src
-    el = matched(rf'<div id="{warn}"[^>]*>', src, group=0)
-    assert " hidden" not in el, "hidden does not work here — see the Bootstrap note"
-    assert "d-none" in el and "d-flex" in el, (
-        "the start state must come from the server"
-    )
+    assert f'id="{field_id}"' in src
     assert f'id="{reset}"' in src
     assert f"defaultWarning('{field}'" in src
 
@@ -394,7 +384,7 @@ def test_the_defaults_are_named_once(src):
 def test_the_shared_warning_helper_works_for_the_split_field(src):
     """One helper, two fields — so the second is not a copy that drifts."""
     blk = re.search(
-        r"^function defaultWarning\(inputId, warnId, resetId\) \{.*?^\}",
+        r"^function defaultWarning\(inputId, fieldId, resetId\) \{.*?^\}",
         src,
         re.DOTALL | re.MULTILINE,
     )
@@ -408,15 +398,15 @@ def test_the_shared_warning_helper_works_for_the_split_field(src):
       o.classList = { toggle: function (c, on) { o._cls[c] = !!on; } };
       els[id]=o; return o; }
     var input = mk('split_min_duration'); input.dataset.default = '1'; input.value = '1.0';
-    var warn = mk('split-min-warn'), reset = mk('split-min-reset');
+    var field = mk('split-min-field'), reset = mk('split-min-reset');
     var document = { getElementById: function (id) { return els[id] || null; } };
     function Event(t) { this.type = t; }
     """
         + blk.group(0)
         + """
-    defaultWarning('split_min_duration', 'split-min-warn', 'split-min-reset');
+    defaultWarning('split_min_duration', 'split-min-field', 'split-min-reset');
     var steps = [];
-    function hidden() { return warn._cls['d-none'] === true && warn._cls['d-flex'] === false; }
+    function hidden() { return field._cls['changed'] === false; }
     steps.push(['load', input.value, hidden()]);
     input.value = '2.5'; input.dispatchEvent(new Event('change'));
     steps.push(['changed', input.value, hidden()]);

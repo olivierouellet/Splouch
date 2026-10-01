@@ -518,13 +518,12 @@ js_go_to_network          = "Pestaña Red"
 # display behaviour: one gates when results are published, the other how long a
 # lane must stay stopped to count a length.
 timing_tuning               = "Detección de carrera"
+timing_advanced             = "Ajustes avanzados"
+timing_advanced_note        = "Mantener los valores por defecto salvo para depurar."
 timing_finish_debounce      = "Retardo de confirmación de llegada"
 timing_finish_debounce_help = "Espera tras la llegada de todas las calles, antes de publicar. Instantánea tomada al momento; se anula si la consola sale del estado terminado en este lapso. Más largo = menos llegadas falsas; más corto = resultados antes. Vale para todas las pantallas."
-timing_finish_debounce_warn = "No predeterminado. Resultados tras este lapso desde la llegada."
-timing_restore_default      = "Restaurar el valor por defecto"
 timing_split_min            = "Parada mínima para una longitud"
 timing_split_min_help       = "Tiempo que el crono de una calle debe estar parado para contar un largo. Más corto: virajes antes, riesgo de falsos. Más largo: ignora falsos, puede perder un toque rápido. Placas en un extremo: cada parada = 2 largos."
-timing_split_min_warn       = "No predeterminado. Largo contado solo tras esta parada."
 
 [chrome]
 # Panel furniture both operator pages draw: the sidebar, its toggle, and the

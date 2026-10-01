@@ -528,13 +528,12 @@ js_go_to_network          = "Network tab"
 # display behaviour: one gates when results are published, the other how long a
 # lane must stay stopped to count a length.
 timing_tuning               = "Race detection"
+timing_advanced             = "Advanced settings"
+timing_advanced_note        = "Keep defaults unless debugging."
 timing_finish_debounce      = "Finish confirmation delay"
 timing_finish_debounce_help = "Wait after console reports all lanes finished, before publishing results. Snapshot taken at once; cancelled if console leaves finished state in this window. Higher = fewer false finishes; lower = faster results. Applies to every screen."
-timing_finish_debounce_warn = "Non-default. Results show this long after finish."
-timing_restore_default      = "Restore default"
 timing_split_min            = "Minimum split stop"
 timing_split_min_help       = "Time a lane's clock must stay stopped to count a length. Shorter: turns counted sooner, risks blips. Longer: ignores blips, may miss quick touch. One-end touchpads: each stop = 2 lengths."
-timing_split_min_warn       = "Non-default. Length counts only after clock stopped this long."
 
 [chrome]
 # Panel furniture both operator pages draw: the sidebar, its toggle, and the

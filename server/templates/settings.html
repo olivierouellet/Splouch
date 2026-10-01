@@ -39,8 +39,8 @@
 .cs-reset:hover { color: var(--bs-body-emphasis-color); }
 /* Visual hint: a swatch differing from the theme default gets a highlighted
    label and reveals its revert (↺) button. */
-.cs.changed .cs-name { color: var(--bs-warning); font-weight: 600; }
-.cs.changed .cs-reset { display: inline-block; }
+.cs.changed .cs-name, .dflt.changed .dflt-name { color: var(--bs-warning); font-weight: 600; }
+.cs.changed .cs-reset, .dflt.changed .cs-reset { display: inline-block; }
 
 @font-face { font-family:'Overpass Mono';  src:url('/static/fonts/OverpassMono-Regular.woff2')  format('woff2'); }
 @font-face { font-family:'DSEG7Classic';   src:url('/static/fonts/DSEG7Classic-Regular.woff2')   format('woff2'); }

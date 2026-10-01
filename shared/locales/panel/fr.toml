@@ -518,13 +518,12 @@ js_go_to_network          = "Onglet Réseau"
 # display behaviour: one gates when results are published, the other how long a
 # lane must stay stopped to count a length.
 timing_tuning               = "Détection de course"
+timing_advanced             = "Réglages avancés"
+timing_advanced_note        = "Garder les valeurs par défaut sauf pour déboguer."
 timing_finish_debounce      = "Délai de confirmation de l’arrivée"
 timing_finish_debounce_help = "Attente après l'arrivée de tous les couloirs, avant publication. Instantané pris aussitôt ; annulé si la console quitte l'état terminé dans ce délai. Plus long = moins de fausses arrivées ; plus court = résultats plus vite. Vaut pour tous les écrans."
-timing_finish_debounce_warn = "Non par défaut. Résultats affichés ce délai après l'arrivée."
-timing_restore_default      = "Rétablir la valeur par défaut"
 timing_split_min            = "Arrêt minimal pour une longueur"
 timing_split_min_help       = "Durée d'arrêt du chrono d'un couloir pour compter une longueur. Plus court : virages comptés plus tôt, risque de parasites. Plus long : ignore les parasites, peut rater une touche rapide. Plaques à un bout : chaque arrêt = 2 longueurs."
-timing_split_min_warn       = "Non par défaut. Longueur comptée après cet arrêt seulement."
 
 [chrome]
 # Panel furniture both operator pages draw: the sidebar, its toggle, and the
