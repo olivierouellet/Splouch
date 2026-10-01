@@ -1,13 +1,12 @@
 # Splouch mobile — feature contract
 
-**Contract version: `v2`** · Clients: the web phone pages (this repo), `Splouch-ios`,
-`Splouch-android` (see §0.1).
+**Contract version: `v2`** · Clients: web phone pages (this repo), `Splouch-ios`,
+`Splouch-android` (§0.1).
 
-This file is the *behaviour* contract: what a spectator sees and does on a phone, and
-what drives it. It binds all three phone clients, the web pages included — where the web
-and this text disagree, the web is behind.
+*Behaviour* contract: what a spectator sees/does on a phone, and what drives it. Binds all
+three clients, web included — web disagrees with this text → web is behind.
 
-[`api.md`](api.md) is the *data* contract — sockets, events, payload shapes.
+[`api.md`](api.md) = *data* contract: sockets, events, payloads.
 
 ---
 
@@ -17,237 +16,209 @@ and this text disagree, the web is behind.
 
 | | Owns | Lives in |
 | --- | --- | --- |
-| **This file** | *what* each feature is, what drives it, whether it is required | Splouch (this repo) |
-| **Parity ledger** | *whether* it is implemented on that client, and why not | [`web-parity.md`](web-parity.md) here; `parity.md` in `Splouch-ios` and `Splouch-android` |
+| **This file** | *what* each feature is, its driver, its level | Splouch (this repo) |
+| **Parity ledger** | *whether* built on that client, and why not | [`web-parity.md`](web-parity.md) here; `parity.md` in `Splouch-ios`, `Splouch-android` |
 
-Each client keeps a ledger, one row per ID below; **per-client status does not belong
-here.** A ledger note says where a feature lives, what tests it and when it was last seen
-on a device — why it exists is this file's job.
+One ledger row per ID; **no per-client status here.** Ledger note: where it lives, what
+tests it, last seen on device. Why it exists = this file.
 
 | Status | Meaning |
 | --- | --- |
-| `done` | built as this file describes, within the latitude of §0.4 |
+| `done` | built as described, within §0.4's latitude |
 | `deferred` | not built yet |
-| `diverges` | built, deliberately not what this file says; the note says what instead, and why. **Temporary**: within a release this file absorbs it or the client reverts |
-| `n/a — <reason>` | the level says it does not apply to this client (§0.3) |
+| `diverges` | built, deliberately different; note says what and why. **Temporary**: within a release, this file absorbs it or client reverts |
+| `n/a — <reason>` | level excludes this client (§0.3) |
 
-IDs are the join key between the repos: **never renumber**. A retired feature keeps its
-ID with a `**retired**` note; a new one takes the next free number in its section, and is
-claimed here — a one-line row will do — before any ledger uses it.
+IDs = join key across repos: **never renumber**. Retired → keeps ID, `**retired**` note.
+New → next free number in section, claimed here (one-line row OK) before any ledger uses it.
 
 ### 0.2 What a client connects to
 
-Phones connect to the **cloud relay** by default ([`api.md`](api.md) §3). An app, unlike
-a web page, can also be pointed at another cloud or at a Pi on the pool's network
-(`P-11`–`P-13`), and the kind changes the session's shape — a Pi has one meet and no
-picker — so a client asks `GET /server`. Both servers render the same web templates,
-differing only in whether `MEET_ID` is set:
+Default: **cloud relay** ([`api.md`](api.md) §3). App (not web) may also point at another
+cloud or a Pi on pool network (`P-11`–`P-13`); kind changes session shape (Pi: one meet,
+no picker) → client asks `GET /server`. Both servers render same templates; only
+difference is `MEET_ID` set or not:
 
 | Surface | Web template |
 | --- | --- |
-| meet picker | [`cloud/templates/picker.html`](../cloud/templates/picker.html) — cloud-only, the Pi has one meet |
+| meet picker | [`cloud/templates/picker.html`](../cloud/templates/picker.html) — cloud-only |
 | app shell / tabs | [`shared/templates/mobile.html`](../shared/templates/mobile.html) |
 | Scoreboard tab | [`shared/templates/live-mobile.html`](../shared/templates/live-mobile.html) + [`shared/templates/scoreboard_base.html`](../shared/templates/scoreboard_base.html) |
 | Results tab | [`shared/templates/results.html`](../shared/templates/results.html) + `scoreboard_base.html` |
 | Schedule tab | [`shared/templates/schedule.html`](../shared/templates/schedule.html) |
 | socket client | [`shared/static/js/ws.js`](../shared/static/js/ws.js) |
 
-What also differs is **kiosk versus phone**: the kiosk board (`server/templates/live.html`,
-mirrored by the Qt display) keeps the carousel, the test banner and the operator column
-collapse that the phone pages deliberately drop
-([`notes/cloud_parity.md`](../notes/cloud_parity.md)).
+Kiosk-only features: §9.
 
-Everything a phone needs is reachable as JSON ([`api.md`](api.md) §4). Each web page
-renders from the helper its JSON endpoint returns (`_public_meet_list`,
-`_build_heats_json`, `_picker_branding`, the Pi's `build_heats`), so a field added for one
-reaches the other. Extend the helper, never the route.
+All phone data reachable as JSON ([`api.md`](api.md) §4). Each page renders from the
+helper its JSON endpoint returns (`_public_meet_list`, `_build_heats_json`,
+`_picker_branding`, Pi's `build_heats`) → field added for one reaches other. Extend the
+helper, never the route.
 
-**A Pi session is the same app at different addresses.** Once `GET /server` says
-`kind: "pi"`, the cloud endpoints named below resolve as follows; nothing else changes:
+**Pi session = same app, other addresses.** Once `GET /server` → `kind: "pi"`:
 
 | Needed for | Cloud | Pi |
 | --- | --- | --- |
 | meet config, theme, labels (`P-08`, `T-*`) | `GET /meet/{id}/config` → `settings` | `GET /config` (same keys, flattened) |
-| meet name in the shell | `GET /meet/{id}/config` → `app_window_title`, then `name` | `GET /config` → `meet_title` |
-| start list (`S-01`, and `S-09`'s index) | `GET /meet/{id}/schedule` | `GET /schedule.json` |
+| meet name in shell | `GET /meet/{id}/config` → `app_window_title`, then `name` | `GET /config` → `meet_title` |
+| start list (`S-01`, `S-09` index) | `GET /meet/{id}/schedule` | `GET /schedule.json` |
 | strings (`T-05`) | `GET /i18n/{lang}` | `GET /i18n/{lang}` |
-| `join_meet` (`C-02`) | on every connect | **never** — the Pi pushes on connect |
-| `vid` (`C-10`) | one per server | none — nothing receives it |
-| meet gone (`A-09`) | `GET /meet/{id}/config` → 404 | n/a — one meet, it cannot go away; an unreachable Pi is `C-03` |
-| meet picker (`P-*`) | the launch screen | skipped — `P-11`'s server list is the only list |
+| `join_meet` (`C-02`) | every connect | **never** — Pi pushes on connect |
+| `vid` (`C-10`) | one per server | none |
+| meet gone (`A-09`) | `GET /meet/{id}/config` → 404 | n/a — one meet; unreachable Pi = `C-03` |
+| meet picker (`P-*`) | launch screen | skipped — `P-11` server list only |
 
 ### 0.3 Requirement levels
 
 | Level | Meaning |
 | --- | --- |
-| **must** | the app is not at parity without it |
-| **should** | expected, but a first release can ship without it |
-| **web-only** | an artifact of running in a browser; a native app satisfies it by existing, or not at all |
-| **native-only** | the mirror image: meaningless on the web, which has no choice to make. Server selection is the case — a web page's origin *is* its server |
-| **n/a** | present in the Pi/kiosk product, deliberately absent from mobile |
+| **must** | not at parity without it |
+| **should** | expected; first release may ship without |
+| **web-only** | browser artifact; native satisfies by existing, or not at all |
+| **native-only** | mirror: meaningless on web. E.g. server selection — page origin *is* its server |
+| **n/a** | in Pi/kiosk product, deliberately absent from mobile |
 
 ### 0.4 Describe behaviour, not markup
 
-Rows state observable behaviour and its data source. Where the web implementation is an
-accident of HTML, the row says so. **Reproducing a workaround is not parity** — implement
-the effect, never the mechanism:
+Rows = observable behaviour + data source. HTML accidents flagged as such. **Copying a
+workaround ≠ parity** — implement effect, not mechanism:
 
-| Web mechanism | Why it exists there | Native equivalent |
+| Web mechanism | Why on web | Native equivalent |
 | --- | --- | --- |
-| 28px edge strips for the swipe (`A-03`) | a full-width listener would swallow touches meant for the schedule list inside the `<iframe>` tab | the platform's own way of moving between peer sections — a full-width pager that follows the finger where that is the platform's idiom (`A-10`), the tab bar alone where it is not |
-| `@media (orientation: …)` (`A-07`, `L-15`, `L-16`) | the only layout switch CSS had when the pages were written | the window's width — the full table from 600pt/dp/px |
-| `sessionStorage['tab']` (`A-04`) | a browser page restores no state of its own | platform state restoration |
-| 80px pull threshold, rotating indicator (`A-05`) | hand-rolled; the browser has no refresh control | the platform's refresh control |
-| `env(safe-area-inset-*)` (`A-06`) | the only way a page learns where the notch is | safe-area layout guides — free |
-| `<title>`, `apple-mobile-web-app-title`, manifest `name` (`A-08`) | the browser tab, and the installed icon's label | none — the store listing fixes the label (Android may set `TaskDescription`) |
-| parent re-dispatches `resize`; `contentWindow.on_tab_shown()` (`L-14`, `R-10`) | an `<iframe>` is never told it was revealed | the on-appear callback |
-| the `#edgeT` / `#filter-header` 65px alignment contract in `mobile.html` | two documents have to line up as one screen | none — it is one view |
-| the ~220ms debounce on the filter search (`S-09`) | every keystroke was a request to the server for names the page already had | none — the index is local, so the wait is pure lag |
-| one `scrollWidth`/`clientWidth` ratio, applied on a gated frame (`L-17`) | CSS cannot shrink text to fit | `UILabel.adjustsFontSizeToFitWidth`, Android `autoSizeTextType` |
+| 28px edge strips for swipe (`A-03`) | full-width listener would eat touches for schedule list in the `<iframe>` tab | platform's peer-section nav — full-width finger-following pager where idiomatic (`A-10`), tab bar alone otherwise |
+| `@media (orientation: …)` (`A-07`, `L-15`, `L-16`) | only CSS layout switch when written | window width — full table from 600pt/dp/px |
+| `sessionStorage['tab']` (`A-04`) | page restores no state itself | platform state restoration |
+| 80px pull threshold, rotating indicator (`A-05`) | hand-rolled; no browser refresh control | platform refresh control |
+| `env(safe-area-inset-*)` (`A-06`) | only way page learns notch | safe-area guides — free |
+| `<title>`, `apple-mobile-web-app-title`, manifest `name` (`A-08`) | browser tab, installed icon label | none — store listing sets label (Android may set `TaskDescription`) |
+| parent re-dispatches `resize`; `contentWindow.on_tab_shown()` (`L-14`, `R-10`) | `<iframe>` never told it's revealed | on-appear callback |
+| `#edgeT` / `#filter-header` 65px alignment in `mobile.html` | two documents line up as one screen | none — one view |
+| ~220ms debounce on filter search (`S-09`) | each keystroke hit server for names page already had | none — local index, wait = lag |
+| one `scrollWidth`/`clientWidth` ratio on gated frame (`L-17`) | CSS can't shrink-to-fit text | `UILabel.adjustsFontSizeToFitWidth`, Android `autoSizeTextType` |
 
-The right-hand column is the requirement. Where the platform does better — `A-03`'s
-gesture, `L-17`'s auto-shrink — the web is the floor. Where the platform's idiom is
-narrower, the idiom still wins, and the row says which part of the behaviour survives.
+Right column = requirement. Platform better (`A-03` gesture, `L-17` auto-shrink) → web is
+floor. Platform idiom narrower → idiom wins; row says what survives.
 
-**What a row requires, and what it leaves to the client.** A row requires an observable
-outcome and its data source: what a spectator sees or does, in which words, driven by
-which field. Unless the row says otherwise, these are the client's choice:
+**Row requires** observable outcome + data source: what spectator sees/does, which words,
+which field. Unless row says otherwise, client chooses:
 
-- **where** a control sits — which bar, the top or the bottom of the screen, a menu or a
-  sheet;
-- **which** platform component draws it — a system search field, a pager, a rail;
-- sizes, spacing, type scale and the grouping of cells inside a row;
-- how the layout adapts to the window, within the 600-wide split the rows name.
+- **where** a control sits — bar, top/bottom, menu, sheet;
+- **which** platform component — system search field, pager, rail;
+- sizes, spacing, type scale, cell grouping within a row;
+- window adaptation, within rows' 600-wide split.
 
-Using that latitude is `done`, not `diverges`. A row that needs a placement or a format —
-`P-06` above the meets, `S-01`'s heading — says so.
+Using this latitude = `done`, not `diverges`. Rows needing placement/format say so
+(`P-06` above meets, `S-01` heading).
 
 ---
 
 ## 1. Meet picker (`P`)
 
-The entry screen. On the web it is the site root; in an app it is the launch screen, and
-where the user returns via `A-02`.
+Entry screen. Web: site root. App: launch screen, and `A-02`'s return target.
 
 | ID | Feature | Driven by | Level |
 | --- | --- | --- | --- |
-| `P-01` | List of meets as cards: name, date, location, sport | `GET /meets` ([`api.md`](api.md) §5.6) | must |
-| `P-02` | Per-meet picker image on the card, when the meet supplies one | `settings.picker_image_b64` → `GET /picker_image/{meet_id}` | should |
-| `P-03` | Offline meets stay listed with a dimmed dot; opened, one shows its last scoreboard frame and an empty Results tab (`R-02`) | `offline`: retained, no relay connected | must |
-| `P-04` | Empty state when no meets are active | `strings.no_meets` | must |
-| `P-05` | Picker branding: a title, and a logo above or below it, sized from its own aspect ratio within the list's width under a height cap | `GET /picker/config` → `title`, `has_logo`, `logo_above`; `GET /picker_logo` (PNG, JPEG, GIF, WebP or SVG — read `Content-Type`) | should |
-| `P-06` | Unofficial-results disclaimer **above** the meets, in full until folded to a pill that reopens it | `GET /picker/config` → `strings.results_disclaimer`, `results_disclaimer_short`, `notice_collapse` | **must** — see note |
-| `P-07` | Privacy note, shown whenever attendance counting is on for this server — beside `P-06`, folding the same way | `strings.privacy_note`, pill `strings.privacy_note_short`, gated on `analytics_enabled` | must |
-| `P-08` | Selecting a meet opens the app shell for it | `GET /meet/{id}/config` | must |
-| `P-09` | Pull-to-refresh re-fetches the meet list | — | should |
-| `P-10` | Install hand-off: store links to the native iOS/Android apps once they ship, Add-to-Home-Screen until then | — | web-only — see note |
-| `P-11` | Choose the server from a list in the picker's menu. The meet list always names it; a meet names it when it is not the default | `GET /servers` ([`api.md`](api.md) §5.11), each checked with `GET /server` | native-only — see note |
-| `P-12` | Servers on the local network are offered without anyone typing an address | mDNS browse for `_splouch._tcp` (do not use `splouch.local`) | native-only — should |
-| `P-13` | A server can be added by hand, checked before it is saved | `GET /server` must answer | native-only — must |
-| `P-14` | A server on other contract versions gets a one-line notice naming both; the app **connects regardless** | `GET /server` → `contract.api`, `contract.app` ([`api.md`](api.md) §5.10) | native-only — should |
-| `P-15` | The reader's Appearance — Dark (default), Light or Automatic — chosen in the picker's menu, holding on every screen of every meet | the stored preference; the server's two palettes ([`api.md`](api.md) §6.1), never `settings.theme_colors`; `strings.appearance`, `appearance_dark` / `_light` / `_auto` | should — see note |
-| `P-16` | Scanning a QR code adds a server: the app asks, and on a yes adds it, selects it and lands on the **meet list**. Without the app, the code's page offers the store | `https://<default host>/add?server=<origin>`; the host's two `/.well-known/` files and `GET /add` ([`api.md`](api.md) §4) | native-only — should |
-| `P-17` | Search the meet list, from **3** meets, narrowing as the reader types, with its own empty state; the field goes where the platform puts search | matched locally over `GET /meets` → `name`, `meet_date`, `location`, `sport`, `organizer`; `strings.meet_search`, `no_meets_match` | should — see note |
+| `P-01` | Meets as cards: name, date, location, sport | `GET /meets` ([`api.md`](api.md) §5.6) | must |
+| `P-02` | Per-meet picker image on card, if supplied | `settings.picker_image_b64` → `GET /picker_image/{meet_id}` | should |
+| `P-03` | Offline meets stay listed, dimmed dot; opened → last scoreboard frame, empty Results (`R-02`) | `offline`: retained, no relay connected | must |
+| `P-04` | Empty state, no active meets | `strings.no_meets` | must |
+| `P-05` | Branding: title + logo above/below, sized by aspect ratio within list width under height cap. Picker chrome in **device's** language, not a meet's (list spans meets in many languages; per-meet from `T-06`) | `GET /picker/config?lang=` or `Accept-Language` → `title`, `has_logo`, `logo_above`; `GET /picker_logo` (PNG/JPEG/GIF/WebP/SVG — read `Content-Type`) | should |
+| `P-06` | Unofficial-results disclaimer **above** meets, full until folded to pill that reopens it | `GET /picker/config` → `strings.results_disclaimer`, `results_disclaimer_short`, `notice_collapse` | **must** — see note |
+| `P-07` | Privacy note whenever attendance counting on for server — beside `P-06`, same fold | `strings.privacy_note`, pill `strings.privacy_note_short`, gated on `analytics_enabled` | must |
+| `P-08` | Select meet → app shell | `GET /meet/{id}/config` | must |
+| `P-09` | Pull-to-refresh re-fetches list | — | should |
+| `P-10` | Install hand-off: store links once apps ship, Add-to-Home-Screen until then. In an app the slot renders nothing | `stores` ([`api.md`](api.md) §5.7), per platform, present once listed → no deploy on move, absent hides button; `P-16`'s `GET /add` uses same dict | web-only |
+| `P-11` | Pick server from list in picker menu. Meet list always names it; a meet names it when not default | `GET /servers` ([`api.md`](api.md) §5.11), each checked via `GET /server` | native-only — see note |
+| `P-12` | LAN servers offered without typing | mDNS browse `_splouch._tcp` (not `splouch.local`) | native-only — should |
+| `P-13` | Add server by hand, checked before save | `GET /server` must answer | native-only — must |
+| `P-14` | Server on other contract versions → one-line notice naming both, once per session, beside server name; **never blocks connect** (newer = additive, older degrades a feature, e.g. `L-12` clock vs v1 relay) | `GET /server` → `contract.api`, `contract.app` ([`api.md`](api.md) §5.10) | native-only — should |
+| `P-15` | Reader's Appearance — Dark (default), Light, Automatic — in picker menu, applies on every screen of every meet | stored pref; server's two palettes ([`api.md`](api.md) §6.1), never `settings.theme_colors`; `strings.appearance`, `appearance_dark` / `_light` / `_auto` | should — see note |
+| `P-16` | QR scan adds server: app asks; yes → adds, selects, lands on **meet list**. No app → page offers store | `https://<default host>/add?server=<origin>`; host's two `/.well-known/` files, `GET /add` ([`api.md`](api.md) §4) | native-only — should — see note |
+| `P-17` | Search meet list from **3** meets, narrows as typed, own empty state; field where platform puts search | local over `GET /meets` → `name`, `meet_date`, `location`, `sport`, `organizer`; `strings.meet_search`, `no_meets_match` | should — see note |
 
-> **`P-06` is not decoration.** It is the only thing between a live feed and a spectator
-> treating it as a result, so it sits on the meet list, never in an About screen, and
-> renders the server's text so the wording changes without a store review.
+> **`P-06` not decoration.** Only thing between live feed and spectator taking it as
+> result → on meet list, never About screen; renders server text (rewording w/o store review).
 >
-> **Both notices fold; neither goes away.** They sit above the meets, under the title and
-> logo — below them a season of meets pushes them out of sight. Whether that is also above
-> `P-17`'s field depends on where the platform puts search. The X folds a notice to its
-> pill; the pill opens it again. Open, a notice has the row to itself; folded, the pills
-> share one. The pill icons are the same on every client: an **hourglass** for `P-06`
-> (SF `hourglass`, Material `hourglass_top`, Lucide `hourglass`) and **two people** for
-> `P-07` (`person.2`, `group`, `users`) — never a shield or a raised hand, which read as
-> a privacy control, and there is none.
+> **Both notices fold, never vanish.** Above meets, under title/logo (below, a season of
+> meets hides them). Above `P-17` field or not: depends on platform search placement. X
+> folds to pill; pill reopens. Open: own row; folded: pills share a row. Icons same on
+> all clients: **hourglass** for `P-06` (SF `hourglass`, Material `hourglass_top`, Lucide
+> `hourglass`), **two people** for `P-07` (`person.2`, `group`, `users`) — never shield or
+> raised hand (read as privacy control; none exists).
 >
-> **Not a first-launch dialog, and not a consent.** A dialog accepted once would never
-> show a second server's text or counting turned on later, and counting is not the
-> reader's to refuse (`C-10`).
+> **Not first-launch dialog, not consent.** Once-accepted dialog misses second server's
+> text or counting enabled later; counting isn't reader's to refuse (`C-10`).
 >
-> - **A fold is remembered per server, against the exact words folded**, so a reworded
->   or re-translated notice shows in full once. The web's `localStorage` is per origin
->   already; an app keys on the server's origin.
-> - **`P-07`'s fold is forgotten whenever the server reports counting off.**
+> - **Fold remembered per server, against exact folded words** → reworded/retranslated
+>   notice shows full once. Web `localStorage` already per origin; app keys on origin.
+> - **`P-07` fold forgotten whenever server reports counting off.**
 
-> **`P-17` filters what the list already holds; there is no search endpoint.** `P-01`
-> already has every meet, so each keystroke filters the cards, with no debounce (`S-09`).
+> **`P-17` filters loaded list; no search endpoint.** `P-01` has every meet → filter per
+> keystroke, no debounce (`S-09`).
 >
-> - Every word of the query, in any order, must be a substring of the meet's folded
->   fields joined by spaces — `quebec 2026` matches a location and a date.
-> - Fold both sides with `S-09`'s four steps; the web uses `foldName()` from
->   `shared/static/js/fold.js`.
-> - The organizer is searched but not shown.
-> - `P-06` stays above the list whatever the filter hides.
-> - The query survives a return from a meet (`A-02`) and `P-09`, not a cold launch: the
->   web keeps it in `sessionStorage`, an app while the picker is on its stack.
-> - Keep the server's order — live meets first ([`api.md`](api.md) §5.6).
+> - Every query word, any order, must be substring of meet's folded fields space-joined —
+>   `quebec 2026` matches location + date.
+> - Fold both sides per `S-09`'s four steps; web: `foldName()` in `shared/static/js/fold.js`.
+> - Organizer searched, not shown.
+> - `P-06` stays above list regardless of filter.
+> - Query survives return from meet (`A-02`) and `P-09`, not cold launch: web
+>   `sessionStorage`, app while picker on stack.
+> - Keep server order — live first ([`api.md`](api.md) §5.6).
 
-> **`P-10` is a hand-off.** The store URLs are `stores` in [`api.md`](api.md) §5.7, keyed
-> by platform and present only once listed, so a listing that moves needs no deploy and an
-> absent one hides the button. `P-16`'s `GET /add` draws from the same dict. Inside an app
-> the slot renders nothing.
+> **`P-11`–`P-13`, `P-16` — server list is data.** App ships one URL (default cloud); rest
+> fetched, browsed or typed. At pool, useful server = building's Pi (no internet
+> dependency, unthrottled race clock), publishes `_splouch._tcp` → `P-12` is a browse.
+> Every route meets the same check:
 
-> **`P-11`–`P-13` — the server list is data.** The app ships knowing one URL, the default
-> cloud; everything else is fetched or typed. At a pool the useful server is the Pi in the
-> building — no internet dependency, an unthrottled race clock — and it publishes
-> `_splouch._tcp`, so `P-12` is a browse.
->
-> - **Ask `GET /server` before saving anything** (`P-13`): a typo fails at entry, and the
->   same answer says whether it is a Pi (no meet list) and which contract it speaks.
-> - **`vid` is per server** (`C-10`).
-> - **The picker always names the server; a meet names it when it is not the default**,
->   so a reader who switched and forgot can tell why the meets changed.
+```mermaid
+flowchart TD
+  dir["listed — GET /servers (P-11)"] --> check
+  mdns["nearby — mDNS _splouch._tcp (P-12)"] --> check
+  typed["typed (P-13)"] --> parse
+  qr["scanned link (P-16)"] --> host{"host = app's<br/>default server?"}
+  host -- no --> reason["prompt shows reason"]
+  host -- yes --> parse{"address parses?<br/>http only for .local / loopback"}
+  parse -- no --> reason
+  parse -- "yes, typed" --> check
+  parse -- "yes, scanned" --> ask{"prompt names address:<br/>add unknown · switch to listed ·<br/>nothing if in use and answering"}
+  ask -- yes --> check
+  ask -- "no / nothing to do" --> picker
+  check["GET /server"] -- fails --> err["error at entry; nothing saved"]
+  check -- answers --> save["save · select<br/>kind (Pi: no meet list) · contract (P-14)"]
+  save --> picker["picker, P-06 in view"]
+  reason --> picker
+```
 
-> **`P-14` — a notice, not a gate.** A newer server is additive and an older one
-> degrades a feature (`L-12`'s clock against a v1 relay) rather than breaking the board.
-> Show the line once per session, beside the server name (`P-11`); never block a connect.
-
-> **`P-16` — the link shape is forced.** The code carries
-> `https://<the app's default host>/add?server=<origin>`, the origin percent-encoded.
+> - **`vid` per server** (`C-10`).
+> - **Picker always names server; meet names it when not default** → reader who switched
+>   and forgot sees why meets changed.
+> - **Scan proposes, doesn't act**: nothing requested from the address before the yes.
+>   **Every scan ends on picker** — camera arrivals never saw `P-06`.
 >
-> - **Not a `splouch://` scheme.** Stock cameras will not open one, and it has no answer
->   for a reader without the app. An `https` link is caught by the installed app and
->   otherwise lands on `GET /add`, which offers the store (`P-10`).
-> - **The host is the app's default server**, since links are verified per host and a Pi
->   has no certificate. A link naming another host does not parse: a server cannot mint
->   a code that adds a different server.
-> - **The address inside is parsed exactly as a typed one** (`P-13`): `http` only for a
->   `.local` name or a developer loopback, then `GET /server` before anything is saved.
-> - **Scanning proposes; it does not act.** The prompt names the address, and nothing is
->   asked of it before the yes. It asks only what is left: *add* an unknown server,
->   *switch* to a listed one, nothing for the one already in use and answering. A link
->   that does not parse still raises the prompt, with the reason.
-> - **Every outcome ends on the picker**, where `P-06` is — a reader who arrived by
->   camera is the one who has never seen it.
+> **`P-16` link shape forced**: `https://<app's default host>/add?server=<origin>`, origin
+> percent-encoded.
 >
-> **A printed code names a cloud, never a Pi.** A `.local` name resolves only on the
-> venue's wifi, and a poster cannot know its reader's network; the Pi is offered
-> afterwards by `P-12`'s browse. This rules what a server mints, not what a client accepts.
+> - **No `splouch://` scheme**: stock cameras won't open it; no answer for reader without
+>   app. `https` link → caught by installed app, else `GET /add` offers store (`P-10`).
+> - **Host = app's default server**: links verified per host, Pi has no cert → server
+>   can't mint code adding a different server.
 >
-> The server half — the two `/.well-known/` files and `GET /add` — is in
-> [`api.md`](api.md) §4; deployment, fingerprints and the Pi's poster code in
+> Server half (`/.well-known/` files, `GET /add`): [`api.md`](api.md) §4. Deployment,
+> fingerprints, Pi poster code, and why a printed code names a cloud, never a Pi:
 > [`cloud.md`](cloud.md).
 
-> **`P-15` — the reader's palette, not the meet's.** A choice the next meet could
-> overrule is not a choice, so on a phone it replaces `settings.theme_colors` (`T-01`,
-> `T-02`); a meet's club colours reach the kiosk and the Qt display only. Dark is the
-> default, as the pages were before the choice existed.
+> **`P-15` — reader's palette, not meet's.** Overrulable choice isn't a choice → on phone
+> replaces `settings.theme_colors` (`T-01`, `T-02`); meet club colours reach kiosk + Qt
+> display only. Dark default (pre-choice look).
 >
-> The two palettes are copied key for key from [`api.md`](api.md) §6.1, never re-picked
-> by eye. The web keeps the choice in the `splouch_theme` cookie (`dark`, `light`,
-> `auto`), Automatic sending both palettes behind `prefers-color-scheme`. The Pi's phone
-> pages keep the operator's palette: with no picker (`T-08`), nothing sets the cookie
-> there. An app stores the choice itself.
+> Palettes copied key for key from [`api.md`](api.md) §6.1, never re-picked by eye. Web:
+> `splouch_theme` cookie (`dark`, `light`, `auto`); Automatic sends both behind
+> `prefers-color-scheme`. Pi phone pages keep operator palette (no picker, `T-08`, no
+> cookie). App stores choice itself.
 
-> **`P-12` — cleartext for the local network only**, through a scoped exception: iOS
-> local networking (`NSLocalNetworkUsageDescription`, Bonjour service declared), Android
-> `network_security_config` for `.local` and private ranges. Never a blanket exception.
-
-> **Picker language is the device's, not a meet's.** The list spans meets that may each
-> run in a different language, so `/picker/config` resolves from `?lang=` or
-> `Accept-Language`. Per-meet language starts at `T-06`, once a meet is chosen.
+> **`P-12` — cleartext LAN only**, scoped exception: iOS local networking
+> (`NSLocalNetworkUsageDescription`, Bonjour service declared), Android
+> `network_security_config` for `.local` + private ranges. Never blanket.
 
 ---
 
@@ -255,266 +226,269 @@ where the user returns via `A-02`.
 
 | ID | Feature | Driven by | Level |
 | --- | --- | --- | --- |
-| `A-01` | Three tabs — Scoreboard, Results, Schedule — each with icon and label | `mobile.scoreboard` / `.results` / `.schedule` | must |
-| `A-02` | Back affordance to the meet picker | label `mobile.back_to_meets` where the client draws its own; a platform back button labels itself | must |
-| `A-03` | Move between tabs the platform's way: a tab bar, plus a swipe where swiping is the platform's idiom | web: tab bar and 28px edge strips | must — see note |
-| `A-04` | The selected tab survives a relaunch | web: `sessionStorage['tab']` | should |
-| `A-05` | Pull-to-refresh re-fetches config and rejoins the sockets | web: 80px threshold, rotating indicator | should |
-| `A-06` | Content clears notch, Dynamic Island, and home indicator | web: `env(safe-area-inset-*)` | must (free natively) |
-| `A-07` | On a short window the tabs stop costing height — compacted, or moved aside | the window's height; placement is the platform's (§0.4) | should |
-| `A-08` | Window and home-screen title is the meet's `app_window_title`, falling back to its `name` | `settings.app_window_title`, then `name`, then `Splouch` | web-only |
-| `A-09` | Meet gone mid-session → back to the picker | cloud: `GET /meet/{id}/config` answers **404**, checked on reconnect, foreground, `A-05` and `C-08`; web: `GET /mobile` 303s to `/`; Pi: n/a | must — see note |
-| `A-10` | Where `A-03` has a swipe, the tabs follow the finger and settle on release | — | should — n/a without a swipe |
-| `A-11` | A meet run with **no timing console** has no Results tab at all — not an empty one | `settings.console.timed` false (cloud: `GET /meet/{id}/config`; Pi: `GET /config`) | must — see note |
+| `A-01` | Three tabs — Scoreboard, Results, Schedule — icon + label | `mobile.scoreboard` / `.results` / `.schedule` | must |
+| `A-02` | Back to meet picker | `mobile.back_to_meets` if client draws own; platform back labels itself | must |
+| `A-03` | Tab nav the platform's way: tab bar, + swipe where idiomatic | web: tab bar + 28px edge strips | must — see note |
+| `A-04` | Selected tab survives relaunch | web: `sessionStorage['tab']` | should |
+| `A-05` | Pull-to-refresh re-fetches config, rejoins sockets | web: 80px threshold, rotating indicator | should |
+| `A-06` | Content clears notch, Dynamic Island, home indicator | web: `env(safe-area-inset-*)` | must (free natively) |
+| `A-07` | Short window → tabs stop costing height: compacted or moved aside | window height; placement platform's (§0.4) | should |
+| `A-08` | Window/home-screen title = `app_window_title`, else `name` | `settings.app_window_title`, `name`, `Splouch` | web-only |
+| `A-09` | Meet gone mid-session → picker | cloud: `GET /meet/{id}/config` **404** (no socket signal: `join_meet` for a dropped meet is silently ignored; other failure = `C-03`); web: `GET /mobile` 303 → `/`; Pi: n/a | must — see flow |
+| `A-10` | Where `A-03` swipes, tabs follow finger, settle on release | — | should — n/a without swipe |
+| `A-11` | Meet with **no timing console** → no Results tab at all, not empty one | `settings.console.timed` false (cloud: `GET /meet/{id}/config`; Pi: `GET /config`) | must — see flow |
 
-> **`A-03` is the platform's navigation; `A-10` is the pager where there is one.**
-> Android's idiom is a full-width pager, which meets both rows. iOS switches its tab bar on
-> tap — the HIG keeps swipe paging for page controls — so the tab bar alone is `A-03`
-> there, and `A-10` does not apply. The web keeps its edge strips. No client gives up its
-> real tab bar to imitate another platform's gesture (§0.4).
+> **`A-03` = platform nav; `A-10` = pager where one exists.** Android idiom: full-width
+> pager → both rows. iOS: tab bar switches on tap (HIG reserves swipe paging for page
+> controls) → tab bar alone = `A-03`, `A-10` n/a. Web keeps edge strips. No client drops
+> its real tab bar to mimic another platform (§0.4).
 >
-> **The leading edge belongs to the system.** Where the platform owns an edge gesture —
-> an interactive back, the leading ~24pt — the tab gesture leaves it alone; a full-width
-> pager and `A-02`'s back swipe cannot share that edge.
+> **Leading edge = system's.** Platform edge gesture (interactive back, leading ~24pt)
+> untouched by tab gesture; full-width pager and `A-02` back swipe can't share it.
 
-> **`A-09` has no socket signal.** `join_meet` for a meet the cloud no longer holds is
-> silently ignored, so the app asks: a 404 on the config fetch it already makes at those
-> moments means gone. Any other failure is a network fault (`C-03`), and a silent socket
-> is not the signal.
+> **Config fetch — `A-09`, `A-11`.** Every fetch re-decides both; the operator may switch
+> consoles mid-meet.
 
-> **`A-11` — the tab goes, not its contents.** With no timing console the operator drives
-> the boards from the Pi's `/manual` page and no `results_snapshot` is ever sent
-> ([`api.md`](api.md) §2.3), so a Results tab would wait all meet and `R-01`'s line would
-> be false.
+```mermaid
+flowchart LR
+  trig["reconnect · foreground ·<br/>A-05 pull · C-08 reload"] --> fetch["GET /meet/{id}/config<br/>Pi: GET /config"]
+  fetch -- "404, cloud only" --> gone["A-09: back to picker"]
+  fetch -- "other failure" --> net["network fault, C-03"]
+  fetch -- ok --> timed{"console.timed"}
+  timed -- false --> noR["A-11: no Results tab"]
+  timed -- "true, or no console key" --> R["Results tab"]
+```
+
+> **`A-11` — tab goes, not contents.** No console → operator drives boards from Pi
+> `/manual`, no `results_snapshot` ever sent ([`api.md`](api.md) §2.3) → Results tab would
+> wait all meet, `R-01` line false.
 >
-> - Re-evaluate on every config fetch — reconnect, foreground, `A-05`, `C-08` — since the
->   operator can switch consoles mid-meet. Keep the spectator on a tab that still exists
->   (`A-04` stores a choice, not an index).
-> - Read `console.timed`, never `console.key`. A server too old to send `console` has a
->   console.
-> - Nothing else changes: the Scoreboard and Schedule tabs are the same either way.
+> - Keep spectator on existing tab (`A-04` stores choice, not index).
+> - Read `console.timed`, never `console.key`. Server too old for `console` → has console.
+> - Scoreboard, Schedule unchanged.
 
 ---
 
 ## 3. Scoreboard tab (`L`)
 
-Live lane state during a heat. The busiest screen and the one most worth getting right.
+Live lane state during a heat. Busiest screen, most worth getting right.
 
 ### 3.1 Header
 
 | ID | Feature | Driven by | Level |
 | --- | --- | --- | --- |
-| `L-01` | EVENT number, HEAT number, each a small label above a large value | `current_event`, `current_heat` | must |
-| `L-02` | Event name | `event_name` — already localised by the server | must |
-| `L-03` | Wall clock, `HH:MM`, ticking every second | **device local time**, not the server | must |
+| `L-01` | EVENT, HEAT numbers: small label over large value | `current_event`, `current_heat` | must |
+| `L-02` | Event name | `event_name` — server-localised | must |
+| `L-03` | Wall clock `HH:MM`, ticks each second | **device local time**, not server | must |
 
 ### 3.2 Lane table
 
 | ID | Feature | Driven by | Level |
 | --- | --- | --- | --- |
-| `L-04` | One row per lane, `num_lanes` rows always present | `settings.num_lanes` | must |
+| `L-04` | One row per lane, always `num_lanes` rows | `settings.num_lanes` | must |
 | `L-05` | Columns: lane · name (+ alt sub-line) · club · time · delta · place | `lane_*<i>` | must |
-| `L-06` | Relay member names on a dimmed second line under the name | `lane_name_alt<i>` | must |
-| `L-07` | Column visibility follows config: `show_name`, `show_club`, `show_delta`, `show_position` | meet `settings` | must |
-| `L-08` | Column *headers* hide independently of the columns: `show_*_header` | meet `settings` | should |
-| `L-09` | Empty lanes render blank in place — rows never collapse or shift | — | must |
-| `L-10` | Frames are partial: merge changed keys into local state, never replace | `update_scoreboard` (§5.1) | must |
-| `L-11` | A running lane's time is styled distinctly; on stop it plays a one-shot "locked" transition, cancelled if it runs again | `lane_running<i>` false-edge | **must** — it tells a live clock from a frozen split |
-| `L-12` | Every running lane shows the **race clock**: one value per heat, re-based by the server, ticked by the device | `running_time` + `lane_running<i>` + `meet_live` — see note | **must** |
-| `L-13` | An event or heat change blanks times, deltas and places — except after a running lane, and for the first heat after a connect | `current_event` / `current_heat`, compared as strings | must — see note |
-| `L-14` | Returning to the tab re-runs layout and refreshes the clock | web: parent re-dispatches `resize` | must (native: on-appear) |
-| `L-23` | While a lane swims, its **delta cell** shows its lengths in the header's accent colour; the delta takes the cell back at the finish. The header never changes | `lane_splits<i>`, gated on `settings.show_laps`; `settings.lap_direction` | should — see note |
+| `L-06` | Relay members on dimmed second line under name | `lane_name_alt<i>` | must |
+| `L-07` | Column visibility per config: `show_name`, `show_club`, `show_delta`, `show_position` | meet `settings` | must |
+| `L-08` | Column *headers* hide independently: `show_*_header` | meet `settings` | should |
+| `L-09` | Empty lanes blank in place — rows never collapse/shift | — | must |
+| `L-10` | Frames partial: merge changed keys, never replace | `update_scoreboard` (§5.1) | must |
+| `L-11` | Running lane time styled distinctly; on stop, one-shot "locked" transition, cancelled if runs again | `lane_running<i>` false-edge | **must** — tells live clock from frozen split |
+| `L-12` | Every running lane shows **race clock**: one value per heat, server re-based, device ticked | `running_time` + `lane_running<i>` + `meet_live` — see note | **must** |
+| `L-13` | Event/heat change blanks times, deltas, places — except after a running lane, and first heat after connect | `current_event` / `current_heat`, compared as strings | must — see note |
+| `L-14` | Tab return re-runs layout, refreshes clock | web: parent re-dispatches `resize` | must (native: on-appear) |
+| `L-23` | While swimming, lane's **delta cell** shows lengths in header accent colour; delta reclaims cell at finish. Header never changes | `lane_splits<i>`, gated on `settings.show_laps`; `settings.lap_direction` | should — see note |
 
-> **`L-23` — one cell, two tenants.** (Out of sequence: `L-15`–`L-22` were taken.) A lap
-> is not a result, so it gets no column and never borrows the place's — `#3` and `3` a
-> length apart read the same. The delta column is empty until the finish, so the handover
-> is the signal: the colour changes, the header does not.
+> **`L-23` — one cell, two tenants.** (Out of sequence: `L-15`–`L-22` taken.) Lap ≠
+> result → no column, never borrows place's (`#3` vs `3` a length apart look same). Delta
+> empty until finish → handover is the signal: colour changes, header doesn't.
 >
-> **Show a lap only when all of these hold:**
+> **Show lap only when all hold:**
 >
 > | condition | why |
 > | --- | --- |
-> | `settings.show_laps` | off by default; not every console's count is exact |
-> | `lane_splits<i> > 0`, **or** counting down in a lane with a swimmer | counting up waits for the first wall; counting down shows from the start, but never in an empty lane |
-> | the lane has no place | the finish ends the lap, delta or not |
-> | the delta is empty | for the frame where both arrive together |
+> | `settings.show_laps` | off by default; not every console counts exactly |
+> | `lane_splits<i> > 0`, **or** counting down in lane with swimmer | up waits for first wall; down shows from start, never in empty lane |
+> | lane has no place | finish ends lap, delta or not |
+> | delta empty | for frame where both arrive together |
 >
-> **Direction** is `settings.lap_direction`: `up` shows the console's count, `down`
-> shows `expected_splits` minus it, clamped at 0; with `expected_splits` 0 (no distance
-> in the meet file) `down` falls back to `up`. **`split_step`** (§5.1) is 2 in a pool
-> with touchpads at one end, so the count arrives in twos. Counts are exact from a Quantum
-> or an Omnisport 2000, inferred on a CTS Gen6 and absent on a Gen7 or an ARES 21; the
-> operator corrects drift with `adjust_splits`, which is why the setting ships off.
+> **Direction** `settings.lap_direction`: `up` = console count; `down` = `expected_splits`
+> − count, clamped 0; `expected_splits` 0 (no distance in meet file) → `down` falls back
+> to `up`. Count may step by `split_step`, and its accuracy depends on the console — both
+> in [`api.md`](api.md) §5.1. Operator fixes drift via `adjust_splits` → setting ships off.
 
-> **`L-12` — one clock per heat, re-based by the server, ticked by the device.** There
-> is no per-lane elapsed time: every running lane shows the same figure, and a lane's own
-> time exists only at its split, `lane_time<i>`.
+> **`L-12` — one clock per heat, server re-based, device ticked.** No per-lane elapsed:
+> all running lanes show same figure; lane's own time exists only at split, `lane_time<i>`.
 >
-> | `lane_running<i>` | Race clock | Time cell | Lane number |
-> | --- | --- | --- | --- |
-> | true | re-based within 3 sync intervals | the race clock, ticked by the device | normal |
-> | true | none yet — joined mid-heat, or the heat just changed | — | **pulse** |
-> | true | silent for 3 sync intervals | frozen where it stopped | **pulse** |
-> | false | — | `lane_time<i>`, held until the lane runs again | normal |
-> | either | `meet_live` false, or disconnected (`C-09`) | last value, held | normal |
->
-> The pulse cycles the lane number between the row colour and the timing colour; let a
-> cycle finish before stopping it, or the whole column flicks at once.
->
-> | Event | Effect on the clock |
-> | --- | --- |
-> | a `running_time` frame | hard re-base; never ease towards it |
-> | between frames | the device advances it ~10Hz off the platform's display link, from a *monotonic* clock |
-> | a `lane_running<i>` edge, either direction | re-bases — the relay forces a `running_time` onto that frame |
-> | event or heat change | stops the ticker; what replaces the digits is `L-13`'s call |
-> | 3 sync intervals with no `running_time` | stop the ticker, freeze the digits, fall back to the pulse |
-> | tab or app backgrounded | stop the ticker; never accumulate ticks across a suspend, and do not resume from a stale base |
-> | `meet_live` false, or a disconnect | every clock on the board stops, so stale lane state cannot masquerade as a live race |
->
-> - **Never start or reset the clock from a lane edge**; `lane_running<i>` only decides
->   whether lane *i* shows it. A split freezes the lane, never the clock.
-> - **Show tenths** (`1:02.4`); the value carries the relay's near-constant latency.
-> - **Freeze forward, never blank**: three intervals past the last re-base.
-> - The relay forwards `running_time` **at most every ~2s, plus on any frame carrying a
->   `lane_running<i>` key**, which is why the device ticks in between.
-> - Parse `m:ss.hh` or `ss.hh` ([`api.md`](api.md) §5.1); a value that does not match is
->   no re-base — not a freeze, not a blank.
+> One lane:
 
-> **`L-13` — three cases, two of them exceptions.**
+```mermaid
+stateDiagram-v2
+  direction LR
+  state Live {
+    [*] --> Stopped
+    [*] --> Waiting: joined mid-heat, lane running
+    Stopped --> Ticking: lane_running true (relay adds running_time)
+    Waiting --> Ticking: running_time
+    Ticking --> Ticking: running_time = hard re-base, never ease
+    Ticking --> Frozen: 3 sync intervals silent, or backgrounded
+    Frozen --> Ticking: running_time
+    Ticking --> Waiting: event or heat change
+    Frozen --> Waiting: event or heat change
+    Ticking --> Stopped: lane_running false
+    Waiting --> Stopped: lane_running false
+    Frozen --> Stopped: lane_running false
+  }
+  Live --> Held: meet_live false or disconnect (C-09)
+  Held --> Live: meet_live true
+```
+
+> | State | Time cell | Lane number |
+> | --- | --- | --- |
+> | Ticking | race clock, advanced ~10Hz off display link from a *monotonic* clock | normal |
+> | Waiting | — (`L-13` decides digits after a heat change) | **pulse** |
+> | Frozen | frozen where stopped; ticks never accumulate across a suspend | **pulse** |
+> | Stopped | `lane_time<i>`, held until runs again | normal |
+> | Held | last value; every clock on the board stops — stale state can't pose as live race | normal |
 >
-> | Frame carries a new event or heat, and… | Do |
-> | --- | --- |
-> | it is the first event/heat this connection has seen | nothing — it is the **baseline**. The join replay (cloud) or the connect snapshot (Pi) carries the current heat's times beside its number; blanking them throws away the only state a late joiner has |
-> | a lane was running on the previous frame | keep every time as a result: the console advanced before it published results, and the next frame moves on. Blanking here erases what the swimmers just posted |
-> | otherwise | blank all times, deltas and places; names and clubs arrive in the same frame |
+> Pulse cycles lane number between row colour and timing colour; finish cycle before
+> stopping, else whole column flicks at once.
 >
-> A lane running on *this* frame outranks all three (`L-12`). Start the remembered event
-> and heat as *unseen*, not `0`, or the join replay reads as a change.
+> - **Never start/reset clock from lane edge**; `lane_running<i>` only decides whether lane
+>   *i* shows it. Split freezes lane, never clock.
+> - **Show tenths** (`1:02.4`); value carries relay's near-constant latency.
+> - **Freeze forward, never blank**: three intervals past last re-base.
+> - Relay forwards `running_time` **at most every ~2s, plus on any frame with a
+>   `lane_running<i>` key** → device ticks between.
+> - Parse `m:ss.hh` or `ss.hh` ([`api.md`](api.md) §5.1); non-match = no re-base — not
+>   freeze, not blank.
+
+> **`L-13` — three cases, two exceptions.**
+
+```mermaid
+flowchart TD
+  f["frame carries new event or heat"] --> now{"lane running<br/>on this frame?"}
+  now -- yes --> l12["that lane: L-12"]
+  now -- no --> first{"first event/heat<br/>this connection?"}
+  first -- yes --> base["keep: baseline"]
+  first -- no --> prev{"a lane running<br/>on previous frame?"}
+  prev -- yes --> keep["keep times as results"]
+  prev -- no --> blank["blank times, deltas, places"]
+```
+
+> - **Baseline**: join replay (cloud) / connect snapshot (Pi) carries current heat's times
+>   beside its number; blanking discards late joiner's only state. Init remembered
+>   event/heat as *unseen*, not `0`, else join replay reads as change.
+> - **Keep**: console advanced before publishing results, next frame moves on; blanking
+>   erases just-posted times.
+> - **Blank**: names/clubs arrive same frame.
 
 ### 3.3 Layout
 
 | ID | Feature | Driven by | Level |
 | --- | --- | --- | --- |
-| `L-15` | **Under 600 wide**: a two-line row — lane number spanning; name, club right; time, delta, place (`#`-prefixed, nothing when empty) | the window's width | must |
-| `L-16` | **600 wide and up**: the full table with a header row, type scaled to each lane's height; on a short window the header row goes first | the window's width | should |
-| `L-17` | Long names shrink to fit their cell, ellipsis only as a floor | — | must — see note |
-| `L-24` | A crowded board under 600 wide gives up, in order: the header row to the top bar → the relay line → type down to 0.72× → scrolling | measured row heights | should — see note |
+| `L-15` | **< 600 wide**: two-line row — lane number spanning; name, club right; time, delta, place (`#`-prefixed, nothing when empty) | window width | must |
+| `L-16` | **≥ 600 wide**: full table w/ header row, type scaled to lane height; short window drops header row first | window width | should |
+| `L-17` | Long names shrink to fit, ellipsis only as floor | — | must — see note |
+| `L-24` | Crowded board < 600 wide gives up, in order: header row → top bar, relay line, type to 0.72×, scroll | measured row heights | should — see note |
 
-> **`L-15` / `L-16` — width decides, not orientation.** The full table from **600**
-> points, dp or CSS px: on a phone that means landscape; on a tablet, either way up.
-> Android: `WindowWidthSizeClass` leaving `Compact`. Web: `min-width: 600px`. iOS: the
-> width itself, **not** `horizontalSizeClass`, which stays compact on most iPhones held
-> sideways.
+> **`L-15` / `L-16` — width, not orientation.** Full table from **600** pt/dp/CSS px:
+> phone = landscape; tablet = either. Android: `WindowWidthSizeClass` leaves `Compact`.
+> Web: `min-width: 600px`. iOS: width itself, **not** `horizontalSizeClass` (compact on
+> most iPhones sideways).
 
-> **`L-24` — cheapest first, each step only if the last was not enough.** (1) The
-> EVENT/HEAT row moves into the top bar, short labels, no clock — it costs the meet's title
-> and `P-11`'s server line, so only on need. (2) The relay line goes. (3) The row's type
-> shrinks as one, to 0.72× at most. (4) The board scrolls. Decide from measured heights,
-> and decide the bar from the height the lanes would have *with* the row in it, so the
-> choice cannot oscillate. The web has no top bar and starts at step 2.
+> **`L-24` — cheapest first, next step only if needed.** (1) EVENT/HEAT row into top bar,
+> short labels, no clock — costs meet title + `P-11` server line, so only on need. (2)
+> Relay line goes. (3) Row type shrinks as one, min 0.72×. (4) Board scrolls. Decide from
+> measured heights; decide bar from lane height *with* row in it → no oscillation. Web
+> has no top bar, starts at step 2.
 
-> **`L-17` — shrink, here and on Results (`R-08`).** Rows share the board's height, so
-> shrinking a name changes only its type size. Keep the re-fit off the per-frame path:
-> names arrive on a heat change, so the web re-fits on a `lane_name` frame, a resize and a
-> tab reveal. A platform's own auto-shrink (§0.4) does it better.
+> **`L-17` — shrink, here and Results (`R-08`).** Rows share board height → shrinking
+> changes only type size. Keep re-fit off per-frame path: names arrive on heat change →
+> web re-fits on `lane_name` frame, resize, tab reveal. Platform auto-shrink (§0.4) better.
 
 ### 3.4 Not on this tab
 
 | ID | Feature | Level |
 | --- | --- | --- |
-| `L-18` | Carousel / fullscreen image overlay | n/a — images are local to the Pi and are never relayed |
-| `L-19` | Podium highlight animation | n/a — Pi-local, `race_finished` is not forwarded |
-| `L-20` | Animated column show/hide, operator-driven | n/a — cloud columns are always visible |
-| `L-21` | Any timed hold on a state — the kiosk's `brief_results` flash, its results pause and debounce | n/a — the phone shows the last frame received, so a late joiner cannot fall out of step; `L-12`'s clock gates no transition |
-| `L-22` | Independent per-lane clock, each lane timing its own length | n/a — the console has one race clock and the lanes mirror it; a lane's own figure exists only as its split, `lane_time<i>`. See `L-12` |
+| `L-18` | Carousel / fullscreen image overlay | n/a — images Pi-local, never relayed |
+| `L-19` | Podium highlight animation | n/a — Pi-local, `race_finished` not forwarded |
+| `L-20` | Animated operator-driven column show/hide | n/a — cloud columns always visible |
+| `L-21` | Any timed hold — kiosk `brief_results` flash, results pause, debounce | n/a — phone shows last frame, late joiner stays in step; `L-12` clock gates no transition |
+| `L-22` | Independent per-lane clock | n/a — console has one race clock, lanes mirror it; lane's own figure only as split `lane_time<i>`. See `L-12` |
 
 ---
 
 ## 4. Results tab (`R`)
 
-The whole tab is absent for a meet with no timing console (`A-11`); everything below
-describes it where it exists.
+Absent for meet without timing console (`A-11`); below applies where it exists.
 
 | ID | Feature | Driven by | Level |
 | --- | --- | --- | --- |
-| `R-01` | Until the first snapshot: "Waiting for results…" in place of the table, not a table of blank rows | `mobile.waiting_results` | must — see note |
-| `R-02` | A disconnect, or `meet_live` going false, **wipes the board** and returns it to that state | `disconnect`, `meet_live` | must |
-| `R-03` | Header shows the snapshot's own event, heat, and event name | `results_snapshot` | must |
-| `R-04` | Same six columns and visibility flags as the Scoreboard tab | shared config | must |
-| `R-05` | **Lane sort**: row index = `channel`; a lane with no final time leaves its row blank | `sort == "lane"`, and when `sort` is absent | must |
-| `R-06` | **Place sort**: rows fill top-down as a ranking | `sort == "place"` | must |
-| `R-07` | A missing time renders as `—`, not blank; a missing **place** renders empty — no dash, and no `#` in front of it | — | should |
-| `R-08` | Long names shrink to fit rather than clipping | — | should — see `L-17` |
-| `R-09` | Final times carry the "locked" styling | `r.time` non-empty | should |
-| `R-10` | Returning to the tab re-joins the meet, reconnecting first if needed | web: `on_tab_shown` | must |
-
-> **`R-01` — the line replaces the table.** Blank rows on the Scoreboard mean a heat is
-> filling in (`L-09`); before the first snapshot Results has no heat to fill, so the line
-> is the screen and the table arrives with the data. `R-02`'s wipe returns to exactly
-> this. `mobile.waiting_results` promises results rather than reporting their absence.
+| `R-01` | Before first snapshot: "Waiting for results…" **is** the screen; table arrives with data. Not blank rows — those mean a heat filling in (`L-09`), and Results has no heat yet | `mobile.waiting_results` — promises results, doesn't report absence | must |
+| `R-02` | Disconnect or `meet_live` false **wipes board** back to that state | `disconnect`, `meet_live` | must |
+| `R-03` | Header shows snapshot's own event, heat, event name | `results_snapshot` | must |
+| `R-04` | Same six columns + visibility flags as Scoreboard | shared config | must |
+| `R-05` | **Lane sort**: row index = `channel`; lane w/o final time → blank row | `sort == "lane"`, or `sort` absent | must |
+| `R-06` | **Place sort**: rows fill top-down as ranking | `sort == "place"` | must |
+| `R-07` | Missing time → `—`, not blank; missing **place** → empty, no dash, no `#` | — | should |
+| `R-08` | Long names shrink, don't clip | — | should — see `L-17` |
+| `R-09` | Final times get "locked" styling | `r.time` non-empty | should |
+| `R-10` | Tab return re-joins meet, reconnecting first if needed | web: `on_tab_shown` | must |
 
 ---
 
 ## 5. Schedule tab (`S`)
 
-The richest screen, and the only one with real client-side state. A spectator uses it to
-find *their* swimmer among several hundred.
+Richest screen, only one with real client state. Spectator finds *their* swimmer among
+hundreds.
 
 ### 5.1 The list
 
 | ID | Feature | Driven by | Level |
 | --- | --- | --- | --- |
-| `S-01` | Every heat as a card, heading on one line: `EV 12  HT 3` in the **short** labels, the event name, the scheduled time trailing | `GET /meet/{id}/schedule` ([`api.md`](api.md) §5.8); Pi: `GET /schedule.json` | must |
-| `S-02` | Each card lists its lanes: lane number, name, club, seed time | `lanes[]` | must |
-| `S-03` | Relay entries show member first names joined by `·` | `lane.swimmers[].first`, falling back to `.name` | should |
-| `S-04` | Alternating card backgrounds, computed over *visible* cards so filtering keeps the stripe | — | should |
-| `S-05` | The current heat is highlighted | `update_scoreboard.current_event` / `current_heat` and `results_snapshot.event` / `heat`, compared **as strings** ([`api.md`](api.md) §5.1) | must |
-| `S-06` | The list auto-scrolls to the current heat once per appearance | re-armed on returning to the foreground | must |
-| `S-07` | Empty state when no meet file is loaded | `mobile.no_schedule` / `mobile.no_meet` | must |
+| `S-01` | Each heat a card, one-line heading: `EV 12  HT 3` in **short** labels, event name, scheduled time trailing | `GET /meet/{id}/schedule` ([`api.md`](api.md) §5.8); Pi: `GET /schedule.json` | must |
+| `S-02` | Card lists lanes: number, name, club, seed time | `lanes[]` | must |
+| `S-03` | Relay: member first names joined by `·` | `lane.swimmers[].first`, else `.name` | should |
+| `S-04` | Alternating card backgrounds over *visible* cards → stripe survives filtering | — | should |
+| `S-05` | Current heat highlighted | off the *other* two sockets (§6 diagram), whichever spoke last: `update_scoreboard.current_event` / `current_heat`, `results_snapshot.event` / `heat`, compared **as strings** ([`api.md`](api.md) §5.1) | must |
+| `S-06` | Auto-scroll to current heat once per appearance | re-armed on foreground | must |
+| `S-07` | Empty state, no meet file | `mobile.no_schedule` / `mobile.no_meet` | must |
 
-> **`S-01` — short on the card, long out loud.** The identifier repeats on every card and
-> its width is the event name's, so the card takes the short labels (the `short` table of
-> `GET /i18n/{lang}`, or the short form of `settings.labels`); the board keeps the long
-> ones (`T-09`). The doubled space groups `EV 12` against `HT 3` — no dash, they are not a
-> range. A heat with no scheduled time draws nothing for it. A screen reader hears
+> **`S-01` — short on card, long aloud.** Identifier repeats per card, its width is event
+> name's → short labels (`short` table of `GET /i18n/{lang}`, or short form of
+> `settings.labels`); board keeps long (`T-09`). Double space groups `EV 12` vs `HT 3` — no
+> dash, not a range. No scheduled time → draw nothing. Screen reader:
 > `EVENT 12, HEAT 3, <name>, <time>`.
-
-> **`S-05` reads the current heat off the *other* two sockets, on purpose.** This tab has
-> no feed of its own for it — `/ws/schedule` only signals that the start list changed
-> (`S-21`) — so the page opens all three and takes the event/heat from whichever speaks
-> last.
 
 ### 5.2 Filtering
 
 | ID | Feature | Driven by | Level |
 | --- | --- | --- | --- |
-| `S-08` | Full-screen filter sheet, opened from a button in the top bar | — | must |
-| `S-09` | Typeahead search over swimmers and clubs, answered locally and without delay | an index built from `S-01`'s `heats[]` — `lane.name`, `lane.club`, `lane.swimmers[].name` | must — see note |
-| `S-10` | Suggestions show type (swimmer/club), name, and club; already-added ones are marked and inert | — | should |
-| `S-11` | Active filters appear as chips; tapping a chip's × removes it | — | must |
-| `S-12` | A count badge on the filter button shows how many filters are active | — | should |
-| `S-13` | Filters are OR-ed: a lane matches if it hits *any* club or swimmer filter | `laneMatches()` | must |
-| `S-14` | A swimmer filter matches relay members, not just the lane's display name | `lane.swimmers[]` | must |
-| `S-15` | With filters on, non-matching lanes are hidden and heats with no match disappear | — | must |
-| `S-16` | **All heats** toggle: keep every heat visible, still filtering the lanes inside | — | should |
-| `S-17` | **Upcoming** toggle: hide every heat listed *ahead* of the current one, keeping that one | the current heat's position in the start list (`S-05`) | should — see note |
-| `S-18` | Reset clears filters and both toggles, behind a confirmation | `mobile.reset_confirm` | should |
-| `S-19` | Distinct empty states for "no swimmers match these filters" and "no search results" | — | should |
-| `S-20` | Filters live only for the session — not persisted | — | should |
+| `S-08` | Full-screen filter sheet, from top-bar button | — | must |
+| `S-09` | Typeahead over swimmers + clubs, local, no delay | index from `S-01` `heats[]` — `lane.name`, `lane.club`, `lane.swimmers[].name` | must — see note |
+| `S-10` | Suggestions show type (swimmer/club), name, club; already-added marked + inert | — | should |
+| `S-11` | Active filters as chips; × removes | — | must |
+| `S-12` | Count badge on filter button | — | should |
+| `S-13` | Filters OR-ed: lane matches *any* club/swimmer filter | `laneMatches()` | must |
+| `S-14` | Swimmer filter matches relay members, not just display name | `lane.swimmers[]` | must |
+| `S-15` | Filters on: non-matching lanes hidden, heats with no match gone | — | must |
+| `S-16` | **All heats** toggle: every heat visible, lanes still filtered — answers "when does my kid swim next?" | — | should |
+| `S-17` | **Upcoming** toggle: hide heats listed *before* current, keep current. Current unknown/not listed → no effect | current heat's **position** in start list (`S-05`), not the clock — scheduled times are estimates | should |
+| `S-18` | Reset clears filters + both toggles, after confirm | `mobile.reset_confirm` | should |
+| `S-19` | Distinct empty states: "no swimmers match these filters" vs "no search results" | — | should |
+| `S-20` | Filters session-only, not persisted | — | should |
 
-> **`S-09` builds its own index; there is no endpoint.** `GET /search_suggestions` was
-> removed ([`api.md`](api.md) §7): everything it read is in `S-01`'s payload, and
-> answering from the server's list could offer a name this one lacked. Build from what
-> you rendered; rebuild with `S-21`.
+> **`S-09` builds own index; no endpoint.** `GET /search_suggestions` removed
+> ([`api.md`](api.md) changelog): all it read is in `S-01` payload; server list could offer names
+> this one lacks. Build from what's rendered; rebuild on `S-21`.
 
-> **The index.** One entry per distinct `lane.name` (relay team names included) and
-> `lane.swimmers[].name`, each with its lane's club — a name in two clubs keeps the later
-> one — then one per distinct club. Match a substring of the folded name against the
-> folded query. Swimmers before clubs, each by name, cut to 20.
+> **Index.** One entry per distinct `lane.name` (relay team names incl.) and
+> `lane.swimmers[].name`, with lane's club (name in two clubs keeps later), then one per
+> distinct club. Match: folded name contains folded query. Swimmers before clubs, each by
+> name, cap 20.
 
-> **The fold, in four steps:** lowercase; NFD-decompose; expand the 17 letters below,
-> which have no canonical decomposition and would otherwise be deleted by the next step;
-> drop every codepoint above `U+007F`.
+> **Fold, four steps:** lowercase; NFD; expand the 17 letters below (no canonical
+> decomposition, else deleted next step); drop codepoints > `U+007F`.
 >
 > | | | | | | | | |
 > | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -522,33 +496,32 @@ find *their* swimmer among several hundred.
 > | `ĳ`→`ij` | `ĸ`→`k` | `ŀ`→`l` | `ł`→`l` | `ŉ`→`n` | `ŋ`→`n` | `œ`→`oe` | `ŧ`→`t` |
 > | `ſ`→`s` | | | | | | | |
 >
-> Not `String.folding(.diacriticInsensitive)`, nor a regex over `U+0300`–`U+036F`: both
-> skip step 3, and `Île-des-Sœurs` would index as `ile-des-surs`. Every client folds
-> identically.
-
-> **`S-16` answers "when does my kid swim next?"** Filters on and All-heats off shows only
-> their heats; on, the whole running order returns with their lanes still highlighted.
-
-> **`S-17` cuts by position, not by the clock** — scheduled times are planning figures.
-> With the current heat unknown or not in the list, the toggle changes nothing.
+> Not `String.folding(.diacriticInsensitive)`, nor regex over `U+0300`–`U+036F`: both
+> skip step 3 → `Île-des-Sœurs` indexes as `ile-des-surs`. All clients fold identically.
 
 ### 5.3 Refresh
 
 | ID | Feature | Driven by | Level |
 | --- | --- | --- | --- |
-| `S-21` | A new schedule from the Pi refreshes the list | `schedule_update` on `/ws/schedule` → re-fetch `GET /meet/{id}/schedule` | must |
-
-> `schedule_update` carries no payload; re-fetch `GET /meet/{id}/schedule`. Keep the
-> active filters whose names still exist. An empty `heats` is "loaded, no schedule yet":
-> show `S-07`, not an error.
+| `S-21` | New schedule from Pi refreshes list; active filters whose names still exist survive. Empty `heats` = loaded, no schedule yet → `S-07`, not error | `schedule_update` (no payload) on `/ws/schedule` → re-fetch `GET /meet/{id}/schedule` | must |
 
 ---
 
 ## 6. Connection and session (`C`)
 
-The rules in [`ws.js`](../shared/static/js/ws.js). These are the difference between an
-app that works on a pool deck and one that shows a frozen board after a screen lock.
-Each of the three sockets runs this loop independently:
+Rules in [`ws.js`](../shared/static/js/ws.js). Difference between an app that works on a
+pool deck and a frozen board after screen lock. Three sockets feed the tabs:
+
+```mermaid
+flowchart LR
+  sb["/ws/scoreboard<br/>update_scoreboard"] --> SB["Scoreboard tab"]
+  rs["/ws/results<br/>results_snapshot"] --> RT["Results tab"]
+  sc["/ws/schedule<br/>schedule_update"] -- "re-fetch start list (S-21)" --> ST["Schedule tab"]
+  sb -.->|"current event/heat (S-05)"| ST
+  rs -.->|"event/heat (S-05)"| ST
+```
+
+Each runs this loop independently:
 
 ```text
   connect
@@ -565,61 +538,47 @@ Each of the three sockets runs this loop independently:
              └─► close ─► backoff 500ms → 5s ─► connect again                        C-03
 ```
 
-A dead socket implies `meet_live = false` (`C-09`), which stops the clocks (`L-12`) and
-wipes the results board (`R-02`).
+Dead socket ⇒ `meet_live = false` (`C-09`) → clocks stop (`L-12`), results wiped (`R-02`).
 
 | ID | Feature | Driven by | Level |
 | --- | --- | --- | --- |
-| `C-01` | Three independent sockets: `/ws/scoreboard`, `/ws/results`, `/ws/schedule` | §2–3 of `api.md` | must |
-| `C-02` | `join_meet {meet_id, vid}` on **every** connect and reconnect — cloud only; a Pi pushes on connect | `GET /server` → `kind` | must |
-| `C-03` | Automatic reconnect, capped exponential backoff (web: 500ms → 5s) | — | must |
-| `C-04` | Heartbeat `ping` every 15s; no inbound frame for 35s means dead — close and reconnect | server replies `pong` | must |
-| `C-05` | On foreground or network-restored: probe with a `ping`; no `pong` within ~4s means dead | — | **must** |
-| `C-06` | Frames sent while disconnected are queued and flushed on connect | — | should |
-| `C-07` | Unknown events are ignored, not treated as errors | — | must |
-| `C-08` | `reload` → re-fetch config and redraw (web: full page reload) | — | must |
-| `C-09` | `meet_live` gates live affordances; a `disconnect` implies `meet_live = false` | — | must |
-| `C-10` | Anonymous **per-server** id (`vid`) sent with `join_meet` | a random UUID per normalised origin, created on first use | must — see note |
-
-> **`C-05` is the one that bites phones.** iOS and Android freeze background sockets
-> without a close, so backoff never starts and the board sits frozen after a screen lock.
-> The foreground probe is what reconnects; `C-03` alone is not enough.
-
-> **`C-10` — privacy is binding.** A random UUID per server origin (scheme, host, port),
-> stored locally, created on the first `join_meet` to that origin and used only for
-> `COUNT(DISTINCT)` attendance. A Pi never gets one (`C-02`). Never derive one `vid` from
-> another, or send one to a different server.
+| `C-01` | Three independent sockets: `/ws/scoreboard`, `/ws/results`, `/ws/schedule` | `api.md` §2–3 | must |
+| `C-02` | `join_meet {meet_id, vid}` on **every** connect/reconnect — cloud only; Pi pushes on connect | `GET /server` → `kind` | must |
+| `C-03` | Auto reconnect, capped exponential backoff (web: 500ms → 5s) | — | must |
+| `C-04` | `ping` every 15s; 35s no inbound frame = dead → close, reconnect | server replies `pong` | must |
+| `C-05` | On foreground / network restored: `ping` probe; no `pong` in ~4s = dead | — | **must** — iOS/Android freeze background sockets without a close, so `C-03` never starts and the board sits frozen after a screen lock |
+| `C-06` | Frames sent while disconnected queued, flushed on connect | — | should |
+| `C-07` | Unknown events ignored, not errors | — | must |
+| `C-08` | `reload` → re-fetch config, redraw (web: full reload) | — | must |
+| `C-09` | `meet_live` gates live affordances; `disconnect` ⇒ `meet_live = false` | — | must |
+| `C-10` | Anonymous **per-server** id (`vid`) sent with `join_meet`; used only for `COUNT(DISTINCT)` attendance. Never derived from another `vid`, never sent to another server; Pi gets none (`C-02`) | random UUID per origin (scheme, host, port), stored locally, created on first `join_meet` to it | must — privacy binding |
 
 ---
 
 ## 7. Theme and language (`T`)
 
-A meet chooses its faces (`T-03`) and its words (`T-04`). Its colours reach the kiosk
-and the Qt display; on a phone the reader's Appearance (`P-15`) replaces them with one of
-the server's two palettes (`T-01`, `T-02`). Either way the client has no look of its own:
-every colour, face and word it draws on the board comes from the server.
+Meet picks faces (`T-03`) and words (`T-04`). Its colours reach kiosk + Qt display; on
+phone, reader's Appearance (`P-15`) picks one of server's two palettes instead (`T-01`,
+`T-02`). Either way client has no look of its own: every board colour, face, word comes
+from server. **Never translate server output**: `labels`, `event_name` arrive in meet
+language; other languages asked of server (`T-05`, `T-08`), never client-produced.
 
 | ID | Feature | Driven by | Level |
 | --- | --- | --- | --- |
-| `T-01` | The board's palette — `bg`, `header_*`, `th_*`, `row_*`, `time`, `delta_*` — is one of the server's two, chosen by `P-15`; a meet's `theme_colors` reach the kiosk and the Qt display only | [`api.md`](api.md) §6.1, key for key | must |
-| `T-02` | The schedule's colours — `schedule_event`, `schedule_time`, `schedule_name`, `schedule_club` — from the same palette as `T-01` | [`api.md`](api.md) §6.1 | should |
-| `T-03` | Three font roles — `family` (text), `digits` (clock), `timing` (times and deltas) | `settings.theme_fonts` | must |
-| `T-04` | Column headers and header labels are the server's words, never the app's | `settings.labels` for the default; `GET /i18n/{lang}` → `labels` when the user has chosen | must — see note |
-| `T-05` | The app's own chrome — tab names, empty states, filter UI — is **fetched and cached**, not translated in the app | `GET /i18n/{lang}` → `mobile` ([`api.md`](api.md) §5.9) | must |
-| `T-06` | Language defaults to the **meet's** locale and the user may override it | `settings.locale`, then the stored preference | must |
-| `T-07` | Missing theme keys fall back to the defaults rather than rendering unstyled | the two palettes and the default faces in [`api.md`](api.md) §6.1 | must |
-| `T-08` | A language control, per device, applying to every meet opened afterwards | `GET /locales` for the list | should — see note |
-| `T-09` | The board's EVENT and HEAT read **long** on every client; an optional per-device control may switch those two only | the stored preference; words from `GET /i18n/{lang}` → `labels` | should — see note |
-| `T-10` | A built-in snapshot of the strings is the floor: compiled into the app, refreshed from the server, cached to disk | — | must — see note |
-| `T-11` | The event name follows the chosen language, composed from parts the server sends | `update_scoreboard.event_name_parts` + `GET /i18n/{lang}` → `event_name`; falls back to `event_name` | should — see note |
+| `T-01` | Board palette — `bg`, `header_*`, `th_*`, `row_*`, `time`, `delta_*` — one of server's two, per `P-15`; meet `theme_colors` kiosk/Qt only | [`api.md`](api.md) §6.1, key for key | must |
+| `T-02` | Schedule colours — `schedule_event`, `schedule_time`, `schedule_name`, `schedule_club` — same palette as `T-01` | [`api.md`](api.md) §6.1 | should |
+| `T-03` | Three font roles — `family` (text), `digits` (clock), `timing` (times, deltas). Faces embedded, not downloaded; unknown name → system monospace | `settings.theme_fonts`; faces in [`shared/static/fonts/`](../shared/static/fonts/) — Overpass Mono, DSEG7 Classic, DSEG14 Classic, Share Tech Mono, Orbitron, Roboto Mono | must |
+| `T-04` | Column headers, header labels = server's words, never app's | `settings.labels` default; `GET /i18n/{lang}` → `labels` once user chose | must — see note |
+| `T-05` | App chrome — tab names, empty states, filter UI — **fetched + cached**, not app-translated | `GET /i18n/{lang}` → `mobile` ([`api.md`](api.md) §5.9) | must |
+| `T-06` | Language defaults to **meet's** locale; user may override | `settings.locale`, then stored pref | must |
+| `T-07` | Missing theme keys fall back to defaults, never unstyled | two palettes + default faces, [`api.md`](api.md) §6.1 | must |
+| `T-08` | Per-device language control, for every meet opened after | `GET /locales` for list | should — see note |
+| `T-09` | Board EVENT/HEAT **long** on every client; optional per-device control may switch those two only | stored pref; words from `GET /i18n/{lang}` → `labels` | should — see note |
+| `T-10` | Built-in strings snapshot = floor: compiled in, refreshed from server, cached to disk | — | must — see note |
+| `T-11` | Event name follows chosen language, composed from server parts | `update_scoreboard.event_name_parts` + `GET /i18n/{lang}` → `event_name`; else `event_name` | should — see note |
 
-> **`T-03`**: the bundled faces are in [`shared/static/fonts/`](../shared/static/fonts/)
-> — Overpass Mono, DSEG7 Classic, DSEG14 Classic, Share Tech Mono, Orbitron, Roboto Mono.
-> Apps embed them rather than downloading, and fall back to a system monospace for an
-> unknown name.
-
-> **`T-04` is not a translation.** The server resolves each label from the meet's
-> `locale` and the operator's `label_style`, so the app never holds the table:
+> **`T-04` not a translation.** Server resolves each label from meet `locale` + operator
+> `label_style`; app never holds the table:
 >
 > | | `long` | `short` |
 > | --- | --- | --- |
@@ -627,84 +586,68 @@ every colour, face and word it draws on the board comes from the server.
 > | `locale = "fr"` | `ÉPREUVE` · `SÉRIE` | `ÉP` · `SÉR` |
 > | `locale = "es"` | `PRUEBA` · `SERIE` | `PR` · `SER` |
 >
-> Only EVENT and HEAT have a long form (`T-09`). Render `settings.labels` as sent, or,
-> once the reader has chosen a language, that language's `GET /i18n/{lang}` → `labels`.
+> Only EVENT, HEAT have long form (`T-09`). Render `settings.labels` as sent, or, once
+> reader chose language, `GET /i18n/{lang}` → `labels`.
 
-> **Never translate what the server sent.** `labels` and `event_name` arrive in the
-> meet's language; another language is asked of the server (`T-05`, `T-08`), never
-> produced by the client.
+> **`T-05` — whose word?** Word web page also shows = server's, in `[mobile]`: tab names,
+> empty states, filter sheet, picker chrome/controls, notices. Word about app/device =
+> app's, native: server sheet, "nearby", connection/address errors, OS requirements,
+> standard buttons. English fills gaps in native table.
 
-> **`T-05` — whose word is it?** A word the web page also shows is the server's, in
-> `[mobile]`: tab names, empty states, the filter sheet, the picker's chrome and controls,
-> the notices. A word about the app or the device is the app's, translated natively: the
-> server sheet, "nearby", connection and address errors, OS requirements, standard
-> buttons. English fills a language the native table lacks.
+> **`T-08` — one choice per device, on picker** (all meets in view). Web: `splouch_lang`
+> cookie; `?lang=` wins for one request, shell writes it to cookie. App stores it, sends
+> `lang`. Pi has no picker (§0.2) → its phone pages follow operator language.
 
-> **`T-08` — one choice per device, made on the picker**, where every meet is in view.
-> The web stores it in the `splouch_lang` cookie; `?lang=` wins for one request, and the
-> shell writes it to the cookie. An app stores it and sends `lang`. The Pi has no picker
-> (§0.2), so its phone pages follow the operator's language.
+> **`T-09` — EVENT and HEAT only.** Lane, place = narrow columns, short regardless; server's
+> `long` table already says so → render as given. Long because `EV` / `HT` need decoding
+> and phone header has room (`L-01`); short = kiosk's. Control, if any: two options, no
+> "meet default" — `settings.label_style` is server's resolution input, not reader's
+> choice. Client withdrawing control keeps stored choice, answers long until it returns;
+> web ignores (doesn't clear) `splouch_style` and `?style=`.
 
-> **`T-09` — EVENT and HEAT, nothing else.** Lane and place are the narrow columns and
-> resolve short whatever the style; the server's `long` table already says so, so a
-> client renders what it is given. Long because `EV` / `HT` must be decoded and the phone
-> header has room (`L-01`); short is the kiosk's. A control, if offered, has two options,
-> never a "meet default" — `settings.label_style` is how the server resolves `labels`, not
-> a reader's choice. A client that withdraws the control keeps the stored choice,
-> answering long until it returns; the web ignores rather than clears `splouch_style` and
-> `?style=`.
-
-> **`T-10` — fetch, but never depend on the fetch.** Draw from the cache and
-> revalidate in the background. Resolve each key, first hit wins:
+> **`T-10` — fetch, never depend on fetch.** Draw from cache, revalidate in background.
+> Per key, first hit wins:
 >
 > ```text
 > key ─► cached server value ─► built-in value ─► built-in English ─► the key's own name
 > ```
 >
-> **Built-in** is compiled into the app — not the server's bundled `shared/locales/` —
-> and carries English, so a first launch, an offline start, or a key an older server
-> lacks still lands. It is **captured, never transcribed**: the verbatim
-> `GET /i18n/{lang}` body for each language in `GET /locales`, written by a script in
-> the app repo before each release and whenever `shared/locales/` changes. The build-time
-> file and the run-time cache share one shape and one decoder.
+> **Built-in** = compiled into app (not server's `shared/locales/`), carries English →
+> first launch, offline start, key missing on older server all land. **Captured, never
+> transcribed**: verbatim `GET /i18n/{lang}` body per language in `GET /locales`, written
+> by app-repo script before each release and whenever `shared/locales/` changes. Build-time
+> file and run-time cache share one shape, one decoder.
 
-> **`T-11` — the app joins, it does not parse.** The server decomposes each event name
-> into `event_name_parts` — distance, stroke, relay, gender, age — beside `event_name`
-> ([`api.md`](api.md) §5.1), and `GET /i18n/{lang}` → `event_name` holds the words. Given
-> `{dist: "200", stroke: "backstroke", gender: "girls", age: "< 12"}` and Spanish,
-> `200 m espalda  —  Niñas < 12` is a lookup and a join: `dist + unit`, stroke, relay,
-> `separator`, gender, age. Never re-implement the decomposition. Fall back to
-> `event_name` when the parts are absent or compose to nothing.
+> **`T-11` — app joins, doesn't parse.** Server splits event name into `event_name_parts`
+> — distance, stroke, relay, gender, age — beside `event_name` ([`api.md`](api.md) §5.1);
+> `GET /i18n/{lang}` → `event_name` holds words. `{dist: "200", stroke: "backstroke",
+> gender: "girls", age: "< 12"}` + Spanish → `200 m espalda  —  Niñas < 12`: lookup + join
+> of `dist + unit`, stroke, relay, `separator`, gender, age. Never re-implement split. Parts
+> absent or compose to nothing → `event_name`.
 
 ---
 
 ## 8. Accessibility (`X`)
 
-Taken from what the two native clients built independently and agreed on. Each rule is
-about what a screen reader, a large text size or a less steady finger meets; none is a
-platform API. "Heard" — checked under VoiceOver or TalkBack by ear — is a ledger fact,
-not a level here.
+From what both native clients built independently and agreed on. Each rule = what a
+screen reader, large text or unsteady finger meets; none is a platform API. "Heard"
+(checked by ear under VoiceOver/TalkBack) = ledger fact, not a level.
 
 | ID | Feature | Driven by | Level |
 | --- | --- | --- | --- |
-| `X-01` | A board lane is **one** accessibility element saying the whole lane in the server's column words; an empty lane says only its number | `labels` (`T-04`) | must |
-| `X-02` | The EVENT and HEAT words and their numbers read as one each, and say nothing before a number arrives | — | must |
-| `X-03` | A start-list lane is one utterance in the same words, seed time included; a heat's heading is one utterance in the **long** words (`S-01`) | `labels` | should |
-| `X-04` | Heat headings, the picker's title and every empty-state title are headings, so the reader can jump heat to heat | — | should |
-| `X-05` | Every tappable target is at least the platform's minimum — 44pt on iOS, 48dp on Android, 44px on the web — the filter chip's × included, without growing the chip | — | must |
-| `X-06` | In a list of choices — server, language, Appearance — the current one is announced as selected, not only marked with a glyph | — | must |
-| `X-07` | Decorative glyphs beside text that already says the same thing are hidden; anything laid out only to be measured never reaches the accessibility tree | — | should |
-| `X-08` | Text off the board follows the device's text size; the board sizes from its height and does not scale twice. On the web: at 200% zoom and 320px wide, nothing is cut and nothing scrolls sideways | native: the text-size setting; web: browser zoom (WCAG 1.4.4, 1.4.10) | should |
-| `X-09` | Decorative motion — the picker's live dot — honours the reduce-motion setting. `L-11`'s lock flash and `L-12`'s pulse are information, not decoration, and may keep running | — | should |
-| `X-10` | When a control replaces itself — `P-06`'s X folding to a pill, the pill opening again — focus moves to its replacement | — | should |
+| `X-01` | Board lane = **one** a11y element, whole lane in server's column words; empty lane says only number. Lap count (`L-23`, no column word) spoken *Laps 4*, never a bare number heard as a second time | `labels` (`T-04`); laps: app's native string, web `[mobile] spoken_laps` | must |
+| `X-02` | EVENT, HEAT words + numbers read as one each; silent before number arrives | — | must |
+| `X-03` | Start-list lane = one utterance, same words, seed time incl.; heat heading = one utterance in **long** words (`S-01`) | `labels` | should |
+| `X-04` | Heat headings, picker title, every empty-state title are headings → jump heat to heat | — | should |
+| `X-05` | Every tap target ≥ platform min — 44pt iOS, 48dp Android, 44px web — chip × included, chip not grown | — | must |
+| `X-06` | In choice lists — server, language, Appearance — current announced as selected, not just glyph | — | must |
+| `X-07` | Decorative glyphs duplicating adjacent text hidden; measure-only layout never in a11y tree | — | should |
+| `X-08` | Off-board text follows device text size; board sizes from height, no double scaling. Web: 200% zoom at 320px wide, nothing cut, no sideways scroll | native: text-size setting; web: browser zoom (WCAG 1.4.4, 1.4.10) | should |
+| `X-09` | Decorative motion (picker live dot) honours reduce-motion. `L-11` lock flash, `L-12` pulse = information, may keep running | — | should |
+| `X-10` | Control replacing itself (`P-06` X → pill, pill → open) moves focus to replacement | — | should |
 
-> **`X-01` — the lap count's word is the client's own.** No column names it (`L-23`), so
-> it is spoken as *Laps 4* — an app's native string, the web's `[mobile] spoken_laps` —
-> never as a bare number heard as a second time.
-
-> **Contrast is checkable once**, being the palettes' (`P-15`). Known shortfall: dark
-> `th_text` `#666666` on `row_even` `#202020` is 2.84:1, under the 3:1 large-text bar;
-> the fix belongs in the server's table.
+> **Contrast** belongs to the palettes (`P-15`), so it is checked once, in
+> [`api.md`](api.md) §6.1 — including its known shortfall.
 
 ## 9. Out of scope
 
@@ -712,37 +655,36 @@ Not on any phone client, now or planned:
 
 | Feature | Where it lives |
 | --- | --- |
-| Operator controls — start, heat advance, column toggles | admin web UI on the Pi |
-| Settings panel | browser page, laptop on the LAN ([`notes/native_app_strategy.md`](../notes/native_app_strategy.md)) |
-| Cloud admin — meet retention, relay keys, attendance stats | `cloud/templates/admin.html`, password-gated |
+| Operator controls — start, heat advance, column toggles | Pi admin web UI |
+| Settings panel | browser, laptop on LAN ([`notes/native_app_strategy.md`](../notes/native_app_strategy.md)) |
+| Cloud admin — retention, relay keys, attendance stats | `cloud/templates/admin.html`, password-gated |
 | Console/terminal views, `/ws/settings`, `/ws/terminal` | admin only ([`api.md`](api.md) §2) |
-| Full-screen kiosk board | the Qt display, [`notes/scoreboard_parity.md`](../notes/scoreboard_parity.md) |
+| Full-screen kiosk board | Qt display, [`notes/scoreboard_parity.md`](../notes/scoreboard_parity.md) |
+| Kiosk carousel, test banner, operator column collapse | kiosk board `server/templates/live.html`, mirrored by Qt display ([`notes/cloud_parity.md`](../notes/cloud_parity.md)) |
 
 ---
 
 ## Changelog
 
-- **v2** (2026-09-30) — reconciled with the two native apps, which had built ahead of
-  it. `contract.app` is `v2`, so `P-14` names it to a v1 client; nothing a v1 client does
-  breaks against a v2 server.
+- **v2** (2026-09-30) — reconciled with both native apps (built ahead). `contract.app` =
+  `v2` → `P-14` names it to v1 clients; nothing v1 does breaks vs v2 server.
 
-  - **Model**: the web is a client with its own ledger, [`web-parity.md`](web-parity.md);
-    `diverges` is defined and temporary; §0.4 says what a row leaves to the client.
-  - **Changed**: `A-03` (the platform's own navigation; `A-10` only with a swipe), `A-07`
-    (written on the effect), `L-15`/`L-16` (600 wide, not orientation), `T-09` (long on
-    every client), `S-01` (short heading, spoken long), `P-03` (no results offline),
-    `P-06`/`P-17` (above the meets; search where the platform puts it), `P-11` (the
-    picker always names the server), `L-23` (centred only in a column), `T-01`/`T-02`
-    (the server's palettes from [`api.md`](api.md) §6.1; dark `header_label`
-    `#3b9eff`), `R-01` (the line replaces the grid).
-  - **Added**: `L-24`, `X-01`–`X-10`, and the `[mobile]` strings `spoken_laps` and
-    `filter_done`. Folded in from v1 addenda: `P-15`, `P-16`, `P-17`, `A-11`.
-  - **Moved out**: `P-16`'s server half to [`api.md`](api.md) §4 and
-    [`cloud.md`](cloud.md); the default palettes to [`api.md`](api.md) §6.1.
+  - **Model**: web = client with own ledger, [`web-parity.md`](web-parity.md);
+    `diverges` defined, temporary; §0.4 says what rows leave to client.
+  - **Changed**: `A-03` (platform nav; `A-10` only with swipe), `A-07` (effect-based),
+    `L-15`/`L-16` (600 wide, not orientation), `T-09` (long everywhere), `S-01` (short
+    heading, spoken long), `P-03` (no results offline), `P-06`/`P-17` (above meets; search
+    where platform puts it), `P-11` (picker always names server), `L-23` (centred only in
+    a column), `T-01`/`T-02` (server palettes, [`api.md`](api.md) §6.1; dark
+    `header_label` `#3b9eff`), `R-01` (line replaces grid).
+  - **Added**: `L-24`, `X-01`–`X-10`, `[mobile]` strings `spoken_laps`, `filter_done`.
+    From v1 addenda: `P-15`, `P-16`, `P-17`, `A-11`.
+  - **Moved out**: `P-16` server half → [`api.md`](api.md) §4, [`cloud.md`](cloud.md);
+    default palettes → [`api.md`](api.md) §6.1.
 
-- **v1, clarified** (no bump): `L-13`'s two exceptions, `A-09`'s 404 signal, `C-02` and
-  `C-10` gated on `kind`, `S-05` compared as strings, how `T-10`'s snapshot is made,
-  `P-14`, and §0.2's Pi-session table with `GET /schedule.json`.
+- **v1, clarified** (no bump): `L-13` two exceptions, `A-09` 404 signal, `C-02`/`C-10`
+  gated on `kind`, `S-05` string compare, `T-10` snapshot process, `P-14`, §0.2 Pi-session
+  table with `GET /schedule.json`.
 
-- **v1** — First statement of the mobile feature contract, taken from the cloud templates
-  as of the FastAPI/plain-WebSocket server. Tracks `api.md` v2.
+- **v1** — first mobile contract, from cloud templates as of FastAPI/plain-WebSocket
+  server. Tracks `api.md` v2.

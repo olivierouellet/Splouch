@@ -703,6 +703,10 @@ them key for key; it never picks its own. Source of truth: `DEFAULT_THEME_COLORS
 | `schedule_name` | `#e0e0e0` | `#111111` |
 | `schedule_club` | `#666666` | `#888888` |
 
+**Known contrast shortfall:** dark `th_text` on `row_even` is 2.84:1, under WCAG's 3:1
+large-text bar (`app.md` §8). The fix is a change to this table, which every phone
+client then copies.
+
 `connection_lost` and `connection_lost_text` exist only for the Qt display, which alone
 can tell the console has stopped talking to it. Faces, both palettes: `family`
 `Overpass Mono`, `digits` `DSEG7Classic`, `timing` `Overpass Mono`.
