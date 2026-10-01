@@ -519,22 +519,23 @@ def route_index(request: Request):
     # follows the visitor, not a meet. Per-meet language starts at /mobile.
     lang = _picker_lang(request)
     # `P-10`: the reader's own store, narrowed exactly as `/add` narrows it, so the
-    # two pages cannot disagree about where the app lives. None until a listing
-    # exists for this platform, and the page offers Add to Home Screen instead.
+    # two pages cannot disagree about where the app lives — one button for a phone
+    # we recognise, every listing for an agent we cannot place. Empty until a
+    # listing exists for this reader, and the page offers Add to Home Screen instead.
     platform = _phone_platform(request)
-    store_url = _store_links().get(platform) if platform else None
+    mobile = _strings(lang, "mobile")
+    store_buttons = [
+        {"url": url, "label": mobile.get(f"add_store_{key}", "")}
+        for key, url in _store_links().items()
+        if platform is None or key == platform
+    ]
     return _remember_prefs(
         request,
         render(
             request,
             "picker.html",
             meets=meets,
-            store_url=store_url,
-            store_label=(
-                _strings(lang, "mobile").get(f"add_store_{platform}", "")
-                if store_url
-                else ""
-            ),
+            store_buttons=store_buttons,
             t=_strings(lang, "mobile"),
             lang=lang,
             # For the display-preferences menu: the languages this server can serve,

@@ -1,9 +1,12 @@
 """The picker's install hand-off (`P-10`): the reader's store, else the home screen.
 
 The same narrowing `/add` applies (see `test_cloud_add_page.py`), on the page every
-spectator passes through: one button, the reader's own platform, and nothing for a
-platform with no listing yet — that reader still gets Add to Home Screen.
+spectator passes through: one button for a phone we recognise, every listing for an
+agent we cannot place, and nothing for a platform with no listing yet — that reader
+still gets Add to Home Screen.
 """
+
+import re
 
 import pytest
 from starlette.requests import Request
@@ -36,17 +39,14 @@ def picker(agent=None):
     return cs.route_index(Request(scope)).body.decode()
 
 
-def store_link(html):
-    marker = 'id="a2hs-store" href="'
-    if marker not in html:
-        return None
-    return html.split(marker, 1)[1].split('"', 1)[0]
+def store_links(html):
+    return re.findall(r'class="a2hs-store" href="([^"]+)"', html)
 
 
 def test_no_listing_offers_no_store(stores):
     """Today's state: nothing configured, so the page is the home-screen hint."""
     for agent in (IPHONE, ANDROID, None):
-        assert store_link(picker(agent)) is None
+        assert store_links(picker(agent)) == []
 
 
 @pytest.mark.parametrize(
@@ -54,23 +54,23 @@ def test_no_listing_offers_no_store(stores):
 )
 def test_a_phone_gets_its_own_store(stores, agent, want):
     stores(store_ios=APPSTORE, store_android=PLAY)
-    assert store_link(picker(agent)) == want
+    assert store_links(picker(agent)) == [want]
 
 
 def test_a_platform_without_a_listing_is_not_sent_to_the_other_one(stores):
     """An App Store link is not an answer to an Android phone."""
     stores(store_ios=APPSTORE)
-    assert store_link(picker(ANDROID)) is None
+    assert store_links(picker(ANDROID)) == []
 
 
-def test_an_agent_we_cannot_place_gets_no_store_button(stores):
-    """Unlike `/add`, which lists every store for it: the picker is not the page a
-    poster sent someone to, and a desktop reading it needs no phone app pitched."""
+def test_an_agent_we_cannot_place_gets_every_listing(stores):
+    """As on `/add`: mostly iPads asking for the desktop site, which no header gives
+    away, so sniffing narrows only when it is sure and never guesses."""
     stores(store_ios=APPSTORE, store_android=PLAY)
-    assert store_link(picker(IPAD_DESKTOP)) is None
+    assert sorted(store_links(picker(IPAD_DESKTOP))) == sorted([APPSTORE, PLAY])
 
 
 def test_the_button_says_the_store_in_the_readers_words(stores):
     stores(store_android=PLAY)
     html = picker(ANDROID)
-    assert "Get it on Google Play" in html.split('id="a2hs-store"', 1)[1][:200]
+    assert "Get it on Google Play" in html.split('class="a2hs-store"', 1)[1][:200]

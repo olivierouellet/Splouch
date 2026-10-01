@@ -27,7 +27,7 @@ from; the `diverges` rows are where v2 moved past them.
 | `P-07` | `done` | |
 | `P-08` | `done` | |
 | `P-09` | `done` | |
-| `P-10` | `done` | the install card offers the reader's own store when their platform has a listing — narrowed by `User-Agent` as `GET /add` narrows it, nothing for an agent that cannot be placed — and Add to Home Screen otherwise |
+| `P-10` | `done` | the install card offers the reader's own store when their platform has a listing — narrowed by `User-Agent` as `GET /add` narrows it, every listing for an agent that cannot be placed — and Add to Home Screen otherwise |
 | `P-11` | `n/a` | native-only — a page's origin is its server |
 | `P-12` | `n/a` | native-only |
 | `P-13` | `n/a` | native-only |
