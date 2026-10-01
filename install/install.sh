@@ -39,8 +39,11 @@ section() { echo -e "\n${BOLD}──── $* ────${NC}"; }
 # Auto-answer No in non-interactive mode (the in-app Reinstall has no TTY), so
 # optional prompts (static IP, RTC, reboot) safely keep the current config.
 # STATIC_IP holds eth0's address once this run pinned one, so messages only quote
-# a raw IP when it is actually the Pi's address.
+# a raw IP when it is actually the Pi's address. ETH_PENDING marks an eth0 change
+# saved but not yet active: activating it drops an SSH session over Ethernet, which
+# would kill the script, so it is applied last (see apply_pending_network).
 STATIC_IP=
+ETH_PENDING=0
 confirm() {
     if [[ "${SPLOUCH_NONINTERACTIVE:-}" == "1" ]]; then
         info "Non-interactive — skipping: $1"
@@ -259,11 +262,9 @@ configure_network() {
             sudo nmcli con add type ethernet ifname eth0 con-name "$ETH_CON" "${base[@]}" "${dhcp[@]}"
             info "eth0 on DHCP."
         elif [[ -n $current ]]; then
-            warn "Switching eth0 to DHCP drops an SSH session running over Ethernet."
             sudo nmcli con mod "$ETH_CON" "${base[@]}" "${dhcp[@]}"
-            sudo nmcli con up "$ETH_CON" ||
-                warn "eth0 didn't come up — check the cable and router."
-            info "eth0 back on DHCP (removed static $current)."
+            ETH_PENDING=1
+            info "eth0 back to DHCP (removing static $current) — applied at the end."
         else
             info "Keeping eth0 on DHCP."
         fi
@@ -280,7 +281,6 @@ configure_network() {
         warn "Not an IPv4 address: $dns"
     done
 
-    warn "Applying ${cidr%/*} drops an SSH session running over Ethernet."
     confirm "Set eth0 to $cidr via $gateway (DNS $dns)?" || {
         info "Leaving eth0 unchanged."
         return 0
@@ -292,10 +292,18 @@ configure_network() {
     else
         sudo nmcli con add type ethernet ifname eth0 con-name "$ETH_CON" "${props[@]}"
     fi
-    sudo nmcli con up "$ETH_CON"
-
+    ETH_PENDING=1
     STATIC_IP="${cidr%/*}"
-    info "Static IP configured: $STATIC_IP"
+    info "Static IP $STATIC_IP saved — applied at the end."
+}
+
+# Activate a saved eth0 change as the script's very last act. Detached through
+# systemd so it still runs after the SSH session it drops has taken this shell down.
+apply_pending_network() {
+    ((ETH_PENDING)) || return 0
+    warn "Applying the eth0 change in 3 s — an SSH session over Ethernet will drop."
+    info "Reconnect to ${SERVER_HOSTNAME}.local${STATIC_IP:+ or $STATIC_IP}."
+    sudo systemd-run --quiet --collect --on-active=3 nmcli con up "$ETH_CON"
 }
 
 # ── Fetching without assuming a tracked branch ────────────────────────────────
@@ -767,7 +775,11 @@ EOF
     echo -e "  Settings    : ~/SplouchData/settings.json"
     echo
     echo
-    confirm "Reboot now to apply group membership and network changes?" && sudo reboot
+    if confirm "Reboot now to apply group membership and network changes?"; then
+        sudo reboot
+    else
+        apply_pending_network
+    fi
 fi
 
 # Remove every autostart line this project has ever written, so a re-run replaces

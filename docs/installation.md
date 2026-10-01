@@ -80,7 +80,7 @@ The script:
 - Creates `~/SplouchData/` with `meet/`, `images/`, `icons/`, and `recorded/` subdirectories
 - Copies `settings.default.json` to `~/SplouchData/settings.json`
 - Downloads xterm.js
-- Asks how `eth0` gets its address: **DHCP** (default) or a **static IP** you enter, with its router and DNS (validated: must be a host address, router inside the same subnet). Choosing DHCP on a re-run clears a static address set earlier. Both live in the `splouch-eth` profile that **Settings → Network** edits too. Changing it drops an SSH session running over Ethernet
+- Asks how `eth0` gets its address: **DHCP** (default) or a **static IP** you enter, with its router and DNS (validated: must be a host address, router inside the same subnet). Choosing DHCP on a re-run clears a static address set earlier. Both live in the `splouch-eth` profile that **Settings → Network** edits too. The change is saved, then applied as the very last step (by the reboot, or 3 s after the script exits), so an SSH session over Ethernet only drops once the install is done — reconnect to `splouch.local` or the new IP
 - Sets the hostname to `splouch` (accessible as `splouch.local` on the network)
 
 ---
