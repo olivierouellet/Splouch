@@ -575,7 +575,8 @@ var lane_name_blank  = {};
    reading it as a heat change blanked the only state a late joiner has. */
 var last_event = null, last_heat = null, last_state = 0, current_state = 0;
 
-/* Fields the handler may write straight to the DOM, by element id. */
+/* Fields the handler may write straight to the DOM, by element id. As text, never
+   markup: names and clubs come from the meet file, which is untrusted input. */
 var VALID_FIELDS = new Set([
     "current_event", "current_heat", "event_name",
     {% for i in range(1, num_lanes + 1) %}"lane_place{{ i }}", {% endfor %}
@@ -659,7 +660,7 @@ function applyScoreboardFrame(new_s) {
            this it would sit on top of the live clock until the next re-base. */
         if (VALID_FIELDS.has(k) && !k.startsWith("lane_place") &&
             !(k.startsWith("lane_time") && clockOwnsLane(k.replace("lane_time", ""))))
-            document.getElementById(k).innerHTML = s[k];
+            document.getElementById(k).textContent = s[k];
 
         if (k.startsWith("lane_time"))  lane_time_blank[k.replace("lane_time", "")]   = (s[k].trim() === "");
         if (k.startsWith("lane_place")) {

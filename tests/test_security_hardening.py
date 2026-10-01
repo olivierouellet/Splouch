@@ -124,6 +124,23 @@ def test_the_templates_do_not_reintroduce_safe_on_embedded_json():
         assert "| safe" not in body, f"{path} reintroduced | safe"
 
 
+# ── The board writes names as text ───────────────────────────────────────────
+
+
+@pytest.mark.parametrize(
+    "path", ["shared/templates/scoreboard_base.html", "server/templates/live.html"]
+)
+def test_the_board_writes_meet_file_text_as_text_not_markup(path):
+    """`lane_name`, `lane_club` and `event_name` are the Splash export's free text,
+    and these pages are public on the Pi and, via `live-mobile.html`, on the cloud.
+    Written as `innerHTML`, a name like `<img onerror=…>` ran on the viewer's origin
+    — on the Pi, with the operator's session, which `/ws/terminal` turns into a
+    shell."""
+    body = Path(os.path.join(REPO, path)).read_text(encoding="utf-8")
+    assert "getElementById(k).innerHTML" not in body, f"{path} writes s[k] as markup"
+    assert "getElementById(k).textContent = s[k]" in body
+
+
 # ── The session key is this install's, not the repo's ─────────────────────────
 
 # The key that used to be committed in server/app.py. Any cookie signed with it
@@ -393,6 +410,8 @@ def test_the_admin_panel_locks_out_a_password_guesser(monkeypatch, tmp_path):
     cs._admin_fails = cloud_auth._admin_fails
 
     class Req:
+        method = "GET"
+
         def __init__(self, pw, ip="203.0.113.9"):
             tok = base64.b64encode(f"admin:{pw}".encode()).decode()
             self.headers = {"Authorization": "Basic " + tok}
@@ -411,6 +430,46 @@ def test_the_admin_panel_locks_out_a_password_guesser(monkeypatch, tmp_path):
     assert status("wrong") == 429  # locked out
     assert status("correct-horse") == 429  # and the lock holds
     assert status("correct-horse", ip="198.51.100.4") == 200  # per-address
+
+
+def test_a_cross_site_post_to_the_admin_panel_is_refused(monkeypatch, tmp_path):
+    """Basic credentials ride a cross-site form POST, so any page the admin visited
+    could switch analytics on in their name or delete a retained meet. A plain link
+    to /admin from elsewhere still has to open."""
+    import base64
+
+    sys.path.insert(0, os.path.join(REPO, "cloud"))
+    monkeypatch.setenv("DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("ADMIN_USER", "admin")
+    monkeypatch.setenv("ADMIN_PASSWORD", "correct-horse")
+    from fastapi import HTTPException
+
+    import cloud_auth
+    import cloud_paths
+
+    monkeypatch.setattr(cloud_paths, "CREDS_FILE", str(tmp_path / "credentials.json"))
+    monkeypatch.setattr(cloud_auth, "_admin_fails", {})
+
+    class Req:
+        def __init__(self, method, site):
+            tok = base64.b64encode(b"admin:correct-horse").decode()
+            self.method = method
+            self.headers = {"Authorization": "Basic " + tok}
+            if site is not None:
+                self.headers["sec-fetch-site"] = site
+            self.client = type("C", (), {"host": "203.0.113.9"})()
+
+    def status(method, site):
+        try:
+            cloud_auth.require_admin(cast(Request, Req(method, site)))
+            return 200
+        except HTTPException as e:
+            return e.status_code
+
+    assert status("POST", "cross-site") == 403
+    assert status("POST", "same-origin") == 200
+    assert status("POST", None) == 200  # curl, scripts: no header at all
+    assert status("GET", "cross-site") == 200  # a link to /admin still opens
 
 
 # ── The shipped login announces itself until it is changed ────────────────────

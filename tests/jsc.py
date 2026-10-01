@@ -65,7 +65,12 @@ var __calls = [];
 function __node(tag) {
   var n = {
     tagName: (tag || 'div').toUpperCase(),
-    innerHTML: '', textContent: '', value: '', hidden: false, checked: false,
+    // One backing string for both, as in a browser: a page that writes a cell as
+    // text and later blanks it as markup must read back blank.
+    _content: '',
+    get innerHTML() { return this._content; }, set innerHTML(v) { this._content = String(v); },
+    get textContent() { return this._content; }, set textContent(v) { this._content = String(v); },
+    value: '', hidden: false, checked: false,
     // `style` is a CSSStyleDeclaration, not a plain bag: a page setting a custom
     // property (`--header-h`) calls setProperty on it, and an object literal would
     // throw where every real browser works.

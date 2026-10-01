@@ -145,7 +145,8 @@ function tick_chrono() {
     document.getElementById('live_chrono').textContent = formatHundredths(_chrono_base + elapsed);
 }
 
-/* Fields the socket handler may write directly to the DOM */
+/* Fields the socket handler may write directly to the DOM — as text, never markup:
+   names and clubs come from the meet file, which is untrusted input. */
 var VALID_FIELDS = new Set([
     "current_event", "current_heat", "event_name",
     {% for i in range(1, num_lanes + 1) %}"lane_place{{ i }}", {% endfor %}
@@ -603,7 +604,7 @@ function mode_to_results() {
         var delta_lanes   = {};
         for (var k in s) {
             if (VALID_FIELDS.has(k)) {
-                document.getElementById(k).innerHTML = s[k];
+                document.getElementById(k).textContent = s[k];
             }
             if (k.startsWith("lane_splits")) {
                 var si = k.replace("lane_splits", "");
@@ -670,7 +671,7 @@ function mode_to_results() {
                 if (current_state === 2) start_chrono();
                 for (var i = 1; i <= NUM_LANES; i++) {
                     if (lane_running[i] || false)
-                        document.getElementById("lane_time" + i).innerHTML = s["running_time"];
+                        document.getElementById("lane_time" + i).textContent = s["running_time"];
                 }
             }
         }

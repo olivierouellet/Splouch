@@ -145,6 +145,16 @@ def check_admin(request):
 
 
 def require_admin(request: Request):
+    # Basic credentials are cached by the browser and sent on a cross-site form POST
+    # too, so without this any page the admin visits could submit to /admin. Only
+    # writes: a cross-site GET cannot read the reply, and a link to /admin from
+    # elsewhere should still open. `Sec-Fetch-Site` is set by the browser and absent
+    # on non-browser clients, which is why absence means allow.
+    if (
+        request.method not in ("GET", "HEAD")
+        and request.headers.get("sec-fetch-site") == "cross-site"
+    ):
+        raise HTTPException(status_code=403, detail="Cross-site request refused")
     ip = _admin_client_ip(request)
     if _admin_locked(ip):
         # 429, not 401: a browser answers 401 by re-prompting, which would walk the
