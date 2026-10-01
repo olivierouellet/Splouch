@@ -1,9 +1,10 @@
+import ipaddress
 import subprocess
 import time
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, Field, IPvAnyAddress
+from pydantic import BaseModel, Field, model_validator
 from starlette.concurrency import run_in_threadpool
 
 import state
@@ -13,8 +14,24 @@ router = APIRouter(tags=["Network"])
 
 
 class EthIP(BaseModel):
-    ip: IPvAnyAddress
-    prefix: int = Field(24, ge=1, le=32)
+    # Same rules as the installer's prompt (install.sh ask_static_address /
+    # ask_gateway). The router is required: without it eth0 has no route out and
+    # the Cloud relay drops. DNS defaults to the router.
+    ip: ipaddress.IPv4Address
+    prefix: int = Field(24, ge=8, le=30)
+    gateway: ipaddress.IPv4Address
+    dns: ipaddress.IPv4Address | None = None
+
+    @model_validator(mode="after")
+    def _in_subnet(self):
+        net = ipaddress.IPv4Network(f"{self.ip}/{self.prefix}", strict=False)
+        if self.ip in (net.network_address, net.broadcast_address):
+            raise ValueError(f"{self.ip} is the network or broadcast address of {net}")
+        if self.gateway not in net:
+            raise ValueError(f"Router {self.gateway} is outside {net}")
+        if self.gateway == self.ip:
+            raise ValueError("The router can't share this Pi's address")
+        return self
 
 
 class WifiConnect(BaseModel):
@@ -27,6 +44,8 @@ class WifiStatus(BaseModel):
     ssid: str
     wifi_ip: str
     eth_ip: str
+    eth_gateway: str = ""
+    eth_dns: str = ""
 
 
 class CloudStatus(BaseModel):
@@ -101,6 +120,16 @@ def route_wifi_status():
                     return line.split(":")[-1].split("/")[0]
             return ""
 
+        def get_field(device, field):
+            if not device:
+                return ""
+            r = _nmcli("-t", "-f", field, "--escape", "no", "dev", "show", device)
+            for line in r.stdout.splitlines():
+                key, _, value = line.partition(":")
+                if key.startswith(field) and value and value != "--":
+                    return value
+            return ""
+
         # IN-USE is the correct field for dev wifi (not ACTIVE); active AP is marked with '*'
         r3 = _nmcli("-t", "-f", "IN-USE,SSID", "--escape", "no", "dev", "wifi")
         ssid = ""
@@ -114,6 +143,8 @@ def route_wifi_status():
             "ssid": ssid,
             "wifi_ip": get_ip(wifi_dev) if enabled else "",
             "eth_ip": get_ip(eth_dev),
+            "eth_gateway": get_field(eth_dev, "IP4.GATEWAY"),
+            "eth_dns": get_field(eth_dev, "IP4.DNS"),
         }
     except FileNotFoundError:
         return JSONResponse({"error": "nmcli not found"}, status_code=503)
@@ -277,84 +308,63 @@ def _wifi_connect(ssid, password):
         return JSONResponse({"error": failure("Connecting")}, status_code=500)
 
 
-@router.post(
-    "/eth_dhcp_set", response_model=ActionResult, dependencies=[Depends(require_login)]
-)
-def route_eth_dhcp_set():
+# eth0's addressing lives in one NetworkManager profile, `splouch-eth`, shared
+# with install.sh. It is created here when missing (an install that predates
+# it), outranking the default wired profile so it wins at boot.
+ETH_CON = "splouch-eth"
+
+
+def _eth_apply(*props):
     try:
+        if _nmcli("-t", "con", "show", ETH_CON).returncode == 0:
+            cmd = ["sudo", "nmcli", "con", "mod", ETH_CON]
+        else:
+            cmd = ["sudo", "nmcli", "con", "add", "type", "ethernet", "ifname", "eth0"]
+            cmd += ["con-name", ETH_CON]
+            cmd += ["connection.autoconnect", "yes"]
+            cmd += ["connection.autoconnect-priority", "100"]
         r = subprocess.run(
-            [
-                "sudo",
-                "nmcli",
-                "con",
-                "mod",
-                "splouch-eth",
-                "ipv4.method",
-                "auto",
-                "ipv4.addresses",
-                "",
-                "ipv4.gateway",
-                "",
-            ],
-            capture_output=True,
-            text=True,
-            timeout=8,
-            check=False,
+            [*cmd, *props], capture_output=True, text=True, timeout=8, check=False
         )
         if r.returncode != 0:
             return {"ok": False, "error": r.stderr.strip() or "nmcli error"}
         subprocess.run(
-            ["sudo", "nmcli", "con", "up", "splouch-eth"],
+            ["sudo", "nmcli", "con", "up", ETH_CON],
             capture_output=True,
             timeout=8,
             check=False,
         )
         return {"ok": True}
     except Exception:
-        return {"ok": False, "error": failure("Switching to DHCP")}
+        return {"ok": False, "error": failure("Applying the Ethernet settings")}
+
+
+@router.post(
+    "/eth_dhcp_set", response_model=ActionResult, dependencies=[Depends(require_login)]
+)
+def route_eth_dhcp_set():
+    return _eth_apply(
+        "ipv4.method", "auto", "ipv4.addresses", "", "ipv4.gateway", "", "ipv4.dns", ""
+    )
 
 
 @router.post(
     "/eth_ip_set", response_model=ActionResult, dependencies=[Depends(require_login)]
 )
 async def route_eth_ip_set(body: EthIP):
-    # ip/prefix are already validated by the EthIP model.
-    return await run_in_threadpool(_eth_ip_set, str(body.ip), body.prefix)
-
-
-def _eth_ip_set(ip_str, prefix):
-    cidr = f"{ip_str}/{prefix}"
-    try:
-        r = subprocess.run(
-            # method too: after DHCP the profile is `auto`, where an address would
-            # only be added beside the leased one.
-            [
-                "sudo",
-                "nmcli",
-                "con",
-                "mod",
-                "splouch-eth",
-                "ipv4.method",
-                "manual",
-                "ipv4.addresses",
-                cidr,
-            ],
-            capture_output=True,
-            text=True,
-            timeout=8,
-            check=False,
-        )
-        if r.returncode != 0:
-            return {"ok": False, "error": r.stderr.strip() or "nmcli error"}
-        subprocess.run(
-            ["sudo", "nmcli", "con", "up", "splouch-eth"],
-            capture_output=True,
-            timeout=8,
-            check=False,
-        )
-        return {"ok": True}
-    except Exception as e:
-        return {"ok": False, "error": str(e)}
+    # Validated by the EthIP model. Method too: after DHCP the profile is `auto`,
+    # where an address would only be added beside the leased one.
+    return await run_in_threadpool(
+        _eth_apply,
+        "ipv4.method",
+        "manual",
+        "ipv4.addresses",
+        f"{body.ip}/{body.prefix}",
+        "ipv4.gateway",
+        str(body.gateway),
+        "ipv4.dns",
+        str(body.dns or body.gateway),
+    )
 
 
 @router.get("/clients_fragment", dependencies=[Depends(require_login)])

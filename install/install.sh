@@ -20,7 +20,7 @@ TARGET_USER="${SPLOUCH_TARGET_USER:-${SUDO_USER:-$USER}}"
 TARGET_HOME="$(getent passwd "$TARGET_USER" | cut -d: -f6)"
 TARGET_HOME="${TARGET_HOME:-$HOME}"
 
-INSTALL_DIR="$TARGET_HOME/Splouch" # default for fresh installs; existing checkouts are auto-detected
+INSTALL_DIR="$TARGET_HOME/Splouch"          # default for fresh installs; existing checkouts are auto-detected
 SERVER_HOSTNAME="splouch"                   # broadcasts as splouch.local on the network
 MDNS_ALIASES="tableau.local marcador.local" # the board's name in each language it ships
 SCOREBOARD_URL="http://${SERVER_HOSTNAME}.local"
@@ -236,8 +236,8 @@ configure_network() {
     if nmcli -t con show "$ETH_CON" &>/dev/null; then
         exists=1
         method="$(nmcli -g ipv4.method con show "$ETH_CON" 2>/dev/null)"
-        [[ $method == manual ]] &&
-            current="$(nmcli -g ipv4.addresses con show "$ETH_CON" 2>/dev/null)"
+        [[ $method == manual ]] \
+            && current="$(nmcli -g ipv4.addresses con show "$ETH_CON" 2>/dev/null)"
     fi
     info "Every device reaches this Pi as ${SERVER_HOSTNAME}.local — no fixed IP needed."
     info "eth0 is currently: ${current:+static $current}${current:-DHCP}"
@@ -247,8 +247,8 @@ configure_network() {
     while :; do
         read -rp "eth0 addressing [1]: " choice
         case "${choice:-1}" in
-        1 | 2) break ;;
-        *) warn "Enter 1 or 2." ;;
+            1 | 2) break ;;
+            *) warn "Enter 1 or 2." ;;
         esac
     done
 
@@ -257,7 +257,7 @@ configure_network() {
 
     if [[ ${choice:-1} == 1 ]]; then
         local -a dhcp=(ipv4.method auto ipv4.addresses "" ipv4.gateway "" ipv4.dns "")
-        if ((!exists)); then
+        if ((! exists)); then
             # Takes over from the default profile at the next boot — no drop now.
             sudo nmcli con add type ethernet ifname eth0 con-name "$ETH_CON" "${base[@]}" "${dhcp[@]}"
             info "eth0 on DHCP."

@@ -18,9 +18,17 @@
                     <div class="card mb-3"><div class="card-body">
                         <div class="panel-title">{{ t.net_eth_static_ip }}</div>
                         <div class="d-flex flex-wrap align-items-center gap-1 mb-2">
-                            <input id="eth-ip-input" type="text" class="form-control form-control-sm" placeholder="10.10.10.10" maxlength="15" style="width:140px; flex:none;">
+                            <input id="eth-ip-input" type="text" class="form-control form-control-sm" placeholder="192.168.1.50" maxlength="15" style="width:140px; flex:none;">
                             <span class="text-body-secondary">/</span>
-                            <input id="eth-prefix-input" type="number" class="form-control form-control-sm" value="24" min="1" max="32" style="width:60px; flex:none;">
+                            <input id="eth-prefix-input" type="number" class="form-control form-control-sm" value="24" min="8" max="30" style="width:60px; flex:none;">
+                        </div>
+                        <div class="d-flex flex-wrap align-items-center gap-1 mb-2">
+                            <span class="text-body-secondary small" style="min-width:70px;">{{ t.net_eth_gateway }}</span>
+                            <input id="eth-gateway-input" type="text" class="form-control form-control-sm" placeholder="192.168.1.1" maxlength="15" style="width:140px; flex:none;">
+                            <span class="text-body-secondary small ms-2">{{ t.net_eth_dns }}</span>
+                            <input id="eth-dns-input" type="text" class="form-control form-control-sm" placeholder="{{ t.net_eth_dns_ph }}" maxlength="15" style="width:140px; flex:none;">
+                        </div>
+                        <div class="d-flex flex-wrap align-items-center gap-1 mb-2">
                             <button type="button" class="btn btn-secondary btn-sm text-nowrap" style="min-width:80px;" data-hold data-hold-fn="setEthIp" data-hold-label="{{ t.hold_apply }}">{{ t.net_static }}</button>
                             <button type="button" class="btn btn-secondary btn-sm text-nowrap" style="min-width:80px;" data-hold data-hold-fn="setEthDhcp" data-hold-label="{{ t.hold_apply }}">{{ t.net_dhcp }}</button>
                         </div>

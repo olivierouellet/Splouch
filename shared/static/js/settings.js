@@ -757,6 +757,8 @@ function _applyWifiStatus(d) {
     if (d.eth_ip) {
         document.getElementById('eth-ip-input').value = d.eth_ip.split('/')[0];
     }
+    if (d.eth_gateway) document.getElementById('eth-gateway-input').value = d.eth_gateway;
+    if (d.eth_dns) document.getElementById('eth-dns-input').value = d.eth_dns;
 }
 
 // Arm or disarm a press-and-hold on a toggle whose risky half is one state only
@@ -791,13 +793,47 @@ function setEthDhcp() {
         });
 }
 
+// Dotted quad -> unsigned 32-bit int, or null when it isn't one.
+function _ipv4ToInt(s) {
+    var m = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(s);
+    if (!m) return null;
+    var n = 0;
+    for (var i = 1; i <= 4; i++) {
+        var o = +m[i];
+        if (o > 255) return null;
+        n = n * 256 + o;
+    }
+    return n;
+}
+
+// Same rules as the server's EthIP model and install.sh: a host address in an
+// /8–/30, a router inside that subnet, DNS optional (the router when blank).
+// Returns the localized error, or '' when the form is valid.
+function _ethFormError(ip, prefix, gateway, dns) {
+    if (!ip) return T.js_enter_ip;
+    var a = _ipv4ToInt(ip);
+    var p = parseInt(prefix, 10);
+    if (a === null || !(p >= 8 && p <= 30)) return T.js_eth_bad_ip;
+    var size = Math.pow(2, 32 - p);
+    var host = a % size;
+    if (host === 0 || host === size - 1) return T.js_eth_bad_ip;
+    var g = _ipv4ToInt(gateway);
+    if (g === null || g === a || Math.floor(g / size) !== Math.floor(a / size))
+        return T.js_eth_bad_gateway;
+    if (dns && _ipv4ToInt(dns) === null) return T.js_eth_bad_dns;
+    return '';
+}
+
 function setEthIp() {
     var ip = document.getElementById('eth-ip-input').value.trim();
     var prefix = document.getElementById('eth-prefix-input').value.trim();
+    var gateway = document.getElementById('eth-gateway-input').value.trim();
+    var dns = document.getElementById('eth-dns-input').value.trim();
     var status = document.getElementById('eth-ip-status');
-    if (!ip) {
+    var err = _ethFormError(ip, prefix, gateway, dns);
+    if (err) {
         _statusColor(status, 'err');
-        status.textContent = T.js_enter_ip;
+        status.textContent = err;
         return;
     }
     _statusColor(status, 'muted');
@@ -805,7 +841,7 @@ function setEthIp() {
     fetch('/eth_ip_set', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ip: ip, prefix: prefix }),
+        body: JSON.stringify({ ip: ip, prefix: prefix, gateway: gateway, dns: dns || null }),
     })
         .then(function (r) {
             return r.json();

@@ -65,7 +65,7 @@ no event or heat number at all, so `/manual` is how you supply it.
 | **Flow** | Intro, results, and server-update timeouts; finish debounce |
 | **Display** | Show/hide column headers and columns (Name, Club, Delta, Position); podium highlighting |
 | **Theme** | Built-in colour schemes; override individual colours and fonts; save as a custom theme |
-| **Network** | WiFi management; view connected scoreboard clients |
+| **Network** | WiFi management; Ethernet DHCP or static IP (address, router, DNS); view connected scoreboard clients |
 | **Update & Backup** | Pull latest version from GitHub, sync dependencies, restart; download or restore a backup of `~/SplouchData` |
 | **Test** | Play back pre-recorded sessions; adjust playback speed; record live serial sessions. Safe to run with a meet loaded — see [Test sessions](#test-sessions) |
 | **Terminal** | In-browser terminal — Shell, raspi-config, Scoreboard logs, dmesg, serial ports |
