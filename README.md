@@ -148,13 +148,13 @@ Documentation du protocole série CTS par [hwbrill/vsCTS](https://github.com/hwb
 
 | En course — temps de passage au 100 m | Arrivée — classement et podium |
 | --- | --- |
-| ![Tableau en direct pendant la course](docs/images/scoreboard-split.png) | ![Tableau en direct à l'arrivée](docs/images/scoreboard-finish.png) |
+| ![Tableau en direct pendant la course](docs/images/scoreboard-split-fr.png) | ![Tableau en direct à l'arrivée](docs/images/scoreboard-finish-fr.png) |
 
 | Réglages — Affichage du tableau | Réglages — Cloud |
 | --- | --- |
-| ![Réglages locaux](docs/images/settings-display.png) | ![Réglages cloud](docs/images/settings-cloud.png) |
+| ![Réglages locaux](docs/images/settings-display-fr.png) | ![Réglages cloud](docs/images/settings-cloud-fr.png) |
 
-Nageurs, clubs et temps fictifs (enregistrement de test inclus).
+Nageurs, clubs et temps fictifs (enregistrement de test inclus), tableau et panneau réglés en français.
 
 ---
 
