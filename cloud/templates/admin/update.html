@@ -29,7 +29,7 @@
                     </div>
                 </div>
                 <div class="mb-3">
-                    <p class="small text-body-secondary mb-2">{{ t.get('restore_keys_note', 'Restore relay keys and settings (picker appearance, analytics, locale) from a backup. The admin login is only restored from a “full” backup; a regular backup leaves the current password unchanged. A full backup contains the password hash — keep it private.') }}</p>
+                    <p class="small text-body-secondary mb-2">{{ t.get('restore_keys_note', 'Restores relay keys + settings (picker look, analytics, locale). Admin login only from full backup. Full backup holds password hash — keep private.') }}</p>
                     <div class="d-flex flex-wrap gap-2 align-items-center">
                         <label class="btn btn-secondary btn-sm m-0" style="cursor:pointer;">
                             {{ t.get('restore_backup', 'Restore…') }}<input type="file" accept=".json" style="display:none;" onchange="restoreKeys(this)">
@@ -43,7 +43,7 @@
                     <a id="backup-meets-btn" href="/admin/backup/meets" class="btn btn-secondary btn-sm">{{ t.get('download_backup', 'Download') }}</a>
                 </div>
                 <div>
-                    <p class="small text-body-secondary mb-2">{{ t.get('restore_meets_note', 'Restore retained meets (schedules, images, icons) from a backup. Adds them to the current set — nothing is removed, and currently-live meets keep their own data.') }}</p>
+                    <p class="small text-body-secondary mb-2">{{ t.get('restore_meets_note', 'Adds retained meets (schedules, images, icons). Removes nothing; live meets untouched.') }}</p>
                     <div class="d-flex flex-wrap gap-2 align-items-center">
                         <label class="btn btn-secondary btn-sm m-0" style="cursor:pointer;">
                             {{ t.get('restore_backup', 'Restore…') }}<input type="file" accept=".json" style="display:none;" onchange="restoreMeets(this)">

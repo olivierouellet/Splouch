@@ -126,6 +126,7 @@ def route_wifi_status():
 @router.get("/wifi_scan", dependencies=[Depends(require_login)])
 def route_wifi_scan(request: Request):
     # Returns an HTML fragment (HTMX hx-get) for the Network tab's list.
+    t = state.settings_strings(state.ui_locale(request))
     try:
         # `dev wifi list` returns the *cached* scan immediately — right after
         # connecting that cache often holds only the associated AP, which is
@@ -176,15 +177,18 @@ def route_wifi_scan(request: Request):
                 net["signal"] = max(net["signal"], sig)
                 net["active"] = net["active"] or ("*" in active)
         networks = sorted(by_ssid.values(), key=lambda n: n["signal"], reverse=True)
-        return render(request, "settings/fetched/wifi_networks.html", networks=networks)
+        return render(
+            request, "settings/fetched/wifi_networks.html", networks=networks, t=t
+        )
     except FileNotFoundError:
         return render(
             request,
             "settings/fetched/wifi_networks.html",
             error="WiFi not available (nmcli not found).",
+            t=t,
         )
     except Exception as e:
-        return render(request, "settings/fetched/wifi_networks.html", error=str(e))
+        return render(request, "settings/fetched/wifi_networks.html", error=str(e), t=t)
 
 
 @router.post(

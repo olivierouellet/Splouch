@@ -14,7 +14,7 @@
                 <div class="d-flex align-items-center justify-content-between gap-3 flex-wrap">
                     <div>
                         <h2 class="panel-eyebrow mb-1">{{ t.get('analytics_title', 'Attendance counting') }}</h2>
-                        <p class="small text-body-secondary mb-0" style="max-width:420px;">{{ t.get('analytics_desc', 'Count unique visitors per meet over a chosen period. Anonymous: a random per-device id is stored, never names or IP addresses.') }}</p>
+                        <p class="small text-body-secondary mb-0" style="max-width:420px;">{{ t.get('analytics_desc', 'Unique visitors per meet, over chosen window. Anonymous: random per-device id, never names or IPs.') }}</p>
                     </div>
                     <div class="d-flex align-items-center gap-2 flex-shrink-0">
                         <span class="badge rounded-pill {{ 'text-bg-info' if analytics_enabled else 'text-bg-secondary' }}">{{ (t.get('analytics_on', 'On') if analytics_enabled else t.get('analytics_off', 'Off')) }}</span>

@@ -14,7 +14,7 @@
                             {% endfor %}
                         </select>
                     </form>
-                    <div class="form-text">{{ t.get('page_language_hint', 'Default language for the public picker page, used when a visitor’s browser language isn’t available. Each visitor still sees their own browser language when possible.') }}</div>
+                    <div class="form-text">{{ t.get('page_language_hint', "Picker fallback when visitor's browser language unavailable.") }}</div>
                 </div>
                 <!-- Applies as you change it; `action` is what autoSave posts to. `onsubmit`
                      only guards against a stray Enter navigating the page away. -->
