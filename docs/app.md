@@ -338,7 +338,7 @@ Live lane state during a heat. Busiest screen, most worth getting right.
 | --- | --- | --- | --- | --- |
 | `L-01` | EVENT, HEAT numbers: small label over large value; word `header_label`, number `header_value` | `current_event`, `current_heat` | all | must |
 | `L-02` | Event name | `event_name` — server-localised | all | must |
-| `L-03` | Wall clock `HH:MM`, ticks each second | **device local time**, not server | all | must |
+| `L-03` | Wall clock `HH:MM`, ticks each second, in `header_label` | **device local time**, not server | all | must |
 
 ### 3.2 Lane table
 
