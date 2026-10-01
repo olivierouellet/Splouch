@@ -4,20 +4,6 @@ Fields available in the parsed data that are not currently used by the scoreboar
 
 ---
 
-## HyTek CSV
-
-The CSV column layout is indexed relative to the `Lane` header row (≈ row 92).
-All value rows are at `header_position + column_offset` where `column_offset` is
-computed per-entry (typically 6).
-
-| Field | How to find it | Notes |
-| --- | --- | --- |
-| **Age** | `row.index("Age", lane_header, 107) + column_offset` | Individual events only. Integer string, e.g. `"10"`. |
-| **Relay member names** | Rows 105–108 after the relay entry | Each row is `"Lastname, Firstname Age"`. Up to 4 swimmers per relay team. |
-| **Qualifying standard** | Two rows after seed time value | A label like `"DIST"`, `"AAA"`, `"BB"`. Not always present. |
-
----
-
 ## Lenex XML (.lxf)
 
 ### `ATHLETE` element
@@ -60,3 +46,17 @@ computed per-entry (typically 6).
 The `RELAY` element under `CLUB` can contain `RELAYPOSITION` child elements,
 each with an `athleteid`, a `number` (leg 1–4), and optionally a `reactiontime`
 and split. The full relay team roster is therefore available but not parsed.
+
+---
+
+## HyTek CSV
+
+The CSV column layout is indexed relative to the `Lane` header row (≈ row 92).
+All value rows are at `header_position + column_offset` where `column_offset` is
+computed per-entry (typically 6).
+
+| Field | How to find it | Notes |
+| --- | --- | --- |
+| **Age** | `row.index("Age", lane_header, 107) + column_offset` | Individual events only. Integer string, e.g. `"10"`. |
+| **Relay member names** | Rows 105–108 after the relay entry | Each row is `"Lastname, Firstname Age"`. Up to 4 swimmers per relay team. |
+| **Qualifying standard** | Two rows after seed time value | A label like `"DIST"`, `"AAA"`, `"BB"`. Not always present. |
