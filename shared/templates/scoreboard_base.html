@@ -40,6 +40,16 @@
     .timing-table tbody td:nth-child(5) { grid-column: 3; grid-row: 2; padding-top: 0; font-size: 0.78em; text-align: right !important; }
     .timing-table tbody td:nth-child(6) { grid-column: 4; grid-row: 2; text-align: right !important; padding-top: 0; font-size: 0.78em; }
     [id^="lane_place"].has-place::before { content: '#'; opacity: 0.5; }
+    /* A small word above a large number (docs/app.md `L-01`), not the kiosk's word
+       beside it at the number's size: with the long words (`T-09`) the inline
+       pair took most of a phone's width and pushed the wall clock off the bar. */
+    #header_event_cell,
+    #header_heat_cell { flex-direction: column; justify-content: center; }
+    #header_event_cell .header_label,
+    #header_heat_cell .header_label {
+        font-size: calc(var(--header-num-size) * 0.42);
+        margin: 0 0 0.25em 0;
+    }
 }
 /* ── Columns ──
    Always visible, and never animated: nothing on a phone collapses them, and an

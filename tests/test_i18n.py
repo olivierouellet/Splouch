@@ -395,10 +395,12 @@ _MEET = {
 
 
 def test_no_choice_renders_exactly_what_the_operator_configured():
-    """Not "the same words" — the same object. Nothing re-resolved, nothing lost."""
+    """Not "the same words" — the same object. Nothing re-resolved, nothing lost —
+    as long as the meet's labels are already in the style asked for."""
     assert cs._client_lang(_Q(), _MEET) == "fr"
-    assert cs._client_style(_Q(), _MEET) == "short"
     assert cs._client_labels(_MEET, "fr", "short") is _MEET["settings"]["labels"]
+    # The board asks for long; a meet resolved short is re-read from the table.
+    assert cs._client_labels(_MEET, "fr", "long")["event"] == "ÉPREUVE"
 
 
 def test_choosing_a_style_or_language_reads_the_served_table():
@@ -419,12 +421,11 @@ def test_the_choice_is_honoured_when_it_is_available():
     assert cs._client_lang(_Q(lang="es"), _MEET) == "es"
 
 
-def test_the_cloud_is_always_short():
+def test_the_cloud_board_is_always_long():
     """The picker offers no label control (`T-09`): neither a leftover cookie, a
-    `?style=` link nor an operator's long style changes the cloud's headers."""
-    long_meet = {"settings": dict(_MEET["settings"], label_style="long")}
-    for req in (_Q(style="long"), _Q({"splouch_style": "long"}), _Q()):
-        assert cs._client_style(req, long_meet) == "short"
+    `?style=` link nor an operator's short style changes the cloud's board."""
+    for req in (_Q(style="short"), _Q({"splouch_style": "short"}), _Q()):
+        assert cs._client_style(req, _MEET) == "long"
 
 
 def test_the_cookie_is_the_choice_and_the_url_is_a_one_shot_override():
@@ -456,7 +457,7 @@ def test_the_shell_turns_a_link_parameter_into_the_cookie(remember):
     """After the shell, the tabs and every later visit need no parameter at all."""
     resp = remember(_Q(lang="es", style="long"), _Resp())
     assert resp.cookies["splouch_lang"][0] == "es"
-    # Phone pages are always short, so there is no style to remember.
+    # The phone pages' style is fixed, so there is no style to remember.
     assert "splouch_style" not in resp.cookies
     assert resp.cookies["splouch_lang"][1]["max_age"] >= 30 * 24 * 3600
     # Nothing valid on the URL, nothing written — and nothing rewritten needlessly.
@@ -469,30 +470,39 @@ def test_both_servers_name_the_cookies_the_same():
     assert cs.PREF_COOKIES == web.PREF_COOKIES
 
 
-def test_the_pi_serves_its_own_language_short_when_nothing_is_chosen(monkeypatch):
+def test_the_pi_serves_its_own_language_long_when_nothing_is_chosen(monkeypatch):
     """Same rule on the Pi, against its settings rather than a meet's — except the
-    style: the kiosk's long `label_style` is for the operator's board, not a phone."""
+    style: the kiosk's short `label_style` is for the operator's board, not a phone."""
     monkeypatch.setitem(state.settings, "locale", "en")
-    monkeypatch.setitem(state.settings, "label_style", "long")
+    monkeypatch.setitem(state.settings, "label_style", "short")
     ctx = web.client_strings(_Q())
-    assert (ctx["lang"], ctx["ui_style"]) == ("en", "short")
-    assert ctx["labels"] == state.load_locale(style="short")
-    assert ctx["labels"]["event"] == "EV"
+    assert (ctx["lang"], ctx["ui_style"]) == ("en", "long")
+    assert ctx["labels"] == state.load_locale(style="long")
+    assert ctx["labels"]["event"] == "EVENT"
     assert ctx["t"] == state._mobile_strings()
+
+
+def test_the_schedule_cards_are_short_on_both_servers(monkeypatch):
+    """`S-01`: the board is long, the cards are not — and the shell's tab URLs
+    still carry the board's style."""
+    monkeypatch.setitem(state.settings, "locale", "en")
+    ctx = web.client_strings(_Q(), style="short")
+    assert ctx["labels"]["event"] == "EV" and ctx["ui_style"] == "long"
+    assert cs._client_labels(_MEET, "fr", "short")["event"] == "ÉP"
 
 
 def test_the_pi_honours_a_language_and_hands_the_style_to_the_template(monkeypatch):
     """`ui_style` is what the shell stamps on its tab URLs, so it has to come back
-    out of here — short, whatever a leftover cookie or link asks for."""
+    out of here — long, whatever a leftover cookie or link asks for."""
     monkeypatch.setitem(state.settings, "locale", "en")
-    monkeypatch.setitem(state.settings, "label_style", "long")
+    monkeypatch.setitem(state.settings, "label_style", "short")
     for req in (
-        _Q(lang="fr", style="long"),
-        _Q({"splouch_lang": "fr", "splouch_style": "long"}),
+        _Q(lang="fr", style="short"),
+        _Q({"splouch_lang": "fr", "splouch_style": "short"}),
     ):
         ctx = web.client_strings(req)
-        assert ctx["lang"] == "fr" and ctx["ui_style"] == "short"
-        assert ctx["labels"]["event"] == "ÉP"
+        assert ctx["lang"] == "fr" and ctx["ui_style"] == "long"
+        assert ctx["labels"]["event"] == "ÉPREUVE"
         assert ctx["t"]["scoreboard"] == "Tableau"
 
 

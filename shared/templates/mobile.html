@@ -143,7 +143,7 @@
 {# One suffix for all three tabs: the shell has already resolved the visitor's
    choice against the meet's defaults, so the tabs inherit rather than re-deriving
    it (app.md `T-06`, `T-09`). #}
-{%- set ui = '&lang=' ~ lang ~ '&style=' ~ (ui_style or 'short') %}
+{%- set ui = '&lang=' ~ lang ~ '&style=' ~ (ui_style or 'long') %}
 {# `show_results` is false when the meet is run with no timing console: no time and
    no place will ever arrive, so the tab would wait for the whole meet (app.md
    `A-11`). It comes off the meet's own config on both servers, and the tabs below

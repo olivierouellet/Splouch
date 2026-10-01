@@ -92,7 +92,7 @@ def test_json_and_page_are_the_same_list(loaded_meet, monkeypatch):
         return
 
     monkeypatch.setattr(meet_routes, "render", fake_render)
-    monkeypatch.setattr(meet_routes, "client_strings", lambda request: {})
+    monkeypatch.setattr(meet_routes, "client_strings", lambda request, style="": {})
     # `render` is patched out above, and it is the only thing that touches the
     # request — so there is nothing for a real one to carry here.
     meet_routes.route_schedule(request=cast(Request, None))

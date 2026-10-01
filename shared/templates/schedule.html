@@ -283,11 +283,14 @@
             border-bottom: 1px solid var(--color-header-border);
             padding: 5px 10px;
         }
+        /* `pre`, so the doubled space between `EV 12` and `HT 3` survives: it is
+           what groups each word with its number (docs/app.md `S-01`). */
         .heat-title {
             font-size: 0.82em;
             color: var(--color-schedule-event);
             text-transform: uppercase;
             letter-spacing: 0.06em;
+            white-space: pre;
             flex-shrink: 0;
         }
         .heat-time {
@@ -421,7 +424,10 @@
 // Empty on the Pi: one meet, no rooms, and nothing to count (docs/api.md §2).
 const MEET_ID = '{{ meet_id | default('', true) }}';
 const HEATS   = {{ heats | tojson }};
+// Short on the cards (docs/app.md `S-01`); the long words are what a screen
+// reader says for the same heading, since a listener has no width to save.
 const LABELS  = {{ labels | tojson }};
+const SPOKEN_LABELS = {{ (spoken_labels or labels) | tojson }};
 // Suggestion-row type words, from the same [mobile] table as the rest of the sheet.
 const TYPE_LABELS = {{ {'swimmer': t.swimmer or 'Swimmer', 'club': t.club or 'Club'} | tojson }};
 
@@ -546,13 +552,18 @@ function renderSchedule() {
         heatIndex++;
         html += '<div class="heat-card ' + heatClass + (isCurrent ? ' heat-current' : '') +
                 '" data-event="' + esc(evStr) + '" data-heat="' + esc(htStr) + '">';
-        html += '<div class="heat-header">';
-        if (h.time) html += '<span class="heat-time">' + esc(h.time) + '</span>';
-        html += '<span class="heat-title">' +
-                esc(LABELS.event) + ' ' + esc(evStr) + ' — ' +
-                esc(LABELS.heat)  + ' ' + esc(htStr) + '</span>';
+        // One line: what the heat is on the left, when it swims on the right.
         var heatName = eventNameOf(h);
-        if (heatName) html += '<span class="heat-name">' + esc(heatName) + '</span>';
+        var spoken = [SPOKEN_LABELS.event + ' ' + evStr, SPOKEN_LABELS.heat + ' ' + htStr];
+        if (heatName) spoken.push(heatName);
+        if (h.time) spoken.push(h.time);
+        html += '<div class="heat-header" role="heading" aria-level="2" aria-label="' +
+                esc(spoken.join(', ')) + '">';
+        html += '<span class="heat-title">' +
+                esc(LABELS.event) + ' ' + esc(evStr) + '  ' +
+                esc(LABELS.heat)  + ' ' + esc(htStr) + '</span>';
+        html += '<span class="heat-name">' + esc(heatName || '') + '</span>';
+        if (h.time) html += '<span class="heat-time">' + esc(h.time) + '</span>';
         html += '</div><div class="swimmer-list">';
         for (var j = 0; j < visibleLanes.length; j++) {
             var lane = visibleLanes[j];

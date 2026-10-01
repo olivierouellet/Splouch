@@ -169,8 +169,8 @@ def _pref(request, name, valid):
 def _remember_prefs(request, response):
     """Turn a valid `?lang=` on this request into the device cookie.
 
-    Not `?style=`: the cloud's pages are always short (`_client_style`), so there
-    is no choice to remember.
+    Not `?style=`: the cloud's style is fixed (`_client_style`), so there is no
+    choice to remember.
     """
     value = request.query_params.get("lang", "")
     if value in {c for c, _ in _available_locales()} and value != request.cookies.get(
@@ -198,9 +198,10 @@ def _client_lang(request, meet):
 def _client_labels(meet, lang, style):
     """Column headers for a chosen language and style.
 
-    With no choice made this is exactly `settings.labels` — what the operator picked,
-    byte for byte. With one, it is the shipped table for that language, the same
-    body `GET /i18n/{lang}` serves (api.md §5.9).
+    In the meet's own language and the style the meet's labels were resolved in,
+    this is exactly `settings.labels` — what the operator picked, byte for byte.
+    Otherwise it is the shipped table for that language and style, the same body
+    `GET /i18n/{lang}` serves (api.md §5.9) and the one the apps draw from.
     """
     s = meet.get("settings", {})
     if lang == _meet_lang(meet) and style == s.get("label_style", "short"):
@@ -214,10 +215,12 @@ def _client_labels(meet, lang, style):
 
 
 def _client_style(request, meet):
-    """Always `short` (`T-09`): the picker offers no label control, and a stale
-    `splouch_style` cookie or `?style=` link is ignored rather than cleared, so a
-    control that comes back finds each visitor's choice where they left it."""
-    return "short"
+    """Always `long` on the board (`T-09`), as in the apps: the picker offers no
+    label control, and a stale `splouch_style` cookie or `?style=` link is ignored
+    rather than cleared, so a control that comes back finds each visitor's choice
+    where they left it. The schedule's cards take the short words instead
+    (`S-01`) — see route_schedule."""
+    return "long"
 
 
 def _client_palette(request):
@@ -1104,7 +1107,10 @@ def route_schedule(request: Request):
         has_meet=bool(heats),
         meet_name=meet["name"],
         t=_strings(_client_lang(request, meet), "mobile"),
-        labels=_client_labels(
+        # Short on the cards whatever the board says (docs/app.md `S-01`): the
+        # identifier repeats once per heat and its width is the event name's.
+        labels=_client_labels(meet, _client_lang(request, meet), "short"),
+        spoken_labels=_client_labels(
             meet, _client_lang(request, meet), _client_style(request, meet)
         ),
         event_vocab=_strings(_client_lang(request, meet), "event_name"),

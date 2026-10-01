@@ -77,7 +77,7 @@ from; the `diverges` rows are where v2 moved past them.
 
 | ID | Status | Notes |
 | --- | --- | --- |
-| `S-01` | `diverges` | `EVENT 12 — HEAT 3`, long labels and an em dash, time leading; v2 asks for the short `EV 12  HT 3`, the name beside it, the time trailing. Pending |
+| `S-01` | `done` | `EV 12  HT 3` in the short labels whatever the board's style, the name beside it, the time trailing; the heading is a `role="heading"` whose `aria-label` says the long words |
 | `S-02`–`S-08` | `done` | |
 | `S-09` | `done` | local index, `foldName()`, no debounce |
 | `S-10`–`S-21` | `done` | |
@@ -94,7 +94,7 @@ from; the `diverges` rows are where v2 moved past them.
 | --- | --- | --- |
 | `T-01`, `T-02` | `done` | the reader's palette on the cloud (`P-15`); the operator's on the Pi |
 | `T-03`–`T-08` | `done` | |
-| `T-09` | `diverges` | phone pages resolve EVENT/HEAT **short** (`d456068`); v2 says long on every client. Pending |
+| `T-09` | `done` | long on the board on both servers (`_client_style`, `client_prefs`); the schedule route pins its cards short (`S-01`) |
 | `T-10` | `n/a` | the server renders the strings into the page; there is no build to snapshot into |
 | `T-11` | `done` | `composeEventName` |
 

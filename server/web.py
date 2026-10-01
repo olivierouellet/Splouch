@@ -220,15 +220,15 @@ def client_prefs(request: HasClientPrefs):
     for a language this server no longer ships must not break the board
     (docs/app.md `T-06`, `T-08`).
 
-    The style is always short (`T-09`), whatever the kiosk's `label_style`: that
-    setting is for the operator's board, not a phone. A `splouch_style` cookie or
-    `?style=` link is ignored rather than cleared, so a control that comes back
-    finds each visitor's choice where they left it.
+    The style is always long (`T-09`), as in the apps, whatever the kiosk's
+    `label_style`: that setting is for the operator's board, not a phone. A
+    `splouch_style` cookie or `?style=` link is ignored rather than cleared, so a
+    control that comes back finds each visitor's choice where they left it.
     """
     lang = _pref(
         request, "lang", dict(state.available_locales())
     ) or state.settings.get("locale", "en")
-    return lang, "short"
+    return lang, "long"
 
 
 def remember_prefs(request: Request, response):
@@ -236,7 +236,7 @@ def remember_prefs(request: Request, response):
 
     Called by the shell, the one page a shared link lands on: after it, the tabs
     and every later visit read the cookie and the URL carries nothing. Not
-    `?style=`: phone pages are always short (`client_prefs`), so there is no
+    `?style=`: the phone pages' style is fixed (`client_prefs`), so there is no
     choice to remember.
     """
     value = request.query_params.get("lang", "")
@@ -249,22 +249,24 @@ def remember_prefs(request: Request, response):
     return response
 
 
-def client_strings(request: HasClientPrefs):
+def client_strings(request: HasClientPrefs, style: str = ""):
     """`t`, `labels`, `lang` and `ui_style` for a phone page, honouring `client_prefs`.
 
     With no language chosen these are what `_mobile_strings()` produces, with the
-    labels in the short style. With one, they come from the same bundle
+    labels in the board's long style. With one, they come from the same bundle
     `GET /i18n/{lang}` serves — this Pi's custom wording included, since it reads
-    the files directly.
+    the files directly. `style` overrides the labels' style for a page that needs
+    the other one — the schedule's cards are short (docs/app.md `S-01`).
     """
-    lang, style = client_prefs(request)
+    lang, board_style = client_prefs(request)
+    style = style or board_style
     if lang == state.settings.get("locale", "en"):
         return {
             "t": state._mobile_strings(),
             "labels": state.load_locale(style=style),
             "event_vocab": state.load_event_translations(),
             "lang": lang,
-            "ui_style": style,
+            "ui_style": board_style,
         }
     bundle = state.i18n_bundle(lang)
     return {
@@ -272,7 +274,7 @@ def client_strings(request: HasClientPrefs):
         "labels": bundle["labels"][style],
         "event_vocab": bundle["event_name"],
         "lang": lang,
-        "ui_style": style,
+        "ui_style": board_style,
     }
 
 

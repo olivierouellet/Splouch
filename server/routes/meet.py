@@ -82,7 +82,10 @@ def route_schedule(request: Request):
             **state.DEFAULT_THEME_FONTS,
             **state.settings.get("theme_fonts", {}),
         },
-        **client_strings(request),
+        # Short on the cards whatever the board says, long for a screen reader
+        # (docs/app.md `S-01`).
+        spoken_labels=client_strings(request).get("labels"),
+        **client_strings(request, style="short"),
     )
 
 
