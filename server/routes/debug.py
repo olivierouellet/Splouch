@@ -26,6 +26,7 @@ from meet_parsers.lenex_parser import load_lenex
 from web import (
     ActionResult,
     EnabledFlag,
+    failure,
     redirect,
     require_login,
     save_upload,
@@ -511,8 +512,8 @@ def route_terminal_start(body: TerminalStart):
         state._pty_pid = proc.pid
         bus.run_bg(_pty_reader)
         return {"ok": True}
-    except Exception as e:
-        return {"ok": False, "error": str(e)}
+    except Exception:
+        return {"ok": False, "error": failure("Starting the terminal")}
 
 
 @router.post(

@@ -30,6 +30,7 @@ import paths
 import state
 import web
 from conftest import admin_source
+from html_scripts import without_scripts
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -879,7 +880,7 @@ def test_both_panels_read_the_chrome_section(lang):
 )
 def test_neither_panel_hard_codes_its_chrome(literal, template):
     src = Path(os.path.join(REPO, template)).read_text(encoding="utf-8")
-    body = re.sub(r"<script.*?</script>", "", src, flags=re.DOTALL)
+    body = without_scripts(src)
     assert literal not in body, f"{literal!r} is back in {template}"
 
 

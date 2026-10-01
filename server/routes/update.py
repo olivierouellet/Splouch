@@ -29,7 +29,7 @@ from pydantic import BaseModel, Field
 import bus
 import state
 from routes.system import run_cmd_blocking
-from web import ActionResult, LogTail, require_login
+from web import ActionResult, LogTail, failure, require_login
 
 router = APIRouter(tags=["Update"])
 
@@ -401,8 +401,8 @@ def route_version_list():
             if chk.returncode == 0:
                 branches.append(ref)
         return {"ok": True, "current": current, "versions": tags, "branches": branches}
-    except Exception as e:
-        return {"ok": False, "error": str(e)}
+    except Exception:
+        return {"ok": False, "error": failure("Listing versions")}
 
 
 @router.post(

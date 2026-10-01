@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field, IPvAnyAddress
 from starlette.concurrency import run_in_threadpool
 
 import state
-from web import ActionResult, EnabledFlag, render, require_login
+from web import ActionResult, EnabledFlag, failure, render, require_login
 
 router = APIRouter(tags=["Network"])
 
@@ -117,8 +117,10 @@ def route_wifi_status():
         }
     except FileNotFoundError:
         return JSONResponse({"error": "nmcli not found"}, status_code=503)
-    except Exception as e:
-        return JSONResponse({"error": str(e)}, status_code=500)
+    except Exception:
+        return JSONResponse(
+            {"error": failure("Reading the network status")}, status_code=500
+        )
 
 
 @router.get("/wifi_scan", dependencies=[Depends(require_login)])
@@ -193,15 +195,20 @@ def route_wifi_toggle():
         r = _nmcli("radio", "wifi")
         currently_on = "enabled" in r.stdout.lower()
         st = "off" if currently_on else "on"
-        subprocess.run(
+        r = subprocess.run(
             ["sudo", "nmcli", "radio", "wifi", st],
             capture_output=True,
+            text=True,
             timeout=8,
-            check=True,
+            check=False,
         )
+        if r.returncode != 0:
+            return JSONResponse(
+                {"error": r.stderr.strip() or "nmcli error"}, status_code=500
+            )
         return {"enabled": not currently_on}
-    except Exception as e:
-        return JSONResponse({"error": str(e)}, status_code=500)
+    except Exception:
+        return JSONResponse({"error": failure("Switching Wi-Fi")}, status_code=500)
 
 
 @router.get(
@@ -260,8 +267,10 @@ def _wifi_connect(ssid, password):
         if r.returncode == 0:
             return {"ok": True}
         return JSONResponse({"error": (r.stderr or r.stdout).strip()}, status_code=400)
-    except Exception as e:
-        return JSONResponse({"error": str(e)}, status_code=500)
+    except subprocess.TimeoutExpired:
+        return JSONResponse({"error": "Timed out"}, status_code=500)
+    except Exception:
+        return JSONResponse({"error": failure("Connecting")}, status_code=500)
 
 
 @router.post(
@@ -297,8 +306,8 @@ def route_eth_dhcp_set():
             check=False,
         )
         return {"ok": True}
-    except Exception as e:
-        return {"ok": False, "error": str(e)}
+    except Exception:
+        return {"ok": False, "error": failure("Switching to DHCP")}
 
 
 @router.post(

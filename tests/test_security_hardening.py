@@ -270,7 +270,7 @@ def test_a_backup_cannot_write_outside_the_home_directory(tmp_path, monkeypatch)
     result = system_routes._restore_backup(buf.getvalue())
 
     assert list(outside.iterdir()) == [], "backup restore escaped the home directory"
-    assert getattr(result, "status_code", 200) == 500  # refused, reported as an error
+    assert getattr(result, "status_code", 200) == 400  # refused as a bad archive
 
 
 # ── Update target is a release tag or an allowlisted branch ───────────────────

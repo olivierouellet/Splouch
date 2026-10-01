@@ -15,6 +15,7 @@ along with its tests — every install has long since been deployed past it.
 """
 
 import os
+import re
 import tempfile
 from pathlib import Path
 
@@ -134,7 +135,8 @@ def test_the_installer_does_not_offer_the_placeholder_as_the_current_domain():
     """.env.example ships it, so a fresh .env has it set and Enter would accept it."""
     sh = Path(INSTALL_SH).read_text(encoding="utf-8")
     domain = sh[sh.index('section "Domain"') : sh.index("Enter domain name")]
-    assert '_current_domain=""' in domain and "scores.example.com" in domain
+    assert '_current_domain=""' in domain
+    assert re.search(r"scores\.example\.com", domain)
 
 
 # ── The deploy webhook's unit, and how its failure reaches the operator ─────────

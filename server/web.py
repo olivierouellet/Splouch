@@ -7,6 +7,7 @@ every render), the login dependency, and small shared helpers (``redirect``,
 
 import os
 import shutil
+import traceback
 from collections.abc import Mapping
 from typing import Protocol
 from urllib.parse import urlparse
@@ -324,6 +325,17 @@ def display_config():
 def redirect(url: str, status_code: int = 303):
     """See-Other redirect (GET on the target) for post-action navigation."""
     return RedirectResponse(url, status_code=status_code)
+
+
+def failure(what: str) -> str:
+    """Log the exception being handled, traceback and all, and say what failed.
+
+    For a route's catch-all `except`. The traceback goes to the console log the
+    operator downloads from Settings; the reply carries only this fixed sentence, so
+    nothing from inside the exception reaches the browser.
+    """
+    traceback.print_exc()
+    return f"{what} failed — see the log"
 
 
 class CrossSiteRequest(Exception):

@@ -22,11 +22,12 @@ page's load path is worse than a red one.
 
 import json
 import os
-import re
 import shutil
 import subprocess
 import tempfile
 from pathlib import Path
+
+from html_scripts import scripts
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 STATIC = os.path.join(REPO, "shared", "static")
@@ -193,13 +194,9 @@ def js_argv(path):
 def _scripts(html):
     """Every script in document order: (label, source). `src` is read off disk."""
     out = []
-    for i, m in enumerate(
-        re.finditer(r"<script([^>]*)>(.*?)</script>", html, re.DOTALL)
-    ):
-        attrs, body = m.group(1), m.group(2)
-        src = re.search(r'src="([^"]+)"', attrs)
-        if src:
-            path = src.group(1)
+    for i, script in enumerate(scripts(html)):
+        path = script.attrs.get("src")
+        if path:
             if not path.startswith("/static/"):
                 continue  # external; a browser would fetch it, we skip
             disk = os.path.join(STATIC, path[len("/static/") :])
@@ -209,7 +206,7 @@ def _scripts(html):
                 )
             out.append((path, Path(disk).read_text(encoding="utf-8")))
         else:
-            out.append((f"inline #{i}", body))
+            out.append((f"inline #{i}", script.body))
     return out
 
 

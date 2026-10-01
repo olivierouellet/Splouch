@@ -28,6 +28,8 @@ from pathlib import Path
 
 import pytest
 
+from html_scripts import scripts
+
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SERVER = os.path.join(REPO, "server")
 
@@ -489,7 +491,7 @@ def test_the_page_carries_no_behaviour_inline():
     parent = Path(os.path.join(REPO, "server", "templates", "settings.html")).read_text(
         encoding="utf-8"
     )
-    inline = re.findall(r"<script>(.*?)</script>", parent, re.DOTALL)
+    inline = [s.body for s in scripts(parent) if not s.attrs]
     for block in inline:
         # The pre-paint theme applier is the one exception: it sets data-bs-theme
         # from localStorage before first paint, and an external file — deferred by

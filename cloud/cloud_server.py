@@ -20,6 +20,7 @@ import os
 import re
 import secrets
 import time
+import traceback
 import urllib.request
 from contextlib import asynccontextmanager, suppress
 from typing import Any
@@ -1321,8 +1322,19 @@ def _form_text(form, key):
     return value.strip() if isinstance(value, str) else ""
 
 
+def _failure(what):
+    """Log the exception being handled, traceback and all, and say what failed.
+
+    For an admin route's catch-all `except`. The traceback goes to the journal that
+    /admin/logs shows; the reply carries only this fixed sentence, so nothing from
+    inside the exception reaches the browser.
+    """
+    traceback.print_exc()
+    return f"{what} failed — see the log"
+
+
 async def _read_image(upload, allowed):
-    """Bytes + settled MIME type of an uploaded image, or ValueError with the reason.
+    """(bytes, settled MIME type, None) for an uploaded image, or (None, None, reason).
 
     The browser's `content_type` is a claim, and an empty one is common enough (some
     clients send `application/octet-stream` for anything they do not recognise) that
@@ -1338,13 +1350,15 @@ async def _read_image(upload, allowed):
         mime = "image/jpeg"
     if mime not in allowed:
         names = ", ".join(m.split("/")[-1].split("+")[0].upper() for m in allowed)
-        raise ValueError(f"Unsupported image format. Accepted: {names}.")
+        return None, None, f"Unsupported image format. Accepted: {names}."
     data = await upload.read()
     if len(data) > MAX_IMAGE_BYTES:
-        raise ValueError(
-            f"Image is too large (max {MAX_IMAGE_BYTES // (1024 * 1024)} MB)."
+        return (
+            None,
+            None,
+            (f"Image is too large (max {MAX_IMAGE_BYTES // (1024 * 1024)} MB)."),
         )
-    return data, mime
+    return data, mime, None
 
 
 @app.post(
@@ -1367,10 +1381,9 @@ async def route_picker_appearance(request: Request):
     else:
         logo = form.get("picker_logo")
         if isinstance(logo, UploadFile) and logo.filename:
-            try:
-                data, mime = await _read_image(logo, LOGO_MIME_TYPES)
-            except ValueError as e:
-                return {"ok": False, "error": str(e)}
+            data, mime, error = await _read_image(logo, LOGO_MIME_TYPES)
+            if error:
+                return {"ok": False, "error": error}
             creds["picker_logo_b64"] = base64.b64encode(data).decode()
             creds["picker_logo_mime"] = mime
     if form.get("picker_icon_clear") == "1":
@@ -1378,10 +1391,9 @@ async def route_picker_appearance(request: Request):
     else:
         icon = form.get("picker_icon")
         if isinstance(icon, UploadFile) and icon.filename:
-            try:
-                data, _ = await _read_image(icon, ICON_MIME_TYPES)
-            except ValueError as e:
-                return {"ok": False, "error": str(e)}
+            data, _, error = await _read_image(icon, ICON_MIME_TYPES)
+            if error:
+                return {"ok": False, "error": error}
             creds["picker_icon_b64"] = base64.b64encode(data).decode()
     await run_in_threadpool(_save_creds, creds)
     return {"ok": True}
@@ -1429,8 +1441,13 @@ async def route_restore_keys(request: Request):
         return JSONResponse({"error": "No file provided"}, status_code=400)
     try:
         data = json.loads(await uploaded.read())
-        if not isinstance(data, dict) or not isinstance(data.get("keys"), dict):
-            raise ValueError("not a valid backup file")
+    except ValueError:  # not JSON, or not UTF-8
+        return JSONResponse({"error": "Invalid file: not JSON"}, status_code=400)
+    if not isinstance(data, dict) or not isinstance(data.get("keys"), dict):
+        return JSONResponse(
+            {"error": "Invalid file: not a valid backup file"}, status_code=400
+        )
+    try:
         keys = data["keys"]
         await run_in_threadpool(_save_keys, keys)
         # Merge the backup's credentials (appearance, analytics, locale) onto the
@@ -1445,10 +1462,8 @@ async def route_restore_keys(request: Request):
                     creds_in.pop(f, None)
             await run_in_threadpool(_save_creds, {**_load_creds(), **creds_in})
         return {"ok": True, "count": len(keys)}
-    except (json.JSONDecodeError, ValueError) as e:
-        return JSONResponse({"error": f"Invalid file: {e}"}, status_code=400)
-    except Exception as e:
-        return JSONResponse({"error": str(e)}, status_code=500)
+    except Exception:
+        return JSONResponse({"error": _failure("Restoring the keys")}, status_code=500)
 
 
 @app.get("/admin/backup/meets", tags=["Admin"], dependencies=[Depends(require_admin)])
@@ -1476,11 +1491,18 @@ async def route_restore_meets(request: Request):
         return JSONResponse({"error": "No file provided"}, status_code=400)
     try:
         data = json.loads(await uploaded.read())
-        if not isinstance(data, dict):
-            raise ValueError("expected a JSON object")
-        meets = data.get("meets", data)
-        if not isinstance(meets, dict):
-            raise ValueError("invalid meets section")
+    except ValueError:  # not JSON, or not UTF-8
+        return JSONResponse({"error": "Invalid file: not JSON"}, status_code=400)
+    if not isinstance(data, dict):
+        return JSONResponse(
+            {"error": "Invalid file: expected a JSON object"}, status_code=400
+        )
+    meets = data.get("meets", data)
+    if not isinstance(meets, dict):
+        return JSONResponse(
+            {"error": "Invalid file: invalid meets section"}, status_code=400
+        )
+    try:
         with _lock:
             # Merge (upsert) the backup's meets into the store — never clear. A
             # meet not in the backup is left alone, and a currently-live meet is
@@ -1493,10 +1515,8 @@ async def route_restore_meets(request: Request):
         for mid, rec in recs.items():
             await run_in_threadpool(_write_meet_files, mid, rec, True, True)
         return {"ok": True, "count": len(incoming)}
-    except (json.JSONDecodeError, ValueError) as e:
-        return JSONResponse({"error": f"Invalid file: {e}"}, status_code=400)
-    except Exception as e:
-        return JSONResponse({"error": str(e)}, status_code=500)
+    except Exception:
+        return JSONResponse({"error": _failure("Restoring the meets")}, status_code=500)
 
 
 @app.post("/admin/update", tags=["Admin"], dependencies=[Depends(require_admin)])
@@ -1521,8 +1541,8 @@ def _trigger_update(version):
             if resp.status == 200:
                 return {"status": "started"}
             return JSONResponse({"error": f"webhook {resp.status}"}, status_code=502)
-    except Exception as e:
-        return JSONResponse({"error": str(e)}, status_code=502)
+    except Exception:
+        return JSONResponse({"error": _failure("Starting the update")}, status_code=502)
 
 
 @app.get("/admin/update_log", tags=["Admin"], dependencies=[Depends(require_admin)])
@@ -1557,8 +1577,11 @@ def route_logs(request: Request):
         req.add_header("X-Deploy-Token", secret)
         with urllib.request.urlopen(req, timeout=15) as resp:
             return Response(resp.read(), media_type="application/json")
-    except Exception as e:
-        return JSONResponse({"ok": False, "error": str(e)}, status_code=502)
+    except Exception:
+        return JSONResponse(
+            {"ok": False, "error": _failure("Reaching the deploy webhook")},
+            status_code=502,
+        )
 
 
 @app.get("/admin/versions", tags=["Admin"], dependencies=[Depends(require_admin)])
@@ -1574,8 +1597,11 @@ def route_versions():
         req.add_header("X-Deploy-Token", secret)
         with urllib.request.urlopen(req, timeout=15) as resp:
             return Response(resp.read(), media_type="application/json")
-    except Exception as e:
-        return JSONResponse({"ok": False, "error": str(e)}, status_code=502)
+    except Exception:
+        return JSONResponse(
+            {"ok": False, "error": _failure("Reaching the deploy webhook")},
+            status_code=502,
+        )
 
 
 @app.get(

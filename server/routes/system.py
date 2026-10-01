@@ -13,7 +13,7 @@ from starlette.concurrency import run_in_threadpool
 
 import bus
 import state
-from web import ActionResult, LogTail, require_login
+from web import ActionResult, LogTail, failure, require_login
 
 router = APIRouter(tags=["System"])
 
@@ -112,15 +112,18 @@ def route_time_status():
 )
 def route_time_sync():
     try:
-        subprocess.run(
-            ["sudo", "timedatectl", "set-ntp", "true"], timeout=5, check=True
-        )
-        subprocess.run(
-            ["sudo", "systemctl", "restart", "systemd-timesyncd"], timeout=5, check=True
-        )
+        for cmd in (
+            ["sudo", "timedatectl", "set-ntp", "true"],
+            ["sudo", "systemctl", "restart", "systemd-timesyncd"],
+        ):
+            r = subprocess.run(
+                cmd, capture_output=True, text=True, timeout=5, check=False
+            )
+            if r.returncode != 0:
+                return {"ok": False, "error": r.stderr.strip() or f"{cmd[1]} failed"}
         return {"ok": True}
-    except Exception as e:
-        return {"ok": False, "error": str(e)}
+    except Exception:
+        return {"ok": False, "error": failure("Syncing the time")}
 
 
 @router.post(
@@ -261,8 +264,10 @@ def route_logs_save():
         with open(path, "w", encoding="utf-8") as f:
             f.write("\n".join(state._log_ring) + "\n")
         return {"ok": True, "path": path}
-    except Exception as e:
-        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+    except Exception:
+        return JSONResponse(
+            {"ok": False, "error": failure("Saving the log")}, status_code=500
+        )
 
 
 @router.post(
@@ -356,8 +361,15 @@ def _restore_backup(data):
             # /home/pi-evil through as well. The service user can write the
             # checkout it runs from, so that was a route to running code.
             tar.extractall(path=home, filter="data")
-    except Exception as e:
-        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+    except tarfile.TarError:
+        # Not a gzipped tar, or an entry the `data` filter refused.
+        return JSONResponse(
+            {"ok": False, "error": "Not a valid backup archive"}, status_code=400
+        )
+    except Exception:
+        return JSONResponse(
+            {"ok": False, "error": failure("Restoring the backup")}, status_code=500
+        )
 
     # Restart after a short delay so the response can be sent first
     def _restart():

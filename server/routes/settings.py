@@ -53,7 +53,10 @@ def _render_home_icon(name):
 
 
 def _load_meet_file(path):
-    """Clear current meet state and load *path* (Lenex or Hytek). Returns error string or None."""
+    """Clear current meet state and load *path* (Lenex or Hytek). Returns error string or None.
+
+    The traceback of a file that fails to parse goes to the log, not into the reply.
+    """
     state.clear_meet()
     state._last_results_snapshot = {}
     state._results_prev_race_finished = False
@@ -65,7 +68,8 @@ def _load_meet_file(path):
             state.set_lenex(load_lenex(path))
     except Exception:
         state.clear_meet()
-        return traceback.format_exc()
+        traceback.print_exc()
+        return f"Could not read {os.path.basename(path)} — see the log"
     state._active_meet_file = os.path.basename(path)
     state.settings["last_meet_file"] = state._active_meet_file
     # Switch to this meet's cloud-appearance profile (title, image, icon, …) so
