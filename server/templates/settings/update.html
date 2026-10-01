@@ -6,10 +6,10 @@
                         <span id="current-version" class="small" style="font-family:monospace;">—</span>
                         <button type="button" class="btn btn-secondary btn-sm ms-1" onclick="loadVersions()">{{ t.btn_refresh }}</button>
                     </div>
+                    <select id="version-select" class="form-select form-select-sm mb-2">
+                        <option value="">{{ t.loading }}</option>
+                    </select>
                     <div class="d-flex align-items-center gap-2 mb-2">
-                        <select id="version-select" class="form-select form-select-sm" style="flex:1;">
-                            <option value="">{{ t.loading }}</option>
-                        </select>
                         <button type="button" id="btn-run-update" class="btn btn-secondary btn-sm" data-hold data-hold-fn="startUpdate" data-hold-label="{{ t.hold_install }}">{{ t.btn_install }}</button>
                         <span id="update-status" class="text-secondary small"></span>
                     </div>
