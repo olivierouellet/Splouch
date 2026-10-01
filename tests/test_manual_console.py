@@ -123,6 +123,36 @@ def test_the_manual_console_is_offered_and_described():
     assert cts["requires_serial"] is True
 
 
+@pytest.mark.parametrize(
+    ("lang", "label", "wiring"),
+    [
+        ("en", "Manual — no timing console", "Nothing is connected to the server"),
+        (
+            "fr",
+            "Manuel — sans console de chronométrage",
+            "Rien n'est branché au serveur",
+        ),
+        (
+            "es",
+            "Manual — sin consola de cronometraje",
+            "No hay nada conectado al servidor",
+        ),
+    ],
+)
+def test_the_manual_console_reads_in_the_panel_language(lang, label, wiring):
+    """`CONSOLE_OPTIONS` holds English; the panel file supplies the rest. A console
+    the panel file does not name — every real one, and any local plugin — keeps the
+    label its registry entry gives it."""
+    from routes.settings import _console_info_in
+
+    t = state.settings_strings(lang)
+    info = _console_info_in(t, "manual")
+    assert info and info["label"] == label and info["wiring"] == wiring
+    cts = _console_info_in(t, "cts_gen6")
+    assert cts and cts["label"] == "System 6 (Colorado Timing System)"
+    assert t.get("console_label_cts_gen6") is None
+
+
 def test_a_wired_decoder_leaves_liveness_to_the_packet_clock():
     """None, not False. False would declare every console dead."""
     assert ConsoleDecoder.is_live.fget(cast(ConsoleDecoder, object())) is None

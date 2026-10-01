@@ -298,6 +298,12 @@ timing_raw_data       = "Données brutes sur un tableau"
 timing_raw_data_btn   = "Tableau données brutes"
 timing_manual_hint    = "Aucune console branchée. Choisir épreuve/série depuis un téléphone."
 timing_manual_open    = "Ouvrir la console manuelle"
+# Les mots propres à la console manuelle. Indexés par clé de réglage ; les autres
+# consoles sont des noms de produits et restent tels que CONSOLE_OPTIONS les écrit.
+console_label_manual    = "Manuel — sans console de chronométrage"
+console_adapter_manual  = "Aucun"
+console_wiring_manual   = "Rien n'est branché au serveur"
+console_protocol_manual = "Aucun — épreuve et série réglées à la main depuis /manual"
 
 # Déroulement
 seconds = "secondes"

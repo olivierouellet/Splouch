@@ -189,6 +189,26 @@ def _coerce_like(current, raw):
     return None  # dicts/lists never come from a plain field
 
 
+def _console_info_in(t, console_type):
+    """`console_info_for`, with the words the panel file translates swapped in.
+
+    `CONSOLE_OPTIONS` and `CONSOLE_INFO` stay English: most entries are product
+    names or wiring that reads the same in any language, and a local plugin has no
+    panel file to put its own words in. Only a key the panel file carries —
+    `console_<field>_<console key>` — is replaced, so everything else falls through.
+    """
+    info = console_info_for(console_type)
+    if info is None:
+        return None
+    return {
+        **info,
+        **{
+            field: t.get(f"console_{field}_{console_type}", info[field])
+            for field in ("label", "adapter", "wiring", "protocol")
+        },
+    }
+
+
 def _settings_view(request, form):
     if request.method == "POST":
         modified = False
@@ -619,10 +639,11 @@ def _settings_view(request, form):
     # download itself is built from, so the button cannot appear for a field the
     # image route would then 404 on.
     qr = qr_invite()
+    t = state.settings_strings(ui_lang)
     return render(
         request,
         "settings.html",
-        t=state.settings_strings(ui_lang),
+        t=t,
         qr_link=qr["link"],
         qr_origin=qr["origin"],
         ui_locale=ui_lang,
@@ -633,8 +654,13 @@ def _settings_view(request, form):
         serial_port=state.settings["serial_port"],
         serial_port_list=comm_port_list,
         console_type=state.settings.get("console_type", "cts_gen6"),
-        console_options=[(key, label) for key, label, _ in CONSOLE_OPTIONS],
-        console_info=console_info_for(state.settings.get("console_type", "cts_gen6")),
+        console_options=[
+            (key, t.get(f"console_label_{key}", label))
+            for key, label, _ in CONSOLE_OPTIONS
+        ],
+        console_info=_console_info_in(
+            t, state.settings.get("console_type", "cts_gen6")
+        ),
         # Whether this console has a wire at all. Gates the serial-port picker, the
         # Connection badge and the Serial Monitor: a manually driven console has
         # nothing to open, nothing to connect to and no packets to watch. Read off

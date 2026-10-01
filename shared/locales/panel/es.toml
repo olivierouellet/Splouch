@@ -298,6 +298,12 @@ timing_raw_data       = "Datos brutos en un marcador"
 timing_raw_data_btn   = "Marcador de datos brutos"
 timing_manual_hint    = "Sin consola conectada. Elegir prueba/serie desde un móvil."
 timing_manual_open    = "Abrir la consola manual"
+# Las palabras propias de la consola manual. Indexadas por clave de ajuste; las
+# demás consolas son nombres de producto y quedan como las escribe CONSOLE_OPTIONS.
+console_label_manual    = "Manual — sin consola de cronometraje"
+console_adapter_manual  = "Ninguno"
+console_wiring_manual   = "No hay nada conectado al servidor"
+console_protocol_manual = "Ninguno — prueba y serie se fijan a mano desde /manual"
 
 # Flujo
 seconds = "segundos"

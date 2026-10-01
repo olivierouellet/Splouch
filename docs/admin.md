@@ -41,7 +41,7 @@ Append `?test` to `/live` to overlay mode buttons (Intro, Running, Results, Next
 
 ### No timing console?
 
-Set **Settings → Timing → Console type** to **Manual — no timing console** and drive
+Set **Settings → Timing → Timing Equipment** to **Manual — no timing console** and drive
 the meet from `/manual` on a phone: hold Previous/Next to step through the heats, or
 tap a heat to preview its swimmers and commit it with **▸**. The boards then show the
 event, the heat, the event name, the heat time and every swimmer — everything but the
@@ -362,7 +362,7 @@ Heat) sur le tableau — utile pour tester sans console branchée.
 
 #### Pas de console de chronométrage ?
 
-Réglez **Réglages → Chronométrage → type de console** sur **Manual — no timing console** et
+Réglez **Réglages → Chronométrage → Équipement de chronométrage** sur **Manuel — sans console de chronométrage** et
 pilotez la compétition depuis `/manual` sur un téléphone : maintenez Précédente/Suivante
 pour parcourir les séries, ou touchez une série pour prévisualiser ses nageurs et validez-la
 avec **▸**. Les tableaux affichent alors l'épreuve, la série, le nom de l'épreuve, l'heure de
@@ -379,7 +379,7 @@ mais n'envoie aucun numéro d'épreuve ni de série ; c'est donc `/manual` qui l
 | Onglet | Description |
 | --- | --- |
 | **Compétition** | Téléverser les fichiers Lenex `.lxf` / Hytek `.csv` ; longueur du bassin, plaques de touche, nombre de couloirs |
-| **Chronométrage** | Type de console et port série, état de la connexion, moniteur série (paquets hexadécimaux bruts), anti-rebond d'arrivée. Choisir **Manual — no timing console** retire le port, le badge et le moniteur, et renvoie vers `/manual` |
+| **Chronométrage** | Type de console et port série, état de la connexion, moniteur série (paquets hexadécimaux bruts), anti-rebond d'arrivée. Choisir **Manuel — sans console de chronométrage** retire le port, le badge et le moniteur, et renvoie vers `/manual` |
 | **Horloge** | Synchronisation NTP ; réglage manuel de la date et de l'heure hors ligne ; installer/retirer l'horloge matérielle Adafruit PiRTC (DS3231) |
 | **Affichage** | Afficher/masquer les en-têtes et les colonnes (Nom, Club, Écart, Position) ; mise en valeur du podium |
 | **Thème** | Jeux de couleurs intégrés ; personnaliser couleurs et polices ; enregistrer comme thème personnalisé |

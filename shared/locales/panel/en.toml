@@ -307,6 +307,12 @@ timing_raw_data       = "Raw data on a scoreboard"
 timing_raw_data_btn   = "Raw data Scoreboard"
 timing_manual_hint    = "No console wired. Set event/heat on boards from a phone."
 timing_manual_open    = "Open manual console"
+# The manual console's own words. Keyed by settings key; the other consoles are
+# product names and stay as CONSOLE_OPTIONS spells them.
+console_label_manual    = "Manual — no timing console"
+console_adapter_manual  = "None"
+console_wiring_manual   = "Nothing is connected to the server"
+console_protocol_manual = "None — event and heat are set by hand from /manual"
 
 # Units
 seconds = "seconds"
