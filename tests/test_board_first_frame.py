@@ -31,12 +31,14 @@ def _render(own_dir, template, **extra):
     )
     stub_url_for(env)
     return env.get_template(template).render(
-        num_lanes=6,
-        labels={},
-        theme_colors=state.DEFAULT_THEME_COLORS,
-        theme_fonts=state.DEFAULT_THEME_FONTS,
-        t={"waiting_results": "Waiting…"},
-        **extra,
+        **{
+            "num_lanes": 6,
+            "labels": {},
+            "theme_colors": state.DEFAULT_THEME_COLORS,
+            "theme_fonts": state.DEFAULT_THEME_FONTS,
+            "t": {"waiting_results": "Waiting…"},
+            **extra,
+        }
     )
 
 
@@ -250,3 +252,30 @@ def test_the_full_table_has_no_32px_ceiling(live):
     css = _css(live)
     assert "font-size: 32px" not in css
     assert "min(56px, calc(var(--lane-share" in css
+
+
+# ── L-01: the EVENT / HEAT word, long on top, short inline ───────────────────
+
+
+@pytest.mark.parametrize("own_dir", ["server/templates", "cloud/templates"])
+def test_the_header_word_is_long_on_top_and_short_inline(own_dir):
+    """Both forms are in the page; a short window (inline) shows the short one."""
+    html = _render(
+        own_dir,
+        "live-mobile.html",
+        labels={"event": "ÉPREUVE", "heat": "SÉRIE"},
+        short_labels={"event": "ÉP", "heat": "SÉR"},
+    )
+    assert '<span class="header_label label-long">ÉPREUVE</span>' in html
+    assert '<span class="header_label label-short">ÉP</span>' in html
+    assert '<span class="header_label label-long">SÉRIE</span>' in html
+    assert '<span class="header_label label-short">SÉR</span>' in html
+    css = _css(html)
+    assert re.search(r"\.label-long\s*\{\s*display:\s*none", css)
+    tall = css[css.index("@media (min-height: 501px)") :]
+    assert re.search(r"\.label-short\s*\{\s*display:\s*none", tall)
+
+
+def test_without_short_words_the_long_ones_stand_in():
+    html = _render("server/templates", "live-mobile.html", labels={"event": "EVENT"})
+    assert '<span class="header_label label-short">EVENT</span>' in html

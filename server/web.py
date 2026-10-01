@@ -258,6 +258,8 @@ def client_strings(request: HasClientPrefs, style: str = ""):
     `GET /i18n/{lang}` serves — this Pi's custom wording included, since it reads
     the files directly. `style` overrides the labels' style for a page that needs
     the other one — the schedule's cards are short (docs/app.md `S-01`).
+    `short_labels` is the short table whatever `style` is: the board header sets
+    EVENT / HEAT inline on a short window, where the long words do not fit.
     """
     lang, board_style = client_prefs(request)
     style = style or board_style
@@ -265,6 +267,7 @@ def client_strings(request: HasClientPrefs, style: str = ""):
         return {
             "t": state._mobile_strings(),
             "labels": state.load_locale(style=style),
+            "short_labels": state.load_locale(style="short"),
             "event_vocab": state.load_event_translations(),
             "lang": lang,
             "ui_style": board_style,
@@ -273,6 +276,7 @@ def client_strings(request: HasClientPrefs, style: str = ""):
     return {
         "t": bundle["mobile"],
         "labels": bundle["labels"][style],
+        "short_labels": bundle["labels"]["short"],
         "event_vocab": bundle["event_name"],
         "lang": lang,
         "ui_style": board_style,

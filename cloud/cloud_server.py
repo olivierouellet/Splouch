@@ -1014,6 +1014,8 @@ def route_live(request: Request):
         labels=_client_labels(
             meet, _client_lang(request, meet), _client_style(request, meet)
         ),
+        # EVENT / HEAT inline, on a short window (scoreboard_base.html).
+        short_labels=_client_labels(meet, _client_lang(request, meet), "short"),
         # The vocabulary `event_name_parts` composes against, in the language the
         # page is rendered in (docs/app.md `T-11`).
         event_vocab=_strings(_client_lang(request, meet), "event_name"),
@@ -1053,6 +1055,8 @@ def route_results(request: Request):
         labels=_client_labels(
             meet, _client_lang(request, meet), _client_style(request, meet)
         ),
+        # EVENT / HEAT inline, on a short window (scoreboard_base.html).
+        short_labels=_client_labels(meet, _client_lang(request, meet), "short"),
         # The vocabulary `event_name_parts` composes against, in the language the
         # page is rendered in (docs/app.md `T-11`).
         event_vocab=_strings(_client_lang(request, meet), "event_name"),

@@ -68,9 +68,20 @@
    a word or the wall clock off the bar. Inline stays only where height is what
    runs out — a phone on its side (`max-height: 500px` below), as the apps put the
    pair in a one-line bar there. */
+/* The word takes the long form on top of its number, where it has the cell's
+   width to itself, and the short form inline, where it shares that width with the
+   number — the same split the apps make between their header and their one-line
+   bar. Both are in the page; the window's height picks one. */
+.label-long { display: none; }
 @media (min-height: 501px) {
+    .label-long  { display: inline; }
+    .label-short { display: none; }
+    /* Word over number must fit the bar's 85px less its padding: about 1.7× the
+       number's size once the word and line spacing are counted. 4.5vh alone was
+       61px on an upright tablet and cut the word's accents off the top. */
     #header_event_cell,
-    #header_heat_cell { flex-direction: column; justify-content: center; }
+    #header_heat_cell { flex-direction: column; justify-content: center;
+                        --header-num-size: min(4.5vh, 42px); }
     #header_event_cell .header_label,
     #header_heat_cell .header_label {
         font-size: calc(var(--header-num-size) * 0.42);
@@ -872,12 +883,15 @@ function init() {
            before a number arrives (docs/app.md `X-02`). The cells themselves are
            hidden from a screen reader, which would otherwise stop on each half. #}
         <span class="sr-only" id="spoken_heat"></span>
+        {% set short = short_labels | default({}, true) %}
         <div class="header_cell" id="header_event_cell" aria-hidden="true">
-            <span class="header_label">{{ labels.event or 'Event' }}</span>
+            <span class="header_label label-long">{{ labels.event or 'Event' }}</span>
+            <span class="header_label label-short">{{ short.event or labels.event or 'Event' }}</span>
             <span class="header_value" id="current_event"></span>
         </div>
         <div class="header_cell" id="header_heat_cell" aria-hidden="true">
-            <span class="header_label">{{ labels.heat or 'Heat' }}</span>
+            <span class="header_label label-long">{{ labels.heat or 'Heat' }}</span>
+            <span class="header_label label-short">{{ short.heat or labels.heat or 'Heat' }}</span>
             <span class="header_value" id="current_heat"></span>
         </div>
         <div class="header_cell header_cell_name" id="header_name_cell">
