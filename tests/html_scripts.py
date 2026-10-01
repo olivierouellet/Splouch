@@ -32,7 +32,9 @@ class _Finder(HTMLParser):
     def handle_starttag(self, tag, attrs):
         if tag == "script":
             start = self._offset()
-            self._open = (dict(attrs), start, start + len(self.get_starttag_text()))
+            opening = self.get_starttag_text()
+            assert opening is not None  # only None outside a start tag
+            self._open = (dict(attrs), start, start + len(opening))
 
     def handle_endtag(self, tag):
         if tag == "script" and self._open:
