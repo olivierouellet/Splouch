@@ -327,7 +327,9 @@ def test_off_default_is_flagged_like_a_theme_swatch(src):
         ("split-min-field", "sm_changed"),
     ):
         el = matched(rf'<div id="{field_id}"[^>]*>', src, group=0)
-        assert "dflt" in el and "{% if " + var + " %} changed{% endif %}" in el, field_id
+        assert "dflt" in el and "{% if " + var + " %} changed{% endif %}" in el, (
+            field_id
+        )
     assert ".dflt.changed .dflt-name" in src and ".dflt.changed .cs-reset" in src
 
 
