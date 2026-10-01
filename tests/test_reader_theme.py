@@ -59,6 +59,30 @@ def test_both_palettes_carry_every_key_a_page_reads():
     )
 
 
+def test_the_published_palettes_are_the_served_ones():
+    """`api.md` §6.1 is what the apps copy their two palettes from. A hand-copied
+    `header_label` once drifted to white in both of them, so the table is held to
+    the code key for key, the Qt display's own two keys aside."""
+    text = Path(os.path.join(REPO, "docs", "api.md")).read_text(encoding="utf-8")
+    section = text.split("### 6.1 Default palettes and faces", 1)[1].split("\n## ", 1)[
+        0
+    ]
+    rows = re.findall(
+        r"^\| `(\w+)` \| `(#[0-9A-Fa-f]{6})` \| `(#[0-9A-Fa-f]{6})` \|$",
+        section,
+        re.MULTILINE,
+    )
+    assert rows, "api.md §6.1 lost its palette table"
+    qt_only = {"connection_lost", "connection_lost_text"}
+    for name, table in (
+        ("dark", splouch_i18n.DEFAULT_THEME_COLORS),
+        ("light", splouch_i18n.LIGHT_THEME_COLORS),
+    ):
+        want = {k: v for k, v in table.items() if k not in qt_only}
+        got = {k: (dark if name == "dark" else light) for k, dark, light in rows}
+        assert got == want, name
+
+
 @pytest.mark.parametrize(
     "cookie, colors, light",
     [

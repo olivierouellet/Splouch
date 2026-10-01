@@ -456,7 +456,9 @@ table: `labels` is the operator's pick, resolved from the same file.
 ```
 
 `offline` marks a retained meet with no relay currently connected — still listed
-on purpose, so an attendee can read the last known state. `has_picker_image` says
+on purpose, so an attendee can read its last scoreboard frame. Not its results: the
+join replays `meet_live: false`, and a phone wipes its Results board on that
+(`app.md` `P-03`, `R-02`). `has_picker_image` says
 whether `GET /picker_image/{id}` will return an image. Both live and retained
 meets appear; expired ones are swept before the list is built. Live meets
 (`offline: false`) come first; keep this order rather than re-sorting (`app.md`
@@ -670,6 +672,41 @@ A native client's flow: list meets → fetch that meet's config and schedule →
 WebSockets → merge event frames. The cloud relay `register` metadata (§5.4) carries the
 same `settings` shape, so the two config sources agree.
 
+### 6.1 Default palettes and faces
+
+The values every server falls back to per key, and the two palettes a phone draws in
+place of a meet's `theme_colors` (`app.md` `P-15`, `T-01`, `T-07`). A client copies
+them key for key; it never picks its own. Source of truth: `DEFAULT_THEME_COLORS` and
+`DEFAULT_THEME_FONTS` in `shared/py/splouch_i18n.py` (dark) and
+`server/themes/white.toml` (light) — a change there is a change here.
+
+| Key | Dark | Light |
+| --- | --- | --- |
+| `bg` | `#0d0d0d` | `#f8f8f8` |
+| `header_bg` | `#1a1a1a` | `#ffffff` |
+| `header_border` | `#2e2e2e` | `#dddddd` |
+| `header_label` | `#3b9eff` | `#333333` |
+| `header_value` | `#e0e0e0` | `#111111` |
+| `th_text` | `#666666` | `#888888` |
+| `th_bg` | `#1a1a1a` | `#f0f0f0` |
+| `row_odd` | `#141414` | `#f5f5f5` |
+| `row_even` | `#202020` | `#ffffff` |
+| `row_text` | `#e0e0e0` | `#111111` |
+| `time` | `#FFD700` | `#0055aa` |
+| `delta_better` | `#4CAF50` | `#2e7d32` |
+| `delta_worse` | `#808080` | `#757575` |
+| `podium_gold` | `#545454` | `#d0d0d0` |
+| `podium_silver` | `#424242` | `#dcdcdc` |
+| `podium_bronze` | `#343434` | `#e8e8e8` |
+| `schedule_event` | `#3b9eff` | `#0055cc` |
+| `schedule_time` | `#FFD700` | `#0055aa` |
+| `schedule_name` | `#e0e0e0` | `#111111` |
+| `schedule_club` | `#666666` | `#888888` |
+
+`connection_lost` and `connection_lost_text` exist only for the Qt display, which alone
+can tell the console has stopped talking to it. Faces, both palettes: `family`
+`Overpass Mono`, `digits` `DSEG7Classic`, `timing` `Overpass Mono`.
+
 ---
 
 ## Changelog
@@ -682,6 +719,10 @@ same `settings` shape, so the two config sources agree.
   one that renders each frame verbatim now shows a clock that steps every two
   seconds. What to do with it is `app.md` `L-12` — re-base and
   interpolate, do not render.
+
+- **Added since v2, documentation only**: §6.1 states the default palettes and faces
+  the code already served, so a phone copies them rather than reading them out of
+  Python; §5.6 says an offline meet keeps its scoreboard, not its results.
 
 - **Added since v2, all additive so the version stands**: `GET /i18n/{lang}` and
   `GET /locales` (§5.9), `settings.label_style` (§5.4), `GET /server` /

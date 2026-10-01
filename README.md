@@ -21,6 +21,7 @@ CTS serial protocol documentation by [hwbrill/vsCTS](https://github.com/hwbrill/
 | [Cloud relay](docs/cloud.md) | Public scoreboard for remote attendees |
 | [Development](docs/development.md) | Data flow, adding a console decoder, bundled assets |
 | [API contract](docs/api.md) | WebSocket + REST contract for native clients (TV / iOS / Android) |
+| [Mobile feature contract](docs/app.md) | What a spectator can see and do on a phone, for the web, iOS and Android clients · [web parity](docs/web-parity.md) |
 
 ---
 

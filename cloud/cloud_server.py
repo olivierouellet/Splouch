@@ -540,7 +540,7 @@ def route_index(request: Request):
 # The contracts this build implements, for the handshake below. Bumped with the
 # headers of docs/api.md and docs/app.md, which a test pins.
 API_CONTRACT = "v2"
-APP_CONTRACT = "v1"
+APP_CONTRACT = "v2"
 
 SERVERS_FILE = os.path.join(DATA_DIR, "servers.json")
 

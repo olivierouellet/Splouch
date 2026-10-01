@@ -1,0 +1,105 @@
+# Splouch web phone pages — parity ledger
+
+One row per feature ID in [`app.md`](app.md) **v2**, for the phone pages both servers
+render: the cloud picker (`cloud/templates/picker.html`) and the shell and tabs in
+`shared/templates/` (`mobile.html`, `live-mobile.html`, `results.html`,
+`schedule.html`, `scoreboard_base.html`). The kiosk board and the Qt display are not
+phone clients and have no rows here.
+
+`app.md` owns *what* each feature is; this file owns *whether the web does it, and why
+not* (`app.md` §0.1). Status is `done` / `deferred` / `diverges` / `n/a — <reason>`, as
+defined there. A `diverges` row is temporary: the page changes, or `app.md` does.
+
+**State (2026-09-30).** Written when `app.md` became v2 and stopped treating these pages
+as its reference. Rows marked `done` describe pages that `app.md` v1 was itself written
+from; the `diverges` rows are where v2 moved past them.
+
+## 1. Meet picker
+
+| ID | Status | Notes |
+| --- | --- | --- |
+| `P-01` | `done` | `picker.html` over `_public_meet_list` |
+| `P-02` | `done` | |
+| `P-03` | `done` | |
+| `P-04` | `done` | |
+| `P-05` | `done` | |
+| `P-06` | `done` | above the list and over the search field; fold stored per origin in `localStorage` against its exact text |
+| `P-07` | `done` | |
+| `P-08` | `done` | |
+| `P-09` | `done` | |
+| `P-10` | `deferred` | Add-to-Home-Screen hint is drawn; the store buttons from `/picker/config` → `stores` are not drawn on the picker yet, only on `GET /add` |
+| `P-11` | `n/a` | native-only — a page's origin is its server |
+| `P-12` | `n/a` | native-only |
+| `P-13` | `n/a` | native-only |
+| `P-14` | `n/a` | native-only — a page is always the server's own version |
+| `P-15` | `done` | `splouch_theme` cookie; the Pi's pages keep the operator's palette (no picker) |
+| `P-16` | `n/a` | native-only; the web half is `GET /add` ([`api.md`](api.md) §4) |
+| `P-17` | `done` | field in the list from 3 meets, `foldName()` from `fold.js` |
+
+## 2. App shell
+
+| ID | Status | Notes |
+| --- | --- | --- |
+| `A-01` | `done` | |
+| `A-02` | `done` | |
+| `A-03` | `done` | tab bar plus 28px edge strips |
+| `A-04` | `done` | `sessionStorage['tab']` |
+| `A-05` | `done` | hand-rolled pull, 80px threshold |
+| `A-06` | `done` | `env(safe-area-inset-*)` |
+| `A-07` | `diverges` | switches on `@media (orientation)`; v2 asks for width. Pending |
+| `A-08` | `done` | |
+| `A-09` | `done` | `GET /mobile` 303s to `/` |
+| `A-10` | `deferred` | the edge-strip swipe changes tab on `touchend`; nothing follows the finger |
+| `A-11` | `done` | `show_results` in `mobile.html` |
+
+## 3. Scoreboard tab
+
+| ID | Status | Notes |
+| --- | --- | --- |
+| `L-01`–`L-12` | `done` | |
+| `L-13` | `diverges` | blanks on the first event/heat after a connect: "last event" starts at `0`, so the join replay reads as a change. A bug, not a choice |
+| `L-14` | `done` | parent re-dispatches `resize` |
+| `L-15` | `diverges` | two-line row under `@media (orientation: portrait)`; v2 asks for compact width. Pending |
+| `L-16` | `diverges` | full table under `@media (orientation: landscape)`; v2 asks for regular width. Pending |
+| `L-17` | `done` | `scrollWidth`/`clientWidth` ratio, gated on `lane_name` frames |
+| `L-18`–`L-22` | `n/a` | not on a phone (`app.md`) |
+| `L-23` | `done` | `SHOW_LAPS`, `lane_splits_n` in `scoreboard_base.html` |
+| `L-24` | `deferred` | no top bar to take the header; rows keep a minimum height and the board scrolls |
+
+## 4. Results tab
+
+| ID | Status | Notes |
+| --- | --- | --- |
+| `R-01` | `diverges` | an empty grid with the waiting line under it in portrait, and no line in landscape (`results.html` `#waiting`). v1's revision asked for the line *instead of* the grid |
+| `R-02`–`R-10` | `done` | |
+
+## 5. Schedule tab
+
+| ID | Status | Notes |
+| --- | --- | --- |
+| `S-01` | `diverges` | `EVENT 12 — HEAT 3`, long labels and an em dash, time leading; v2 asks for the short `EV 12  HT 3`, the name beside it, the time trailing. Pending |
+| `S-02`–`S-08` | `done` | |
+| `S-09` | `done` | local index, `foldName()`, no debounce |
+| `S-10`–`S-21` | `done` | |
+
+## 6. Connection and session
+
+| ID | Status | Notes |
+| --- | --- | --- |
+| `C-01`–`C-10` | `done` | `shared/static/js/ws.js` |
+
+## 7. Theme and language
+
+| ID | Status | Notes |
+| --- | --- | --- |
+| `T-01`, `T-02` | `done` | the reader's palette on the cloud (`P-15`); the operator's on the Pi |
+| `T-03`–`T-08` | `done` | |
+| `T-09` | `diverges` | phone pages resolve EVENT/HEAT **short** (`d456068`); v2 says long on every client. Pending |
+| `T-10` | `n/a` | the server renders the strings into the page; there is no build to snapshot into |
+| `T-11` | `done` | `composeEventName` |
+
+## 8. Accessibility
+
+| ID | Status | Notes |
+| --- | --- | --- |
+| `X-01`–`X-10` | `deferred` | not audited. The board, results and schedule templates carry no `aria-*` or `role` attributes today, so `X-01`–`X-04` are expected to fail |
