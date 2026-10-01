@@ -518,10 +518,9 @@ Live lane state during a heat. The busiest screen and the one most worth getting
 > | otherwise | blank all times, deltas and places; names and clubs arrive in the same frame |
 >
 > A lane running on *this* frame outranks all three: the lane shows the clock
-> (`L-12`). The web implements the second and third cases; on the first it blanks,
-> because it starts its "last event" at `0` and so reads the join replay as a change —
-> a web bug recorded in [`web-parity.md`](web-parity.md), not a behaviour to
-> reproduce.
+> (`L-12`). Start the remembered event and heat as *unseen*, not as `0`: a client
+> that starts at `0` reads the join replay as a change and blanks it — the web did,
+> until 2026-09-30.
 
 ### 3.3 Layout
 

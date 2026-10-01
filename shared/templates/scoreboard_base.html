@@ -480,7 +480,11 @@ var s = {};                       /* accumulated frame, drained each update    *
 var lane_place_blank = {};
 var lane_time_blank  = {};
 var lane_name_blank  = {};
-var last_event = 0, last_heat = 0, last_state = 0, current_state = 0;
+/* `null` until a frame names an event or heat: the first one after a connect is
+   the baseline, not a change (docs/app.md `L-13`). The join replay — or the Pi's
+   push on connect — carries the current heat's times beside its number, and
+   reading it as a heat change blanked the only state a late joiner has. */
+var last_event = null, last_heat = null, last_state = 0, current_state = 0;
 
 /* Fields the handler may write straight to the DOM, by element id. */
 var VALID_FIELDS = new Set([
@@ -495,7 +499,7 @@ var VALID_FIELDS = new Set([
    the lap count, and `renderDelta` owns it. */
 
 function reset_state() {
-    current_state = 0; last_state = 0; last_event = 0; last_heat = 0;
+    current_state = 0; last_state = 0; last_event = null; last_heat = null;
     lane_running = {}; lane_place_blank = {}; lane_time_blank = {}; lane_name_blank = {};
     lane_splits_n = {}; lane_delta_html = {};
     expected_splits = 0; split_step = 1;
@@ -599,14 +603,16 @@ function applyScoreboardFrame(new_s) {
         for (var di2 in delta_lanes) renderDelta(di2);
     }
 
-    /* A new event or heat means intro, whatever the lanes still say. */
+    /* A new event or heat means intro, whatever the lanes still say — unless it
+       is the first one this connection has seen, which is where the board already
+       is rather than where it moved to. */
     if ("current_event" in s && s["current_event"] != last_event) {
+        if (last_event !== null) current_state = 1;
         last_event = s["current_event"];
-        current_state = 1;
     }
     if ("current_heat" in s && s["current_heat"] != last_heat) {
+        if (last_heat !== null) current_state = 1;
         last_heat = s["current_heat"];
-        current_state = 1;
     }
 
     /* Otherwise: results once no lane is running and none is still awaiting a

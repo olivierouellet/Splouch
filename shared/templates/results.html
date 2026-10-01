@@ -12,32 +12,23 @@
 {% block extra_style %}
 [id^="lane_place"] { font-family: var(--font-digits), monospace; }
 
-/* The waiting message sits in the flow and takes whatever room the rows leave —
-   it never covers the board. It does not have to: when the feed goes away the rows
-   are wiped (clearResults), so there is nothing stale underneath to hide. */
+/* Until the first snapshot the waiting line is the screen, in place of the table
+   (docs/app.md `R-01`). Blank rows mean something on the live board — a heat is
+   under way and they fill in — but here there is no heat to fill them, and a
+   grid drawn only to occupy the page tells a spectator nothing the line does not.
+   `R-02`'s wipe returns the tab to exactly this. */
 #waiting {
     flex: 1;
     display: flex;
     align-items: center;
     justify-content: center;
+    text-align: center;
+    padding: 0 6vw;
     color: var(--color-th-text);
     font-size: 1.4em;
 }
-#waiting.hidden { display: none; }
-
-/* Portrait: rows take their natural height, so the lower part of the screen is
-   free and the message goes there, under a visible empty grid. */
-@media (orientation: portrait) {
-    .timing-content { flex: 0 0 auto; }
-    .timing-table   { height: auto; }   /* relax the 100% in timing_display.css */
-}
-
-/* Landscape: the rows share out the full height, so there is no room left. Rather
-   than cover them, say nothing — an empty grid reads the same way here as it does
-   on the live board, which shows no message either. */
-@media (orientation: landscape) {
-    #waiting { display: none; }
-}
+body:not(.has-results) .timing-content { display: none; }
+body.has-results #waiting               { display: none; }
 {% endblock %}
 
 {% block body_extra %}
@@ -49,7 +40,7 @@
 {% block socket %}
 var SHOW_PODIUM = {{ show_podium | default(true, true) | tojson }};
 
-function showWaiting() { document.getElementById('waiting').classList.remove('hidden'); }
+function showWaiting() { document.body.classList.remove('has-results'); }
 
 /* Empty one row. `lane` is what its number cell should read — its own lane in lane
    mode, an em dash when the list is a ranking and this position was never filled.
@@ -123,7 +114,7 @@ function renderResults(d) {
             blankRow(i, laneMode ? i : '—');
         }
     }
-    document.getElementById('waiting').classList.add('hidden');
+    document.body.classList.add('has-results');
     requestAnimationFrame(fitNameFontSize);
 }
 

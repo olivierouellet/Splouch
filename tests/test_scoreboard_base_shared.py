@@ -750,28 +750,6 @@ def test_waiting_message_never_covers_the_board(res_pi, res_cloud):
         assert "flex: 1" in rule  # takes leftover room, not the whole area
 
 
-def test_waiting_message_fills_the_gap_in_portrait(res_pi, res_cloud):
-    """Portrait rows take their natural height, so the space below the last lane is
-    free and the message goes there, under a visible empty grid."""
-    for html in (res_pi, res_cloud):
-        portrait = _page_css(html)
-        portrait = portrait[portrait.index("@media (orientation: portrait)") :]
-        assert "flex: 0 0 auto" in _rule(portrait, ".timing-content")
-        assert "height: auto" in _rule(portrait, ".timing-table"), (
-            "the table must give up its 100% height or there is no gap"
-        )
-
-
-def test_no_message_in_landscape(res_pi, res_cloud):
-    """The rows share out the full height there, so there is no room for it. An
-    empty grid reads the same way the live board's does, and that shows no message
-    either — better than covering the board to say so."""
-    for html in (res_pi, res_cloud):
-        landscape = _page_css(html)
-        landscape = landscape[landscape.index("@media (orientation: landscape)") :]
-        assert "display: none" in _rule(landscape, "#waiting {")
-
-
 def test_stale_results_are_cleared_not_covered(res_pi, res_cloud):
     """A results board holds still by design, which is what makes an old heat read
     as the current one. When the feed goes away the rows are wiped, so the message

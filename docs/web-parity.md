@@ -58,7 +58,7 @@ from; the `diverges` rows are where v2 moved past them.
 | --- | --- | --- |
 | `L-01` | `done` | small word above the number on any window taller than 500px; inline only on a phone on its side, where height runs out |
 | `L-02`–`L-12` | `done` | |
-| `L-13` | `diverges` | blanks on the first event/heat after a connect: "last event" starts at `0`, so the join replay reads as a change. A bug, not a choice |
+| `L-13` | `done` | the first event/heat after a connect or a `reset` is a baseline (`last_event`/`last_heat` start at `null`); `tests/test_board_first_frame.py` |
 | `L-14` | `done` | parent re-dispatches `resize` |
 | `L-15` | `done` | two-line row below 600px wide (`scoreboard_base.html`) |
 | `L-16` | `done` | full table from 600px wide, an upright tablet included; column titles capped at `3vw` so they fit there |
@@ -71,7 +71,7 @@ from; the `diverges` rows are where v2 moved past them.
 
 | ID | Status | Notes |
 | --- | --- | --- |
-| `R-01` | `diverges` | an empty grid with the waiting line under it in portrait, and no line in landscape (`results.html` `#waiting`). v1's revision asked for the line *instead of* the grid |
+| `R-01` | `done` | the line replaces the table until a snapshot (`body.has-results`), in both orientations; `R-02`'s wipe brings it back |
 | `R-02`–`R-10` | `done` | |
 
 ## 5. Schedule tab
