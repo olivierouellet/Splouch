@@ -119,3 +119,10 @@ def test_the_prune_runs_while_the_server_is_up(monkeypatch):
     monkeypatch.setattr(cloud_analytics, "analytics_prune", prune)
     with pytest.raises(Stop):
         asyncio.run(cloud_analytics.analytics_flush_loop())
+
+
+def test_the_cloud_keeps_no_access_log():
+    """`/privacy` says no request logs; uvicorn's default logs every visitor's IP."""
+    dockerfile = Path(os.path.join(REPO, "cloud", "Dockerfile")).read_text()
+    (cmd,) = [line for line in dockerfile.splitlines() if line.startswith("CMD ")]
+    assert "--no-access-log" in cmd

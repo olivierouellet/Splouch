@@ -38,4 +38,7 @@ RUN mkdir -p /data
 ENV PYTHONUNBUFFERED=1
 EXPOSE 5000
 
-CMD ["uvicorn", "cloud_server:app", "--host", "0.0.0.0", "--port", "5000"]
+# No access log: uvicorn's default writes every request with the visitor's IP (the
+# real one, through Caddy's X-Forwarded-For) to `docker compose logs`, kept for as
+# long as the container is. `/privacy` says this server keeps no request logs.
+CMD ["uvicorn", "cloud_server:app", "--host", "0.0.0.0", "--port", "5000", "--no-access-log"]
