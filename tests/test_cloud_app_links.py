@@ -21,6 +21,7 @@ So the tests below pin the things that would silently break it:
 * `cloud/Caddyfile` still letting `/.well-known/` through to the app.
 """
 
+import asyncio
 import json
 import os
 from pathlib import Path
@@ -83,6 +84,69 @@ def test_assetlinks_is_the_shape_android_reads(config, monkeypatch):
         "package_name": "app.splouch.android",
         "sha256_cert_fingerprints": [RELEASE],
     }
+
+
+def over_the_wire(path):
+    """`GET path` through the whole app — middleware, routing, mounts — as raw ASGI.
+
+    The tests above call the route function, which cannot see a redirect added in
+    front of it: a trailing-slash rule, an HTTPS bounce, a mount that claims
+    `/.well-known/`. Android follows none of those, so this asks the way it does.
+    """
+    scope = {
+        "type": "http",
+        "asgi": {"version": "3.0"},
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "https",
+        "path": path,
+        "raw_path": path.encode(),
+        "query_string": b"",
+        "root_path": "",
+        "headers": [(b"host", b"splouch.ca")],
+        "client": ("203.0.113.7", 41234),
+        "server": ("splouch.ca", 443),
+    }
+    sent = []
+
+    async def receive():
+        return {"type": "http.request", "body": b"", "more_body": False}
+
+    async def send(message):
+        sent.append(message)
+
+    asyncio.run(cs.app(scope, receive, send))
+    start = next(m for m in sent if m["type"] == "http.response.start")
+    headers = {k.decode().lower(): v.decode() for k, v in start["headers"]}
+    payload = b"".join(
+        m.get("body", b"") for m in sent if m["type"] == "http.response.body"
+    )
+    return start["status"], headers, payload
+
+
+def test_assetlinks_answers_200_json_with_no_hop(config, monkeypatch):
+    """Exactly what `pm get-app-links` needs: 200, `application/json`, no `Location`."""
+    monkeypatch.setenv("ANDROID_CERT_FINGERPRINTS", f"{RELEASE},{DEBUG}")
+    status, headers, payload = over_the_wire("/.well-known/assetlinks.json")
+    assert status == 200
+    assert "location" not in headers
+    assert headers["content-type"].split(";")[0].strip() == "application/json"
+    (statement,) = json.loads(payload)
+    assert statement == {
+        "relation": ["delegate_permission/common.handle_all_urls"],
+        "target": {
+            "namespace": "android_app",
+            "package_name": "app.splouch.android",
+            "sha256_cert_fingerprints": [RELEASE, DEBUG],
+        },
+    }
+
+
+def test_assetlinks_unset_is_a_plain_404_over_the_wire(config):
+    """Unset is a 404 the deploy can see, never a redirect to something that answers."""
+    status, headers, _ = over_the_wire("/.well-known/assetlinks.json")
+    assert status == 404
+    assert "location" not in headers
 
 
 def test_no_fingerprint_is_a_404_and_not_an_empty_list(config):

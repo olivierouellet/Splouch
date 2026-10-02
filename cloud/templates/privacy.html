@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="{{ lang | default('en', true) }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#000000">
+    <link rel="icon" type="image/svg+xml" href="/favicon.ico">
+    <title>{{ t.get('title', 'Privacy policy') }} · Splouch</title>
+    {#
+       The privacy policy a store listing links to (`GET /privacy`). Static text from
+       `[privacy]` in the locale files, with the host, the retention and the contact
+       filled in here. No script: a reviewer's crawler and a phone read the same page.
+
+       The language links are plain `?lang=` links — the same preference the picker
+       writes, so a reader who switches here finds the meet list in that language too.
+    #}
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: #0d0d0d; color: #e0e0e0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            line-height: 1.6; padding: 40px 20px;
+        }
+        main { max-width: 680px; margin: 0 auto; }
+        nav { font-size: 0.85em; margin-bottom: 28px; }
+        nav a, nav span { margin-right: 14px; }
+        nav a { color: #7a9fc9; text-decoration: none; }
+        nav a:hover { color: #a9c6e6; }
+        nav span { color: #e0e0e0; }
+        h1 { font-size: 1.6em; font-weight: 500; margin-bottom: 6px; }
+        .updated { font-size: 0.85em; color: #888; margin-bottom: 28px; }
+        h2 { font-size: 1.1em; font-weight: 600; margin: 28px 0 10px; }
+        p { color: #c8c8c8; margin-bottom: 12px; }
+        a { color: #7a9fc9; }
+    </style>
+</head>
+<body>
+    <main>
+        <nav>
+            {% for code, name in locales %}
+            {% if code == lang %}<span>{{ name }}</span>{% else %}<a href="?lang={{ code }}" hreflang="{{ code }}" lang="{{ code }}">{{ name }}</a>{% endif %}
+            {% endfor %}
+        </nav>
+
+        <h1>{{ t.get('title', 'Privacy policy') }}</h1>
+        <p class="updated">{{ t.get('updated_label', 'Last updated') }}: <time datetime="{{ updated }}">{{ updated }}</time></p>
+
+        <p>{{ t.get('intro', '') | replace('{host}', host) }}</p>
+
+        <h2>{{ t.get('who_h', '') }}</h2>
+        <p>{{ t.get('who', '') }}</p>
+
+        <h2>{{ t.get('count_h', '') }}</h2>
+        <p>{{ t.get('count_1', '') }}</p>
+        <p>{{ t.get('count_2', '') }}</p>
+        <p>{{ t.get('count_3', '') }}</p>
+        <p>{{ t.get('count_4', '') | replace('{days}', days | string) }}</p>
+
+        <h2>{{ t.get('app_h', '') }}</h2>
+        <p>{{ t.get('app_1', '') }}</p>
+        <p>{{ t.get('app_2', '') }}</p>
+
+        <h2>{{ t.get('web_h', '') }}</h2>
+        <p>{{ t.get('web_1', '') }}</p>
+        <p>{{ t.get('web_2', '') }}</p>
+
+        <h2>{{ t.get('meets_h', '') }}</h2>
+        <p>{{ t.get('meets', '') }}</p>
+
+        <h2>{{ t.get('choices_h', '') }}</h2>
+        <p>{{ t.get('choices', '') }}</p>
+
+        <h2>{{ t.get('changes_h', '') }}</h2>
+        <p>{{ t.get('changes', '') }}</p>
+
+        {% if contact %}
+        <h2>{{ t.get('contact_h', 'Contact') }}</h2>
+        <p>{{ t.get('contact', '') }} <a href="mailto:{{ contact }}">{{ contact }}</a></p>
+        {% endif %}
+    </main>
+</body>
+</html>

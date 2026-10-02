@@ -904,6 +904,48 @@ def route_add(request: Request):
     return response
 
 
+# The date at the top of `/privacy`. Bumped by hand with any change to `[privacy]`
+# in the locale files, which is what the page promises under "Changes".
+PRIVACY_UPDATED = "2026-10-01"
+
+
+def _privacy_contact():
+    """Who answers for this deployment's privacy policy, or '' while unset.
+
+    Per deployment, like the store links: the software cannot know who runs the
+    server it is installed on. Unset leaves the Contact section out rather than
+    printing an address nobody reads.
+    """
+    contact = os.environ.get("PRIVACY_CONTACT", "").strip()
+    return contact if re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", contact) else ""
+
+
+@app.get("/privacy", tags=["Public"])
+def route_privacy(request: Request):
+    """The privacy policy, the URL a store listing points at.
+
+    One page for the site and the Android app, in the visitor's language. The
+    words are `[privacy]` in the locale files, never `[mobile]`, so nothing here
+    reaches `GET /i18n/{lang}` or an app. The retention it states is read from
+    `cloud_analytics`, so the page cannot drift from what the prune deletes.
+    """
+    lang = _picker_lang(request)
+    return _remember_prefs(
+        request,
+        render(
+            request,
+            "privacy.html",
+            lang=lang,
+            t=_strings(lang, "privacy"),
+            locales=_available_locales(),
+            host=request.url.hostname or "",
+            days=cloud_analytics._ANALYTICS_RETENTION_DAYS,
+            updated=PRIVACY_UPDATED,
+            contact=_privacy_contact(),
+        ),
+    )
+
+
 @app.get("/locales", tags=["Public"])
 def route_locales(request: Request):
     """The languages this server can serve — for a client offering the choice."""

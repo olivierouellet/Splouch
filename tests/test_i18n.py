@@ -185,6 +185,9 @@ def test_the_served_file_holds_only_what_a_spectator_reads():
         "aliases",
         "mobile",
         "display",
+        # `/privacy`'s text: a spectator reads it, so it is here, and its own
+        # section keeps it out of `GET /i18n/{lang}`, which serves `[mobile]`.
+        "privacy",
     }
     # `chrome` is the fourth because both operator pages draw the same sidebar and
     # theme switcher; its words live once rather than once per page. `manual` is the

@@ -173,6 +173,22 @@ server list afterwards, which is what that list is for.
 
 ---
 
+## Privacy policy
+
+`https://yourdomain/privacy` is the policy a store listing links to, in English, French and
+Spanish (`?lang=`). It says what the software does — attendance counting, what the app and
+the site keep on the device — so it is the same on every deployment. The one per-deployment
+part is who answers for it; add to `cloud/.env`:
+
+```ini
+PRIVACY_CONTACT=privacy@yourdomain
+```
+
+Unset, the page has no Contact section. Its text is `[privacy]` in `shared/locales/*.toml`;
+bump `PRIVACY_UPDATED` in `cloud/cloud_server.py` with any change to it.
+
+---
+
 ## Updating the cloud server
 
 Click **Update** in `/admin` → **Update & Backup** — it fetches from GitHub and rebuilds the container automatically. The page polls until the server is back up, then reloads. Prefer it: it resolves the right ref for the way this server was installed, which the manual commands below leave to you.
@@ -426,6 +442,24 @@ pour qui s'y est connecté. Une affiche ne peut pas demander sur quel réseau se
 lecteur ; elle donne donc l'adresse qui fonctionne de partout. Les spectateurs sur le WiFi de
 la piscine peuvent ensuite choisir le Pi dans la liste de serveurs de l'application, qui sert
 précisément à cela.
+
+---
+
+### Politique de confidentialité
+
+`https://votredomaine/privacy` est la politique vers laquelle pointe une fiche de boutique,
+en anglais, en français et en espagnol (`?lang=`). Elle décrit ce que fait le logiciel —
+comptage de l'assistance, ce que l'application et le site conservent sur l'appareil — et est
+donc la même pour chaque déploiement. La seule partie propre au déploiement est la personne
+qui en répond ; ajoutez à `cloud/.env` :
+
+```ini
+PRIVACY_CONTACT=confidentialite@votredomaine
+```
+
+Sans cette valeur, la page n'a pas de section Contact. Le texte est `[privacy]` dans
+`shared/locales/*.toml` ; mettez à jour `PRIVACY_UPDATED` dans `cloud/cloud_server.py` à
+chaque modification.
 
 ---
 

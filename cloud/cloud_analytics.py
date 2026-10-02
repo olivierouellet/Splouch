@@ -15,6 +15,7 @@ import os
 import queue
 import sqlite3
 import threading
+import time
 
 from starlette.concurrency import run_in_threadpool
 
@@ -30,6 +31,9 @@ from cloud_auth import load_creds
 
 _ANALYTICS_RETENTION_DAYS = 120
 _ANALYTICS_FLUSH_SECS = 5  # how often the background task drains the queue
+# How often the same task prunes. Startup alone is not enough: `/privacy` promises
+# the retention above, and a container can run for longer than that between deploys.
+_ANALYTICS_PRUNE_SECS = 24 * 3600
 _analytics_lock = threading.Lock()
 _analytics_db = None
 _analytics_queue = queue.Queue()  # pending joins, flushed to the DB off the loop
@@ -101,11 +105,16 @@ def flush_analytics():
 
 
 async def analytics_flush_loop():
-    """Periodically flush queued analytics joins to the DB, off the event loop."""
+    """Periodically flush queued analytics joins to the DB, off the event loop,
+    and prune past the retention window once a day."""
+    last_prune = time.monotonic()
     while True:
         await asyncio.sleep(_ANALYTICS_FLUSH_SECS)
         try:
             await run_in_threadpool(flush_analytics)
+            if time.monotonic() - last_prune >= _ANALYTICS_PRUNE_SECS:
+                await run_in_threadpool(analytics_prune)
+                last_prune = time.monotonic()
         except Exception as e:
             # A transient DB error (locked, disk full) must not kill the loop —
             # that would stop all future flushes and grow the queue unbounded.

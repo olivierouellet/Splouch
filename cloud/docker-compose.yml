@@ -39,6 +39,9 @@ services:
       # rendered on `/add`. Absent means the affordance is hidden, never dead.
       STORE_URL_ANDROID:      ${STORE_URL_ANDROID:-}
       STORE_URL_IOS:          ${STORE_URL_IOS:-}
+      # Who answers for `/privacy` on this deployment — an email address, shown
+      # under Contact. Unset leaves the section out.
+      PRIVACY_CONTACT:        ${PRIVACY_CONTACT:-}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:
