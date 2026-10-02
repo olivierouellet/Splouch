@@ -19,13 +19,15 @@ with client isolation prevents even when they are. So a printed code names a clo
 the reader lands on its picker, and the Pi in the building is reached from there by
 the mDNS browse or by hand (`P-11`–`P-13`), on a phone that has already joined the
 right network. Nothing enforces that here: `parse_origin` mirrors the client, which
-accepts a `.local` address wherever it is typed. It is what the Pi *mints* that is
+accepts a local address wherever it is typed. It is what the Pi *mints* that is
 constrained (`server/routes/qr.py`).
 
 `parse_origin` is the same rule the apps' own `ServerAddress.parse` applies, and
-deliberately so: `http` is accepted only for a `.local` name or a developer
-loopback (`app.md` `P-12`), everything else must be `https`, and two spellings of
-one server normalise to one string. A printed code is a stranger's input in a way
+deliberately so: `http` is accepted only to the local network — a `.local` name,
+a loopback, or a private or link-local address (`app.md` `P-12`) — everything
+else must be `https`, and two spellings of one server normalise to one string.
+The floor is the same however an address arrives: typed (`P-13`), listed by
+`GET /servers`, or scanned (`P-16`). A printed code is a stranger's input in a way
 a typed address is not, so this side holds it to exactly the floor the client
 does rather than a looser one — a page that cheerfully displays an origin the app
 would refuse is a page that sends the reader to a dead end.
@@ -59,11 +61,33 @@ INVITE_PARAM = "server"
 # its own app changes this line and the manifest together.
 DEFAULT_APP_SERVER = "https://splouch.ca"
 
-# `http` is allowed to these and to `*.local`, and to nothing else. The first is
-# the pool's Pi by its mDNS name; the rest are what a developer's emulator dials.
-# The apps' network policies list the same names and cannot express IP ranges,
-# which is why a Pi travels by name and never as a raw address.
-LOCAL_HOSTS = frozenset({"localhost", "127.0.0.1", "10.0.2.2", "::1"})
+# The local network `http` is allowed to (`P-12`): these names, `*.local`, and an
+# address in `LOCAL_NETWORKS`. Decided 2026-10-01, when private ranges joined the
+# set — a Pi is reached by its mDNS name where mDNS works, and by the address a
+# router handed it where it does not (a guest network, a multihomed Pi).
+#
+# iOS applies exactly this set (`ServerAddress.isLocalName`). Android, as of that
+# date, still holds the older name-only rule — `.local`, `localhost`, `127.0.0.1`,
+# `10.0.2.2`, `::1` — in both `ServerAddress` and `network_security_config`, so
+# an address accepted here may still be refused there until it catches up.
+LOCAL_HOSTS = frozenset({"localhost"})
+
+# Loopback, RFC 1918, IPv4 link-local; IPv6 loopback, unique-local, link-local.
+# The Android emulator's host, `10.0.2.2`, is in `10/8`. An IPv4-mapped IPv6
+# address is judged by its IPv4 half, and a zone suffix (`fe80::1%en0`) ignored.
+LOCAL_NETWORKS = tuple(
+    ipaddress.ip_network(n)
+    for n in (
+        "127.0.0.0/8",
+        "10.0.0.0/8",
+        "172.16.0.0/12",
+        "192.168.0.0/16",
+        "169.254.0.0/16",
+        "::1/128",
+        "fc00::/7",
+        "fe80::/10",
+    )
+)
 
 _DEFAULT_PORTS = {"http": 80, "https": 443}
 
@@ -91,8 +115,19 @@ def _valid_host(host):
 
 
 def is_local_name(host):
-    """Whether cleartext is acceptable to *host* — `.local`, or a loopback."""
-    return host.endswith(".local") or host in LOCAL_HOSTS
+    """Whether cleartext is acceptable to *host* — `.local`, loopback, private or link-local."""
+    h = host.lower()
+    if h.startswith("[") and h.endswith("]"):
+        h = h[1:-1]
+    if h.endswith(".local") or h in LOCAL_HOSTS:
+        return True
+    try:
+        ip = ipaddress.ip_address(h.split("%", 1)[0])
+    except ValueError:
+        return False
+    if ip.version == 6 and ip.ipv4_mapped:
+        ip = ip.ipv4_mapped
+    return any(ip.version == n.version and ip in n for n in LOCAL_NETWORKS)
 
 
 def parse_origin(text):

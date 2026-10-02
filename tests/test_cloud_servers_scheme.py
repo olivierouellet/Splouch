@@ -139,3 +139,40 @@ def test_the_app_container_is_not_directly_reachable():
     services = yaml.safe_load(Path(COMPOSE).read_text(encoding="utf-8"))["services"]
     assert not services["app"].get("ports"), "app must stay behind Caddy"
     assert services["caddy"].get("ports") == ["80:80", "443:443"]
+
+
+def test_the_directory_never_lists_cleartext_to_a_public_host(tmp_path, monkeypatch):
+    """`P-12`'s floor applies to a listed address as to a typed or scanned one.
+
+    A cleartext row to a public host is one every client refuses, so the cloud
+    drops it from `servers.json` rather than shipping a dead row. Local cleartext
+    — a Pi by name or by private address — and `https` anywhere stay listed, in
+    their own spelling.
+    """
+    import json
+
+    servers = tmp_path / "servers.json"
+    servers.write_text(
+        json.dumps(
+            [
+                {"name": "Club", "url": "https://x.example/base/"},
+                {"name": "Pi", "url": "http://poolpi.local:5000"},
+                {"name": "Pi by address", "url": "http://192.168.1.10:5000"},
+                {"name": "Public cleartext", "url": "http://scores.example.com"},
+                {"name": "Public IP", "url": "http://203.0.113.5:5000"},
+                {"name": "Mapped public", "url": "http://[::ffff:8.8.8.8]"},
+                {"name": "Junk", "url": "not a url"},
+                "not an entry",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(cs, "SERVERS_FILE", str(servers))
+    rows = cs.route_servers(Request(_scope("splouch.ca", ("127.0.0.1", 1), "https")))[
+        "servers"
+    ]
+    assert [r["url"] for r in rows[1:]] == [
+        "https://x.example/base",
+        "http://poolpi.local:5000",
+        "http://192.168.1.10:5000",
+    ]

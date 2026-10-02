@@ -619,7 +619,8 @@ a club standing up its own instance must not need a store release to become
 reachable. The first entry is always *this* server, derived from the request, so the
 endpoint is useful with no configuration; further entries come from `servers.json`
 in the data directory, deduplicated by URL, with malformed entries dropped rather
-than rendered as dead rows.
+than rendered as dead rows — including `http` to anything off the local network
+(`app.md` `P-12`'s floor, the one clients apply to every listed address too).
 
 What it is not: an authority. A client keeps whatever the user typed
 (`app.md` `P-13`), and a server absent from every directory still works.

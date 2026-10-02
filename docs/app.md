@@ -199,18 +199,20 @@ text or counting enabled later; counting isn't spectator's to refuse (`C-10`).
 
 App ships one URL (default cloud); rest fetched, browsed or typed. At pool, useful
 server = building's Pi (no internet dependency, unthrottled race clock), publishes
-`_splouch._tcp` → `P-12` is a browse. Every route meets the same check:
+`_splouch._tcp` → `P-12` is a browse. Every route meets the same check, and every
+address meets `P-12`'s cleartext floor before any request — typed, listed or scanned
+alike. A directory entry failing it is dropped, not shown (cloud drops it too, [`api.md`](api.md) §5.11):
 
 ```mermaid
 flowchart TD
-  dir["listed — GET /servers (P-11)"] --> check
+  dir["listed — GET /servers (P-11)"] --> parse
   mdns["officials' local server — tap, mDNS _splouch._tcp (P-12)"] --> check
   typed["typed (P-13)"] --> parse
   qr["scanned link (P-16)"] --> host{"host = app's<br/>default server?"}
   host -- no --> reason["prompt shows reason"]
-  host -- yes --> parse{"address parses?<br/>http only for .local / loopback"}
+  host -- yes --> parse{"address parses?<br/>http only for .local / loopback /<br/>private or link-local address"}
   parse -- no --> reason
-  parse -- "yes, typed" --> check
+  parse -- "yes, typed or listed" --> check
   parse -- "yes, scanned" --> ask{"prompt names address:<br/>add unknown · switch to listed ·<br/>nothing if in use and answering"}
   ask -- yes --> check
   ask -- "no / nothing to do" --> picker
@@ -250,9 +252,19 @@ for the sheet's lifetime or across a background. A find gone offline since stays
 picking it still meets `GET /server` (`P-13`) and fails there. Server in use stays listed
 after the sheet closes (selected, not found).
 
+**Cleartext floor: `http` only to the local network** — `*.local`, `localhost`,
+`127/8`, `10/8`, `172.16/12`, `192.168/16`, `169.254/16`, `::1`, `fc00::/7`, `fe80::/10`
+(zone suffix ignored), IPv4-mapped IPv6 by its IPv4 half. Everything else `https`.
+Applies however the address arrives — typed (`P-13`), `GET /servers` entry (`P-11`),
+scanned (`P-16`): an `http` address to a public host is refused (or dropped from the
+list) before any request. Private ranges joined 2026-10-01: a Pi is reached by mDNS name
+where mDNS works, by its DHCP address where it doesn't (guest network, multihomed Pi).
+
 Scoped exception: iOS local networking (`NSLocalNetworkUsageDescription`, Bonjour
-service declared), Android `network_security_config` for `.local` + private ranges.
-Never blanket.
+service declared; ATS doesn't cover IP literals, so `ServerAddress.isLocalName` is the
+check), Android `network_security_config` for `.local` (still name-only as of
+2026-10-01: `ServerAddress` accepts `.local`, `localhost`, `127.0.0.1`, `10.0.2.2`, `::1`
+— private ranges pending). Never blanket.
 
 ### <a id="p-15"></a>P-15 — spectator's palette, not meet's
 
@@ -744,6 +756,10 @@ Not on any phone client, now or planned:
 ---
 
 ## Changelog
+
+- **v2, amended** (2026-10-01, no bump) — `P-12` cleartext floor widened to private and
+  link-local addresses, and applied to every route in (typed, listed, scanned). iOS
+  shipped; Android still name-only. Pi poster still names only a public `https` cloud.
 
 - **v2** (2026-09-30) — reconciled with both native apps (built ahead). `contract.app` =
   `v2` → `P-14` names it to v1 clients; nothing v1 does breaks vs v2 server.

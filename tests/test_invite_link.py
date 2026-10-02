@@ -14,14 +14,15 @@ The rules, and why each is not a preference:
   a Pi has no certificate, so no link can be hosted on one. A link on any other
   authority is not ours — a server cannot mint a code that adds a *different*
   server — and the Android manifest matches `/add` exactly rather than by prefix.
-* **Cleartext only to a `.local` name or a loopback** (`P-12`). The same floor a
-  typed address gets (`P-13`), applied to a string a stranger printed.
+* **Cleartext only to the local network** (`P-12`): a `.local` name, a loopback,
+  or a private or link-local address. The same floor a typed address (`P-13`) and
+  a directory entry get, applied to a string a stranger printed.
 * **Percent-encoded, fully.** The `:` and `/` of the origin are escaped so nothing
   between the camera and the app can read the value as a path of its own.
 
 What a server *mints* is narrower than what this module will parse, and that rule
 is tested where it is enforced — see `test_pi_qr_code.py`. `parse_origin` mirrors
-the client, which accepts a `.local` address however it arrives.
+the client, which accepts a local address however it arrives.
 """
 
 import os
@@ -64,6 +65,15 @@ def test_the_path_is_exactly_add():
         "https://scores.example.com",  # another cloud
         "http://localhost:5055",  # the developer loopbacks
         "http://10.0.2.2:5056",
+        "http://192.168.1.10:5000",  # a Pi by the address its router handed it
+        "http://10.1.2.3",
+        "http://172.16.0.1",
+        "http://172.31.255.254",
+        "http://169.254.3.4",  # link-local, no DHCP
+        "http://[fd00::1]",  # IPv6 unique-local
+        "http://[fe80::1]",  # IPv6 link-local
+        "http://[::1]:5055",
+        "http://[::ffff:192.168.1.2]",  # judged by its IPv4 half
     ],
 )
 def test_an_address_a_client_would_accept_round_trips(origin):
@@ -74,15 +84,18 @@ def test_an_address_a_client_would_accept_round_trips(origin):
 @pytest.mark.parametrize(
     "origin",
     [
-        "http://192.168.1.10:5000",  # the whole point of P-12: a raw IP is refused
-        "http://10.0.0.5",
         "http://splouch.ca",  # cleartext to a public name
+        "http://172.15.0.1",  # either side of 172.16/12
+        "http://172.32.0.1",
+        "http://203.0.113.5",
+        "http://8.8.8.8",
+        "http://[2001:db8::1]",
+        "http://[::ffff:8.8.8.8]",  # a mapped address is its IPv4 half: public
     ],
 )
 def test_cleartext_off_the_local_network_mints_nothing(origin):
     """A code that scans into "cannot add this server" is worse than no code.
 
-    The client's rule cannot express IP ranges, so cleartext is by name only.
     This is the floor a *typed* address gets (`P-13`) applied to a printed one,
     and it holds wherever the string came from — a hand-written poster included.
     """
@@ -144,3 +157,28 @@ def test_the_apps_default_server_is_the_only_authority_a_link_may_carry():
     """
     assert links.DEFAULT_APP_SERVER == CLOUD
     assert links.parse_origin(links.DEFAULT_APP_SERVER) == links.DEFAULT_APP_SERVER
+
+
+@pytest.mark.parametrize(
+    "host",
+    ["pi.local", "localhost", "127.8.9.10", "[::1]", "fe80::1%en0", "::ffff:10.0.0.1"],
+)
+def test_the_local_network_is_names_loopback_and_private_ranges(host):
+    """iOS's `ServerAddress.isLocalName`, case for case — a zone suffix is ignored."""
+    assert links.is_local_name(host)
+
+
+@pytest.mark.parametrize(
+    "host",
+    [
+        "splouch.ca",
+        "192.169.1.1",
+        "11.0.0.1",
+        "localhost.example",
+        "10.0.0.1.example",
+        "local",
+        "",
+    ],
+)
+def test_near_misses_are_not_local(host):
+    assert not links.is_local_name(host)

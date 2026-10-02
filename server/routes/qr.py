@@ -41,6 +41,7 @@ into whatever they are making and nothing is lost on the way.
 
 import io
 import os
+from urllib.parse import urlsplit
 
 import segno
 from fastapi import APIRouter
@@ -83,14 +84,21 @@ def invite():
     """
     cloud = (state.settings.get("cloud_relay_url") or "").strip()
     origin = splouch_links.parse_origin(cloud)
+    # A cloud is what a poster names, and a cloud is `https` to a public host.
+    # `parse_origin` mirrors the client, which takes cleartext to the local network
+    # — a `.local` name, a loopback, a private or link-local address — and every
+    # one of those is a dead end for a reader on cellular. So none is minted,
+    # whatever the field holds.
+    if origin and splouch_links.is_local_name(urlsplit(origin).hostname):
+        origin = None
     link = (
         splouch_links.invite_link(splouch_links.DEFAULT_APP_SERVER, origin)
         if origin
         else None
     )
     # One reason, because there is one field. A cloud URL that will not parse —
-    # cleartext to a public name, most likely — is the same answer as a missing
-    # one: the fix is the same box in Settings → Cloud.
+    # cleartext to a public name, most likely — or that names the local network is
+    # the same answer as a missing one: the fix is the same box in Settings → Cloud.
     return {
         "link": link,
         "origin": origin,

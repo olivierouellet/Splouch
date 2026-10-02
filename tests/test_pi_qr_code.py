@@ -267,6 +267,26 @@ def test_no_cloud_configured_serves_no_image(cloud):
     assert route_qr_png().status_code == 404
 
 
+@pytest.mark.parametrize(
+    "url",
+    [
+        "http://splouch.local",
+        "http://localhost:5056",
+        "http://192.168.1.50:5056",
+        "http://10.0.2.2:5056",
+        "https://192.168.1.50",
+    ],
+)
+def test_a_cloud_on_the_local_network_mints_nothing(cloud, url):
+    """The client accepts these, so `parse_origin` does — a poster may not.
+
+    A reader on cellular reaches none of them, and private addresses joining
+    `P-12`'s local set must not widen what a Pi prints.
+    """
+    cloud(url)
+    assert invite()["link"] is None and invite()["reason"] == "no_cloud"
+
+
 def test_a_cloud_url_the_app_would_refuse_is_the_same_answer(cloud):
     """Cleartext to a public name: refused as a server, so refused as a code."""
     cloud("http://scores.example.com")

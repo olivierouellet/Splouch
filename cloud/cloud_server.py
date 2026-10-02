@@ -606,8 +606,14 @@ def route_servers(request: Request):
         extra = []
     seen = {here}
     for entry in extra if isinstance(extra, list) else []:
-        url = str(entry.get("url", "")).rstrip("/")
-        if not url or url in seen:
+        if not isinstance(entry, dict):
+            continue
+        # The same floor a typed or scanned address meets (`P-12`): `http` only to
+        # the local network. A cleartext row to a public host is one every client
+        # refuses, so it is dropped here rather than shipped as a dead row. Checked,
+        # not rewritten: an entry keeps its own spelling, base path included.
+        url = str(entry.get("url", "")).strip().rstrip("/")
+        if not url or url in seen or not splouch_links.parse_origin(url):
             continue
         seen.add(url)
         servers.append(

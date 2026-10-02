@@ -112,7 +112,7 @@ def scanned(html):
         "",  # the bare URL
         "server=",  # a code that carried nothing
         "server=%3Cscript%3Ealert(1)%3C%2Fscript%3E",  # junk in the parameter
-        "server=http%3A%2F%2F192.168.1.10%3A5000",  # cleartext to a raw IP
+        "server=http%3A%2F%2F203.0.113.5%3A5000",  # cleartext to a public IP
         "other=1",
     ],
 )
@@ -131,7 +131,7 @@ def test_the_page_answers_whatever_the_code_carried(stores, query):
     [
         "",
         "server=",
-        "server=http%3A%2F%2F192.168.1.10%3A5000",
+        "server=http%3A%2F%2F203.0.113.5%3A5000",
     ],
 )
 def test_a_link_with_no_usable_server_says_so_instead_of_inventing_one(stores, query):
@@ -176,7 +176,7 @@ def test_the_origin_is_held_to_the_rule_the_client_applies(stores):
     A page that displayed an address the app would refuse would be sending the
     reader to a dead end with a store link under it.
     """
-    assert scanned(get("server=http%3A%2F%2F192.168.1.10%3A5000")) is None
+    assert scanned(get("server=http%3A%2F%2F203.0.113.5%3A5000")) is None
     assert (
         scanned(get("server=https%3A%2F%2Fscores.example.com"))
         == "https://scores.example.com"
@@ -312,7 +312,7 @@ def test_advice_for_inside_the_app_keeps_the_app_s_company(stores, monkeypatch):
     long before the request — so "add it by hand" is advice for after an install,
     and it belongs beside the button that leads to one.
     """
-    bad = "server=http%3A%2F%2F192.168.1.10%3A5000"
+    bad = "server=http%3A%2F%2F203.0.113.5%3A5000"
     assert "did not name a server" in get(bad, ANDROID)
     assert "by hand" not in get(bad, ANDROID)
 
