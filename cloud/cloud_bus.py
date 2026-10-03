@@ -8,6 +8,7 @@ they joined.
 
 import asyncio
 import contextlib
+import json
 
 
 class ConnectionManager:
@@ -31,13 +32,18 @@ class ConnectionManager:
         targets = list(self.channels.get(channel, ()))
         if not targets:
             return
-        frame = {"event": event, "data": data}
+        # Encode once, not once per socket: `send_json` would re-run json.dumps for
+        # every connection, the same frame thousands of times on a busy meet. Same
+        # encoding as Starlette's send_json, so the wire bytes are unchanged.
+        frame = json.dumps(
+            {"event": event, "data": data}, separators=(",", ":"), ensure_ascii=False
+        )
         # Send to every attendee concurrently so one slow/backed-up client can't
         # delay delivery to the rest (still one loop — this overlaps the I/O waits,
         # it is not parallelism). return_exceptions keeps one failure from
         # cancelling the others; failed sockets are dropped.
         results = await asyncio.gather(
-            *(ws.send_json(frame) for ws in targets), return_exceptions=True
+            *(ws.send_text(frame) for ws in targets), return_exceptions=True
         )
         for ws, result in zip(targets, results, strict=True):
             if isinstance(result, Exception):

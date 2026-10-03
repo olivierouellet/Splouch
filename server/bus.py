@@ -13,6 +13,7 @@ and returns without blocking.
 
 import asyncio
 import contextlib
+import json
 import threading
 
 _loop: asyncio.AbstractEventLoop | None = None
@@ -49,13 +50,18 @@ class ConnectionManager:
         targets = list(self.channels.get(channel, ()))
         if not targets:
             return
-        frame = {"event": event, "data": data}
+        # Encode once, not once per socket: `send_json` would re-run json.dumps for
+        # every connection, the same frame thousands of times on a busy meet. Same
+        # encoding as Starlette's send_json, so the wire bytes are unchanged.
+        frame = json.dumps(
+            {"event": event, "data": data}, separators=(",", ":"), ensure_ascii=False
+        )
         # Send to every client concurrently so one slow/backed-up socket (a phone
         # on flaky venue Wi-Fi) can't delay the rest — including the on-site kiosk,
         # which shares this channel and streams the running-time clock. Still one
         # loop: this overlaps the sends' I/O waits, it is not parallelism.
         results = await asyncio.gather(
-            *(ws.send_json(frame) for ws in targets), return_exceptions=True
+            *(ws.send_text(frame) for ws in targets), return_exceptions=True
         )
         for ws, result in zip(targets, results, strict=True):
             if isinstance(result, Exception):
