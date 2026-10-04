@@ -107,19 +107,23 @@ def test_contact_is_shown_only_when_configured(monkeypatch):
 def test_the_prune_runs_while_the_server_is_up(monkeypatch):
     """Startup alone would let a long-running container keep rows past the promise.
 
-    The control plane's maintenance pass prunes on its first run and then once per
-    `_ANALYTICS_PRUNE_SECS`, for as long as it is up."""
-    import cloud_registry
+    The ids live on the nodes (cloud_attendance), so a node prunes them: worker 1,
+    on its first heartbeat that sends numbers and then once a day."""
+    import cloud_attendance
+    import cloud_node
 
     pruned = []
-    monkeypatch.setattr(cloud_registry, "retire_silent", lambda *a: None)
-    monkeypatch.setattr(cloud_registry, "sweep_expired", lambda *a: None)
-    monkeypatch.setattr(cloud_analytics, "analytics_prune", lambda: pruned.append(1))
-    last = cs._maintain(None)
-    assert pruned == [1], "the first pass prunes"
-    cs._maintain(last)
-    assert pruned == [1], "not again until a day has passed"
-    cs._maintain(last - cloud_analytics._ANALYTICS_PRUNE_SECS)
+    monkeypatch.setenv("WORKER", "1")
+    monkeypatch.setattr(cloud_attendance, "prune", lambda: pruned.append(1))
+    monkeypatch.setattr(cloud_attendance, "active_counts", dict)
+    monkeypatch.setattr(cloud_node, "_call", lambda *a, **k: {})
+    monkeypatch.setattr(cloud_node, "_beats", {"n": 0, "pruned": 0.0})
+    for _ in range(cloud_node.ATTENDANCE_EVERY * 3):
+        cloud_node.heartbeat([])
+    assert pruned == [1], "pruned on the first sending beat, then not before a day"
+    cloud_node._beats["pruned"] -= 24 * 3600
+    for _ in range(cloud_node.ATTENDANCE_EVERY):
+        cloud_node.heartbeat([])
     assert pruned == [1, 1]
 
 

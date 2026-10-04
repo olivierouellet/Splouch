@@ -84,10 +84,44 @@ def test_everything_comes_across(legacy):
     assert cloud_registry.register("k1", "", {}, "ca1", 1)["meet_id"] == "legacy01"
 
 
-def test_running_it_twice_duplicates_nothing(legacy):
-    cloud_import.import_dir(str(legacy))
-    second = cloud_import.import_dir(str(legacy))
-    assert second["attendance rows (skipped: already imported)"] == 2
-    import cloud_analytics
+def test_running_it_twice_changes_nothing(legacy):
+    first = cloud_import.import_dir(str(legacy))
+    assert cloud_import.import_dir(str(legacy)) == first
+    assert len(cloud_registry.backup()) == 1
 
-    assert cloud_analytics.attendee_count("m1", 0) == 2
+
+def test_the_attendance_file_stays_where_the_node_reads_it(legacy, monkeypatch):
+    """`analytics.db` is not imported: on the box's volume it already is the node's
+    store, so the counts carry on with no copy and no id reaches Postgres."""
+    import cloud_attendance
+    import cloud_paths
+
+    cloud_import.import_dir(str(legacy))
+    monkeypatch.setattr(cloud_paths, "ANALYTICS_FILE", str(legacy / "analytics.db"))
+    cloud_attendance.close()
+    try:
+        assert cloud_attendance.counts("m1")["all"] == 2
+    finally:
+        cloud_attendance.close()
+    with cloud_import.cloud_db.conn() as c:
+        assert c.execute("SELECT count(*) AS n FROM analytics").fetchone()["n"] == 0
+
+
+def test_rows_the_control_plane_kept_go_back_to_the_node(tmp_path, monkeypatch):
+    import cloud_attendance
+    import cloud_paths
+
+    with cloud_import.cloud_db.conn() as c:
+        c.execute(
+            "INSERT INTO analytics VALUES ('m9', 'a', 1, 'scoreboard'), "
+            "('m9', 'b', 2, 'results')"
+        )
+    monkeypatch.setattr(cloud_paths, "ANALYTICS_FILE", str(tmp_path / "analytics.db"))
+    cloud_attendance.close()
+    try:
+        assert cloud_import.handoff_attendance() == 2
+        assert cloud_attendance.counts("m9")["all"] == 2
+    finally:
+        cloud_attendance.close()
+    with cloud_import.cloud_db.conn() as c:
+        assert c.execute("SELECT count(*) AS n FROM analytics").fetchone()["n"] == 0

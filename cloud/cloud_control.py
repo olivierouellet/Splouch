@@ -21,7 +21,6 @@ import json
 import mimetypes
 import os
 import re
-import time
 import traceback
 import urllib.request
 from contextlib import asynccontextmanager, suppress
@@ -35,6 +34,7 @@ from pydantic import BaseModel
 from starlette.concurrency import run_in_threadpool
 
 import cloud_analytics
+import cloud_attendance
 import cloud_auth
 import cloud_db
 import cloud_i18n
@@ -150,25 +150,19 @@ def _load_cloud_strings(request):
 _MAINTENANCE_SECS = 30
 
 
-def _maintain(last_prune):
-    """One maintenance pass: retire silent meets, sweep expired ones, prune the
-    attendance counts once a day. Blocking — run off the loop."""
+def _maintain():
+    """One maintenance pass: retire silent meets, sweep expired ones and their
+    attendance numbers. Blocking — run off the loop. The visitor ids are pruned on
+    the nodes that keep them (`cloud_attendance`)."""
     cloud_registry.retire_silent()
     cloud_registry.sweep_expired()
-    if (
-        last_prune is None
-        or time.monotonic() - last_prune >= cloud_analytics._ANALYTICS_PRUNE_SECS
-    ):
-        cloud_analytics.analytics_prune()
-        return time.monotonic()
-    return last_prune
+    cloud_analytics.forget_gone()
 
 
 async def _maintenance_loop():
-    last_prune = None  # prune on the first pass
     while True:
         try:
-            last_prune = await run_in_threadpool(_maintain, last_prune)
+            await run_in_threadpool(_maintain)
         except Exception as e:
             # A database hiccup must not end the loop: it is what retires meets
             # whose worker died.
@@ -758,7 +752,7 @@ def route_add(request: Request):
 
 # The date at the top of `/privacy`. Bumped by hand with any change to `[privacy]`
 # in the locale files, which is what the page promises under "Changes".
-PRIVACY_UPDATED = "2026-10-01"
+PRIVACY_UPDATED = "2026-10-04"
 
 
 def _privacy_contact():
@@ -791,7 +785,7 @@ def route_privacy(request: Request):
             t=_strings(lang, "privacy"),
             locales=_available_locales(),
             host=request.url.hostname or "",
-            days=cloud_analytics._ANALYTICS_RETENTION_DAYS,
+            days=cloud_attendance.RETENTION_DAYS,
             updated=PRIVACY_UPDATED,
             contact=_privacy_contact(),
         ),
@@ -1246,12 +1240,9 @@ def route_stats(request: Request):
         return {"enabled": False, "count": None}
     meet_id = request.query_params.get("meet_id", "")
     window = request.query_params.get("window", "24h")
-    if window == "all":
-        since = 0
-    else:
-        delta = _ANALYTICS_WINDOWS.get(window, _ANALYTICS_WINDOWS["24h"])
-        since = int((datetime.datetime.now() - delta).timestamp())
-    return {"enabled": True, "count": _attendee_count(meet_id, since)}
+    if window != "all" and window not in _ANALYTICS_WINDOWS:
+        window = "24h"
+    return {"enabled": True, "count": _attendee_count(meet_id, window)}
 
 
 def _admin_nodes():
@@ -1523,10 +1514,9 @@ class HeartbeatIn(BaseModel):
     wg_pubkey: str = ""
     live: list[str] = []
     attendees: dict[str, int] = {}
-
-
-class AnalyticsIn(BaseModel):
-    rows: list[tuple[str, str, int, str]] = []
+    # The node's attendance numbers, from its worker 1 now and then: distinct
+    # visitors per meet and window. Never the ids (cloud_attendance).
+    attendance: dict[str, dict[str, int]] | None = None
 
 
 @internal.post("/register")
@@ -1574,20 +1564,9 @@ def internal_heartbeat(body: HeartbeatIn):
         wg_pubkey=body.wg_pubkey,
         attendees=body.attendees,
     )
+    if body.attendance:
+        cloud_analytics.store(body.node, body.attendance)
     return {"analytics_enabled": _analytics_enabled(), **result}
-
-
-@internal.post("/analytics")
-def internal_analytics(body: AnalyticsIn):
-    return {"stored": cloud_analytics.record(body.rows)}
-
-
-@internal.get("/analytics/{meet_id}")
-def internal_counts(meet_id: str):
-    """Attendance for the Pi's Cloud tab, asked for by the worker holding its relay."""
-    if not _analytics_enabled():
-        return {"enabled": False}
-    return {"enabled": True, "counts": cloud_analytics.attendee_counts(meet_id)}
 
 
 app.include_router(internal)

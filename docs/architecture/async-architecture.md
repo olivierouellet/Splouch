@@ -105,14 +105,15 @@ A retained meet's page fetches its record the same way — `meet_for()` in a syn
 route, `await run_in_threadpool(meet_for, ...)` in a WebSocket join — and caches it
 briefly, so a burst of joins is one call, not one per phone.
 
-**Analytics writes are batched.** Logging every spectator join with its own call —
-on the loop, from the WS connect handlers — would multiply a reconnect storm (a venue
-Wi-Fi blip dropping every phone at once, which the client heartbeat guarantees will
-retry) into thousands of requests. Instead `cloud_node.log_connection` just does a
-non-blocking `queue.put` (no I/O), and a background task (`analytics_flush_loop`,
-started in `lifespan`) drains the queue every few seconds and sends the whole batch
-in **one** call via `run_in_threadpool`. The queue is drained on shutdown too, and a
-batch the control plane cannot take is dropped rather than hoarded.
+**Attendance writes are batched.** Writing every spectator join on its own — on the
+loop, from the WS connect handlers — would turn a reconnect storm (a venue Wi-Fi blip
+dropping every phone at once, which the client heartbeat guarantees will retry) into
+thousands of commits. Instead `cloud_node.log_connection` just does a non-blocking
+`queue.put` (no I/O), and a background task (`analytics_flush_loop`, started in
+`lifespan`) drains the queue every few seconds into the node's SQLite store
+(`cloud_attendance`) in **one** transaction via `run_in_threadpool`. The ids stay on
+the node; worker 1 sends the counts with its heartbeat. The queue is drained on
+shutdown too.
 
 **The control plane** has no live sockets, so latency on its loop matters little; its
 routes are plain `def` handlers in the threadpool over a psycopg connection pool

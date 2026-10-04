@@ -10,20 +10,28 @@ everything in files under its data directory:
 
 Run once, on the control plane, with that directory mounted:
 
-    docker compose run --rm -v <old data volume>:/legacy control \\
-        python cloud_import.py /legacy
+    docker compose run --rm control python cloud_import.py /data
 
 Safe to run again: organizers and meets are upserted, the login and settings are
-overwritten with the file's, and analytics rows already imported are skipped.
-A live meet in the store is never overwritten by a retained one from the files.
+overwritten with the file's. A live meet in the store is never overwritten by a
+retained one from the files.
+
+`analytics.db` is not imported: attendance ids stay on the node that carries the
+meet (`cloud_attendance`), and that file — on the box's data volume — is already
+the node's store.
+
+    docker compose run --rm control python cloud_import.py --attendance
+
+hands back the attendance rows the control plane stored itself before it kept
+numbers only, into this box's node store, and empties its table.
 """
 
 import glob
 import json
 import os
-import sqlite3
 import sys
 
+import cloud_attendance
 import cloud_auth
 import cloud_db
 import cloud_registry
@@ -71,19 +79,23 @@ def retained_meets(data_dir):
     return out
 
 
-def analytics_rows(data_dir):
-    path = os.path.join(data_dir, "analytics.db")
-    if not os.path.exists(path):
-        return []
-    db = sqlite3.connect(path)
-    try:
-        return db.execute(
-            "SELECT meet_id, visitor_id, ts, namespace FROM connections"
+def handoff_attendance():
+    """Move the control plane's own attendance rows (stored by early versions of
+    the split) into this box's node store, then empty the table. Returns the count.
+
+    Only meaningful where the control plane and a node share the data volume — the
+    one-box deployment this was ever run on."""
+    cloud_db.migrate()
+    with cloud_db.conn() as c:
+        rows = c.execute(
+            "SELECT meet_id, visitor_id, ts, namespace FROM analytics"
         ).fetchall()
-    except sqlite3.Error:
-        return []
-    finally:
-        db.close()
+    cloud_attendance.record(
+        [(r["meet_id"], r["visitor_id"], r["ts"], r["namespace"]) for r in rows]
+    )
+    with cloud_db.conn() as c:
+        c.execute("DELETE FROM analytics")
+    return len(rows)
 
 
 def import_dir(data_dir):
@@ -104,20 +116,13 @@ def import_dir(data_dir):
         counts["login and settings"] = 1
 
     counts["retained meets"] = len(cloud_registry.restore(retained_meets(data_dir)))
-
-    rows = analytics_rows(data_dir)
-    with cloud_db.conn() as c:
-        already = c.execute("SELECT count(*) AS n FROM analytics").fetchone()["n"]
-        if rows and not already:
-            with c.cursor() as cur:
-                cur.executemany("INSERT INTO analytics VALUES (%s, %s, %s, %s)", rows)
-            counts["attendance rows"] = len(rows)
-        elif rows:
-            counts["attendance rows (skipped: already imported)"] = len(rows)
     return counts
 
 
 if __name__ == "__main__":
+    if sys.argv[1:] == ["--attendance"]:
+        print(f"attendance rows handed to the node: {handoff_attendance()}")
+        sys.exit(0)
     source = sys.argv[1] if len(sys.argv) > 1 else os.environ.get("DATA_DIR", "/data")
     for what, n in import_dir(source).items():
         print(f"{what}: {n}")

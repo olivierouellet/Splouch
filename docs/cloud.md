@@ -252,7 +252,13 @@ docker compose restart
 ```
 
 The import prints what it brought across and is safe to run again. The old files stay on
-the volume, untouched, until you delete them.
+the volume, untouched, until you delete them — `analytics.db` for good: it holds the
+attendance ids, which stay on the node that carries the meet, and the relay worker reads
+it where it is.
+
+A server that ran an early version of the split stored attendance ids in Postgres; hand
+them back to the node once with `docker compose run --rm control python cloud_import.py
+--attendance`.
 
 ## Workers and nodes
 
@@ -602,7 +608,13 @@ docker compose restart
 ```
 
 L'import affiche ce qu'il a repris et peut être relancé sans risque. Les anciens fichiers
-restent sur le volume, intacts, jusqu'à ce que vous les supprimiez.
+restent sur le volume, intacts, jusqu'à ce que vous les supprimiez — `analytics.db` pour de
+bon : il contient les identifiants de comptage, qui restent sur le nœud qui porte la
+compétition, et le worker de relais le lit là où il est.
+
+Un serveur qui a fait tourner une première version de la séparation a enregistré ces
+identifiants dans Postgres ; rendez-les une fois au nœud avec `docker compose run --rm
+control python cloud_import.py --attendance`.
 
 ### Workers et nœuds
 

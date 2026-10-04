@@ -142,11 +142,37 @@ MIGRATIONS = [
             ADD COLUMN moved_at         timestamp;
         """,
     ),
+    (
+        4,
+        """
+        -- Attendance as numbers only. The visitor ids stay on the node that
+        -- carries the meet (cloud_attendance); each node sends its distinct
+        -- counts per window, and a meet seen on two nodes adds them up.
+        CREATE TABLE attendance_counts (
+            meet_id    text NOT NULL,
+            node       text NOT NULL,
+            counts     jsonb NOT NULL,
+            updated_at timestamptz NOT NULL DEFAULT now(),
+            PRIMARY KEY (meet_id, node)
+        );
+        -- The old `analytics` table (visitor ids) is no longer written. Rows left
+        -- in it from before go back to the node with `cloud_import.py --attendance`,
+        -- which empties it.
+        """,
+    ),
 ]
 
 # Tables holding data, in an order TRUNCATE accepts. Tests empty these between
 # cases; `regions` is reference data and keeps its rows.
-DATA_TABLES = ("analytics", "meets", "nodes", "organizers", "settings", "admin")
+DATA_TABLES = (
+    "attendance_counts",
+    "analytics",
+    "meets",
+    "nodes",
+    "organizers",
+    "settings",
+    "admin",
+)
 
 
 def configure(url):

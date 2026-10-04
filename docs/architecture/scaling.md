@@ -111,7 +111,7 @@ If a node is down, that node's meets stop.
 | Picker | `GET /picker` lists live and retained meets across all nodes, each with its host and worker |
 | Regions | Region → nodes list, served to Pis and `/admin` — never hard-coded in clients |
 | Rollout | Drives node deploy webhooks (see *Updates*) |
-| Storage | Postgres (keys, organizers, nodes, registry, admin login and settings, attendance counts); nightly `pg_dump` off the box |
+| Storage | Postgres (keys, organizers, nodes, registry, admin login and settings, attendance **totals**); nightly `pg_dump` off the box. Visitor ids never: they stay on the node (*Attendance*) |
 | Pages | The picker, `/admin` (every tab), `/server`, `/servers`, `/add`, `/privacy`, `/.well-known/*` |
 
 Nodes call the control plane's internal API (`/internal/*`, every call carrying
@@ -246,13 +246,24 @@ to the same worker; the Pi renders the same templates with none.
    are batch 3.
 7. **Attendee counts on the Pi stay.** The worker holding a meet answers the Pi's
    `stats` request on the relay socket, as today
-   ([`cloud_server.py`](../../cloud/cloud_server.py), `stats`). *Done:* counts live
-   in the control plane's Postgres; workers send joins in batches and ask for the
-   numbers, so a meet's count stays whole across workers and nodes.
+   ([`cloud_server.py`](../../cloud/cloud_server.py), `stats`). *Done:* from the
+   node's own store, so it answers while the control plane is down (*Attendance*).
 8. **`/metrics`** per worker (see *Monitoring*).
 
 The **Server URL** field stays for clubs running their own relay: pointed at a
 self-hosted server, the Pi connects directly and skips assignment.
+
+### Attendance
+
+Visitor ids stay in the region of the meet. Each node keeps its meets' joins in one
+SQLite file on its data volume (`cloud_attendance`, WAL so its workers all write),
+counts distinct visitors per window there, prunes them after the retention
+`/privacy` states, and answers the Pi's Cloud tab from it. Worker 1 sends the
+node's **numbers** with every third heartbeat — `{meet: {1h, 3h, 12h, 24h, 7d,
+all}}` for each meet with a visitor in the last 7 days, so a finished meet's
+"last hour" still falls — and the control plane keeps them for `/admin`. No id
+crosses a border. A meet moved across nodes adds both nodes' numbers: a phone that
+saw it on both counts twice, the one approximation.
 
 ### Client impact
 
@@ -496,6 +507,7 @@ same webhook. It builds nothing: upstream images, pinned versions.
 | 2 — assignment and tickets | Done. `POST /api/assign` (least-loaded worker on a live node in the organizer's region; a meet goes back to the worker that held it), signed tickets checked by the worker, attendee counts in the heartbeat. The Pi asks before connecting and reports its country and state/province, which `/admin` flags beside the record with **Accept**; the region shows read-only on the Pi |
 | 3 — several workers, `/wN/` routing, live moves | Done. Worker set from the core count (`cloud_workers.py`: compose override, Caddy routes, graceful reload); `/wN/` in relay URLs, picker links and every page a worker serves; redirects and `moved` for a meet live elsewhere; live moves through the heartbeat; **Nodes** tab (state, drain, WireGuard key, forget) |
 | 4 — picker hands out host and worker; app contract | Done (server and web). `app.md` v3: `C-11` (meet's `base` from `GET /meets`), `C-12` (`moved {url, base}`), `A-12` (meet list unreachable → stay), `P-18` (compact rows above 10 meets, no images), `P-01`/`P-17` (organizer's province and country shown and searched), `A-09` (asked of the meet's base). iOS and Android still to build these |
+| 4b — attendance in the region | Done. Visitor ids on the node (SQLite, the old `analytics.db`), numbers only to the control plane, Pi answered locally; `C-10` one id per server, web hands it over in the URL fragment; `/privacy` says where ids are kept |
 | 5 — GHCR images, rolling update | Next |
 | 6 — monitoring | — |
 | 7 — installer roles, WireGuard | — |

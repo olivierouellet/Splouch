@@ -14,7 +14,8 @@ everything it must remember goes through here to the control plane's internal AP
 * **heartbeat** — every few seconds, the meets this worker holds. The control plane
   retires the ones it no longer names, and answers with the settings a worker needs
   (whether attendance counting is on).
-* **analytics** — joins are queued in memory and sent in batches.
+* **attendance** — joins are counted on this node (`cloud_attendance`), and only
+  the numbers travel, with worker 1's heartbeat; the visitor ids stay here.
 
 Every call here blocks (plain `urllib`, like the deploy-webhook calls before it);
 callers on the event loop wrap them in `run_in_threadpool`.
@@ -32,6 +33,8 @@ import urllib.error
 import urllib.request
 
 from starlette.concurrency import run_in_threadpool
+
+import cloud_attendance
 
 HEARTBEAT_SECS = 10
 _ANALYTICS_FLUSH_SECS = 5
@@ -191,11 +194,11 @@ def analytics_enabled():
 
 
 def counts(meet_id):
-    """Attendance for the Pi's Cloud tab: `{"enabled", "counts"}`."""
-    try:
-        return _call("GET", f"/internal/analytics/{meet_id}") or {"enabled": False}
-    except (ControlError, Refused):
-        return {"enabled": analytics_enabled(), "counts": {}}
+    """Attendance for the Pi's Cloud tab, from this node's own store:
+    `{"enabled", "counts"}`. No call: it answers while the control plane is down."""
+    if not analytics_enabled():
+        return {"enabled": False}
+    return {"enabled": True, "counts": cloud_attendance.counts(meet_id)}
 
 
 def wg_pubkey():
@@ -206,10 +209,34 @@ def wg_pubkey():
     return ""
 
 
+# Worker 1 of each node sends the node's attendance numbers — the store is shared,
+# so one sender is enough — on every ATTENDANCE_EVERY-th heartbeat, and prunes it
+# once a day.
+ATTENDANCE_EVERY = 3
+_beats = {"n": 0, "pruned": 0.0}
+
+
+def _attendance_due():
+    if worker_index() != 1:
+        return False
+    _beats["n"] += 1
+    return _beats["n"] % ATTENDANCE_EVERY == 1
+
+
 def heartbeat(live_ids, attendees=None):
     """Report the meets this worker holds, with each one's attendee count. Returns
     `{"retired": [ids], "moves": [{"meet_id", "url"}]}` — the moves are meets the
-    admin moved off this worker."""
+    admin moved off this worker.
+
+    Worker 1 also sends the node's attendance numbers now and then: distinct
+    visitors per meet and window, never the ids behind them.
+    """
+    attendance = None
+    if _attendance_due():
+        attendance = cloud_attendance.active_counts()
+        if time.time() - _beats["pruned"] >= 24 * 3600:
+            cloud_attendance.prune()
+            _beats["pruned"] = time.time()
     result = _call(
         "POST",
         "/internal/heartbeat",
@@ -222,6 +249,7 @@ def heartbeat(live_ids, attendees=None):
             "wg_pubkey": wg_pubkey(),
             "live": list(live_ids),
             "attendees": attendees or {},
+            "attendance": attendance,
         },
     )
     if not isinstance(result, dict):
@@ -264,19 +292,14 @@ def log_connection(meet_id, visitor_id, namespace):
 
 
 def flush_analytics():
-    """Send queued joins in one call. Blocking — run off the loop. A batch that
-    fails is dropped rather than retried: counts are approximate by nature, and a
-    queue that grows while the control plane is down is a memory leak."""
+    """Write queued joins to this node's store in one transaction. Blocking — run
+    off the loop. The ids stay on the node (`cloud_attendance`)."""
     rows = []
     with contextlib.suppress(queue.Empty):
         while True:
             rows.append(_analytics_queue.get_nowait())
-    if not rows:
-        return
-    try:
-        _call("POST", "/internal/analytics", {"rows": rows})
-    except (ControlError, Refused) as e:
-        print(f"[node] {len(rows)} attendance rows dropped: {e}", flush=True)
+    if rows:
+        cloud_attendance.record(rows)
 
 
 async def analytics_flush_loop():

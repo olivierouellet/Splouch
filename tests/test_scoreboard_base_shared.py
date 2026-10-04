@@ -271,9 +271,11 @@ def test_the_tabs_inherit_the_shell_resolved_language_and_style(shell_pi, shell_
             src = matched(rf'id="{frame}"[^>]*src="([^"]+)"', shell)
             assert "lang=" in src and "style=" in src, src
     # The choice itself is a cookie the server read before rendering, so the shell
-    # no longer reloads itself to restore it from client-side storage.
+    # no longer reloads itself to restore it from client-side storage. (Its one
+    # storage write is the attendance id a picker on another host hands over,
+    # docs/app.md `C-10` — never a preference, and never read back here.)
     for shell in (shell_pi, shell_cloud):
-        assert "localStorage" not in shell and "location.replace" not in shell
+        assert "localStorage.getItem" not in shell and "location.replace" not in shell
 
 
 def test_back_to_meets_only_where_there_are_meets(shell_pi, shell_cloud):
