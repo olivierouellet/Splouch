@@ -94,6 +94,8 @@ services:
       NODE_REGION:            ${NODE_REGION:-ca}
       # The public address a Pi is sent to (`/api/assign`).
       NODE_URL:               https://${SPLOUCH_DOMAIN}
+      # The meet list, for a meet page's back link (the control plane).
+      PICKER_URL:             https://${SPLOUCH_DOMAIN}/
       WORKER:                 "1"
       DATA_DIR:               /data
       FORWARDED_ALLOW_IPS:    ${FORWARDED_ALLOW_IPS:-127.0.0.1,::1,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16}

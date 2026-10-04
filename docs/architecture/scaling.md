@@ -495,7 +495,7 @@ same webhook. It builds nothing: upstream images, pinned versions.
 | 1 — control plane | Done. Control plane and worker split; Postgres store (organizers with country, state/province and region; meets; admin login and settings; counts); every admin tab and the picker on the control plane; internal API; worker heartbeat; import of a pre-split data directory. One box: Caddy sends a meet's live paths to the worker and everything else to the control plane |
 | 2 — assignment and tickets | Done. `POST /api/assign` (least-loaded worker on a live node in the organizer's region; a meet goes back to the worker that held it), signed tickets checked by the worker, attendee counts in the heartbeat. The Pi asks before connecting and reports its country and state/province, which `/admin` flags beside the record with **Accept**; the region shows read-only on the Pi |
 | 3 — several workers, `/wN/` routing, live moves | Done. Worker set from the core count (`cloud_workers.py`: compose override, Caddy routes, graceful reload); `/wN/` in relay URLs, picker links and every page a worker serves; redirects and `moved` for a meet live elsewhere; live moves through the heartbeat; **Nodes** tab (state, drain, WireGuard key, forget) |
-| 4 — picker hands out host and worker; app contract | Next |
-| 5 — GHCR images, rolling update | — |
+| 4 — picker hands out host and worker; app contract | Done (server and web). `app.md` v3: `C-11` (meet's `base` from `GET /meets`), `C-12` (`moved {url, base}`), `A-12` (meet list unreachable → stay), `P-18` (compact rows above 10 meets, no images), `P-01`/`P-17` (organizer's province and country shown and searched), `A-09` (asked of the meet's base). iOS and Android still to build these |
+| 5 — GHCR images, rolling update | Next |
 | 6 — monitoring | — |
 | 7 — installer roles, WireGuard | — |

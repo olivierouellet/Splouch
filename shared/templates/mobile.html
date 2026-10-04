@@ -101,6 +101,14 @@
         }
         nav a.nav-back:active { color: var(--shell-back-active); }
         nav a.nav-back svg { display: block; }
+        /* docs/app.md `A-12`: the meet list did not answer, so the spectator stays. */
+        #picker-down {
+            position: fixed; left: 50%; bottom: calc(72px + env(safe-area-inset-bottom));
+            transform: translateX(-50%); max-width: calc(100% - 32px);
+            padding: 10px 14px; border-radius: 8px; font-size: 0.9em;
+            background: var(--shell-bg, #222); color: var(--shell-fg, #eee);
+            border: 1px solid var(--shell-line, #444); z-index: 50;
+        }
 
         /* Swipe strips. Narrow and at the edges so they intercept a horizontal
            drag without stealing taps from the page underneath — the iframes fill
@@ -181,7 +189,7 @@
 
     <nav role="tablist">
         {% if meet_id %}
-        <a href="/" class="nav-back" aria-label="{{ t.back_to_meets or 'Meets' }}">
+        <a href="{{ picker_url or '/' }}" class="nav-back" id="nav-back" aria-label="{{ t.back_to_meets or 'Meets' }}">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
         </a>
         {% endif %}
@@ -398,5 +406,38 @@
             bindPtr(f);
         });
     </script>
+{% if meet_id %}
+<div id="picker-down" role="status" hidden>{{ t.picker_unavailable or 'Meet list unavailable — try again in a moment.' }}</div>
+<script>
+/* docs/app.md `A-12`. The meet list is served by the control plane, which can be
+   down while this meet's worker carries on. Asking first means a spectator who
+   taps back while it is down stays on a working board instead of landing on an
+   error page; the link still works as a link when this script cannot run. */
+(function () {
+    var back = document.getElementById('nav-back');
+    var note = document.getElementById('picker-down');
+    if (!back || !note || !window.fetch) return;
+    var hideTimer = null;
+    back.addEventListener('click', function (e) {
+        e.preventDefault();
+        var target = back.href;
+        var ctrl = window.AbortController ? new AbortController() : null;
+        var timer = setTimeout(function () { if (ctrl) ctrl.abort(); }, 4000);
+        fetch(new URL('meets', target).href, { cache: 'no-store', signal: ctrl ? ctrl.signal : undefined })
+            .then(function (r) {
+                clearTimeout(timer);
+                if (!r.ok) throw new Error(String(r.status));
+                location.href = target;
+            })
+            .catch(function () {
+                clearTimeout(timer);
+                note.hidden = false;
+                clearTimeout(hideTimer);
+                hideTimer = setTimeout(function () { note.hidden = true; }, 4000);
+            });
+    });
+})();
+</script>
+{% endif %}
 </body>
 </html>

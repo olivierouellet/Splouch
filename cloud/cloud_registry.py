@@ -39,7 +39,8 @@ MOVE_NOTICE_SECS = 120
 _LIST_COLUMNS = (
     "m.id, m.organizer, m.name, m.location, m.sport, m.meet_date, m.live, "
     "m.connected_at, m.expires_at, m.settings, m.node, m.worker, n.host AS node_url, "
-    "(m.picker_image_b64 <> '') AS has_picker_image"
+    "(m.picker_image_b64 <> '') AS has_picker_image, "
+    "coalesce(o.country, '') AS country, coalesce(o.province, '') AS province"
 )
 
 
@@ -47,6 +48,14 @@ def worker_url(node_url, worker):
     """A worker's public base: its node's URL and its `/wN` prefix
     (docs/architecture/scaling.md). Caddy strips the prefix on the way in."""
     return f"{(node_url or '').rstrip('/')}/w{int(worker)}"
+
+
+def meet_base(meet, here):
+    """Where a client reaches a meet (`app.md` `C-11`): a live meet's worker, else
+    `here` — this server, whose default route serves any retained meet."""
+    if meet.get("live") and meet.get("node_url") and meet.get("worker"):
+        return worker_url(meet["node_url"], meet["worker"])
+    return here.rstrip("/")
 
 
 def page_url(meet):
@@ -365,6 +374,7 @@ def heartbeat(
         "moves": [
             {
                 "meet_id": r["id"],
+                "base": worker_url(r["host"], r["worker"]),
                 "url": f"{worker_url(r['host'], r['worker'])}/mobile?meet={r['id']}",
             }
             for r in moves
@@ -458,6 +468,7 @@ def list_meets():
     with cloud_db.conn() as c:
         return c.execute(
             f"SELECT {_LIST_COLUMNS} FROM meets m LEFT JOIN nodes n ON n.name = m.node "
+            "LEFT JOIN organizers o ON o.key = m.organizer_key "
             "ORDER BY NOT m.live, lower(m.name), m.id"
         ).fetchall()
 

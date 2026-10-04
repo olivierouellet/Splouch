@@ -1,6 +1,6 @@
 # Splouch mobile — feature contract
 
-**Contract version: `v2`** · Clients: web phone pages (this repo), `Splouch-ios`,
+**Contract version: `v3`** · Clients: web phone pages (this repo), `Splouch-ios`,
 `Splouch-android` (§0.1).
 
 *Behaviour* contract: what a spectator sees/does on a phone, and what drives it. Binds all
@@ -154,8 +154,8 @@ Entry screen. Web: site root. App: launch screen, and `A-02`'s return target.
 
 | ID | Feature | Driven by | Scope | Level |
 | --- | --- | --- | --- | --- |
-| `P-01` | Meets as cards: name, date, location, sport | `GET /meets` ([`api.md`](api.md) §5.6) | all | must |
-| `P-02` | Per-meet picker image on card, if supplied | `settings.picker_image_b64` → `GET /picker_image/{meet_id}` | all | should |
+| `P-01` | Meets as cards: name, date, location, sport, and the organizer's state/province and country (country named in the reader's language) | `GET /meets` ([`api.md`](api.md) §5.6) → `country` (ISO code), `province` | all | must |
+| `P-02` | Per-meet picker image on card, if supplied — only while the list is short (`P-18`) | `settings.picker_image_b64` → `GET /picker_image/{meet_id}` | all | should |
 | `P-03` | Offline meets stay listed, dimmed dot; opened → last scoreboard frame, empty Results (`R-02`) | `offline`: retained, no relay connected | all | must |
 | `P-04` | Empty state, no active meets | `strings.no_meets` | all | must |
 | `P-05` | Branding: title + logo above/below, sized by aspect ratio within list width under height cap. Picker chrome in **device's** language, not a meet's (list spans meets in many languages; per-meet from `T-06`) | `GET /picker/config?lang=` or `Accept-Language` → `title`, `has_logo`, `logo_above`; `GET /picker_logo` (PNG/JPEG/GIF/WebP/SVG — read `Content-Type`) | all | should |
@@ -170,7 +170,8 @@ Entry screen. Web: site root. App: launch screen, and `A-02`'s return target.
 | `P-14` | Server on other contract versions → one-line notice naming both, once per session, beside server name; **never blocks connect** (newer = additive, older degrades a feature, e.g. `L-12` clock vs v1 relay) | `GET /server` → `contract.api`, `contract.app` ([`api.md`](api.md) §5.10) | native | should |
 | [`P-15`](#p-15) | Spectator's Appearance — Dark (default), Light, Automatic — in picker menu, applies on every screen of every meet | stored pref; server's two palettes ([`api.md`](api.md) §6.1), never `settings.theme_colors`; words native in apps (`T-05`); web reads `strings.appearance`, `appearance_dark` / `_light` / `_auto` | all | should |
 | [`P-16`](#p-11) | QR scan adds server: app asks; yes → adds, selects, lands on **meet list**. No app → page offers store | `https://<default host>/add?server=<origin>`; host's two `/.well-known/` files, `GET /add` ([`api.md`](api.md) §4) | native | should |
-| [`P-17`](#p-17) | Search meet list from **3** meets, narrows as typed, own empty state; field where platform puts search | local over `GET /meets` → `name`, `meet_date`, `location`, `sport`, `organizer`; `strings.meet_search`, `no_meets_match` | all | should |
+| [`P-17`](#p-17) | Search meet list from **3** meets, narrows as typed, own empty state; field where platform puts search | local over `GET /meets` → `name`, `meet_date`, `location`, `sport`, `organizer`, `province`, `country` (code and reader's-language name); `strings.meet_search`, `no_meets_match` | all | should |
+| `P-18` | More than **10** meets → compact rows: name, date, location, province/country, live dot; **no picker image**, none fetched. 10 or fewer → `P-01` cards | count of `GET /meets` → `meets` | all | should |
 
 ### <a id="p-06"></a>P-06, P-07 — notices
 
@@ -283,7 +284,8 @@ cookie). App stores choice itself.
 - Every query word, any order, must be substring of meet's folded fields space-joined —
   `quebec 2026` matches location + date.
 - Fold both sides per `S-09`'s four steps; web: `foldName()` in `shared/static/js/fold.js`.
-- Organizer searched, not shown.
+- Organizer searched, not shown. Country searched by code and by its name in the
+  reader's language (web: `Intl.DisplayNames`); province as sent.
 - `P-06` stays above list regardless of filter.
 - Query survives return from meet (`A-02`) and `P-09`, not cold launch: web
   `sessionStorage`, app while picker on stack.
@@ -303,9 +305,10 @@ cookie). App stores choice itself.
 | `A-06` | Content clears notch, Dynamic Island, home indicator | web: `env(safe-area-inset-*)`; native: free | all | must |
 | `A-07` | Short window → tabs stop costing height: compacted or moved aside | window height; placement platform's (§0.4) | all | should |
 | `A-08` | Window/home-screen title = `app_window_title`, else `name` | `settings.app_window_title`, `name`, `Splouch` | web | should |
-| [`A-09`](#config-fetch) | Meet gone mid-session → picker | cloud: `GET /meet/{id}/config` **404** (no socket signal: `join_meet` for a dropped meet is silently ignored; other failure = `C-03`); web: `GET /mobile` 303 → `/`; Pi: n/a | all | must |
+| [`A-09`](#config-fetch) | Meet gone mid-session → picker | cloud: `GET /meet/{id}/config` at the meet's `base` (`C-11`) **404** (no socket signal: `join_meet` for a dropped meet is silently ignored; other failure = `C-03`). A `moved` (`C-12`) is never gone. web: `GET /mobile` 303 → `/`; Pi: n/a | all | must |
 | [`A-10`](#a-03) | Where `A-03` swipes, tabs follow finger, settle on release; n/a without a swipe | — | all | should |
 | [`A-11`](#config-fetch) | Meet with **no timing console** → no Results tab at all, not empty one | `settings.console.timed` false (cloud: `GET /meet/{id}/config`; Pi: `GET /config`) | all | must |
+| `A-12` | Meet list unreachable → spectator in a meet stays there; back-to-picker shows a short notice and stays put until the list answers again | `GET /meets` fails or times out (~4 s); `mobile.picker_unavailable`; web: back link checks the list first | all | should |
 
 ### <a id="a-03"></a>A-03, A-10 — platform nav; pager where one exists
 
@@ -629,6 +632,8 @@ flowchart TD
 | `C-07` | Unknown events ignored, not errors | — | all | must |
 | `C-08` | `reload` → re-fetch config, redraw (web: full reload) | — | all | must |
 | `C-09` | `meet_live` gates live affordances; `disconnect` ⇒ `meet_live = false` | — | all | must |
+| `C-11` | **Meet's own address.** A meet's sockets (`C-01`), config, schedule and icon are at its `base`, not the server URL: the cloud runs several workers, each holding its meets in memory | `GET /meets` → `base` per meet; absent → server URL (older server). Pi: n/a | all | must |
+| `C-12` | `moved {url, base}` on any socket → the meet now lives at `base`: switch to it, reconnect all three sockets there, re-fetch config. Web: whole page to `url` | the admin moved the meet, or the socket reached the wrong worker ([`api.md`](api.md) §3) | all | must |
 | `C-10` | **Privacy binding.** Anonymous **per-server** id (`vid`) sent with `join_meet`; used only for `COUNT(DISTINCT)` attendance. Never derived from another `vid`, never sent to another server; Pi gets none (`C-02`) | random UUID per origin (scheme, host, port), stored locally, created on first `join_meet` to it | all | must |
 
 ---
@@ -756,6 +761,18 @@ Not on any phone client, now or planned:
 ---
 
 ## Changelog
+
+- **v3** (2026-10-04) — the cloud runs several workers, each holding its meets
+  ([`architecture/scaling.md`](architecture/scaling.md)). `contract.app` = `v3` → `P-14`
+  names it to v2 clients; a v2 client keeps working for every meet on the server's own
+  address.
+
+  - **Added**: `C-11` (meet's own address), `C-12` (`moved`), `A-12` (meet list
+    unreachable), `P-18` (compact list above 10 meets), `[mobile]` string
+    `picker_unavailable`.
+  - **Changed**: `P-01` (state/province and country shown), `P-02` (only while the list
+    is short), `P-17` (country and province searched), `A-09` (asked of the meet's `base`;
+    `moved` is not gone).
 
 - **v2, amended** (2026-10-01, no bump) — `P-12` cleartext floor widened to private and
   link-local addresses, and applied to every route in (typed, listed, scanned). iOS

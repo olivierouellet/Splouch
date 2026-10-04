@@ -18,7 +18,7 @@ from; the `diverges` rows are where v2 moved past them.
 
 | ID | Status | Notes |
 | --- | --- | --- |
-| `P-01` | `done` | `picker.html` over `_public_meet_list` |
+| `P-01` | `done` | `picker.html` over `_public_meet_list`; country named by `Intl.DisplayNames` in the page's language |
 | `P-02` | `done` | |
 | `P-03` | `done` | |
 | `P-04` | `done` | |
@@ -34,7 +34,8 @@ from; the `diverges` rows are where v2 moved past them.
 | `P-14` | `n/a` | native-only — a page is always the server's own version |
 | `P-15` | `done` | `splouch_theme` cookie; the Pi's pages keep the operator's palette (no picker) |
 | `P-16` | `n/a` | native-only; the web half is `GET /add` ([`api.md`](api.md) §4) |
-| `P-17` | `done` | field in the list from 3 meets, `foldName()` from `fold.js` |
+| `P-17` | `done` | field in the list from 3 meets, `foldName()` from `fold.js`; province and country code in `data-search`, the country's name added by the page script |
+| `P-18` | `done` | `compact` from `COMPACT_AFTER` in `cloud_control.py`; `.meets.compact`, no `<img>` rendered |
 
 ## 2. App shell
 
@@ -48,9 +49,10 @@ from; the `diverges` rows are where v2 moved past them.
 | `A-06` | `done` | `env(safe-area-inset-*)` |
 | `A-07` | `done` | `mobile.html`: a narrow window (≤480px) stacks each label under its icon, a short one (≤480px tall) drops the labels |
 | `A-08` | `done` | |
-| `A-09` | `done` | `GET /mobile` 303s to `/` |
+| `A-09` | `done` | `GET /mobile` 303s to `/`; a meet live on another worker 307s there instead |
 | `A-10` | `done` | from the edge strips the current tab follows the finger and its neighbour slides in; a quarter of the width or a flick settles on it, less springs back, nothing past the first or last tab. Reduced motion switches without the slide. `tests/test_shell_swipe.py` |
 | `A-11` | `done` | `show_results` in `mobile.html` |
+| `A-12` | `done` | `mobile.html` back link fetches `<picker>/meets` (4 s) first; `#picker-down` on failure |
 
 ## 3. Scoreboard tab
 
@@ -88,6 +90,8 @@ from; the `diverges` rows are where v2 moved past them.
 | ID | Status | Notes |
 | --- | --- | --- |
 | `C-01`–`C-10` | `done` | `shared/static/js/ws.js` |
+| `C-11` | `done` | a worker renders its pages with its `/wN` base (`wbase`), so sockets and tabs reach it; the picker links to it |
+| `C-12` | `done` | `ws.js` sends the whole page to `moved.url` |
 
 ## 7. Theme and language
 

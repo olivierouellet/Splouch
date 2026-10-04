@@ -493,7 +493,10 @@ def test_a_socket_for_a_meet_live_elsewhere_is_sent_there(wired, monkeypatch):
     assert ws.frames == [
         {
             "event": "moved",
-            "data": {"url": f"https://ca1.example/w1/mobile?meet={meet_id}"},
+            "data": {
+                "url": f"https://ca1.example/w1/mobile?meet={meet_id}",
+                "base": "https://ca1.example/w1",
+            },
         }
     ]
 
@@ -506,11 +509,17 @@ def test_a_moved_meet_s_pi_and_attendees_are_sent_on(wired):
     cs.manager.join(phone, cs._ch("scoreboard", meet_id))
     url = f"https://ca1.example/w2/mobile?meet={meet_id}"
     try:
-        asyncio.run(cs._on_moves([{"meet_id": meet_id, "url": url}]))
+        asyncio.run(
+            cs._on_moves(
+                [{"meet_id": meet_id, "url": url, "base": "https://ca1.example/w2"}]
+            )
+        )
     finally:
         cs._relay_sockets.pop("sid-1", None)
         cs.manager.channels.pop(cs._ch("scoreboard", meet_id), None)
-    assert phone.frames == [{"event": "moved", "data": {"url": url}}]
+    assert phone.frames == [
+        {"event": "moved", "data": {"url": url, "base": "https://ca1.example/w2"}}
+    ]
     assert ws_pi.frames == [
         {"event": "rejected", "data": {"reason": "moved", "reassign": True}}
     ]
@@ -562,3 +571,93 @@ def test_a_worker_reached_directly_answers_under_its_prefix(monkeypatch):
         }
         asyncio.run(cs.app(scope, receive, send))
         assert (sent["status"], sent["body"]) == (200, b"ok"), path
+
+
+# ── The picker and the meet's address (`app.md` v3) ────────────────────────────
+
+
+def test_meets_names_each_meet_s_base(wired):
+    meet_id = register(wired).frames[0]["data"]["meet_id"]
+    status, body = _asgi("GET", "/meets")
+    (meet,) = body["meets"]
+    assert status == 200
+    assert meet["base"] == "https://ca1.example/w1"
+    assert meet["url"] == f"https://ca1.example/w1/mobile?meet={meet_id}"
+    assert {"country", "province"} <= set(meet)
+
+
+def test_meets_is_readable_from_any_origin(wired):
+    """A meet page on a worker's host asks it before going back (`A-12`)."""
+    headers = {}
+
+    async def receive():
+        return {"type": "http.request", "body": b"", "more_body": False}
+
+    async def send(message):
+        if message["type"] == "http.response.start":
+            headers.update(dict(message["headers"]))
+
+    scope = {
+        "type": "http",
+        "asgi": {"version": "3.0"},
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "https",
+        "path": "/meets",
+        "raw_path": b"/meets",
+        "query_string": b"",
+        "root_path": "",
+        "headers": [(b"host", b"splouch.org")],
+        "client": ("203.0.113.9", 1),
+        "server": ("splouch.org", 443),
+    }
+    asyncio.run(cloud_control.app(scope, receive, send))
+    assert headers[b"access-control-allow-origin"] == b"*"
+
+
+def test_config_names_the_meet_s_base_here_and_after_a_move(wired, monkeypatch):
+    meet_id = register(wired).frames[0]["data"]["meet_id"]
+    assert cs.route_meet_config(meet_id)["base"] == "https://ca1.example/w1"
+    cs._meets.clear()
+    cloud_node._records.clear()
+    monkeypatch.setenv("WORKER", "2")  # asked of a worker that does not hold it
+    config = cs.route_meet_config(meet_id)
+    assert config["base"] == "https://ca1.example/w1" and config["live"] is True
+
+
+def test_the_shell_s_back_link_checks_the_meet_list_first(wired, monkeypatch):
+    monkeypatch.setenv("PICKER_URL", "https://splouch.org")
+    meet_id = register(wired).frames[0]["data"]["meet_id"]
+    shell = cs.route_mobile(_page("/mobile", f"meet={meet_id}".encode())).body.decode()
+    assert 'href="https://splouch.org/"' in shell and 'id="nav-back"' in shell
+    assert 'id="picker-down"' in shell
+    assert "new URL('meets', target)" in shell
+
+
+def _picker(n):
+    import cloud_auth
+
+    reg = cloud_control.cloud_registry
+    key = cloud_auth.add_organizer("Club", country="CA", province="QC", region="ca")
+    image = {"picker_image_b64": "eA=="}
+    for i in range(n):
+        meta = {**META, "name": f"Meet {i}", "settings": image}
+        reg.register(key, f"u{i}", meta, "ca1", 1)
+    return cloud_control.route_index(_page("/")).body.decode()
+
+
+def test_ten_meets_are_cards_with_their_images(wired):
+    html = _picker(10)
+    assert 'class="meets"' in html and "/picker_image/" in html
+
+
+def test_eleven_are_compact_rows_and_load_no_image(wired):
+    html = _picker(11)
+    assert 'class="meets compact"' in html and "/picker_image/" not in html
+
+
+def test_a_card_shows_and_searches_the_province_and_country(wired):
+    html = _picker(1)
+    assert '<span class="country" data-country="CA">CA</span>' in html
+    assert "<span>QC</span>" in html
+    assert 'data-search="Meet 0 2026-10-04 Club QC CA"' in html

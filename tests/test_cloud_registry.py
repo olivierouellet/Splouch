@@ -266,7 +266,11 @@ def test_the_old_worker_is_told_to_let_go(held):
     reg.move(held, "ca1", 2)
     moves = reg.heartbeat("ca1", 1, [held], host="https://ca1.example", workers=2)
     assert moves["moves"] == [
-        {"meet_id": held, "url": f"https://ca1.example/w2/mobile?meet={held}"}
+        {
+            "meet_id": held,
+            "base": "https://ca1.example/w2",
+            "url": f"https://ca1.example/w2/mobile?meet={held}",
+        }
     ]
     assert reg.heartbeat("ca1", 2, [], workers=2)["moves"] == []
 
@@ -338,3 +342,19 @@ def test_a_node_carrying_a_live_meet_is_not_forgotten(held):
     reg.retire(held, "ca1", 1)
     reg.forget_node("ca1")
     assert reg.nodes() == []
+
+
+# ── The picker's view (`app.md` `C-11`, `P-01`) ────────────────────────────────
+
+
+def test_the_list_carries_the_organizer_s_country_and_province(key, held):
+    (row,) = reg.list_meets()
+    assert (row["country"], row["province"]) == ("CA", "QC")
+
+
+def test_a_live_meet_is_reached_at_its_worker_and_a_retained_one_here(held):
+    (row,) = reg.list_meets()
+    assert reg.meet_base(row, "https://splouch.org") == "https://ca1.example/w1"
+    reg.retire(held, "ca1", 1)
+    (row,) = reg.list_meets()
+    assert reg.meet_base(row, "https://splouch.org/") == "https://splouch.org"

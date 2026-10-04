@@ -289,7 +289,7 @@ async def route_redoc():
 # ── Routes ─────────────────────────────────────────────────────────────────────
 
 
-def _public_meet_list():
+def _public_meet_list(here=""):
     """Meets for the picker — live and retained alike, live ones first.
 
     Shared by the HTML picker and ``GET /meets`` so a native client's list can
@@ -300,6 +300,10 @@ def _public_meet_list():
     Live first because a spectator opening the list is almost always after a
     meet that is running now; a retained one is a meet they are looking back
     at. The registry returns them in that order.
+
+    ``base`` is where a client reaches each meet (`app.md` `C-11`): a live meet's
+    worker, or ``here`` — this server — for a retained one. ``country`` and
+    ``province`` are the organizer's (`P-01`, `P-17`).
     """
     return [
         {
@@ -311,6 +315,9 @@ def _public_meet_list():
             "meet_date": m["meet_date"],
             "offline": not m["live"],
             "has_picker_image": m["has_picker_image"],
+            "country": m["country"],
+            "province": m["province"],
+            "base": cloud_registry.meet_base(m, here),
             "url": cloud_registry.page_url(m),
         }
         for m in cloud_registry.list_meets()
@@ -335,6 +342,10 @@ def _picker_branding():
     }
 
 
+# More meets than this and the picker draws compact rows with no images (`app.md`
+# `P-18`): five hundred picker images would be the page's whole weight.
+COMPACT_AFTER = 10
+
 # The picker chrome a native client renders itself. Kept server-side rather than
 # shipped in the app because results_disclaimer and privacy_note are compliance
 # text: they must be correctable without waiting on an App Store review.
@@ -354,7 +365,7 @@ _PICKER_STRING_KEYS = (
 
 @app.get("/", tags=["Public"])
 def route_index(request: Request):
-    meets = _public_meet_list()
+    meets = _public_meet_list(_here(request))
     brand = _picker_branding()
     # The list spans meets that may each run in a different language, so this page
     # follows the visitor, not a meet. Per-meet language starts at /mobile.
@@ -376,6 +387,7 @@ def route_index(request: Request):
             request,
             "picker.html",
             meets=meets,
+            compact=len(meets) > COMPACT_AFTER,
             store_buttons=store_buttons,
             t=_strings(lang, "mobile"),
             lang=lang,
@@ -396,7 +408,7 @@ def route_index(request: Request):
 # The contracts this build implements, for the handshake below. Bumped with the
 # headers of docs/api.md and docs/app.md, which a test pins.
 API_CONTRACT = "v2"
-APP_CONTRACT = "v2"
+APP_CONTRACT = "v3"
 
 SERVERS_FILE = os.path.join(DATA_DIR, "servers.json")
 
@@ -803,15 +815,26 @@ def route_i18n(lang: str, request: Request):
     return _etagged(request, _i18n_bundle(lang))
 
 
+def _here(request):
+    """This server's public origin, as the client reached it."""
+    return str(request.base_url).rstrip("/")
+
+
 @app.get("/meets", tags=["Public"])
-def route_meets():
+def route_meets(request: Request):
     """The meet list as JSON — the native picker's equivalent of ``GET /``.
 
     ``offline`` meets are retained ones with no relay currently connected; they
     stay listed on purpose so a spectator can still read the last state.
     ``has_picker_image`` says whether ``GET /picker_image/{id}`` will return an
-    image for that meet."""
-    return {"meets": _public_meet_list()}
+    image for that meet. ``base`` is where to reach each one (`app.md` `C-11`).
+
+    Readable from any origin: a meet page served by a worker on another host checks
+    the list is up before sending the spectator back to it (`A-12`)."""
+    return JSONResponse(
+        {"meets": _public_meet_list(_here(request))},
+        headers={"Access-Control-Allow-Origin": "*"},
+    )
 
 
 @app.get("/picker/config", tags=["Public"])

@@ -239,11 +239,10 @@ connects/disconnects), `update_scoreboard` (§5.1; the cloud throttles
 > **Re-join on reconnect.** After any drop the client must re-send `join_meet`;
 > the server replays `meet_live` + the latest cached snapshot so the UI catches up.
 
-> **`moved {url}` on any of the three** (cloud): the meet is held by another worker
-> — the admin moved it, or this socket reached the wrong one. `url` is the meet's
-> page on its worker. The web pages follow it; a native client may ignore it for
-> now, and will be told how to reconnect in the picker contract (batch 4 of
-> [`architecture/scaling.md`](architecture/scaling.md)). Additive.
+> **`moved {url, base}` on any of the three** (cloud): the meet is held by another
+> worker — the admin moved it, or this socket reached the wrong one. `base` is the
+> meet's new `base` (§5.6): reconnect all three sockets there and re-fetch config
+> (`app.md` `C-12`). `url` is its page there, which the web pages follow. Additive.
 
 > **An unknown `meet_id` is ignored, not refused.** `join_meet` for a meet this
 > server does not hold — expired, swept, or never here — gets **no reply**: no
@@ -292,7 +291,7 @@ JSON/asset endpoints (everything else the servers expose is HTML for the browser
 | `GET /` | picker page (HTML) — meet cards |
 | `GET /meets` | **meet list JSON** — `{ "meets": [ … ] }`, the same records the picker cards render (§5.6) |
 | `GET /picker/config` | **picker chrome JSON** — branding, localised strings, analytics flag (§5.7) |
-| `GET /meet/{meet_id}/config` | **meet config JSON** — `name`, `location`, `sport`, `meet_date`, `live`, and the `settings` block (§5.4). Lets a phone render the board without scraping the HTML page |
+| `GET /meet/{meet_id}/config` | **meet config JSON** — `name`, `location`, `sport`, `meet_date`, `live`, `base`, and the `settings` block (§5.4). Lets a phone render the board without scraping the HTML page. `base` is where the meet is reached now (§5.6): asked of a worker after a move, it names the new one |
 | `GET /meet/{meet_id}/schedule` | **start list JSON** — `{ "heats": [ … ] }` (§5.8); 404 for an unknown meet, empty `heats` when the meet has no schedule yet |
 | `GET /server` | **who this server is** (§5.10) — `kind: "cloud"` |
 | `GET /servers` | **server directory** (§5.11) — where else a client may connect; this server always first |
@@ -478,11 +477,21 @@ table: `labels` is the operator's pick, resolved from the same file.
 { "meets": [ { "id": "aBc123", "name": "…", "location": "…", "sport": "…",
                "organizer": "…", "meet_date": "YYYY-MM-DD",
                "offline": false, "has_picker_image": true,
+               "country": "CA", "province": "QC",
+               "base": "https://ca1.splouch.org/w2",
                "url": "https://ca1.splouch.org/w2/mobile?meet=aBc123" } ] }
 ```
 
-`url` is where the meet's page is served: a live meet's worker, or `/mobile?meet=…`
-on this server for a retained one. Additive; the web picker links to it.
+- **`base`** is where a client reaches the meet (`app.md` `C-11`): its sockets
+  (`<base>/ws/scoreboard`, …), `<base>/meet/{id}/config`, `<base>/meet/{id}/schedule`,
+  `<base>/icon/{id}`. A live meet's worker; this server's own origin for a retained one,
+  which any worker serves. Absent from an older server → use the server URL.
+- **`url`** is the meet's page there; the web picker links to it.
+- **`country`** (ISO 3166-1 alpha-2) and **`province`** are the organizer's, `""` when
+  unrecorded (`P-01`, `P-17`).
+
+All additive. The list is readable from any origin (`Access-Control-Allow-Origin: *`):
+a meet page on a worker's host checks it before going back to the picker (`A-12`).
 
 `offline` marks a retained meet with no relay currently connected — still listed
 on purpose, so an attendee can read its last scoreboard frame. Not its results: the
@@ -773,9 +782,11 @@ can tell the console has stopped talking to it. Faces, both palettes: `family`
 
 ## Changelog
 
-- **Added since v2, additive**: `moved {url}` on the three attendee sockets (§3) and
-  `url` in `GET /meets` (§5.6), from the cloud running several workers. A client
-  that ignores both is unaffected while a meet stays on one worker.
+- **Added since v2, additive**: `moved {url, base}` on the three attendee sockets (§3);
+  `base`, `url`, `country`, `province` in `GET /meets` (§5.6); `base` in
+  `GET /meet/{id}/config` — from the cloud running several workers (`app.md` v3,
+  `C-11`, `C-12`, `P-01`, `P-17`). A client that ignores them works while a meet stays
+  on the server's own address.
 
 - **Relay only, not a client change**: `POST /api/assign` (§5.12), and a `ticket` that
   `register` now requires (§3, §5.4). A Pi from before this cannot publish to a cloud

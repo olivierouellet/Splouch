@@ -101,6 +101,10 @@
         .card-name { font-size: 1em; font-weight: 600; margin-bottom: 4px; }
         .card-meta { font-size: 0.85em; color: var(--muted); line-height: 1.5; }
         .card-meta span + span::before { content: ' · '; }
+        /* docs/app.md `P-18`: past ten meets, rows instead of cards and no images. */
+        .meets.compact { flex-direction: column; gap: 6px; }
+        .meets.compact .card { max-width: none; padding: 10px 14px; gap: 10px; border-radius: 8px; }
+        .meets.compact .card-name { margin-bottom: 1px; }
         .status-dot {
             width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
             background: #4CAF50; box-shadow: 0 0 6px rgba(76,175,80,0.7);
@@ -357,22 +361,25 @@
            autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
            enterkeyhint="search">
     {% endif %}
-    <div class="meets">
+    <div class="meets{% if compact %} compact{% endif %}">
         {% for meet in meets %}
         {# What the search matches: what the card shows, plus the organizer, which a
-           spectator may know the meet by. #}
+           spectator may know the meet by. The country's name in the reader's
+           language is added by the script below (`P-17`). #}
         <a class="card" href="{{ meet.url }}"
-           data-search="{{ [meet.name, meet.meet_date, meet.location, meet.sport, meet.organizer] | select | join(' ') }}">
+           data-search="{{ [meet.name, meet.meet_date, meet.location, meet.sport, meet.organizer, meet.province, meet.country] | select | join(' ') }}">
             <span class="status-dot{% if meet.offline %} off{% endif %}"></span>
-            {% if meet.has_picker_image %}
-            <img src="/picker_image/{{ meet.id }}" class="card-img" alt="">
+            {% if meet.has_picker_image and not compact %}
+            <img src="/picker_image/{{ meet.id }}" class="card-img" alt="" loading="lazy">
             {% endif %}
             <div class="card-body">
                 <div class="card-name">{{ meet.name or t.unnamed_meet }}</div>
                 <div class="card-meta">
                     {% if meet.meet_date %}<span>{{ meet.meet_date }}</span>{% endif %}
                     {% if meet.location %}<span>{{ meet.location }}</span>{% endif %}
-                    {% if meet.sport %}<span>{{ meet.sport }}</span>{% endif %}
+                    {% if meet.province %}<span>{{ meet.province }}</span>{% endif %}
+                    {% if meet.country %}<span class="country" data-country="{{ meet.country }}">{{ meet.country }}</span>{% endif %}
+                    {% if meet.sport and not compact %}<span>{{ meet.sport }}</span>{% endif %}
                 </div>
             </div>
         </a>
@@ -439,6 +446,29 @@ var NOTICE_KEY = 'splouch_notice_';
    and the back arrow from a meet, and ends with the tab. A shared link or a
    home-screen launch always opens the whole list. */
 var MEET_SEARCH_KEY = 'splouch_meet_search';
+
+/* docs/app.md `P-01`, `P-17`: the organizer's country is sent as a code; the card
+   names it in the reader's language and the search matches that name too. The
+   browser's own table, so no locale file carries country names; one without it
+   keeps the code. Runs before the search index below is built. */
+(function () {
+    var DisplayNames = typeof Intl !== 'undefined' && Intl.DisplayNames;
+    if (!DisplayNames) return;
+    var names;
+    try {
+        names = new DisplayNames([document.documentElement.lang || 'en'], { type: 'region' });
+    } catch (e) {
+        return;
+    }
+    document.querySelectorAll('.meets .card').forEach(function (card) {
+        var el = card.querySelector('.country[data-country]');
+        if (!el) return;
+        var name = names.of(el.dataset.country);
+        if (!name) return;
+        el.textContent = name;
+        card.dataset.search += ' ' + name;
+    });
+})();
 
 function meetMatches(key, query) {
     var words = foldName(query).split(/\s+/);

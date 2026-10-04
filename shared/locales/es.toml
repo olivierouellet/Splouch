@@ -64,6 +64,7 @@ reset_filters      = "Restablecer"
 reset_confirm      = "¿Borrar todos los filtros?"
 no_meet            = "No hay archivo de competición cargado"
 back_to_meets      = "Competiciones"
+picker_unavailable = "Lista de competiciones no disponible — inténtelo de nuevo en un momento."
 
 # Selector — lista de competiciones, controles de idioma y de etiquetas, y el
 # texto de cumplimiento que obtiene un selector nativo (docs/api.md §5.7).

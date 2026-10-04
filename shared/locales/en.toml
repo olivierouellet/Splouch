@@ -58,6 +58,7 @@ reset_filters      = "Reset"
 reset_confirm      = "Clear all filters?"
 no_meet            = "No meet file loaded"
 back_to_meets      = "Meets"
+picker_unavailable = "Meet list unavailable — try again in a moment."
 
 # Picker chrome — the cloud meet list, the language and label-style controls,
 # and the compliance text a native picker fetches (docs/api.md §5.7).

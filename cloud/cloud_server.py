@@ -64,6 +64,19 @@ def _wbase():
     return f"/w{cloud_node.worker_index()}"
 
 
+def _own_base():
+    """This worker's public base, its node URL and prefix; '' when unknown."""
+    node = cloud_node.node_url()
+    return f"{node}{_wbase()}" if node else ""
+
+
+def _picker_url():
+    """The meet list's address, for the shell's back link (`app.md` `A-02`, `A-12`):
+    the control plane, which on a node of its own is another host. Ends in `/`."""
+    url = os.environ.get("PICKER_URL", "").strip() or "/"
+    return url if url.endswith("/") else url + "/"
+
+
 def _elsewhere(meet):
     """The page URL of a meet live on another worker, or None.
 
@@ -78,8 +91,17 @@ def _elsewhere(meet):
         cloud_node.worker_index(),
     ):
         return None
-    base = f"{meet['node_url'].rstrip('/')}/w{meet['worker']}"
-    return f"{base}/mobile?meet={meet.get('id', '')}"
+    return f"{_meet_base(meet)}/mobile?meet={meet.get('id', '')}"
+
+
+def _meet_base(meet):
+    """The base a record names for its live meet: node URL and worker prefix."""
+    return f"{meet['node_url'].rstrip('/')}/w{meet['worker']}"
+
+
+def _moved(meet):
+    """The `moved` frame for a meet live elsewhere (`app.md` `C-12`)."""
+    return {"url": _elsewhere(meet), "base": _meet_base(meet)}
 
 
 async def _on_moves(moves):
@@ -91,14 +113,16 @@ async def _on_moves(moves):
     is no longer this worker's.
     """
     for move in moves:
-        meet_id, url = move.get("meet_id"), move.get("url")
+        meet_id, url, base = move.get("meet_id"), move.get("url"), move.get("base")
         with _lock:
             meet = _meets.get(meet_id)
             ws = _relay_sockets.get(meet.get("relay_sid")) if meet else None
         if not meet:
             continue
         for ns in ("scoreboard", "results", "schedule"):
-            await manager.broadcast(_ch(ns, meet_id), "moved", {"url": url})
+            await manager.broadcast(
+                _ch(ns, meet_id), "moved", {"url": url, "base": base}
+            )
         if ws is not None:
             await manager.send(ws, "rejected", {"reason": "moved", "reassign": True})
             with suppress(Exception):
@@ -174,6 +198,7 @@ def route_mobile(request: Request):
             request,
             "mobile.html",
             wbase=_wbase(),
+            picker_url=_picker_url(),
             meet_id=meet_id,
             app_title=(meet.get("app_window_title") or meet["name"] or "Splouch"),
             t=_strings(_client_lang(request, meet), "mobile"),
@@ -361,8 +386,11 @@ def route_meet_config(meet_id: str):
         "sport": meet.get("sport", ""),
         "app_window_title": meet.get("app_window_title", ""),
         "meet_date": meet.get("meet_date", ""),
-        "live": live,
+        "live": live or bool(_elsewhere(meet)),
         "settings": meet.get("settings", {}),
+        # Where the meet is reached (`app.md` `C-11`): this worker, or the one
+        # holding it now — a client that fetched here after a move follows it.
+        "base": _meet_base(meet) if _elsewhere(meet) else _own_base(),
     }
 
 
@@ -681,7 +709,7 @@ async def ws_scoreboard(ws: WebSocket):
             if not meet:
                 continue
             if _elsewhere(meet):
-                await manager.send(ws, "moved", {"url": _elsewhere(meet)})
+                await manager.send(ws, "moved", _moved(meet))
                 continue
             manager.join(ws, _ch("scoreboard", meet_id))
             cloud_node.log_connection(meet_id, data.get("vid", ""), "scoreboard")
@@ -715,7 +743,7 @@ async def ws_results(ws: WebSocket):
             if not meet:
                 continue
             if _elsewhere(meet):
-                await manager.send(ws, "moved", {"url": _elsewhere(meet)})
+                await manager.send(ws, "moved", _moved(meet))
                 continue
             manager.join(ws, _ch("results", meet_id))
             cloud_node.log_connection(meet_id, data.get("vid", ""), "results")
@@ -748,7 +776,7 @@ async def ws_schedule(ws: WebSocket):
             if not meet:
                 continue
             if _elsewhere(meet):
-                await manager.send(ws, "moved", {"url": _elsewhere(meet)})
+                await manager.send(ws, "moved", _moved(meet))
                 continue
             manager.join(ws, _ch("schedule", meet_id))
             cloud_node.log_connection(meet_id, data.get("vid", ""), "schedule")

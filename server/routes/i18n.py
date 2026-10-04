@@ -21,7 +21,7 @@ router = APIRouter(tags=["Strings"])
 # The contracts this build implements, for the handshake below. Bumped with the
 # headers of docs/api.md and docs/app.md, which a test pins.
 API_CONTRACT = "v2"
-APP_CONTRACT = "v2"
+APP_CONTRACT = "v3"
 
 
 @router.get("/server")
