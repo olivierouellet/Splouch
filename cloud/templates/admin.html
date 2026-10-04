@@ -40,6 +40,7 @@
                 <nav class="nav flex-column app-nav">
                     <a class="nav-link" data-target="#tab-meets"><i class="bi bi-water me-2"></i>{{ t.active_meets }}</a>
                     <a class="nav-link" data-target="#tab-organizers"><i class="bi bi-people me-2"></i>{{ t.organizers }}</a>
+                    <a class="nav-link" data-target="#tab-nodes"><i class="bi bi-hdd-network me-2"></i>{{ t.tab_nodes }}</a>
                     <a class="nav-link" data-target="#tab-appearance"><i class="bi bi-palette me-2"></i>{{ t.get('tab_appearance', 'Appearance') }}</a>
                     <a class="nav-link" data-target="#tab-update"><i class="bi bi-arrow-repeat me-2"></i>{{ t.get('tab_update', 'Update & Backup') }}</a>
                     <a class="nav-link" data-target="#tab-debug"><i class="bi bi-bug me-2"></i>{{ t.get('tab_debug', 'Debug') }}</a>
@@ -100,6 +101,9 @@
 
         <!-- ── Organizers ── -->
 {% include 'admin/organizers.html' %}
+
+        <!-- ── Nodes ── -->
+{% include 'admin/nodes.html' %}
 
         <!-- ── Appearance ── -->
 {% include 'admin/appearance.html' %}

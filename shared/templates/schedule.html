@@ -779,9 +779,9 @@ renderSchedule();
 </script>
 
 <script>
-var sockResults    = splouchSocket('/ws/results');
-var sockScoreboard = splouchSocket('/ws/scoreboard');
-var sockSchedule   = splouchSocket('/ws/schedule');
+var sockResults    = splouchSocket('{{ wbase or '' }}/ws/results');
+var sockScoreboard = splouchSocket('{{ wbase or '' }}/ws/scoreboard');
+var sockSchedule   = splouchSocket('{{ wbase or '' }}/ws/schedule');
 
 // The cloud routes by room and must (re)join on every connect; the Pi pushes to
 // whoever is attached, so there is nothing to send.

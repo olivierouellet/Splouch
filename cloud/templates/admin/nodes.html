@@ -1,0 +1,54 @@
+        <div class="tab-pane" id="tab-nodes">
+            <p class="small text-body-secondary">{{ t.nodes_note }}</p>
+            <div class="table-responsive">
+            <table class="table table-sm align-middle">
+                <thead><tr><th>{{ t.col_node }}</th><th>{{ t.col_region }}</th><th>{{ t.col_workers }}</th><th>{{ t.col_meets }}</th><th>{{ t.col_status }}</th><th>{{ t.col_last_seen }}</th><th>{{ t.col_wg_key }}</th><th></th></tr></thead>
+                <tbody>
+                {% for n in (nodes or []) %}
+                    <tr>
+                        <td>
+                            <span class="fw-semibold">{{ n.name }}</span>
+                            <div class="small text-body-secondary text-break">{{ n.url }}</div>
+                        </td>
+                        <td>{{ t['region_' ~ n.region] if n.region else '—' }}</td>
+                        <td>{{ n.workers }}</td>
+                        <td>{{ n.meets }}{% if n.attendees %} <span class="small text-body-secondary">· {{ n.attendees }}</span>{% endif %}</td>
+                        <td class="text-nowrap">
+                            <span class="badge rounded-pill {{ 'text-bg-success' if n.up else 'text-bg-danger' }}">{{ t.node_up if n.up else t.node_down }}</span>
+                            <span class="badge rounded-pill {{ 'text-bg-secondary' if n.state == 'active' else 'text-bg-warning' }}">{{ t.node_active if n.state == 'active' else t.node_draining }}</span>
+                        </td>
+                        <td class="small text-nowrap">{{ n.last_seen or '—' }}</td>
+                        <td>
+                            {% if n.wg_pubkey %}
+                            <span class="font-monospace small text-body-secondary text-break">{{ n.wg_pubkey[:12] }}…</span>
+                            <button type="button" class="btn btn-outline-secondary btn-sm copy" data-copied="{{ t['copied'] }}" onclick="copyKey(this, '{{ n.wg_pubkey }}')">{{ t['copy'] }}</button>
+                            {% else %}—{% endif %}
+                        </td>
+                        <td class="text-nowrap">
+                            <form method="post" class="d-inline">
+                                <input type="hidden" name="action" value="node_state">
+                                <input type="hidden" name="node" value="{{ n.name }}">
+                                {% if n.state == 'active' %}
+                                <input type="hidden" name="state" value="draining">
+                                <button type="submit" class="btn btn-outline-warning btn-sm" data-hold data-hold-label="{{ t.hold_drain }}">{{ t.drain }}</button>
+                                {% else %}
+                                <input type="hidden" name="state" value="active">
+                                <button type="submit" class="btn btn-outline-secondary btn-sm">{{ t.activate }}</button>
+                                {% endif %}
+                            </form>
+                            {% if not n.up and not n.meets %}
+                            <form method="post" class="d-inline ms-1">
+                                <input type="hidden" name="action" value="forget_node">
+                                <input type="hidden" name="node" value="{{ n.name }}">
+                                <button type="submit" class="btn btn-outline-danger btn-sm" data-hold data-hold-label="{{ t.hold_forget }}">{{ t.forget }}</button>
+                            </form>
+                            {% endif %}
+                        </td>
+                    </tr>
+                {% else %}
+                    <tr><td colspan="8" class="text-body-secondary fst-italic">{{ t.no_nodes }}</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+            </div>
+        </div>

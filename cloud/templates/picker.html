@@ -361,7 +361,7 @@
         {% for meet in meets %}
         {# What the search matches: what the card shows, plus the organizer, which a
            spectator may know the meet by. #}
-        <a class="card" href="/mobile?meet={{ meet.id }}"
+        <a class="card" href="{{ meet.url }}"
            data-search="{{ [meet.name, meet.meet_date, meet.location, meet.sport, meet.organizer] | select | join(' ') }}">
             <span class="status-dot{% if meet.offline %} off{% endif %}"></span>
             {% if meet.has_picker_image %}

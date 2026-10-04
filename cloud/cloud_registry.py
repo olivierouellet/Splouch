@@ -29,12 +29,35 @@ from splouch_regions import clean_location
 # meets are retired (`retire_silent`). Workers report every
 # `cloud_node.HEARTBEAT_SECS`; a few missed beats is a dead worker, not a slow one.
 SILENT_AFTER_SECS = 90
+# How long a moved meet may be missing from every worker's heartbeat — the old one
+# has let it go, the Pi has not yet reached the new one — before it is retired.
+MOVE_GRACE_SECS = 30
+# How long the old worker keeps being told to let a moved meet go.
+MOVE_NOTICE_SECS = 120
 
 # The picker's columns. Never the start list or the two images.
 _LIST_COLUMNS = (
-    "id, organizer, name, location, sport, meet_date, live, connected_at, "
-    "expires_at, settings, node, worker, (picker_image_b64 <> '') AS has_picker_image"
+    "m.id, m.organizer, m.name, m.location, m.sport, m.meet_date, m.live, "
+    "m.connected_at, m.expires_at, m.settings, m.node, m.worker, n.host AS node_url, "
+    "(m.picker_image_b64 <> '') AS has_picker_image"
 )
+
+
+def worker_url(node_url, worker):
+    """A worker's public base: its node's URL and its `/wN` prefix
+    (docs/architecture/scaling.md). Caddy strips the prefix on the way in."""
+    return f"{(node_url or '').rstrip('/')}/w{int(worker)}"
+
+
+def page_url(meet):
+    """Where a meet's page is served. A live meet's worker holds it in memory, so
+    the link goes there; a retained one can be served by any worker, from its
+    record, and goes to this domain's default route."""
+    if meet.get("live") and meet.get("node_url") and meet.get("worker"):
+        return (
+            f"{worker_url(meet['node_url'], meet['worker'])}/mobile?meet={meet['id']}"
+        )
+    return f"/mobile?meet={meet['id']}"
 
 
 def meet_id_for(key, meet_uid):
@@ -216,6 +239,7 @@ def register(key, meet_uid, meta, node, worker, location=None):
             "home_icon_b64 = EXCLUDED.home_icon_b64, "
             "picker_image_b64 = EXCLUDED.picker_image_b64, live = true, "
             "node = EXCLUDED.node, worker = EXCLUDED.worker, "
+            "move_from_node = NULL, move_from_worker = NULL, moved_at = NULL, "
             "connected_at = EXCLUDED.connected_at, last_seen = EXCLUDED.last_seen, "
             "expires_at = NULL",
             (
@@ -289,8 +313,13 @@ def heartbeat(
     attendees=None,
 ):
     """A worker says which meets it holds, and how many attendees each has.
-    Retires the ones it no longer names."""
+
+    Returns `{"retired": [ids], "moves": [{"meet_id", "url"}]}`: the meets it no
+    longer names are retired, and the moves are meets the admin moved off this
+    worker, with the page URL their attendees should go to.
+    """
     now = datetime.datetime.now()
+    grace = now - datetime.timedelta(seconds=MOVE_GRACE_SECS)
     with cloud_db.conn() as c:
         c.execute(
             "INSERT INTO nodes (name, region, host, workers, wg_pubkey, last_seen) "
@@ -302,8 +331,9 @@ def heartbeat(
             (node, region or None, host, workers, wg_pubkey),
         )
         c.execute(
-            "UPDATE meets SET last_seen = %s WHERE live AND node = %s AND worker = %s",
-            (now, node, worker),
+            "UPDATE meets SET last_seen = %s WHERE live AND node = %s AND worker = %s "
+            "AND id = ANY(%s)",
+            (now, node, worker, list(live_ids)),
         )
         for meet_id, n in (attendees or {}).items():
             c.execute(
@@ -311,12 +341,70 @@ def heartbeat(
                 "WHERE id = %s AND live AND node = %s AND worker = %s",
                 (max(int(n), 0), meet_id, node, worker),
             )
-        return _retire_where(
+        # A meet just moved here is not yet held by anyone; give the Pi its grace.
+        retired = _retire_where(
             c,
-            "node = %s AND worker = %s AND NOT (id = ANY(%s))",
-            (node, worker, list(live_ids)),
+            "node = %s AND worker = %s AND NOT (id = ANY(%s)) "
+            "AND (moved_at IS NULL OR moved_at < %s)",
+            (node, worker, list(live_ids), grace),
             now,
         )
+        moves = c.execute(
+            "SELECT m.id, m.worker, n.host FROM meets m JOIN nodes n ON n.name = m.node "
+            "WHERE m.move_from_node = %s AND m.move_from_worker = %s "
+            "AND m.moved_at >= %s AND m.id = ANY(%s)",
+            (
+                node,
+                worker,
+                now - datetime.timedelta(seconds=MOVE_NOTICE_SECS),
+                list(live_ids),
+            ),
+        ).fetchall()
+    return {
+        "retired": retired,
+        "moves": [
+            {
+                "meet_id": r["id"],
+                "url": f"{worker_url(r['host'], r['worker'])}/mobile?meet={r['id']}",
+            }
+            for r in moves
+        ],
+    }
+
+
+def move(meet_id, node, worker):
+    """Move a live meet to another worker. False when the meet is not live, the
+    target is not a live active node's worker, or the meet is already there.
+
+    `node`/`worker` are rewritten to the target at once, so the Pi's next
+    `/api/assign` lands there and the old worker's disconnect cannot retire it; the
+    old worker learns to let go from its next heartbeat (`heartbeat`).
+    """
+    cutoff = datetime.datetime.now(datetime.UTC) - datetime.timedelta(
+        seconds=SILENT_AFTER_SECS
+    )
+    with cloud_db.conn() as c:
+        meet = c.execute(
+            "SELECT node, worker FROM meets WHERE id = %s AND live", (meet_id,)
+        ).fetchone()
+        target = c.execute(
+            "SELECT workers FROM nodes WHERE name = %s AND state = 'active' "
+            "AND last_seen >= %s",
+            (node, cutoff),
+        ).fetchone()
+        if (
+            meet is None
+            or target is None
+            or not 1 <= int(worker) <= target["workers"]
+            or (meet["node"], meet["worker"]) == (node, int(worker))
+        ):
+            return False
+        c.execute(
+            "UPDATE meets SET move_from_node = node, move_from_worker = worker, "
+            "node = %s, worker = %s, moved_at = %s WHERE id = %s",
+            (node, int(worker), datetime.datetime.now(), meet_id),
+        )
+    return True
 
 
 def retire_silent(max_age_seconds=SILENT_AFTER_SECS, now=None):
@@ -332,10 +420,19 @@ def retire_silent(max_age_seconds=SILENT_AFTER_SECS, now=None):
 
 
 def get(meet_id):
-    """A meet's full record, or None."""
+    """A meet's full record, or None. Carries its node's public URL, so a worker
+    asked for a meet live elsewhere can send the visitor there."""
     with cloud_db.conn() as c:
-        row = c.execute("SELECT * FROM meets WHERE id = %s", (meet_id,)).fetchone()
-    return _record(row) if row else None
+        row = c.execute(
+            "SELECT m.*, n.host AS node_url FROM meets m "
+            "LEFT JOIN nodes n ON n.name = m.node WHERE m.id = %s",
+            (meet_id,),
+        ).fetchone()
+    if not row:
+        return None
+    rec = _record(row)
+    rec["node_url"] = row["node_url"] or ""
+    return rec
 
 
 def image(meet_id, column):
@@ -360,7 +457,8 @@ def list_meets():
     sweep_expired()
     with cloud_db.conn() as c:
         return c.execute(
-            f"SELECT {_LIST_COLUMNS} FROM meets ORDER BY NOT live, lower(name), id"
+            f"SELECT {_LIST_COLUMNS} FROM meets m LEFT JOIN nodes n ON n.name = m.node "
+            "ORDER BY NOT m.live, lower(m.name), m.id"
         ).fetchall()
 
 
@@ -445,5 +543,28 @@ def restore(meets):
 
 
 def nodes():
+    """Every node, with how many live meets and attendees it carries."""
     with cloud_db.conn() as c:
-        return c.execute("SELECT * FROM nodes ORDER BY name").fetchall()
+        return c.execute(
+            "SELECT n.*, count(m.id) AS meets, coalesce(sum(m.attendees), 0) AS attendees "
+            "FROM nodes n LEFT JOIN meets m ON m.node = n.name AND m.live "
+            "GROUP BY n.name ORDER BY n.name"
+        ).fetchall()
+
+
+def set_node_state(name, state):
+    """`active` takes new meets; `draining` takes none, and its meets finish there."""
+    if state not in ("active", "draining"):
+        return
+    with cloud_db.conn() as c:
+        c.execute("UPDATE nodes SET state = %s WHERE name = %s", (state, name))
+
+
+def forget_node(name):
+    """Drop a node that is gone for good. Only one carrying no live meet."""
+    with cloud_db.conn() as c:
+        c.execute(
+            "DELETE FROM nodes WHERE name = %s AND NOT EXISTS "
+            "(SELECT 1 FROM meets WHERE node = %s AND live)",
+            (name, name),
+        )

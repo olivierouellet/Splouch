@@ -140,7 +140,16 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 f"LATEST=$(git tag -l --sort=-version:refname | grep -E '^v[0-9]{{4}}\\.[0-9]{{2}}\\.[0-9]+$' | head -1) && "
                 f'if [ -n "$LATEST" ]; then git checkout -B release "$LATEST"; else git fetch origin && git reset --hard origin/master; fi'
             )
-        cmd += f" && cd {REPO}/cloud && docker compose up -d --build"
+        # Size the worker set for this machine first (cloud_workers.py), so a resized
+        # VPS takes effect on the next deploy; `--remove-orphans` stops workers the
+        # set no longer has. Caddy is reloaded, not restarted, for the new routes:
+        # a reload keeps every open socket.
+        cmd += (
+            f" && cd {REPO}/cloud && python3 cloud_workers.py"
+            " && docker compose up -d --build --remove-orphans"
+            " && docker compose exec -T caddy caddy reload"
+            " --config /etc/caddy/Caddyfile --adapter caddyfile"
+        )
 
         _run_deploy(cmd)
 

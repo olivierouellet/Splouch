@@ -208,7 +208,8 @@ def wg_pubkey():
 
 def heartbeat(live_ids, attendees=None):
     """Report the meets this worker holds, with each one's attendee count. Returns
-    the ids the control plane retired."""
+    `{"retired": [ids], "moves": [{"meet_id", "url"}]}` — the moves are meets the
+    admin moved off this worker."""
     result = _call(
         "POST",
         "/internal/heartbeat",
@@ -223,18 +224,20 @@ def heartbeat(live_ids, attendees=None):
             "attendees": attendees or {},
         },
     )
-    if isinstance(result, dict):
-        _settings["analytics_enabled"] = bool(result.get("analytics_enabled"))
-        return result.get("retired") or []
-    return []
+    if not isinstance(result, dict):
+        return {"retired": [], "moves": []}
+    _settings["analytics_enabled"] = bool(result.get("analytics_enabled"))
+    return {"retired": result.get("retired") or [], "moves": result.get("moves") or []}
 
 
-async def heartbeat_loop(snapshot):
+async def heartbeat_loop(snapshot, on_moves=None):
     """Report every HEARTBEAT_SECS. `snapshot()` returns the meets held right now
-    and `{meet_id: attendees}`."""
+    and `{meet_id: attendees}`; `on_moves(moves)` lets go of the ones moved away."""
     while True:
         try:
-            await run_in_threadpool(heartbeat, *snapshot())
+            result = await run_in_threadpool(heartbeat, *snapshot())
+            if on_moves and result["moves"]:
+                await on_moves(result["moves"])
         except (ControlError, Refused) as e:
             print(f"[node] heartbeat failed: {e}", flush=True)
         await asyncio.sleep(HEARTBEAT_SECS)

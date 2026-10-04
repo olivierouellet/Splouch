@@ -113,6 +113,10 @@ services:
       - "443:443"
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      # The per-worker routes cloud_workers.py writes. A directory, tracked with a
+      # .gitkeep: a bind-mounted *file* that does not exist yet is created as a
+      # directory by Docker, and Caddy then fails to start.
+      - ./caddy.d:/etc/caddy/caddy.d:ro
       - caddy_data:/data
       - caddy_config:/config
 

@@ -68,3 +68,7 @@ server/BG/TestBG.lxf
 
 # Biome, installed by `npm ci` (package.json). Dev tooling only.
 node_modules/
+
+# Generated per node by cloud/cloud_workers.py
+cloud/docker-compose.workers.yml
+cloud/caddy.d/*.caddy

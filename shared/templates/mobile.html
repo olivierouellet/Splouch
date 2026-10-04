@@ -39,8 +39,8 @@
     {{ palette.theme_color_meta(shell.bg, shell_light.bg if reader_theme == 'auto' else '') }}
     {% if meet_id %}
     <link rel="icon" type="image/svg+xml" href="/favicon.ico">
-    <link rel="apple-touch-icon" sizes="180x180" href="/icon/{{ meet_id }}">
-    <link rel="manifest" href="/manifest/{{ meet_id }}">
+    <link rel="apple-touch-icon" sizes="180x180" href="{{ wbase or '' }}/icon/{{ meet_id }}">
+    <link rel="manifest" href="{{ wbase or '' }}/manifest/{{ meet_id }}">
     {% else %}
     <link rel="apple-touch-icon" sizes="180x180" href="/home_icon">
     <link rel="manifest" href="/manifest.json">
@@ -162,11 +162,11 @@
    send it has a console. #}
 {%- set with_results = show_results is not defined or show_results %}
     {% if meet_id %}
-    <iframe id="frame0" class="active" title="{{ t.scoreboard or 'Scoreboard' }}" src="/mobile/live?meet={{ meet_id }}{{ ui }}"></iframe>
+    <iframe id="frame0" class="active" title="{{ t.scoreboard or 'Scoreboard' }}" src="{{ wbase or '' }}/mobile/live?meet={{ meet_id }}{{ ui }}"></iframe>
     {% if with_results %}
-    <iframe id="frame1" title="{{ t.results or 'Results' }}" src="/mobile/results?meet={{ meet_id }}{{ ui }}"></iframe>
+    <iframe id="frame1" title="{{ t.results or 'Results' }}" src="{{ wbase or '' }}/mobile/results?meet={{ meet_id }}{{ ui }}"></iframe>
     {% endif %}
-    <iframe id="frame2" title="{{ t.schedule or 'Schedule' }}" src="/mobile/schedule?meet={{ meet_id }}{{ ui }}"></iframe>
+    <iframe id="frame2" title="{{ t.schedule or 'Schedule' }}" src="{{ wbase or '' }}/mobile/schedule?meet={{ meet_id }}{{ ui }}"></iframe>
     {% else %}
     <iframe id="frame0" class="active" title="{{ t.scoreboard or 'Scoreboard' }}" src="/live-mobile?{{ ui[1:] }}"></iframe>
     {% if with_results %}

@@ -1334,6 +1334,9 @@ PYEOF
 
     section "Build and start"
     cd "$CLOUD_DIR"
+    # One relay worker per spare core (cloud_workers.py): writes the compose
+    # override and the Caddy routes, and names both compose files in .env.
+    python3 cloud_workers.py
     sg docker -c "docker compose --env-file .env up -d --build"
     info "Cloud server started."
 

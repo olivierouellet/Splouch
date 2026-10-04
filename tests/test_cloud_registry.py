@@ -93,7 +93,7 @@ def test_a_heartbeat_retires_what_its_worker_no_longer_holds(key):
     a = reg.register(key, "a", META, "ca1", 1)["meet_id"]
     b = reg.register(key, "b", META, "ca1", 1)["meet_id"]
     other = reg.register(key, "c", META, "ca1", 2)["meet_id"]
-    assert reg.heartbeat("ca1", 1, [a]) == [b]
+    assert reg.heartbeat("ca1", 1, [a])["retired"] == [b]
     assert reg.get(a)["live"] and not reg.get(b)["live"]
     assert reg.get(other)["live"], "another worker's meet is not this heartbeat's"
 
@@ -245,3 +245,96 @@ def test_assign_refuses_a_revoked_key(key):
     _node()
     cloud_auth.update_organizer(key, active=False)
     assert reg.assign(key, "uid") is None
+
+
+# ── Moves ──────────────────────────────────────────────────────────────────────
+
+
+@pytest.fixture
+def held(key):
+    """A live meet on ca1 · w1, with w2 free to take it."""
+    _node(workers=2)
+    return reg.register(key, "uid", META, "ca1", 1)["meet_id"]
+
+
+def test_a_move_points_the_meet_at_its_new_worker(key, held):
+    assert reg.move(held, "ca1", 2)
+    assert reg.assign(key, "uid")["worker"] == 2, "the Pi's next assign lands there"
+
+
+def test_the_old_worker_is_told_to_let_go(held):
+    reg.move(held, "ca1", 2)
+    moves = reg.heartbeat("ca1", 1, [held], host="https://ca1.example", workers=2)
+    assert moves["moves"] == [
+        {"meet_id": held, "url": f"https://ca1.example/w2/mobile?meet={held}"}
+    ]
+    assert reg.heartbeat("ca1", 2, [], workers=2)["moves"] == []
+
+
+def test_the_old_worker_s_disconnect_does_not_retire_a_moved_meet(held):
+    reg.move(held, "ca1", 2)
+    reg.retire(held, "ca1", 1)
+    assert reg.get(held)["live"]
+
+
+def test_the_new_worker_gives_the_pi_time_to_arrive(held):
+    reg.move(held, "ca1", 2)
+    assert reg.heartbeat("ca1", 2, [], workers=2)["retired"] == []
+    assert reg.get(held)["live"]
+
+
+def test_the_pi_arriving_completes_the_move(key, held):
+    reg.move(held, "ca1", 2)
+    reg.register(key, "uid", META, "ca1", 2)
+    assert reg.heartbeat("ca1", 1, [held], workers=2)["moves"] == []
+
+
+@pytest.mark.parametrize(
+    "target",
+    [("ca1", 1), ("ca1", 3), ("nowhere", 1)],
+    ids=["same", "no-such-worker", "no-such-node"],
+)
+def test_a_move_nowhere_useful_is_refused(held, target):
+    assert not reg.move(held, *target)
+
+
+def test_a_retained_meet_cannot_be_moved(held):
+    reg.retire(held, "ca1", 1)
+    assert not reg.move(held, "ca1", 2)
+
+
+def test_a_live_meet_s_page_is_on_its_worker_and_a_retained_one_anywhere(key, held):
+    (row,) = reg.list_meets()
+    assert reg.page_url(row) == f"https://ca1.example/w1/mobile?meet={held}"
+    reg.retire(held, "ca1", 1)
+    (row,) = reg.list_meets()
+    assert reg.page_url(row) == f"/mobile?meet={held}"
+
+
+def test_a_record_carries_its_node_s_address(held):
+    assert reg.get(held)["node_url"] == "https://ca1.example"
+
+
+# ── Nodes ──────────────────────────────────────────────────────────────────────
+
+
+def test_nodes_count_their_live_meets_and_attendees(held):
+    reg.heartbeat("ca1", 1, [held], workers=2, attendees={held: 12})
+    (node,) = reg.nodes()
+    assert (node["meets"], node["attendees"]) == (1, 12)
+
+
+def test_a_draining_node_comes_back(key, held):
+    reg.set_node_state("ca1", "draining")
+    with pytest.raises(reg.NoNode):
+        reg.assign(key, "other")
+    reg.set_node_state("ca1", "active")
+    assert reg.assign(key, "other")["node"] == "ca1"
+
+
+def test_a_node_carrying_a_live_meet_is_not_forgotten(held):
+    reg.forget_node("ca1")
+    assert [n["name"] for n in reg.nodes()] == ["ca1"]
+    reg.retire(held, "ca1", 1)
+    reg.forget_node("ca1")
+    assert reg.nodes() == []

@@ -40,6 +40,13 @@ function splouchSocket(path) {
     }
 
     function fire(event, data) {
+        // The cloud moved this meet to another worker (docs/architecture/scaling.md):
+        // the whole page goes to its new address, tabs and shell together. Only a
+        // web address is followed; the Pi never sends it.
+        if (event === 'moved' && data && /^https?:\/\//.test(String(data.url || ''))) {
+            (window.top || window).location.href = data.url;
+            return;
+        }
         (handlers[event] || []).forEach(function (cb) {
             try {
                 cb(data);

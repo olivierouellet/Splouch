@@ -8,11 +8,12 @@
 #
 # Caddy obtains and renews the Let's Encrypt certificate automatically.
 #
-# Two upstreams on one domain (docs/architecture/scaling.md, stage 2). A meet's
-# live paths go to the relay worker, which holds it in memory: the Pi's and the
-# attendees' sockets, the meet pages, and the per-meet manifest and icon. Everything
-# else — the picker, /admin, /privacy, /add, the locale tables — is the control
-# plane's. When meets live on other nodes, the picker hands each one's host to the
+# Workers and the control plane on one domain (docs/architecture/scaling.md,
+# stage 2). A meet's live paths go to the relay worker holding it in memory — the
+# Pi's and the attendees' sockets, the meet pages, the per-meet manifest and icon —
+# under that worker's `/wN/` prefix; without one they go to worker 1, which serves
+# any retained meet from its record. Everything else — the picker, /admin,
+# /privacy, /add, the locale tables — is the control plane's. When meets live on other nodes, the picker hands each one's host to the
 # client and this split stops being the only way in.
 #
 # The control plane's route is the catch-all, `/.well-known/` included. That is
@@ -29,6 +30,10 @@
 # every call carries is the gate once a worker on another server has to come in
 # over HTTPS.
 {$SPLOUCH_DOMAIN} {
+    # `/wN/*` → relay worker N, prefix stripped (cloud_workers.py writes one route
+    # per worker on every deploy). A meet's live pages and sockets carry the prefix
+    # of the worker holding it.
+    import caddy.d/*.caddy
     @worker path /ws/* /mobile /mobile/* /meet/* /manifest/* /icon/*
     handle @worker {
         reverse_proxy app:5000

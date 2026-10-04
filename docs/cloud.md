@@ -254,6 +254,23 @@ docker compose restart
 The import prints what it brought across and is safe to run again. The old files stay on
 the volume, untouched, until you delete them.
 
+## Workers and nodes
+
+A relay worker is one process on one core, so a node runs one per spare core:
+every core but `RESERVED_CORES` (default 2, in `cloud/.env`), or exactly `WORKERS`
+if you set it. Each deploy re-sizes the set, so a VPS resized to more cores gets more
+workers on the next **Update**. Pis and attendees are spread over them by the
+control plane, which sends each new meet to the worker with the fewest attendees.
+
+`/admin` → **Nodes** lists every node: its region, address, workers, live meets
+and attendees, when it last reported, and its WireGuard public key. **Drain** stops
+a node taking new meets (the ones it carries finish there); **Forget** removes a
+node that is gone for good.
+
+`/admin` → **Active Meets** → **Move** sends a live meet to another worker. Its Pi
+reconnects there and its spectators' pages follow within about ten seconds. Use it
+to balance a busy worker or to empty one before a restart; avoid it mid-heat.
+
 ## Backing up the store
 
 The Update & Backup tab downloads the organizers and the meets as JSON. For the whole
@@ -586,6 +603,25 @@ docker compose restart
 
 L'import affiche ce qu'il a repris et peut être relancé sans risque. Les anciens fichiers
 restent sur le volume, intacts, jusqu'à ce que vous les supprimiez.
+
+### Workers et nœuds
+
+Un worker de relais est un processus sur un cœur ; un nœud en exécute donc un par
+cœur disponible : tous les cœurs sauf `RESERVED_CORES` (2 par défaut, dans
+`cloud/.env`), ou exactement `WORKERS` si vous le fixez. Chaque déploiement
+redimensionne l'ensemble : une VM agrandie obtient plus de workers à la prochaine
+**Mise à jour**. Le plan de contrôle répartit les Pi et les spectateurs, en envoyant
+chaque nouvelle compétition au worker qui a le moins de spectateurs.
+
+`/admin` → **Nœuds** liste chaque nœud : sa région, son adresse, ses workers, ses
+compétitions en direct et ses spectateurs, son dernier signal et sa clé publique
+WireGuard. **Vider** empêche un nœud de prendre de nouvelles compétitions (celles
+qu'il porte s'y terminent) ; **Oublier** retire un nœud disparu pour de bon.
+
+`/admin` → **Compétitions actives** → **Déplacer** envoie une compétition en direct
+vers un autre worker. Son Pi s'y reconnecte et les pages de ses spectateurs suivent
+en une dizaine de secondes. Utile pour équilibrer un worker chargé ou en vider un
+avant un redémarrage ; à éviter pendant une série.
 
 ### Sauvegarder les données
 

@@ -55,6 +55,57 @@ _i18n_bundle = cloud_i18n.i18n_bundle
 _CLOCK_SYNC_SECS = 2.0
 
 
+_relay_sockets = {}  # relay connection id -> its WebSocket, for a move to close
+
+
+def _wbase():
+    """This worker's path prefix, `/wN` (docs/architecture/scaling.md). Every link a
+    worker's page makes back to itself carries it; Caddy strips it on the way in."""
+    return f"/w{cloud_node.worker_index()}"
+
+
+def _elsewhere(meet):
+    """The page URL of a meet live on another worker, or None.
+
+    A record from the control plane names the worker holding a live meet. One held
+    here is in `_meets` and never reaches this; a record that says live *here* is a
+    worker restart the heartbeat is about to correct, and is served as offline.
+    """
+    if not meet.get("live") or not meet.get("node_url") or not meet.get("worker"):
+        return None
+    if (meet.get("node"), meet.get("worker")) == (
+        cloud_node.node_name(),
+        cloud_node.worker_index(),
+    ):
+        return None
+    base = f"{meet['node_url'].rstrip('/')}/w{meet['worker']}"
+    return f"{base}/mobile?meet={meet.get('id', '')}"
+
+
+async def _on_moves(moves):
+    """Let go of meets the admin moved off this worker.
+
+    The Pi is told to ask `/api/assign` again — which now names the new worker — and
+    its socket closed; the attendees are sent the meet's new page. The disconnect
+    that follows retires the meet here; the control plane ignores it, since the meet
+    is no longer this worker's.
+    """
+    for move in moves:
+        meet_id, url = move.get("meet_id"), move.get("url")
+        with _lock:
+            meet = _meets.get(meet_id)
+            ws = _relay_sockets.get(meet.get("relay_sid")) if meet else None
+        if not meet:
+            continue
+        for ns in ("scoreboard", "results", "schedule"):
+            await manager.broadcast(_ch(ns, meet_id), "moved", {"url": url})
+        if ws is not None:
+            await manager.send(ws, "rejected", {"reason": "moved", "reassign": True})
+            with suppress(Exception):
+                await ws.close()
+        print(f"[cloud] meet {meet_id} moved to {url}", flush=True)
+
+
 def _heartbeat_snapshot():
     """The meets held here and each one's attendees — phones on its board — for the
     control plane to balance new meets on."""
@@ -67,7 +118,7 @@ def _heartbeat_snapshot():
 async def lifespan(app):
     os.makedirs(DATA_DIR, exist_ok=True)
     tasks = [
-        asyncio.create_task(cloud_node.heartbeat_loop(_heartbeat_snapshot)),
+        asyncio.create_task(cloud_node.heartbeat_loop(_heartbeat_snapshot, _on_moves)),
         asyncio.create_task(cloud_node.analytics_flush_loop()),
     ]
     try:
@@ -83,8 +134,29 @@ async def lifespan(app):
             await run_in_threadpool(cloud_node.flush_analytics)
 
 
+class _OwnPrefix:
+    """Serve this worker's `/wN` paths as well as the bare ones.
+
+    Caddy strips the prefix in production, so this only matters when something
+    reaches a worker directly — a local run with no proxy, a test, or a Caddy route
+    that went missing — and then a page and its sockets still work.
+    """
+
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] in ("http", "websocket"):
+            prefix, path = _wbase(), scope.get("path", "")
+            if path == prefix or path.startswith(prefix + "/"):
+                path = path[len(prefix) :] or "/"
+                scope = {**scope, "path": path, "raw_path": path.encode()}
+        await self.app(scope, receive, send)
+
+
 app = FastAPI(lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None)
 app.mount("/static", StaticFiles(directory=STATIC_DIR, check_dir=False), name="static")
+app.add_middleware(_OwnPrefix)
 
 
 @app.get("/mobile", tags=["Public"])
@@ -93,11 +165,15 @@ def route_mobile(request: Request):
     meet = meet_for(meet_id)
     if not meet:
         return RedirectResponse("/", status_code=303)
+    elsewhere = _elsewhere(meet)
+    if elsewhere:
+        return RedirectResponse(elsewhere, status_code=307)
     return _remember_prefs(
         request,
         render(
             request,
             "mobile.html",
+            wbase=_wbase(),
             meet_id=meet_id,
             app_title=(meet.get("app_window_title") or meet["name"] or "Splouch"),
             t=_strings(_client_lang(request, meet), "mobile"),
@@ -123,6 +199,7 @@ def route_live(request: Request):
     return render(
         request,
         "live-mobile.html",
+        wbase=_wbase(),
         meet_id=meet_id,
         num_lanes=s.get("num_lanes", 8),
         show_lane_header=s.get("show_lane_header", True),
@@ -165,6 +242,7 @@ def route_results(request: Request):
     return render(
         request,
         "results.html",
+        wbase=_wbase(),
         meet_id=meet_id,
         num_lanes=s.get("num_lanes", 8),
         show_lane_header=s.get("show_lane_header", True),
@@ -249,6 +327,7 @@ def route_schedule(request: Request):
     return render(
         request,
         "schedule.html",
+        wbase=_wbase(),
         meet_id=meet_id,
         heats=heats,
         has_meet=bool(heats),
@@ -314,8 +393,16 @@ def route_manifest(meet_id: str):
     has_icon = bool(meet.get("settings", {}).get("home_icon_b64"))
     icons = (
         [
-            {"src": f"/icon/{meet_id}", "sizes": "192x192", "type": "image/png"},
-            {"src": f"/icon/{meet_id}", "sizes": "512x512", "type": "image/png"},
+            {
+                "src": f"{_wbase()}/icon/{meet_id}",
+                "sizes": "192x192",
+                "type": "image/png",
+            },
+            {
+                "src": f"{_wbase()}/icon/{meet_id}",
+                "sizes": "512x512",
+                "type": "image/png",
+            },
         ]
         if has_icon
         else [
@@ -330,7 +417,7 @@ def route_manifest(meet_id: str):
     manifest = {
         "name": app_title,
         "short_name": app_title,
-        "start_url": f"/mobile?meet={meet_id}",
+        "start_url": f"{_wbase()}/mobile?meet={meet_id}",
         "display": "standalone",
         "background_color": "#000000",
         "theme_color": "#000000",
@@ -537,6 +624,7 @@ async def _on_relay_stats(ws, sid):
 async def ws_relay(ws: WebSocket):
     await ws.accept()
     sid = id(ws)
+    _relay_sockets[sid] = ws
     try:
         while True:
             msg = await ws.receive_json()
@@ -559,6 +647,7 @@ async def ws_relay(ws: WebSocket):
     except WebSocketDisconnect:
         pass
     finally:
+        _relay_sockets.pop(sid, None)
         await _on_relay_disconnect(sid)
 
 
@@ -591,6 +680,9 @@ async def ws_scoreboard(ws: WebSocket):
                 live = meet_id in _meets
             if not meet:
                 continue
+            if _elsewhere(meet):
+                await manager.send(ws, "moved", {"url": _elsewhere(meet)})
+                continue
             manager.join(ws, _ch("scoreboard", meet_id))
             cloud_node.log_connection(meet_id, data.get("vid", ""), "scoreboard")
             # Send live status first so the page knows whether to animate before
@@ -622,6 +714,9 @@ async def ws_results(ws: WebSocket):
                 live = meet_id in _meets
             if not meet:
                 continue
+            if _elsewhere(meet):
+                await manager.send(ws, "moved", {"url": _elsewhere(meet)})
+                continue
             manager.join(ws, _ch("results", meet_id))
             cloud_node.log_connection(meet_id, data.get("vid", ""), "results")
             # Live status first, so the page reverts to "Waiting…" when no relay is feeding.
@@ -651,6 +746,9 @@ async def ws_schedule(ws: WebSocket):
             meet_id = data.get("meet_id", "")
             meet = await run_in_threadpool(meet_for, meet_id)
             if not meet:
+                continue
+            if _elsewhere(meet):
+                await manager.send(ws, "moved", {"url": _elsewhere(meet)})
                 continue
             manager.join(ws, _ch("schedule", meet_id))
             cloud_node.log_connection(meet_id, data.get("vid", ""), "schedule")

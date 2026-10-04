@@ -120,7 +120,7 @@ function renderResults(d) {
     requestAnimationFrame(fitNameFontSize);
 }
 
-var sock = splouchSocket('/ws/results');
+var sock = splouchSocket('{{ wbase or '' }}/ws/results');
 sock.on('connect', function() {
     if (MEET_ID) sock.emit('join_meet', { meet_id: MEET_ID, vid: splouchVid() });
 });

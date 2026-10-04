@@ -252,6 +252,7 @@ def _admin_meet_list():
                 "console_timed": console.get("timed"),
                 "live": m["live"],
                 "node": m["node"] or "",
+                "worker": m["worker"],
                 "expires_at": exp.isoformat(timespec="seconds") if exp else None,
                 "expires_display": exp.strftime("%Y-%m-%d %H:%M") if exp else "",
                 # for <input type=datetime-local>
@@ -310,6 +311,7 @@ def _public_meet_list():
             "meet_date": m["meet_date"],
             "offline": not m["live"],
             "has_picker_image": m["has_picker_image"],
+            "url": cloud_registry.page_url(m),
         }
         for m in cloud_registry.list_meets()
     ]
@@ -1229,6 +1231,41 @@ def route_stats(request: Request):
     return {"enabled": True, "count": _attendee_count(meet_id, since)}
 
 
+def _admin_nodes():
+    """Every node for the Nodes tab, and the workers a live meet may move to."""
+    now = datetime.datetime.now(datetime.UTC)
+    out = []
+    for n in cloud_registry.nodes():
+        seen = n["last_seen"]
+        up = (
+            bool(seen)
+            and (now - seen).total_seconds() < cloud_registry.SILENT_AFTER_SECS
+        )
+        out.append(
+            {
+                "name": n["name"],
+                "region": n["region"] or "",
+                "url": n["host"],
+                "state": n["state"],
+                "workers": n["workers"],
+                "wg_pubkey": n["wg_pubkey"],
+                "meets": n["meets"],
+                "attendees": n["attendees"],
+                "up": up,
+                "last_seen": seen.astimezone().strftime("%Y-%m-%d %H:%M:%S")
+                if seen
+                else "",
+                # What the Move menu offers: workers on a live node taking meets.
+                "targets": (
+                    [f"{n['name']}:{w}" for w in range(1, n["workers"] + 1)]
+                    if up and n["state"] == "active"
+                    else []
+                ),
+            }
+        )
+    return out
+
+
 def _admin_page(request, t=None, creds_error=None):
     """The whole panel. Blocking (database) — run off the loop."""
     creds = _load_creds()
@@ -1239,6 +1276,7 @@ def _admin_page(request, t=None, creds_error=None):
         regions=cloud_auth.regions(),
         countries=COUNTRIES,
         active_meets=_admin_meet_list(),
+        nodes=_admin_nodes(),
         t=t or _load_cloud_strings(request),
         ui_lang=_admin_lang(request),
         creds_error=creds_error,
@@ -1276,6 +1314,14 @@ def _admin_action(form, request):
             cloud_auth.add_organizer(org, **_org_fields(form))
     elif action == "update_org":
         cloud_auth.update_organizer(form.get("key", ""), **_org_fields(form))
+    elif action == "move_meet":
+        node, _, worker = _form_text(form, "target").partition(":")
+        if worker.isdigit():
+            cloud_registry.move(form.get("meet_id", ""), node, int(worker))
+    elif action == "node_state":
+        cloud_registry.set_node_state(form.get("node", ""), _form_text(form, "state"))
+    elif action == "forget_node":
+        cloud_registry.forget_node(form.get("node", ""))
     elif action == "accept_location":
         cloud_auth.accept_location(form.get("key", ""))
     elif action == "revoke":
@@ -1357,13 +1403,13 @@ class AssignIn(BaseModel):
     meet_uid: str = ""
 
 
-def _relay_url(base, meet_id):
-    """The worker socket a Pi connects to, from its node's public base URL.
+def _relay_url(node_url, worker, meet_id):
+    """The worker socket a Pi connects to: its node's public URL and `/wN` prefix.
 
-    The control plane builds it, not the Pi, so how a worker is addressed — today a
-    host, soon a host and a `/wN/` prefix — can change without a Pi release.
+    The control plane builds it, not the Pi, so how a worker is addressed can change
+    without a Pi release.
     """
-    base = base.rstrip("/")
+    base = cloud_registry.worker_url(node_url, worker)
     if base.startswith("https://"):
         base = "wss://" + base[len("https://") :]
     elif base.startswith("http://"):
@@ -1391,7 +1437,7 @@ def route_assign(body: AssignIn):
         return JSONResponse({"reason": "invalid or inactive key"}, status_code=403)
     return {
         "meet_id": found["meet_id"],
-        "relay_url": _relay_url(found["url"], found["meet_id"]),
+        "relay_url": _relay_url(found["url"], found["worker"], found["meet_id"]),
         "ticket": cloud_ticket.sign(
             secret,
             found["meet_id"],
@@ -1495,7 +1541,7 @@ def internal_meet(meet_id: str):
 @internal.post("/heartbeat")
 def internal_heartbeat(body: HeartbeatIn):
     """A worker says which meets it holds; the answer carries the settings it needs."""
-    retired = cloud_registry.heartbeat(
+    result = cloud_registry.heartbeat(
         body.node,
         body.worker,
         body.live,
@@ -1505,7 +1551,7 @@ def internal_heartbeat(body: HeartbeatIn):
         wg_pubkey=body.wg_pubkey,
         attendees=body.attendees,
     )
-    return {"analytics_enabled": _analytics_enabled(), "retired": retired}
+    return {"analytics_enabled": _analytics_enabled(), **result}
 
 
 @internal.post("/analytics")

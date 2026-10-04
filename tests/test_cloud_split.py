@@ -97,6 +97,10 @@ def wired(pg, monkeypatch, tmp_path):
 class FakeWS:
     def __init__(self):
         self.frames = []
+        self.closed = False
+
+    async def close(self):
+        self.closed = True
 
     async def send_json(self, frame):
         self.frames.append(frame)
@@ -222,7 +226,7 @@ def test_joins_are_not_queued_while_counting_is_off(wired):
 def test_the_heartbeat_retires_a_meet_the_worker_lost(wired):
     meet_id = register(wired).frames[0]["data"]["meet_id"]
     cs._meets.clear()  # the worker restarted: it holds nothing now
-    assert cloud_node.heartbeat([]) == [meet_id]
+    assert cloud_node.heartbeat([])["retired"] == [meet_id]
 
 
 # ── With the control plane down ────────────────────────────────────────────────
@@ -331,7 +335,7 @@ def test_the_panel_shows_where_an_organizer_is_based(pg, monkeypatch):
 def test_assign_names_the_worker_socket_and_the_region(wired):
     status, body = assign(wired)
     assert status == 200
-    assert body["relay_url"] == f"wss://ca1.example/ws/relay?meet={body['meet_id']}"
+    assert body["relay_url"] == f"wss://ca1.example/w1/ws/relay?meet={body['meet_id']}"
     assert body["region"] == "ca"
     assert cloud_ticket.verify(SECRET, body["ticket"])["n"] == "ca1"
 
@@ -416,3 +420,145 @@ def test_the_panel_flags_a_location_the_pi_reports(pg, monkeypatch):
     html = _admin_get(monkeypatch)
     assert "Their Pi says: CA · ON" in html
     assert 'name="action" value="accept_location"' in html
+
+
+# ── Several workers ────────────────────────────────────────────────────────────
+
+
+def _page(path, query=b""):
+    from starlette.requests import Request
+
+    return Request(
+        {
+            "type": "http",
+            "method": "GET",
+            "path": path,
+            "query_string": query,
+            "headers": [(b"host", b"ca1.example")],
+            "app": cs.app,
+        }
+    )
+
+
+def test_a_worker_s_pages_link_back_under_its_prefix(wired, monkeypatch):
+    monkeypatch.setenv("WORKER", "3")
+    meet_id = register(
+        wired,
+        tk=ticket(
+            wired, cloud_control.cloud_registry.meet_id_for(wired, "uid-1"), worker=3
+        ),
+    ).frames[0]["data"]["meet_id"]
+    shell = cs.route_mobile(_page("/mobile", f"meet={meet_id}".encode())).body.decode()
+    assert f'src="/w3/mobile/live?meet={meet_id}' in shell
+    assert f'href="/w3/manifest/{meet_id}"' in shell
+    board = cs.route_live(
+        _page("/mobile/live", f"meet={meet_id}".encode())
+    ).body.decode()
+    assert "splouchSocket('/w3/ws/scoreboard')" in board
+    manifest = json.loads(cs.route_manifest(meet_id).body)
+    assert manifest["start_url"] == f"/w3/mobile?meet={meet_id}"
+
+
+def test_a_page_for_a_meet_live_on_another_worker_goes_there(wired, monkeypatch):
+    meet_id = register(wired).frames[0]["data"]["meet_id"]
+    cs._meets.clear()  # seen from another worker, which does not hold it
+    cloud_node._records.clear()
+    monkeypatch.setenv("WORKER", "2")
+    resp = cs.route_mobile(_page("/mobile", f"meet={meet_id}".encode()))
+    assert resp.status_code == 307
+    assert resp.headers["location"] == f"https://ca1.example/w1/mobile?meet={meet_id}"
+
+
+def test_a_socket_for_a_meet_live_elsewhere_is_sent_there(wired, monkeypatch):
+    meet_id = register(wired).frames[0]["data"]["meet_id"]
+    cs._meets.clear()
+    cloud_node._records.clear()
+    monkeypatch.setenv("WORKER", "2")
+
+    class Joiner(FakeWS):
+        def __init__(self):
+            super().__init__()
+            self.inbox = [{"event": "join_meet", "data": {"meet_id": meet_id}}]
+
+        async def accept(self):
+            pass
+
+        async def receive_json(self):
+            if self.inbox:
+                return self.inbox.pop()
+            raise cs.WebSocketDisconnect
+
+    ws = Joiner()
+    asyncio.run(cs.ws_scoreboard(ws))  # ty: ignore[invalid-argument-type]
+    assert ws.frames == [
+        {
+            "event": "moved",
+            "data": {"url": f"https://ca1.example/w1/mobile?meet={meet_id}"},
+        }
+    ]
+
+
+def test_a_moved_meet_s_pi_and_attendees_are_sent_on(wired):
+    ws_pi = FakeWS()
+    meet_id = register(wired).frames[0]["data"]["meet_id"]
+    cs._relay_sockets["sid-1"] = ws_pi
+    phone = FakeWS()
+    cs.manager.join(phone, cs._ch("scoreboard", meet_id))
+    url = f"https://ca1.example/w2/mobile?meet={meet_id}"
+    try:
+        asyncio.run(cs._on_moves([{"meet_id": meet_id, "url": url}]))
+    finally:
+        cs._relay_sockets.pop("sid-1", None)
+        cs.manager.channels.pop(cs._ch("scoreboard", meet_id), None)
+    assert phone.frames == [{"event": "moved", "data": {"url": url}}]
+    assert ws_pi.frames == [
+        {"event": "rejected", "data": {"reason": "moved", "reassign": True}}
+    ]
+    assert ws_pi.closed
+
+
+def test_the_panel_lists_nodes_and_offers_a_move(pg, monkeypatch):
+    import cloud_auth
+
+    reg = cloud_control.cloud_registry
+    reg.heartbeat("ca1", 1, [], host="https://ca1.example", region="ca", workers=2)
+    key = cloud_auth.add_organizer("Club", region="ca")
+    reg.register(key, "uid", META, "ca1", 1)
+    html = _admin_get(monkeypatch)
+    assert 'id="tab-nodes"' in html and "https://ca1.example" in html
+    assert '<option value="ca1:2">ca1 · w2</option>' in html
+    assert '<option value="ca1:1">' not in html, "the worker holding it is not a target"
+
+
+def test_a_worker_reached_directly_answers_under_its_prefix(monkeypatch):
+    """No proxy in front (a local run, a missing route): `/w2/ping` still works."""
+    monkeypatch.setenv("WORKER", "2")
+    sent = {}
+
+    async def receive():
+        return {"type": "http.request", "body": b"", "more_body": False}
+
+    async def send(message):
+        if message["type"] == "http.response.start":
+            sent["status"] = message["status"]
+        elif message["type"] == "http.response.body":
+            sent["body"] = sent.get("body", b"") + message.get("body", b"")
+
+    for path in ("/w2/ping", "/ping"):
+        sent.clear()
+        scope = {
+            "type": "http",
+            "asgi": {"version": "3.0"},
+            "http_version": "1.1",
+            "method": "GET",
+            "scheme": "http",
+            "path": path,
+            "raw_path": path.encode(),
+            "query_string": b"",
+            "root_path": "",
+            "headers": [(b"host", b"w")],
+            "client": ("10.0.0.2", 1),
+            "server": ("w", 5000),
+        }
+        asyncio.run(cs.app(scope, receive, send))
+        assert (sent["status"], sent["body"]) == (200, b"ok"), path

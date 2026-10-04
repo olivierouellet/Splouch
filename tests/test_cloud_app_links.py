@@ -328,6 +328,7 @@ def test_caddy_sends_well_known_to_the_control_plane():
     body_lines = [d for d in directives if d != "}"]
     assert body_lines == [
         "{$SPLOUCH_DOMAIN} {",
+        "import caddy.d/*.caddy",
         "@worker path /ws/* /mobile /mobile/* /meet/* /manifest/* /icon/*",
         "handle @worker {",
         "reverse_proxy app:5000",
@@ -336,6 +337,19 @@ def test_caddy_sends_well_known_to_the_control_plane():
         "handle {",
         "reverse_proxy control:8000",
     ], "the site block changed — check it cannot shadow /.well-known/"
+
+
+def test_the_generated_worker_routes_only_claim_their_prefixes():
+    """`caddy.d/*.caddy` is imported above the catch-all, so it must never match
+    `/.well-known/`: every route it holds is a `/wN/*` prefix."""
+    import cloud_workers
+
+    routes = [
+        line
+        for line in cloud_workers.caddy_routes(4).splitlines()
+        if line.startswith("handle")
+    ]
+    assert routes == [f"handle_path /w{i}/* {{" for i in range(1, 5)]
 
 
 def test_the_deployment_passes_the_fingerprints_in():

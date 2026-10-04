@@ -1,3 +1,22 @@
+{#- Move a live meet to another worker (docs/architecture/scaling.md): the menu
+    lists every worker on a live, active node except the one holding it. -#}
+{% macro move_form(m) %}
+{%- set here = (m.node or '') ~ ':' ~ (m.worker or '') -%}
+{%- set ns = namespace(n=0) -%}
+{%- for node in (nodes or []) %}{% for tg in node.targets %}{% if tg != here %}{% set ns.n = ns.n + 1 %}{% endif %}{% endfor %}{% endfor -%}
+{% if ns.n %}
+<form method="post" class="d-inline-flex gap-1 align-items-center">
+    <input type="hidden" name="action" value="move_meet">
+    <input type="hidden" name="meet_id" value="{{ m.id }}">
+    <select name="target" class="form-select form-select-sm w-auto" aria-label="{{ t.move_to }}">
+        {% for node in (nodes or []) %}{% for tg in node.targets %}{% if tg != here %}
+        <option value="{{ tg }}">{{ tg | replace(':', ' · w') }}</option>
+        {% endif %}{% endfor %}{% endfor %}
+    </select>
+    <button type="submit" class="btn btn-outline-secondary btn-sm" data-hold data-hold-label="{{ t.hold_move }}">{{ t.move }}</button>
+</form>
+{% endif %}
+{% endmacro %}
 {#- The regional notes, shown in the consent dialog and again in the fold under the
     card so they can be re-read once counting is on. -#}
 {% macro analytics_legal_notes() %}
@@ -106,8 +125,8 @@
                         </td>
                         {% endif %}
                         {% if m.live %}
-                        <td><span class="badge rounded-pill text-bg-info">{{ t.badge_live }}</span><br><span class="small text-body-secondary">{{ t.col_since or 'since' }} {{ m.connected_at }}</span></td>
-                        <td></td>
+                        <td><span class="badge rounded-pill text-bg-info">{{ t.badge_live }}</span><br><span class="small text-body-secondary">{{ t.col_since or 'since' }} {{ m.connected_at }}{% if m.node %} · {{ t.running_on }} {{ m.node }} · w{{ m.worker }}{% endif %}</span></td>
+                        <td class="text-nowrap">{{ move_form(m) }}</td>
                         {% else %}
                         <td><span class="badge rounded-pill text-bg-warning">{{ t.badge_retained or 'Offline' }}</span><br><span class="small text-body-secondary">{{ t.expires_label or 'until' }} {{ m.expires_display }}</span></td>
                         <td class="text-nowrap">
@@ -169,7 +188,9 @@
                                 <dt class="col-5 text-body-secondary fw-normal">{{ t.col_status or 'Status' }}</dt>
                                 <dd class="col-7 mb-1">{% if m.live %}{{ t.col_since or 'since' }} {{ m.connected_at }}{% else %}{{ t.expires_label or 'until' }} {{ m.expires_display }}{% endif %}</dd>
                             </dl>
-                            {% if not m.live %}
+                            {% if m.live %}
+                            {{ move_form(m) }}
+                            {% else %}
                             <form method="post" class="d-flex flex-wrap gap-1 align-items-center mb-2">
                                 <input type="hidden" name="action" value="set_expiry">
                                 <input type="hidden" name="meet_id" value="{{ m.id }}">

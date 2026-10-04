@@ -129,6 +129,19 @@ MIGRATIONS = [
         ALTER TABLE meets ADD COLUMN attendees integer NOT NULL DEFAULT 0;
         """,
     ),
+    (
+        3,
+        """
+        -- A live move (docs/architecture/scaling.md): `node`/`worker` already name
+        -- the target; these name the worker that must let the meet go, and when.
+        -- The holder learns it from its next heartbeat; the Pi's register on the
+        -- target clears them.
+        ALTER TABLE meets
+            ADD COLUMN move_from_node   text,
+            ADD COLUMN move_from_worker integer,
+            ADD COLUMN moved_at         timestamp;
+        """,
+    ),
 ]
 
 # Tables holding data, in an order TRUNCATE accepts. Tests empty these between

@@ -148,46 +148,67 @@ copies of the relay. A worker is one Python process: it uses at most one core.
 
 ### Worker count
 
-Automatic. The deploy step computes `N = nproc − reserved` (one core for Caddy;
-on the box that also hosts the control plane and monitoring, two or three) and
-runs `docker compose up -d --scale app=N`. Resizing the VPS takes effect on the
-next deploy. `WORKERS=` in `.env` overrides the computed value. The node reports
-N to the control plane, which only assigns to workers that exist.
+Automatic. On every deploy [`cloud_workers.py`](../../cloud/cloud_workers.py)
+computes `N = cores − RESERVED_CORES` (default 2: Caddy, the control plane and
+Postgres share them on a box that runs everything; 1 on a worker-only node), or
+takes `WORKERS=` from `.env`. It writes two untracked files:
+
+- `docker-compose.workers.yml` — `app2` … `appN`, each extending `app` with its own
+  `WORKER` number (`app` is worker 1). A number per container, rather than
+  `--scale`, is what lets a worker know which one it is.
+- `caddy.d/workers.caddy` — one `/wN/*` route per worker, imported by the Caddyfile.
+
+and names both compose files in `.env` (`COMPOSE_FILE`). The webhook then runs
+`up -d --remove-orphans` and **reloads** Caddy — a reload keeps open sockets. A
+resized VPS takes effect on the next deploy. Every worker reports N, and the control
+plane only assigns to workers that exist.
 
 ### Routing: explicit assignment
 
 A worker keeps its meets' sockets in memory
 ([`cloud_bus.py`](../../cloud/cloud_bus.py)), so the Pi and every attendee of a
 meet must reach the same worker. The control plane decides which one and puts it
-in the URL. The deploy step generates the Caddyfile for N workers:
+in the URL:
 
 ```caddy
-us1.splouch.org {
-    handle_path /w1/* {
-        reverse_proxy splouch-app-1:5000
+splouch.org {
+    import caddy.d/*.caddy          # handle_path /wN/* → appN:5000, one per worker
+    @worker path /ws/* /mobile /mobile/* /meet/* /manifest/* /icon/*
+    handle @worker {
+        reverse_proxy app:5000      # unprefixed: worker 1
     }
-    handle_path /w2/* {
-        reverse_proxy splouch-app-2:5000
+    handle /internal/* {
+        respond 404
     }
-    # … one block per worker
+    handle {
+        reverse_proxy control:8000
+    }
 }
 ```
 
 `handle_path` strips the prefix, so a worker still serves `/ws/relay`,
-`/ws/scoreboard` and the rest unchanged. Container names are stable
-(`<project>-app-<n>`, project pinned to `splouch`), so worker 3 restarts as
-worker 3.
+`/ws/scoreboard` and the rest unchanged. A worker renders its pages with its own
+prefix (`wbase`: iframes, sockets, manifest), so everything a page loads comes back
+to the same worker; the Pi renders the same templates with none.
 
 - **Load-aware.** New meets go to the worker with the fewest attendees, from the
   counts workers report.
-- **Live move.** `/admin` → move meet X from worker 3 to worker 5 (or to another
-  node). The control plane records the new assignment and tells worker 3, which
-  closes meet X's sockets with a "moved" close code. The Pi and apps ask again
-  (`/api/assign`, `/picker`) and reconnect to worker 5. The Pi re-sends its
-  schedule and results snapshot on connect, so nothing is lost; attendees see a
-  few seconds' blip.
-- **Rescaling.** Lowering N removes workers; their meets are moved first, the same
-  way. Avoid rescaling on a meet weekend.
+- **Links.** The picker links a live meet to `<node>/wN/mobile`, and a retained
+  one to `/mobile` — any worker serves a retained meet from its record. A page
+  or socket for a meet live on another worker redirects there (`moved` on a socket).
+- **Live move.** `/admin` → **Move** on a live meet. The control plane points the
+  meet at the target at once — so the Pi's next `/api/assign` lands there and the
+  old worker's disconnect cannot retire it — and the old worker learns from its
+  next heartbeat reply (≤ 10 s). It sends its attendees `moved {url}` (web pages
+  follow it; apps in batch 4), tells the Pi `rejected {reassign: true}` and closes
+  it. The Pi re-sends its schedule, board and results on connect, so nothing is
+  lost; attendees see a few seconds' blip. The new worker's heartbeat leaves the
+  meet alone for 30 s while the Pi arrives. No call ever goes *to* a worker.
+- **Rescaling.** Lowering N removes workers; move their meets first. A Pi whose
+  worker is gone asks `/api/assign` again after three failed connects. Avoid
+  rescaling on a meet weekend.
+- **Draining.** `/admin` → **Nodes** → **Drain**: the node takes no new meets, and
+  the ones it carries finish there or are moved.
 
 ### Security
 
@@ -201,16 +222,14 @@ worker 3.
 - **Attendees need no ticket** — the scoreboard is public. A worker that does not
   hold the requested meet refuses with a "not here" close code; the app asks the
   picker again.
-- **Only the control plane moves meets.** The move call to a worker is signed with
-  the same secret.
+- **Only the control plane moves meets.** A move is an answer to a worker's own
+  heartbeat, which carries `NODE_SECRET`; nothing calls in to a worker.
 - **Floods.** Anyone can open sockets, as today. Per-IP connection limits in Caddy.
 
 ### Relay changes needed
 
-1. **Worker and meet in the URL.** Attendee sockets connect to
-   `/wN/ws/{scoreboard,results,schedule}?meet=<id>`; today the ID arrives in the
-   first message ([`cloud_server.py`](../../cloud/cloud_server.py),
-   `/ws/scoreboard`). HTTP routes already use `?meet=`.
+1. **Worker in the URL.** *Done:* sockets and pages go to `/wN/…`, which is all
+   Caddy routes on; the meet stays in the first message (`join_meet`), as before.
 2. **Pi assignment first.** *Done:* the Pi calls `/api/assign`, keeps
    `{meet_id, relay_url, ticket, region}`, and connects to the `relay_url` the control
    plane built (so adding `/wN/` needs no Pi change). On `rejected {reassign: true}`,
@@ -475,8 +494,8 @@ same webhook. It builds nothing: upstream images, pinned versions.
 | Stage 0 — encode once, load test | Done (`tests/relay_load.py`) |
 | 1 — control plane | Done. Control plane and worker split; Postgres store (organizers with country, state/province and region; meets; admin login and settings; counts); every admin tab and the picker on the control plane; internal API; worker heartbeat; import of a pre-split data directory. One box: Caddy sends a meet's live paths to the worker and everything else to the control plane |
 | 2 — assignment and tickets | Done. `POST /api/assign` (least-loaded worker on a live node in the organizer's region; a meet goes back to the worker that held it), signed tickets checked by the worker, attendee counts in the heartbeat. The Pi asks before connecting and reports its country and state/province, which `/admin` flags beside the record with **Accept**; the region shows read-only on the Pi |
-| 3 — several workers, `/wN/` routing, live moves | Next |
-| 4 — picker hands out host and worker; app contract | — |
+| 3 — several workers, `/wN/` routing, live moves | Done. Worker set from the core count (`cloud_workers.py`: compose override, Caddy routes, graceful reload); `/wN/` in relay URLs, picker links and every page a worker serves; redirects and `moved` for a meet live elsewhere; live moves through the heartbeat; **Nodes** tab (state, drain, WireGuard key, forget) |
+| 4 — picker hands out host and worker; app contract | Next |
 | 5 — GHCR images, rolling update | — |
 | 6 — monitoring | — |
 | 7 — installer roles, WireGuard | — |

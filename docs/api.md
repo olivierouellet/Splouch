@@ -239,6 +239,12 @@ connects/disconnects), `update_scoreboard` (§5.1; the cloud throttles
 > **Re-join on reconnect.** After any drop the client must re-send `join_meet`;
 > the server replays `meet_live` + the latest cached snapshot so the UI catches up.
 
+> **`moved {url}` on any of the three** (cloud): the meet is held by another worker
+> — the admin moved it, or this socket reached the wrong one. `url` is the meet's
+> page on its worker. The web pages follow it; a native client may ignore it for
+> now, and will be told how to reconnect in the picker contract (batch 4 of
+> [`architecture/scaling.md`](architecture/scaling.md)). Additive.
+
 > **An unknown `meet_id` is ignored, not refused.** `join_meet` for a meet this
 > server does not hold — expired, swept, or never here — gets **no reply**: no
 > `meet_live`, no error, and the socket stays open and silent. A meet that expires
@@ -471,8 +477,12 @@ table: `labels` is the operator's pick, resolved from the same file.
 ```json
 { "meets": [ { "id": "aBc123", "name": "…", "location": "…", "sport": "…",
                "organizer": "…", "meet_date": "YYYY-MM-DD",
-               "offline": false, "has_picker_image": true } ] }
+               "offline": false, "has_picker_image": true,
+               "url": "https://ca1.splouch.org/w2/mobile?meet=aBc123" } ] }
 ```
+
+`url` is where the meet's page is served: a live meet's worker, or `/mobile?meet=…`
+on this server for a retained one. Additive; the web picker links to it.
 
 `offline` marks a retained meet with no relay currently connected — still listed
 on purpose, so an attendee can read its last scoreboard frame. Not its results: the
@@ -762,6 +772,10 @@ can tell the console has stopped talking to it. Faces, both palettes: `family`
 ---
 
 ## Changelog
+
+- **Added since v2, additive**: `moved {url}` on the three attendee sockets (§3) and
+  `url` in `GET /meets` (§5.6), from the cloud running several workers. A client
+  that ignores both is unaffected while a meet stays on one worker.
 
 - **Relay only, not a client change**: `POST /api/assign` (§5.12), and a `ticket` that
   `register` now requires (§3, §5.4). A Pi from before this cannot publish to a cloud
