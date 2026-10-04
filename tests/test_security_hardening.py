@@ -386,7 +386,7 @@ def test_an_ordinary_lenex_file_still_parses():
 # ── The cloud admin panel throttles guesses ───────────────────────────────────
 
 
-def test_the_admin_panel_locks_out_a_password_guesser(monkeypatch, tmp_path):
+def test_the_admin_panel_locks_out_a_password_guesser(monkeypatch, tmp_path, pg):
     """One password on the open internet, and fail2ban here only watches sshd.
     The lock also caps the PBKDF2 work an unauthenticated flood can demand."""
     import base64
@@ -398,14 +398,10 @@ def test_the_admin_panel_locks_out_a_password_guesser(monkeypatch, tmp_path):
     from fastapi import HTTPException
 
     import cloud_auth
-    import cloud_paths
-    import cloud_server as cs
+    import cloud_control as cs
 
-    # `cloud_paths`, not `cloud_server`: `load_creds()` lives in `cloud_auth` and
-    # reads the constant off `cloud_paths`, so a name rebound on the app module
-    # alone would be read by nobody and this would authenticate against the real
-    # /data/credentials.json.
-    monkeypatch.setattr(cloud_paths, "CREDS_FILE", str(tmp_path / "credentials.json"))
+    # The `pg` fixture empties the store, so the login is seeded from the
+    # environment above on first read, as on a new install.
     monkeypatch.setattr(cloud_auth, "_admin_fails", {})
     cs._admin_fails = cloud_auth._admin_fails
 
@@ -432,7 +428,7 @@ def test_the_admin_panel_locks_out_a_password_guesser(monkeypatch, tmp_path):
     assert status("correct-horse", ip="198.51.100.4") == 200  # per-address
 
 
-def test_a_cross_site_post_to_the_admin_panel_is_refused(monkeypatch, tmp_path):
+def test_a_cross_site_post_to_the_admin_panel_is_refused(monkeypatch, tmp_path, pg):
     """Basic credentials ride a cross-site form POST, so any page the admin visited
     could switch analytics on in their name or delete a retained meet. A plain link
     to /admin from elsewhere still has to open."""
@@ -445,9 +441,7 @@ def test_a_cross_site_post_to_the_admin_panel_is_refused(monkeypatch, tmp_path):
     from fastapi import HTTPException
 
     import cloud_auth
-    import cloud_paths
 
-    monkeypatch.setattr(cloud_paths, "CREDS_FILE", str(tmp_path / "credentials.json"))
     monkeypatch.setattr(cloud_auth, "_admin_fails", {})
 
     class Req:

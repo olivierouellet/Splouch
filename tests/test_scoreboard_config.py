@@ -199,10 +199,11 @@ def test_the_cloud_fallback_palette_is_the_same_object():
     reader's palette (docs/app.md `P-15`), whose Dark is that same object."""
 
     import cloud_server
+    import cloud_web
     import splouch_i18n
     import state
 
-    dark = cloud_server.reader_palette("dark")["theme_colors"]
+    dark = cloud_web.reader_palette("dark")["theme_colors"]
     assert dark is splouch_i18n.DEFAULT_THEME_COLORS
     assert state.DEFAULT_THEME_COLORS is splouch_i18n.DEFAULT_THEME_COLORS
     assert cloud_server._DEFAULT_FONTS is splouch_i18n.DEFAULT_THEME_FONTS

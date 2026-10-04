@@ -11,8 +11,12 @@ import re
 import pytest
 from starlette.requests import Request
 
-import cloud_server as cs
+import cloud_control as cs
 from test_cloud_add_page import ANDROID, APPSTORE, IPAD_DESKTOP, IPHONE, PLAY, stores
+
+# The picker reads its branding and the meet list from the control plane's
+# store (cloud/cloud_db.py).
+pytestmark = pytest.mark.usefixtures("pg")
 
 __all__ = ["stores"]  # a fixture, imported so pytest finds it here
 

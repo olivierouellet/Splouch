@@ -111,7 +111,11 @@ def test_the_cookie_picks_the_palette(cookie, colors, light):
 def test_the_meet_palette_is_not_what_a_phone_draws():
     """The routes pass the reader's palette, never `settings.theme_colors` — a
     preference the next meet could overrule is not a preference."""
-    src = Path(REPO, "cloud", "cloud_server.py").read_text(encoding="utf-8")
+    # The picker is the control plane's; the shell and the three tabs, a worker's.
+    src = "".join(
+        Path(REPO, "cloud", name).read_text(encoding="utf-8")
+        for name in ("cloud_control.py", "cloud_server.py")
+    )
     assert 's.get("theme_colors"' not in src
     assert src.count("**_client_palette(request)") == 5, (
         "the picker, the shell and the three tabs"

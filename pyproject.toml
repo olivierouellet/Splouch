@@ -35,7 +35,17 @@ dependencies = [
 scoreboard = ["pyside6-essentials>=6.5"]
 
 [dependency-groups]
-dev = ["diff-cover", "pytest", "pytest-cov", "ruff", "ty"]
+dev = [
+    "diff-cover",
+    # The control plane's store (cloud/cloud_db.py); its tests need a Postgres,
+    # from TEST_DATABASE_URL, and skip without one.
+    "psycopg[binary]",
+    "psycopg-pool",
+    "pytest",
+    "pytest-cov",
+    "ruff",
+    "ty",
+]
 # Non-Python linters, pinned by uv.lock like the rest. Opt-in — `uv sync --group
 # lint` — and never a default group: three have no Linux aarch64 wheel (Taplo's
 # source build is broken outright), and every Pi updates with a plain `uv sync`,

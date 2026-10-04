@@ -8,8 +8,9 @@ and the choice of native clients in [`native-app-strategy.md`](native-app-strate
 
 | Tool | Role |
 | --- | --- |
-| **FastAPI** + **uvicorn** | ASGI app (`server/app.py`, `cloud/cloud_server.py`), run by systemd on the Pi and in Docker on the cloud |
-| Plain **WebSockets** | Real-time transport: `server/bus.py` fans out on the Pi, `cloud_server.py` on the relay, `shared/static/js/ws.js` in the browser |
+| **FastAPI** + **uvicorn** | ASGI apps (`server/app.py`; the cloud's worker `cloud/cloud_server.py` and control plane `cloud/cloud_control.py`), run by systemd on the Pi and in Docker on the cloud |
+| Plain **WebSockets** | Real-time transport: `server/bus.py` fans out on the Pi, `cloud_bus.py` on the relay worker, `shared/static/js/ws.js` in the browser |
+| **Postgres** + psycopg 3 | The cloud control plane's store: organizers, meets, the admin login, attendance counts (`cloud/cloud_db.py`) |
 | Starlette `SessionMiddleware` | Operator login, signed cookies (`itsdangerous`) |
 | **Jinja2** | Templates, rendered through the single `render()` helper in `server/web.py` |
 | `python-multipart` | Form posts and uploads |

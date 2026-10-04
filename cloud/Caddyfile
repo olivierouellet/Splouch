@@ -8,14 +8,35 @@
 #
 # Caddy obtains and renews the Let's Encrypt certificate automatically.
 #
-# One route, no matcher: everything goes to the app, `/.well-known/` included. That
-# is load-bearing for the QR hand-off (docs/app.md `P-16`) — the app serves
+# Two upstreams on one domain (docs/architecture/scaling.md, stage 2). A meet's
+# live paths go to the relay worker, which holds it in memory: the Pi's and the
+# attendees' sockets, the meet pages, and the per-meet manifest and icon. Everything
+# else — the picker, /admin, /privacy, /add, the locale tables — is the control
+# plane's. When meets live on other nodes, the picker hands each one's host to the
+# client and this split stops being the only way in.
+#
+# The control plane's route is the catch-all, `/.well-known/` included. That is
+# load-bearing for the QR hand-off (docs/app.md `P-16`) — the control plane serves
 # `/.well-known/assetlinks.json` and `/.well-known/apple-app-site-association`, and
 # Android fetches the first at install time following **no redirects**. A `handle`
-# or `file_server` block added above this line would swallow them and the only
-# symptom would be `pm get-app-links app.splouch.android` reporting `1024` on a
-# phone, weeks later. Caddy's own ACME handler is scoped to
+# or `file_server` block added above the catch-all that matched them would swallow
+# them and the only symptom would be `pm get-app-links app.splouch.android`
+# reporting `1024` on a phone, weeks later. Caddy's own ACME handler is scoped to
 # `/.well-known/acme-challenge/*` and does not overlap.
+#
+# `/internal/*` is the workers' API. Here the worker reaches the control plane over
+# the compose network, so the public route refuses it outright; the NODE_SECRET
+# every call carries is the gate once a worker on another server has to come in
+# over HTTPS.
 {$SPLOUCH_DOMAIN} {
-    reverse_proxy app:5000
+    @worker path /ws/* /mobile /mobile/* /meet/* /manifest/* /icon/*
+    handle @worker {
+        reverse_proxy app:5000
+    }
+    handle /internal/* {
+        respond 404
+    }
+    handle {
+        reverse_proxy control:8000
+    }
 }

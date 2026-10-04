@@ -1,8 +1,10 @@
 # Scaling the cloud relay
 
-> **Plan, not built.** Today one VPS runs one relay process
-> ([`cloud/`](../../cloud/)). This document is the target architecture for serving
-> clubs across Canada, the US and Europe, and the order to get there in.
+> **Partly built.** Stage 0 and the first batch of stage 2 are in: the relay is a
+> control plane (`cloud/cloud_control.py`, Postgres) and a worker
+> (`cloud/cloud_server.py`) on one box — see *Progress* at the end. The rest is the
+> target architecture for serving clubs across Canada, the US and Europe, and the
+> order to get there in.
 
 ---
 
@@ -97,7 +99,7 @@ If a node is down, that node's meets stop.
 
 ## Control plane
 
-A new app, `cloud/control_server.py`, in the same image as the relay.
+`cloud/cloud_control.py`, in the same image as the relay.
 
 | Responsibility | Detail |
 | --- | --- |
@@ -109,10 +111,14 @@ A new app, `cloud/control_server.py`, in the same image as the relay.
 | Picker | `GET /picker` lists live and retained meets across all nodes, each with its host and worker |
 | Regions | Region → nodes list, served to Pis and `/admin` — never hard-coded in clients |
 | Rollout | Drives node deploy webhooks (see *Updates*) |
-| Storage | Postgres (keys, organizers, nodes, registry); nightly `pg_dump` off the box |
+| Storage | Postgres (keys, organizers, nodes, registry, admin login and settings, attendance counts); nightly `pg_dump` off the box |
+| Pages | The picker, `/admin` (every tab), `/server`, `/servers`, `/add`, `/privacy`, `/.well-known/*` |
 
-Nodes call the control plane over public HTTPS, never its database. Nodes cache
-the key list so a Pi can reconnect while the control plane is down.
+Nodes call the control plane's internal API (`/internal/*`, every call carrying
+`NODE_SECRET`), never its database. A register goes through the control plane, which
+checks the key and owns the meet id; each worker keeps its last answer per key and
+meet on disk, so a Pi it has admitted before can reconnect while the control plane is
+down.
 
 ### Regions and organizers
 
@@ -209,17 +215,19 @@ worker 3.
    `{meet_id, host, worker, ticket}`, then connects to
    `wss://<host>/w<N>/ws/relay?meet=<id>` with the ticket. On "moved" or "not here"
    it asks again. Today the meet ID is minted after the Pi connects.
-3. **Serialize once.** `broadcast()` calls `send_json` per socket, re-encoding the
-   same frame for every attendee. Encode once, `send_text` to all.
-4. **Report to the control plane.** Meet start, end, attendee count.
-5. **Keys from the control plane**, cached; `keys.json` retires.
+3. **Serialize once.** *Done (stage 0).*
+4. **Report to the control plane.** *Done:* register, schedule and disconnect, plus
+   a heartbeat naming the meets a worker holds; a meet whose worker stops vouching
+   for it is retired after 90 s.
+5. **Keys from the control plane.** *Done:* a register is checked there, the answer
+   cached per key and meet; `keys.json` is imported once (`cloud/cloud_import.py`).
 6. **Tickets and moves.** Check the ticket on relay connect; accept a signed move
    call; close a meet's sockets with "moved".
 7. **Attendee counts on the Pi stay.** The worker holding a meet answers the Pi's
    `stats` request on the relay socket, as today
-   ([`cloud_server.py`](../../cloud/cloud_server.py), `stats`). The analytics
-   SQLite moves to a volume shared by the node's workers, in WAL mode for
-   concurrent writers. A meet moved to another **node** starts a fresh count there.
+   ([`cloud_server.py`](../../cloud/cloud_server.py), `stats`). *Done:* counts live
+   in the control plane's Postgres; workers send joins in batches and ask for the
+   numbers, so a meet's count stays whole across workers and nodes.
 8. **`/metrics`** per worker (see *Monitoring*).
 
 The **Server URL** field stays for clubs running their own relay: pointed at a
@@ -300,7 +308,7 @@ name: splouch
 services:
   control:      # control plane box (CA node at first)
     image: ghcr.io/olivierouellet/splouch-cloud:${SPLOUCH_VERSION}
-    command: uvicorn control_server:app --host 0.0.0.0 --port 8000 --no-access-log
+    command: uvicorn cloud_control:app --host 0.0.0.0 --port 8000 --no-access-log
   app:          # every data-plane node
     image: ghcr.io/olivierouellet/splouch-cloud:${SPLOUCH_VERSION}
     command: uvicorn cloud_server:app --host 0.0.0.0 --port 5000 --no-access-log
@@ -453,5 +461,20 @@ same webhook. It builds nothing: upstream images, pinned versions.
   JSON, static files and retained results.
 - Retained meets: which node serves a finished meet's results, and for how long,
   once meets live on several nodes.
-- Attendee history across a node move: keep it node-local, or report visitor
-  counts to the control plane.
+- Picker and apps with several workers: the picker must hand out each meet's host
+  and worker (batch 4) before a second worker is turned on.
+
+---
+
+## Progress
+
+| Batch | State |
+| --- | --- |
+| Stage 0 — encode once, load test | Done (`tests/relay_load.py`) |
+| 1 — control plane | Done. Control plane and worker split; Postgres store (organizers with country, state/province and region; meets; admin login and settings; counts); every admin tab and the picker on the control plane; internal API; worker heartbeat; import of a pre-split data directory. One box: Caddy sends a meet's live paths to the worker and everything else to the control plane |
+| 2 — assignment and tickets | Next |
+| 3 — several workers, `/wN/` routing, live moves | — |
+| 4 — picker hands out host and worker; app contract | — |
+| 5 — GHCR images, rolling update | — |
+| 6 — monitoring | — |
+| 7 — installer roles, WireGuard | — |

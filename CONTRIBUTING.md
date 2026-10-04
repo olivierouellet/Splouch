@@ -41,6 +41,16 @@ Plain `uv sync` gives you the server-only install. Worth knowing for a fast inne
 it turns the suite from 68s into 7s, since Qt is nearly all of the runtime — as long as
 the full run happens before you open the PR.
 
+The cloud's control plane keeps its store in Postgres, and its tests (picker, admin,
+registry) need one. Without `TEST_DATABASE_URL` they skip; CI always runs them. Point it
+at a database the tests may empty — every table is truncated before each test:
+
+```bash
+docker run -d --name splouch-pg -p 5432:5432 \
+  -e POSTGRES_PASSWORD=splouch -e POSTGRES_DB=splouch_test postgres:17-alpine
+export TEST_DATABASE_URL=postgresql://postgres:splouch@localhost:5432/splouch_test
+```
+
 `.python-version` pins the interpreter to **3.13**, which is what Raspberry Pi OS Trixie
 ships. `uv` honours it automatically. Newer Pythons run the suite fine, but a green run
 on one is not evidence about the version on the pool deck.

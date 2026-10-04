@@ -10,10 +10,13 @@ the measurement itself needs a real layout engine and is in `docs/web-parity.md`
 
 import re
 
+import pytest
+
 from test_cloud_picker_stores import picker as _picker
 from test_scoreboard_base_shared import _render, _sched
 
 
+@pytest.mark.usefixtures("pg")  # the picker reads the store
 def test_the_picker_controls_are_44px():
     html = _picker()
     assert re.search(r"#prefs-btn \{[^}]*width: 44px; height: 44px", html)
@@ -25,6 +28,7 @@ def test_the_picker_controls_are_44px():
     )
 
 
+@pytest.mark.usefixtures("pg")  # the picker reads the store
 def test_the_menu_says_whether_it_is_open():
     html = _picker()
     assert 'aria-expanded="false" aria-controls="prefs-panel"' in html
@@ -56,6 +60,7 @@ def test_the_schedule_says_its_toggles_and_names_its_buttons():
     assert "Filtrer" not in html, "the filter button's word was hard-coded in French"
 
 
+@pytest.mark.usefixtures("pg")  # the picker reads the store
 def test_decorative_glyphs_are_silent():
     sched = _sched("server/templates")
     for glyph in ("☰", "↺"):
@@ -75,6 +80,7 @@ def test_an_added_suggestion_is_inert():
 # ── X-09, X-10 ────────────────────────────────────────────────────────────────
 
 
+@pytest.mark.usefixtures("pg")  # the picker reads the store
 def test_decorative_motion_stands_still_on_request():
     """The live dot is decoration; the board's lane pulse and lock flash are
     information (`L-11`, `L-12`) and are deliberately left running."""
@@ -86,6 +92,7 @@ def test_decorative_motion_stands_still_on_request():
     assert "behavior: still ? 'auto' : 'smooth'" in sched
 
 
+@pytest.mark.usefixtures("pg")  # the picker reads the store
 def test_focus_follows_a_fold():
     """`X-10`: the control that replaced itself hands focus to its replacement."""
     html = _picker()
@@ -102,6 +109,7 @@ def test_focus_follows_a_fold():
 # and the shell's tabs lost their names when a short window hid the labels.
 
 
+@pytest.mark.usefixtures("pg")  # the picker reads the store
 def test_the_picker_never_scrolls_sideways_or_hides_under_its_button():
     html = _picker()
     assert "min-width: min(260px, 100%)" in html

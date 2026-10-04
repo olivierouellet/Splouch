@@ -1,6 +1,6 @@
 # Splouch API contract
 
-**Contract version: `v2`** · Server implementation: this repo (`server/app.py` local, `cloud/cloud_server.py` cloud).
+**Contract version: `v2`** · Server implementation: this repo (`server/app.py` local; `cloud/cloud_server.py` and `cloud/cloud_control.py` cloud).
 
 This is the source-of-truth contract that every non-browser client follows — the
 Qt/PySide TV display (`Splouch-tv`), the iOS app (`Splouch-ios`), and the

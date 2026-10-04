@@ -22,7 +22,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-import cloud_server as cs
+import cloud_control as cs
 from conftest import admin_source, matched, stub_url_for
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -386,7 +386,7 @@ def test_the_accepted_formats_in_the_hint_are_the_ones_the_server_stores():
 
 def test_an_svg_logo_cannot_run_script_on_this_origin():
     """SVG is a document. The picker's `<img>` inerts it; opening /picker_logo does not."""
-    src = Path(os.path.join(REPO, "cloud", "cloud_server.py")).read_text(
+    src = Path(os.path.join(REPO, "cloud", "cloud_control.py")).read_text(
         encoding="utf-8"
     )
     body = src[src.index("def route_picker_logo") :]

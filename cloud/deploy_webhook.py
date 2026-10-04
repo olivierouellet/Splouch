@@ -265,6 +265,17 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 "--no-color",
                 "app",
             ],
+            "control": [
+                "docker",
+                "compose",
+                "-f",
+                compose,
+                "logs",
+                "--tail",
+                tail,
+                "--no-color",
+                "control",
+            ],
             "caddy": [
                 "docker",
                 "compose",

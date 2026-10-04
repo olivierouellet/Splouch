@@ -4,14 +4,25 @@
 
 The cloud relay lets remote attendees (parents, coaches, officials) follow the scoreboard from their phones over the internet, without adding load to the pool-deck Pi.
 
-```text
-Pi #1 ──── outbound WebSocket ────► Cloud VM (Docker + Caddy)
-                                         │
-                             HTTPS ◄─────┼───── attendees (phones, laptops)
-                                         │
-                                    /mobile  — scoreboard, results, schedule
-                                    /admin   — key management
+```mermaid
+flowchart LR
+    pi["Pi #1"] -->|"outbound WebSocket /ws/relay"| caddy
+    phones["Attendees (phones, laptops)"] -->|HTTPS| caddy
+    subgraph vm["Cloud VM (Docker)"]
+        caddy["Caddy"]
+        app["Relay worker<br/>/ws/*, /mobile — live boards"]
+        control["Control plane<br/>picker, /admin"]
+        pg[("Postgres<br/>organizers, meets, counts")]
+        caddy --> app
+        caddy --> control
+        app -->|internal API| control
+        control --- pg
+    end
 ```
+
+The relay is two apps on one VM: a **worker** that carries a meet's live frames, and a
+**control plane** that owns the picker, the admin panel and the store
+([`docs/architecture/scaling.md`](architecture/scaling.md)).
 
 - Pi #1 opens a single outbound connection — works behind double-NAT with no port forwarding required.
 - The cloud server re-emits events to all attendees; Pi #1 is unaffected by attendee load.
@@ -41,12 +52,12 @@ curl -fsSL https://raw.githubusercontent.com/olivierouellet/Splouch/master/insta
 The script handles everything interactively:
 
 - Installs Docker, fail2ban, and unattended security upgrades
-- Clones the repo and generates a `SECRET_KEY`
+- Clones the repo and generates a `SECRET_KEY`, a `POSTGRES_PASSWORD` and a `NODE_SECRET`
 - Prompts for admin username and password
 - Prompts for your domain name and updates `Caddyfile`
 - Generates a `DEPLOY_SECRET` and installs the deploy webhook as a systemd service
 - Configures `ufw` (ports 22, 80, 443 TCP + 443 UDP for HTTP/3)
-- Builds and starts the compose stack (app + Caddy)
+- Builds and starts the compose stack (control plane + Postgres + relay worker + Caddy)
 
 When it finishes, open `https://yourdomain/admin` and add organizers.
 
@@ -185,7 +196,7 @@ PRIVACY_CONTACT=privacy@yourdomain
 ```
 
 Unset, the page has no Contact section. Its text is `[privacy]` in `shared/locales/*.toml`;
-bump `PRIVACY_UPDATED` in `cloud/cloud_server.py` with any change to it.
+bump `PRIVACY_UPDATED` in `cloud/cloud_control.py` with any change to it.
 
 ---
 
@@ -219,7 +230,36 @@ To switch a release install onto the development branch, name the remote branch 
 git fetch origin && git checkout -B master origin/master
 ```
 
-Caddy and the `data` volume (which stores `keys.json`) are preserved across updates. So is your edited `Caddyfile`, as long as you move between refs with `checkout` rather than `reset --hard` — the domain you set at install time lives in that tracked file and a hard reset would revert it.
+Caddy, the `pgdata` volume (Postgres: organizers, keys, meets, the admin login) and the
+`data` volume are preserved across updates. So is your edited `Caddyfile`, as long as you move between refs with `checkout` rather than `reset --hard` — the domain you set at install time lives in that tracked file and a hard reset would revert it.
+
+## Upgrading from a single relay
+
+A server installed before the control plane existed kept everything in files on the
+`data` volume (`keys.json`, `credentials.json`, `retained/`, `analytics.db`). The update
+brings two new containers, and compose refuses to start until `cloud/.env` holds their two
+secrets. Once:
+
+```bash
+cd ~/Splouch && git pull          # or the Update button, which will fail to start
+bash install/install.sh cloud     # keeps .env, adds POSTGRES_PASSWORD and NODE_SECRET
+cd cloud && docker compose run --rm control python cloud_import.py /data
+docker compose restart
+```
+
+The import prints what it brought across and is safe to run again. The old files stay on
+the volume, untouched, until you delete them.
+
+## Backing up the store
+
+The Update & Backup tab downloads the organizers and the meets as JSON. For the whole
+database, from the VM:
+
+```bash
+cd ~/Splouch/cloud && docker compose exec -T postgres pg_dump -U splouch splouch | gzip > splouch-$(date +%F).sql.gz
+```
+
+Keep the dump off the VM: it holds every relay key and the admin password hash.
 
 ## Moving or renaming the install directory
 
@@ -246,8 +286,8 @@ sudo grep -rl OLD_NAME /etc/systemd/system/ /etc/sudoers.d/ 2>/dev/null
 ```
 
 Docker is unaffected: the compose project is named after the directory holding the
-compose file (`cloud`), not its parent, so containers and the `data` volume that stores
-`keys.json` survive a rename of the checkout.
+compose file (`cloud`), not its parent, so containers and the `pgdata` and `data` volumes
+survive a rename of the checkout.
 
 ## Logs
 
@@ -266,14 +306,26 @@ cd ~/Splouch/cloud && docker compose logs -f
 Le relais cloud permet aux spectateurs à distance (parents, entraîneurs, officiels) de suivre
 le tableau sur leur téléphone par internet, sans charger le Pi du bord de piscine.
 
-```text
-Pi n° 1 ──── WebSocket sortant ────► VM cloud (Docker + Caddy)
-                                         │
-                             HTTPS ◄─────┼───── spectateurs (téléphones, portables)
-                                         │
-                                    /mobile  — tableau, résultats, programme
-                                    /admin   — gestion des clés
+```mermaid
+flowchart LR
+    pi["Pi n° 1"] -->|"WebSocket sortant /ws/relay"| caddy
+    phones["Spectateurs (téléphones, portables)"] -->|HTTPS| caddy
+    subgraph vm["VM cloud (Docker)"]
+        caddy["Caddy"]
+        app["Relais (worker)<br/>/ws/*, /mobile — tableaux en direct"]
+        control["Plan de contrôle<br/>liste des compétitions, /admin"]
+        pg[("Postgres<br/>organisateurs, compétitions, comptes")]
+        caddy --> app
+        caddy --> control
+        app -->|API interne| control
+        control --- pg
+    end
 ```
+
+Le relais est composé de deux applications sur une même VM : un **worker** qui transporte
+les trames en direct d'une compétition, et un **plan de contrôle** qui gère la liste des
+compétitions, le panneau d'administration et les données
+([`docs/architecture/scaling.md`](architecture/scaling.md)).
 
 - Le Pi n° 1 ouvre une seule connexion sortante — fonctionne derrière un double NAT, sans
   redirection de port.
@@ -308,12 +360,12 @@ curl -fsSL https://raw.githubusercontent.com/olivierouellet/Splouch/master/insta
 Le script s'occupe de tout, de façon interactive :
 
 - Installe Docker, fail2ban et les mises à jour de sécurité automatiques
-- Clone le dépôt et génère une `SECRET_KEY`
+- Clone le dépôt et génère une `SECRET_KEY`, un `POSTGRES_PASSWORD` et un `NODE_SECRET`
 - Demande l'identifiant et le mot de passe d'administration
 - Demande votre nom de domaine et met à jour le `Caddyfile`
 - Génère un `DEPLOY_SECRET` et installe le webhook de déploiement comme service systemd
 - Configure `ufw` (ports 22, 80, 443 TCP + 443 UDP pour HTTP/3)
-- Construit et démarre la pile compose (application + Caddy)
+- Construit et démarre la pile compose (plan de contrôle + Postgres + relais + Caddy)
 
 Une fois terminé, ouvrez `https://votredomaine/admin` et ajoutez des organisateurs.
 
@@ -458,7 +510,7 @@ PRIVACY_CONTACT=confidentialite@votredomaine
 ```
 
 Sans cette valeur, la page n'a pas de section Contact. Le texte est `[privacy]` dans
-`shared/locales/*.toml` ; mettez à jour `PRIVACY_UPDATED` dans `cloud/cloud_server.py` à
+`shared/locales/*.toml` ; mettez à jour `PRIVACY_UPDATED` dans `cloud/cloud_control.py` à
 chaque modification.
 
 ---
@@ -502,10 +554,39 @@ distante pour que l'amont soit défini — après quoi `git pull` y fonctionne a
 git fetch origin && git checkout -B master origin/master
 ```
 
-Caddy et le volume `data` (qui contient `keys.json`) sont conservés d'une mise à jour à
-l'autre. Votre `Caddyfile` modifié aussi, tant que vous changez de référence avec `checkout`
+Caddy, le volume `pgdata` (Postgres : organisateurs, clés, compétitions, identifiant
+d'administration) et le volume `data` sont conservés d'une mise à jour à l'autre. Votre `Caddyfile` modifié aussi, tant que vous changez de référence avec `checkout`
 plutôt qu'avec `reset --hard` — le domaine défini à l'installation vit dans ce fichier suivi,
 et une réinitialisation forcée le rétablirait.
+
+### Passer d'un relais unique au plan de contrôle
+
+Un serveur installé avant le plan de contrôle conservait tout dans des fichiers du volume
+`data` (`keys.json`, `credentials.json`, `retained/`, `analytics.db`). La mise à jour ajoute
+deux conteneurs, et compose refuse de démarrer tant que `cloud/.env` ne contient pas leurs
+deux secrets. Une seule fois :
+
+```bash
+cd ~/Splouch && git pull          # ou le bouton Mettre à jour, qui échouera au démarrage
+bash install/install.sh cloud     # conserve .env, ajoute POSTGRES_PASSWORD et NODE_SECRET
+cd cloud && docker compose run --rm control python cloud_import.py /data
+docker compose restart
+```
+
+L'import affiche ce qu'il a repris et peut être relancé sans risque. Les anciens fichiers
+restent sur le volume, intacts, jusqu'à ce que vous les supprimiez.
+
+### Sauvegarder les données
+
+L'onglet Mise à jour & Sauvegarde télécharge les organisateurs et les compétitions en JSON.
+Pour la base complète, depuis la VM :
+
+```bash
+cd ~/Splouch/cloud && docker compose exec -T postgres pg_dump -U splouch splouch | gzip > splouch-$(date +%F).sql.gz
+```
+
+Conservez la sauvegarde hors de la VM : elle contient toutes les clés de relais et
+l'empreinte du mot de passe d'administration.
 
 ### Déplacer ou renommer le dossier d'installation
 
@@ -532,8 +613,8 @@ sudo grep -rl ANCIEN_NOM /etc/systemd/system/ /etc/sudoers.d/ 2>/dev/null
 ```
 
 Docker n'est pas affecté : le projet compose porte le nom du dossier qui contient le fichier
-compose (`cloud`), pas celui de son parent ; les conteneurs et le volume `data` qui contient
-`keys.json` survivent donc au renommage du dépôt.
+compose (`cloud`), pas celui de son parent ; les conteneurs et les volumes `pgdata` et `data`
+survivent donc au renommage du dépôt.
 
 ### Journaux
 

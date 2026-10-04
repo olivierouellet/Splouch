@@ -165,3 +165,32 @@ def matched(pattern, text, group=1, flags=0):
     found = re.search(pattern, text, flags)
     assert found, f"no match for {pattern!r}"
     return found.group(group)
+
+
+@pytest.fixture(scope="session")
+def _pg_schema():
+    """Migrate the test database once per run, or skip with nothing to connect to.
+
+    The control plane's store is Postgres (cloud/cloud_db.py) and there is no
+    in-process stand-in for it, so these tests run where one is given —
+    `TEST_DATABASE_URL`, set by CI's postgres service — and skip elsewhere. The
+    database it names is the tests' own: every table in it is emptied per test.
+    """
+    url = os.environ.get("TEST_DATABASE_URL", "")
+    if not url:
+        pytest.skip("TEST_DATABASE_URL is not set (see CONTRIBUTING.md)")
+    import cloud_db
+
+    cloud_db.configure(url)
+    cloud_db.migrate()
+    yield
+    cloud_db.close()
+
+
+@pytest.fixture
+def pg(_pg_schema):
+    """An empty, migrated control-plane database for one test."""
+    import cloud_db
+
+    cloud_db.truncate_all()
+    return cloud_db

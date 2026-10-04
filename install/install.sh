@@ -1235,6 +1235,17 @@ PYEOF
     # left at 0644 with three secrets in it.
     chmod 600 "$CLOUD_DIR/.env"
 
+    # The control plane's database password and the workers' shared secret. Filled
+    # in on an .env from before the scaling split too (docs/cloud.md): compose
+    # refuses to start without them, so re-running the installer is the upgrade.
+    for _secret_key in POSTGRES_PASSWORD NODE_SECRET; do
+        if ! grep -q "^${_secret_key}=." "$CLOUD_DIR/.env" \
+            || grep -q "^${_secret_key}=change_me$" "$CLOUD_DIR/.env"; then
+            _set_env "$_secret_key" "$(python3 -c "import secrets; print(secrets.token_urlsafe(32))")"
+            info "${_secret_key} generated and saved to .env"
+        fi
+    done
+
     section "Domain"
     # The domain lives in .env, never in the Caddyfile. That file is tracked, so an
     # update that resets the working tree would revert a literal domain written there

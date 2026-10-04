@@ -1,11 +1,25 @@
+# One box, every role (docs/architecture/scaling.md, stage 2): the control plane
+# and its Postgres, one relay worker, and Caddy in front of both. The roles share
+# nothing but the machine — the worker reaches the control plane over HTTP only — so
+# moving the control plane to its own server later is a matter of moving these
+# containers and a DNS record.
 services:
-  app:
-    build:
+  # ── Control plane: picker, /admin, the store ────────────────────────────────
+  control:
+    build: &build
       context: ..          # repo root — gives Dockerfile access to shared/
       dockerfile: cloud/Dockerfile
+    image: splouch-cloud
+    command: ["uvicorn", "cloud_control:app", "--host", "0.0.0.0", "--port", "8000", "--no-access-log"]
     restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
     environment:
-      SECRET_KEY:             ${SECRET_KEY}
+      DATABASE_URL:           postgresql://splouch:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in cloud/.env}@postgres:5432/splouch
+      # The shared secret every worker presents on the internal API. Set on both
+      # sides; unset, the control plane refuses every worker.
+      NODE_SECRET:            ${NODE_SECRET:?set NODE_SECRET in cloud/.env}
       ADMIN_USER:             ${ADMIN_USER:-admin}
       ADMIN_PASSWORD:         ${ADMIN_PASSWORD}
       DATA_DIR:               /data
@@ -19,8 +33,8 @@ services:
       # server menu, blocked by ATS (docs/api.md §5.11).
       #
       # Private ranges rather than `*`: this covers Caddy wherever Docker renumbers
-      # the bridge, while a public client cannot spoof the scheme. `app` publishes
-      # no ports, so only Caddy reaches it in any case.
+      # the bridge, while a public client cannot spoof the scheme. Neither app
+      # publishes ports, so only Caddy reaches them in any case.
       FORWARDED_ALLOW_IPS:    ${FORWARDED_ALLOW_IPS:-127.0.0.1,::1,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16}
       # ── QR-code hand-off (docs/app.md `P-16`, docs/cloud.md) ──────────────────
       # The SHA-256 fingerprints of the Android signing certificates allowed to
@@ -45,7 +59,45 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:
-      - data:/data         # persists keys.json across updates
+      # applinks.json and servers.json, the operator's files. On a box from before
+      # the split it also holds keys.json, credentials.json and retained/, which
+      # `cloud_import.py` reads once (docs/cloud.md).
+      - data:/data
+
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER:     splouch
+      POSTGRES_DB:       splouch
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in cloud/.env}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U splouch -d splouch"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  # ── Relay worker: Pis, live boards, meet pages ──────────────────────────────
+  app:
+    build: *build
+    image: splouch-cloud
+    restart: unless-stopped
+    depends_on:
+      - control
+    environment:
+      CONTROL_URL:            http://control:8000
+      NODE_SECRET:            ${NODE_SECRET:?set NODE_SECRET in cloud/.env}
+      # Who this worker is, as the control plane's registry and /admin name it.
+      NODE_NAME:              ${NODE_NAME:-ca1}
+      NODE_REGION:            ${NODE_REGION:-ca}
+      NODE_HOST:              ${SPLOUCH_DOMAIN}
+      WORKER:                 "1"
+      DATA_DIR:               /data
+      FORWARDED_ALLOW_IPS:    ${FORWARDED_ALLOW_IPS:-127.0.0.1,::1,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16}
+    volumes:
+      - data:/data         # the worker's register cache; the store is Postgres now
 
   caddy:
     image: caddy:2-alpine
@@ -65,5 +117,6 @@ services:
 
 volumes:
   data:
+  pgdata:
   caddy_data:
   caddy_config:

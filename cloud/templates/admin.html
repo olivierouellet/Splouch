@@ -202,6 +202,29 @@
             });
         }
 
+        // ── Organizer location ────────────────────────────────────────────────
+        // Country names in the panel's language, from the browser's own table
+        // rather than three copies of one; a browser without it keeps the codes.
+        // Picking a country suggests its region, which stays the admin's to change.
+        (function () {
+            let names = null;
+            try {
+                names = new Intl.DisplayNames([{{ (ui_lang or 'en') | tojson }}], { type: 'region' });
+            } catch (e) { /* keep the codes */ }
+            document.querySelectorAll('select.country-select').forEach(function (sel) {
+                if (names) {
+                    sel.querySelectorAll('option[value]:not([value=""])').forEach(function (opt) {
+                        opt.textContent = names.of(opt.value) || opt.value;
+                    });
+                }
+                sel.addEventListener('change', function () {
+                    const region = sel.form && sel.form.querySelector('select.region-select');
+                    const opt = sel.selectedOptions[0];
+                    if (region && opt && opt.dataset.region) region.value = opt.dataset.region;
+                });
+            });
+        })();
+
         // ── Sidebar navigation ──────────────────────────────────────────────────
         // Generic switcher + copyKey are in panel.js; just pick the initial tab.
         panelShowTab(location.hash || '#tab-meets');

@@ -29,8 +29,12 @@ from pathlib import Path
 import pytest
 from starlette.requests import Request
 
-import cloud_server as cs
+import cloud_control as cs
 from conftest import matched
+
+# The picker reads its branding and the meet list from the control plane's
+# store (cloud/cloud_db.py).
+pytestmark = pytest.mark.usefixtures("pg")
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 

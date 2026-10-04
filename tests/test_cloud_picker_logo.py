@@ -81,19 +81,13 @@ def test_neither_logo_slot_carries_its_own_inline_size(src):
         assert "style=" not in img, "an inline size overrides the shared rule"
 
 
-def test_no_new_branding_flag_reached_the_client_contract():
+def test_no_new_branding_flag_reached_the_client_contract(pg):
     """A logo-width setting here is a contract change; this is what says so out loud.
 
     If a future change does add one, this test is the place to decide it on purpose:
     update `docs/app.md` `P-05` and the native pickers in the same breath.
     """
-    import sys
-
-    sys.path.insert(0, os.path.join(REPO, "cloud"))
-    import tempfile
-
-    os.environ.setdefault("DATA_DIR", tempfile.mkdtemp(prefix="splouch-picker-test-"))
-    import cloud_server as cs
+    import cloud_control as cs
 
     assert set(cs._picker_branding()) == {
         "title",

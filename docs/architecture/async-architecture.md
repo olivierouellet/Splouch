@@ -74,12 +74,15 @@ patterns keep that safe **without locks**:
 
 ### The cloud server
 
-`cloud/cloud_server.py` is a separate FastAPI app with the *same* loop + bus shape,
-but its shared stores (`_meets`, `_relay_sids`, `_retained`, and the analytics DB)
-genuinely have **no single owner** — every spectator page render reads meet data,
-and reads outnumber writes ~2–3×. Single-owner + a queue (the local decoder's
-pattern) fits a *write-heavy, single-reader* object; the cloud is the opposite, so
-it uses a real lock instead: `threading.Lock` (`_lock`, `_analytics_lock`).
+The cloud is two FastAPI apps since the scaling split
+([`scaling.md`](scaling.md)): a **worker** (`cloud/cloud_server.py`) that carries a
+meet's live frames, and a **control plane** (`cloud/cloud_control.py`) that owns the
+store. They share no memory and talk over HTTP (`cloud/cloud_node.py`).
+
+**The worker** has the *same* loop + bus shape as the Pi. Its shared state is
+`_meets` and `_relay_sids` (`cloud/cloud_store.py`), read by every spectator join and
+page render and written by the relay handlers — no single owner, so it uses a real
+lock: `threading.Lock` (`_lock`).
 
 **Why `threading.Lock` and not `asyncio.Lock`.** The state is touched from *both*
 worlds — async WebSocket handlers on the loop **and** sync `def` routes in the
@@ -87,64 +90,35 @@ threadpool. `asyncio.Lock` is single-loop and not thread-safe, so it can't be ta
 from a threadpool thread; `threading.Lock` is the right tool for state shared across
 the loop and the pool. (The instinct "async app ⇒ asyncio.Lock" is a trap here.)
 
-**Keeping the cloud lock cheap.** A `threading.Lock` taken *on the loop* blocks the
-whole loop until it's free, so a critical section must be short and must not do I/O.
-Almost all of them are just in-memory dict reads/updates (microseconds). The one
-place that broke this rule was persisting the retained-meets store — fixed next.
-
-**Scaling the cloud persistence (per-meet files).** `_retained` keeps each meet's
-record so a meet keeps showing after its relay disconnects. Two things made the naive
-design fall over at ~30 live meets:
-
-- each record embeds big blobs — the base64 **logo + background image** (pushed up by
-  the relay's `register`) and the **full start list** (`schedule_data`);
-- it was persisted as one file, re-serialized *whole* on every write.
-
-So every `register` (each reconnect) and every `schedule_snapshot` did a `json.dumps`
-of *all 30 meets* — tens of MB — **on the loop, under the lock** (~100 ms+), then
-rewrote the entire file (one meet changing rewrote all). The fix has two parts:
-
-1. **Per-meet files.** Each meet is `retained/<id>.json` (metadata), so a persist
-   serializes and writes only the meet that changed. (`<id>` is validated against
-   `_ID_RE`, so a relay- or backup-supplied id can't escape the directory.)
-2. **Blobs kept out of the metadata.** Images and the schedule live in their own files
-   (`<id>.icon`, `<id>.picker`, `<id>.schedule.json`) and are rewritten only by the
-   event that changes them (`register` → images, `schedule_snapshot` → schedule),
-   never on an unrelated persist. The metadata JSON stays a few KB.
-
-In memory `_retained[meet_id]` still holds the *whole* record (blobs reassembled on
-load), so every read/serve route is unchanged — only load and save changed. Combined
-with **snapshot-under-lock, write-off-loop**, a persist holds the lock only long
-enough to shallow-copy one small record; the serialize + atomic (temp-file +
-`os.replace`) write happen on a threadpool thread while the loop keeps broadcasting:
+**Keeping the lock cheap.** A `threading.Lock` taken *on the loop* blocks the whole
+loop until it's free, so a critical section is a few dict operations and never I/O.
+Everything durable is a call to the control plane, and every one of those blocks (it
+is plain `urllib`), so on the loop it is always wrapped:
 
 ```python
 with _lock:  # fast: in-memory only
-    _persist_meet_mem(meet_id, meet)
-    rec = _record_copy_locked(meet_id)  # shallow copy of one record
-await run_in_threadpool(_write_meet_files, meet_id, rec, write_schedule, write_images)
+    _retire_mem(meet_id)
+await run_in_threadpool(cloud_node.retire, meet_id)  # HTTP, off the loop
 ```
 
-It's the same idea as the local server's snapshot swap, applied to files.
+A retained meet's page fetches its record the same way — `meet_for()` in a sync
+route, `await run_in_threadpool(meet_for, ...)` in a WebSocket join — and caches it
+briefly, so a burst of joins is one call, not one per phone.
 
-Every other disk write follows the same discipline — **no `async` handler blocks the
-loop on I/O**. The keys/credentials files are written atomically (temp + `os.replace`,
-so a crash can't corrupt them and lock admins out), and the admin routes that write
-them (key add/revoke, `set_expiry`, `delete_meet`, the logo/icon upload, restore) and
-the relay's disconnect-retire all wrap the write in `await run_in_threadpool(...)`.
-Sync `def` routes (backups, the picker page) already run in the threadpool by
-default, so their reads/writes are off the loop for free.
+**Analytics writes are batched.** Logging every spectator join with its own call —
+on the loop, from the WS connect handlers — would multiply a reconnect storm (a venue
+Wi-Fi blip dropping every phone at once, which the client heartbeat guarantees will
+retry) into thousands of requests. Instead `cloud_node.log_connection` just does a
+non-blocking `queue.put` (no I/O), and a background task (`analytics_flush_loop`,
+started in `lifespan`) drains the queue every few seconds and sends the whole batch
+in **one** call via `run_in_threadpool`. The queue is drained on shutdown too, and a
+batch the control plane cannot take is dropped rather than hoarded.
 
-**Analytics writes are batched.** Logging every spectator join with its own
-`INSERT` + `commit` under `_analytics_lock` — on the loop, from the WS connect
-handlers — would serialize thousands of disk commits during a reconnect storm (a
-venue Wi-Fi blip dropping every phone at once, which the client heartbeat guarantees
-will retry). Instead `_log_connection` just does a non-blocking `queue.put` (no I/O),
-and a background task (`_analytics_flush_loop`, started in `lifespan`) drains the
-queue every few seconds and writes the whole batch in **one** `executemany` +
-`commit` via `run_in_threadpool` — off the loop. A storm of N joins becomes one
-batched transaction per interval instead of N commits on the loop; the queue is
-drained (and discarded, if analytics is disabled) on shutdown too.
+**The control plane** has no live sockets, so latency on its loop matters little; its
+routes are plain `def` handlers in the threadpool over a psycopg connection pool
+(`cloud/cloud_db.py`). The async ones (`/admin`, the uploads) hand their database work
+to `run_in_threadpool` anyway, so the maintenance task — retiring meets whose worker
+went silent, sweeping expired ones, pruning the counts — keeps its schedule.
 
 ### Diagram
 

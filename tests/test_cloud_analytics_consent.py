@@ -16,7 +16,6 @@ Two things here are load-bearing:
 """
 
 import asyncio
-import json
 import os
 from urllib.parse import urlencode
 
@@ -24,8 +23,7 @@ import pytest
 from starlette.requests import Request
 
 import cloud_auth
-import cloud_paths
-import cloud_server as cs
+import cloud_control as cs
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -53,6 +51,8 @@ def render_admin(analytics_enabled):
         has_deploy=False,
         creds_error=None,
         keys=[],
+        regions=[],
+        countries={},
         active_meets=[],
         user_name="Admin",
         locales=[],
@@ -126,14 +126,12 @@ def test_the_regional_notes_stay_readable_once_counting_is_on():
 
 
 @pytest.fixture
-def client(tmp_path, monkeypatch):
-    monkeypatch.setattr(cloud_paths, "CREDS_FILE", str(tmp_path / "credentials.json"))
+def client(pg):
     cloud_auth.save_creds({"user": "pool-admin", "password_hash": "x", "salt": "y"})
 
 
 def creds():
-    with open(cloud_paths.CREDS_FILE, encoding="utf-8") as f:
-        return json.load(f)
+    return cloud_auth.load_creds()
 
 
 def post(client, **form):

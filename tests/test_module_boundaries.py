@@ -151,12 +151,19 @@ def test_the_wrappers_still_default_to_the_meets_language(monkeypatch):
 
 
 # ── The cloud relay's modules ─────────────────────────────────────────────────
-# `cloud_server.py` was one 2117-line file. It is now several flat modules with
-# the same one-way dependency rule as `server/`:
+# `cloud_server.py` was one 2117-line file. It is now two apps — the control plane
+# and the worker (docs/architecture/scaling.md) — over flat modules with the same
+# one-way dependency rule as `server/`:
 #
-#     cloud_paths ──► cloud_auth ──► cloud_analytics
-#                 ──► cloud_bus
-#                          all ──► cloud_server
+#     cloud_paths ──► cloud_db ──► cloud_auth ──► cloud_analytics, cloud_registry
+#                                                        all ──► cloud_control
+#     cloud_paths ──► cloud_node ──► cloud_store
+#                 ──► cloud_bus            all ──► cloud_server
+#     cloud_web, cloud_i18n: both apps
+#
+# The two sides never import each other. A worker that imported the store's modules
+# would need a database it must never have, and the control plane importing the
+# worker's would start its heartbeat. They talk over HTTP only (`cloud_node`).
 #
 # The `cloud_` prefix is load-bearing rather than decorative: `server/` and
 # `cloud/` are both flat on sys.path when this suite runs, so a plain `bus.py` in
@@ -164,7 +171,11 @@ def test_the_wrappers_still_default_to_the_meets_language(monkeypatch):
 # unrelated test. It is also what the Dockerfile globs on.
 
 CLOUD = os.path.join(REPO, "cloud")
-CLOUD_MODULES = ("cloud_paths", "cloud_bus", "cloud_auth", "cloud_analytics")
+APPS = ("cloud_control", "cloud_server")
+CONTROL_SIDE = ("cloud_db", "cloud_auth", "cloud_analytics", "cloud_registry")
+WORKER_SIDE = ("cloud_node", "cloud_store", "cloud_bus")
+SHARED = ("cloud_paths", "cloud_web", "cloud_i18n")
+CLOUD_MODULES = (*CONTROL_SIDE, *WORKER_SIDE, *SHARED)
 
 
 def _cloud_imports(module):
@@ -180,14 +191,35 @@ def _cloud_imports(module):
     return found
 
 
+def _reach(module):
+    """Every cloud module `module` imports, directly or through another."""
+    seen, todo = set(), [module]
+    while todo:
+        for dep in _cloud_imports(todo.pop()):
+            if dep.startswith("cloud_") and dep not in seen:
+                seen.add(dep)
+                todo.append(dep)
+    return seen
+
+
 def test_cloud_paths_depends_on_nothing_of_ours():
-    assert not (_cloud_imports("cloud_paths") & {*CLOUD_MODULES, "cloud_server"})
+    assert not (_cloud_imports("cloud_paths") & {*CLOUD_MODULES, *APPS})
 
 
 @pytest.mark.parametrize("module", CLOUD_MODULES)
-def test_no_cloud_module_imports_the_app_back(module):
-    """`cloud_server` may import all of them; none may import it."""
-    assert "cloud_server" not in _cloud_imports(module)
+def test_no_cloud_module_imports_an_app_back(module):
+    """The apps may import the modules; no module may import an app."""
+    assert not (_cloud_imports(module) & set(APPS))
+
+
+@pytest.mark.parametrize("module", ("cloud_server", *WORKER_SIDE))
+def test_the_worker_side_never_reaches_the_store(module):
+    assert not (_reach(module) & {*CONTROL_SIDE, "cloud_control"}), _reach(module)
+
+
+@pytest.mark.parametrize("module", ("cloud_control", *CONTROL_SIDE))
+def test_the_control_side_never_reaches_the_worker(module):
+    assert not (_reach(module) & {*WORKER_SIDE, "cloud_server"}), _reach(module)
 
 
 def test_every_cloud_module_carries_the_prefix():
@@ -211,24 +243,31 @@ def test_the_dockerfile_ships_every_cloud_module():
     assert "COPY cloud/deploy_webhook.py" not in dockerfile
 
 
-def test_the_container_entrypoint_still_names_a_real_app():
+def test_the_container_entrypoints_name_real_apps():
+    """The image's default command is a worker; compose runs the control plane from
+    the same image with its own command (docs/architecture/scaling.md)."""
     dockerfile = Path(os.path.join(CLOUD, "Dockerfile")).read_text(encoding="utf-8")
+    compose = Path(os.path.join(CLOUD, "docker-compose.yml")).read_text(
+        encoding="utf-8"
+    )
     assert "cloud_server:app" in dockerfile
-    assert os.path.exists(os.path.join(CLOUD, "cloud_server.py"))
+    assert "cloud_control:app" in compose
+    for app in APPS:
+        assert os.path.exists(os.path.join(CLOUD, app + ".py"))
 
 
 # ── The relay's meet store ────────────────────────────────────────────────────
-# `cloud_store` owns `_meets`, `_retained`, `_relay_sids` and the lock over them.
+# `cloud_store` owns `_meets`, `_relay_sids` and the lock over them.
 # `cloud_server` imports the objects, not copies: they are bound once and only ever
-# mutated in place, which is what lets ~30 `with _lock:` blocks and ~43 `_meets` /
-# `_retained` accesses in the routes stay exactly as they were.
+# mutated in place, which is what lets the `with _lock:` blocks and `_meets`
+# accesses in the routes read the same dicts the store writes.
 #
 # That contract is invisible in the source. Rebinding one of them in `cloud_store`
-# — `_retained = {}` in a reset helper, say — would leave `cloud_server` holding the
+# — `_meets = {}` in a reset helper, say — would leave `cloud_server` holding the
 # old dict, and the relay would serve meets that registrations no longer reach. No
 # other test would notice, so these check it directly.
 
-STORE_OBJECTS = ("_meets", "_retained", "_relay_sids", "_lock")
+STORE_OBJECTS = ("_meets", "_relay_sids", "_lock")
 
 
 @pytest.mark.parametrize("name", STORE_OBJECTS)

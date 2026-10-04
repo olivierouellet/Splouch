@@ -30,7 +30,7 @@ import pytest
 import yaml
 from fastapi import HTTPException
 
-import cloud_server as cs
+import cloud_control as cs
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -166,7 +166,7 @@ def test_the_fingerprint_is_configuration_and_not_source():
     Not the upload key's, and different again for a debug build — a value this
     repo cannot know and must never carry.
     """
-    source = Path(os.path.join(REPO, "cloud", "cloud_server.py")).read_text(
+    source = Path(os.path.join(REPO, "cloud", "cloud_control.py")).read_text(
         encoding="utf-8"
     )
     assert "sha256_cert_fingerprints" in source, "sanity: this is the right file"
@@ -312,28 +312,36 @@ def test_neither_file_is_behind_the_admin_password():
 # ── the deployment that has to leave them reachable ────────────────────────────
 
 
-def test_caddy_sends_well_known_to_the_app():
-    """A `handle` or `file_server` above the proxy would swallow both files.
+def test_caddy_sends_well_known_to_the_control_plane():
+    """A `handle` or `file_server` above the catch-all would swallow both files.
 
     The only symptom would be `1024` from `pm get-app-links`, on a phone, later.
     Caddy's own ACME handler is scoped to `/.well-known/acme-challenge/*` and does
-    not overlap either path.
+    not overlap either path. The site block is pinned whole: the worker's paths,
+    the refused internal API, and the control plane as the catch-all.
     """
     directives = [
         line.strip()
         for line in Path(CADDYFILE).read_text(encoding="utf-8").splitlines()
         if line.strip() and not line.strip().startswith("#")
     ]
-    body_lines = [d for d in directives if d != "}" and not d.endswith("{")]
-    assert body_lines == ["reverse_proxy app:5000"], (
-        "the site block gained a directive — check it cannot shadow /.well-known/"
-    )
+    body_lines = [d for d in directives if d != "}"]
+    assert body_lines == [
+        "{$SPLOUCH_DOMAIN} {",
+        "@worker path /ws/* /mobile /mobile/* /meet/* /manifest/* /icon/*",
+        "handle @worker {",
+        "reverse_proxy app:5000",
+        "handle /internal/* {",
+        "respond 404",
+        "handle {",
+        "reverse_proxy control:8000",
+    ], "the site block changed — check it cannot shadow /.well-known/"
 
 
 def test_the_deployment_passes_the_fingerprints_in():
     """The value lives in `cloud/.env`; compose is what carries it to the app."""
-    env = yaml.safe_load(Path(COMPOSE).read_text(encoding="utf-8"))["services"]["app"][
-        "environment"
-    ]
+    env = yaml.safe_load(Path(COMPOSE).read_text(encoding="utf-8"))["services"][
+        "control"
+    ]["environment"]
     assert env["ANDROID_CERT_FINGERPRINTS"].startswith("${ANDROID_CERT_FINGERPRINTS")
     assert "app.splouch" not in json.dumps(env), "a fingerprint or id pinned in compose"

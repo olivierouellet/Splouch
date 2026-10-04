@@ -2,3 +2,5 @@ fastapi
 uvicorn[standard]
 jinja2
 python-multipart
+psycopg[binary]
+psycopg-pool

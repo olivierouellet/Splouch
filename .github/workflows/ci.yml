@@ -30,7 +30,20 @@ jobs:
     runs-on: ubuntu-24.04-arm
     container: debian:trixie
     timeout-minutes: 20
+    # The control plane's store (cloud/cloud_db.py). Its tests skip without a
+    # database, so the guard step below fails the run if this one is missing.
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: splouch
+          POSTGRES_PASSWORD: splouch
+          POSTGRES_DB: splouch_test
+        options: >-
+          --health-cmd "pg_isready -U splouch -d splouch_test"
+          --health-interval 5s --health-timeout 5s --health-retries 10
     env:
+      TEST_DATABASE_URL: postgresql://splouch:splouch@postgres:5432/splouch_test
       # Debian's python3.13 is what the Pi runs. Without these uv would download a
       # standalone build instead and quietly test a different interpreter than the
       # one on the pool deck.
@@ -95,6 +108,11 @@ jobs:
         # not exist here, so Debian resolves to node. Without either, 48 tests skip
         # and the run still reports green — including every page-load smoke test.
         run: node --version
+
+      - name: Check Postgres is really here
+        # The same guard again: without a database the control plane's tests skip
+        # and the run still reports green.
+        run: uv run python -c "import os, psycopg; psycopg.connect(os.environ['TEST_DATABASE_URL']).close(); print('postgres ok')"
 
       - name: Format
         # Check only: CI never rewrites. `uv run ruff format` locally, or save in

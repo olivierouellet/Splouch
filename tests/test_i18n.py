@@ -23,9 +23,10 @@ from typing import cast
 import pytest
 from fastapi import Request
 
+import cloud_control as cs
 import cloud_i18n
 import cloud_paths
-import cloud_server as cs
+import cloud_web
 import paths
 import state
 import web
@@ -402,45 +403,45 @@ _MEET = {
 def test_no_choice_renders_exactly_what_the_operator_configured():
     """Not "the same words" — the same object. Nothing re-resolved, nothing lost —
     as long as the meet's labels are already in the style asked for."""
-    assert cs._client_lang(_Q(), _MEET) == "fr"
-    assert cs._client_labels(_MEET, "fr", "short") is _MEET["settings"]["labels"]
+    assert cloud_web._client_lang(_Q(), _MEET) == "fr"
+    assert cloud_web._client_labels(_MEET, "fr", "short") is _MEET["settings"]["labels"]
     # The board asks for long; a meet resolved short is re-read from the table.
-    assert cs._client_labels(_MEET, "fr", "long")["event"] == "ÉPREUVE"
+    assert cloud_web._client_labels(_MEET, "fr", "long")["event"] == "ÉPREUVE"
 
 
 def test_choosing_a_style_or_language_reads_the_served_table():
     """The same body `GET /i18n/{lang}` serves, so a phone page and an app that
     made the same choice show the same header."""
-    assert cs._client_labels(_MEET, "fr", "long")["event"] == "ÉPREUVE"
-    assert cs._client_labels(_MEET, "es", "long")["event"] == "PRUEBA"
+    assert cloud_web._client_labels(_MEET, "fr", "long")["event"] == "ÉPREUVE"
+    assert cloud_web._client_labels(_MEET, "es", "long")["event"] == "PRUEBA"
     # `T-09`: lane is narrow and stays short whatever the style says.
-    assert cs._client_labels(_MEET, "es", "long")["lane"] == "CA"
+    assert cloud_web._client_labels(_MEET, "es", "long")["lane"] == "CA"
 
 
 def test_a_stale_link_falls_back_instead_of_breaking_the_board():
-    assert cs._client_lang(_Q(lang="de"), _MEET) == "fr"
-    assert cs._client_lang(_Q(lang="../en"), _MEET) == "fr"
+    assert cloud_web._client_lang(_Q(lang="de"), _MEET) == "fr"
+    assert cloud_web._client_lang(_Q(lang="../en"), _MEET) == "fr"
 
 
 def test_the_choice_is_honoured_when_it_is_available():
-    assert cs._client_lang(_Q(lang="es"), _MEET) == "es"
+    assert cloud_web._client_lang(_Q(lang="es"), _MEET) == "es"
 
 
 def test_the_cloud_board_is_always_long():
     """The picker offers no label control (`T-09`): neither a leftover cookie, a
     `?style=` link nor an operator's short style changes the cloud's board."""
     for req in (_Q(style="short"), _Q({"splouch_style": "short"}), _Q()):
-        assert cs._client_style(req, _MEET) == "long"
+        assert cloud_web._client_style(req, _MEET) == "long"
 
 
 def test_the_cookie_is_the_choice_and_the_url_is_a_one_shot_override():
     """A bookmark carries nothing and still opens right; a shared link carrying
     `?lang=` opens as its sender saw it, that once."""
     cookies = {"splouch_lang": "es", "splouch_style": "long"}
-    assert cs._client_lang(_Q(cookies), _MEET) == "es"
-    assert cs._client_lang(_Q(cookies, lang="en"), _MEET) == "en"
+    assert cloud_web._client_lang(_Q(cookies), _MEET) == "es"
+    assert cloud_web._client_lang(_Q(cookies, lang="en"), _MEET) == "en"
     # A cookie for a language this server no longer ships reads as no choice.
-    assert cs._client_lang(_Q({"splouch_lang": "de"}), _MEET) == "fr"
+    assert cloud_web._client_lang(_Q({"splouch_lang": "de"}), _MEET) == "fr"
 
 
 def test_the_picker_follows_the_cookie_before_the_browser(monkeypatch):
@@ -472,7 +473,7 @@ def test_the_shell_turns_a_link_parameter_into_the_cookie(remember):
 
 def test_both_servers_name_the_cookies_the_same():
     """One device, two servers, one preference: the names must match exactly."""
-    assert cs.PREF_COOKIES == web.PREF_COOKIES
+    assert cloud_web.PREF_COOKIES == web.PREF_COOKIES
 
 
 def test_the_pi_serves_its_own_language_long_when_nothing_is_chosen(monkeypatch):
@@ -493,7 +494,7 @@ def test_the_schedule_cards_are_short_on_both_servers(monkeypatch):
     monkeypatch.setitem(state.settings, "locale", "en")
     ctx = web.client_strings(_Q(), style="short")
     assert ctx["labels"]["event"] == "EV" and ctx["ui_style"] == "long"
-    assert cs._client_labels(_MEET, "fr", "short")["event"] == "ÉP"
+    assert cloud_web._client_labels(_MEET, "fr", "short")["event"] == "ÉP"
 
 
 def test_the_pi_honours_a_language_and_hands_the_style_to_the_template(monkeypatch):
@@ -519,6 +520,7 @@ def test_the_pi_honours_a_language_and_hands_the_style_to_the_template(monkeypat
 # now that both documents are numbered.
 
 
+@pytest.mark.usefixtures("pg")  # the name comes from the store
 def test_each_server_says_what_kind_it_is():
     from routes.i18n import route_server as pi_server
 
@@ -526,6 +528,7 @@ def test_each_server_says_what_kind_it_is():
     assert cs.route_server()["kind"] == "cloud"
 
 
+@pytest.mark.usefixtures("pg")  # the name comes from the store
 def test_each_server_names_itself_for_the_menu():
     """A list of servers is unusable if every row reads "Splouch"."""
     from routes.i18n import route_server as pi_server
@@ -534,6 +537,7 @@ def test_each_server_names_itself_for_the_menu():
     assert cs.route_server()["name"]
 
 
+@pytest.mark.usefixtures("pg")  # the name comes from the store
 @pytest.mark.parametrize("doc, key", [("api.md", "api"), ("app.md", "app")])
 def test_the_handshake_matches_the_contract_it_claims(doc, key):
     """The versions a build advertises are the ones the documents carry.
@@ -559,6 +563,7 @@ class _BaseUrlReq:
         self.base_url = base
 
 
+@pytest.mark.usefixtures("pg")  # the name comes from the store
 def test_the_directory_lists_this_server_with_no_configuration(monkeypatch, tmp_path):
     """Pointed at any cloud, a client gets at least that cloud back."""
     monkeypatch.setattr(cs, "SERVERS_FILE", str(tmp_path / "absent.json"))
@@ -569,6 +574,7 @@ def test_the_directory_lists_this_server_with_no_configuration(monkeypatch, tmp_
     assert servers[0]["kind"] == "cloud"
 
 
+@pytest.mark.usefixtures("pg")  # the name comes from the store
 def test_the_directory_adds_what_the_operator_published(monkeypatch, tmp_path):
     """A club standing up its own instance must not need a store release to be
     reachable — which is the whole reason this is fetched (`P-11`)."""
@@ -591,6 +597,7 @@ def test_the_directory_adds_what_the_operator_published(monkeypatch, tmp_path):
     ]
 
 
+@pytest.mark.usefixtures("pg")  # the name comes from the store
 def test_a_broken_directory_file_does_not_take_the_endpoint_down(monkeypatch, tmp_path):
     """It is hand-edited on a server, so assume it will be malformed one day."""
     f = tmp_path / "servers.json"

@@ -12,7 +12,6 @@ What it must hold:
 * **The contact is configuration**, and unset leaves the section out.
 """
 
-import asyncio
 import os
 import re
 import tomllib
@@ -22,7 +21,7 @@ import pytest
 from starlette.requests import Request
 
 import cloud_analytics
-import cloud_server as cs
+import cloud_control as cs
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TEMPLATE = os.path.join(REPO, "cloud", "templates", "privacy.html")
@@ -97,28 +96,31 @@ def test_the_page_is_public():
 
 
 def test_contact_is_shown_only_when_configured(monkeypatch):
-    assert "mailto:" not in get()
+    # `lang=` named, so the page needs no server default from the store.
+    assert "mailto:" not in get("lang=en")
     monkeypatch.setenv("PRIVACY_CONTACT", "not an address")
-    assert "mailto:" not in get()
+    assert "mailto:" not in get("lang=en")
     monkeypatch.setenv("PRIVACY_CONTACT", "privacy@example.org")
-    assert 'href="mailto:privacy@example.org"' in get()
+    assert 'href="mailto:privacy@example.org"' in get("lang=en")
 
 
 def test_the_prune_runs_while_the_server_is_up(monkeypatch):
-    """Startup alone would let a long-running container keep rows past the promise."""
+    """Startup alone would let a long-running container keep rows past the promise.
 
-    class Stop(BaseException):
-        pass
+    The control plane's maintenance pass prunes on its first run and then once per
+    `_ANALYTICS_PRUNE_SECS`, for as long as it is up."""
+    import cloud_registry
 
-    def prune():
-        raise Stop
-
-    monkeypatch.setattr(cloud_analytics, "_ANALYTICS_FLUSH_SECS", 0)
-    monkeypatch.setattr(cloud_analytics, "_ANALYTICS_PRUNE_SECS", 0)
-    monkeypatch.setattr(cloud_analytics, "flush_analytics", lambda: None)
-    monkeypatch.setattr(cloud_analytics, "analytics_prune", prune)
-    with pytest.raises(Stop):
-        asyncio.run(cloud_analytics.analytics_flush_loop())
+    pruned = []
+    monkeypatch.setattr(cloud_registry, "retire_silent", lambda *a: None)
+    monkeypatch.setattr(cloud_registry, "sweep_expired", lambda *a: None)
+    monkeypatch.setattr(cloud_analytics, "analytics_prune", lambda: pruned.append(1))
+    last = cs._maintain(None)
+    assert pruned == [1], "the first pass prunes"
+    cs._maintain(last)
+    assert pruned == [1], "not again until a day has passed"
+    cs._maintain(last - cloud_analytics._ANALYTICS_PRUNE_SECS)
+    assert pruned == [1, 1]
 
 
 def test_the_cloud_keeps_no_access_log():

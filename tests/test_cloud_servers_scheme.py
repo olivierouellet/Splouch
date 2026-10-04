@@ -25,7 +25,11 @@ import yaml
 from starlette.requests import Request
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
-import cloud_server as cs
+import cloud_control as cs
+
+# The picker reads its branding and the meet list from the control plane's
+# store (cloud/cloud_db.py).
+pytestmark = pytest.mark.usefixtures("pg")
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 

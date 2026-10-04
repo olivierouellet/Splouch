@@ -1,12 +1,19 @@
 """Who may publish to this relay, and who may administer it.
 
-Two unrelated credentials with the same home on disk, so they share a module:
+The control plane's half of the relay (`cloud_control`), on its Postgres
+(`cloud_db`). Workers never import this: they ask the control plane over its
+internal API.
 
-* **Relay keys** — one per organizer, handed out from the admin panel. A Pi sends
-  its key on `register` and the relay accepts or rejects the connection.
-* **The admin login** — a single username and password guarding `/admin`. Seeded
-  from the environment on first run, then owned by `credentials.json` so a
-  password change survives a redeploy.
+* **Organizers** — one relay key each, handed out from the admin panel, with the
+  country, state/province and region the admin records for them
+  (docs/architecture/scaling.md). A Pi sends its key on `register`; the worker
+  asks the control plane, which accepts or rejects it.
+* **The admin login and server settings** — one username and password guarding
+  `/admin`, and the settings the panel edits (picker appearance, the analytics
+  switch, the public-page locale). Seeded from the environment on first run, then
+  owned by the database so a password change survives a redeploy. Read and
+  written together as one dict, the shape `credentials.json` had, so the panel's
+  code reads the same as it did.
 
 The failed-sign-in throttle lives here too, because it is the other half of what
 makes one password on the open internet defensible.
@@ -16,27 +23,139 @@ import base64
 import datetime
 import hashlib
 import hmac
-import json
 import os
+import secrets
 import threading
 import time
 
 from fastapi import HTTPException, Request
+from psycopg.types.json import Jsonb
 
-import cloud_paths
-from cloud_paths import atomic_write
+import cloud_db
+
+_LOGIN_FIELDS = ("user", "password_hash", "salt")
+_ORG_FIELDS = ("name", "active", "country", "province", "region")
+
+
+# ── Organizers ─────────────────────────────────────────────────────────────────
+
+
+def _org_row(r):
+    """An organizer as the admin panel and the backups have always spelled it."""
+    return {
+        "organizer": r["name"],
+        "created": r["created"].isoformat(),
+        "active": r["active"],
+        "country": r["country"],
+        "province": r["province"],
+        "region": r["region"] or "",
+    }
 
 
 def load_keys():
-    try:
-        with open(cloud_paths.KEYS_FILE, encoding="utf-8") as f:
-            return json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError):
-        return {}
+    """Every organizer, keyed by relay key, oldest first."""
+    with cloud_db.conn() as c:
+        rows = c.execute("SELECT * FROM organizers ORDER BY created, name").fetchall()
+    return {r["key"]: _org_row(r) for r in rows}
 
 
-def save_keys(keys):
-    atomic_write(cloud_paths.KEYS_FILE, json.dumps(keys, indent=2))
+def organizer(key):
+    """One organizer's row, or None. The raw row: `name`, `legacy_meet_id`, …"""
+    if not key:
+        return None
+    with cloud_db.conn() as c:
+        return c.execute("SELECT * FROM organizers WHERE key = %s", (key,)).fetchone()
+
+
+def regions():
+    with cloud_db.conn() as c:
+        return c.execute("SELECT code, name FROM regions ORDER BY code").fetchall()
+
+
+def add_organizer(name, country="", province="", region=None):
+    """Create an organizer with a fresh random key; returns the key."""
+    key = secrets.token_urlsafe(32)
+    with cloud_db.conn() as c:
+        c.execute(
+            "INSERT INTO organizers (key, name, country, province, region) "
+            "VALUES (%s, %s, %s, %s, %s)",
+            (key, name, country, province, region or None),
+        )
+    return key
+
+
+def update_organizer(key, **fields):
+    """Change some of an organizer's fields (`name`, `active`, `country`, …)."""
+    fields = {k: v for k, v in fields.items() if k in _ORG_FIELDS}
+    if not fields:
+        return
+    if "region" in fields:
+        fields["region"] = fields["region"] or None
+    sets = ", ".join(f"{k} = %s" for k in fields)
+    with cloud_db.conn() as c:
+        c.execute(
+            f"UPDATE organizers SET {sets} WHERE key = %s", (*fields.values(), key)
+        )
+
+
+def delete_organizer(key):
+    with cloud_db.conn() as c:
+        c.execute("DELETE FROM organizers WHERE key = %s", (key,))
+
+
+def legacy_meet_id(key):
+    """The one meet id a relay with no `meet_uid` publishes under, minted once."""
+    with cloud_db.conn() as c:
+        row = c.execute(
+            "SELECT legacy_meet_id FROM organizers WHERE key = %s", (key,)
+        ).fetchone()
+        if row is None:
+            return None
+        if row["legacy_meet_id"]:
+            return row["legacy_meet_id"]
+        meet_id = secrets.token_urlsafe(8)
+        c.execute(
+            "UPDATE organizers SET legacy_meet_id = %s WHERE key = %s", (meet_id, key)
+        )
+        return meet_id
+
+
+def restore_keys(keys):
+    """Upsert a backup's organizers. Ones not in the backup are left alone.
+
+    Accepts the `keys.json` shape, old and new: a pre-scaling backup has no
+    country, province or region, and keeps a no-uid relay's meet id as `meet_id`.
+    """
+    known = {r["code"] for r in regions()}
+    with cloud_db.conn() as c:
+        for key, info in keys.items():
+            if not isinstance(info, dict):
+                continue
+            created = info.get("created") or datetime.date.today().isoformat()
+            region = info.get("region") or None
+            c.execute(
+                "INSERT INTO organizers "
+                "(key, name, created, active, country, province, region, legacy_meet_id) "
+                "VALUES (%s, %s, %s, %s, %s, %s, %s, %s) "
+                "ON CONFLICT (key) DO UPDATE SET name = EXCLUDED.name, "
+                "created = EXCLUDED.created, active = EXCLUDED.active, "
+                "country = EXCLUDED.country, province = EXCLUDED.province, "
+                "region = EXCLUDED.region, "
+                "legacy_meet_id = COALESCE(EXCLUDED.legacy_meet_id, organizers.legacy_meet_id)",
+                (
+                    key,
+                    str(info.get("organizer", "")),
+                    created,
+                    bool(info.get("active", False)),
+                    str(info.get("country", "")),
+                    str(info.get("province", "")),
+                    region if region in known else None,
+                    info.get("meet_id") or None,
+                ),
+            )
+
+
+# ── Admin login and server settings ────────────────────────────────────────────
 
 
 def hash_password(password, salt=None):
@@ -47,24 +166,53 @@ def hash_password(password, salt=None):
 
 
 def load_creds():
-    try:
-        with open(cloud_paths.CREDS_FILE, encoding="utf-8") as f:
-            return json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError):
-        pass
-    # First run on a new install: seed from the environment the installer set, then
-    # own the value from here on so a password changed in /admin survives a redeploy.
-    # Not a migration — this is the only path by which an admin login is ever created.
-    user = os.environ.get("ADMIN_USER", "admin")
-    password = os.environ.get("ADMIN_PASSWORD", "")
-    pw_hash, salt = hash_password(password)
-    creds = {"user": user, "password_hash": pw_hash, "salt": salt}
-    save_creds(creds)
-    return creds
+    """The admin login and every server setting, as one dict."""
+    with cloud_db.conn() as c:
+        admin = c.execute("SELECT * FROM admin WHERE id = 1").fetchone()
+        settings = {
+            r["name"]: r["value"]
+            for r in c.execute("SELECT name, value FROM settings").fetchall()
+        }
+    if admin is None:
+        # First run on a new install: seed from the environment the installer set,
+        # then own the value from here on so a password changed in /admin survives
+        # a redeploy. The only path by which an admin login is ever created.
+        user = os.environ.get("ADMIN_USER", "admin")
+        pw_hash, salt = hash_password(os.environ.get("ADMIN_PASSWORD", ""))
+        creds = {**settings, "user": user, "password_hash": pw_hash, "salt": salt}
+        save_creds(creds)
+        return creds
+    return {
+        **settings,
+        "user": admin["username"],
+        "password_hash": admin["password_hash"],
+        "salt": admin["salt"],
+    }
 
 
 def save_creds(creds):
-    atomic_write(cloud_paths.CREDS_FILE, json.dumps(creds, indent=2))
+    """Write the whole dict back: the login, and exactly these settings.
+
+    A setting absent from `creds` is deleted, so `creds.pop(name)` then
+    `save_creds(creds)` clears it, as it did when this was one JSON file.
+    """
+    settings = {k: v for k, v in creds.items() if k not in _LOGIN_FIELDS}
+    with cloud_db.conn() as c:
+        if all(f in creds for f in _LOGIN_FIELDS):
+            c.execute(
+                "INSERT INTO admin (id, username, password_hash, salt) "
+                "VALUES (1, %s, %s, %s) ON CONFLICT (id) DO UPDATE SET "
+                "username = EXCLUDED.username, password_hash = EXCLUDED.password_hash, "
+                "salt = EXCLUDED.salt",
+                (creds["user"], creds["password_hash"], creds["salt"]),
+            )
+        c.execute("DELETE FROM settings WHERE NOT (name = ANY(%s))", (list(settings),))
+        for name, value in settings.items():
+            c.execute(
+                "INSERT INTO settings (name, value) VALUES (%s, %s) "
+                "ON CONFLICT (name) DO UPDATE SET value = EXCLUDED.value",
+                (name, Jsonb(value)),
+            )
 
 
 # What the Appearance tab accepts. The logo is drawn by a browser `<img>`, so the

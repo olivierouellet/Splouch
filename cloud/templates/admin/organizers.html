@@ -1,12 +1,46 @@
+{% macro location_fields(info) %}
+                <select name="country" class="form-select form-select-sm country-select" style="width:auto;" aria-label="{{ t.country }}">
+                    <option value="">{{ t.country }}</option>
+                    {% for code, region in (countries or {}).items() %}
+                    <option value="{{ code }}" data-region="{{ region }}" {{ 'selected' if info and info.country == code else '' }}>{{ code }}</option>
+                    {% endfor %}
+                </select>
+                <input type="text" name="province" class="form-control form-control-sm" style="width:9rem;" maxlength="64" placeholder="{{ t.province }}" aria-label="{{ t.province }}" value="{{ info.province if info else '' }}" autocomplete="off">
+                <select name="region" class="form-select form-select-sm region-select" style="width:auto;" aria-label="{{ t.region }}">
+                    <option value="">{{ t.region }}</option>
+                    {% for r in (regions or []) %}
+                    <option value="{{ r.code }}" {{ 'selected' if info and info.region == r.code else '' }}>{{ t['region_' ~ r.code] or r.name }}</option>
+                    {% endfor %}
+                </select>
+{% endmacro %}
+{% macro location_label(info) %}
+{%- if info.region %}{{ t['region_' ~ info.region] }}{% else %}—{% endif %}
+{%- if info.country %} <span class="small text-body-secondary">· {{ info.country }}{% if info.province %} · {{ info.province }}{% endif %}</span>{% endif %}
+{% endmacro %}
+{% macro edit_location(key, info) %}
+                            <details class="small mt-1">
+                                <summary class="text-body-secondary">{{ t.edit_location }}</summary>
+                                <form method="post" class="d-flex flex-wrap gap-1 mt-1">
+                                    <input type="hidden" name="action" value="update_org">
+                                    <input type="hidden" name="key" value="{{ key }}">
+                                    {{ location_fields(info) }}
+                                    <button type="submit" class="btn btn-outline-secondary btn-sm">{{ t.save }}</button>
+                                </form>
+                            </details>
+{% endmacro %}
         <div class="tab-pane" id="tab-organizers">
             <div class="table-responsive d-none d-sm-block">
             <table class="table table-sm align-middle">
-                <thead><tr><th>{{ t.col_organizer }}</th><th>{{ t.col_key }}</th><th>{{ t.col_created }}</th><th>{{ t.col_status }}</th><th></th></tr></thead>
+                <thead><tr><th>{{ t.col_organizer }}</th><th>{{ t.col_region }}</th><th>{{ t.col_key }}</th><th>{{ t.col_created }}</th><th>{{ t.col_status }}</th><th></th></tr></thead>
                 <tbody>
                 {% if keys %}
                     {% for key, info in keys.items() %}
                     <tr>
-                        <td>{{ info.organizer }}</td>
+                        <td>
+                            {{ info.organizer }}
+                            {{ edit_location(key, info) }}
+                        </td>
+                        <td>{{ location_label(info) }}</td>
                         <td>
                             <span class="font-monospace small text-body-secondary text-break">{{ key[:12] }}…</span>
                             <button type="button" class="btn btn-outline-secondary btn-sm copy" data-copied="{{ t['copied'] }}" onclick="copyKey(this, '{{ key }}')">{{ t['copy'] }}</button>
@@ -30,7 +64,7 @@
                     </tr>
                     {% endfor %}
                 {% else %}
-                    <tr><td colspan="5" class="text-body-secondary fst-italic">{{ t.no_organizers }}</td></tr>
+                    <tr><td colspan="6" class="text-body-secondary fst-italic">{{ t.no_organizers }}</td></tr>
                 {% endif %}
                 </tbody>
             </table>
@@ -50,6 +84,7 @@
                                 </div>
                                 <div class="d-flex justify-content-between align-items-center gap-2 small text-body-secondary mt-1">
                                     <span class="text-truncate">{{ t.col_created }}: {{ info.created }}</span>
+                                    <span class="text-truncate">{{ location_label(info) }}</span>
                                 </div>
                             </div>
                         </button>
@@ -61,6 +96,7 @@
                                 <span class="font-monospace small text-body-secondary text-break">{{ key[:12] }}…</span>
                                 <button type="button" class="btn btn-outline-secondary btn-sm copy" data-copied="{{ t['copied'] }}" onclick="copyKey(this, '{{ key }}')">{{ t['copy'] }}</button>
                             </div>
+                            <div class="mb-3">{{ edit_location(key, info) }}</div>
                             <div class="d-flex flex-wrap gap-1">
                                 {% if info.active %}
                                 <form method="post" class="d-inline">
@@ -85,10 +121,11 @@
             </div>
 
             <h2 class="panel-eyebrow mt-2">{{ t.add_organizer }}</h2>
-            <form method="post" class="d-flex flex-wrap gap-2" style="max-width:480px;">
+            <form method="post" class="d-flex flex-wrap gap-2" style="max-width:720px;">
                 <input type="hidden" name="action" value="add">
                 <input type="text" name="organizer" class="form-control form-control-sm" style="flex:1; min-width:180px;" placeholder="{{ t.org_placeholder }}" required autocomplete="off">
+                {{ location_fields(None) }}
                 <button type="submit" class="btn btn-success btn-sm">{{ t.generate_key }}</button>
             </form>
-            <p class="small text-body-secondary mt-2">{{ t.key_note }}</p>
+            <p class="small text-body-secondary mt-2">{{ t.key_note }} {{ t.region_note }}</p>
         </div>

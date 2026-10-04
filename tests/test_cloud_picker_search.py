@@ -19,8 +19,12 @@ from pathlib import Path
 import pytest
 from jinja2 import Environment, FileSystemLoader
 
-import cloud_server as cs
+import cloud_control as cs
 from jsc import HAS_JS_ENGINE, js_argv, run_page
+
+# The picker reads its branding and the meet list from the control plane's
+# store (cloud/cloud_db.py).
+pytestmark = pytest.mark.usefixtures("pg")
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PICKER = os.path.join(REPO, "cloud", "templates", "picker.html")
@@ -163,20 +167,20 @@ def test_an_empty_or_blank_query_shows_everything():
 # ── The order `GET /meets` serves ─────────────────────────────────────────────
 
 
-def test_live_meets_come_before_retained_ones(monkeypatch):
-    """Stable, so each group keeps the order it had."""
-    store = {
-        "old-a": {"name": "A", "location": "", "sport": "", "organizer": ""},
-        "live-b": {"name": "B", "location": "", "sport": "", "organizer": ""},
-        "old-c": {"name": "C", "location": "", "sport": "", "organizer": ""},
-        "live-d": {"name": "D", "location": "", "sport": "", "organizer": ""},
-    }
-    monkeypatch.setattr(cs, "_sweep_expired", lambda: None)
-    monkeypatch.setattr(cs, "_merged_meets", lambda: store)
-    monkeypatch.setattr(cs, "_meets", {"live-b": {}, "live-d": {}})
+def test_live_meets_come_before_retained_ones():
+    """Live first, then retained; each group in name order."""
+    import cloud_auth
+    import cloud_registry
+
+    key = cloud_auth.add_organizer("Club")
+    cloud_registry.restore({"old-c": {"name": "C"}, "old-a": {"name": "A"}})
+    live = [
+        cloud_registry.register(key, uid, {"name": name}, "ca1", 1)["meet_id"]
+        for uid, name in (("d", "D"), ("b", "B"))
+    ]
     assert [m["id"] for m in cs._public_meet_list()] == [
-        "live-b",
-        "live-d",
+        live[1],
+        live[0],
         "old-a",
         "old-c",
     ]

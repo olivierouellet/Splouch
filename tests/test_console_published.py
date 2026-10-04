@@ -392,44 +392,59 @@ def test_the_cloud_shell_follows_the_meet(cloud, settings, expected):
 # it arrived, plugin keys and all.
 
 
-def _admin_row(cloud, settings, live=True, mid="m-admin"):
-    store = cloud._meets if live else cloud._retained
-    store[mid] = {"name": "Coupe", "organizer": "Club", "settings": settings}
-    if not live:
-        store[mid]["expires_at"] = "2026-01-01T00:00:00"
-    try:
-        return next(r for r in cloud._admin_meet_list() if r["id"] == mid)
-    finally:
-        store.pop(mid, None)
+@pytest.fixture
+def control(pg):
+    import cloud_control
+
+    return cloud_control
 
 
-def test_the_admin_table_names_the_console(cloud):
-    row = _admin_row(cloud, {"console": {"key": "cts_gen6", "timed": True}})
+def _admin_row(control, settings, live=True):
+    """One meet, live or retained, as the admin table lists it."""
+    import cloud_auth
+    import cloud_registry
+
+    if live:
+        key = cloud_auth.add_organizer("Club")
+        meta = {"name": "Coupe", "settings": settings}
+        mid = cloud_registry.register(key, "uid", meta, "ca1", 1)["meet_id"]
+    else:
+        mid = "m-admin"
+        cloud_registry.restore(
+            {mid: {"name": "Coupe", "organizer": "Club", "settings": settings}}
+        )
+    return next(r for r in control._admin_meet_list() if r["id"] == mid)
+
+
+def test_the_admin_table_names_the_console(control):
+    row = _admin_row(control, {"console": {"key": "cts_gen6", "timed": True}})
     assert row["console"] == "cts_gen6"
     assert row["console_timed"] is True
 
 
-def test_a_plugin_key_reaches_the_table_as_it_arrived(cloud):
+def test_a_plugin_key_reaches_the_table_as_it_arrived(control):
     """The cloud has no console registry and must not grow one: a key it has never
     heard of is exactly the one a support question is about."""
-    row = _admin_row(cloud, {"console": {"key": "club_stopwatch", "timed": False}})
+    row = _admin_row(control, {"console": {"key": "club_stopwatch", "timed": False}})
     assert row["console"] == "club_stopwatch"
     assert row["console_timed"] is False
 
 
-def test_a_relay_too_old_to_say_is_left_unknown(cloud):
+def test_a_relay_too_old_to_say_is_left_unknown(control):
     """`route_mobile` defaults the *tab* to shown, because a board is better than a
     missing one. A diagnostic line has no such excuse — it says nothing rather than
     naming a console this Pi never reported."""
-    row = _admin_row(cloud, {})
+    row = _admin_row(control, {})
     assert row["console"] == ""
     assert row["console_timed"] is None
 
 
-def test_an_offline_meet_still_says_what_it_ran_on(cloud):
+def test_an_offline_meet_still_says_what_it_ran_on(control):
     """The retained record keeps the whole `settings` block, and 'which console was
     that meet on?' is asked after the Pi has gone home more often than during."""
-    row = _admin_row(cloud, {"console": {"key": "manual", "timed": False}}, live=False)
+    row = _admin_row(
+        control, {"console": {"key": "manual", "timed": False}}, live=False
+    )
     assert row["live"] is False
     assert row["console"] == "manual"
 
@@ -454,6 +469,8 @@ def _admin_html(rows):
         has_deploy=True,
         creds_error=None,
         keys=[],
+        regions=[],
+        countries={},
         active_meets=rows,
         user_name="Admin",
         locales=[],
