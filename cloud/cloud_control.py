@@ -157,6 +157,7 @@ def _maintain():
     cloud_registry.retire_silent()
     cloud_registry.sweep_expired()
     cloud_analytics.forget_gone()
+    cloud_registry.advance_rollout()
 
 
 async def _maintenance_loop():
@@ -1245,6 +1246,9 @@ def route_stats(request: Request):
     return {"enabled": True, "count": _attendee_count(meet_id, window)}
 
 
+ROLLOUT_VERSION_RE = re.compile(r"^v\d{4}\.\d{2}\.\d+$")
+
+
 def _admin_nodes():
     """Every node for the Nodes tab, and the workers a live meet may move to."""
     now = datetime.datetime.now(datetime.UTC)
@@ -1263,6 +1267,8 @@ def _admin_nodes():
                 "state": n["state"],
                 "workers": n["workers"],
                 "wg_pubkey": n["wg_pubkey"],
+                "version": n["version"],
+                "target": n["target_version"] or "",
                 "meets": n["meets"],
                 "attendees": n["attendees"],
                 "up": up,
@@ -1291,6 +1297,7 @@ def _admin_page(request, t=None, creds_error=None):
         countries=COUNTRIES,
         active_meets=_admin_meet_list(),
         nodes=_admin_nodes(),
+        rollout=cloud_registry.rollout(),
         t=t or _load_cloud_strings(request),
         ui_lang=_admin_lang(request),
         creds_error=creds_error,
@@ -1328,6 +1335,14 @@ def _admin_action(form, request):
             cloud_auth.add_organizer(org, **_org_fields(form))
     elif action == "update_org":
         cloud_auth.update_organizer(form.get("key", ""), **_org_fields(form))
+    elif action == "rollout_start":
+        version = _form_text(form, "version")
+        # A version a node can pull: a release tag, or master. Never "latest", which
+        # each node would resolve on its own, or a branch, which has no image.
+        if version == "master" or ROLLOUT_VERSION_RE.match(version):
+            cloud_registry.start_rollout(version)
+    elif action == "rollout_stop":
+        cloud_registry.stop_rollout()
     elif action == "move_meet":
         node, _, worker = _form_text(form, "target").partition(":")
         if worker.isdigit():
@@ -1517,6 +1532,8 @@ class HeartbeatIn(BaseModel):
     # The node's attendance numbers, from its worker 1 now and then: distinct
     # visitors per meet and window. Never the ids (cloud_attendance).
     attendance: dict[str, dict[str, int]] | None = None
+    # The image tag this node runs (SPLOUCH_VERSION), for rollouts.
+    version: str = ""
 
 
 @internal.post("/register")
@@ -1563,6 +1580,7 @@ def internal_heartbeat(body: HeartbeatIn):
         workers=body.workers,
         wg_pubkey=body.wg_pubkey,
         attendees=body.attendees,
+        version=body.version,
     )
     if body.attendance:
         cloud_analytics.store(body.node, body.attendance)

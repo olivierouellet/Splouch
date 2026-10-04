@@ -332,32 +332,50 @@ sequenceDiagram
 
 ### One image, two commands
 
-CI (GitHub Actions) builds `ghcr.io/olivierouellet/splouch-cloud:<tag>` on each
-release tag. Every box pulls it; compose picks the role:
+CI ([`image.yml`](../../.github/workflows/image.yml)) builds
+`ghcr.io/olivierouellet/splouch-cloud` for every release tag and for `master`,
+natively on an x86 and an Arm runner, joined under one tag. Every box pulls the tag
+it deploys; compose picks the role:
 
 ```yaml
-name: splouch
 services:
-  control:      # control plane box (CA node at first)
-    image: ghcr.io/olivierouellet/splouch-cloud:${SPLOUCH_VERSION}
-    command: uvicorn cloud_control:app --host 0.0.0.0 --port 8000 --no-access-log
-  app:          # every data-plane node
-    image: ghcr.io/olivierouellet/splouch-cloud:${SPLOUCH_VERSION}
-    command: uvicorn cloud_server:app --host 0.0.0.0 --port 5000 --no-access-log
+  control:
+    image: ${SPLOUCH_IMAGE:-ghcr.io/olivierouellet/splouch-cloud}:${SPLOUCH_VERSION:-master}
+    command: ["uvicorn", "cloud_control:app", …]
+  app:          # every worker (app2… extend it)
+    image: …same…
 ```
 
 One tag means the control plane and every node run the same code: the API between
-them cannot drift, and shared code (keys, meet IDs, i18n) needs no package.
+them cannot drift, and shared code (keys, meet IDs, i18n) needs no package. The
+package is public on GHCR, so a box pulls it with no login.
+
+[`cloud_deploy.py`](../../cloud/cloud_deploy.py) is the last step of every deploy —
+the webhook's and the installer's: size the worker set, record `SPLOUCH_VERSION`,
+pull, start with `--remove-orphans`, reload Caddy. A version with no image (a
+branch, a fork, a tag whose build is still running) is built on the box instead
+(`docker-compose.build.yml`).
 
 ### Rolling update from `/admin`
 
-1. Push a tag; CI pushes the image.
-2. `splouch.org/admin` → **Update** lists tags and every node with its live meets.
-3. The control plane updates itself, then each node in turn through its deploy
-   webhook: check out the tag (compose and config), compute N, regenerate the
-   Caddyfile, `docker compose pull`, `up -d`, health check.
-4. A node with live meets waits, or its meets are moved first. A failed health
-   check stops the rollout; roll that node back to the previous tag.
+Pulled, never pushed — nothing calls in to a node:
+
+1. Push a tag; CI publishes the image.
+2. `/admin` → **Update & Backup** → **Roll out to every node** with that version
+   (a release tag or `master`; never "latest", which each node would resolve on its
+   own, or a branch, which has no image).
+3. The control plane releases one node at a time, by name, each only while it
+   carries **no live meet** — drain a node or move its meets to free it. A released
+   node learns its target from its next heartbeat reply; its worker 1 calls the
+   node's own deploy webhook, which deploys that version.
+4. The node is done when its heartbeat reports the version (`SPLOUCH_VERSION`), and
+   the next one is released. A node not back on it within 15 minutes stops the
+   rollout and the panel names it; roll back by rolling out the previous version.
+   A node not reporting at all is skipped. The panel shows the state; the **Nodes**
+   tab each node's version and target.
+
+The box running the control plane is a node like the others: its update restarts
+the control plane too, and the rollout, kept in Postgres, carries on.
 
 No Portainer (a second, drifting way to change stacks, with root over Docker). No
 Watchtower (it would restart workers mid-meet). The OS keeps unattended security
@@ -508,6 +526,6 @@ same webhook. It builds nothing: upstream images, pinned versions.
 | 3 — several workers, `/wN/` routing, live moves | Done. Worker set from the core count (`cloud_workers.py`: compose override, Caddy routes, graceful reload); `/wN/` in relay URLs, picker links and every page a worker serves; redirects and `moved` for a meet live elsewhere; live moves through the heartbeat; **Nodes** tab (state, drain, WireGuard key, forget) |
 | 4 — picker hands out host and worker; app contract | Done (server and web). `app.md` v3: `C-11` (meet's `base` from `GET /meets`), `C-12` (`moved {url, base}`), `A-12` (meet list unreachable → stay), `P-18` (compact rows above 10 meets, no images), `P-01`/`P-17` (organizer's province and country shown and searched), `A-09` (asked of the meet's base). iOS and Android still to build these |
 | 4b — attendance in the region | Done. Visitor ids on the node (SQLite, the old `analytics.db`), numbers only to the control plane, Pi answered locally; `C-10` one id per server, web hands it over in the URL fragment; `/privacy` says where ids are kept |
-| 5 — GHCR images, rolling update | Next |
-| 6 — monitoring | — |
+| 5 — GHCR images, rolling update | Done. CI image per release tag and `master` (amd64 + arm64); `cloud_deploy.py` pulls it, or builds when there is none; pull-based rolling update — the control plane releases one free node at a time, the node's worker 1 calls its own webhook, done when its heartbeat reports the version, 15-minute failure stop; versions in the **Nodes** tab |
+| 6 — monitoring | Next |
 | 7 — installer roles, WireGuard | — |

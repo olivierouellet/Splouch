@@ -206,7 +206,9 @@ bump `PRIVACY_UPDATED` in `cloud/cloud_control.py` with any change to it.
 
 ## Updating the cloud server
 
-Click **Update** in `/admin` → **Update & Backup** — it fetches from GitHub and rebuilds the container automatically. The page polls until the server is back up, then reloads. Prefer it: it resolves the right ref for the way this server was installed, which the manual commands below leave to you.
+Click **Update** in `/admin` → **Update & Backup** — it checks out the version from GitHub and pulls its container image, built by CI for every release tag and for `master` (`ghcr.io/olivierouellet/splouch-cloud`). The page polls until the server is back up, then reloads. Prefer it: it resolves the right ref for the way this server was installed, which the manual commands below leave to you. A version with no published image — a branch, a fork, a tag whose build has not finished — is built on the server instead.
+
+**Several nodes:** **Roll out to every node**, under the same menu, updates them one at a time, each only while it carries no live meet — drain a node, or move its meets, to free it. Each node pulls the version itself; the panel shows where the rollout stands, and the **Nodes** tab each node's version. A node that has not come back on the new version within 15 minutes stops the rollout; roll it back by rolling out the previous version.
 
 To update over SSH, check which track the checkout is on first — `install.sh` offers two, and they update differently:
 
@@ -217,7 +219,7 @@ cd ~/Splouch && git branch --show-current
 **`master`** — a development install. The branch tracks the remote, so a pull is enough:
 
 ```bash
-git pull && cd cloud && docker compose up -d --build
+git pull && cd cloud && python3 cloud_deploy.py master
 ```
 
 **`release`** — a "Latest release" install. `install.sh` created this branch from a *tag*, so it has no upstream and `git pull` fails with *"There is no tracking information for the current branch"*. Move it to the tag you want instead:
@@ -225,7 +227,7 @@ git pull && cd cloud && docker compose up -d --build
 ```bash
 git fetch --tags
 git checkout -B release "$(git tag -l --sort=-version:refname | grep -E '^v[0-9]{4}\.[0-9]{2}\.[0-9]+$' | head -1)"
-cd cloud && docker compose up -d --build
+cd cloud && python3 cloud_deploy.py "$(git describe --tags --exact-match)"
 ```
 
 To switch a release install onto the development branch, name the remote branch so the upstream is set — after which `git pull` works there too:
@@ -551,11 +553,20 @@ chaque modification.
 
 ### Mettre à jour le serveur cloud
 
-Cliquez sur **Mettre à jour** dans `/admin` → **Mise à jour & Sauvegarde** — il récupère le
-code depuis GitHub et reconstruit le conteneur automatiquement. La page interroge le serveur
-jusqu'à son retour, puis se recharge. Préférez cette voie : elle choisit la bonne référence
-selon la façon dont ce serveur a été installé, ce que les commandes manuelles ci-dessous vous
-laissent faire.
+Cliquez sur **Mettre à jour** dans `/admin` → **Mise à jour & Sauvegarde** — il récupère la
+version depuis GitHub et télécharge son image de conteneur, construite par la CI pour chaque
+étiquette de version et pour `master` (`ghcr.io/olivierouellet/splouch-cloud`). La page
+interroge le serveur jusqu'à son retour, puis se recharge. Préférez cette voie : elle choisit
+la bonne référence selon la façon dont ce serveur a été installé, ce que les commandes
+manuelles ci-dessous vous laissent faire. Une version sans image publiée — une branche, un
+fork, une étiquette dont la construction n'est pas terminée — est construite sur le serveur.
+
+**Plusieurs nœuds :** **Déployer sur tous les nœuds**, sous le même menu, les met à jour un
+à la fois, chacun seulement quand il ne porte aucune compétition en direct — videz un nœud,
+ou déplacez ses compétitions, pour le libérer. Chaque nœud télécharge la version lui-même ;
+le panneau indique où en est le déploiement, et l'onglet **Nœuds** la version de chacun. Un
+nœud qui n'est pas revenu sur la nouvelle version après 15 minutes arrête le déploiement ;
+revenez en arrière en déployant la version précédente.
 
 Pour mettre à jour par SSH, vérifiez d'abord sur quelle voie se trouve le dépôt —
 `install.sh` en propose deux, qui se mettent à jour différemment :
@@ -568,7 +579,7 @@ cd ~/Splouch && git branch --show-current
 suffit :
 
 ```bash
-git pull && cd cloud && docker compose up -d --build
+git pull && cd cloud && python3 cloud_deploy.py master
 ```
 
 **`release`** — une installation « Latest release ». `install.sh` a créé cette branche depuis
@@ -578,7 +589,7 @@ information for the current branch »*. Déplacez-la plutôt vers l'étiquette v
 ```bash
 git fetch --tags
 git checkout -B release "$(git tag -l --sort=-version:refname | grep -E '^v[0-9]{4}\.[0-9]{2}\.[0-9]+$' | head -1)"
-cd cloud && docker compose up -d --build
+cd cloud && python3 cloud_deploy.py "$(git describe --tags --exact-match)"
 ```
 
 Pour faire passer une installation release sur la branche de développement, nommez la branche

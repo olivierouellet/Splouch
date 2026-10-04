@@ -2,7 +2,7 @@
             <p class="small text-body-secondary">{{ t.nodes_note }}</p>
             <div class="table-responsive">
             <table class="table table-sm align-middle">
-                <thead><tr><th>{{ t.col_node }}</th><th>{{ t.col_region }}</th><th>{{ t.col_workers }}</th><th>{{ t.col_meets }}</th><th>{{ t.col_status }}</th><th>{{ t.col_last_seen }}</th><th>{{ t.col_wg_key }}</th><th></th></tr></thead>
+                <thead><tr><th>{{ t.col_node }}</th><th>{{ t.col_region }}</th><th>{{ t.col_version }}</th><th>{{ t.col_workers }}</th><th>{{ t.col_meets }}</th><th>{{ t.col_status }}</th><th>{{ t.col_last_seen }}</th><th>{{ t.col_wg_key }}</th><th></th></tr></thead>
                 <tbody>
                 {% for n in (nodes or []) %}
                     <tr>
@@ -11,6 +11,7 @@
                             <div class="small text-body-secondary text-break">{{ n.url }}</div>
                         </td>
                         <td>{{ t['region_' ~ n.region] if n.region else '—' }}</td>
+                        <td class="small font-monospace text-nowrap">{{ n.version or '—' }}{% if n.target and n.target != n.version %} → {{ n.target }}{% endif %}</td>
                         <td>{{ n.workers }}</td>
                         <td>{{ n.meets }}{% if n.attendees %} <span class="small text-body-secondary">· {{ n.attendees }}</span>{% endif %}</td>
                         <td class="text-nowrap">
@@ -46,7 +47,7 @@
                         </td>
                     </tr>
                 {% else %}
-                    <tr><td colspan="8" class="text-body-secondary fst-italic">{{ t.no_nodes }}</td></tr>
+                    <tr><td colspan="9" class="text-body-secondary fst-italic">{{ t.no_nodes }}</td></tr>
                 {% endfor %}
                 </tbody>
             </table>

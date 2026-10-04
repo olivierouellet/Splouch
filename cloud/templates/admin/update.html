@@ -18,6 +18,29 @@
                 </div>
                 <pre id="update-output" class="border rounded p-2 mt-2" style="display:none;background:#111;color:#e0e0e0;min-height:80px;max-height:360px;overflow-y:auto;font-size:0.8em;white-space:pre-wrap;word-break:break-all;"></pre>
             </div></div>
+            {# Every node, one at a time (docs/architecture/scaling.md, batch 5). The
+               version comes from the menu above; the nodes pull it themselves. #}
+            <div class="card mt-3"><div class="card-body">
+                <h2 class="panel-eyebrow mb-2">{{ t.rollout_title }}</h2>
+                <p class="small text-body-secondary">{{ t.rollout_desc }}</p>
+                {% if rollout %}
+                {% set r_text = {'running': t.rollout_running, 'waiting': t.rollout_waiting, 'done': t.rollout_done, 'failed': t.rollout_failed, 'stopped': t.rollout_stopped}[rollout.state] %}
+                <p id="rollout-state" class="small fw-semibold {{ 'text-danger' if rollout.state == 'failed' else '' }}">{{ r_text | replace('{v}', rollout.version) | replace('{node}', rollout.note) }}</p>
+                {% endif %}
+                <div class="d-flex flex-wrap gap-2 align-items-center">
+                    <form method="post" id="rollout-form" class="m-0">
+                        <input type="hidden" name="action" value="rollout_start">
+                        <input type="hidden" name="version" id="rollout-version" value="">
+                        <button type="button" class="btn btn-secondary btn-sm" data-hold data-hold-fn="startRollout" data-hold-label="{{ t.hold_rollout }}">{{ t.rollout_start }}</button>
+                    </form>
+                    {% if rollout and rollout.state in ('running', 'waiting') %}
+                    <form method="post" class="m-0">
+                        <input type="hidden" name="action" value="rollout_stop">
+                        <button type="submit" class="btn btn-outline-danger btn-sm">{{ t.rollout_stop }}</button>
+                    </form>
+                    {% endif %}
+                </div>
+            </div></div>
             {% endif %}
             <div class="card mt-3"><div class="card-body">
                 <h2 class="panel-eyebrow mb-3">{{ t.get('backup', 'Backup') }}</h2>

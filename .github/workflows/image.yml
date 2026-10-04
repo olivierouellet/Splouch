@@ -1,0 +1,83 @@
+name: Cloud image
+
+# The cloud's container image, one per release tag and one for master
+# (docs/architecture/scaling.md, batch 5). Every box pulls the tag it deploys
+# (cloud/cloud_deploy.py), so all its containers — and every node of a rollout —
+# run the same bits.
+#
+# Built natively on an x86 and an Arm runner rather than emulated, then joined
+# under one tag, so a VPS of either kind pulls the right one. Plain `docker`
+# commands: no third-party action to pin beyond checkout.
+
+on:
+  push:
+    branches: [master]
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: image-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build · ${{ matrix.arch }}
+    strategy:
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-latest
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: write
+    env:
+      ARCH: ${{ matrix.arch }}
+      REF_NAME: ${{ github.ref_name }}
+      OWNER: ${{ github.repository_owner }}
+      ACTOR: ${{ github.actor }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Log in to GHCR
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: echo "$TOKEN" | docker login ghcr.io -u "$ACTOR" --password-stdin
+
+      - name: Build and push
+        # The ref name is a release tag (vYYYY.MM.N) or `master`: both are valid
+        # image tags as they stand.
+        run: |
+          image="ghcr.io/${OWNER,,}/splouch-cloud"
+          docker build -f cloud/Dockerfile -t "$image:$REF_NAME-$ARCH" .
+          docker push "$image:$REF_NAME-$ARCH"
+
+  manifest:
+    name: Publish
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      packages: write
+    env:
+      REF_NAME: ${{ github.ref_name }}
+      OWNER: ${{ github.repository_owner }}
+      ACTOR: ${{ github.actor }}
+    steps:
+      - name: Log in to GHCR
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: echo "$TOKEN" | docker login ghcr.io -u "$ACTOR" --password-stdin
+
+      - name: Join both architectures under the one tag
+        run: |
+          image="ghcr.io/${OWNER,,}/splouch-cloud"
+          docker buildx imagetools create -t "$image:$REF_NAME" \
+            "$image:$REF_NAME-amd64" "$image:$REF_NAME-arm64"

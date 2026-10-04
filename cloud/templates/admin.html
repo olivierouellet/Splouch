@@ -242,6 +242,16 @@
         // path, so renaming the checkout stops it starting) every failure used to be
         // swallowed: the select sat on "Loading…", the Update button stayed live, and a
         // dead webhook was indistinguishable from a server with no releases. Say which.
+        // Roll the version chosen in the Update menu out to every node. Only one a
+        // node can pull — a release tag or master; a branch has no image.
+        function startRollout() {
+            const sel = document.getElementById('update-version');
+            const v = sel ? sel.value : '';
+            if (!/^(v\d{4}\.\d{2}\.\d+|master)$/.test(v)) return;
+            document.getElementById('rollout-version').value = v;
+            document.getElementById('rollout-form').submit();
+        }
+
         function loadVersions() {
             fetch('/admin/versions')
                 .then(r => r.json().then(d => ({ status: r.status, d: d })))

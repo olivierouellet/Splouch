@@ -160,6 +160,18 @@ MIGRATIONS = [
         -- which empties it.
         """,
     ),
+    (
+        5,
+        """
+        -- Rolling updates (docs/architecture/scaling.md): the version a node runs,
+        -- from its heartbeat, and the one a rollout released it to, and when. The
+        -- node learns its target from the heartbeat reply and updates itself.
+        ALTER TABLE nodes
+            ADD COLUMN version        text NOT NULL DEFAULT '',
+            ADD COLUMN target_version text,
+            ADD COLUMN target_set_at  timestamptz;
+        """,
+    ),
 ]
 
 # Tables holding data, in an order TRUNCATE accepts. Tests empty these between

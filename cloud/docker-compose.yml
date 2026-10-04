@@ -6,10 +6,10 @@
 services:
   # ── Control plane: picker, /admin, the store ────────────────────────────────
   control:
-    build: &build
-      context: ..          # repo root — gives Dockerfile access to shared/
-      dockerfile: cloud/Dockerfile
-    image: splouch-cloud
+    # Built by CI for every release tag and for master (.github/workflows/image.yml)
+    # and pulled by cloud_deploy.py; SPLOUCH_VERSION is the tag it deployed. A box
+    # that cannot pull builds it instead, with docker-compose.build.yml.
+    image: &image ${SPLOUCH_IMAGE:-ghcr.io/olivierouellet/splouch-cloud}:${SPLOUCH_VERSION:-master}
     command: ["uvicorn", "cloud_control:app", "--host", "0.0.0.0", "--port", "8000", "--no-access-log"]
     restart: unless-stopped
     depends_on:
@@ -25,6 +25,7 @@ services:
       DATA_DIR:               /data
       DEPLOY_WEBHOOK_URL:     http://host.docker.internal:9000/deploy
       DEPLOY_WEBHOOK_SECRET:  ${DEPLOY_SECRET:-}
+      SPLOUCH_VERSION:        ${SPLOUCH_VERSION:-master}
       # Caddy terminates TLS and proxies to uvicorn over plain HTTP, so the ASGI
       # scope says `http` unless the `X-Forwarded-Proto` Caddy sends is trusted.
       # uvicorn trusts only 127.0.0.1 by default, and Caddy reaches us from a
@@ -81,13 +82,17 @@ services:
 
   # ── Relay worker: Pis, live boards, meet pages ──────────────────────────────
   app:
-    build: *build
-    image: splouch-cloud
+    image: *image
     restart: unless-stopped
     depends_on:
       - control
     environment:
       CONTROL_URL:            http://control:8000
+      # The version this node runs, reported with each heartbeat; and the node's
+      # own deploy webhook, which worker 1 calls when a rollout reaches this node.
+      SPLOUCH_VERSION:        ${SPLOUCH_VERSION:-master}
+      DEPLOY_WEBHOOK_URL:     http://host.docker.internal:9000/deploy
+      DEPLOY_WEBHOOK_SECRET:  ${DEPLOY_SECRET:-}
       NODE_SECRET:            ${NODE_SECRET:?set NODE_SECRET in cloud/.env}
       # Who this worker is, as the control plane's registry and /admin name it.
       NODE_NAME:              ${NODE_NAME:-ca1}
@@ -99,8 +104,10 @@ services:
       WORKER:                 "1"
       DATA_DIR:               /data
       FORWARDED_ALLOW_IPS:    ${FORWARDED_ALLOW_IPS:-127.0.0.1,::1,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
-      - data:/data         # the worker's register cache; the store is Postgres now
+      - data:/data         # the node's attendance store (cloud_attendance)
 
   caddy:
     image: caddy:2-alpine

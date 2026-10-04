@@ -320,25 +320,32 @@ def heartbeat(
     workers=1,
     wg_pubkey="",
     attendees=None,
+    version="",
 ):
     """A worker says which meets it holds, and how many attendees each has.
 
-    Returns `{"retired": [ids], "moves": [{"meet_id", "url"}]}`: the meets it no
-    longer names are retired, and the moves are meets the admin moved off this
-    worker, with the page URL their attendees should go to.
+    Returns `{"retired": [ids], "moves": [{"meet_id", "url"}], "update_to"}`: the
+    meets it no longer names are retired, the moves are meets the admin moved off
+    this worker, with the page URL their attendees should go to, and `update_to`
+    is the version a rollout released this node to, while it runs another.
     """
     now = datetime.datetime.now()
     grace = now - datetime.timedelta(seconds=MOVE_GRACE_SECS)
     with cloud_db.conn() as c:
         c.execute(
-            "INSERT INTO nodes (name, region, host, workers, wg_pubkey, last_seen) "
-            "VALUES (%s, %s, %s, %s, %s, now()) ON CONFLICT (name) DO UPDATE SET "
+            "INSERT INTO nodes (name, region, host, workers, wg_pubkey, version, "
+            "last_seen) VALUES (%s, %s, %s, %s, %s, %s, now()) "
+            "ON CONFLICT (name) DO UPDATE SET "
             "region = COALESCE(EXCLUDED.region, nodes.region), host = EXCLUDED.host, "
             "workers = EXCLUDED.workers, "
             "wg_pubkey = COALESCE(NULLIF(EXCLUDED.wg_pubkey, ''), nodes.wg_pubkey), "
+            "version = COALESCE(NULLIF(EXCLUDED.version, ''), nodes.version), "
             "last_seen = now()",
-            (node, region or None, host, workers, wg_pubkey),
+            (node, region or None, host, workers, wg_pubkey, version or ""),
         )
+        target = c.execute(
+            "SELECT target_version, version FROM nodes WHERE name = %s", (node,)
+        ).fetchone()
         c.execute(
             "UPDATE meets SET last_seen = %s WHERE live AND node = %s AND worker = %s "
             "AND id = ANY(%s)",
@@ -369,8 +376,14 @@ def heartbeat(
                 list(live_ids),
             ),
         ).fetchall()
+    update_to = (
+        target["target_version"]
+        if target["target_version"] and target["target_version"] != target["version"]
+        else None
+    )
     return {
         "retired": retired,
+        "update_to": update_to,
         "moves": [
             {
                 "meet_id": r["id"],
@@ -579,3 +592,109 @@ def forget_node(name):
             "(SELECT 1 FROM meets WHERE node = %s AND live)",
             (name, name),
         )
+
+
+# ── Rolling updates ────────────────────────────────────────────────────────────
+#
+# Pulled, never pushed: a rollout only records a version and, one node at a time,
+# a node's target. The node's worker 1 sees its target in a heartbeat reply and calls
+# the node's own deploy webhook; the node is done when its heartbeat reports the
+# version. Nodes are released by name, each only while it carries no live meet (the
+# admin drains or moves meets to free one); a node silent this long after release
+# stops the rollout for the admin to look at.
+
+ROLLOUT_TIMEOUT_SECS = 15 * 60
+
+
+def _settings_get(c, name):
+    row = c.execute("SELECT value FROM settings WHERE name = %s", (name,)).fetchone()
+    return row["value"] if row else None
+
+
+def _settings_put(c, name, value):
+    c.execute(
+        "INSERT INTO settings (name, value) VALUES (%s, %s) "
+        "ON CONFLICT (name) DO UPDATE SET value = EXCLUDED.value",
+        (name, Jsonb(value)),
+    )
+
+
+def rollout():
+    """The current rollout: `{"version", "state", "note"}`, or None."""
+    with cloud_db.conn() as c:
+        return _settings_get(c, "rollout")
+
+
+def start_rollout(version):
+    with cloud_db.conn() as c:
+        c.execute("UPDATE nodes SET target_version = NULL, target_set_at = NULL")
+        _settings_put(
+            c, "rollout", {"version": version, "state": "running", "note": ""}
+        )
+    advance_rollout()
+
+
+def stop_rollout():
+    """Stop releasing nodes. A node already updating finishes on its own."""
+    with cloud_db.conn() as c:
+        r = _settings_get(c, "rollout")
+        if r and r.get("state") in ("running", "waiting"):
+            _settings_put(c, "rollout", {**r, "state": "stopped", "note": ""})
+
+
+def advance_rollout(now=None):
+    """One step: wait for the node updating, else release the next free one. Run by
+    the control plane's maintenance pass. Returns the rollout, or None."""
+    now = now or datetime.datetime.now(datetime.UTC)
+    cutoff = now - datetime.timedelta(seconds=SILENT_AFTER_SECS)
+    with cloud_db.conn() as c:
+        r = _settings_get(c, "rollout")
+        if not r or r.get("state") not in ("running", "waiting"):
+            return r
+        version = r["version"]
+        nodes = c.execute(
+            "SELECT n.name, n.version, n.target_version, n.target_set_at, n.last_seen, "
+            "count(m.id) AS live FROM nodes n "
+            "LEFT JOIN meets m ON m.node = n.name AND m.live "
+            "GROUP BY n.name ORDER BY n.name"
+        ).fetchall()
+        updating = [
+            n
+            for n in nodes
+            if n["target_version"] and n["version"] != n["target_version"]
+        ]
+        if updating:
+            n = updating[0]
+            if n["target_set_at"] < now - datetime.timedelta(
+                seconds=ROLLOUT_TIMEOUT_SECS
+            ):
+                c.execute(
+                    "UPDATE nodes SET target_version = NULL WHERE name = %s",
+                    (n["name"],),
+                )
+                r = {**r, "state": "failed", "note": n["name"]}
+            else:
+                r = {**r, "state": "running", "note": n["name"]}
+            _settings_put(c, "rollout", r)
+            return r
+        pending = [
+            n
+            for n in nodes
+            if n["version"] != version and n["last_seen"] and n["last_seen"] >= cutoff
+        ]
+        if not pending:
+            r = {**r, "state": "done", "note": ""}
+        else:
+            free = [n for n in pending if not n["live"]]
+            if free:
+                c.execute(
+                    "UPDATE nodes SET target_version = %s, target_set_at = %s "
+                    "WHERE name = %s",
+                    (version, now, free[0]["name"]),
+                )
+                r = {**r, "state": "running", "note": free[0]["name"]}
+            else:
+                names = ", ".join(n["name"] for n in pending)
+                r = {**r, "state": "waiting", "note": names}
+        _settings_put(c, "rollout", r)
+        return r

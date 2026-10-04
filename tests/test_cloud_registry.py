@@ -358,3 +358,86 @@ def test_a_live_meet_is_reached_at_its_worker_and_a_retained_one_here(held):
     reg.retire(held, "ca1", 1)
     (row,) = reg.list_meets()
     assert reg.meet_base(row, "https://splouch.org/") == "https://splouch.org"
+
+
+# ── Rolling updates ────────────────────────────────────────────────────────────
+
+
+def _nodes(*names, version="v1"):
+    for name in names:
+        reg.heartbeat(
+            name, 1, [], host=f"https://{name}.example", region="ca", version=version
+        )
+
+
+def _target(name):
+    return next(n for n in reg.nodes() if n["name"] == name)["target_version"]
+
+
+def test_a_rollout_releases_one_node_at_a_time(pg):
+    _nodes("ca1", "ca2")
+    reg.start_rollout("v2")
+    assert (_target("ca1"), _target("ca2")) == ("v2", None)
+    assert reg.rollout()["state"] == "running"
+    reg.advance_rollout()
+    assert _target("ca2") is None, "ca1 has not reported v2 yet"
+
+
+def test_a_node_learns_its_target_from_its_heartbeat(pg):
+    _nodes("ca1")
+    reg.start_rollout("v2")
+    assert reg.heartbeat("ca1", 1, [], version="v1")["update_to"] == "v2"
+    assert reg.heartbeat("ca1", 1, [], version="v2")["update_to"] is None
+
+
+def test_the_next_node_goes_when_the_last_reports_the_version(pg):
+    _nodes("ca1", "ca2")
+    reg.start_rollout("v2")
+    reg.heartbeat("ca1", 1, [], version="v2")
+    reg.advance_rollout()
+    assert _target("ca2") == "v2"
+    reg.heartbeat("ca2", 1, [], version="v2")
+    assert reg.advance_rollout()["state"] == "done"
+
+
+def test_a_node_with_a_live_meet_waits(key):
+    _nodes("ca1")
+    reg.register(key, "uid", META, "ca1", 1)
+    reg.start_rollout("v2")
+    r = reg.rollout()
+    assert (r["state"], r["note"]) == ("waiting", "ca1")
+    assert _target("ca1") is None
+
+
+def test_a_node_that_never_comes_back_stops_the_rollout(pg):
+    _nodes("ca1", "ca2")
+    reg.start_rollout("v2")
+    later = datetime.datetime.now(datetime.UTC) + datetime.timedelta(
+        seconds=reg.ROLLOUT_TIMEOUT_SECS + 60
+    )
+    reg.heartbeat("ca2", 1, [], version="v1")  # still reporting
+    r = reg.advance_rollout(now=later)
+    assert (r["state"], r["note"]) == ("failed", "ca1")
+    assert _target("ca2") is None, "nothing else is released after a failure"
+
+
+def test_a_stopped_rollout_releases_nothing_more(pg):
+    _nodes("ca1", "ca2")
+    reg.start_rollout("v2")
+    reg.stop_rollout()
+    reg.heartbeat("ca1", 1, [], version="v2")
+    reg.advance_rollout()
+    assert _target("ca2") is None and reg.rollout()["state"] == "stopped"
+
+
+def test_a_silent_node_is_not_waited_for(pg):
+    _nodes("ca1", "ca2")
+    import cloud_db
+
+    with cloud_db.conn() as c:
+        c.execute(
+            "UPDATE nodes SET last_seen = now() - interval '1 hour' WHERE name = 'ca2'"
+        )
+    reg.start_rollout("v2")
+    reg.heartbeat("ca1", 1, [], version="v2")
+    assert reg.advance_rollout()["state"] == "done"

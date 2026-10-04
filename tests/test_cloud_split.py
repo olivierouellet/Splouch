@@ -661,3 +661,80 @@ def test_a_card_shows_and_searches_the_province_and_country(wired):
     assert '<span class="country" data-country="CA">CA</span>' in html
     assert "<span>QC</span>" in html
     assert 'data-search="Meet 0 2026-10-04 Club QC CA"' in html
+
+
+# ── Rolling updates on the worker ──────────────────────────────────────────────
+
+
+def test_worker_1_updates_its_node_once_when_released(monkeypatch):
+    calls = []
+
+    class Resp:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+    def urlopen(req, timeout):
+        calls.append((req.full_url, req.headers.get("X-deploy-token"), req.data))
+        return Resp()
+
+    monkeypatch.setenv("WORKER", "1")
+    monkeypatch.setenv("DEPLOY_WEBHOOK_URL", "http://host:9000/deploy")
+    monkeypatch.setenv("DEPLOY_WEBHOOK_SECRET", "s")
+    monkeypatch.setattr(cloud_node.urllib.request, "urlopen", urlopen)
+    monkeypatch.setitem(cloud_node._settings, "deploying", None)
+    cloud_node.update_node("v2")
+    cloud_node.update_node("v2")
+    assert calls == [("http://host:9000/deploy", "s", b'{"version": "v2"}')]
+
+
+def test_other_workers_leave_it_to_worker_1(monkeypatch):
+    monkeypatch.setenv("WORKER", "2")
+    monkeypatch.setitem(cloud_node._settings, "deploying", None)
+
+    def boom(*a, **k):
+        raise AssertionError("worker 2 called the webhook")
+
+    monkeypatch.setattr(cloud_node.urllib.request, "urlopen", boom)
+    cloud_node.update_node("v2")
+
+
+def test_the_heartbeat_reports_the_version_and_acts_on_a_release(monkeypatch):
+    sent, released = {}, []
+    monkeypatch.setenv("SPLOUCH_VERSION", "v1")
+    monkeypatch.setattr(
+        cloud_node,
+        "_call",
+        lambda m, p, body=None, **k: sent.update(body or {}) or {"update_to": "v2"},
+    )
+    monkeypatch.setattr(cloud_node, "update_node", released.append)
+    cloud_node.heartbeat([])
+    assert sent["version"] == "v1" and released == ["v2"]
+
+
+def test_the_panel_rolls_out_only_a_version_a_node_can_pull(pg, monkeypatch):
+    from starlette.datastructures import FormData
+
+    reg = cloud_control.cloud_registry
+    reg.heartbeat("ca1", 1, [], host="https://ca1.example", version="v2026.10.1")
+    for version, started in (
+        ("latest", False),
+        ("feature/x", False),
+        ("v2026.10.2", True),
+    ):
+        form = FormData({"action": "rollout_start", "version": version})
+        cloud_control._admin_action(form, None)
+        assert bool(reg.rollout()) is started, version
+
+
+def test_the_panel_says_where_a_rollout_stands(pg, monkeypatch):
+    monkeypatch.setenv("DEPLOY_WEBHOOK_URL", "http://host:9000/deploy")
+    reg = cloud_control.cloud_registry
+    reg.heartbeat("ca1", 1, [], host="https://ca1.example", version="v2026.10.1")
+    reg.start_rollout("v2026.10.2")
+    html = _admin_get(monkeypatch)
+    assert "Rolling out v2026.10.2 — updating ca1" in html
+    assert "v2026.10.1 → v2026.10.2" in html, "the Nodes tab shows the move"
+    assert 'value="rollout_stop"' in html

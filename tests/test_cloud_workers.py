@@ -61,18 +61,3 @@ def test_the_generated_files_are_not_tracked():
         ignore = f.read()
     assert "cloud/docker-compose.workers.yml" in ignore
     assert "cloud/caddy.d/*.caddy" in ignore
-
-
-def test_every_deploy_resizes_the_set_and_keeps_the_sockets():
-    """The webhook sizes the set before `up`, stops workers it no longer has, and
-    reloads Caddy (a reload keeps open sockets; a restart would drop every one)."""
-    import os
-
-    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    with open(os.path.join(root, "cloud", "deploy_webhook.py"), encoding="utf-8") as f:
-        src = f.read()
-    gen = src.index("python3 cloud_workers.py")
-    up = src.index("docker compose up -d --build --remove-orphans")
-    reload = src.index("caddy reload")
-    assert gen < up < reload
-    assert "restart caddy" not in src

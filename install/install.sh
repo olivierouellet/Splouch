@@ -1332,13 +1332,14 @@ PYEOF
         warn "ufw not found — configure firewall manually (open ports 22, 80, 443)."
     fi
 
-    section "Build and start"
+    section "Start"
     cd "$CLOUD_DIR"
-    # One relay worker per spare core (cloud_workers.py): writes the compose
-    # override and the Caddy routes, and names both compose files in .env.
-    python3 cloud_workers.py
-    sg docker -c "docker compose --env-file .env up -d --build"
-    info "Cloud server started."
+    # cloud_deploy.py sizes the worker set (one per spare core), pulls the image CI
+    # published for this checkout — the release tag it sits on, else master — or
+    # builds it here when there is none, and starts everything.
+    _version=$(git -C "$INSTALL_DIR" describe --tags --exact-match HEAD 2>/dev/null || echo master)
+    sg docker -c "python3 cloud_deploy.py $_version"
+    info "Cloud server started ($_version)."
 
     # Remove the temporary NOPASSWD rule — sudo now requires the password set above.
     # The result is checked rather than announced: an earlier version of this deleted

@@ -209,6 +209,39 @@ def wg_pubkey():
     return ""
 
 
+def version():
+    """The image tag this node runs (`SPLOUCH_VERSION`, set by cloud_deploy.py)."""
+    return os.environ.get("SPLOUCH_VERSION", "")
+
+
+def update_node(target):
+    """A rollout released this node to `target`: worker 1 asks the node's own deploy
+    webhook for it, once. The webhook restarts every container here, this one too;
+    the node is done when its heartbeat reports `target`."""
+    if worker_index() != 1 or _settings.get("deploying") == target:
+        return
+    url = os.environ.get("DEPLOY_WEBHOOK_URL", "")
+    secret = os.environ.get("DEPLOY_WEBHOOK_SECRET", "")
+    if not url or not secret:
+        print(
+            "[node] rollout reached this node, but no deploy webhook is set", flush=True
+        )
+        return
+    req = urllib.request.Request(
+        url, data=json.dumps({"version": target}).encode(), method="POST"
+    )
+    req.add_header("X-Deploy-Token", secret)
+    req.add_header("Content-Type", "application/json")
+    try:
+        with urllib.request.urlopen(req, timeout=5):
+            pass
+    except (urllib.error.URLError, OSError) as e:
+        print(f"[node] deploy webhook did not answer: {e}", flush=True)
+        return
+    _settings["deploying"] = target
+    print(f"[node] updating this node to {target}", flush=True)
+
+
 # Worker 1 of each node sends the node's attendance numbers — the store is shared,
 # so one sender is enough — on every ATTENDANCE_EVERY-th heartbeat, and prunes it
 # once a day.
@@ -250,11 +283,14 @@ def heartbeat(live_ids, attendees=None):
             "live": list(live_ids),
             "attendees": attendees or {},
             "attendance": attendance,
+            "version": version(),
         },
     )
     if not isinstance(result, dict):
         return {"retired": [], "moves": []}
     _settings["analytics_enabled"] = bool(result.get("analytics_enabled"))
+    if result.get("update_to"):
+        update_node(result["update_to"])
     return {"retired": result.get("retired") or [], "moves": result.get("moves") or []}
 
 

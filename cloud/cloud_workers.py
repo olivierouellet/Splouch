@@ -30,7 +30,8 @@ CADDY_OUT = os.path.join(HERE, "caddy.d", "workers.caddy")
 COMPOSE_FILES = "docker-compose.yml:docker-compose.workers.yml"
 
 
-def read_env(path=ENV_FILE):
+def read_env(path=None):
+    path = path or ENV_FILE
     env = {}
     try:
         with open(path, encoding="utf-8") as f:
@@ -92,8 +93,9 @@ def caddy_routes(n):
     return "\n".join(lines) + "\n"
 
 
-def ensure_compose_file(path=ENV_FILE):
+def ensure_compose_file(path=None):
     """Name both compose files in `.env`, so `docker compose` anywhere here uses them."""
+    path = path or ENV_FILE
     try:
         with open(path, encoding="utf-8") as f:
             lines = f.read().splitlines()

