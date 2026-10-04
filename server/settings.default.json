@@ -66,6 +66,8 @@
   "last_meet_file": "",
   "cloud_relay_url": "",
   "cloud_relay_key": "",
+  "cloud_country": "",
+  "cloud_province": "",
   "meet_location": "",
   "meet_sport": "",
   "app_window_title": "",

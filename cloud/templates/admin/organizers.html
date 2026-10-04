@@ -13,9 +13,19 @@
                     {% endfor %}
                 </select>
 {% endmacro %}
-{% macro location_label(info) %}
+{% macro location_label(key, info) %}
 {%- if info.region %}{{ t['region_' ~ info.region] }}{% else %}—{% endif %}
 {%- if info.country %} <span class="small text-body-secondary">· {{ info.country }}{% if info.province %} · {{ info.province }}{% endif %}</span>{% endif %}
+{%- if info.reported %}
+<div class="small text-warning-emphasis">
+    {{ t.reported_location }}: {{ info.reported.country or '—' }}{% if info.reported.province %} · {{ info.reported.province }}{% endif %}
+    <form method="post" class="d-inline">
+        <input type="hidden" name="action" value="accept_location">
+        <input type="hidden" name="key" value="{{ key }}">
+        <button type="submit" class="btn btn-link btn-sm p-0 align-baseline">{{ t.accept_location }}</button>
+    </form>
+</div>
+{%- endif %}
 {% endmacro %}
 {% macro edit_location(key, info) %}
                             <details class="small mt-1">
@@ -40,7 +50,7 @@
                             {{ info.organizer }}
                             {{ edit_location(key, info) }}
                         </td>
-                        <td>{{ location_label(info) }}</td>
+                        <td>{{ location_label(key, info) }}</td>
                         <td>
                             <span class="font-monospace small text-body-secondary text-break">{{ key[:12] }}…</span>
                             <button type="button" class="btn btn-outline-secondary btn-sm copy" data-copied="{{ t['copied'] }}" onclick="copyKey(this, '{{ key }}')">{{ t['copy'] }}</button>
@@ -84,7 +94,7 @@
                                 </div>
                                 <div class="d-flex justify-content-between align-items-center gap-2 small text-body-secondary mt-1">
                                     <span class="text-truncate">{{ t.col_created }}: {{ info.created }}</span>
-                                    <span class="text-truncate">{{ location_label(info) }}</span>
+                                    <span class="text-truncate">{{ location_label(key, info) }}</span>
                                 </div>
                             </div>
                         </button>

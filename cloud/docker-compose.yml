@@ -92,7 +92,8 @@ services:
       # Who this worker is, as the control plane's registry and /admin name it.
       NODE_NAME:              ${NODE_NAME:-ca1}
       NODE_REGION:            ${NODE_REGION:-ca}
-      NODE_HOST:              ${SPLOUCH_DOMAIN}
+      # The public address a Pi is sent to (`/api/assign`).
+      NODE_URL:               https://${SPLOUCH_DOMAIN}
       WORKER:                 "1"
       DATA_DIR:               /data
       FORWARDED_ALLOW_IPS:    ${FORWARDED_ALLOW_IPS:-127.0.0.1,::1,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16}

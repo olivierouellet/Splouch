@@ -114,6 +114,21 @@ MIGRATIONS = [
         CREATE INDEX analytics_meet_ts ON analytics (meet_id, ts);
         """,
     ),
+    (
+        2,
+        """
+        -- Where the organizer says it is based, from the Pi's Cloud tab. Kept
+        -- beside what the admin recorded, never over it: the panel flags a
+        -- difference and the admin accepts it or not. The region is the admin's.
+        ALTER TABLE organizers
+            ADD COLUMN reported_country  text NOT NULL DEFAULT '',
+            ADD COLUMN reported_province text NOT NULL DEFAULT '';
+
+        -- Attendees on the meet right now, from its worker's heartbeat: what
+        -- `/api/assign` balances workers on.
+        ALTER TABLE meets ADD COLUMN attendees integer NOT NULL DEFAULT 0;
+        """,
+    ),
 ]
 
 # Tables holding data, in an order TRUNCATE accepts. Tests empty these between

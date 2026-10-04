@@ -49,6 +49,14 @@ def _org_row(r):
         "country": r["country"],
         "province": r["province"],
         "region": r["region"] or "",
+        # What the organizer's Pi says, when it differs from the record above.
+        "reported": (
+            {"country": r["reported_country"], "province": r["reported_province"]}
+            if (r["reported_country"] or r["reported_province"])
+            and (r["reported_country"], r["reported_province"])
+            != (r["country"], r["province"])
+            else None
+        ),
     }
 
 
@@ -101,6 +109,28 @@ def update_organizer(key, **fields):
 def delete_organizer(key):
     with cloud_db.conn() as c:
         c.execute("DELETE FROM organizers WHERE key = %s", (key,))
+
+
+def report_location(key, country, province):
+    """Where the organizer says it is based, from its Pi. Beside the admin's record,
+    never over it: `/admin` flags a difference for the admin to accept."""
+    with cloud_db.conn() as c:
+        c.execute(
+            "UPDATE organizers SET reported_country = %s, reported_province = %s "
+            "WHERE key = %s",
+            (country, province, key),
+        )
+
+
+def accept_location(key):
+    """Take the organizer's own location as the record. The region stays as set."""
+    with cloud_db.conn() as c:
+        c.execute(
+            "UPDATE organizers SET country = reported_country, "
+            "province = reported_province WHERE key = %s AND "
+            "(reported_country <> '' OR reported_province <> '')",
+            (key,),
+        )
 
 
 def legacy_meet_id(key):

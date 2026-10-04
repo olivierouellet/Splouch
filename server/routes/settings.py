@@ -21,6 +21,7 @@ from console_decoders import (
 from meet_data import announce_schedule, send_event_info
 from meet_parsers.lenex_parser import ROUND_NAMES, load_lenex
 from routes.qr import invite as qr_invite
+from splouch_regions import COUNTRIES, clean_location
 from web import render, require_login, save_upload
 from worker import _restart_worker
 
@@ -485,6 +486,16 @@ def _settings_view(request, form):
                 if val != state.settings.get(key, ""):
                     state.settings[key] = val
                     modified = True
+            # Where the organizer is based. Sent with every register; the cloud
+            # records it beside the admin's entry, never over it, and the region
+            # stays the admin's (docs/architecture/scaling.md).
+            country, province = clean_location(
+                form.get("cloud_country", ""), form.get("cloud_province", "")
+            )
+            for key, val in (("cloud_country", country), ("cloud_province", province)):
+                if val != state.settings.get(key, ""):
+                    state.settings[key] = val
+                    modified = True
             if modified:
                 import relay as _relay
 
@@ -727,6 +738,9 @@ def _settings_view(request, form):
         },
         cloud_relay_url=state.settings.get("cloud_relay_url", ""),
         cloud_relay_key=state.settings.get("cloud_relay_key", ""),
+        cloud_country=state.settings.get("cloud_country", ""),
+        cloud_province=state.settings.get("cloud_province", ""),
+        countries=COUNTRIES,
         meet_location=state.settings.get("meet_location", ""),
         meet_sport=state.settings.get("meet_sport", ""),
         cloud_label_style=state.settings.get("cloud_label_style", "short"),

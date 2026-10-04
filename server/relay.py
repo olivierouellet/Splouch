@@ -4,6 +4,13 @@ Uses a plain WebSocket (the sync ``websocket-client`` library) instead of
 Socket.IO. It runs a reconnect loop in its own daemon thread; scoreboard events
 from the worker thread are forwarded via :func:`relay_emit`. Every message is a
 JSON frame ``{"event", "data"}`` — the same contract the cloud relay speaks.
+
+Before connecting, the Pi asks the cloud where to publish (``POST /api/assign``,
+docs/api.md §5.12): the answer is the worker socket for this meet and a ticket the
+worker checks on ``register``. The assignment is kept and reused — across a
+dropped link, and while the cloud's control plane cannot be reached, for as long as
+the ticket lasts — and asked for again when the meet, the key or the server
+changes, when a worker refuses the ticket, or after repeated failed connects.
 """
 
 import base64
@@ -12,6 +19,8 @@ import json
 import os
 import threading
 import time
+import urllib.error
+import urllib.request
 
 import state
 
@@ -22,18 +31,97 @@ _stats = None  # latest attendance snapshot from the cloud, or None
 _lock = threading.Lock()
 _stop = threading.Event()
 _thread = None
+# Where this meet publishes, from `/api/assign`: `for` (server URL, key, meet uid),
+# meet_id, relay_url, ticket, region, until (epoch seconds the ticket lasts to).
+_assignment = None
+_reassign = threading.Event()  # set: ask `/api/assign` again before connecting
+
+_ASSIGN_TIMEOUT = 10
+_FAILS_BEFORE_REASSIGN = 3  # failed connects to one worker before asking again
 
 
-def _ws_url(url):
-    """Turn a cloud_relay_url (http(s)://host or ws(s)://host) into the /ws/relay endpoint."""
+def _api_url(url):
+    """Turn a cloud_relay_url (http(s)://host or ws(s)://host) into /api/assign."""
     url = url.strip().rstrip("/")
-    if url.startswith("https://"):
-        url = "wss://" + url[len("https://") :]
-    elif url.startswith("http://"):
-        url = "ws://" + url[len("http://") :]
-    elif not url.startswith(("ws://", "wss://")):
-        url = "wss://" + url
-    return url + "/ws/relay"
+    if url.startswith("wss://"):
+        url = "https://" + url[len("wss://") :]
+    elif url.startswith("ws://"):
+        url = "http://" + url[len("ws://") :]
+    elif not url.startswith(("http://", "https://")):
+        url = "https://" + url
+    return url + "/api/assign"
+
+
+class Refused(Exception):
+    """The cloud refused the key — no point asking again soon."""
+
+
+def _assign(url, key, meet_uid):
+    """Ask the cloud where to publish this meet. Raises Refused for a bad key."""
+    body = json.dumps({"key": key, "meet_uid": meet_uid}).encode()
+    req = urllib.request.Request(_api_url(url), data=body, method="POST")
+    req.add_header("Content-Type", "application/json")
+    try:
+        with urllib.request.urlopen(req, timeout=_ASSIGN_TIMEOUT) as resp:
+            data = json.loads(resp.read())
+    except urllib.error.HTTPError as e:
+        if e.code == 403:
+            try:
+                reason = json.loads(e.read()).get("reason", "")
+            except Exception:
+                reason = ""
+            raise Refused(reason or "key refused") from e
+        raise
+    return {
+        "for": (url, key, meet_uid),
+        "meet_id": data["meet_id"],
+        "relay_url": data["relay_url"],
+        "ticket": data["ticket"],
+        "region": data.get("region", ""),
+        "until": time.time() + int(data.get("expires_in", 0)),
+    }
+
+
+def _current_assignment(url, key):
+    """The assignment to connect with, asking for a fresh one when needed, or None.
+
+    While the control plane cannot be reached, a kept assignment for the same meet
+    is used as long as its ticket lasts: the worker admits a valid ticket on its own.
+    """
+    global _assignment
+    wanted = (url, key, state.meet_uid())
+    kept = _assignment if _assignment and _assignment["for"] == wanted else None
+    now = time.time()
+    if kept and not _reassign.is_set() and kept["until"] - now > 3600:
+        return kept
+    try:
+        fresh = _assign(*wanted)
+    except Refused:
+        raise
+    except Exception as e:
+        print(f"[relay] could not reach {_api_url(url)}: {e}", flush=True)
+        return kept if kept and kept["until"] > now else None
+    _reassign.clear()
+    _assignment = fresh
+    return fresh
+
+
+def _organizer_location():
+    """Where the organizer says it is based (the Cloud tab), or None when unset."""
+    country = state.settings.get("cloud_country", "")
+    province = state.settings.get("cloud_province", "")
+    if not country and not province:
+        return None
+    return {"country": country, "province": province}
+
+
+def _register_payload(key, assignment):
+    return {
+        **_get_metadata(),
+        "key": key,
+        "ticket": assignment["ticket"],
+        "organizer_location": _organizer_location(),
+    }
 
 
 def _send_raw(ws, event, data):
@@ -168,15 +256,26 @@ def relay_emit(event, data):
 
 
 def update_metadata():
-    """Re-send registration metadata to the cloud (call after settings change)."""
+    """Re-send registration metadata to the cloud (call after settings change).
+
+    A different meet, key or server needs a different assignment, so the link is
+    dropped instead and the thread reconnects with a fresh one.
+    """
     if _local_only():
         return
     with _lock:
-        c, ok = _client, _connected
-    if c and ok:
-        key = state.settings.get("cloud_relay_key", "").strip()
+        c, ok, a = _client, _connected, _assignment
+    if not (c and ok and a):
+        return
+    url = state.settings.get("cloud_relay_url", "").strip()
+    key = state.settings.get("cloud_relay_key", "").strip()
+    if a["for"] != (url, key, state.meet_uid()):
+        _reassign.set()
         with contextlib.suppress(Exception):
-            _send_raw(c, "register", {**_get_metadata(), "key": key})
+            c.close()
+        return
+    with contextlib.suppress(Exception):
+        _send_raw(c, "register", _register_payload(key, a))
 
 
 def send_schedule(client=None, clear=False):
@@ -268,6 +367,7 @@ def _run():
     global _client, _connected, _meet_id, _stats
     from websocket import WebSocketTimeoutException, create_connection
 
+    fails = 0
     while not _stop.is_set():
         url = state.settings.get("cloud_relay_url", "").strip()
         key = state.settings.get("cloud_relay_key", "").strip()
@@ -278,15 +378,33 @@ def _run():
             _stop.wait(10)
             continue
 
+        try:
+            assignment = _current_assignment(url, key)
+        except Refused as e:
+            print(f"[relay] rejected: {e}", flush=True)
+            _stop.wait(60)
+            continue
+        if assignment is None:
+            _stop.wait(10)
+            continue
+
         ws = None
         try:
-            ws = create_connection(_ws_url(url), timeout=15)
+            try:
+                ws = create_connection(assignment["relay_url"], timeout=15)
+            except Exception:
+                fails += 1
+                if fails >= _FAILS_BEFORE_REASSIGN:
+                    _reassign.set()  # that worker may be gone; ask where now
+                    fails = 0
+                raise
+            fails = 0
             ws.settimeout(_PING_EVERY)  # recv() unblocks so we can heartbeat
             ws.enable_multithreading = (
                 True  # guard concurrent send() from worker threads
             )
 
-            _send_raw(ws, "register", {**_get_metadata(), "key": key})
+            _send_raw(ws, "register", _register_payload(key, assignment))
             with _lock:
                 _client = ws
                 _connected = True
@@ -346,10 +464,10 @@ def _run():
                     with _lock:
                         _stats = obj.get("data") or {}
                 elif ev == "rejected":
-                    print(
-                        f"[relay] rejected: {obj.get('data', {}).get('reason')}",
-                        flush=True,
-                    )
+                    data = obj.get("data") or {}
+                    print(f"[relay] rejected: {data.get('reason')}", flush=True)
+                    if data.get("reassign"):
+                        _reassign.set()  # the worker wants a fresh ticket
                     break
         except Exception as e:
             print(f"[relay] error: {e}", flush=True)
@@ -367,7 +485,8 @@ def _run():
             print("[relay] disconnected from cloud", flush=True)
 
         if not _stop.is_set():
-            _stop.wait(5)
+            # A reassignment (new meet, refused ticket) reconnects promptly.
+            _stop.wait(1 if _reassign.is_set() else 5)
 
 
 def status():
@@ -380,6 +499,9 @@ def status():
         "running": running,
         "url": state.settings.get("cloud_relay_url", "").strip(),
         "stats": stats,
+        # The region the cloud put this organizer in — the admin's call, shown
+        # read-only in the Cloud tab.
+        "region": (_assignment or {}).get("region", ""),
     }
 
 

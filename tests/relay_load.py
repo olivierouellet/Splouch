@@ -1,9 +1,10 @@
 """Load test for the cloud relay: fake Pis publish, fake attendees watch.
 
 Answers stage 0 of docs/architecture/scaling.md — how many attendees one relay
-process carries before frames arrive late. Each fake Pi registers a meet over
-`/ws/relay` and sends `update_scoreboard` frames; each fake attendee joins one of
-those meets on `/ws/scoreboard`. The Pi stamps every frame with the time it was
+process carries before frames arrive late. Each fake Pi asks the cloud where to
+publish (`POST /api/assign`), registers a meet on the worker socket it is given
+with the ticket, and sends `update_scoreboard` frames; each fake attendee joins one
+of those meets on `/ws/scoreboard` on that worker. The Pi stamps every frame with the time it was
 sent, and because Pis and attendees live in this one process, the delay an
 attendee measures is the relay's fan-out time plus the network, with no clock skew.
 
@@ -28,15 +29,10 @@ import random
 import resource
 import statistics
 import time
+import urllib.request
 from urllib.parse import urlparse
 
 from websockets.asyncio.client import connect
-
-
-def ws_base(url):
-    u = urlparse(url)
-    scheme = "wss" if u.scheme == "https" else "ws"
-    return f"{scheme}://{u.netloc}"
 
 
 class Stats:
@@ -75,21 +71,31 @@ def frame(seq, started):
     }
 
 
-async def fake_pi(base, key, uid, rate, stop, ready):
+def assign(url, key, uid):
+    """`POST /api/assign`, as a Pi asks it: the worker socket and a ticket."""
+    req = urllib.request.Request(
+        url.rstrip("/") + "/api/assign",
+        data=json.dumps({"key": key, "meet_uid": uid}).encode(),
+        method="POST",
+    )
+    req.add_header("Content-Type", "application/json")
+    with urllib.request.urlopen(req, timeout=10) as resp:
+        return json.loads(resp.read())
+
+
+async def fake_pi(url, key, uid, rate, stop, ready):
     """Register one meet and publish frames at `rate` per second until `stop`."""
-    async with connect(f"{base}/ws/relay", max_size=None) as ws:
-        await ws.send(
-            json.dumps(
-                {
-                    "event": "register",
-                    "data": {"key": key, "meet_uid": uid, "name": uid},
-                }
-            )
-        )
+    a = await asyncio.to_thread(assign, url, key, uid)
+    async with connect(a["relay_url"], max_size=None) as ws:
+        register = {"key": key, "ticket": a["ticket"], "meet_uid": uid, "name": uid}
+        await ws.send(json.dumps({"event": "register", "data": register}))
         while True:
             msg = json.loads(await ws.recv())
             if msg.get("event") == "registered":
-                ready.set_result(msg["data"]["meet_id"])
+                # Attendees join on the worker the meet landed on.
+                worker = urlparse(a["relay_url"])
+                base = f"{worker.scheme}://{worker.netloc}"
+                ready.set_result((msg["data"]["meet_id"], base))
                 break
             if msg.get("event") == "rejected":
                 ready.set_exception(RuntimeError(f"relay rejected: {msg['data']}"))
@@ -172,7 +178,6 @@ def raise_fd_limit():
 
 
 async def main(args):
-    base = ws_base(args.url)
     fds = raise_fd_limit()
     if fds < args.attendees + args.meets + 64:
         print(f"warning: only {fds} file descriptors for {args.attendees} sockets")
@@ -185,21 +190,26 @@ async def main(args):
     pis = [
         asyncio.create_task(
             fake_pi(
-                base, args.key, f"{args.uid_prefix}-{i}", args.rate, stop, readies[i]
+                args.url,
+                args.key,
+                f"{args.uid_prefix}-{i}",
+                args.rate,
+                stop,
+                readies[i],
             )
         )
         for i in range(args.meets)
     ]
-    meet_ids = await asyncio.gather(*readies)
+    meets = await asyncio.gather(*readies)
     print(
-        f"{len(meet_ids)} meets registered; ramping {args.attendees} attendees "
+        f"{len(meets)} meets registered; ramping {args.attendees} attendees "
         f"at {args.ramp}/s"
     )
 
     reporter = asyncio.create_task(report(stats, stop))
     attendees = []
     for i in range(args.attendees):
-        meet_id = meet_ids[i % len(meet_ids)]  # spread evenly over the meets
+        meet_id, base = meets[i % len(meets)]  # spread evenly over the meets
         attendees.append(
             asyncio.create_task(
                 fake_attendee(base, meet_id, f"{args.uid_prefix}-v{i}", stats, stop)
@@ -217,7 +227,9 @@ async def main(args):
 
 if __name__ == "__main__":
     p = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    p.add_argument("--url", required=True, help="relay base URL, e.g. https://host")
+    p.add_argument(
+        "--url", required=True, help="the cloud's base URL, e.g. https://host"
+    )
     p.add_argument("--key", required=True, help="an active relay key from /admin")
     p.add_argument("--meets", type=int, default=10, help="fake Pis (default 10)")
     p.add_argument("--attendees", type=int, default=1000, help="total (default 1000)")

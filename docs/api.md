@@ -249,11 +249,15 @@ connects/disconnects), `update_scoreboard` (§5.1; the cloud throttles
 ### `/ws/relay` (the Pi relay — not a spectator)
 
 Documented for completeness; implemented by [`relay.py`](../server/relay.py). The Pi is a
-*producer*: it registers once, then forwards the same events it broadcasts locally.
+*producer*: it asks the cloud where to publish (`POST /api/assign`, §5.12), connects to
+the `relay_url` it is given, registers once with the ticket, then forwards the same
+events it broadcasts locally.
 
 **Client (relay) → server:** `register` (metadata §5.4), then `update_scoreboard`,
 `results_snapshot`, `next_heats`, `schedule_snapshot` (§5.5), `reload`.
-**Server → relay:** `registered {meet_id}`, `rejected {reason}`.
+**Server → relay:** `registered {meet_id}`, `rejected {reason, reassign?}`.
+`reassign: true` means the ticket is not for this worker or this meet: ask
+`/api/assign` again before reconnecting. Any other rejection is the key.
 
 ---
 
@@ -294,6 +298,7 @@ JSON/asset endpoints (everything else the servers expose is HTML for the browser
 | `GET /add?server=<origin>` | **QR hand-off page** (HTML) — where a scanned code lands on a phone **without** the app (`app.md` `P-16`). Shows the origin the code named and offers the store, and never redirects. Always 200: a spectator who has just scanned a poster must not meet a 404, so a missing or unusable `server` renders the page without one. One store button, narrowed to the reader's platform by `User-Agent` (`Vary: User-Agent`; an agent that cannot be placed gets every listing — sniffing may narrow, never guess). A link to `/` — the picker, never a meet — is added exactly when that is not a whole answer: no listing applies, or the agent was unrecognised |
 | `GET /privacy` | **privacy policy** (HTML) — the URL a store listing links to. Public, in the visitor's language (`?lang=`, cookie, browser). Text from `[privacy]` in the locale files, which is **not** in `GET /i18n/{lang}`; the retention it states is the analytics prune's. Contact shown only when `PRIVACY_CONTACT` is set ([`cloud.md`](cloud.md)) |
 | `GET /.well-known/assetlinks.json` | **Android App Links** — `application/json`, no redirect, no auth. Names `app.splouch.android` and the SHA-256 signing certificate fingerprints allowed to open `/add`. **404 while none is configured**, deliberately: an empty list looks deployed and fails later, on a phone. The fingerprints are deployment config ([`cloud.md`](cloud.md)), never source |
+| `POST /api/assign` | **where a Pi publishes** (§5.12) — the relay socket and a ticket. For a Pi, not a spectator |
 | `GET /.well-known/apple-app-site-association` | **iOS Universal Links** — the twin of the above, `application/json`, **no file extension**, no redirect. `components` claims `/add?server=…` and nothing else of the site |
 
 ---
@@ -403,8 +408,9 @@ row by lane (blank gaps) or by finishing place. `delta` is browser HTML;
 ### 5.4 relay `register` metadata (Pi → cloud)
 
 ```json
-{ "key": "<relay key>", "meet_uid": "<stable per LENEX>", "name": "…",
-  "location": "…", "sport": "…", "app_window_title": "…", "meet_date": "YYYY-MM-DD",
+{ "key": "<relay key>", "ticket": "<from /api/assign>", "meet_uid": "<stable per LENEX>",
+  "organizer_location": { "country": "CA", "province": "QC" },
+  "name": "…", "location": "…", "sport": "…", "app_window_title": "…", "meet_date": "YYYY-MM-DD",
   "settings": { "num_lanes": 8, "show_name": true, "show_club": true, "show_delta": true,
                 "show_position": true, "show_podium": true, "show_*_header": true,
                 "show_laps": false, "lap_direction": "up",
@@ -418,7 +424,10 @@ This `settings` block is the meet's display config — the same values a native
 attendee needs to render the board (lane count, visible columns, theme, labels).
 
 `label_style` and `console` are additive: a client that ignores either behaves
-exactly as before it existed.
+exactly as before it existed. `ticket` is required: a register without a valid one is
+refused with `reassign: true`. `organizer_location` is where the organizer says it is
+based (the Pi's Cloud tab), or `null`; the cloud records it beside its administrator's
+entry and never acts on it on its own.
 
 | field | meaning |
 | --- | --- |
@@ -632,6 +641,30 @@ for it instead of asking anyone to type an address. The hostname aliases the Pi 
 publishes — `splouch.local` and the translated ones — are A records: they only help
 someone who already knows what to type.
 
+### 5.12 `POST /api/assign` (cloud, Pi → control plane)
+
+Where a Pi publishes a meet. Asked before connecting, and again when the meet, the key
+or the server changes, after a `rejected {reassign: true}`, or after repeated failed
+connects to the given socket.
+
+```json
+→ { "key": "<relay key>", "meet_uid": "<stable per LENEX>" }
+← { "meet_id": "2ba264dde31",
+    "relay_url": "wss://ca1.splouch.org/ws/relay?meet=2ba264dde31",
+    "ticket": "<opaque>", "region": "ca", "expires_in": 86400 }
+```
+
+- **`relay_url`** is built by the cloud. A Pi connects to it as given and never
+  composes one: how a worker is addressed is the cloud's to change.
+- **`ticket`** is opaque to the Pi. It names the meet, the worker and the organizer,
+  carries a hash of the key, and lasts `expires_in` seconds. A worker checks it on
+  `register` with no call to the control plane, so a Pi keeps reconnecting on a kept
+  ticket while the control plane is down, until it runs out.
+- **`region`** is the organizer's region (`ca`, `us`, `eu`), the cloud administrator's
+  call; the Pi shows it read-only.
+- **403** `{reason}`: the key is unknown or revoked. **503** `{reason}`: no server in the
+  organizer's region can take the meet; retry later.
+
 ---
 
 ## 6. Config for native clients
@@ -729,6 +762,10 @@ can tell the console has stopped talking to it. Faces, both palettes: `family`
 ---
 
 ## Changelog
+
+- **Relay only, not a client change**: `POST /api/assign` (§5.12), and a `ticket` that
+  `register` now requires (§3, §5.4). A Pi from before this cannot publish to a cloud
+  from after it. Spectator clients are unaffected, so the version stands.
 
 - **v2** — `running_time` over the relay. It was stripped from every forwarded
   frame; the cloud now **throttles** it instead — at most one every 2s, plus any

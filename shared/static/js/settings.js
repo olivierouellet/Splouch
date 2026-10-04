@@ -1859,8 +1859,36 @@ function _applyCloudStatus(d) {
         btn.disabled = false;
         _setHold(btn, false);
     }
+    _applyCloudRegion(d);
     _applyCloudAttendance(d);
 }
+
+// The region the cloud assigned, read-only: the cloud administrator's call.
+function _applyCloudRegion(d) {
+    var el = document.getElementById('cloud-region');
+    if (!el) return;
+    el.textContent = (d.region && T['region_' + d.region]) || T.cloud_region_pending;
+}
+
+// Country names in the panel's language, from the browser's own table; a browser
+// without it keeps the codes.
+(function () {
+    var sel = document.getElementById('cloud_country');
+    // ES2020, newer than the lib these scripts are checked against.
+    var DisplayNames = typeof Intl !== 'undefined' && /** @type {any} */ (Intl).DisplayNames;
+    if (!sel || !DisplayNames) return;
+    var names;
+    try {
+        names = new DisplayNames([document.documentElement.lang || 'en'], {
+            type: 'region',
+        });
+    } catch (_e) {
+        return;
+    }
+    sel.querySelectorAll('option[value]').forEach(function (opt) {
+        if (opt.value) opt.textContent = names.of(opt.value) || opt.value;
+    });
+})();
 
 // Attendance counts the cloud pushes back over the relay link. Only shown
 // while connected; a muted note explains when the cloud admin has analytics

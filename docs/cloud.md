@@ -68,7 +68,8 @@ When it finishes, open `https://yourdomain/admin` and add organizers.
 The `/admin` page (HTTP basic auth — the login you chose at install; change it from the user
 menu → **Change password**) lets you, under **Organizers** and **Active Meets**:
 
-- **Add an organizer** — enter an organization name; a cryptographically random 32-byte key is generated automatically.
+- **Add an organizer** — enter an organization name, and where it is based: country, state/province, and the **region** whose servers carry its meets (suggested from the country). A cryptographically random 32-byte key is generated automatically.
+- **Edit a location** — under the organizer's name. When the organizer's Pi reports a different country or state/province, the row shows *Their Pi says: …* with **Accept**; accepting copies it, and the region stays yours to change.
 - **Revoke a key** — the Pi with that key will be disconnected and refused on next connect.
 - **Delete a key** — removes it from the list entirely.
 - **View active meets** — shows every Pi currently connected with its meet name, location, sport, organizer, console, and connection time.
@@ -92,10 +93,13 @@ In the admin UI on Pi #1 (`/settings` → **Cloud** tab):
 | --- | --- |
 | **Server URL** | `https://yourdomain` |
 | **Relay Key** | Key from `/admin` on the cloud server |
+| **Country**, **State / province** | Where the club is based; the cloud's administrator sees it |
+| **Region** | Read-only — the region the cloud put this organizer in, shown once connected |
 | **Location** | Venue or city (auto-filled from Lenex if blank) |
 | **Sport** | Optional — shown on the meet picker (e.g. `Swimming`) |
 
-Click **Save**. The Pi connects immediately and appears in the cloud's meet picker.
+Click **Save**. The Pi asks the cloud which server carries its meet, connects there, and
+appears in the cloud's meet picker.
 Location, sport and the rest of the picker card (title, image, home icon) only show once a
 meet file is loaded.
 
@@ -377,8 +381,13 @@ La page `/admin` (authentification HTTP basic — l'identifiant choisi à l'inst
 changer depuis le menu utilisateur → **Changer le mot de passe**) permet, dans
 **Organisateurs** et **Compétitions actives** :
 
-- **Ajouter un organisateur** — saisissez le nom d'un organisme ; une clé aléatoire
-  cryptographique de 32 octets est générée automatiquement.
+- **Ajouter un organisateur** — saisissez le nom d'un organisme et où il est établi :
+  pays, état/province, et la **région** dont les serveurs diffusent ses compétitions
+  (suggérée d'après le pays). Une clé aléatoire cryptographique de 32 octets est générée
+  automatiquement.
+- **Modifier un emplacement** — sous le nom de l'organisateur. Quand le Pi de
+  l'organisateur indique un autre pays ou une autre province, la ligne affiche *Leur Pi
+  indique : …* avec **Accepter** ; accepter le recopie, et la région reste la vôtre.
 - **Révoquer une clé** — le Pi qui l'utilise est déconnecté et refusé à sa prochaine
   connexion.
 - **Supprimer une clé** — la retire complètement de la liste.
@@ -406,11 +415,13 @@ Dans l'interface d'administration du Pi n° 1 (`/settings` → onglet **Nuage**)
 | --- | --- |
 | **URL du serveur** | `https://votredomaine` |
 | **Clé de relais** | Clé obtenue dans `/admin` sur le serveur cloud |
+| **Pays**, **État / province** | Où le club est établi ; l'administrateur du cloud le voit |
+| **Région** | Lecture seule — la région attribuée par le cloud, affichée une fois connecté |
 | **Lieu** | Lieu ou ville (rempli depuis le Lenex s'il est vide) |
 | **Sport** | Facultatif — affiché dans le sélecteur de compétitions (p. ex. `Natation`) |
 
-Cliquez sur **Enregistrer**. Le Pi se connecte aussitôt et apparaît dans le sélecteur de
-compétitions du cloud. Le lieu, le sport et le reste de la fiche du sélecteur (titre, image,
+Cliquez sur **Enregistrer**. Le Pi demande au cloud quel serveur diffuse sa compétition,
+s'y connecte et apparaît dans le sélecteur de compétitions du cloud. Le lieu, le sport et le reste de la fiche du sélecteur (titre, image,
 icône) n'apparaissent qu'une fois un fichier de compétition chargé.
 
 ---

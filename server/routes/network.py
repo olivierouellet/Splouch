@@ -56,6 +56,9 @@ class CloudStatus(BaseModel):
     # off there, else {'enabled': True, 'counts': {window: n}}. None until the
     # relay has heard back (or when disconnected).
     stats: dict | None = None
+    # The region the cloud put this organizer in (`ca`, `us`, `eu`), '' until the
+    # Pi has an assignment. The admin's call; shown read-only.
+    region: str = ""
 
 
 def _nmcli(*args, timeout=8):

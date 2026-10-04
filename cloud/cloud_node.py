@@ -5,8 +5,8 @@ everything it must remember goes through here to the control plane's internal AP
 (`cloud_control`, docs/architecture/scaling.md):
 
 * **register** — a Pi's key is checked there and the meet's metadata stored; the
-  answer is the meet id. The last answer per (key, meet uid) is kept on disk, so
-  a Pi reconnecting while the control plane is down is still let in.
+  answer is the meet id. While the control plane is down, the ticket the Pi got
+  from `/api/assign` is what lets it in (`cloud_server`, `cloud_ticket`).
 * **schedule / retire** — best effort: a failure is logged and the next register
   or schedule from the Pi carries the same data again.
 * **meet records** — a retained meet's pages are served from its record, fetched
@@ -33,17 +33,12 @@ import urllib.request
 
 from starlette.concurrency import run_in_threadpool
 
-import cloud_paths
-from cloud_paths import atomic_write
-
 HEARTBEAT_SECS = 10
 _ANALYTICS_FLUSH_SECS = 5
 # A retained meet's record changes rarely (an admin edits its expiry, or it
 # expires); a page view within this window reuses the last fetch.
 _RECORD_TTL = 15.0
 _MISSING_TTL = 5.0
-
-REGISTER_CACHE_FILE = os.path.join(cloud_paths.DATA_DIR, "register_cache.json")
 
 
 class ControlError(Exception):
@@ -60,6 +55,11 @@ def node_name():
 
 def worker_index():
     return int(os.environ.get("WORKER", "1"))
+
+
+def node_url():
+    """This node's public base URL, which `/api/assign` builds a Pi's relay URL from."""
+    return os.environ.get("NODE_URL", "").rstrip("/")
 
 
 def _call(method, path, body=None, timeout=5):
@@ -91,54 +91,23 @@ def _call(method, path, body=None, timeout=5):
 
 # ── Register ───────────────────────────────────────────────────────────────────
 
-_cache_lock = threading.Lock()
 
-
-def _load_register_cache():
-    try:
-        with open(REGISTER_CACHE_FILE, encoding="utf-8") as f:
-            data = json.load(f)
-        return data if isinstance(data, dict) else {}
-    except (OSError, ValueError):
-        return {}
-
-
-def _cache_key(key, meet_uid):
-    return f"{key}\n{meet_uid}"
-
-
-def register(key, meet_uid, meta):
+def register(key, meet_uid, meta, location=None):
     """Register a meet; returns `{"meet_id", "organizer", "connected_at",
     "schedule_data"}`. Raises Refused for a bad key, ControlError when the control
-    plane is unreachable and this worker has never seen this key and meet."""
-    body = {
-        "key": key,
-        "meet_uid": meet_uid,
-        "meta": meta,
-        "node": node_name(),
-        "worker": worker_index(),
-    }
-    ck = _cache_key(key, meet_uid)
-    try:
-        result = _call("POST", "/internal/register", body)
-    except Refused:
-        with _cache_lock:
-            cache = _load_register_cache()
-            if cache.pop(ck, None) is not None:
-                atomic_write(REGISTER_CACHE_FILE, json.dumps(cache))
-        raise
-    except ControlError:
-        with _cache_lock:
-            cached = _load_register_cache().get(ck)
-        if not cached:
-            raise
-        print("[node] control plane unreachable — admitting a known meet", flush=True)
-        return {**cached, "schedule_data": {}}
-    with _cache_lock:
-        cache = _load_register_cache()
-        cache[ck] = {"meet_id": result["meet_id"], "organizer": result["organizer"]}
-        atomic_write(REGISTER_CACHE_FILE, json.dumps(cache))
-    return result
+    plane cannot be reached."""
+    return _call(
+        "POST",
+        "/internal/register",
+        {
+            "key": key,
+            "meet_uid": meet_uid,
+            "meta": meta,
+            "node": node_name(),
+            "worker": worker_index(),
+            "location": location,
+        },
+    )
 
 
 def _best_effort(what, method, path, body):
@@ -237,19 +206,21 @@ def wg_pubkey():
     return ""
 
 
-def heartbeat(live_ids):
-    """Report the meets this worker holds. Returns the ids the control plane retired."""
+def heartbeat(live_ids, attendees=None):
+    """Report the meets this worker holds, with each one's attendee count. Returns
+    the ids the control plane retired."""
     result = _call(
         "POST",
         "/internal/heartbeat",
         {
             "node": node_name(),
             "worker": worker_index(),
-            "host": os.environ.get("NODE_HOST", ""),
+            "host": node_url(),
             "region": os.environ.get("NODE_REGION", ""),
             "workers": int(os.environ.get("NODE_WORKERS", "1")),
             "wg_pubkey": wg_pubkey(),
             "live": list(live_ids),
+            "attendees": attendees or {},
         },
     )
     if isinstance(result, dict):
@@ -258,11 +229,12 @@ def heartbeat(live_ids):
     return []
 
 
-async def heartbeat_loop(live_ids):
-    """Report every HEARTBEAT_SECS. `live_ids()` names the meets held right now."""
+async def heartbeat_loop(snapshot):
+    """Report every HEARTBEAT_SECS. `snapshot()` returns the meets held right now
+    and `{meet_id: attendees}`."""
     while True:
         try:
-            await run_in_threadpool(heartbeat, live_ids())
+            await run_in_threadpool(heartbeat, *snapshot())
         except (ControlError, Refused) as e:
             print(f"[node] heartbeat failed: {e}", flush=True)
         await asyncio.sleep(HEARTBEAT_SECS)

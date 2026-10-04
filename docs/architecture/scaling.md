@@ -211,18 +211,20 @@ worker 3.
    `/wN/ws/{scoreboard,results,schedule}?meet=<id>`; today the ID arrives in the
    first message ([`cloud_server.py`](../../cloud/cloud_server.py),
    `/ws/scoreboard`). HTTP routes already use `?meet=`.
-2. **Pi assignment first.** The Pi calls `/api/assign`, caches
-   `{meet_id, host, worker, ticket}`, then connects to
-   `wss://<host>/w<N>/ws/relay?meet=<id>` with the ticket. On "moved" or "not here"
-   it asks again. Today the meet ID is minted after the Pi connects.
+2. **Pi assignment first.** *Done:* the Pi calls `/api/assign`, keeps
+   `{meet_id, relay_url, ticket, region}`, and connects to the `relay_url` the control
+   plane built (so adding `/wN/` needs no Pi change). On `rejected {reassign: true}`,
+   a new meet, key or server, or three failed connects, it asks again.
 3. **Serialize once.** *Done (stage 0).*
 4. **Report to the control plane.** *Done:* register, schedule and disconnect, plus
    a heartbeat naming the meets a worker holds; a meet whose worker stops vouching
    for it is retired after 90 s.
 5. **Keys from the control plane.** *Done:* a register is checked there, the answer
    cached per key and meet; `keys.json` is imported once (`cloud/cloud_import.py`).
-6. **Tickets and moves.** Check the ticket on relay connect; accept a signed move
-   call; close a meet's sockets with "moved".
+6. **Tickets and moves.** *Tickets done:* a worker refuses a register without a
+   valid ticket for itself, the key and the meet, and admits one on the ticket alone
+   while the control plane is down (this replaced batch 1's register cache). Moves
+   are batch 3.
 7. **Attendee counts on the Pi stay.** The worker holding a meet answers the Pi's
    `stats` request on the relay socket, as today
    ([`cloud_server.py`](../../cloud/cloud_server.py), `stats`). *Done:* counts live
@@ -472,8 +474,8 @@ same webhook. It builds nothing: upstream images, pinned versions.
 | --- | --- |
 | Stage 0 — encode once, load test | Done (`tests/relay_load.py`) |
 | 1 — control plane | Done. Control plane and worker split; Postgres store (organizers with country, state/province and region; meets; admin login and settings; counts); every admin tab and the picker on the control plane; internal API; worker heartbeat; import of a pre-split data directory. One box: Caddy sends a meet's live paths to the worker and everything else to the control plane |
-| 2 — assignment and tickets | Next |
-| 3 — several workers, `/wN/` routing, live moves | — |
+| 2 — assignment and tickets | Done. `POST /api/assign` (least-loaded worker on a live node in the organizer's region; a meet goes back to the worker that held it), signed tickets checked by the worker, attendee counts in the heartbeat. The Pi asks before connecting and reports its country and state/province, which `/admin` flags beside the record with **Accept**; the region shows read-only on the Pi |
+| 3 — several workers, `/wN/` routing, live moves | Next |
 | 4 — picker hands out host and worker; app contract | — |
 | 5 — GHCR images, rolling update | — |
 | 6 — monitoring | — |

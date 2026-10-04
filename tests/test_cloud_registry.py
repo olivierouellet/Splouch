@@ -190,3 +190,58 @@ def test_a_cleared_setting_is_gone(pg):
     creds.pop("picker_logo_b64")
     cloud_auth.save_creds(creds)
     assert "picker_logo_b64" not in cloud_auth.load_creds()
+
+
+# ── Assignment ─────────────────────────────────────────────────────────────────
+
+
+def _node(name="ca1", region="ca", workers=1):
+    reg.heartbeat(
+        name, 1, [], host=f"https://{name}.example", region=region, workers=workers
+    )
+
+
+def test_a_new_meet_goes_to_the_least_loaded_worker(key):
+    _node(workers=2)
+    busy = reg.register(key, "busy", META, "ca1", 1)["meet_id"]
+    reg.heartbeat("ca1", 1, [busy], workers=2, attendees={busy: 50})
+    assert reg.assign(key, "next")["worker"] == 2
+
+
+def test_a_meet_goes_back_to_the_worker_that_held_it(key):
+    _node(workers=2)
+    mid = reg.register(key, "uid", META, "ca1", 2)["meet_id"]
+    reg.retire(mid, "ca1", 2)
+    assert reg.assign(key, "uid")["worker"] == 2
+
+
+def test_a_silent_node_is_not_offered(key):
+    _node()
+    import cloud_db
+
+    with cloud_db.conn() as c:
+        c.execute("UPDATE nodes SET last_seen = now() - interval '10 minutes'")
+    with pytest.raises(reg.NoNode):
+        reg.assign(key, "uid")
+
+
+def test_a_draining_node_is_not_offered(key):
+    _node("ca1")
+    _node("ca2")
+    import cloud_db
+
+    with cloud_db.conn() as c:
+        c.execute("UPDATE nodes SET state = 'draining' WHERE name = 'ca1'")
+    assert reg.assign(key, "uid")["node"] == "ca2"
+
+
+def test_an_organizer_without_a_region_may_go_anywhere(pg):
+    _node("eu1", region="eu")
+    key = cloud_auth.add_organizer("Imported")
+    assert reg.assign(key, "uid")["node"] == "eu1"
+
+
+def test_assign_refuses_a_revoked_key(key):
+    _node()
+    cloud_auth.update_organizer(key, active=False)
+    assert reg.assign(key, "uid") is None

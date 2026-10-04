@@ -30,6 +30,7 @@ from starlette.concurrency import run_in_threadpool
 import cloud_bus
 import cloud_i18n
 import cloud_node
+import cloud_ticket
 from cloud_bus import manager
 from cloud_paths import _HERE, DATA_DIR, STATIC_DIR
 from cloud_store import _lock, _meets, _relay_sids, _retire_mem, meet_for
@@ -54,11 +55,19 @@ _i18n_bundle = cloud_i18n.i18n_bundle
 _CLOCK_SYNC_SECS = 2.0
 
 
+def _heartbeat_snapshot():
+    """The meets held here and each one's attendees — phones on its board — for the
+    control plane to balance new meets on."""
+    with _lock:
+        ids = list(_meets)
+    return ids, {m: len(manager.channels.get(_ch("scoreboard", m), ())) for m in ids}
+
+
 @asynccontextmanager
 async def lifespan(app):
     os.makedirs(DATA_DIR, exist_ok=True)
     tasks = [
-        asyncio.create_task(cloud_node.heartbeat_loop(lambda: list(_meets))),
+        asyncio.create_task(cloud_node.heartbeat_loop(_heartbeat_snapshot)),
         asyncio.create_task(cloud_node.analytics_flush_loop()),
     ]
     try:
@@ -367,16 +376,34 @@ async def _on_relay_register(ws, sid, data):
         for k in ("name", "location", "sport", "app_window_title", "meet_date")
     }
     meta["settings"] = data.get("settings", {})
+    # The control plane's word that this meet belongs on this worker (`/api/assign`,
+    # cloud_ticket). Anything wrong with it sends the Pi back to ask again.
+    ticket = cloud_ticket.verify(os.environ.get("NODE_SECRET", ""), data.get("ticket"))
+    if not (
+        ticket
+        and ticket.get("n") == cloud_node.node_name()
+        and ticket.get("w") == cloud_node.worker_index()
+        and ticket.get("k") == cloud_ticket.key_hash(key)
+    ):
+        await _reassign(ws)
+        return
     try:
-        result = await run_in_threadpool(cloud_node.register, key, meet_uid, meta)
+        result = await run_in_threadpool(
+            cloud_node.register, key, meet_uid, meta, data.get("organizer_location")
+        )
     except cloud_node.Refused as e:
         await manager.send(ws, "rejected", {"reason": str(e)})
         return
     except cloud_node.ControlError:
-        # The Pi reconnects after a rejection, so it retries on its own.
-        await manager.send(ws, "rejected", {"reason": "control plane unreachable"})
-        return
+        # The ticket is signed and unexpired: the control plane said yes within
+        # the last day, so the Pi is let back in while it cannot be asked again.
+        print("[cloud] control plane unreachable — admitting on the ticket", flush=True)
+        result = {"meet_id": ticket["m"], "organizer": ticket.get("o", "")}
     meet_id = result["meet_id"]
+    if meet_id != ticket.get("m"):
+        # A ticket for another meet (the operator switched meets on this key).
+        await _reassign(ws)
+        return
 
     with _lock:  # fast: in-memory only
         # If this socket was publishing a different meet (operator switched
@@ -413,6 +440,13 @@ async def _on_relay_register(ws, sid, data):
     await manager.send(ws, "registered", {"meet_id": meet_id})
     await _emit_meet_live(meet_id, True)
     print(f"[cloud] {result['organizer']} registered as meet {meet_id}", flush=True)
+
+
+async def _reassign(ws):
+    """Refuse a register and send the Pi back to `/api/assign` for a fresh ticket."""
+    await manager.send(
+        ws, "rejected", {"reason": "not assigned here", "reassign": True}
+    )
 
 
 async def _on_relay_disconnect(sid):

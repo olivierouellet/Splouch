@@ -23,6 +23,12 @@ from psycopg.types.json import Jsonb
 
 import cloud_auth
 import cloud_db
+from splouch_regions import clean_location
+
+# A node that has not called in this long is not offered new meets, and its live
+# meets are retired (`retire_silent`). Workers report every
+# `cloud_node.HEARTBEAT_SECS`; a few missed beats is a dead worker, not a slow one.
+SILENT_AFTER_SECS = 90
 
 # The picker's columns. Never the start list or the two images.
 _LIST_COLUMNS = (
@@ -97,16 +103,93 @@ def _record(row):
 # ── Worker reports ─────────────────────────────────────────────────────────────
 
 
-def register(key, meet_uid, meta, node, worker):
-    """A Pi registered a meet on `node`/`worker`. None when the key is refused.
+def _meet_id(key, meet_uid):
+    return meet_id_for(key, meet_uid) if meet_uid else cloud_auth.legacy_meet_id(key)
 
-    Returns `{"meet_id", "organizer", "schedule_data"}` — the stored start list, so a
-    meet reconnecting after a drop shows its schedule before the Pi re-sends it.
+
+class NoNode(Exception):
+    """No live node in the organizer's region can take the meet."""
+
+
+def assign(key, meet_uid):
+    """Where a Pi should publish a meet: `{"meet_id", "organizer", "node", "worker",
+    "url", "region"}`, or None when the key is refused. Raises NoNode.
+
+    A meet already held, or last held, by a worker that is still up goes back there,
+    so a Pi reconnecting after a drop lands where its attendees already are.
+    Otherwise the least-loaded worker on a live node in the organizer's region —
+    fewest attendees, then fewest meets. An organizer with no region yet (imported
+    from before regions existed) may go to any node; one with a region only ever
+    goes to that region's nodes (data residency).
     """
     org = cloud_auth.organizer(key)
     if org is None or not org["active"]:
         return None
-    meet_id = meet_id_for(key, meet_uid) if meet_uid else cloud_auth.legacy_meet_id(key)
+    meet_id = _meet_id(key, meet_uid)
+    cutoff = datetime.datetime.now(datetime.UTC) - datetime.timedelta(
+        seconds=SILENT_AFTER_SECS
+    )
+    with cloud_db.conn() as c:
+        nodes = c.execute(
+            "SELECT * FROM nodes WHERE state = 'active' AND last_seen >= %s "
+            "AND (%s::text IS NULL OR region = %s) ORDER BY name",
+            (cutoff, org["region"], org["region"]),
+        ).fetchall()
+        if not nodes:
+            raise NoNode(org["region"] or "")
+        by_name = {n["name"]: n for n in nodes}
+        prev = c.execute(
+            "SELECT node, worker FROM meets WHERE id = %s", (meet_id,)
+        ).fetchone()
+        if (
+            prev
+            and prev["node"] in by_name
+            and 1 <= (prev["worker"] or 0) <= by_name[prev["node"]]["workers"]
+        ):
+            node, worker = by_name[prev["node"]], prev["worker"]
+        else:
+            load = {
+                (r["node"], r["worker"]): (r["attendees"], r["meets"])
+                for r in c.execute(
+                    "SELECT node, worker, sum(attendees) AS attendees, "
+                    "count(*) AS meets FROM meets WHERE live GROUP BY node, worker"
+                ).fetchall()
+            }
+            # Fewest attendees, then fewest meets, then the first by name: the
+            # tuple compares in that order.
+            _, name, worker = min(
+                (load.get((n["name"], w), (0, 0)), n["name"], w)
+                for n in nodes
+                for w in range(1, n["workers"] + 1)
+            )
+            node = by_name[name]
+    return {
+        "meet_id": meet_id,
+        "organizer": org["name"],
+        "node": node["name"],
+        "worker": worker,
+        "url": node["host"],
+        "region": node["region"] or "",
+    }
+
+
+def register(key, meet_uid, meta, node, worker, location=None):
+    """A Pi registered a meet on `node`/`worker`. None when the key is refused.
+
+    Returns `{"meet_id", "organizer", "schedule_data"}` — the stored start list, so a
+    meet reconnecting after a drop shows its schedule before the Pi re-sends it.
+    `location` is where the organizer says it is based (`{"country", "province"}`,
+    from the Pi's Cloud tab); it is recorded beside the admin's, never over it.
+    """
+    org = cloud_auth.organizer(key)
+    if org is None or not org["active"]:
+        return None
+    if isinstance(location, dict):
+        country, province = clean_location(
+            location.get("country"), location.get("province")
+        )
+        cloud_auth.report_location(key, country, province)
+    meet_id = _meet_id(key, meet_uid)
     settings, icon, picker = _split_settings(meta.get("settings"))
     now = datetime.datetime.now()
     with cloud_db.conn() as c:
@@ -176,7 +259,8 @@ def _retire_where(c, clause, params, now):
     ).fetchall()
     for r in rows:
         c.execute(
-            "UPDATE meets SET live = false, last_seen = %s, expires_at = %s WHERE id = %s",
+            "UPDATE meets SET live = false, attendees = 0, last_seen = %s, "
+            "expires_at = %s WHERE id = %s",
             (now, compute_expiry(r["meet_date"], now), r["id"]),
         )
     return [r["id"] for r in rows]
@@ -194,8 +278,18 @@ def retire(meet_id, node, worker):
         )
 
 
-def heartbeat(node, worker, live_ids, host="", region=None, workers=1, wg_pubkey=""):
-    """A worker says which meets it holds. Retires the ones it no longer names."""
+def heartbeat(
+    node,
+    worker,
+    live_ids,
+    host="",
+    region=None,
+    workers=1,
+    wg_pubkey="",
+    attendees=None,
+):
+    """A worker says which meets it holds, and how many attendees each has.
+    Retires the ones it no longer names."""
     now = datetime.datetime.now()
     with cloud_db.conn() as c:
         c.execute(
@@ -211,6 +305,12 @@ def heartbeat(node, worker, live_ids, host="", region=None, workers=1, wg_pubkey
             "UPDATE meets SET last_seen = %s WHERE live AND node = %s AND worker = %s",
             (now, node, worker),
         )
+        for meet_id, n in (attendees or {}).items():
+            c.execute(
+                "UPDATE meets SET attendees = %s "
+                "WHERE id = %s AND live AND node = %s AND worker = %s",
+                (max(int(n), 0), meet_id, node, worker),
+            )
         return _retire_where(
             c,
             "node = %s AND worker = %s AND NOT (id = ANY(%s))",
@@ -219,7 +319,7 @@ def heartbeat(node, worker, live_ids, host="", region=None, workers=1, wg_pubkey
         )
 
 
-def retire_silent(max_age_seconds, now=None):
+def retire_silent(max_age_seconds=SILENT_AFTER_SECS, now=None):
     """Retire live meets nobody has vouched for in `max_age_seconds` — a worker or a
     whole node that died without saying goodbye."""
     now = now or datetime.datetime.now()

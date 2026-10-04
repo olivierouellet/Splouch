@@ -19,6 +19,34 @@
                                 <input type="password" name="cloud_relay_key" value="{{ cloud_relay_key }}"
                                        class="form-control form-control-sm" placeholder="{{ t.cloud_relay_key_ph }}">
                             </div>
+                            {# Where the club is based. The cloud records it beside its
+                               administrator's entry and flags a difference; the region
+                               that decides which servers carry the meet stays theirs,
+                               so it is shown here and never edited
+                               (docs/architecture/scaling.md). #}
+                            <div class="mb-3">
+                                <div class="d-flex flex-wrap gap-2">
+                                    <div>
+                                        <label class="form-label" for="cloud_country">{{ t.cloud_country }}</label>
+                                        <select name="cloud_country" id="cloud_country" class="form-select form-select-sm country-select" style="width:auto;">
+                                            <option value="">—</option>
+                                            {% for code in countries %}
+                                            <option value="{{ code }}" {{ 'selected' if code == cloud_country else '' }}>{{ code }}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                    <div class="flex-fill" style="min-width:10rem;">
+                                        <label class="form-label" for="cloud_province">{{ t.cloud_province }}</label>
+                                        <input type="text" name="cloud_province" id="cloud_province" value="{{ cloud_province }}" maxlength="64"
+                                               class="form-control form-control-sm" autocomplete="off">
+                                    </div>
+                                    <div>
+                                        <span class="form-label d-block">{{ t.cloud_region }}</span>
+                                        <span id="cloud-region" class="form-control-plaintext form-control-sm py-1 text-body-secondary">{{ t.cloud_region_pending }}</span>
+                                    </div>
+                                </div>
+                                <div class="form-text">{{ t.cloud_location_hint }}</div>
+                            </div>
                             <div class="text-end">
                                 <button id="btn-update-cloud" type="submit" class="btn btn-secondary btn-sm">{{ t.btn_save }}</button>
                             </div>

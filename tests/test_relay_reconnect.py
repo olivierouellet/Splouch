@@ -35,6 +35,19 @@ def connect(monkeypatch):
     monkeypatch.setattr(relay, "_get_metadata", dict)
     monkeypatch.setattr(relay, "send_schedule", lambda client=None: None)
     monkeypatch.setattr(websocket, "create_connection", lambda *a, **k: _Socket())
+    monkeypatch.setattr(relay, "_assignment", None)
+    monkeypatch.setattr(
+        relay,
+        "_assign",
+        lambda url, key, uid: {
+            "for": (url, key, uid),
+            "meet_id": "m1",
+            "relay_url": "wss://cloud.example/ws/relay?meet=m1",
+            "ticket": "t",
+            "region": "ca",
+            "until": 9e12,
+        },
+    )
     monkeypatch.setattr(state, "_test_local_only", False, raising=False)
     monkeypatch.setattr(state, "_last_results_snapshot", {}, raising=False)
     monkeypatch.setitem(state.settings, "cloud_relay_url", "wss://cloud.example")
@@ -75,3 +88,112 @@ def test_the_board_is_replayed_on_connect(connect):
 
 def test_an_empty_board_sends_nothing(connect):
     assert [ev for ev, _ in connect() if ev == "update_scoreboard"] == []
+
+
+# ── Where to publish (`POST /api/assign`) ──────────────────────────────────────
+#
+# The Pi asks the cloud which worker carries its meet before connecting, and keeps
+# the answer: a dropped link reconnects to the same worker with the same ticket.
+# It asks again for a new meet, key or server, when a worker refuses the ticket,
+# after repeated failed connects, and — while the cloud cannot be reached — keeps
+# using a ticket that has not run out, which the worker admits on its own.
+
+
+@pytest.fixture
+def assigning(monkeypatch):
+    calls = []
+
+    def assign(url, key, uid):
+        calls.append(uid)
+        return {
+            "for": (url, key, uid),
+            "meet_id": "m-" + uid,
+            "relay_url": "wss://w1.example/ws/relay",
+            "ticket": f"ticket-{len(calls)}",
+            "region": "ca",
+            "until": relay.time.time() + 86400,
+        }
+
+    monkeypatch.setattr(relay, "_assign", assign)
+    monkeypatch.setattr(relay, "_assignment", None)
+    monkeypatch.setattr(state, "meet_uid", lambda: "uid-1")
+    relay._reassign.clear()
+    yield calls
+    relay._reassign.clear()
+
+
+def test_an_assignment_is_kept_across_reconnects(assigning):
+    a = relay._current_assignment("https://c", "k")
+    assert relay._current_assignment("https://c", "k") is a
+    assert assigning == ["uid-1"]
+
+
+def test_a_new_meet_asks_again(assigning, monkeypatch):
+    relay._current_assignment("https://c", "k")
+    monkeypatch.setattr(state, "meet_uid", lambda: "uid-2")
+    assert relay._current_assignment("https://c", "k")["meet_id"] == "m-uid-2"
+
+
+def test_a_refused_ticket_asks_again(assigning):
+    relay._current_assignment("https://c", "k")
+    relay._reassign.set()
+    assert relay._current_assignment("https://c", "k")["ticket"] == "ticket-2"
+    assert not relay._reassign.is_set()
+
+
+def test_an_unreachable_cloud_keeps_a_live_ticket(assigning, monkeypatch):
+    kept = relay._current_assignment("https://c", "k")
+    relay._reassign.set()
+
+    def down(*a):
+        raise OSError("connection refused")
+
+    monkeypatch.setattr(relay, "_assign", down)
+    assert relay._current_assignment("https://c", "k") is kept
+
+
+def test_an_unreachable_cloud_and_no_ticket_waits(assigning, monkeypatch):
+    def down(*a):
+        raise OSError("connection refused")
+
+    monkeypatch.setattr(relay, "_assign", down)
+    assert relay._current_assignment("https://c", "k") is None
+
+
+def test_the_register_carries_the_ticket_and_the_location(assigning, monkeypatch):
+    monkeypatch.setattr(relay, "_get_metadata", dict)
+    monkeypatch.setitem(state.settings, "cloud_country", "CA")
+    monkeypatch.setitem(state.settings, "cloud_province", "QC")
+    a = relay._current_assignment("https://c", "k")
+    payload = relay._register_payload("k", a)
+    assert payload["ticket"] == "ticket-1" and payload["key"] == "k"
+    assert payload["organizer_location"] == {"country": "CA", "province": "QC"}
+
+
+def test_switching_meets_drops_the_link_rather_than_re_registering(
+    assigning, monkeypatch
+):
+    """A ticket is for one meet: a new one needs a new ticket, maybe another worker."""
+
+    class Sock:
+        closed = False
+
+        def close(self):
+            self.closed = True
+
+    sock = Sock()
+    monkeypatch.setitem(state.settings, "cloud_relay_url", "https://c")
+    monkeypatch.setitem(state.settings, "cloud_relay_key", "k")
+    monkeypatch.setattr(state, "_test_local_only", False, raising=False)
+    relay._current_assignment("https://c", "k")
+    monkeypatch.setattr(relay, "_client", sock)
+    monkeypatch.setattr(relay, "_connected", True)
+    monkeypatch.setattr(state, "meet_uid", lambda: "uid-2")
+    relay.update_metadata()
+    assert sock.closed and relay._reassign.is_set()
+
+
+def test_assign_is_asked_of_the_server_url(monkeypatch):
+    assert relay._api_url("https://splouch.org/") == "https://splouch.org/api/assign"
+    assert relay._api_url("wss://splouch.org") == "https://splouch.org/api/assign"
+    assert relay._api_url("splouch.org") == "https://splouch.org/api/assign"

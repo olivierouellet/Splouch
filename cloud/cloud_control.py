@@ -39,6 +39,7 @@ import cloud_auth
 import cloud_db
 import cloud_i18n
 import cloud_registry
+import cloud_ticket
 import splouch_links
 from cloud_analytics import (
     analytics_enabled as _analytics_enabled,
@@ -57,6 +58,7 @@ from cloud_web import (
 )
 from splouch_i18n import READER_THEMES
 from splouch_links import INVITE_PARAM, INVITE_PATH
+from splouch_regions import COUNTRIES, clean_location
 
 _ANALYTICS_WINDOWS = cloud_analytics._ANALYTICS_WINDOWS
 _load_keys = cloud_auth.load_keys
@@ -143,18 +145,15 @@ def _load_cloud_strings(request):
     return {**_panel_strings(lang, "chrome"), **_panel_strings(lang, "cloud")}
 
 
-# How often the maintenance task runs, and how long a live meet may go without its
-# worker vouching for it before it is retired (`cloud_registry.retire_silent`).
-# Workers report every `cloud_node.HEARTBEAT_SECS`; a few missed beats is a dead
-# worker, not a slow one.
+# How often the maintenance task runs. How long a live meet may go without its
+# worker vouching for it is `cloud_registry.SILENT_AFTER_SECS`.
 _MAINTENANCE_SECS = 30
-_SILENT_AFTER_SECS = 90
 
 
 def _maintain(last_prune):
     """One maintenance pass: retire silent meets, sweep expired ones, prune the
     attendance counts once a day. Blocking — run off the loop."""
-    cloud_registry.retire_silent(_SILENT_AFTER_SECS)
+    cloud_registry.retire_silent()
     cloud_registry.sweep_expired()
     if (
         last_prune is None
@@ -1253,63 +1252,15 @@ def _admin_page(request, t=None, creds_error=None):
     )
 
 
-# Where an organizer is based, for balancing them over regions
-# (docs/architecture/scaling.md). ISO 3166-1 alpha-2 → the region an organizer
-# there is suggested; the admin may still pick another.
-COUNTRIES = {
-    "CA": "ca",
-    "US": "us",
-    **dict.fromkeys(
-        [
-            "AT",
-            "BE",
-            "BG",
-            "CH",
-            "CY",
-            "CZ",
-            "DE",
-            "DK",
-            "EE",
-            "ES",
-            "FI",
-            "FR",
-            "GB",
-            "GR",
-            "HR",
-            "HU",
-            "IE",
-            "IS",
-            "IT",
-            "LI",
-            "LT",
-            "LU",
-            "LV",
-            "MT",
-            "NL",
-            "NO",
-            "PL",
-            "PT",
-            "RO",
-            "SE",
-            "SI",
-            "SK",
-        ],
-        "eu",
-    ),
-}
-
-
 def _org_fields(form):
     """Country, state/province and region from the organizer form, validated."""
-    country = _form_text(form, "country").upper()
+    country, province = clean_location(
+        _form_text(form, "country"), _form_text(form, "province")
+    )
     region = _form_text(form, "region")
     if region not in {r["code"] for r in cloud_auth.regions()}:
         region = COUNTRIES.get(country, "")
-    return {
-        "country": country if country in COUNTRIES else "",
-        "province": _form_text(form, "province")[:64],
-        "region": region,
-    }
+    return {"country": country, "province": province, "region": region}
 
 
 def _admin_action(form, request):
@@ -1325,6 +1276,8 @@ def _admin_action(form, request):
             cloud_auth.add_organizer(org, **_org_fields(form))
     elif action == "update_org":
         cloud_auth.update_organizer(form.get("key", ""), **_org_fields(form))
+    elif action == "accept_location":
+        cloud_auth.accept_location(form.get("key", ""))
     elif action == "revoke":
         cloud_auth.update_organizer(form.get("key", ""), active=False)
     elif action == "delete":
@@ -1396,6 +1349,62 @@ async def route_admin(request: Request):
     return await run_in_threadpool(_admin_page, request)
 
 
+# ── Assignment (Pi → control plane) ───────────────────────────────────────────
+
+
+class AssignIn(BaseModel):
+    key: str
+    meet_uid: str = ""
+
+
+def _relay_url(base, meet_id):
+    """The worker socket a Pi connects to, from its node's public base URL.
+
+    The control plane builds it, not the Pi, so how a worker is addressed — today a
+    host, soon a host and a `/wN/` prefix — can change without a Pi release.
+    """
+    base = base.rstrip("/")
+    if base.startswith("https://"):
+        base = "wss://" + base[len("https://") :]
+    elif base.startswith("http://"):
+        base = "ws://" + base[len("http://") :]
+    return f"{base}/ws/relay?meet={meet_id}"
+
+
+@app.post("/api/assign", tags=["Relay"])
+def route_assign(body: AssignIn):
+    """Where a Pi publishes a meet, and the ticket that lets it.
+
+    The Pi calls this before connecting, with its relay key and the meet's uid;
+    the answer names the worker socket and carries a ticket the worker checks on
+    `register` (docs/api.md §5.12). A bad key is a 403 with the same reason a
+    worker gives; no node able to take the meet is a 503 the Pi retries.
+    """
+    secret = os.environ.get("NODE_SECRET", "")
+    if not secret:
+        raise HTTPException(status_code=503, detail="NODE_SECRET is not set")
+    try:
+        found = cloud_registry.assign(body.key, body.meet_uid)
+    except cloud_registry.NoNode:
+        return JSONResponse({"reason": "no server available"}, status_code=503)
+    if found is None:
+        return JSONResponse({"reason": "invalid or inactive key"}, status_code=403)
+    return {
+        "meet_id": found["meet_id"],
+        "relay_url": _relay_url(found["url"], found["meet_id"]),
+        "ticket": cloud_ticket.sign(
+            secret,
+            found["meet_id"],
+            found["node"],
+            found["worker"],
+            body.key,
+            organizer=found["organizer"],
+        ),
+        "region": found["region"],
+        "expires_in": cloud_ticket.TTL_SECONDS,
+    }
+
+
 # ── Internal API (workers → control plane) ─────────────────────────────────────
 # What a worker reports and asks for. Not for browsers or apps: every call carries
 # `NODE_SECRET`, a value only the control plane and the nodes hold, and the routes
@@ -1424,6 +1433,7 @@ class RegisterIn(BaseModel):
     meta: dict = {}
     node: str
     worker: int = 1
+    location: dict | None = None
 
 
 class ScheduleIn(BaseModel):
@@ -1443,6 +1453,7 @@ class HeartbeatIn(BaseModel):
     workers: int = 1
     wg_pubkey: str = ""
     live: list[str] = []
+    attendees: dict[str, int] = {}
 
 
 class AnalyticsIn(BaseModel):
@@ -1453,7 +1464,7 @@ class AnalyticsIn(BaseModel):
 def internal_register(body: RegisterIn):
     """A Pi registered on a worker: check its key, store the meet, hand back its id."""
     result = cloud_registry.register(
-        body.key, body.meet_uid, body.meta, body.node, body.worker
+        body.key, body.meet_uid, body.meta, body.node, body.worker, body.location
     )
     if result is None:
         return JSONResponse({"reason": "invalid or inactive key"}, status_code=403)
@@ -1492,6 +1503,7 @@ def internal_heartbeat(body: HeartbeatIn):
         region=body.region,
         workers=body.workers,
         wg_pubkey=body.wg_pubkey,
+        attendees=body.attendees,
     )
     return {"analytics_enabled": _analytics_enabled(), "retired": retired}
 

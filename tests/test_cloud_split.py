@@ -20,6 +20,7 @@ import cloud_control
 import cloud_node
 import cloud_server as cs
 import cloud_store
+import cloud_ticket
 
 SECRET = "test-node-secret"
 META = {"name": "Coupe", "meet_date": "2026-10-04", "settings": {"locale": "fr"}}
@@ -67,8 +68,9 @@ def wired(pg, monkeypatch, tmp_path):
     """`cloud_node` talks to the in-process control plane; the worker starts empty."""
     monkeypatch.setenv("NODE_SECRET", SECRET)
     monkeypatch.setenv("NODE_NAME", "ca1")
+    monkeypatch.setenv("NODE_REGION", "ca")
+    monkeypatch.setenv("NODE_URL", "https://ca1.example")
     monkeypatch.setenv("WORKER", "1")
-    monkeypatch.setattr(cloud_node, "REGISTER_CACHE_FILE", str(tmp_path / "rc.json"))
     monkeypatch.setattr(cloud_node, "_records", {})
 
     def call(method, path, body=None, timeout=5):
@@ -88,6 +90,7 @@ def wired(pg, monkeypatch, tmp_path):
     monkeypatch.setattr(cs, "_relay_sids", cloud_store._relay_sids)
     import cloud_auth
 
+    cloud_node.heartbeat([])  # the node exists, so /api/assign can pick it
     return cloud_auth.add_organizer("Club", region="ca")
 
 
@@ -105,10 +108,30 @@ class FakeWS:
         return [f["event"] for f in self.frames]
 
 
-def register(key, sid="sid-1", uid="uid-1"):
+def assign(key, uid="uid-1"):
+    """What a Pi gets from `POST /api/assign`: (status, body)."""
+    return _asgi("POST", "/api/assign", {"key": key, "meet_uid": uid})
+
+
+def ticket(key, meet_id="m1", node="ca1", worker=1, now=None):
+    return cloud_ticket.sign(SECRET, meet_id, node, worker, key, "Club", now=now)
+
+
+def register(key, sid="sid-1", uid="uid-1", tk=None):
+    """A Pi's register on the worker. By default it asks `/api/assign` first, as
+    a Pi does; `tk` hands it a ticket instead."""
+    if tk is None:
+        tk = assign(key, uid)[1]["ticket"]
     ws = FakeWS()
-    asyncio.run(cs._on_relay_register(ws, sid, {"key": key, "meet_uid": uid, **META}))
+    data = {"key": key, "meet_uid": uid, "ticket": tk, **META}
+    asyncio.run(cs._on_relay_register(ws, sid, data))
     return ws
+
+
+REASSIGN = {
+    "event": "rejected",
+    "data": {"reason": "not assigned here", "reassign": True},
+}
 
 
 # ── Over the wire ──────────────────────────────────────────────────────────────
@@ -143,7 +166,7 @@ def test_a_pi_registers_through_the_control_plane(wired):
 
 
 def test_a_bad_key_is_rejected_with_the_control_plane_s_reason(wired):
-    ws = register("not-a-key")
+    ws = register("not-a-key", tk=ticket("not-a-key"))
     assert ws.frames == [
         {"event": "rejected", "data": {"reason": "invalid or inactive key"}}
     ]
@@ -206,8 +229,10 @@ def test_the_heartbeat_retires_a_meet_the_worker_lost(wired):
 
 
 @pytest.fixture
-def control_down(monkeypatch, tmp_path):
-    monkeypatch.setattr(cloud_node, "REGISTER_CACHE_FILE", str(tmp_path / "rc.json"))
+def control_down(monkeypatch):
+    monkeypatch.setenv("NODE_SECRET", SECRET)
+    monkeypatch.setenv("NODE_NAME", "ca1")
+    monkeypatch.setenv("WORKER", "1")
     monkeypatch.setattr(cloud_node, "_records", {})
 
     def call(*a, **k):
@@ -219,21 +244,17 @@ def control_down(monkeypatch, tmp_path):
     monkeypatch.setattr(cs, "_relay_sids", {})
 
 
-def test_an_unknown_pi_is_told_to_retry(control_down):
-    ws = register("some-key")
-    assert ws.frames == [
-        {"event": "rejected", "data": {"reason": "control plane unreachable"}}
-    ]
-
-
-def test_a_pi_this_worker_has_admitted_before_gets_back_in(control_down):
-    cloud_node.atomic_write(
-        cloud_node.REGISTER_CACHE_FILE,
-        json.dumps({"k\nuid-1": {"meet_id": "m1", "organizer": "Club"}}),
-    )
-    ws = register("k")
+def test_a_pi_with_a_live_ticket_gets_in_while_the_control_plane_is_down(
+    control_down,
+):
+    ws = register("k", tk=ticket("k", "m1"))
     assert ws.frames == [{"event": "registered", "data": {"meet_id": "m1"}}]
-    assert "m1" in cs._meets
+    assert cs._meets["m1"]["organizer"] == "Club"
+
+
+def test_a_pi_without_one_is_sent_back_to_ask(control_down):
+    assert register("k", tk="").frames == [REASSIGN]
+    assert not cs._meets
 
 
 def test_a_page_keeps_serving_the_last_record_seen(control_down):
@@ -302,3 +323,96 @@ def test_the_panel_shows_where_an_organizer_is_based(pg, monkeypatch):
     assert 'name="action" value="update_org"' in html
     # Every country the form offers says which region it suggests.
     assert 'value="FR" data-region="eu"' in html
+
+
+# ── Assignment and tickets ─────────────────────────────────────────────────────
+
+
+def test_assign_names_the_worker_socket_and_the_region(wired):
+    status, body = assign(wired)
+    assert status == 200
+    assert body["relay_url"] == f"wss://ca1.example/ws/relay?meet={body['meet_id']}"
+    assert body["region"] == "ca"
+    assert cloud_ticket.verify(SECRET, body["ticket"])["n"] == "ca1"
+
+
+def test_assign_refuses_a_bad_key(wired):
+    assert assign("nope") == (403, {"reason": "invalid or inactive key"})
+
+
+def test_assign_never_leaves_the_organizer_s_region(wired):
+    import cloud_auth
+
+    key = cloud_auth.add_organizer("Club EU", country="FR", region="eu")
+    assert assign(key) == (503, {"reason": "no server available"})
+
+
+@pytest.mark.parametrize(
+    "tk",
+    [
+        lambda key: ticket(key, worker=2),  # another worker's
+        lambda key: ticket(key, node="us1"),  # another node's
+        lambda key: ticket("someone-else"),  # another key's
+        lambda key: ticket(key, now=0),  # long expired
+        lambda key: ticket(key)[:-4] + "AAAA",  # tampered
+    ],
+    ids=["worker", "node", "key", "expired", "forged"],
+)
+def test_a_ticket_not_for_this_worker_sends_the_pi_back(wired, tk):
+    assert register(wired, tk=tk(wired)).frames == [REASSIGN]
+    assert not cs._meets
+
+
+def test_a_ticket_for_another_meet_sends_the_pi_back(wired):
+    """The operator switched meets: the old ticket names the old meet."""
+    old = assign(wired, "uid-old")[1]["ticket"]
+    assert register(wired, uid="uid-new", tk=old).frames == [REASSIGN]
+
+
+def test_the_pi_s_location_reaches_the_admin_beside_the_record(wired):
+    import cloud_auth
+
+    ws = FakeWS()
+    data = {
+        "key": wired,
+        "meet_uid": "uid-1",
+        "ticket": assign(wired)[1]["ticket"],
+        "organizer_location": {"country": "ca", "province": "QC"},
+        **META,
+    }
+    asyncio.run(cs._on_relay_register(ws, "sid-1", data))
+    info = cloud_auth.load_keys()[wired]
+    assert info["country"] == "" and info["reported"] == {
+        "country": "CA",
+        "province": "QC",
+    }
+    cloud_auth.accept_location(wired)
+    info = cloud_auth.load_keys()[wired]
+    assert (info["country"], info["province"], info["region"]) == ("CA", "QC", "ca")
+    assert info["reported"] is None
+
+
+def test_the_heartbeat_carries_each_meet_s_attendees(wired):
+    meet_id = register(wired).frames[0]["data"]["meet_id"]
+    cs.manager.join(FakeWS(), cs._ch("scoreboard", meet_id))
+    try:
+        ids, attendees = cs._heartbeat_snapshot()
+        assert attendees == {meet_id: 1}
+        cloud_node.heartbeat(ids, attendees)
+    finally:
+        cs.manager.channels.pop(cs._ch("scoreboard", meet_id), None)
+    import cloud_db
+
+    with cloud_db.conn() as c:
+        row = c.execute("SELECT attendees FROM meets WHERE id = %s", (meet_id,))
+        assert row.fetchone()["attendees"] == 1
+
+
+def test_the_panel_flags_a_location_the_pi_reports(pg, monkeypatch):
+    import cloud_auth
+
+    key = cloud_auth.add_organizer("Club", country="CA", province="QC", region="ca")
+    cloud_auth.report_location(key, "CA", "ON")
+    html = _admin_get(monkeypatch)
+    assert "Their Pi says: CA · ON" in html
+    assert 'name="action" value="accept_location"' in html
