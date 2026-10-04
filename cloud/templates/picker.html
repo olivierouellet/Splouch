@@ -447,6 +447,32 @@ var NOTICE_KEY = 'splouch_notice_';
    home-screen launch always opens the whole list. */
 var MEET_SEARCH_KEY = 'splouch_meet_search';
 
+/* docs/app.md `C-10`: one attendance id per server, wherever its meets live. A
+   meet page on another host has its own storage, so the id travels with the link —
+   in the fragment, which no server sees and no Referer carries; the page stores it
+   and clears it from the address bar. Same-host pages already share it. */
+(function () {
+    document.querySelectorAll('.meets .card').forEach(function (card) {
+        card.addEventListener('click', function () {
+            var url;
+            try { url = new URL(card.href, location.href); } catch (e) { return; }
+            if (url.origin === location.origin) return;
+            var vid = '';
+            try {
+                vid = localStorage.getItem('splouch_vid') || '';
+                if (!vid) {
+                    vid = (window.crypto && crypto.randomUUID)
+                        ? crypto.randomUUID()
+                        : 'v' + Date.now() + Math.random().toString(36).slice(2);
+                    localStorage.setItem('splouch_vid', vid);
+                }
+            } catch (e) { return; }
+            url.hash = 'vid=' + encodeURIComponent(vid);
+            card.href = url.href;
+        });
+    });
+})();
+
 /* docs/app.md `P-01`, `P-17`: the organizer's country is sent as a code; the card
    names it in the reader's language and the search matches that name too. The
    browser's own table, so no locale file carries country names; one without it

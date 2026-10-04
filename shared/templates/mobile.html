@@ -16,6 +16,20 @@
 <html lang="{{ lang | default('en', true) }}">
 <head>
     <meta charset="UTF-8">
+    {% if meet_id %}
+    <script>
+    /* docs/app.md `C-10`: the picker on another host hands this page its attendance
+       id in the fragment. Stored before the frames below load, so their first
+       `join_meet` already carries it; then cleared, so it stays out of history and
+       out of any link the spectator shares. */
+    (function () {
+        var m = /(?:^#|&)vid=([^&]+)/.exec(location.hash);
+        if (!m) return;
+        try { localStorage.setItem('splouch_vid', decodeURIComponent(m[1]).slice(0, 64)); } catch (e) {}
+        try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {}
+    })();
+    </script>
+    {% endif %}
     {# djlint:off H049 — the shell's own edge-swipe and pull-to-refresh gestures; the pages in its frames stay zoomable. #}
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
     {# djlint:on #}

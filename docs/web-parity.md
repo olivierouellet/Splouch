@@ -89,7 +89,8 @@ from; the `diverges` rows are where v2 moved past them.
 
 | ID | Status | Notes |
 | --- | --- | --- |
-| `C-01`–`C-10` | `done` | `shared/static/js/ws.js` |
+| `C-01`–`C-09` | `done` | `shared/static/js/ws.js` |
+| `C-10` | `done` | `splouchVid()` in `scoreboard_base.html` / `schedule.html`; the picker appends `#vid=` to a card on another host, and `mobile.html` stores it before its frames load, then clears the fragment |
 | `C-11` | `done` | a worker renders its pages with its `/wN` base (`wbase`), so sockets and tabs reach it; the picker links to it |
 | `C-12` | `done` | `ws.js` sends the whole page to `moved.url` |
 

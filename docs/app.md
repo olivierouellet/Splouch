@@ -634,7 +634,7 @@ flowchart TD
 | `C-09` | `meet_live` gates live affordances; `disconnect` ⇒ `meet_live = false` | — | all | must |
 | `C-11` | **Meet's own address.** A meet's sockets (`C-01`), config, schedule and icon are at its `base`, not the server URL: the cloud runs several workers, each holding its meets in memory | `GET /meets` → `base` per meet; absent → server URL (older server). Pi: n/a | all | must |
 | `C-12` | `moved {url, base}` on any socket → the meet now lives at `base`: switch to it, reconnect all three sockets there, re-fetch config. Web: whole page to `url` | the admin moved the meet, or the socket reached the wrong worker ([`api.md`](api.md) §3) | all | must |
-| `C-10` | **Privacy binding.** Anonymous **per-server** id (`vid`) sent with `join_meet`; used only for `COUNT(DISTINCT)` attendance. Never derived from another `vid`, never sent to another server; Pi gets none (`C-02`) | random UUID per origin (scheme, host, port), stored locally, created on first `join_meet` to it | all | must |
+| `C-10` | **Privacy binding.** Anonymous **per-server** id (`vid`) sent with `join_meet`; used only for `COUNT(DISTINCT)` attendance. Never derived from another `vid`, never sent to another server; Pi gets none (`C-02`). A server's meets may live on other hosts (`C-11`): they are still that server, and get its `vid` | random UUID per server the meet list came from (the address picked, `P-11`), stored locally, created on first `join_meet`, used for every meet's `base` on it. Web: the picker hands its `vid` to a meet page on another host in the URL **fragment** (`#vid=`, never sent to a server), which stores it and clears it from the address bar | all | must |
 
 ---
 
@@ -772,7 +772,9 @@ Not on any phone client, now or planned:
     `picker_unavailable`.
   - **Changed**: `P-01` (state/province and country shown), `P-02` (only while the list
     is short), `P-17` (country and province searched), `A-09` (asked of the meet's `base`;
-    `moved` is not gone).
+    `moved` is not gone), `C-10` (one `vid` per server the list came from, not per
+    origin, so a meet on another host doesn't count a phone twice; ratifies iOS and
+    Android).
 
 - **v2, amended** (2026-10-01, no bump) — `P-12` cleartext floor widened to private and
   link-local addresses, and applied to every route in (typed, listed, scanned). iOS
