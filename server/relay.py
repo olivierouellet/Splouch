@@ -150,6 +150,11 @@ def _get_metadata():
         "sport": state.settings.get("meet_sport", ""),
         "app_window_title": state.settings.get("app_window_title", ""),
         "meet_date": _last_session_date(),
+        # Every session day, and this Pi's UTC offset: how the cloud tells a meet
+        # in progress from a Pi plugged in ahead of it, which an update may not
+        # wait for (docs/architecture/scaling.md).
+        "session_dates": _session_dates(),
+        "utc_offset_minutes": _utc_offset_minutes(),
         "meet_uid": state.meet_uid(),
         "settings": {
             "num_lanes": int(state.settings.get("num_lanes", 8)),
@@ -193,6 +198,20 @@ def _get_metadata():
     if picker_img:
         meta["settings"]["picker_image_b64"] = picker_img
     return meta
+
+
+def _session_dates():
+    """Every session date in the loaded LENEX, sorted and unique."""
+    dates = {s.get("date", "") for s in state.meet.meet_info.get("sessions", [])}
+    return sorted(d for d in dates if d)
+
+
+def _utc_offset_minutes():
+    """This Pi's offset from UTC right now, in minutes (DST included)."""
+    import datetime
+
+    offset = datetime.datetime.now().astimezone().utcoffset()
+    return int(offset.total_seconds() // 60) if offset is not None else None
 
 
 def _last_session_date():

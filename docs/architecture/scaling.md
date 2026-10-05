@@ -364,10 +364,16 @@ Pulled, never pushed — nothing calls in to a node:
 2. `/admin` → **Update & Backup** → **Roll out to every node** with that version
    (a release tag or `master`; never "latest", which each node would resolve on its
    own, or a branch, which has no image).
-3. The control plane releases one node at a time, by name, each only while it
-   carries **no live meet** — drain a node or move its meets to free it. A released
-   node learns its target from its next heartbeat reply; its worker 1 calls the
-   node's own deploy webhook, which deploys that version.
+3. **When:** now, or at a set time — the panel offers 2:00 the next night, in the
+   admin's own clock. The control plane then releases one node at a time, by name,
+   each only while **no meet is in progress on it**. A meet is in progress while its
+   console sent a board frame in the last 2 hours, or on one of its session days at
+   the pool (the Pi sends its session dates and its UTC offset). A Pi plugged in a
+   week ahead, to publish its schedule, is connected but not in progress, and holds
+   nothing back. **Force** releases nodes regardless; drain a node or move its meets
+   to free it otherwise. A released node learns its target from its next heartbeat
+   reply; its worker 1 calls the node's own deploy webhook, which deploys that
+   version.
 4. The node is done when its heartbeat reports the version (`SPLOUCH_VERSION`), and
    the next one is released. A node not back on it within 15 minutes stops the
    rollout and the panel names it; roll back by rolling out the previous version.

@@ -208,7 +208,7 @@ bump `PRIVACY_UPDATED` in `cloud/cloud_control.py` with any change to it.
 
 Click **Update** in `/admin` → **Update & Backup** — it checks out the version from GitHub and pulls its container image, built by CI for every release tag and for `master` (`ghcr.io/olivierouellet/splouch-cloud`). The page polls until the server is back up, then reloads. Prefer it: it resolves the right ref for the way this server was installed, which the manual commands below leave to you. A version with no published image — a branch, a fork, a tag whose build has not finished — is built on the server instead.
 
-**Several nodes:** **Roll out to every node**, under the same menu, updates them one at a time, each only while it carries no live meet — drain a node, or move its meets, to free it. Each node pulls the version itself; the panel shows where the rollout stands, and the **Nodes** tab each node's version. A node that has not come back on the new version within 15 minutes stops the rollout; roll it back by rolling out the previous version.
+**Several nodes:** **Roll out to every node**, under the same menu, updates them one at a time — now, or at a time you set (2:00 the next night by default) — each only while no meet is in progress on it. A meet is in progress on its session days, or while its console is sending; a Pi plugged in ahead of its meet holds nothing back. **Active Meets** marks each live meet *in progress* or *connected ahead*. Tick **Even during a meet in progress** to force it. Each node pulls the version itself; the panel shows where the rollout stands, and the **Nodes** tab each node's version. A node that has not come back on the new version within 15 minutes stops the rollout; roll it back by rolling out the previous version.
 
 To update over SSH, check which track the checkout is on first — `install.sh` offers two, and they update differently:
 
@@ -562,8 +562,11 @@ manuelles ci-dessous vous laissent faire. Une version sans image publiée — un
 fork, une étiquette dont la construction n'est pas terminée — est construite sur le serveur.
 
 **Plusieurs nœuds :** **Déployer sur tous les nœuds**, sous le même menu, les met à jour un
-à la fois, chacun seulement quand il ne porte aucune compétition en direct — videz un nœud,
-ou déplacez ses compétitions, pour le libérer. Chaque nœud télécharge la version lui-même ;
+à la fois — maintenant, ou à l'heure choisie (2 h la nuit suivante par défaut) — chacun
+seulement quand aucune compétition n'y est en cours. Une compétition est en cours ses jours
+de sessions, ou tant que sa console envoie ; un Pi branché d'avance ne retient rien.
+**Compétitions actives** marque chaque compétition en direct *en cours* ou *connecté
+d'avance*. Cochez **Même pendant une compétition en cours** pour forcer. Chaque nœud télécharge la version lui-même ;
 le panneau indique où en est le déploiement, et l'onglet **Nœuds** la version de chacun. Un
 nœud qui n'est pas revenu sur la nouvelle version après 15 minutes arrête le déploiement ;
 revenez en arrière en déployant la version précédente.

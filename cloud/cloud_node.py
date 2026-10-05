@@ -256,7 +256,7 @@ def _attendance_due():
     return _beats["n"] % ATTENDANCE_EVERY == 1
 
 
-def heartbeat(live_ids, attendees=None):
+def heartbeat(live_ids, attendees=None, frames=None):
     """Report the meets this worker holds, with each one's attendee count. Returns
     `{"retired": [ids], "moves": [{"meet_id", "url"}]}` — the moves are meets the
     admin moved off this worker.
@@ -284,6 +284,7 @@ def heartbeat(live_ids, attendees=None):
             "attendees": attendees or {},
             "attendance": attendance,
             "version": version(),
+            "frames": frames or {},
         },
     )
     if not isinstance(result, dict):
@@ -295,8 +296,9 @@ def heartbeat(live_ids, attendees=None):
 
 
 async def heartbeat_loop(snapshot, on_moves=None):
-    """Report every HEARTBEAT_SECS. `snapshot()` returns the meets held right now
-    and `{meet_id: attendees}`; `on_moves(moves)` lets go of the ones moved away."""
+    """Report every HEARTBEAT_SECS. `snapshot()` returns the meets held right now,
+    `{meet_id: attendees}` and `{meet_id: last board frame}`; `on_moves(moves)`
+    lets go of the ones moved away."""
     while True:
         try:
             result = await run_in_threadpool(heartbeat, *snapshot())

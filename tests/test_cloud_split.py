@@ -400,7 +400,7 @@ def test_the_heartbeat_carries_each_meet_s_attendees(wired):
     meet_id = register(wired).frames[0]["data"]["meet_id"]
     cs.manager.join(FakeWS(), cs._ch("scoreboard", meet_id))
     try:
-        ids, attendees = cs._heartbeat_snapshot()
+        ids, attendees, _ = cs._heartbeat_snapshot()
         assert attendees == {meet_id: 1}
         cloud_node.heartbeat(ids, attendees)
     finally:
@@ -738,3 +738,76 @@ def test_the_panel_says_where_a_rollout_stands(pg, monkeypatch):
     assert "Rolling out v2026.10.2 — updating ca1" in html
     assert "v2026.10.1 → v2026.10.2" in html, "the Nodes tab shows the move"
     assert 'value="rollout_stop"' in html
+
+
+def test_a_console_frame_marks_the_meet_running(wired):
+    meet_id = register(wired).frames[0]["data"]["meet_id"]
+    asyncio.run(cs._forward("sid-1", "update_scoreboard", {"lane_time1": "58.10"}))
+    ids, _, frames = cs._heartbeat_snapshot()
+    assert ids == [meet_id] and meet_id in frames
+    cloud_node.heartbeat(ids, {}, frames)
+    (row,) = cloud_control.cloud_registry.list_meets()
+    assert row["last_frame_at"] is not None
+    assert cloud_control.cloud_registry.running(row)
+
+
+def test_the_register_carries_session_days_and_the_pool_s_offset(wired):
+    ws = FakeWS()
+    data = {
+        "key": wired,
+        "meet_uid": "uid-1",
+        "ticket": assign(wired)[1]["ticket"],
+        "session_dates": ["2099-05-01", "2099-05-02"],
+        "utc_offset_minutes": -240,
+        **META,
+    }
+    asyncio.run(cs._on_relay_register(ws, "sid-1", data))
+    (row,) = cloud_control.cloud_registry.list_meets()
+    assert (
+        row["session_dates"] == ["2099-05-01", "2099-05-02"]
+        and row["utc_offset"] == -240
+    )
+    assert not cloud_control.cloud_registry.running(row), "connected ahead, not running"
+
+
+def test_the_panel_tells_a_meet_in_progress_from_one_connected_ahead(pg, monkeypatch):
+    import cloud_auth
+
+    reg = cloud_control.cloud_registry
+    reg.heartbeat("ca1", 1, [], host="https://ca1.example")
+    key = cloud_auth.add_organizer("Club", region="ca")
+    reg.register(
+        key,
+        "u",
+        {**META, "session_dates": ["2099-01-01"], "utc_offset_minutes": 0},
+        "ca1",
+        1,
+    )
+    assert "connected ahead" in _admin_get(monkeypatch)
+
+
+def test_the_rollout_line_escapes_node_names(pg, monkeypatch):
+    monkeypatch.setenv("DEPLOY_WEBHOOK_URL", "http://host:9000/deploy")
+    reg = cloud_control.cloud_registry
+    reg.heartbeat("<b>x</b>", 1, [], host="https://x.example", version="v1")
+    reg.start_rollout("v2026.10.2")
+    html = _admin_get(monkeypatch)
+    assert "<b>x</b>" not in html.split('id="rollout-state"')[1][:300]
+
+
+def test_the_panel_schedules_with_the_browser_s_offset(pg):
+    from starlette.datastructures import FormData
+
+    reg = cloud_control.cloud_registry
+    form = FormData(
+        {
+            "action": "rollout_start",
+            "version": "v2026.10.2",
+            "not_before": "2026-10-05T06:00:00.000Z",
+            "force": "1",
+        }
+    )
+    cloud_control._admin_action(form, None)
+    r = reg.rollout()
+    assert r["state"] == "scheduled" and r["force"] is True
+    assert r["not_before"] == "2026-10-05T06:00:00+00:00"

@@ -197,3 +197,21 @@ def test_assign_is_asked_of_the_server_url(monkeypatch):
     assert relay._api_url("https://splouch.org/") == "https://splouch.org/api/assign"
     assert relay._api_url("wss://splouch.org") == "https://splouch.org/api/assign"
     assert relay._api_url("splouch.org") == "https://splouch.org/api/assign"
+
+
+def test_the_pi_sends_its_session_days_and_utc_offset(monkeypatch):
+    monkeypatch.setattr(
+        state.meet,
+        "meet_info",
+        {
+            "sessions": [
+                {"date": "2026-10-12"},
+                {"date": "2026-10-11"},
+                {"date": "2026-10-11"},
+            ]
+        },
+        raising=False,
+    )
+    assert relay._session_dates() == ["2026-10-11", "2026-10-12"]
+    offset = relay._utc_offset_minutes()
+    assert isinstance(offset, int) and -720 <= offset <= 840

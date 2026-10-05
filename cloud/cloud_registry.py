@@ -40,6 +40,7 @@ _LIST_COLUMNS = (
     "m.id, m.organizer, m.name, m.location, m.sport, m.meet_date, m.live, "
     "m.connected_at, m.expires_at, m.settings, m.node, m.worker, n.host AS node_url, "
     "(m.picker_image_b64 <> '') AS has_picker_image, "
+    "m.last_frame_at, m.session_dates, m.utc_offset, "
     "coalesce(o.country, '') AS country, coalesce(o.province, '') AS province"
 )
 
@@ -269,12 +270,68 @@ def register(key, meet_uid, meta, node, worker, location=None):
                 now,
             ),
         )
+        # Which days the meet runs, and which day it is at the pool: what tells a
+        # running meet from a Pi plugged in ahead (`running`).
+        c.execute(
+            "UPDATE meets SET session_dates = %s, utc_offset = %s WHERE id = %s",
+            (
+                Jsonb(_dates(meta.get("session_dates"))),
+                _offset(meta.get("utc_offset_minutes")),
+                meet_id,
+            ),
+        )
     return {
         "meet_id": meet_id,
         "organizer": org["name"],
         "connected_at": connected_at,
         "schedule_data": (prev["schedule"] if prev else None) or {},
     }
+
+
+def _dates(value):
+    """Session dates as sent: ISO `YYYY-MM-DD` strings only, at most 60."""
+    if not isinstance(value, list):
+        return []
+    out = []
+    for d in value[:60]:
+        try:
+            out.append(datetime.date.fromisoformat(str(d)).isoformat())
+        except ValueError:
+            continue
+    return sorted(set(out))
+
+
+def _offset(value):
+    """A UTC offset in minutes, within the ones that exist, else None."""
+    try:
+        minutes = int(value)
+    except (TypeError, ValueError):
+        return None
+    return minutes if -12 * 60 <= minutes <= 14 * 60 else None
+
+
+# A meet is running — and a rollout waits for it — while its console sent a board
+# frame this recently, or on one of its session days at the pool. A Pi plugged in a
+# week ahead, sending only its schedule, is connected but not running.
+RUNNING_FRAME_SECS = 2 * 3600
+
+
+def running(meet, now=None):
+    """Whether a live meet is running: recent board frames, or a session day today
+    in the pool's own time (its UTC offset; the server's when unknown). A Pi too
+    old to send session dates is judged by its last one, `meet_date`."""
+    now = now or datetime.datetime.now(datetime.UTC)
+    last = meet.get("last_frame_at")
+    if last and (now - last).total_seconds() < RUNNING_FRAME_SECS:
+        return True
+    offset = meet.get("utc_offset")
+    today = (
+        (now + datetime.timedelta(minutes=offset)).date()
+        if offset is not None
+        else now.astimezone().date()
+    )
+    days = list(meet.get("session_dates") or []) or [meet.get("meet_date") or ""]
+    return today.isoformat() in days
 
 
 def set_schedule(meet_id, schedule):
@@ -321,6 +378,7 @@ def heartbeat(
     wg_pubkey="",
     attendees=None,
     version="",
+    frames=None,
 ):
     """A worker says which meets it holds, and how many attendees each has.
 
@@ -351,6 +409,12 @@ def heartbeat(
             "AND id = ANY(%s)",
             (now, node, worker, list(live_ids)),
         )
+        for meet_id, at in (frames or {}).items():
+            c.execute(
+                "UPDATE meets SET last_frame_at = to_timestamp(%s) "
+                "WHERE id = %s AND live AND node = %s AND worker = %s",
+                (float(at), meet_id, node, worker),
+            )
         for meet_id, n in (attendees or {}).items():
             c.execute(
                 "UPDATE meets SET attendees = %s "
@@ -599,8 +663,9 @@ def forget_node(name):
 # Pulled, never pushed: a rollout only records a version and, one node at a time,
 # a node's target. The node's worker 1 sees its target in a heartbeat reply and calls
 # the node's own deploy webhook; the node is done when its heartbeat reports the
-# version. Nodes are released by name, each only while it carries no live meet (the
-# admin drains or moves meets to free one); a node silent this long after release
+# version. Nodes are released by name, each only while it carries no *running* meet
+# (`running`: a Pi plugged in ahead does not hold it back; the admin may also force
+# the rollout, or schedule it for the night); a node silent this long after release
 # stops the rollout for the admin to look at.
 
 ROLLOUT_TIMEOUT_SECS = 15 * 60
@@ -620,16 +685,28 @@ def _settings_put(c, name, value):
 
 
 def rollout():
-    """The current rollout: `{"version", "state", "note"}`, or None."""
+    """The current rollout — `{"version", "state", "note", "force", "not_before"}` —
+    or None."""
     with cloud_db.conn() as c:
         return _settings_get(c, "rollout")
 
 
-def start_rollout(version):
+def start_rollout(version, force=False, not_before=None):
+    """Roll `version` out to every node — now, or from `not_before` (an aware
+    datetime) — waiting for running meets unless `force`."""
+    when = not_before.astimezone(datetime.UTC).isoformat() if not_before else None
     with cloud_db.conn() as c:
         c.execute("UPDATE nodes SET target_version = NULL, target_set_at = NULL")
         _settings_put(
-            c, "rollout", {"version": version, "state": "running", "note": ""}
+            c,
+            "rollout",
+            {
+                "version": version,
+                "state": "scheduled" if when else "running",
+                "note": "",
+                "force": bool(force),
+                "not_before": when,
+            },
         )
     advance_rollout()
 
@@ -638,26 +715,35 @@ def stop_rollout():
     """Stop releasing nodes. A node already updating finishes on its own."""
     with cloud_db.conn() as c:
         r = _settings_get(c, "rollout")
-        if r and r.get("state") in ("running", "waiting"):
+        if r and r.get("state") in ("running", "waiting", "scheduled"):
             _settings_put(c, "rollout", {**r, "state": "stopped", "note": ""})
 
 
 def advance_rollout(now=None):
-    """One step: wait for the node updating, else release the next free one. Run by
-    the control plane's maintenance pass. Returns the rollout, or None."""
+    """One step: start a scheduled rollout whose time has come, wait for the node
+    updating, else release the next free one — a node with no *running* meet, or
+    any node when forced. Run by the control plane's maintenance pass. Returns the
+    rollout, or None."""
     now = now or datetime.datetime.now(datetime.UTC)
     cutoff = now - datetime.timedelta(seconds=SILENT_AFTER_SECS)
     with cloud_db.conn() as c:
         r = _settings_get(c, "rollout")
+        if r and r.get("state") == "scheduled":
+            if datetime.datetime.fromisoformat(r["not_before"]) > now:
+                return r
+            r = {**r, "state": "running"}
         if not r or r.get("state") not in ("running", "waiting"):
             return r
         version = r["version"]
-        nodes = c.execute(
-            "SELECT n.name, n.version, n.target_version, n.target_set_at, n.last_seen, "
-            "count(m.id) AS live FROM nodes n "
-            "LEFT JOIN meets m ON m.node = n.name AND m.live "
-            "GROUP BY n.name ORDER BY n.name"
-        ).fetchall()
+        nodes = c.execute("SELECT * FROM nodes ORDER BY name").fetchall()
+        busy = {}
+        if not r.get("force"):
+            for m in c.execute(
+                "SELECT node, last_frame_at, session_dates, utc_offset, meet_date "
+                "FROM meets WHERE live"
+            ).fetchall():
+                if running(m, now):
+                    busy[m["node"]] = True
         updating = [
             n
             for n in nodes
@@ -685,7 +771,7 @@ def advance_rollout(now=None):
         if not pending:
             r = {**r, "state": "done", "note": ""}
         else:
-            free = [n for n in pending if not n["live"]]
+            free = [n for n in pending if not busy.get(n["name"])]
             if free:
                 c.execute(
                     "UPDATE nodes SET target_version = %s, target_set_at = %s "

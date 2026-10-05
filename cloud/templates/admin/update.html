@@ -24,16 +24,27 @@
                 <h2 class="panel-eyebrow mb-2">{{ t.rollout_title }}</h2>
                 <p class="small text-body-secondary">{{ t.rollout_desc }}</p>
                 {% if rollout %}
-                {% set r_text = {'running': t.rollout_running, 'waiting': t.rollout_waiting, 'done': t.rollout_done, 'failed': t.rollout_failed, 'stopped': t.rollout_stopped}[rollout.state] %}
-                <p id="rollout-state" class="small fw-semibold {{ 'text-danger' if rollout.state == 'failed' else '' }}">{{ r_text | replace('{v}', rollout.version) | replace('{node}', rollout.note) }}</p>
+                {% set r_text = {'scheduled': t.rollout_scheduled, 'running': t.rollout_running, 'waiting': t.rollout_waiting, 'done': t.rollout_done, 'failed': t.rollout_failed, 'stopped': t.rollout_stopped}[rollout.state] %}
+                {# The time is UTC on the server; the script below shows it in the reader's own. #}
+                <p id="rollout-state" class="small fw-semibold {{ 'text-danger' if rollout.state == 'failed' else '' }}">{{ (r_text | replace('{v}', rollout.version) | replace('{node}', rollout.note)) | e | replace('{time}', '<time class="local-time" datetime="' ~ (rollout.not_before or '') | e ~ '">' ~ (rollout.not_before or '') | e ~ '</time>') | safe }}</p>
                 {% endif %}
                 <div class="d-flex flex-wrap gap-2 align-items-center">
-                    <form method="post" id="rollout-form" class="m-0">
+                    <form method="post" id="rollout-form" class="d-flex flex-wrap gap-2 align-items-center m-0">
                         <input type="hidden" name="action" value="rollout_start">
                         <input type="hidden" name="version" id="rollout-version" value="">
+                        <input type="hidden" name="not_before" id="rollout-not-before" value="">
+                        <select id="rollout-when" class="form-select form-select-sm w-auto" aria-label="{{ t.rollout_at }}">
+                            <option value="now">{{ t.rollout_now }}</option>
+                            <option value="at" selected>{{ t.rollout_at }}</option>
+                        </select>
+                        <input type="datetime-local" id="rollout-at" class="form-control form-control-sm w-auto" aria-label="{{ t.rollout_at }}">
+                        <div class="form-check m-0">
+                            <input class="form-check-input" type="checkbox" name="force" value="1" id="rollout-force">
+                            <label class="form-check-label small" for="rollout-force">{{ t.rollout_force }}</label>
+                        </div>
                         <button type="button" class="btn btn-secondary btn-sm" data-hold data-hold-fn="startRollout" data-hold-label="{{ t.hold_rollout }}">{{ t.rollout_start }}</button>
                     </form>
-                    {% if rollout and rollout.state in ('running', 'waiting') %}
+                    {% if rollout and rollout.state in ('running', 'waiting', 'scheduled') %}
                     <form method="post" class="m-0">
                         <input type="hidden" name="action" value="rollout_stop">
                         <button type="submit" class="btn btn-outline-danger btn-sm">{{ t.rollout_stop }}</button>

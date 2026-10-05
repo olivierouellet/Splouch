@@ -246,6 +246,8 @@ def _admin_meet_list():
                 "console": console.get("key", ""),
                 "console_timed": console.get("timed"),
                 "live": m["live"],
+                # Running, not just connected: what a rollout waits for.
+                "running": bool(m["live"] and cloud_registry.running(m)),
                 "node": m["node"] or "",
                 "worker": m["worker"],
                 "expires_at": exp.isoformat(timespec="seconds") if exp else None,
@@ -1340,7 +1342,20 @@ def _admin_action(form, request):
         # A version a node can pull: a release tag, or master. Never "latest", which
         # each node would resolve on its own, or a branch, which has no image.
         if version == "master" or ROLLOUT_VERSION_RE.match(version):
-            cloud_registry.start_rollout(version)
+            # `not_before` comes from the browser as an ISO time with its offset, so
+            # "2:00 tonight" is the admin's 2:00, whatever the server's clock says.
+            when = None
+            raw = _form_text(form, "not_before")
+            if raw:
+                try:
+                    when = datetime.datetime.fromisoformat(raw)
+                except ValueError:
+                    when = None
+                if when is not None and when.tzinfo is None:
+                    when = None
+            cloud_registry.start_rollout(
+                version, force=form.get("force") == "1", not_before=when
+            )
     elif action == "rollout_stop":
         cloud_registry.stop_rollout()
     elif action == "move_meet":
@@ -1534,6 +1549,9 @@ class HeartbeatIn(BaseModel):
     attendance: dict[str, dict[str, int]] | None = None
     # The image tag this node runs (SPLOUCH_VERSION), for rollouts.
     version: str = ""
+    # When each meet's console last sent a board frame (unix seconds): what makes
+    # a meet running rather than just connected (cloud_registry.running).
+    frames: dict[str, float] = {}
 
 
 @internal.post("/register")
@@ -1581,6 +1599,7 @@ def internal_heartbeat(body: HeartbeatIn):
         wg_pubkey=body.wg_pubkey,
         attendees=body.attendees,
         version=body.version,
+        frames=body.frames,
     )
     if body.attendance:
         cloud_analytics.store(body.node, body.attendance)

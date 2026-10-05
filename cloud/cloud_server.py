@@ -135,7 +135,11 @@ def _heartbeat_snapshot():
     control plane to balance new meets on."""
     with _lock:
         ids = list(_meets)
-    return ids, {m: len(manager.channels.get(_ch("scoreboard", m), ())) for m in ids}
+        frames = {
+            m: _meets[m]["last_frame_at"] for m in ids if _meets[m].get("last_frame_at")
+        }
+    attendees = {m: len(manager.channels.get(_ch("scoreboard", m), ())) for m in ids}
+    return ids, attendees, frames
 
 
 @asynccontextmanager
@@ -490,6 +494,10 @@ async def _on_relay_register(ws, sid, data):
         k: data.get(k, "")
         for k in ("name", "location", "sport", "app_window_title", "meet_date")
     }
+    # Which days the meet runs, and the pool's UTC offset: how the control plane
+    # tells a running meet from a Pi plugged in ahead.
+    meta["session_dates"] = data.get("session_dates") or []
+    meta["utc_offset_minutes"] = data.get("utc_offset_minutes")
     meta["settings"] = data.get("settings", {})
     # The control plane's word that this meet belongs on this worker (`/api/assign`,
     # cloud_ticket). Anything wrong with it sends the Pi back to ask again.
@@ -588,6 +596,8 @@ async def _forward(sid, event, data):
     if not meet_id or not meet:
         return
 
+    # Console activity: a meet sending frames is running, not just connected.
+    meet["last_frame_at"] = time.time()
     if event == "update_scoreboard":
         # `running_time` is the race clock, and the console sends it on every
         # timing tick. Forwarding that to every attendee is the traffic

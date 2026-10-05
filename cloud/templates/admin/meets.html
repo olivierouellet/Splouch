@@ -125,7 +125,8 @@
                         </td>
                         {% endif %}
                         {% if m.live %}
-                        <td><span class="badge rounded-pill text-bg-info">{{ t.badge_live }}</span><br><span class="small text-body-secondary">{{ t.col_since or 'since' }} {{ m.connected_at }}{% if m.node %} · {{ t.running_on }} {{ m.node }} · w{{ m.worker }}{% endif %}</span></td>
+                        <td><span class="badge rounded-pill text-bg-info">{{ t.badge_live }}</span>
+                            <span class="badge rounded-pill {{ 'text-bg-warning' if m.running else 'text-bg-secondary' }}">{{ t.meet_running if m.running else t.meet_waiting }}</span><br><span class="small text-body-secondary">{{ t.col_since or 'since' }} {{ m.connected_at }}{% if m.node %} · {{ t.running_on }} {{ m.node }} · w{{ m.worker }}{% endif %}</span></td>
                         <td class="text-nowrap">{{ move_form(m) }}</td>
                         {% else %}
                         <td><span class="badge rounded-pill text-bg-warning">{{ t.badge_retained or 'Offline' }}</span><br><span class="small text-body-secondary">{{ t.expires_label or 'until' }} {{ m.expires_display }}</span></td>

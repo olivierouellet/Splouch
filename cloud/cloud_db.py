@@ -172,6 +172,19 @@ MIGRATIONS = [
             ADD COLUMN target_set_at  timestamptz;
         """,
     ),
+    (
+        6,
+        """
+        -- Whether a meet is *running*, not just connected: a rollout waits for a
+        -- running meet only (docs/architecture/scaling.md). Its console's last
+        -- board frame, its session days, and the pool's UTC offset that says which
+        -- day it is there.
+        ALTER TABLE meets
+            ADD COLUMN last_frame_at timestamptz,
+            ADD COLUMN session_dates jsonb NOT NULL DEFAULT '[]',
+            ADD COLUMN utc_offset    integer;
+        """,
+    ),
 ]
 
 # Tables holding data, in an order TRUNCATE accepts. Tests empty these between

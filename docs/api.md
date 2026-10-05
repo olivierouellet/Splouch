@@ -415,6 +415,7 @@ row by lane (blank gaps) or by finishing place. `delta` is browser HTML;
 ```json
 { "key": "<relay key>", "ticket": "<from /api/assign>", "meet_uid": "<stable per LENEX>",
   "organizer_location": { "country": "CA", "province": "QC" },
+  "session_dates": ["2026-10-11", "2026-10-12"], "utc_offset_minutes": -240,
   "name": "…", "location": "…", "sport": "…", "app_window_title": "…", "meet_date": "YYYY-MM-DD",
   "settings": { "num_lanes": 8, "show_name": true, "show_club": true, "show_delta": true,
                 "show_position": true, "show_podium": true, "show_*_header": true,
@@ -432,7 +433,10 @@ attendee needs to render the board (lane count, visible columns, theme, labels).
 exactly as before it existed. `ticket` is required: a register without a valid one is
 refused with `reassign: true`. `organizer_location` is where the organizer says it is
 based (the Pi's Cloud tab), or `null`; the cloud records it beside its administrator's
-entry and never acts on it on its own.
+entry and never acts on it on its own. `session_dates` (every LENEX session day) and
+`utc_offset_minutes` (the Pi's offset from UTC) tell the cloud when the meet is in
+progress at the pool, which a rolling update waits for; a Pi plugged in days ahead is
+connected but not in progress. Additive: without them the cloud uses `meet_date`.
 
 | field | meaning |
 | --- | --- |

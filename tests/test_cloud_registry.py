@@ -400,15 +400,6 @@ def test_the_next_node_goes_when_the_last_reports_the_version(pg):
     assert reg.advance_rollout()["state"] == "done"
 
 
-def test_a_node_with_a_live_meet_waits(key):
-    _nodes("ca1")
-    reg.register(key, "uid", META, "ca1", 1)
-    reg.start_rollout("v2")
-    r = reg.rollout()
-    assert (r["state"], r["note"]) == ("waiting", "ca1")
-    assert _target("ca1") is None
-
-
 def test_a_node_that_never_comes_back_stops_the_rollout(pg):
     _nodes("ca1", "ca2")
     reg.start_rollout("v2")
@@ -441,3 +432,106 @@ def test_a_silent_node_is_not_waited_for(pg):
     reg.start_rollout("v2")
     reg.heartbeat("ca1", 1, [], version="v2")
     assert reg.advance_rollout()["state"] == "done"
+
+
+# ── Running, not just connected ────────────────────────────────────────────────
+
+NOW = datetime.datetime(2026, 10, 4, 12, 0, tzinfo=datetime.UTC)
+
+
+def test_recent_board_frames_mean_running():
+    m = {"last_frame_at": NOW - datetime.timedelta(minutes=90), "session_dates": []}
+    assert reg.running(m, NOW)
+    m["last_frame_at"] = NOW - datetime.timedelta(hours=3)
+    assert not reg.running(m, NOW)
+
+
+def test_a_session_day_at_the_pool_means_running():
+    """12:00 UTC is still Saturday in Vancouver (UTC−7) but already... Saturday too;
+    01:00 UTC on Sunday is Saturday evening there."""
+    m = {"session_dates": ["2026-10-03"], "utc_offset": -7 * 60}
+    late = datetime.datetime(2026, 10, 4, 1, 0, tzinfo=datetime.UTC)
+    assert reg.running(m, late), "Saturday 18:00 at the pool"
+    assert not reg.running(m, NOW), "Sunday 05:00 at the pool"
+
+
+def test_a_pi_plugged_in_a_week_ahead_is_not_running():
+    m = {"session_dates": ["2026-10-11", "2026-10-12"], "utc_offset": -4 * 60}
+    assert not reg.running(m, NOW)
+
+
+def test_an_older_pi_is_judged_by_its_last_date():
+    assert reg.running(
+        {"session_dates": [], "meet_date": "2026-10-04", "utc_offset": 0}, NOW
+    )
+
+
+def test_register_keeps_only_real_dates_and_offsets(key):
+    meta = {
+        **META,
+        "session_dates": ["2026-10-11", "nope", "2026-10-11"],
+        "utc_offset_minutes": 99999,
+    }
+    mid = reg.register(key, "uid", meta, "ca1", 1)["meet_id"]
+    import cloud_db
+
+    with cloud_db.conn() as c:
+        row = c.execute(
+            "SELECT session_dates, utc_offset FROM meets WHERE id = %s", (mid,)
+        ).fetchone()
+    assert (row["session_dates"], row["utc_offset"]) == (["2026-10-11"], None)
+
+
+def _ahead(key, uid="uid", **extra):
+    """A live meet on ca1 whose sessions are next week."""
+    meta = {**META, "session_dates": ["2099-01-01"], "utc_offset_minutes": 0, **extra}
+    return reg.register(key, uid, meta, "ca1", 1)["meet_id"]
+
+
+def test_a_pi_plugged_in_ahead_does_not_hold_a_rollout_back(key):
+    _nodes("ca1")
+    _ahead(key)
+    reg.start_rollout("v2")
+    assert _target("ca1") == "v2"
+
+
+def test_a_meet_in_progress_holds_its_node(key):
+    _nodes("ca1")
+    mid = _ahead(key)
+    import time as _time
+
+    reg.heartbeat("ca1", 1, [mid], version="v1", frames={mid: _time.time()})
+    reg.start_rollout("v2")
+    r = reg.rollout()
+    assert (r["state"], r["note"]) == ("waiting", "ca1") and _target("ca1") is None
+
+
+def test_force_goes_through_a_meet_in_progress(key):
+    _nodes("ca1")
+    mid = _ahead(key)
+    import time as _time
+
+    reg.heartbeat("ca1", 1, [mid], version="v1", frames={mid: _time.time()})
+    reg.start_rollout("v2", force=True)
+    assert _target("ca1") == "v2"
+
+
+def test_a_scheduled_rollout_waits_for_its_hour(pg):
+    _nodes("ca1")
+    # Just ahead of now, so the node still counts as reporting when the hour comes.
+    at = datetime.datetime.now(datetime.UTC) + datetime.timedelta(seconds=30)
+    reg.start_rollout("v2", not_before=at)
+    assert reg.rollout()["state"] == "scheduled" and _target("ca1") is None
+    reg.advance_rollout(now=at - datetime.timedelta(seconds=1))
+    assert _target("ca1") is None
+    assert reg.advance_rollout(now=at)["state"] == "running"
+    assert _target("ca1") == "v2"
+
+
+def test_a_scheduled_rollout_can_be_stopped(pg):
+    _nodes("ca1")
+    reg.start_rollout(
+        "v2", not_before=datetime.datetime(2099, 1, 1, tzinfo=datetime.UTC)
+    )
+    reg.stop_rollout()
+    assert reg.rollout()["state"] == "stopped"
