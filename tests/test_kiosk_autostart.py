@@ -160,7 +160,7 @@ def test_the_installer_no_longer_offers_a_chromium_kiosk():
     stopped being one — which is the answer an operator gets when they ask what the
     kiosk role does."""
     src = Path(INSTALLER).read_text(encoding="utf-8")
-    menu = re.search(r'"Kiosk\s+\([^"]*\)"', src)
+    menu = re.search(r'"Kiosk\s+—[^"]*"', src)
     assert menu, "the role menu entry moved"
     assert "Chromium" not in menu.group(0), menu.group(0)
 

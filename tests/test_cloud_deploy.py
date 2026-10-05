@@ -113,8 +113,11 @@ def test_the_webhook_deploys_the_image_of_the_ref_it_checked_out():
 
 def test_the_installer_deploys_the_checkout_it_made():
     src = read("install", "install.sh")
-    assert "describe --tags --exact-match HEAD 2>/dev/null || echo master" in src
-    assert "python3 cloud_deploy.py $_version" in src
+    assert "describe --tags --exact-match HEAD 2>/dev/null || true" in src
+    assert "_version=master _deploy_args=master" in src
+    assert '_deploy_args="--build $_version"' in src  # a branch or commit
+    assert '_version="local-$(git -C "$INSTALL_DIR" rev-parse --short HEAD)"' in src
+    assert "python3 cloud_deploy.py $_deploy_args" in src
 
 
 def test_compose_pulls_the_published_image_and_every_worker_reports_it():

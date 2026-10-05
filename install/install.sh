@@ -1440,14 +1440,14 @@ PYEOF
     # published for this checkout — the release tag it sits on, else master — or
     # builds it here when there is none, and starts everything.
     # A branch or commit other than master has no published image: built here,
-    # tagged with its short commit.
+    # tagged `local-<short commit>` like the webhook's branch builds.
     _version=$(git -C "$INSTALL_DIR" describe --tags --exact-match HEAD 2>/dev/null || true)
     if [[ -n "$_version" ]]; then
         _deploy_args="$_version"
     elif [[ "$(git -C "$INSTALL_DIR" rev-parse HEAD)" == "$(git -C "$INSTALL_DIR" rev-parse origin/master 2>/dev/null)" ]]; then
         _version=master _deploy_args=master
     else
-        _version=$(git -C "$INSTALL_DIR" rev-parse --short HEAD)
+        _version="local-$(git -C "$INSTALL_DIR" rev-parse --short HEAD)"
         _deploy_args="--build $_version"
     fi
     sg docker -c "python3 cloud_deploy.py $_deploy_args"
