@@ -35,6 +35,7 @@ expires_label   = "until"
 set_expiry      = "Set"
 # Attendance counting (opt-in analytics)
 analytics_title                  = "Attendance counting"
+privacy_incomplete               = "The privacy policy names no operator or contact: set PRIVACY_OPERATOR and PRIVACY_CONTACT in cloud/.env."
 analytics_desc                   = "Unique visitors per meet, over chosen window. Anonymous: random per-device id, never names or IPs."
 analytics_on                     = "On"
 analytics_off                    = "Off"

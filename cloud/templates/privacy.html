@@ -49,12 +49,16 @@
 
         <h2>{{ t.get('who_h', '') }}</h2>
         <p>{{ t.get('who', '') }}</p>
+        {% if operator %}
+        <p>{{ t.get('who_operator', '') | replace('{operator}', operator) }}</p>
+        {% endif %}
 
         <h2>{{ t.get('count_h', '') }}</h2>
         <p>{{ t.get('count_1', '') }}</p>
         <p>{{ t.get('count_2', '') }}</p>
         <p>{{ t.get('count_3', '') }}</p>
         <p>{{ t.get('count_4', '') | replace('{days}', days | string) }}</p>
+        <p>{{ t.get('count_basis', '') }}</p>
 
         <h2>{{ t.get('app_h', '') }}</h2>
         <p>{{ t.get('app_1', '') }}</p>
@@ -63,6 +67,7 @@
         <h2>{{ t.get('web_h', '') }}</h2>
         <p>{{ t.get('web_1', '') }}</p>
         <p>{{ t.get('web_2', '') }}</p>
+        <p>{{ t.get('web_3', '') }}</p>
 
         <h2>{{ t.get('meets_h', '') }}</h2>
         <p>{{ t.get('meets', '') }}</p>

@@ -28,7 +28,7 @@ import cloud_control as cs
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
-def render_admin(analytics_enabled):
+def render_admin(analytics_enabled, privacy_incomplete=False):
     import tomllib
 
     from jinja2 import Environment, FileSystemLoader
@@ -59,6 +59,7 @@ def render_admin(analytics_enabled):
         current_locale="",
         ui_lang_cookie="",
         analytics_enabled=analytics_enabled,
+        privacy_incomplete=privacy_incomplete,
         picker_window_title_form="",
         picker_title_form="",
         picker_logo_above=False,
@@ -173,3 +174,9 @@ def test_disabling_needs_nothing_and_keeps_the_record(client):
     c = creds()
     assert c["analytics_enabled"] is False
     assert c["analytics_ack"]["user"] == "pool-admin"
+
+
+def test_the_card_flags_a_privacy_policy_missing_its_operator_or_contact():
+    """GDPR and Law 25 need the policy to name who answers for it (`/privacy`)."""
+    assert "PRIVACY_OPERATOR" not in render_admin(False)
+    assert "PRIVACY_OPERATOR" in render_admin(False, privacy_incomplete=True)

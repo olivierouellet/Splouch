@@ -196,10 +196,14 @@ the site keep on the device — so it is the same on every deployment. The one p
 part is who answers for it; add to `cloud/.env`:
 
 ```ini
+PRIVACY_OPERATOR=Your name or organization
 PRIVACY_CONTACT=privacy@yourdomain
 ```
 
-Unset, the page has no Contact section. Its text is `[privacy]` in `shared/locales/*.toml`;
+Both are required: GDPR asks the policy to name the controller and how to reach them, and
+Quebec's Law 25 the person in charge of personal information. A name and an email address
+are enough — no postal address. Unset, the page leaves that sentence or its Contact section
+out, and the panel's Attendance counting card says so. Its text is `[privacy]` in `shared/locales/*.toml`;
 bump `PRIVACY_UPDATED` in `cloud/cloud_control.py` with any change to it.
 
 ---
@@ -625,10 +629,15 @@ donc la même pour chaque déploiement. La seule partie propre au déploiement e
 qui en répond ; ajoutez à `cloud/.env` :
 
 ```ini
+PRIVACY_OPERATOR=Votre nom ou organisation
 PRIVACY_CONTACT=confidentialite@votredomaine
 ```
 
-Sans cette valeur, la page n'a pas de section Contact. Le texte est `[privacy]` dans
+Les deux sont requises : le RGPD exige que la politique nomme le responsable du traitement et
+la façon de le joindre, et la Loi 25 du Québec, la personne responsable de la protection des
+renseignements personnels. Un nom et une adresse courriel suffisent — pas d'adresse postale.
+Sans elles, la page omet cette phrase ou sa section Contact, et la carte Comptage de
+l'assistance du panneau le signale. Le texte est `[privacy]` dans
 `shared/locales/*.toml` ; mettez à jour `PRIVACY_UPDATED` dans `cloud/cloud_control.py` à
 chaque modification.
 

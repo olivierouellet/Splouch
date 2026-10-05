@@ -32,6 +32,7 @@ expires_label   = "jusqu'au"
 set_expiry      = "Définir"
 # Comptage de l'assistance (statistiques optionnelles)
 analytics_title                  = "Comptage de l'assistance"
+privacy_incomplete               = "La politique de confidentialité ne nomme ni administrateur ni contact : définissez PRIVACY_OPERATOR et PRIVACY_CONTACT dans cloud/.env."
 analytics_desc                   = "Visiteurs uniques par compétition, sur la période choisie. Anonyme : id aléatoire par appareil, jamais de noms ni d'IP."
 analytics_on                     = "Activé"
 analytics_off                    = "Désactivé"

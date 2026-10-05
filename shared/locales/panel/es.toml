@@ -32,6 +32,7 @@ expires_label   = "hasta"
 set_expiry      = "Aplicar"
 # Conteo de asistencia (estadísticas opcionales)
 analytics_title                  = "Conteo de asistencia"
+privacy_incomplete               = "La política de privacidad no indica operador ni contacto: defina PRIVACY_OPERATOR y PRIVACY_CONTACT en cloud/.env."
 analytics_desc                   = "Visitantes únicos por competición, en el período elegido. Anónimo: id aleatorio por dispositivo, nunca nombres ni IP."
 analytics_on                     = "Activado"
 analytics_off                    = "Desactivado"

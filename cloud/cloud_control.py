@@ -776,6 +776,14 @@ def _privacy_contact():
     return contact if re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", contact) else ""
 
 
+def _privacy_operator():
+    """Who runs this deployment — the name the policy gives as responsible for it
+    (GDPR controller, Quebec's person in charge) — or '' while unset. One line,
+    so a stray newline in `.env` cannot break the paragraph it sits in."""
+    operator = " ".join(os.environ.get("PRIVACY_OPERATOR", "").split())
+    return operator[:120]
+
+
 @app.get("/privacy", tags=["Public"])
 def route_privacy(request: Request):
     """The privacy policy, the URL a store listing points at.
@@ -798,6 +806,7 @@ def route_privacy(request: Request):
             days=cloud_attendance.RETENTION_DAYS,
             updated=PRIVACY_UPDATED,
             contact=_privacy_contact(),
+            operator=_privacy_operator(),
         ),
     )
 
@@ -1345,6 +1354,7 @@ def _admin_page(request, t=None, creds_error=None):
         ui_lang_cookie=_ui_lang_cookie(request),
         has_deploy=bool(os.environ.get("DEPLOY_WEBHOOK_URL")),
         analytics_enabled=bool(creds.get("analytics_enabled")),
+        privacy_incomplete=not (_privacy_operator() and _privacy_contact()),
         **_picker_appearance(),
     )
 

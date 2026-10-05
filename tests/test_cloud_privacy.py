@@ -9,7 +9,8 @@ What it must hold:
   enforces it runs while the server is up, not only at startup.
 * **None of it is on the wire to the apps.** `[privacy]` is its own section, so
   `GET /i18n/{lang}` is unchanged and no app string key moved.
-* **The contact is configuration**, and unset leaves the section out.
+* **The operator and contact are configuration**, and unset leaves them out —
+  with the admin panel saying so, since the policy needs both.
 """
 
 import os
@@ -57,6 +58,7 @@ def section(code):
 @pytest.fixture(autouse=True)
 def no_contact(monkeypatch):
     monkeypatch.delenv("PRIVACY_CONTACT", raising=False)
+    monkeypatch.delenv("PRIVACY_OPERATOR", raising=False)
 
 
 @pytest.mark.parametrize("code", ["en", "fr", "es"])
@@ -102,6 +104,39 @@ def test_contact_is_shown_only_when_configured(monkeypatch):
     assert "mailto:" not in get("lang=en")
     monkeypatch.setenv("PRIVACY_CONTACT", "privacy@example.org")
     assert 'href="mailto:privacy@example.org"' in get("lang=en")
+
+
+def test_operator_is_named_only_when_configured(monkeypatch):
+    named = section("en")["who_operator"].split("{operator}")[1]
+    assert named not in get("lang=en")
+    monkeypatch.setenv("PRIVACY_OPERATOR", "  Splouch\nSwim  <Club>  ")
+    html = get("lang=en")
+    assert "Splouch Swim &lt;Club&gt;" + named in html
+    assert "{operator}" not in html
+
+
+def test_the_panel_flag_needs_both(monkeypatch):
+    def flagged():
+        return not (cs._privacy_operator() and cs._privacy_contact())
+
+    assert flagged()
+    monkeypatch.setenv("PRIVACY_OPERATOR", "Splouch")
+    assert flagged()
+    monkeypatch.setenv("PRIVACY_CONTACT", "privacy@example.org")
+    assert not flagged()
+
+
+@pytest.mark.parametrize("code", ["en", "fr", "es"])
+def test_the_policy_no_longer_claims_nothing_personal_is_collected(code):
+    """The attendance identifier singles out a device, so it is personal
+    information to GDPR and Law 25; the policy says so instead of denying it."""
+    text = section(code)["intro"].lower()
+    for claim in (
+        "no personal information",
+        "aucun renseignement personnel",
+        "no se recopila información personal",
+    ):
+        assert claim not in text
 
 
 def test_the_prune_runs_while_the_server_is_up(monkeypatch):
