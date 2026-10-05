@@ -34,5 +34,5 @@
 import caddy.d/*.site
 
 {$SPLOUCH_DOMAIN} {
-    import caddy.d/*.caddy
+	import caddy.d/*.caddy
 }

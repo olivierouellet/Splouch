@@ -1224,7 +1224,9 @@ open(path, 'w', encoding='utf-8').write('\n'.join(out) + '\n')
 PYEOF
     }
 
+    _env_created=0
     if [[ ! -f "$CLOUD_DIR/.env" ]]; then
+        _env_created=1
         # Create it empty and locked down *before* any secret goes in. Copying the
         # template first would leave the file at the umask default (world-readable)
         # for the window in which SECRET_KEY, ADMIN_PASSWORD and DEPLOY_SECRET are
@@ -1276,7 +1278,9 @@ PYEOF
     section "Parts"
     # What this server runs (docs/architecture/scaling.md): everything at first,
     # one part per server later. Asked once; ROLES in .env is the answer after that.
-    if ! grep -q '^ROLES=.' "$CLOUD_DIR/.env" && [[ "${SPLOUCH_NONINTERACTIVE:-}" != "1" ]]; then
+    # A fresh .env counts as unanswered: it carries .env.example's ROLES line.
+    if { ((_env_created)) || ! grep -q '^ROLES=.' "$CLOUD_DIR/.env"; } \
+        && [[ "${SPLOUCH_NONINTERACTIVE:-}" != "1" ]]; then
         echo "Which parts does this server run?"
         PS3="Type a number and press Enter: "
         select _parts in \
