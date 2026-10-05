@@ -16,7 +16,7 @@ import cloud_registry as reg
 
 pytestmark = pytest.mark.usefixtures("pg")
 
-META = {
+META: dict = {
     "name": "Coupe",
     "location": "Montréal",
     "sport": "Swimming",
@@ -38,8 +38,39 @@ def test_a_registered_meet_is_live_with_its_metadata(key):
     assert rec["live"] and rec["node"] == "ca1" and rec["worker"] == 1
     assert rec["organizer"] == "Club"
     assert rec["name"] == "Coupe" and rec["settings"]["locale"] == "fr"
-    assert rec["settings"]["home_icon_b64"] == "SUNPTg=="
     assert rec["expires_at"] is None
+
+
+def test_the_registry_keeps_the_card_and_never_the_meet_s_content(key):
+    """A start list names every athlete; it, the icon and the display settings stay
+    on the node (cloud_meetstore). The registry keeps the console and the language,
+    which the admin table shows."""
+    meta = {
+        **META,
+        "settings": {
+            **META["settings"],
+            "labels": {"lane": "Couloir"},
+            "console": {"key": "cts_gen6", "timed": True},
+        },
+        "schedule_data": {"start_list": {"1": {"1": {"1": {"name": "Ledecky"}}}}},
+    }
+    mid = reg.register(key, "uid", meta, "ca1", 1)["meet_id"]
+    rec = reg.get(mid)
+    assert rec["settings"] == {
+        "locale": "fr",
+        "console": {"key": "cts_gen6", "timed": True},
+    }
+    assert "schedule_data" not in rec and "Ledecky" not in repr(rec)
+    import cloud_db
+
+    with cloud_db.conn() as c:
+        cols = {
+            r["column_name"]
+            for r in c.execute(
+                "SELECT column_name FROM information_schema.columns WHERE table_name = 'meets'"
+            )
+        }
+    assert not cols & {"schedule", "home_icon_b64"}
 
 
 def test_the_id_is_stable_per_key_and_meet_uid(key):
@@ -65,14 +96,6 @@ def test_a_re_register_keeps_the_first_connect_time(key):
     first = reg.register(key, "uid", META, "ca1", 1)
     with_new_settings = reg.register(key, "uid", META, "ca1", 1)
     assert with_new_settings["connected_at"] == first["connected_at"]
-
-
-def test_the_stored_schedule_comes_back_on_reconnect(key):
-    mid = reg.register(key, "uid", META, "ca1", 1)["meet_id"]
-    reg.set_schedule(mid, {"events": [[1, [1]]]})
-    reg.retire(mid, "ca1", 1)
-    again = reg.register(key, "uid", META, "ca1", 1)
-    assert again["schedule_data"] == {"events": [[1, [1]]]}
 
 
 def test_a_retired_meet_expires_after_its_date(key):
@@ -132,16 +155,17 @@ def test_the_list_puts_live_first_and_carries_no_images(key):
 
 
 def test_backup_and_restore_round_trip(key):
-    mid = reg.register(key, "uid", META, "ca1", 1)["meet_id"]
-    reg.set_schedule(mid, {"events": []})
+    meta = {**META, "settings": {**META["settings"], "picker_image_b64": "eA=="}}
+    mid = reg.register(key, "uid", meta, "ca1", 1)["meet_id"]
     reg.retire(mid, "ca1", 1)
     saved = reg.backup()
+    assert "schedule_data" not in saved[mid], "cards only"
     reg.delete(mid)
     assert reg.get(mid) is None
     assert reg.restore(saved) == [mid]
     rec = reg.get(mid)
-    assert rec["settings"]["home_icon_b64"] == "SUNPTg=="
-    assert rec["expires_at"] == saved[mid]["expires_at"]
+    assert rec["settings"]["picker_image_b64"] == "eA=="
+    assert rec["node"] == "ca1" and rec["expires_at"] == saved[mid]["expires_at"]
 
 
 def test_a_restore_never_overwrites_a_live_meet(key):
@@ -309,12 +333,31 @@ def test_a_retained_meet_cannot_be_moved(held):
     assert not reg.move(held, "ca1", 2)
 
 
-def test_a_live_meet_s_page_is_on_its_worker_and_a_retained_one_anywhere(key, held):
+def test_a_live_meet_s_page_is_on_its_worker_and_a_finished_one_on_its_node(held):
+    reg.move(held, "ca1", 2)
+    (row,) = reg.list_meets()
+    assert reg.page_url(row) == f"https://ca1.example/w2/mobile?meet={held}"
+    reg.retire(held, "ca1", 2)
     (row,) = reg.list_meets()
     assert reg.page_url(row) == f"https://ca1.example/w1/mobile?meet={held}"
+
+
+def test_a_finished_meet_leaves_the_picker_while_its_node_is_silent(held):
     reg.retire(held, "ca1", 1)
-    (row,) = reg.list_meets()
-    assert reg.page_url(row) == f"/mobile?meet={held}"
+    assert [m["id"] for m in reg.list_meets(reachable_only=True)] == [held]
+    import cloud_db
+
+    with cloud_db.conn() as c:
+        c.execute("UPDATE nodes SET last_seen = now() - interval '10 minutes'")
+    assert reg.list_meets(reachable_only=True) == []
+    assert [m["id"] for m in reg.list_meets()] == [held], "the admin still sees it"
+
+
+def test_the_node_is_told_which_meets_to_keep(key, held):
+    reg.retire(held, "ca1", 1)
+    other = reg.register(key, "x", META, "us1", 1)["meet_id"]
+    assert reg.node_meet_ids("ca1") == [held]
+    assert reg.node_meet_ids("us1") == [other]
 
 
 def test_a_record_carries_its_node_s_address(held):
@@ -354,10 +397,8 @@ def test_the_list_carries_the_organizer_s_country_and_province(key, held):
     assert (row["country"], row["province"]) == ("CA", "QC")
 
 
-def test_a_live_meet_is_reached_at_its_worker_and_a_retained_one_here(held):
-    (row,) = reg.list_meets()
-    assert reg.meet_base(row, "https://splouch.org") == "https://ca1.example/w1"
-    reg.retire(held, "ca1", 1)
+def test_a_card_with_no_node_is_reached_here(pg):
+    reg.restore({"old": {"name": "Old"}})
     (row,) = reg.list_meets()
     assert reg.meet_base(row, "https://splouch.org/") == "https://splouch.org"
 

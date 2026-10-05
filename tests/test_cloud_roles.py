@@ -276,3 +276,13 @@ def test_the_installer_asks_for_the_parts_once():
     script = read("install", "install.sh")
     assert "grep -q '^ROLES=.'" in script
     assert 'wireguard.sh" hub' in script and 'wireguard.sh" node' in script
+
+
+def test_each_backup_run_leaves_its_status_for_the_panel():
+    script = yaml.safe_load(read("cloud", "docker-compose.yml"))["services"]["backup"][
+        "command"
+    ][2]
+    assert "status true" in script and "status false" in script
+    assert "status.json.part" in script and "mv /backups/status.json.part" in script
+    control = yaml.safe_load(read("cloud", "docker-compose.yml"))["services"]["control"]
+    assert "/var/backups/splouch:/backups:ro" in control["volumes"]

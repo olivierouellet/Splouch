@@ -74,6 +74,7 @@ def wired(pg, monkeypatch, tmp_path):
     monkeypatch.setenv("NODE_URL", "https://ca1.example")
     monkeypatch.setenv("WORKER", "1")
     monkeypatch.setattr(cloud_node, "_records", {})
+    _fresh_node_store(monkeypatch, tmp_path)
 
     def call(method, path, body=None, timeout=5):
         status, data = _asgi(method, path, body)
@@ -194,11 +195,51 @@ def test_a_retained_meet_is_fetched_by_a_worker_that_never_held_it(wired):
     assert cs.route_meet_config(meet_id)["name"] == "Coupe"
 
 
-def test_the_schedule_reaches_the_control_plane(wired):
+def test_the_start_list_stays_on_the_node(wired):
+    """It names every athlete: the node's store keeps it; the control plane never
+    sees it (docs/architecture/scaling.md)."""
+    import cloud_meetstore
+
+    meet_id = register(wired).frames[0]["data"]["meet_id"]
+    sched = {
+        "events": [[1, [1]]],
+        "start_list": {"1": {"1": {"4": {"name": "Ledecky"}}}},
+    }
+    asyncio.run(cs._forward("sid-1", "schedule_snapshot", sched))
+    assert cloud_meetstore.get(meet_id)["schedule_data"] == sched
+    assert "Ledecky" not in repr(cloud_control.cloud_registry.get(meet_id))
+
+
+def test_a_finished_meet_is_served_from_the_node_after_a_restart(wired):
+    """An update restarts the workers; the node's store is on disk."""
+    import cloud_meetstore
+
     meet_id = register(wired).frames[0]["data"]["meet_id"]
     sched = {"events": [[1, [1]]], "names": {"1": "100 Free"}}
     asyncio.run(cs._forward("sid-1", "schedule_snapshot", sched))
-    assert cloud_control.cloud_registry.get(meet_id)["schedule_data"] == sched
+    asyncio.run(cs._on_relay_disconnect("sid-1"))
+    cloud_meetstore.close()  # a fresh process
+    cloud_node._records.clear()
+    assert cs.route_meet_schedule(meet_id)["heats"][0]["event"] == 1
+    assert cs.route_meet_config(meet_id)["live"] is False
+
+
+def test_the_node_drops_what_the_control_plane_no_longer_lists(wired, monkeypatch):
+    import cloud_meetstore
+
+    meet_id = register(wired).frames[0]["data"]["meet_id"]
+    asyncio.run(cs._on_relay_disconnect("sid-1"))
+    monkeypatch.setattr(cloud_meetstore, "FRESH_SECS", 0)
+    cloud_control.cloud_registry.delete(meet_id)
+    cloud_node.heartbeat([])  # worker 1: the reply lists what to keep
+    assert cloud_meetstore.get(meet_id) is None
+
+
+def test_the_relay_key_never_reaches_the_node_s_store(wired):
+    import cloud_meetstore
+
+    meet_id = register(wired).frames[0]["data"]["meet_id"]
+    assert wired not in repr(cloud_meetstore.get(meet_id))
 
 
 def test_the_pi_reads_its_attendance_through_the_worker(wired):
@@ -234,8 +275,20 @@ def test_the_heartbeat_retires_a_meet_the_worker_lost(wired):
 # ── With the control plane down ────────────────────────────────────────────────
 
 
+def _fresh_node_store(monkeypatch, tmp_path):
+    """The node's stores in a directory of this test's own."""
+    import cloud_attendance
+    import cloud_meetstore
+    import cloud_paths
+
+    monkeypatch.setattr(cloud_paths, "ANALYTICS_FILE", str(tmp_path / "analytics.db"))
+    cloud_meetstore.close()
+    cloud_attendance.close()
+
+
 @pytest.fixture
-def control_down(monkeypatch):
+def control_down(monkeypatch, tmp_path):
+    _fresh_node_store(monkeypatch, tmp_path)
     monkeypatch.setenv("NODE_SECRET", SECRET)
     monkeypatch.setenv("NODE_NAME", "ca1")
     monkeypatch.setenv("WORKER", "1")
@@ -263,10 +316,13 @@ def test_a_pi_without_one_is_sent_back_to_ask(control_down):
     assert not cs._meets
 
 
-def test_a_page_keeps_serving_the_last_record_seen(control_down):
-    cloud_node.remember("m1", {"name": "Coupe", "settings": {}})
-    cloud_node._records["m1"] = (cloud_node._records["m1"][0], -1e9)  # stale
-    assert cloud_node.fetch_meet("m1")["name"] == "Coupe"
+def test_a_finished_meet_is_served_while_the_control_plane_is_down(control_down):
+    import cloud_meetstore
+
+    cloud_meetstore.save(
+        "m1", {"name": "Coupe", "settings": {}}, expires="2099-01-01T00:00:00"
+    )
+    assert cs.route_meet_config("m1")["name"] == "Coupe"
 
 
 def test_a_lost_analytics_batch_is_dropped_not_hoarded(control_down, monkeypatch):
@@ -813,3 +869,47 @@ def test_the_panel_schedules_with_the_browser_s_offset(pg):
     r = reg.rollout()
     assert r["state"] == "scheduled" and r["force"] is True
     assert r["not_before"] == "2026-10-05T06:00:00+00:00"
+
+
+@pytest.mark.parametrize(
+    "status,expect",
+    [
+        (None, "No nightly backup yet"),
+        (
+            {"ok": True, "file": "splouch-x.dump", "bytes": 2048, "error": ""},
+            "splouch-x.dump · 2.0 kB",
+        ),
+        (
+            {
+                "ok": False,
+                "file": "splouch-x.dump",
+                "bytes": 0,
+                "error": "pg_dump failed",
+            },
+            "Failed",
+        ),
+        (
+            {"ok": True, "file": "old.dump", "bytes": 1, "error": "", "old": True},
+            "the backup has stopped running",
+        ),
+    ],
+    ids=["none", "ok", "failed", "stale"],
+)
+def test_the_panel_shows_the_last_nightly_backup(
+    pg, monkeypatch, tmp_path, status, expect
+):
+    import datetime
+
+    path = tmp_path / "status.json"
+    if status is not None:
+        at = datetime.datetime.now(datetime.UTC) - datetime.timedelta(
+            days=3 if status.pop("old", False) else 0
+        )
+        path.write_text(json.dumps({**status, "at": at.strftime("%Y-%m-%dT%H:%M:%SZ")}))
+    monkeypatch.setattr(cloud_control, "BACKUP_STATUS", str(path))
+    html = _admin_get(monkeypatch)
+    block = html.split('id="backup-last"')[1][:600]
+    assert expect in block
+    assert ("text-danger" in block) is (
+        expect in ("Failed", "the backup has stopped running")
+    )

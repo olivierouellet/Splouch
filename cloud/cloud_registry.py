@@ -1,10 +1,13 @@
 """Every meet the relay knows, live or retained — the control plane's registry.
 
-One row per meet in Postgres (`cloud_db`). A worker holds a live meet's state in
-memory and reports to this registry over the internal API: a Pi registers (the
-key is checked here and the meet's metadata, settings and images stored), sends a
-schedule, and disconnects (the meet is retired with an expiry). The picker, the
-admin panel and a worker serving a retained meet's pages all read from here.
+One row per meet in Postgres (`cloud_db`): its **picker card** — name, date,
+location, organizer, where it lives, expiry — and its picker image. Nothing else
+of a meet comes here: its start list (every athlete entered, with their club), its
+settings and its home icon stay on the node that carries it (`cloud_meetstore`),
+live or finished, so they stay in the meet's region. A worker reports to this
+registry over the internal API: a Pi registers (the key is checked here), and
+disconnects (the meet is retired with an expiry). The picker and the admin panel
+read from here.
 
 A row is **live** while some worker holds the meet's relay. Workers say which
 meets they hold every few seconds (`heartbeat`); a meet a worker stops naming, or
@@ -23,6 +26,7 @@ from psycopg.types.json import Jsonb
 
 import cloud_auth
 import cloud_db
+import cloud_meetstore
 from splouch_regions import clean_location
 
 # A node that has not called in this long is not offered new meets, and its live
@@ -52,22 +56,19 @@ def worker_url(node_url, worker):
 
 
 def meet_base(meet, here):
-    """Where a client reaches a meet (`app.md` `C-11`): a live meet's worker, else
-    `here` — this server, whose default route serves any retained meet."""
-    if meet.get("live") and meet.get("node_url") and meet.get("worker"):
+    """Where a client reaches a meet (`app.md` `C-11`): a live meet's worker; a
+    finished one's node, whose every worker reads the node's store (worker 1); or,
+    for a card with no node, `here`."""
+    if meet.get("node_url") and meet.get("worker") and meet.get("live"):
         return worker_url(meet["node_url"], meet["worker"])
+    if meet.get("node_url"):
+        return worker_url(meet["node_url"], 1)
     return here.rstrip("/")
 
 
 def page_url(meet):
-    """Where a meet's page is served. A live meet's worker holds it in memory, so
-    the link goes there; a retained one can be served by any worker, from its
-    record, and goes to this domain's default route."""
-    if meet.get("live") and meet.get("node_url") and meet.get("worker"):
-        return (
-            f"{worker_url(meet['node_url'], meet['worker'])}/mobile?meet={meet['id']}"
-        )
-    return f"/mobile?meet={meet['id']}"
+    """Where a meet's page is served: on its base (`meet_base`)."""
+    return f"{meet_base(meet, '')}/mobile?meet={meet['id']}"
 
 
 def meet_id_for(key, meet_uid):
@@ -80,35 +81,21 @@ def meet_id_for(key, meet_uid):
     return hashlib.sha256(f"{key}:{meet_uid}".encode()).hexdigest()[:11]
 
 
-def compute_expiry(meet_date, when=None):
-    """Midnight after the final session date, or after `when` if no meet date."""
-    when = when or datetime.datetime.now()
-    base = None
-    if meet_date:
-        try:
-            base = datetime.date.fromisoformat(meet_date)
-        except ValueError:
-            base = None
-    if base is None:
-        base = when.date()
-    return datetime.datetime.combine(base, datetime.time.min) + datetime.timedelta(
-        days=1
-    )
+compute_expiry = cloud_meetstore.compute_expiry
 
 
-def _split_settings(settings):
-    """(settings without the two images, home icon, picker image)."""
+def _card_settings(settings):
+    """(what the registry keeps of a meet's settings, its picker image): the console
+    and the language, which the admin table shows — never labels, theme or icon."""
     settings = dict(settings or {})
-    icon = settings.pop("home_icon_b64", "") or ""
     picker = settings.pop("picker_image_b64", "") or ""
-    return settings, icon, picker
+    keep = {k: settings[k] for k in ("console", "locale") if settings.get(k)}
+    return keep, picker
 
 
 def _record(row):
-    """A full row as the record shape workers and backups use."""
+    """A row as the card shape workers and backups use: no start list, no icon."""
     settings = dict(row["settings"] or {})
-    if row.get("home_icon_b64"):
-        settings["home_icon_b64"] = row["home_icon_b64"]
     if row.get("picker_image_b64"):
         settings["picker_image_b64"] = row["picker_image_b64"]
     exp = row["expires_at"]
@@ -123,7 +110,6 @@ def _record(row):
         "app_window_title": row["app_window_title"],
         "meet_date": row["meet_date"],
         "settings": settings,
-        "schedule_data": row["schedule"] or {},
         "live": row["live"],
         "node": row["node"],
         "worker": row["worker"],
@@ -209,9 +195,8 @@ def assign(key, meet_uid):
 def register(key, meet_uid, meta, node, worker, location=None):
     """A Pi registered a meet on `node`/`worker`. None when the key is refused.
 
-    Returns `{"meet_id", "organizer", "schedule_data"}` — the stored start list, so a
-    meet reconnecting after a drop shows its schedule before the Pi re-sends it.
-    `location` is where the organizer says it is based (`{"country", "province"}`,
+    Returns `{"meet_id", "organizer", "connected_at"}`. Only the card is stored; the
+    worker keeps the rest on its node. `location` is where the organizer says it is based (`{"country", "province"}`,
     from the Pi's Cloud tab); it is recorded beside the admin's, never over it.
     """
     org = cloud_auth.organizer(key)
@@ -223,11 +208,11 @@ def register(key, meet_uid, meta, node, worker, location=None):
         )
         cloud_auth.report_location(key, country, province)
     meet_id = _meet_id(key, meet_uid)
-    settings, icon, picker = _split_settings(meta.get("settings"))
+    settings, picker = _card_settings(meta.get("settings"))
     now = datetime.datetime.now()
     with cloud_db.conn() as c:
         prev = c.execute(
-            "SELECT live, connected_at, schedule FROM meets WHERE id = %s", (meet_id,)
+            "SELECT live, connected_at FROM meets WHERE id = %s", (meet_id,)
         ).fetchone()
         # A settings re-register (the operator changed something) keeps the time
         # the meet first connected; a fresh connect starts a new one.
@@ -238,15 +223,14 @@ def register(key, meet_uid, meta, node, worker, location=None):
         )
         c.execute(
             "INSERT INTO meets (id, organizer_key, organizer, name, location, sport, "
-            "app_window_title, meet_date, settings, home_icon_b64, picker_image_b64, "
+            "app_window_title, meet_date, settings, picker_image_b64, "
             "live, node, worker, connected_at, last_seen, expires_at) "
-            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, true, %s, %s, %s, %s, NULL) "
+            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, true, %s, %s, %s, %s, NULL) "
             "ON CONFLICT (id) DO UPDATE SET organizer_key = EXCLUDED.organizer_key, "
             "organizer = EXCLUDED.organizer, name = EXCLUDED.name, "
             "location = EXCLUDED.location, sport = EXCLUDED.sport, "
             "app_window_title = EXCLUDED.app_window_title, "
             "meet_date = EXCLUDED.meet_date, settings = EXCLUDED.settings, "
-            "home_icon_b64 = EXCLUDED.home_icon_b64, "
             "picker_image_b64 = EXCLUDED.picker_image_b64, live = true, "
             "node = EXCLUDED.node, worker = EXCLUDED.worker, "
             "move_from_node = NULL, move_from_worker = NULL, moved_at = NULL, "
@@ -262,7 +246,6 @@ def register(key, meet_uid, meta, node, worker, location=None):
                 str(meta.get("app_window_title", "")),
                 str(meta.get("meet_date", "")),
                 Jsonb(settings),
-                icon,
                 picker,
                 node,
                 worker,
@@ -284,7 +267,6 @@ def register(key, meet_uid, meta, node, worker, location=None):
         "meet_id": meet_id,
         "organizer": org["name"],
         "connected_at": connected_at,
-        "schedule_data": (prev["schedule"] if prev else None) or {},
     }
 
 
@@ -332,14 +314,6 @@ def running(meet, now=None):
     )
     days = list(meet.get("session_dates") or []) or [meet.get("meet_date") or ""]
     return today.isoformat() in days
-
-
-def set_schedule(meet_id, schedule):
-    with cloud_db.conn() as c:
-        c.execute(
-            "UPDATE meets SET schedule = %s WHERE id = %s",
-            (Jsonb(schedule) if schedule else None, meet_id),
-        )
 
 
 def _retire_where(c, clause, params, now):
@@ -524,7 +498,7 @@ def get(meet_id):
 
 def image(meet_id, column):
     """One meet's base64 picker image or home icon, '' when it has none."""
-    assert column in ("picker_image_b64", "home_icon_b64")
+    assert column == "picker_image_b64"
     with cloud_db.conn() as c:
         row = c.execute(
             f"SELECT {column} AS b64 FROM meets WHERE id = %s", (meet_id,)
@@ -539,14 +513,24 @@ def sweep_expired(now=None):
         c.execute("DELETE FROM meets WHERE NOT live AND expires_at <= %s", (now,))
 
 
-def list_meets():
-    """Live and retained meets, live first then by name — list columns only."""
+def list_meets(reachable_only=False):
+    """Live and retained meets, live first then by name — list columns only.
+
+    `reachable_only` (the picker): a finished meet is served by its node, so while
+    that node is not reporting its card is left out rather than leading to an error;
+    it comes back with the node, until it expires.
+    """
     sweep_expired()
+    cutoff = datetime.datetime.now(datetime.UTC) - datetime.timedelta(
+        seconds=SILENT_AFTER_SECS
+    )
+    where = "WHERE m.live OR n.last_seen >= %s" if reachable_only else ""
     with cloud_db.conn() as c:
         return c.execute(
             f"SELECT {_LIST_COLUMNS} FROM meets m LEFT JOIN nodes n ON n.name = m.node "
-            "LEFT JOIN organizers o ON o.key = m.organizer_key "
-            "ORDER BY NOT m.live, lower(m.name), m.id"
+            f"LEFT JOIN organizers o ON o.key = m.organizer_key {where} "
+            "ORDER BY NOT m.live, lower(m.name), m.id",
+            (cutoff,) if reachable_only else (),
         ).fetchall()
 
 
@@ -577,10 +561,12 @@ def backup():
     return out
 
 
-def restore(meets):
-    """Upsert a backup's meets, retained. A meet live right now is skipped so its
-    fresh state isn't overwritten by a stale backup; nothing else is touched.
-    Returns the ids written."""
+def restore(meets, node=None):
+    """Upsert a backup's meet cards, retained. A meet live right now is skipped so
+    its fresh state isn't overwritten by a stale backup; nothing else is touched.
+    Cards only: a start list, if the backup has one, is not stored here (it lives on
+    the node — `cloud_import.py` puts a pre-split box's there). `node` places cards
+    with none of their own. Returns the ids written."""
     written = []
     with cloud_db.conn() as c:
         live = {r["id"] for r in c.execute("SELECT id FROM meets WHERE live")}
@@ -588,7 +574,7 @@ def restore(meets):
         for meet_id, rec in meets.items():
             if meet_id in live or not isinstance(rec, dict):
                 continue
-            settings, icon, picker = _split_settings(rec.get("settings"))
+            settings, picker = _card_settings(rec.get("settings"))
             exp = rec.get("expires_at")
             try:
                 exp = datetime.datetime.fromisoformat(exp) if exp else None
@@ -599,16 +585,16 @@ def restore(meets):
             key = rec.get("relay_key") or None
             c.execute(
                 "INSERT INTO meets (id, organizer_key, organizer, name, location, "
-                "sport, app_window_title, meet_date, settings, schedule, "
-                "home_icon_b64, picker_image_b64, live, expires_at) VALUES "
-                "(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, false, %s) "
+                "sport, app_window_title, meet_date, settings, picker_image_b64, "
+                "node, live, expires_at) VALUES "
+                "(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, false, %s) "
                 "ON CONFLICT (id) DO UPDATE SET organizer_key = EXCLUDED.organizer_key, "
                 "organizer = EXCLUDED.organizer, name = EXCLUDED.name, "
                 "location = EXCLUDED.location, sport = EXCLUDED.sport, "
                 "app_window_title = EXCLUDED.app_window_title, "
                 "meet_date = EXCLUDED.meet_date, settings = EXCLUDED.settings, "
-                "schedule = EXCLUDED.schedule, home_icon_b64 = EXCLUDED.home_icon_b64, "
-                "picker_image_b64 = EXCLUDED.picker_image_b64, live = false, "
+                "picker_image_b64 = EXCLUDED.picker_image_b64, "
+                "node = COALESCE(EXCLUDED.node, meets.node), live = false, "
                 "expires_at = EXCLUDED.expires_at",
                 (
                     meet_id,
@@ -620,14 +606,22 @@ def restore(meets):
                     str(rec.get("app_window_title", "")),
                     str(rec.get("meet_date", "")),
                     Jsonb(settings),
-                    Jsonb(rec["schedule_data"]) if rec.get("schedule_data") else None,
-                    icon,
                     picker,
+                    rec.get("node") or node,
                     exp,
                 ),
             )
             written.append(meet_id)
     return written
+
+
+def node_meet_ids(node):
+    """Every meet the registry places on `node`, live or not — what the node keeps
+    in its store; it drops the rest (`cloud_meetstore.keep_only`)."""
+    with cloud_db.conn() as c:
+        return [
+            r["id"] for r in c.execute("SELECT id FROM meets WHERE node = %s", (node,))
+        ]
 
 
 def nodes():

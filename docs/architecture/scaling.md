@@ -111,7 +111,7 @@ If a node is down, that node's meets stop.
 | Picker | `GET /picker` lists live and retained meets across all nodes, each with its host and worker |
 | Regions | Region → nodes list, served to Pis and `/admin` — never hard-coded in clients |
 | Rollout | Drives node deploy webhooks (see *Updates*) |
-| Storage | Postgres (keys, organizers, nodes, registry, admin login and settings, attendance **totals**); nightly `pg_dump` off the box. Visitor ids never: they stay on the node (*Attendance*) |
+| Storage | Postgres (keys, organizers, nodes, the registry of meet **cards** and picker images, admin login and settings, attendance **totals**); nightly `pg_dump` off the box. Never a meet's start list, settings or icon, nor a visitor id: they stay on the node (*Meet content*, *Attendance*) |
 | Pages | The picker, `/admin` (every tab), `/server`, `/servers`, `/add`, `/privacy`, `/.well-known/*` |
 
 Nodes call the control plane's internal API (`/internal/*`, every call carrying
@@ -252,6 +252,31 @@ to the same worker; the Pi renders the same templates with none.
 
 The **Server URL** field stays for clubs running their own relay: pointed at a
 self-hosted server, the Pi connects directly and skips assignment.
+
+### Meet content
+
+A meet's start list names every athlete entered, with their club; its settings and
+home icon are the organizer's. All of it stays on the node that carries the meet
+(`cloud_meetstore`, one SQLite file on the node's volume, shared by its workers),
+live or finished, and the control plane keeps only the picker **card** — name,
+date, location, organizer, node, expiry — and the picker image (shown only while
+the list is short, `P-18`).
+
+- **Finished meets are served by their node** (`<node>/w1/mobile`) until they
+  expire — midnight after their last session day, or what the admin sets. An
+  update restarts the workers; the store is on disk, so the pages answer again as
+  soon as the node does.
+- **The picker leaves a finished meet out while its node is not reporting**, and
+  shows it again when it is, until its expiry.
+- **The node keeps what the control plane lists for it.** Worker 1's heartbeat
+  reply names the node's meets; anything else (expired, deleted, moved away) is
+  dropped, and while the control plane cannot be asked, a meet goes a day after
+  its own expiry.
+- **A page for a meet held elsewhere** — on another worker, or on another node —
+  is sent there, from the card.
+- **Backups** hold the cards only: the meet JSON in Update & Backup, and the
+  nightly `pg_dump`. The panel shows the dump's last run, red when it failed or
+  stopped.
 
 ### Attendance
 
@@ -522,10 +547,6 @@ same webhook. It builds nothing: upstream images, pinned versions.
 - Whether the US needs a second node (`us2`) or one large box carries it.
 - Picker caching: Cloudflare (or similar) in front of `splouch.org` for the picker
   JSON, static files and retained results.
-- Retained meets: which node serves a finished meet's results, and for how long,
-  once meets live on several nodes.
-- Picker and apps with several workers: the picker must hand out each meet's host
-  and worker (batch 4) before a second worker is turned on.
 
 ---
 
@@ -541,4 +562,6 @@ same webhook. It builds nothing: upstream images, pinned versions.
 | 4b — attendance in the region | Done. Visitor ids on the node (SQLite, the old `analytics.db`), numbers only to the control plane, Pi answered locally; `C-10` one id per server, web hands it over in the URL fragment; `/privacy` says where ids are kept |
 | 5 — GHCR images, rolling update | Done. CI image per release tag and `master` (amd64 + arm64); `cloud_deploy.py` pulls it, or builds when there is none; pull-based rolling update — the control plane releases one free node at a time, the node's worker 1 calls its own webhook, done when its heartbeat reports the version, 15-minute failure stop; versions in the **Nodes** tab |
 | 6 — monitoring | Done. Counts-only `/metrics` on workers and the control plane (sockets, meets, frames, event-loop lag; private network only); `cloud/monitoring/` — Prometheus (worker targets written per deploy), Grafana provisioned from git (dashboard, five alerts to Pushover, emergency priority), Uptime Kuma (loopback until set up, optional status domain), node_exporter, cAdvisor, healthchecks.io watchdog; on with `MONITORING=1`. The nightly `pg_dump` and its Kuma heartbeat are still to come |
+| 7b — meet content on the node | Done. Start lists, settings and icons in the node's store, live or finished; the control plane keeps cards and picker images; finished meets served by their node and hidden from the picker while it is silent; cards-only meet backup; last `pg_dump` status in the panel |
+| Before a second worker | Both apps on `app.md` v3 (`C-11`, `C-12`) — until then, `WORKERS=1` |
 | 7 — installer roles, WireGuard, backups | Done. Parts per server (`ROLES`: control, workers, monitoring, any combination; compose profiles; Caddy routes generated per part — a workers-only node redirects to the meet list, `/internal/*` public only with `REMOTE_NODES=1`); WireGuard hub-and-spoke (`install/scripts/wireguard.sh`) with node agents pushing metrics to the hub; nightly `pg_dump` with a heartbeat URL; `cloud_backup.py` dump/restore, which is also how the control plane moves |

@@ -330,7 +330,10 @@ python3 cloud_backup.py dump                     # → /var/backups/splouch/splo
 python3 cloud_backup.py restore /var/backups/splouch/splouch-2026-10-05.dump
 ```
 
-The Update & Backup tab also downloads the organizers and the meets as JSON.
+**Update & Backup** shows the last nightly dump — when, which file, its size — in
+red when it failed or has not run for a day and a half. It also downloads the
+organizers and the meet cards as JSON. A meet's start list is not in either: it
+stays on the node that carries the meet, in its region, until the meet expires.
 
 ## Several servers
 
@@ -781,8 +784,11 @@ python3 cloud_backup.py dump                     # → /var/backups/splouch/splo
 python3 cloud_backup.py restore /var/backups/splouch/splouch-2026-10-05.dump
 ```
 
-L'onglet Mise à jour & Sauvegarde télécharge aussi les organisateurs et les compétitions
-en JSON.
+**Mise à jour & Sauvegarde** affiche la dernière sauvegarde nocturne — quand, quel fichier,
+sa taille — en rouge si elle a échoué ou n'a pas tourné depuis un jour et demi. L'onglet
+télécharge aussi les organisateurs et les fiches des compétitions en JSON. La liste de
+départ d'une compétition n'est dans aucun des deux : elle reste sur le nœud qui porte la
+compétition, dans sa région, jusqu'à son expiration.
 
 ### Plusieurs serveurs
 

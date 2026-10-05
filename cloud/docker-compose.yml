@@ -28,6 +28,8 @@ services:
       DEPLOY_WEBHOOK_URL:     http://host.docker.internal:9000/deploy
       DEPLOY_WEBHOOK_SECRET:  ${DEPLOY_SECRET:-}
       SPLOUCH_VERSION:        ${SPLOUCH_VERSION:-master}
+      # The node this box's import places a pre-split server's meets on.
+      NODE_NAME:              ${NODE_NAME:-ca1}
       # Caddy terminates TLS and proxies to uvicorn over plain HTTP, so the ASGI
       # scope says `http` unless the `X-Forwarded-Proto` Caddy sends is trusted.
       # uvicorn trusts only 127.0.0.1 by default, and Caddy reaches us from a
@@ -62,6 +64,8 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:
+      # The nightly backup's directory, for the status of its last run (/admin).
+      - /var/backups/splouch:/backups:ro
       # applinks.json and servers.json, the operator's files. On a box from before
       # the split it also holds keys.json, credentials.json and retained/, which
       # `cloud_import.py` reads once (docs/cloud.md).
@@ -144,16 +148,26 @@ services:
       - sh
       - -c
       - |
-        # Once a day at BACKUP_HOUR (UTC): dump, keep BACKUP_KEEP days, ping.
+        # Once a day at BACKUP_HOUR (UTC): dump, keep BACKUP_KEEP days, ping, and
+        # record the run in status.json, which /admin shows (good, failed, stale).
+        status() {
+          printf '{"at": "%s", "ok": %s, "file": "%s", "bytes": %s, "error": "%s"}\n' \
+            "$$(date -u +%FT%TZ)" "$$1" "$$2" "$$3" "$$4" >/backups/status.json.part \
+            && mv /backups/status.json.part /backups/status.json
+        }
         while true; do
           day=$$(date -u +%F)
           if [ "$$(date -u +%H)" = "$$BACKUP_HOUR" ] && [ ! -e "/backups/.done-$$day" ]; then
-            if pg_dump -Fc -f "/backups/splouch-$$day.dump.part" \
-                && mv "/backups/splouch-$$day.dump.part" "/backups/splouch-$$day.dump"; then
+            file="splouch-$$day.dump"
+            if pg_dump -Fc -f "/backups/$$file.part" && mv "/backups/$$file.part" "/backups/$$file"; then
               touch "/backups/.done-$$day"
+              status true "$$file" "$$(wc -c <"/backups/$$file")" ""
               find /backups -name 'splouch-*.dump' -mtime +"$$BACKUP_KEEP" -delete
               find /backups -name '.done-*' -mtime +2 -delete
               [ -z "$$BACKUP_PING_URL" ] || wget -q -T 10 -O /dev/null "$$BACKUP_PING_URL"
+            else
+              rm -f "/backups/$$file.part"
+              status false "$$file" 0 "pg_dump failed - see docker compose logs backup"
             fi
           fi
           sleep 300

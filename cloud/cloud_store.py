@@ -2,9 +2,11 @@
 
 * ``_meets`` — meets whose Pi is connected to this worker. Pure memory; a restart
   loses them and the relays reconnect.
-* Retained meets — a meet whose console disconnected, still served until it
-  expires — are not kept here. They live in the control plane's registry; a page
-  for one fetches its record through ``cloud_node`` (cached briefly).
+* Everything else a meet's pages need — its start list, settings and icon, live or
+  finished — is in the node's store (``cloud_meetstore``), on disk and shared by the
+  node's workers, so it stays in the meet's region and survives a restart. A meet
+  this node does not have is looked up on the control plane only to find where it
+  lives (``cloud_node.fetch_meet``), and the visitor is sent there.
 
 The lock is a plain ``threading.Lock`` rather than an async one on purpose: every
 critical section here is a few dict operations with no ``await`` inside, and the
@@ -14,6 +16,7 @@ blocking calls around them are pushed to a thread by the callers
 
 import threading
 
+import cloud_meetstore
 import cloud_node
 
 # _meets: meet_id -> a dict of relay_key, relay_sid, organizer, name, location,
@@ -23,10 +26,9 @@ _meets = {}
 _relay_sids = {}  # relay connection id -> meet_id
 _lock = threading.Lock()
 
-# Fields a retired meet's record keeps, so its pages serve without a fetch.
+# What the node's store keeps of a meet: what its pages read. Never the relay key.
 _RECORD_FIELDS = (
     "organizer",
-    "relay_key",
     "name",
     "location",
     "sport",
@@ -38,17 +40,25 @@ _RECORD_FIELDS = (
 )
 
 
-def _retire_mem(meet_id):
-    """Drop a live meet from memory, keeping its record in the page cache.
+def record_of(meet):
+    """What the node's store keeps of a meet: the fields its pages read."""
+    return {k: meet.get(k) for k in _RECORD_FIELDS}
 
-    Caller holds _lock. The control plane is told separately (``cloud_node.retire``,
-    off the loop): this only stops the worker treating the meet as live.
+
+def _retire_mem(meet_id):
+    """Drop a live meet from memory; returns it, or None. Caller holds _lock.
+
+    The caller then keeps it offline in the node's store and tells the control
+    plane, both off the loop (``store_offline``, ``cloud_node.retire``).
     """
-    meet = _meets.pop(meet_id, None)
-    if meet:
-        record = {k: meet.get(k) for k in _RECORD_FIELDS}
-        record["live"] = False
-        cloud_node.remember(meet_id, record)
+    return _meets.pop(meet_id, None)
+
+
+def store_offline(meet_id, meet):
+    """Keep a meet whose Pi left in the node's store, expiring as the control plane
+    will — midnight after its last session day. Blocking."""
+    expires = cloud_meetstore.compute_expiry(meet.get("meet_date", "")).isoformat()
+    cloud_meetstore.save(meet_id, record_of(meet), expires=expires)
 
 
 def _get_meet(meet_id):
@@ -57,11 +67,26 @@ def _get_meet(meet_id):
 
 
 def meet_for(meet_id):
-    """Live meet if connected here, else its record from the control plane, else None.
+    """Live meet if connected here, else this node's stored record, else the control
+    plane's card for it — which says where it lives, so the visitor can be sent
+    there — else None.
 
-    Blocking (may fetch) — call from a threadpool route, or wrap in
+    Blocking (reads the store, may fetch) — call from a threadpool route, or wrap in
     ``run_in_threadpool`` on the loop.
     """
     with _lock:
         meet = _meets.get(meet_id)
-    return meet or cloud_node.fetch_meet(meet_id)
+    if meet:
+        return meet
+    stored = cloud_meetstore.get(meet_id) if meet_id else None
+    if stored and stored["live"]:
+        # Live on another of this node's workers: its card says which, and the
+        # visitor goes there. Without one (control plane unreachable, or the meet
+        # since retired) the stored record is served as it stands, offline.
+        card = cloud_node.fetch_meet(meet_id)
+        if card and card.get("live"):
+            return card
+        return {**stored, "live": False}
+    if stored:
+        return stored
+    return cloud_node.fetch_meet(meet_id)

@@ -185,6 +185,18 @@ MIGRATIONS = [
             ADD COLUMN utc_offset    integer;
         """,
     ),
+    (
+        7,
+        """
+        -- A meet's content stays on the node that carries it (cloud_meetstore):
+        -- its start list names every athlete entered, with their club. The
+        -- registry keeps the picker card and the picker image only, and from its
+        -- settings just what the admin table shows (console, language).
+        ALTER TABLE meets DROP COLUMN schedule, DROP COLUMN home_icon_b64;
+        UPDATE meets SET settings = jsonb_strip_nulls(jsonb_build_object(
+            'console', settings -> 'console', 'locale', settings -> 'locale'));
+        """,
+    ),
 ]
 
 # Tables holding data, in an order TRUNCATE accepts. Tests empty these between
