@@ -160,20 +160,21 @@ Entry screen. Web: site root. App: launch screen, and `A-02`'s return target.
 | `P-04` | Empty state, no active meets | `strings.no_meets` | all | must |
 | `P-05` | Branding: title + logo above/below, sized by aspect ratio within list width under height cap. Picker chrome in **device's** language, not a meet's (list spans meets in many languages; per-meet from `T-06`) | `GET /picker/config?lang=` or `Accept-Language` → `title`, `has_logo`, `logo_above`; `GET /picker_logo` (PNG/JPEG/GIF/WebP/SVG — read `Content-Type`) | all | should |
 | [`P-06`](#p-06) | Unofficial-results disclaimer **above** meets, full until folded to pill that reopens it | `GET /picker/config` → `strings.results_disclaimer`, `results_disclaimer_short`, `notice_collapse` | all | **must** |
-| [`P-07`](#p-06) | Privacy note whenever attendance counting on for server — beside `P-06`, same fold | `strings.privacy_note`, pill `strings.privacy_note_short`, gated on `analytics_enabled` | all | must |
+| [`P-07`](#p-07) | Whenever attendance counting is on for the server: **Privacy** section in settings (`P-19`) — counting toggle (`C-10`), server's privacy note under it, link to server's policy. **Not on picker** | `strings.privacy_note`, gated on `analytics_enabled`; policy at server's `GET /privacy`; toggle words native in apps (`T-05`), web reads `strings.privacy_count`, `privacy_policy` | all | must |
 | `P-08` | Select meet → app shell | `GET /meet/{id}/config` | all | must |
 | `P-09` | Pull-to-refresh re-fetches list | — | all | should |
 | `P-10` | Install hand-off: store links once apps ship, Add-to-Home-Screen until then. In an app the slot renders nothing | `stores` ([`api.md`](api.md) §5.7), per platform, present once listed → no deploy on move, absent hides button; `P-16`'s `GET /add` uses same dict | web | should |
-| [`P-11`](#p-11) | Pick server from list in picker menu. Meet list always names it; a meet names it when not default | `GET /servers` ([`api.md`](api.md) §5.11), each checked via `GET /server` | native | must |
+| [`P-11`](#p-11) | Pick server from list in settings (`P-19`). Meet list always names it; a meet names it when not default | `GET /servers` ([`api.md`](api.md) §5.11), each checked via `GET /server` | native | must |
 | [`P-12`](#p-12) | LAN servers offered without typing — on tap, in server sheet section *Officials' local server*; one ~10 s scan, finds listed until sheet closes, none → *No server found*; *Search again* rescans | mDNS browse `_splouch._tcp` (not `splouch.local`), only after tap, ~10 s then stopped (sheet closing or app backgrounding stops it sooner); words native (`T-05`) | native | should |
 | [`P-13`](#p-11) | Add server by hand, checked before save | `GET /server` must answer | native | must |
 | `P-14` | Server on other contract versions → one-line notice naming both, once per session, beside server name; **never blocks connect** (newer = additive, older degrades a feature, e.g. `L-12` clock vs v1 relay) | `GET /server` → `contract.api`, `contract.app` ([`api.md`](api.md) §5.10) | native | should |
-| [`P-15`](#p-15) | Spectator's Appearance — Dark (default), Light, Automatic — in picker menu, applies on every screen of every meet | stored pref; server's two palettes ([`api.md`](api.md) §6.1), never `settings.theme_colors`; words native in apps (`T-05`); web reads `strings.appearance`, `appearance_dark` / `_light` / `_auto` | all | should |
+| [`P-15`](#p-15) | Spectator's Appearance — Dark (default), Light, Automatic — in settings (`P-19`), applies on every screen of every meet | stored pref; server's two palettes ([`api.md`](api.md) §6.1), never `settings.theme_colors`; words native in apps (`T-05`); web reads `strings.appearance`, `appearance_dark` / `_light` / `_auto` | all | should |
 | [`P-16`](#p-11) | QR scan adds server: app asks; yes → adds, selects, lands on **meet list**. No app → page offers store | `https://<default host>/add?server=<origin>`; host's two `/.well-known/` files, `GET /add` ([`api.md`](api.md) §4) | native | should |
 | [`P-17`](#p-17) | Search meet list from **3** meets, narrows as typed, own empty state; field where platform puts search | local over `GET /meets` → `name`, `meet_date`, `location`, `sport`, `organizer`, `province`, `country` (code and reader's-language name); `strings.meet_search`, `no_meets_match` | all | should |
 | `P-18` | More than **10** meets → compact rows: name, date, location, province/country, live dot; **no picker image**, none fetched. 10 or fewer → `P-01` cards | count of `GET /meets` → `meets` | all | should |
+| [`P-19`](#p-19) | **Settings** — one container in place of picker menu: Server (`P-11`–`P-13`, native), Display (language `T-08`, Appearance `P-15`), Privacy (`P-07`), About (`P-06` full text, policy link). Platform's own form: web side sheet (full height under 600px), iOS sheet with `Form`, Android full-screen settings destination | section names native in apps (`T-05`); web reads `strings.settings`, `settings_display`, `settings_privacy`, `settings_about` | all | should |
 
-### <a id="p-06"></a>P-06, P-07 — notices
+### <a id="p-06"></a>P-06 — notice
 
 **`P-06` not decoration.** Only thing between live feed and spectator taking it as
 result → on meet list, never About screen; renders server text (rewording w/o store review).
@@ -194,7 +195,36 @@ text or counting enabled later; counting isn't spectator's to refuse (`C-10`).
 
 - **Fold remembered per server, against exact folded words** → reworded/retranslated
   notice shows full once. Web `localStorage` already per origin; app keys on origin.
-- **`P-07` fold forgotten whenever server reports counting off.**
+
+### <a id="p-07"></a>P-07 — privacy note lives with its toggle
+
+**Moved off picker.** Note beside `P-06` was a second banner on every visit, about
+something the spectator could not change. Now it can (`C-10`), so it sits where the
+change is made: Privacy section of settings, toggle first, server's `privacy_note`
+under it as the toggle's explanation, then the server's policy link.
+
+- **Section only while `analytics_enabled`.** Counting off → no section, no toggle;
+  the spectator's stored choice is kept for when it comes back on.
+- **Note is server text** (rewording without store review, as `P-06`); toggle label
+  and section name are the app's own words.
+- **No first-launch prompt.** Counting is on by default and refusable (`C-10`): the
+  policy and the setting are the notice, not a dialog.
+
+### <a id="p-19"></a>P-19 — settings, not a menu
+
+Menu held three choices; settings now hold a toggle, explanatory text and links,
+which a popover or `DropdownMenu` renders badly. One container, sections in this
+order, each platform's own form:
+
+| Section | Holds | Web | iOS | Android |
+| --- | --- | --- | --- | --- |
+| Server | `P-11`–`P-13`, `P-14` notice | — (no server choice) | `Section` with current server → server list | row → server screen |
+| Display | language (`T-08`), Appearance (`P-15`) | radio groups | `Picker` rows | radio rows |
+| Privacy | `P-07` | toggle + note + link | `Toggle`, footer note + `Link` | `Switch` row, supporting text, link |
+| About | `P-06` full text, policy link, app version | text | `Section` text | text |
+
+Opened from a **gear**, not ☰ or ⋮: web fixed button where ☰ was, iOS toolbar item,
+Android top app bar action. Closing returns to picker with list and query intact.
 
 ### <a id="p-11"></a>P-11, P-13, P-16 — server list is data
 

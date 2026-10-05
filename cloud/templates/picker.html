@@ -327,7 +327,7 @@
                         t.get('results_disclaimer_short', 'Unofficial results'))] %}
     {%- if analytics_enabled %}
     {%- set notices = notices + [('privacy',
-                                  t.get('privacy_note', 'This site counts visitors anonymously to estimate attendance. No personal information is collected or shared.'),
+                                  t.get('privacy_note', 'This site counts visitors to estimate attendance, using a random identifier kept on your device — never your name, email or IP address.'),
                                   t.get('privacy_note_short', 'Attendance counting'))] %}
     {%- endif %}
     <div class="notices">
