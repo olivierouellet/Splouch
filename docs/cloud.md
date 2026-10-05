@@ -314,14 +314,61 @@ healthchecks.io ping is what does.
 
 ## Backing up the store
 
-The Update & Backup tab downloads the organizers and the meets as JSON. For the whole
-database, from the VM:
+The server running the control plane dumps its database every night, at
+`BACKUP_HOUR` (UTC, default 03), into `/var/backups/splouch` on the host, and keeps
+`BACKUP_KEEP` days (default 14). Set `BACKUP_PING_URL` to an Uptime Kuma push monitor
+or a healthchecks.io check: it is pinged after each good dump, so a backup that stops
+running is noticed. **Copy that directory off the server** — with `rclone`, `restic`
+or your provider's snapshots: a backup on the box it backs up is lost with it, and it
+holds every relay key and the admin password hash.
+
+A dump right now, and putting one back:
 
 ```bash
-cd ~/Splouch/cloud && docker compose exec -T postgres pg_dump -U splouch splouch | gzip > splouch-$(date +%F).sql.gz
+cd ~/Splouch/cloud
+python3 cloud_backup.py dump                     # → /var/backups/splouch/splouch-….dump
+python3 cloud_backup.py restore /var/backups/splouch/splouch-2026-10-05.dump
 ```
 
-Keep the dump off the VM: it holds every relay key and the admin password hash.
+The Update & Backup tab also downloads the organizers and the meets as JSON.
+
+## Several servers
+
+Each server runs any of three parts, set by `ROLES` in `cloud/.env` and asked by the
+installer: **control** (the meet list, `/admin`, Postgres, the backup), **workers**
+(the relay workers carrying meets) and **monitoring**. One server with
+`control,workers` is where everyone starts; nothing below is needed until you add a
+second one.
+
+**Adding a regional node** (say `us1.splouch.org`):
+
+1. On the control plane's server, set `REMOTE_NODES=1` in `.env` and **Update**:
+   workers on other servers can then reach the control plane's API (still guarded
+   by `NODE_SECRET`).
+2. On the new VPS, point its domain at it and run `bash install.sh cloud`, choosing
+   **Relay workers only**. Give it the control plane's address, its `NODE_SECRET`,
+   a name (`us1`) and a region (`us`).
+3. In `/admin` → **Nodes**, the node appears within seconds. Give organizers in that
+   region the region, and new meets go there.
+
+**Monitoring across servers** uses WireGuard, and only for metrics: a node's agent
+sends to the monitoring server at `10.73.0.1`; nothing listens on a node. On the
+monitoring server, the installer offers to become the hub and prints its public key;
+on each node, it asks for the hub's address and key and prints the line to run on
+the hub:
+
+```bash
+sudo install/scripts/wireguard.sh add-peer us1 <node public key> 10.73.0.12
+```
+
+Each server's private key stays on it. A node's public key also shows in **Nodes**.
+
+**Moving the control plane** to its own server: on the old one,
+`python3 cloud_backup.py dump`; copy the file over; install the new server with the
+control-plane part (`Control plane only` or `Control plane + monitoring`); there,
+`python3 cloud_backup.py restore <file>`; then point the domain at the new server
+and set the old one's `ROLES` to what it keeps (`workers`, with `CONTROL_URL` set to
+the domain). Pis and apps only know the domain, so nothing else changes.
 
 ## Moving or renaming the install directory
 
@@ -717,15 +764,65 @@ serveur lui-même — c'est le ping healthchecks.io qui le fait.
 
 ### Sauvegarder les données
 
-L'onglet Mise à jour & Sauvegarde télécharge les organisateurs et les compétitions en JSON.
-Pour la base complète, depuis la VM :
+Le serveur qui porte le plan de contrôle sauvegarde sa base chaque nuit, à
+`BACKUP_HOUR` (UTC, 03 par défaut), dans `/var/backups/splouch` sur l'hôte, et garde
+`BACKUP_KEEP` jours (14 par défaut). Réglez `BACKUP_PING_URL` sur une sonde « push »
+d'Uptime Kuma ou un check healthchecks.io : elle est appelée après chaque sauvegarde
+réussie, et une sauvegarde qui s'arrête ne passe pas inaperçue. **Copiez ce dossier hors
+du serveur** — avec `rclone`, `restic` ou les instantanés de votre hébergeur : une
+sauvegarde sur la machine qu'elle protège disparaît avec elle, et elle contient toutes
+les clés de relais et l'empreinte du mot de passe d'administration.
+
+Une sauvegarde tout de suite, et la remettre en place :
 
 ```bash
-cd ~/Splouch/cloud && docker compose exec -T postgres pg_dump -U splouch splouch | gzip > splouch-$(date +%F).sql.gz
+cd ~/Splouch/cloud
+python3 cloud_backup.py dump                     # → /var/backups/splouch/splouch-….dump
+python3 cloud_backup.py restore /var/backups/splouch/splouch-2026-10-05.dump
 ```
 
-Conservez la sauvegarde hors de la VM : elle contient toutes les clés de relais et
-l'empreinte du mot de passe d'administration.
+L'onglet Mise à jour & Sauvegarde télécharge aussi les organisateurs et les compétitions
+en JSON.
+
+### Plusieurs serveurs
+
+Chaque serveur fait tourner une ou plusieurs de trois parties, réglées par `ROLES` dans
+`cloud/.env` et demandées par l'installateur : **control** (la liste des compétitions,
+`/admin`, Postgres, la sauvegarde), **workers** (les workers de relais qui portent les
+compétitions) et **monitoring**. Un serveur `control,workers` est le point de départ ;
+rien de ce qui suit n'est nécessaire avant d'en ajouter un deuxième.
+
+**Ajouter un nœud régional** (par exemple `us1.splouch.org`) :
+
+1. Sur le serveur du plan de contrôle, réglez `REMOTE_NODES=1` dans `.env` et **Mettre à
+   jour** : les workers d'autres serveurs peuvent alors joindre l'API du plan de
+   contrôle (toujours protégée par `NODE_SECRET`).
+2. Sur la nouvelle VM, pointez son domaine vers elle et lancez `bash install.sh cloud` en
+   choisissant **Relay workers only**. Donnez-lui l'adresse du plan de contrôle, son
+   `NODE_SECRET`, un nom (`us1`) et une région (`us`).
+3. Dans `/admin` → **Nœuds**, le nœud apparaît en quelques secondes. Donnez cette région
+   aux organisateurs concernés, et leurs nouvelles compétitions y vont.
+
+**La supervision entre serveurs** passe par WireGuard, et seulement pour les métriques :
+l'agent d'un nœud envoie au serveur de supervision à `10.73.0.1` ; rien n'écoute sur un
+nœud. Sur le serveur de supervision, l'installateur propose d'en faire le pivot et
+affiche sa clé publique ; sur chaque nœud, il demande l'adresse et la clé du pivot et
+affiche la ligne à lancer sur le pivot :
+
+```bash
+sudo install/scripts/wireguard.sh add-peer us1 <clé publique du nœud> 10.73.0.12
+```
+
+La clé privée de chaque serveur y reste. La clé publique d'un nœud apparaît aussi dans
+**Nœuds**.
+
+**Déplacer le plan de contrôle** sur son propre serveur : sur l'ancien,
+`python3 cloud_backup.py dump` ; copiez le fichier ; installez le nouveau serveur avec la
+partie plan de contrôle (`Control plane only` ou `Control plane + monitoring`) ; là,
+`python3 cloud_backup.py restore <fichier>` ; puis pointez le domaine vers le nouveau
+serveur et réglez les `ROLES` de l'ancien sur ce qu'il garde (`workers`, avec
+`CONTROL_URL` réglé sur le domaine). Les Pi et les applications ne connaissent que le
+domaine : rien d'autre ne change.
 
 ### Déplacer ou renommer le dossier d'installation
 

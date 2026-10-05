@@ -1,8 +1,9 @@
-# One box, every role (docs/architecture/scaling.md, stage 2): the control plane
-# and its Postgres, one relay worker, and Caddy in front of both. The roles share
-# nothing but the machine — the worker reaches the control plane over HTTP only — so
-# moving the control plane to its own server later is a matter of moving these
-# containers and a DNS record.
+# The cloud's parts (docs/architecture/scaling.md): the control plane and its
+# Postgres and backup (profile `control`), the relay workers (profile `workers`),
+# and Caddy in front of whatever this server runs. `ROLES` in cloud/.env picks the
+# parts — all on one server at first, split later — and cloud_deploy.py turns it
+# into COMPOSE_PROFILES. The parts share nothing but the machine: a worker reaches
+# the control plane over HTTP only, so moving one is moving containers and DNS.
 services:
   # ── Control plane: picker, /admin, the store ────────────────────────────────
   control:
@@ -10,6 +11,7 @@ services:
     # and pulled by cloud_deploy.py; SPLOUCH_VERSION is the tag it deployed. A box
     # that cannot pull builds it instead, with docker-compose.build.yml.
     image: &image ${SPLOUCH_IMAGE:-ghcr.io/olivierouellet/splouch-cloud}:${SPLOUCH_VERSION:-master}
+    profiles: [control]
     command: ["uvicorn", "cloud_control:app", "--host", "0.0.0.0", "--port", "8000", "--no-access-log"]
     restart: unless-stopped
     depends_on:
@@ -67,6 +69,7 @@ services:
 
   postgres:
     image: postgres:17-alpine
+    profiles: [control]
     restart: unless-stopped
     environment:
       POSTGRES_USER:     splouch
@@ -83,11 +86,16 @@ services:
   # ── Relay worker: Pis, live boards, meet pages ──────────────────────────────
   app:
     image: *image
+    profiles: [workers]
     restart: unless-stopped
     depends_on:
-      - control
+      control:
+        condition: service_started
+        required: false     # absent on a workers-only node
     environment:
-      CONTROL_URL:            http://control:8000
+      # The control plane: next door on a full server, its public address on a
+      # workers-only node (https://splouch.org).
+      CONTROL_URL:            ${CONTROL_URL:-http://control:8000}
       # The version this node runs, reported with each heartbeat; and the node's
       # own deploy webhook, which worker 1 calls when a rollout reaches this node.
       SPLOUCH_VERSION:        ${SPLOUCH_VERSION:-master}
@@ -100,7 +108,7 @@ services:
       # The public address a Pi is sent to (`/api/assign`).
       NODE_URL:               https://${SPLOUCH_DOMAIN}
       # The meet list, for a meet page's back link (the control plane).
-      PICKER_URL:             https://${SPLOUCH_DOMAIN}/
+      PICKER_URL:             ${PICKER_URL:-https://${SPLOUCH_DOMAIN}/}
       WORKER:                 "1"
       DATA_DIR:               /data
       FORWARDED_ALLOW_IPS:    ${FORWARDED_ALLOW_IPS:-127.0.0.1,::1,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16}
@@ -108,6 +116,48 @@ services:
       - "host.docker.internal:host-gateway"
     volumes:
       - data:/data         # the node's attendance store (cloud_attendance)
+      # The node's WireGuard public key, which it reports to /admin (installer).
+      - /etc/splouch:/etc/splouch:ro
+
+  # Nightly pg_dump of the control plane's store, kept BACKUP_KEEP days in
+  # /var/backups/splouch on the host — copy that directory off the box. Pings
+  # BACKUP_PING_URL (an Uptime Kuma push monitor, or healthchecks.io) after each
+  # good dump, so a backup that stops running is noticed. Restore: cloud_restore.py.
+  backup:
+    image: postgres:17-alpine
+    profiles: [control]
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PGHOST:          postgres
+      PGUSER:          splouch
+      PGDATABASE:      splouch
+      PGPASSWORD:      ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in cloud/.env}
+      BACKUP_HOUR:     ${BACKUP_HOUR:-03}
+      BACKUP_KEEP:     ${BACKUP_KEEP:-14}
+      BACKUP_PING_URL: ${BACKUP_PING_URL:-}
+    volumes:
+      - /var/backups/splouch:/backups
+    command:
+      - sh
+      - -c
+      - |
+        # Once a day at BACKUP_HOUR (UTC): dump, keep BACKUP_KEEP days, ping.
+        while true; do
+          day=$$(date -u +%F)
+          if [ "$$(date -u +%H)" = "$$BACKUP_HOUR" ] && [ ! -e "/backups/.done-$$day" ]; then
+            if pg_dump -Fc -f "/backups/splouch-$$day.dump.part" \
+                && mv "/backups/splouch-$$day.dump.part" "/backups/splouch-$$day.dump"; then
+              touch "/backups/.done-$$day"
+              find /backups -name 'splouch-*.dump' -mtime +"$$BACKUP_KEEP" -delete
+              find /backups -name '.done-*' -mtime +2 -delete
+              [ -z "$$BACKUP_PING_URL" ] || wget -q -T 10 -O /dev/null "$$BACKUP_PING_URL"
+            fi
+          fi
+          sleep 300
+        done
 
   caddy:
     image: caddy:2-alpine

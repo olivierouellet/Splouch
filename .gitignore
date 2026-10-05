@@ -74,3 +74,4 @@ cloud/docker-compose.workers.yml
 cloud/caddy.d/*.caddy
 cloud/caddy.d/*.site
 cloud/monitoring/targets/*.json
+cloud/monitoring/agent/

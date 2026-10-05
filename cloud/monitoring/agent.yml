@@ -1,0 +1,54 @@
+# A remote node's metrics agent (docs/architecture/scaling.md, *Monitoring*): a
+# Prometheus in agent mode that scrapes this server's own parts — its relay
+# workers (it knows their exact number), the control plane if here, the host and
+# the containers — and sends them to the monitoring server over WireGuard
+# (WG_HUB in cloud/.env). Nothing here listens: the node only sends.
+#
+# cloud_deploy.py writes agent/prometheus.yml and starts this on a server that has
+# no `monitoring` part but has a hub to send to.
+name: splouch-agent
+
+services:
+  agent:
+    image: prom/prometheus:v3.5.0
+    restart: unless-stopped
+    command:
+      - --agent
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.agent.path=/prometheus
+    volumes:
+      - ./agent/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./targets:/etc/prometheus/targets:ro
+      - agent:/prometheus
+    networks: [cloud]
+
+  node-exporter:
+    image: prom/node-exporter:v1.9.1
+    restart: unless-stopped
+    command: [--path.rootfs=/host]
+    pid: host
+    volumes:
+      - /:/host:ro,rslave
+    networks: [cloud]
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.52.1
+    restart: unless-stopped
+    command: [--docker_only=true, --housekeeping_interval=15s]
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    devices:
+      - /dev/kmsg
+    networks: [cloud]
+
+networks:
+  cloud:
+    external: true
+    name: cloud_default
+
+volumes:
+  agent:
