@@ -159,7 +159,7 @@ Entry screen. Web: site root. App: launch screen, and `A-02`'s return target.
 | `P-03` | Offline meets stay listed, dimmed dot; opened → last scoreboard frame, empty Results (`R-02`) | `offline`: retained, no relay connected | all | must |
 | `P-04` | Empty state, no active meets | `strings.no_meets` | all | must |
 | `P-05` | Branding: title + logo above/below, sized by aspect ratio within list width under height cap. Picker chrome in **device's** language, not a meet's (list spans meets in many languages; per-meet from `T-06`) | `GET /picker/config?lang=` or `Accept-Language` → `title`, `has_logo`, `logo_above`; `GET /picker_logo` (PNG/JPEG/GIF/WebP/SVG — read `Content-Type`) | all | should |
-| [`P-06`](#p-06) | Unofficial-results disclaimer **above** meets, full until folded to pill that reopens it | `GET /picker/config` → `strings.results_disclaimer`, `results_disclaimer_short`, `notice_collapse` | all | **must** |
+| [`P-06`](#p-06) | Unofficial-results disclaimer **above** meets as one quiet line — hourglass + short text, always shown, no fold; tap → full server text, platform's way. Full text also in onboarding (`P-20`) and settings About (`P-19`) | `GET /picker/config` → `strings.results_disclaimer`, `results_disclaimer_short` | all | **must** |
 | [`P-07`](#p-07) | Whenever attendance counting is on for the server: **Privacy** section in settings (`P-19`) — counting toggle (`C-10`), server's privacy note under it, link to server's policy. **Not on picker** | `strings.privacy_note`, gated on `analytics_enabled`; policy at server's `GET /privacy`; toggle words native in apps (`T-05`), web reads `strings.privacy_count`, `privacy_policy` | all | must |
 | `P-08` | Select meet → app shell | `GET /meet/{id}/config` | all | must |
 | `P-09` | Pull-to-refresh re-fetches list | — | all | should |
@@ -172,29 +172,31 @@ Entry screen. Web: site root. App: launch screen, and `A-02`'s return target.
 | [`P-16`](#p-11) | QR scan adds server: app asks; yes → adds, selects, lands on **meet list**. No app → page offers store | `https://<default host>/add?server=<origin>`; host's two `/.well-known/` files, `GET /add` ([`api.md`](api.md) §4) | native | should |
 | [`P-17`](#p-17) | Search meet list from **3** meets, narrows as typed, own empty state; field where platform puts search | local over `GET /meets` → `name`, `meet_date`, `location`, `sport`, `organizer`, `province`, `country` (code and reader's-language name); `strings.meet_search`, `no_meets_match` | all | should |
 | `P-18` | More than **10** meets → compact rows: name, date, location, province/country, live dot; **no picker image**, none fetched. 10 or fewer → `P-01` cards | count of `GET /meets` → `meets` | all | should |
-| [`P-19`](#p-19) | **Settings** — one container in place of picker menu: Server (`P-11`–`P-13`, native), Display (language `T-08`, Appearance `P-15`), Privacy (`P-07`), About (`P-06` full text, policy link). Platform's own form: web side sheet (full height under 600px), iOS sheet with `Form`, Android full-screen settings destination | section names native in apps (`T-05`); web reads `strings.settings`, `settings_display`, `settings_privacy`, `settings_about` | all | should |
+| [`P-19`](#p-19) | **Settings** — one container in place of picker menu: Server (`P-11`–`P-13`, native), Display (language `T-08`, Appearance `P-15`), Privacy (`P-07`), About (`P-06` full text, policy link, `P-20` replay). Platform's own form: web side sheet (full height under 600px), iOS sheet with `Form`, Android full-screen settings destination | section names native in apps (`T-05`); web reads `strings.settings`, `settings_display`, `settings_privacy`, `settings_about` | all | should |
+| [`P-20`](#p-20) | **Introduction** on first launch, once per install, replayable from settings About: unofficial results (`P-06`), three tabs, following a swimmer or club, attendance counting with its toggle (`C-10`) | pages 1 and 4 server text (`results_disclaimer`, `privacy_note`), rest native words (`T-05`); page 4 only while `analytics_enabled` | native | should |
 
-### <a id="p-06"></a>P-06 — notice
+### <a id="p-06"></a>P-06 — one line, always there
 
 **`P-06` not decoration.** Only thing between live feed and spectator taking it as
-result → on meet list, never About screen; renders server text (rewording w/o store review).
+result → on meet list, never only in About or onboarding; renders server text
+(rewording w/o store review). Onboarding (`P-20`) is seen once, by the first server;
+QR arrivals (`P-16`), a second server and every web visitor never see it.
 
-**Both notices fold, never vanish.** Above meets, under title/logo (below, a season of
-meets hides them). Above `P-17` field or not: depends on platform search placement. X
-folds to pill; pill reopens. Open: own row; folded: pills share a row. Icons same on
-all clients: **hourglass** for `P-06` (SF `hourglass`, Material `hourglass_top`, Lucide
-`hourglass`), **two people** for `P-07` (`person.2`, `group`, `users`) — never shield or
-raised hand (read as privacy control; none exists).
+**Quiet, not foldable.** The folding banner stood in the way; a line nobody can close
+needs no X, pill, stored fold or focus hand-off. Above meets, under title/logo (below,
+a season of meets hides it); above `P-17` field or not, by platform search placement.
+Icon same on all clients: **hourglass** (SF `hourglass`, Material `hourglass_top`,
+Lucide `hourglass`).
+
+| | Line | Tap |
+| --- | --- | --- |
+| Web | caption under title, `results_disclaimer_short` · *Details* | `<details>`: full text inline |
+| iOS | list `Section` header, `Label` in `.footnote`, `.secondary` | sheet, `.presentationDetents([.medium])`; popover on iPad |
+| Android | list header item, `bodySmall`, `onSurfaceVariant` | `ModalBottomSheet` |
 
 **Only once server has sent text.** No `GET /picker/config` yet (first launch, offline)
-→ no notice, on every client: a notice is that server's words about that server's
-results, never a snapshot's copy. Pill label and X name may fall back to snapshot.
-
-**Not first-launch dialog, not consent.** Once-accepted dialog misses second server's
-text or counting enabled later; counting isn't spectator's to refuse (`C-10`).
-
-- **Fold remembered per server, against exact folded words** → reworded/retranslated
-  notice shows full once. Web `localStorage` already per origin; app keys on origin.
+→ no line, on every client: it is that server's words about that server's results,
+never a snapshot's copy.
 
 ### <a id="p-07"></a>P-07 — privacy note lives with its toggle
 
@@ -221,10 +223,32 @@ order, each platform's own form:
 | Server | `P-11`–`P-13`, `P-14` notice | — (no server choice) | `Section` with current server → server list | row → server screen |
 | Display | language (`T-08`), Appearance (`P-15`) | radio groups | `Picker` rows | radio rows |
 | Privacy | `P-07` | toggle + note + link | `Toggle`, footer note + `Link` | `Switch` row, supporting text, link |
-| About | `P-06` full text, policy link, app version | text | `Section` text | text |
+| About | `P-06` full text, policy link, *Show introduction* (`P-20`, native), app version | text | `Section` text | text |
 
 Opened from a **gear**, not ☰ or ⋮: web fixed button where ☰ was, iOS toolbar item,
 Android top app bar action. Closing returns to picker with list and query intact.
+
+### <a id="p-20"></a>P-20 — introduction
+
+Four short pages — icon, title, one or two sentences — paged, skippable from the
+first, ending on the picker. iOS: full-screen cover, `TabView` `.page` style; Android:
+full-screen `HorizontalPager` with dots. Not on web: a visitor arriving mid-meet from a
+QR code needs the board, not a carousel; `P-06`'s line does the job there.
+
+1. **Unofficial results** — server's `results_disclaimer`, in full.
+2. **Three tabs** — Scoreboard (heat in the water), Results (finished heats), Schedule
+   (start lists); swipe between them where `A-03` swipes.
+3. **Follow a swimmer or club** — Schedule's filter (`S-08`) and *All heats* (`S-16`).
+4. **Attendance counting** — server's `privacy_note` with `C-10`'s toggle on the page,
+   and where to find it again (settings, `P-19`). Only while `analytics_enabled`.
+
+- **Waits for the server.** Shown once `GET /picker/config` has answered, so pages 1
+  and 4 carry the server's words; no answer (offline first launch) → postponed to the
+  next launch that gets one, never shown without them.
+- **Once per install.** Seen = stored on finish or skip. A new server's disclaimer is
+  `P-06`'s line, not a second run. Replay: settings About → *Show introduction*.
+- **Not consent.** Skipping leaves counting as it was (`C-10` default); the toggle on
+  page 4 is the same setting as in `P-19`.
 
 ### <a id="p-11"></a>P-11, P-13, P-16 — server list is data
 
@@ -791,7 +815,7 @@ including its known shortfall.
 | `X-07` | Decorative glyphs duplicating adjacent text hidden; measure-only layout never in a11y tree | — | all | should |
 | `X-08` | Off-board text follows device text size; board sizes from height, no double scaling. Web: 200% zoom at 320px wide, nothing cut, no sideways scroll | native: text-size setting; web: browser zoom (WCAG 1.4.4, 1.4.10) | all | should |
 | `X-09` | Decorative motion (picker live dot) honours reduce-motion. `L-11` lock flash, `L-12` pulse = information, may keep running | — | all | should |
-| `X-10` | Control replacing itself (`P-06` X → pill, pill → open) moves focus to replacement | — | all | should |
+| `X-10` | Control replacing itself, or a sheet/dialog closing, moves focus to replacement or to the control that opened it (`P-06` tap, `P-19`) | — | all | should |
 
 ## 9. Out of scope
 
@@ -823,6 +847,18 @@ Not on any phone client, now or planned:
     `moved` is not gone), `C-10` (one `vid` per server the list came from, not per
     origin, so a meet on another host doesn't count a phone twice; ratifies iOS and
     Android).
+
+- **v3, amended** (2026-10-05, no bump) — picker notices out of the way, counting
+  refusable. A v3 client that still folds `P-06`/`P-07` keeps working: the server only
+  adds strings.
+
+  - **Added**: `P-19` (settings replace the picker menu), `P-20` (introduction, native),
+    strings `privacy_count`, `privacy_policy`, `settings`, `settings_display`,
+    `settings_privacy`, `settings_about`.
+  - **Changed**: `P-06` (one line, no fold; tap for full text), `P-07` (privacy note
+    moves to settings with the toggle), `C-10` (spectator may refuse; 13-month `vid`;
+    GPC on web), `P-11`/`P-15` (in settings), `X-10` (sheets return focus).
+  - **Retired**: `notice_collapse`, `privacy_note_short` (served until no client folds).
 
 - **v2, amended** (2026-10-01, no bump) — `P-12` cleartext floor widened to private and
   link-local addresses, and applied to every route in (typed, listed, scanned). iOS

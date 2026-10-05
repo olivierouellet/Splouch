@@ -538,9 +538,10 @@ app the slot renders nothing — an app cannot install itself.
 
 `strings` is served rather than shipped in the app because `results_disclaimer`
 and `privacy_note` are compliance text and must be correctable without an app
-release — and so are the `_short` pill labels they fold to (`app.md` `P-06`), and
-`notice_collapse`, the X's accessible name. Show `privacy_note` and its pill only
-when `analytics_enabled` is true. The same keys are in `GET /i18n/{lang}` → `mobile` (§5.9), which is where the rest of the
+release — and so is `results_disclaimer_short`, the picker's one line (`app.md`
+`P-06`). Show `privacy_note`, in settings beside the counting toggle (`P-07`), only
+when `analytics_enabled` is true. `notice_collapse` and `privacy_note_short` are
+still sent for v3 clients that fold the notices; nothing new reads them. The same keys are in `GET /i18n/{lang}` → `mobile` (§5.9), which is where the rest of the
 picker's chrome — the language and label-style controls — comes from.
 
 ### 5.8 `GET /meet/{meet_id}/schedule`
