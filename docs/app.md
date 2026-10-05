@@ -317,9 +317,10 @@ where mDNS works, by its DHCP address where it doesn't (guest network, multihome
 
 Scoped exception: iOS local networking (`NSLocalNetworkUsageDescription`, Bonjour
 service declared; ATS doesn't cover IP literals, so `ServerAddress.isLocalName` is the
-check), Android `network_security_config` for `.local` (still name-only as of
-2026-10-01: `ServerAddress` accepts `.local`, `localhost`, `127.0.0.1`, `10.0.2.2`, `::1`
-— private ranges pending). Never blanket.
+check), Android `network_security_config` (it matches host names, not address ranges, so
+the OS permits cleartext and the app enforces the floor: `ServerAddress.isLocalName` before
+any request, OkHttp's `LocalCleartextOnly` on every request and redirect hop). Never blanket
+in effect: no request leaves either app in cleartext to a public host.
 
 ### <a id="p-15"></a>P-15 — spectator's palette, not meet's
 
