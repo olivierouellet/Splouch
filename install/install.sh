@@ -92,7 +92,7 @@ if [[ -z "$ROLE" ]]; then
     select _choice in \
         "Server — the Raspberry Pi connected to the timing console; it runs the scoreboard" \
         "Kiosk  — a Raspberry Pi plugged into a TV; it shows the server's scoreboard" \
-        "Cloud  — an internet server (Debian/Ubuntu) so people can follow from their phones" \
+        "Cloud  — your own internet server (Debian/Ubuntu) so people can follow from their phones; only if you do not use splouch.org" \
         "Quit"; do
         case "$_choice" in
             Server*)
