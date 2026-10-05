@@ -1055,7 +1055,15 @@ if [[ "$ROLE" == "cloud" ]]; then
     # ── User bootstrap (runs once as root on a fresh server) ──────────────────
     if [[ "$(id -u)" == "0" ]]; then
         section "User setup"
-        CLOUD_USER="splouch"
+        # Asked rather than fixed: a well-known account name is the first one a
+        # scanner tries. Root SSH and password SSH are off below either way.
+        while true; do
+            read -rp "Name of the account to create (or reuse) for running Splouch: " CLOUD_USER
+            if [[ "$CLOUD_USER" =~ ^[a-z_][a-z0-9_-]{0,31}$ && "$CLOUD_USER" != "root" ]]; then
+                break
+            fi
+            warn "Use lowercase letters, digits, '-' or '_' (not 'root'), starting with a letter."
+        done
 
         if ! id "$CLOUD_USER" &>/dev/null; then
             useradd -m -s /bin/bash "$CLOUD_USER"
@@ -1066,7 +1074,7 @@ if [[ "$ROLE" == "cloud" ]]; then
 
         usermod -aG sudo "$CLOUD_USER"
 
-        # Set a password so splouch can use sudo normally after the install
+        # Set a password so the account can use sudo normally after the install
         echo
         while true; do
             read -rsp "Set a password for '$CLOUD_USER': " _pw1
@@ -1093,10 +1101,10 @@ if [[ "$ROLE" == "cloud" ]]; then
         # Copy root's SSH authorized_keys so the server stays reachable
         if [[ -f /root/.ssh/authorized_keys ]]; then
             install -d -m 700 -o "$CLOUD_USER" -g "$CLOUD_USER" \
-                "/home/$CLOUD_USER/.ssh"
+                "$(getent passwd "$CLOUD_USER" | cut -d: -f6)/.ssh"
             install -m 600 -o "$CLOUD_USER" -g "$CLOUD_USER" \
                 /root/.ssh/authorized_keys \
-                "/home/$CLOUD_USER/.ssh/authorized_keys"
+                "$(getent passwd "$CLOUD_USER" | cut -d: -f6)/.ssh/authorized_keys"
             info "SSH authorized_keys copied from root → '$CLOUD_USER' can log in via SSH."
         else
             warn "No /root/.ssh/authorized_keys — configure SSH access for '$CLOUD_USER' manually."
@@ -1110,9 +1118,9 @@ if [[ "$ROLE" == "cloud" ]]; then
         systemctl restart ssh
         info "Root SSH login disabled, password auth disabled — key-only SSH from now on."
 
-        # Copy this script to splouch's home and re-exec as that user
+        # Copy this script to the account's home and re-exec as that user
         _script_src="$(realpath "${BASH_SOURCE[0]}")"
-        _script_dst="/home/$CLOUD_USER/install.sh"
+        _script_dst="$(getent passwd "$CLOUD_USER" | cut -d: -f6)/install.sh"
         install -m 755 -o "$CLOUD_USER" -g "$CLOUD_USER" \
             "$_script_src" "$_script_dst"
         info "Re-running install as '$CLOUD_USER'…"
@@ -1171,7 +1179,9 @@ EOF
     else
         info "Cloning $REPO_URL → $INSTALL_DIR"
         git clone "$REPO_URL" "$INSTALL_DIR"
+        git -C "$INSTALL_DIR" fetch --tags
     fi
+    checkout_version "$INSTALL_DIR"
 
     CLOUD_DIR="$INSTALL_DIR/cloud"
 
@@ -1254,11 +1264,13 @@ PYEOF
         PS3="Choice: "
         select _parts in \
             "Everything (control plane + relay workers)" \
+            "Everything + monitoring (a single server with its own Grafana)" \
             "Relay workers only (a regional node)" \
             "Control plane only" \
             "Control plane + monitoring" \
             "Monitoring only"; do
             case "$_parts" in
+                "Everything + monitoring"*) _roles="control,workers,monitoring" ;;
                 Everything*) _roles="control,workers" ;;
                 "Relay workers"*) _roles="workers" ;;
                 "Control plane only") _roles="control" ;;
@@ -1300,12 +1312,16 @@ PYEOF
     if [[ "${SPLOUCH_NONINTERACTIVE:-}" != "1" ]]; then
         # WireGuard carries monitoring between servers and nothing else.
         if [[ ",$_roles," == *",monitoring,"* ]] && ! grep -q '^WG_ADDRESS=.' "$CLOUD_DIR/.env"; then
+            echo "Monitoring runs on this server. WireGuard is only for collecting metrics"
+            echo "from OTHER servers (regional nodes); a single server does not need it."
             if confirm "Will other servers send their metrics here over WireGuard?"; then
                 sudo bash "$INSTALL_DIR/install/scripts/wireguard.sh" hub
                 _set_env WG_ADDRESS 10.73.0.1
             fi
         elif [[ ",$_roles," != *",monitoring,"* ]] && ! grep -q '^WG_HUB=.' "$CLOUD_DIR/.env"; then
-            if confirm "Send this server's metrics to a monitoring server over WireGuard?"; then
+            echo "This server runs no monitoring (ROLES=${_roles}). Monitoring on this same server"
+            echo "needs no WireGuard: answer No, add ',monitoring' to ROLES in cloud/.env, run Update."
+            if confirm "Is there a SEPARATE monitoring server this one should send its metrics to?"; then
                 read -rp "This server's WireGuard address (10.73.0.2 – 10.73.0.254): " _wg_address
                 read -rp "Monitoring server's host name or address: " _wg_host
                 read -rp "Monitoring server's WireGuard public key: " _wg_key
@@ -1430,7 +1446,7 @@ PYEOF
         info "Temporary NOPASSWD sudo rule removed."
     else
         warn "Could not remove the temporary NOPASSWD sudo rule. Remove it by hand,"
-        warn "after checking that '${CLOUD_USER:-splouch}' can still sudo with its password:"
+        warn "after checking that '$USER' can still sudo with its password:"
         warn "  sudo rm -f $TEMP_SUDOERS_FILE /etc/sudoers.d/splouch"
     fi
 

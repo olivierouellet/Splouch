@@ -285,7 +285,8 @@ to balance a busy worker or to empty one before a restart; avoid it mid-heat.
 
 ## Monitoring
 
-Off until you turn it on. In `cloud/.env`:
+Off until you turn it on: pick **Everything + monitoring** in the installer, or in
+`cloud/.env`:
 
 ```ini
 MONITORING=1
@@ -743,7 +744,8 @@ avant un redémarrage ; à éviter pendant une série.
 
 ### Supervision
 
-Désactivée tant que vous ne l'activez pas. Dans `cloud/.env` :
+Désactivée tant que vous ne l'activez pas : choisissez **Everything + monitoring**
+dans l'installateur, ou dans `cloud/.env` :
 
 ```ini
 MONITORING=1
