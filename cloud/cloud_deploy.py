@@ -159,6 +159,19 @@ def deploy(version, build=False, runner=subprocess.run):
         argv, env = argv_env
         return runner(argv, env=env, cwd=HERE, check=False).returncode
 
+    def has_containers(cmd):
+        """Whether a compose project has containers to stop. A failed check says
+        yes, so `down` still runs and reports what is wrong."""
+        r = runner(
+            [*cmd, "ps", "-a", "-q"],
+            env=dict(os.environ),
+            cwd=HERE,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        return r.returncode != 0 or bool((r.stdout or "").strip())
+
     count = cloud_workers.worker_count(cloud_workers.read_env())
     cloud_workers.write(count)
     set_env("SPLOUCH_VERSION", version)
@@ -204,6 +217,8 @@ def deploy(version, build=False, runner=subprocess.run):
             os.makedirs(os.path.dirname(AGENT_CONFIG), exist_ok=True)
             _write_or_remove(AGENT_CONFIG, agent_config(env))
         cmd = ["docker", "compose", "--env-file", ".env", "-f", compose]
+        if not on and not has_containers(cmd):
+            continue  # never started here: nothing to stop, and no warning about it
         cmd += ["up", "-d", "--remove-orphans"] if on else ["down", "--remove-orphans"]
         code = sh((cmd, dict(os.environ)))
         if code:

@@ -1278,9 +1278,21 @@ PYEOF
     section "Parts"
     # What this server runs (docs/architecture/scaling.md): everything at first,
     # one part per server later. Asked once; ROLES in .env is the answer after that.
-    # A fresh .env counts as unanswered: it carries .env.example's ROLES line.
-    if { ((_env_created)) || ! grep -q '^ROLES=.' "$CLOUD_DIR/.env"; } \
-        && [[ "${SPLOUCH_NONINTERACTIVE:-}" != "1" ]]; then
+    # A fresh .env counts as unanswered: it carries .env.example's ROLES line. On a
+    # re-run, the current answer is shown, with the settings that go with it, and
+    # kept unless the operator asks to change it.
+    _ask_parts=0
+    if ((_env_created)) || ! grep -q '^ROLES=.' "$CLOUD_DIR/.env"; then
+        _ask_parts=1
+    elif [[ "${SPLOUCH_NONINTERACTIVE:-}" != "1" ]]; then
+        echo "Current settings in $CLOUD_DIR/.env:"
+        for _k in ROLES MONITORING CONTROL_URL NODE_NAME NODE_REGION REMOTE_NODES WG_ADDRESS WG_HUB SPLOUCH_DOMAIN; do
+            _v=$(sed -n "s/^${_k}=//p" "$CLOUD_DIR/.env" | tail -1)
+            [[ -n "$_v" ]] && printf '  %-14s %s\n' "$_k" "$_v"
+        done
+        confirm "Change the parts this server runs?" && _ask_parts=1
+    fi
+    if ((_ask_parts)) && [[ "${SPLOUCH_NONINTERACTIVE:-}" != "1" ]]; then
         echo "Which parts does this server run?"
         PS3="Type a number and press Enter: "
         select _parts in \

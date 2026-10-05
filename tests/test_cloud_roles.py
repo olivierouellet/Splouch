@@ -88,7 +88,10 @@ def deploy(env_text, box):
     box.write_text(env_text)
     calls = []
 
-    def run(argv, env, cwd, check):
+    def run(argv, env, cwd, check, **kw):
+        if argv[-3:] == ["ps", "-a", "-q"]:
+            # Every stack has containers, so the ones that are off get stopped.
+            return types.SimpleNamespace(returncode=0, stdout="abc\n")
         calls.append((argv, env.get("COMPOSE_PROFILES")))
         return types.SimpleNamespace(returncode=0)
 
@@ -109,9 +112,9 @@ def test_a_control_plane_only_server_builds_from_control_and_has_no_worker_route
     box.write_text("ROLES=control\n")
     calls = []
 
-    def run(argv, env, cwd, check):
+    def run(argv, env, cwd, check, **kw):
         calls.append(argv)
-        return types.SimpleNamespace(returncode=1 if "pull" in argv else 0)
+        return types.SimpleNamespace(returncode=1 if "pull" in argv else 0, stdout="")
 
     cloud_deploy.deploy("v2026.10.9", runner=run)
     assert any(c[2:4] == ["build", "control"] for c in calls)

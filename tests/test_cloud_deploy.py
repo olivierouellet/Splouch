@@ -35,10 +35,15 @@ def main(calls):
     return [c for c in calls if c[0][0] != "--env-file"]
 
 
-def runner(fail=()):
+def runner(fail=(), running=()):
+    """`running`: the compose files whose project has containers (`ps -a -q`)."""
     calls = []
 
-    def run(argv, env, cwd, check):
+    def run(argv, env, cwd, check, **kw):
+        if argv[-3:] == ["ps", "-a", "-q"]:
+            return types.SimpleNamespace(
+                returncode=0, stdout="abc\n" if argv[5] in running else ""
+            )
         calls.append((argv[2:], env.get("COMPOSE_FILE", "")))
         return types.SimpleNamespace(returncode=1 if argv[2] in fail else 0)
 
@@ -171,10 +176,18 @@ def test_monitoring_on_starts_its_stack_and_routes_grafana(box, routes):
 
 def test_monitoring_off_stops_it_and_removes_its_routes(box, routes):
     (routes / "monitoring.caddy").write_text("old")
-    run, calls = runner()
+    run, calls = runner(running={cloud_deploy.MONITORING_COMPOSE})
     cloud_deploy.deploy("master", runner=run)
-    assert any(c[0][-2:] == ["down", "--remove-orphans"] for c in calls)
+    downs = [c for c in calls if c[0][-2:] == ["down", "--remove-orphans"]]
+    assert [c[0][3] for c in downs] == [cloud_deploy.MONITORING_COMPOSE]
     assert not (routes / "monitoring.caddy").exists()
+
+
+def test_a_stack_that_never_ran_is_not_stopped(box, routes):
+    """`down` on a project with no containers warns "No resource found to remove"."""
+    run, calls = runner()
+    assert cloud_deploy.deploy("master", runner=run) == 0
+    assert not any(c[0][-2:] == ["down", "--remove-orphans"] for c in calls)
 
 
 def test_no_status_domain_no_public_kuma():
