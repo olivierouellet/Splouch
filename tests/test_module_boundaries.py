@@ -174,7 +174,14 @@ CLOUD = os.path.join(REPO, "cloud")
 APPS = ("cloud_control", "cloud_server")
 CONTROL_SIDE = ("cloud_db", "cloud_auth", "cloud_analytics", "cloud_registry")
 WORKER_SIDE = ("cloud_node", "cloud_store", "cloud_bus")
-SHARED = ("cloud_paths", "cloud_web", "cloud_i18n", "cloud_ticket", "cloud_attendance")
+SHARED = (
+    "cloud_paths",
+    "cloud_web",
+    "cloud_i18n",
+    "cloud_ticket",
+    "cloud_attendance",
+    "cloud_meetstore",
+)
 CLOUD_MODULES = (*CONTROL_SIDE, *WORKER_SIDE, *SHARED)
 
 

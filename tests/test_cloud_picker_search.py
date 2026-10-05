@@ -173,7 +173,8 @@ def test_live_meets_come_before_retained_ones():
     import cloud_registry
 
     key = cloud_auth.add_organizer("Club")
-    cloud_registry.restore({"old-c": {"name": "C"}, "old-a": {"name": "A"}})
+    cloud_registry.heartbeat("ca1", 1, [], host="https://ca1.example")
+    cloud_registry.restore({"old-c": {"name": "C"}, "old-a": {"name": "A"}}, node="ca1")
     live = [
         cloud_registry.register(key, uid, {"name": name}, "ca1", 1)["meet_id"]
         for uid, name in (("d", "D"), ("b", "B"))

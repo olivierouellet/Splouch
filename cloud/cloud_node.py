@@ -7,10 +7,11 @@ everything it must remember goes through here to the control plane's internal AP
 * **register** — a Pi's key is checked there and the meet's metadata stored; the
   answer is the meet id. While the control plane is down, the ticket the Pi got
   from `/api/assign` is what lets it in (`cloud_server`, `cloud_ticket`).
-* **schedule / retire** — best effort: a failure is logged and the next register
-  or schedule from the Pi carries the same data again.
-* **meet records** — a retained meet's pages are served from its record, fetched
-  on demand and cached briefly.
+* **retire** — best effort: a failure is logged; the heartbeat corrects it.
+* **meet cards** — for a meet this node does not have, where it lives, so the
+  visitor can be sent there; fetched on demand and cached briefly. A meet's
+  content (start list, settings, icon) never comes from here: it is in the node's
+  store (`cloud_meetstore`).
 * **heartbeat** — every few seconds, the meets this worker holds. The control plane
   retires the ones it no longer names, and answers with the settings a worker needs
   (whether attendance counting is on).
@@ -35,6 +36,7 @@ import urllib.request
 from starlette.concurrency import run_in_threadpool
 
 import cloud_attendance
+import cloud_meetstore
 from cloud_metrics import CONTROL_ERRORS
 
 HEARTBEAT_SECS = 10
@@ -123,15 +125,6 @@ def _best_effort(what, method, path, body):
         print(f"[node] {what} not reported: {e}", flush=True)
 
 
-def schedule(meet_id, schedule_data):
-    _best_effort(
-        "schedule",
-        "POST",
-        f"/internal/meets/{meet_id}/schedule",
-        {"schedule_data": schedule_data or None},
-    )
-
-
 def retire(meet_id):
     _best_effort(
         "disconnect",
@@ -145,12 +138,6 @@ def retire(meet_id):
 
 _records = {}  # meet_id -> (record or None, fetched_at monotonic)
 _records_lock = threading.Lock()
-
-
-def remember(meet_id, record):
-    """Seed the cache with a record this worker already has (a meet it just retired)."""
-    with _records_lock:
-        _records[meet_id] = (record, time.monotonic())
 
 
 def fetch_meet(meet_id):
@@ -295,6 +282,9 @@ def heartbeat(live_ids, attendees=None, frames=None):
     _settings["analytics_enabled"] = bool(result.get("analytics_enabled"))
     if result.get("update_to"):
         update_node(result["update_to"])
+    if "known" in result:
+        # Worker 1: keep only the meets the control plane still places here.
+        cloud_meetstore.keep_only(result["known"])
     return {"retired": result.get("retired") or [], "moves": result.get("moves") or []}
 
 
@@ -309,6 +299,9 @@ async def heartbeat_loop(snapshot, on_moves=None):
                 await on_moves(result["moves"])
         except (ControlError, Refused) as e:
             print(f"[node] heartbeat failed: {e}", flush=True)
+            # The control plane cannot say what to keep: expire by the store's own
+            # dates meanwhile.
+            await run_in_threadpool(cloud_meetstore.prune_expired)
         await asyncio.sleep(HEARTBEAT_SECS)
 
 

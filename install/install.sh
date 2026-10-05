@@ -1246,6 +1246,75 @@ PYEOF
         fi
     done
 
+    section "Parts"
+    # What this server runs (docs/architecture/scaling.md): everything at first,
+    # one part per server later. Asked once; ROLES in .env is the answer after that.
+    if ! grep -q '^ROLES=.' "$CLOUD_DIR/.env" && [[ "${SPLOUCH_NONINTERACTIVE:-}" != "1" ]]; then
+        echo "Which parts does this server run?"
+        PS3="Choice: "
+        select _parts in \
+            "Everything (control plane + relay workers)" \
+            "Relay workers only (a regional node)" \
+            "Control plane only" \
+            "Control plane + monitoring" \
+            "Monitoring only"; do
+            case "$_parts" in
+                Everything*) _roles="control,workers" ;;
+                "Relay workers"*) _roles="workers" ;;
+                "Control plane only") _roles="control" ;;
+                "Control plane + monitoring") _roles="control,monitoring" ;;
+                Monitoring*) _roles="monitoring" ;;
+                *) continue ;;
+            esac
+            break
+        done
+        _set_env ROLES "$_roles"
+        info "ROLES=${_roles}"
+    fi
+    _roles=$(sed -n 's/^ROLES=//p' "$CLOUD_DIR/.env" | tail -1)
+    _roles="${_roles:-control,workers}"
+
+    if [[ ",$_roles," != *",control,"* && ",$_roles," == *",workers,"* ]] \
+        && ! grep -q '^CONTROL_URL=.' "$CLOUD_DIR/.env"; then
+        # A regional node: it reaches the control plane over HTTPS, with the shared
+        # secret from the control plane's own .env.
+        read -rp "Control plane address (e.g. https://splouch.org): " _control_url
+        read -rsp "NODE_SECRET from the control plane's cloud/.env: " _node_secret
+        echo
+        read -rp "This node's name (e.g. us1): " _node_name
+        read -rp "This node's region (ca, us or eu): " _node_region
+        _set_env CONTROL_URL "${_control_url%/}"
+        _set_env PICKER_URL "${_control_url%/}/"
+        _set_env NODE_SECRET "$_node_secret"
+        _set_env NODE_NAME "$_node_name"
+        _set_env NODE_REGION "$_node_region"
+        unset _node_secret
+        info "Node ${_node_name} (${_node_region}) will report to ${_control_url}."
+    fi
+
+    if [[ ",$_roles," == *",control,"* && ",$_roles," != *",workers,"* ]]; then
+        # A control plane with no workers of its own serves only remote ones.
+        _set_env REMOTE_NODES 1
+    fi
+
+    if [[ "${SPLOUCH_NONINTERACTIVE:-}" != "1" ]]; then
+        # WireGuard carries monitoring between servers and nothing else.
+        if [[ ",$_roles," == *",monitoring,"* ]] && ! grep -q '^WG_ADDRESS=.' "$CLOUD_DIR/.env"; then
+            if confirm "Will other servers send their metrics here over WireGuard?"; then
+                sudo bash "$INSTALL_DIR/install/scripts/wireguard.sh" hub
+                _set_env WG_ADDRESS 10.73.0.1
+            fi
+        elif [[ ",$_roles," != *",monitoring,"* ]] && ! grep -q '^WG_HUB=.' "$CLOUD_DIR/.env"; then
+            if confirm "Send this server's metrics to a monitoring server over WireGuard?"; then
+                read -rp "This server's WireGuard address (10.73.0.2 – 10.73.0.254): " _wg_address
+                read -rp "Monitoring server's host name or address: " _wg_host
+                read -rp "Monitoring server's WireGuard public key: " _wg_key
+                sudo bash "$INSTALL_DIR/install/scripts/wireguard.sh" node "$_wg_address" "$_wg_host" "$_wg_key"
+                _set_env WG_HUB 10.73.0.1
+            fi
+        fi
+    fi
+
     section "Domain"
     # The domain lives in .env, never in the Caddyfile. That file is tracked, so an
     # update that resets the working tree would revert a literal domain written there

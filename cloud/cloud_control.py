@@ -323,7 +323,8 @@ def _public_meet_list(here=""):
             "base": cloud_registry.meet_base(m, here),
             "url": cloud_registry.page_url(m),
         }
-        for m in cloud_registry.list_meets()
+        # A finished meet whose node is not reporting is left out until it is.
+        for m in cloud_registry.list_meets(reachable_only=True)
     ]
 
 
@@ -761,7 +762,7 @@ def route_add(request: Request):
 
 # The date at the top of `/privacy`. Bumped by hand with any change to `[privacy]`
 # in the locale files, which is what the page promises under "Changes".
-PRIVACY_UPDATED = "2026-10-04"
+PRIVACY_UPDATED = "2026-10-05"
 
 
 def _privacy_contact():
@@ -1294,6 +1295,34 @@ def _admin_nodes():
     return out
 
 
+# What the nightly backup service records after each run (docker-compose.yml,
+# `backup`), on the host's /var/backups/splouch, mounted here read-only.
+BACKUP_STATUS = os.path.join(os.environ.get("BACKUP_DIR", "/backups"), "status.json")
+
+
+def _backup_status():
+    """The last nightly dump: `{"at", "ok", "file", "bytes", "error", "stale"}`, or
+    None before the first. `stale` when it is more than a day and a half old — a
+    backup that stopped running, which the panel shows in red like a failure."""
+    try:
+        with open(BACKUP_STATUS, encoding="utf-8") as f:
+            st = json.load(f)
+        at = datetime.datetime.fromisoformat(st["at"])
+    except (OSError, ValueError, KeyError, TypeError):
+        return None
+    if at.tzinfo is None:
+        at = at.replace(tzinfo=datetime.UTC)
+    age = datetime.datetime.now(datetime.UTC) - at
+    return {
+        "at": at.isoformat(),
+        "ok": bool(st.get("ok")),
+        "file": str(st.get("file", "")),
+        "bytes": int(st.get("bytes") or 0),
+        "error": str(st.get("error", "")),
+        "stale": age > datetime.timedelta(hours=36),
+    }
+
+
 def _admin_page(request, t=None, creds_error=None):
     """The whole panel. Blocking (database) — run off the loop."""
     creds = _load_creds()
@@ -1306,6 +1335,7 @@ def _admin_page(request, t=None, creds_error=None):
         active_meets=_admin_meet_list(),
         nodes=_admin_nodes(),
         rollout=cloud_registry.rollout(),
+        backup=_backup_status(),
         t=t or _load_cloud_strings(request),
         ui_lang=_admin_lang(request),
         creds_error=creds_error,
@@ -1587,10 +1617,6 @@ class RegisterIn(BaseModel):
     location: dict | None = None
 
 
-class ScheduleIn(BaseModel):
-    schedule_data: dict | None = None
-
-
 class HolderIn(BaseModel):
     node: str
     worker: int = 1
@@ -1626,12 +1652,6 @@ def internal_register(body: RegisterIn):
     return result
 
 
-@internal.post("/meets/{meet_id}/schedule")
-def internal_schedule(meet_id: str, body: ScheduleIn):
-    cloud_registry.set_schedule(meet_id, body.schedule_data)
-    return {"ok": True}
-
-
 @internal.post("/meets/{meet_id}/retire")
 def internal_retire(meet_id: str, body: HolderIn):
     cloud_registry.retire(meet_id, body.node, body.worker)
@@ -1664,6 +1684,10 @@ def internal_heartbeat(body: HeartbeatIn):
     )
     if body.attendance:
         cloud_analytics.store(body.node, body.attendance)
+    if body.worker == 1:
+        # The meets this node should keep in its store; it drops the others —
+        # expired, deleted, moved away (cloud_meetstore.keep_only).
+        result["known"] = cloud_registry.node_meet_ids(body.node)
     return {"analytics_enabled": _analytics_enabled(), **result}
 
 

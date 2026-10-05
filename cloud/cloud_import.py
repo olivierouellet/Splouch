@@ -34,6 +34,7 @@ import sys
 import cloud_attendance
 import cloud_auth
 import cloud_db
+import cloud_meetstore
 import cloud_registry
 
 
@@ -115,7 +116,24 @@ def import_dir(data_dir):
         cloud_auth.save_creds(creds)
         counts["login and settings"] = 1
 
-    counts["retained meets"] = len(cloud_registry.restore(retained_meets(data_dir)))
+    # The cards to the registry, placed on this box's node; each meet's content — its
+    # start list, settings, icon — to the node's own store, on the same data volume.
+    meets = retained_meets(data_dir)
+    node = os.environ.get("NODE_NAME", "") or "ca1"
+    counts["retained meets"] = len(cloud_registry.restore(meets, node=node))
+    for meet_id, rec in meets.items():
+        record = {
+            k: rec.get(k)
+            for k in (
+                "organizer", "name", "location", "sport", "app_window_title",
+                "meet_date", "settings", "schedule_data",
+            )
+        }  # fmt: skip
+        expires = (
+            rec.get("expires_at")
+            or cloud_meetstore.compute_expiry(rec.get("meet_date", "")).isoformat()
+        )
+        cloud_meetstore.save(meet_id, record, expires=expires)
     return counts
 
 

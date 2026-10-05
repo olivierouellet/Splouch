@@ -4,6 +4,9 @@
 # so every worker (app2… extend app) runs it.
 services:
   control:
-    build:
+    build: &build
       context: ..          # repo root — gives Dockerfile access to shared/
       dockerfile: cloud/Dockerfile
+  # On a workers-only node there is no control service to build from.
+  app:
+    build: *build

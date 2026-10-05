@@ -77,10 +77,14 @@ def test_everything_comes_across(legacy):
     creds = cloud_auth.load_creds()
     assert creds["user"] == "pool" and creds["picker_title"] == "Splouch QC"
     rec = cloud_registry.get("m1")
-    assert rec["name"] == "Coupe" and not rec["live"]
-    assert rec["schedule_data"] == {"events": [[1, [1]]]}
-    assert rec["settings"]["home_icon_b64"] == "SUNPTg=="
+    assert rec["name"] == "Coupe" and not rec["live"] and rec["node"] == "ca1"
     assert rec["relay_key"] == "k1"
+    assert "schedule_data" not in rec, "the card only"
+    import cloud_meetstore
+
+    stored = cloud_meetstore.get("m1")
+    assert stored["schedule_data"] == {"events": [[1, [1]]]}
+    assert stored["settings"]["home_icon_b64"] == "SUNPTg=="
     assert cloud_registry.register("k1", "", {}, "ca1", 1)["meet_id"] == "legacy01"
 
 
