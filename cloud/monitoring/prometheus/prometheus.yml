@@ -1,0 +1,24 @@
+# What Prometheus scrapes on this box. Counts only reach it (cloud_metrics.py).
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: control
+    static_configs:
+      - targets: ["control:8000"]
+        labels: {role: control}
+
+  # One target per relay worker, rewritten by cloud_workers.py on every deploy.
+  - job_name: workers
+    file_sd_configs:
+      - files: ["/etc/prometheus/targets/workers.json"]
+        refresh_interval: 30s
+
+  - job_name: node
+    static_configs:
+      - targets: ["node-exporter:9100"]
+
+  - job_name: containers
+    static_configs:
+      - targets: ["cadvisor:8080"]

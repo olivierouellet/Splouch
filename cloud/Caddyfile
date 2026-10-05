@@ -29,6 +29,10 @@
 # the compose network, so the public route refuses it outright; the NODE_SECRET
 # every call carries is the gate once a worker on another server has to come in
 # over HTTPS.
+# Whole sites cloud_deploy.py adds, such as the monitoring status page on its own
+# domain (caddy.d/*.site; none until monitoring is on and given a domain).
+import caddy.d/*.site
+
 {$SPLOUCH_DOMAIN} {
     # `/wN/*` → relay worker N, prefix stripped (cloud_workers.py writes one route
     # per worker on every deploy). A meet's live pages and sockets carry the prefix

@@ -1,0 +1,11 @@
+# Dashboards come from git (cloud/monitoring/grafana/dashboards): edit one in the
+# UI, export its JSON, commit it. A provisioned dashboard is read-only in Grafana.
+apiVersion: 1
+providers:
+  - name: splouch
+    folder: Splouch
+    type: file
+    disableDeletion: true
+    allowUiUpdates: false
+    options:
+      path: /var/lib/grafana/dashboards

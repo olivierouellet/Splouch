@@ -38,6 +38,7 @@ import cloud_attendance
 import cloud_auth
 import cloud_db
 import cloud_i18n
+import cloud_metrics
 import cloud_registry
 import cloud_ticket
 import splouch_links
@@ -175,13 +176,18 @@ async def _maintenance_loop():
 async def lifespan(app):
     os.makedirs(DATA_DIR, exist_ok=True)
     await run_in_threadpool(cloud_db.migrate)
-    task = asyncio.create_task(_maintenance_loop())
+    tasks = [
+        asyncio.create_task(_maintenance_loop()),
+        asyncio.create_task(cloud_metrics.lag_loop(cloud_metrics.CONTROL_LOOP_LAG)),
+    ]
     try:
         yield
     finally:
-        task.cancel()
-        with suppress(asyncio.CancelledError):
-            await task
+        for task in tasks:
+            task.cancel()
+        for task in tasks:
+            with suppress(asyncio.CancelledError):
+                await task
         cloud_db.close()
 
 
@@ -1437,6 +1443,61 @@ async def route_admin(request: Request):
         response = await run_in_threadpool(_admin_action, form, request)
         return response or RedirectResponse("/admin", status_code=303)
     return await run_in_threadpool(_admin_page, request)
+
+
+# ── Metrics ────────────────────────────────────────────────────────────────────
+
+
+def _gauges():
+    """The registry in numbers, for `/metrics`: nodes up and down, meets live,
+    in progress and retained. Never an id. Read at scrape time."""
+    now = datetime.datetime.now(datetime.UTC)
+    nodes = cloud_registry.nodes()
+    up = sum(
+        1
+        for n in nodes
+        if n["last_seen"]
+        and (now - n["last_seen"]).total_seconds() < cloud_registry.SILENT_AFTER_SECS
+    )
+    meets = cloud_registry.list_meets()
+    live = [m for m in meets if m["live"]]
+    return {
+        ("splouch_nodes", "up"): up,
+        ("splouch_nodes", "down"): len(nodes) - up,
+        ("splouch_meets", "live"): len(live),
+        ("splouch_meets", "in_progress"): sum(
+            1 for m in live if cloud_registry.running(m, now)
+        ),
+        ("splouch_meets", "retained"): len(meets) - len(live),
+    }
+
+
+cloud_metrics.CONTROL.register(
+    cloud_metrics.Snapshot(
+        _gauges,
+        {
+            "splouch_nodes": "Nodes by whether they reported in the last 90 seconds.",
+            "splouch_meets": "Meets in the registry, by state.",
+        },
+        label="state",
+    )
+)
+cloud_metrics.version_info(
+    cloud_metrics.CONTROL, "control", os.environ.get("SPLOUCH_VERSION", "")
+)
+
+
+@app.get("/metrics", include_in_schema=False)
+def route_metrics(request: Request):
+    """Prometheus' view of the control plane; 404 outside the private network."""
+    if not cloud_metrics.private_client(request):
+        raise HTTPException(status_code=404)
+    try:
+        data, kind = cloud_metrics.body(cloud_metrics.CONTROL)
+    except Exception:
+        traceback.print_exc()
+        raise HTTPException(status_code=503) from None
+    return Response(data, media_type=kind)
 
 
 # ── Assignment (Pi → control plane) ───────────────────────────────────────────

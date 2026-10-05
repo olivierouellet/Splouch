@@ -72,3 +72,5 @@ node_modules/
 # Generated per node by cloud/cloud_workers.py
 cloud/docker-compose.workers.yml
 cloud/caddy.d/*.caddy
+cloud/caddy.d/*.site
+cloud/monitoring/targets/*.json

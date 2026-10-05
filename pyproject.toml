@@ -41,6 +41,8 @@ dev = [
     # from TEST_DATABASE_URL, and skip without one.
     "psycopg[binary]",
     "psycopg-pool",
+    # The cloud's /metrics (cloud/cloud_metrics.py).
+    "prometheus-client",
     "pytest",
     "pytest-cov",
     "ruff",

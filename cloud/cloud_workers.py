@@ -8,6 +8,7 @@ two files that run it, both untracked and regenerated on every deploy:
   from ``docker-compose.yml`` with its own ``WORKER`` number. ``app`` is worker 1.
 * ``caddy.d/workers.caddy`` — one ``/wN/*`` route per worker, imported by the
   Caddyfile. Caddy strips the prefix, so a worker serves the same paths as ever.
+* ``monitoring/targets/workers.json`` — the same workers, as Prometheus targets.
 
 It also makes sure ``.env`` names both compose files in ``COMPOSE_FILE``, so every
 ``docker compose`` command run in this directory sees the whole set.
@@ -27,6 +28,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ENV_FILE = os.path.join(HERE, ".env")
 COMPOSE_OUT = os.path.join(HERE, "docker-compose.workers.yml")
 CADDY_OUT = os.path.join(HERE, "caddy.d", "workers.caddy")
+TARGETS_OUT = os.path.join(HERE, "monitoring", "targets", "workers.json")
 COMPOSE_FILES = "docker-compose.yml:docker-compose.workers.yml"
 
 
@@ -93,6 +95,25 @@ def caddy_routes(n):
     return "\n".join(lines) + "\n"
 
 
+def prometheus_targets(n):
+    """Every worker's `/metrics`, labelled with its number (`cloud/monitoring`)."""
+    import json
+
+    return (
+        json.dumps(
+            [
+                {
+                    "targets": [f"{'app' if i == 1 else f'app{i}'}:5000"],
+                    "labels": {"role": "worker", "worker": str(i)},
+                }
+                for i in range(1, n + 1)
+            ],
+            indent=2,
+        )
+        + "\n"
+    )
+
+
 def ensure_compose_file(path=None):
     """Name both compose files in `.env`, so `docker compose` anywhere here uses them."""
     path = path or ENV_FILE
@@ -115,6 +136,9 @@ def write(n):
         f.write(compose_override(n))
     with open(CADDY_OUT, "w", encoding="utf-8") as f:
         f.write(caddy_routes(n))
+    os.makedirs(os.path.dirname(TARGETS_OUT), exist_ok=True)
+    with open(TARGETS_OUT, "w", encoding="utf-8") as f:
+        f.write(prometheus_targets(n))
     ensure_compose_file()
 
 

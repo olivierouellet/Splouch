@@ -327,6 +327,7 @@ def test_caddy_sends_well_known_to_the_control_plane():
     ]
     body_lines = [d for d in directives if d != "}"]
     assert body_lines == [
+        "import caddy.d/*.site",
         "{$SPLOUCH_DOMAIN} {",
         "import caddy.d/*.caddy",
         "@worker path /ws/* /mobile /mobile/* /meet/* /manifest/* /icon/*",

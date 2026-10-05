@@ -35,6 +35,7 @@ import urllib.request
 from starlette.concurrency import run_in_threadpool
 
 import cloud_attendance
+from cloud_metrics import CONTROL_ERRORS
 
 HEARTBEAT_SECS = 10
 _ANALYTICS_FLUSH_SECS = 5
@@ -87,8 +88,10 @@ def _call(method, path, body=None, timeout=5):
             except Exception:
                 reason = ""
             raise Refused(reason or f"HTTP {e.code}") from e
+        CONTROL_ERRORS.inc()
         raise ControlError(f"HTTP {e.code}") from e
     except (urllib.error.URLError, OSError, ValueError) as e:
+        CONTROL_ERRORS.inc()
         raise ControlError(str(e)) from e
 
 

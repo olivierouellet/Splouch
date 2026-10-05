@@ -1,0 +1,108 @@
+# Monitoring for this box (docs/architecture/scaling.md, *Monitoring*): Prometheus
+# scrapes the control plane, every relay worker, the host and the containers;
+# Grafana draws them and sends the alerts (Pushover); Uptime Kuma checks from the
+# outside; a pinger tells healthchecks.io the monitoring itself is alive.
+#
+# Its own compose project beside the cloud's, on the cloud's network so it reaches
+# the containers by name. cloud_deploy.py starts it when MONITORING=1 in cloud/.env,
+# with that file for interpolation. Images are pinned; Dependabot moves them.
+name: splouch-monitoring
+
+services:
+  prometheus:
+    image: prom/prometheus:v3.5.0
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.retention.time=30d
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      # Written by cloud_workers.py on every deploy: one target per relay worker.
+      - ./targets:/etc/prometheus/targets:ro
+      - prometheus:/prometheus
+    networks: [cloud]
+
+  grafana:
+    image: grafana/grafana-oss:12.1.1
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER:        admin
+      GF_SECURITY_ADMIN_PASSWORD:    ${GRAFANA_PASSWORD:?set GRAFANA_PASSWORD in cloud/.env}
+      # Served by Caddy at https://<domain>/grafana/ (caddy.d/monitoring.caddy).
+      GF_SERVER_ROOT_URL:            https://${SPLOUCH_DOMAIN}/grafana/
+      GF_SERVER_SERVE_FROM_SUB_PATH: "true"
+      GF_USERS_ALLOW_SIGN_UP:        "false"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+      # Read by the alerting provisioning (contact point); never in git.
+      PUSHOVER_TOKEN:                ${PUSHOVER_TOKEN:-}
+      PUSHOVER_USER:                 ${PUSHOVER_USER:-}
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana:/var/lib/grafana
+    networks: [cloud]
+
+  node-exporter:
+    image: prom/node-exporter:v1.9.1
+    restart: unless-stopped
+    command: [--path.rootfs=/host]
+    pid: host
+    volumes:
+      - /:/host:ro,rslave
+    networks: [cloud]
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.52.1
+    restart: unless-stopped
+    command: [--docker_only=true, --housekeeping_interval=15s]
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    devices:
+      - /dev/kmsg
+    networks: [cloud]
+
+  uptime-kuma:
+    image: louislam/uptime-kuma:1.23.16
+    restart: unless-stopped
+    # On the host's loopback only: its first visitor creates the admin account, so
+    # set it up over an SSH tunnel (docs/cloud.md) before giving it a public route.
+    ports:
+      - "127.0.0.1:3001:3001"
+    volumes:
+      - uptime-kuma:/app/data
+    networks: [cloud]
+
+  # healthchecks.io expects a ping every minute and pages when they stop: so a box
+  # whose monitoring died — or that died whole — still raises an alarm. Pings only
+  # while Prometheus answers healthy. Without HEALTHCHECKS_URL it does nothing.
+  watchdog:
+    image: alpine:3.22
+    restart: unless-stopped
+    environment:
+      HEALTHCHECKS_URL: ${HEALTHCHECKS_URL:-}
+    command:
+      - sh
+      - -c
+      - |
+        [ -n "$$HEALTHCHECKS_URL" ] || exec sleep infinity
+        while true; do
+          wget -q -T 10 -O /dev/null http://prometheus:9090/-/healthy \
+            && wget -q -T 10 -O /dev/null "$$HEALTHCHECKS_URL"
+          sleep 60
+        done
+    networks: [cloud]
+
+networks:
+  cloud:
+    external: true
+    name: cloud_default
+
+volumes:
+  prometheus:
+  grafana:
+  uptime-kuma:

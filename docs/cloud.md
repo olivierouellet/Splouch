@@ -279,6 +279,39 @@ node that is gone for good.
 reconnects there and its spectators' pages follow within about ten seconds. Use it
 to balance a busy worker or to empty one before a restart; avoid it mid-heat.
 
+## Monitoring
+
+Off until you turn it on. In `cloud/.env`:
+
+```ini
+MONITORING=1
+PUSHOVER_TOKEN=...        # a Pushover application token, for the alerts
+PUSHOVER_USER=...         # your Pushover user key
+HEALTHCHECKS_URL=...      # a healthchecks.io check: pages you if the box goes quiet
+```
+
+and run **Update**. It starts `cloud/monitoring/`: Prometheus (30 days of
+metrics), Grafana at `https://yourdomain/grafana/` (user `admin`, password
+`GRAFANA_PASSWORD` from `.env`), Uptime Kuma, and the host and container exporters.
+Grafana's dashboard and alerts come from the repo: a worker over 70% of its core
+for 5 minutes, an event loop running 100 ms late, a target or a node not
+reporting, a disk over 80%. They arrive on your phone through Pushover, repeating
+until acknowledged. Metrics are counts only; `/metrics` never answers from the
+internet.
+
+**Uptime Kuma** checks the site from the outside. Its first visitor creates its admin
+account, so it listens on the server only until you have: open a tunnel, set it up,
+add monitors for `https://yourdomain` and each node, then give it a public status page
+if you want one:
+
+```bash
+ssh -L 3001:127.0.0.1:3001 you@your-vps     # then http://localhost:3001
+```
+
+`STATUS_DOMAIN=status.yourdomain` in `.env` (with its DNS record) and **Update**
+publishes it. Kuma on the same box cannot report the box itself being down — the
+healthchecks.io ping is what does.
+
 ## Backing up the store
 
 The Update & Backup tab downloads the organizers and the meets as JSON. For the whole
@@ -648,6 +681,39 @@ qu'il porte s'y terminent) ; **Oublier** retire un nœud disparu pour de bon.
 vers un autre worker. Son Pi s'y reconnecte et les pages de ses spectateurs suivent
 en une dizaine de secondes. Utile pour équilibrer un worker chargé ou en vider un
 avant un redémarrage ; à éviter pendant une série.
+
+### Supervision
+
+Désactivée tant que vous ne l'activez pas. Dans `cloud/.env` :
+
+```ini
+MONITORING=1
+PUSHOVER_TOKEN=...        # un jeton d'application Pushover, pour les alertes
+PUSHOVER_USER=...         # votre clé utilisateur Pushover
+HEALTHCHECKS_URL=...      # un check healthchecks.io : vous alerte si le serveur se tait
+```
+
+puis **Mettre à jour**. Cela démarre `cloud/monitoring/` : Prometheus (30 jours de
+métriques), Grafana à `https://votredomaine/grafana/` (utilisateur `admin`, mot de passe
+`GRAFANA_PASSWORD` de `.env`), Uptime Kuma, et les exporteurs de l'hôte et des
+conteneurs. Le tableau de bord et les alertes de Grafana viennent du dépôt : un worker
+au-dessus de 70 % de son cœur pendant 5 minutes, une boucle d'événements en retard de
+100 ms, une cible ou un nœud muet, un disque plein à plus de 80 %. Elles arrivent sur
+votre téléphone par Pushover, répétées jusqu'à accusé de réception. Les métriques ne
+sont que des comptes ; `/metrics` ne répond jamais depuis internet.
+
+**Uptime Kuma** vérifie le site de l'extérieur. Son premier visiteur crée son compte
+administrateur ; il n'écoute donc que sur le serveur tant que ce n'est pas fait : ouvrez
+un tunnel, configurez-le, ajoutez des sondes pour `https://votredomaine` et chaque nœud,
+puis donnez-lui une page d'état publique si vous le souhaitez :
+
+```bash
+ssh -L 3001:127.0.0.1:3001 vous@votre-vps     # puis http://localhost:3001
+```
+
+`STATUS_DOMAIN=status.votredomaine` dans `.env` (avec son enregistrement DNS) puis
+**Mettre à jour** la publie. Kuma sur le même serveur ne peut pas signaler la panne du
+serveur lui-même — c'est le ping healthchecks.io qui le fait.
 
 ### Sauvegarder les données
 

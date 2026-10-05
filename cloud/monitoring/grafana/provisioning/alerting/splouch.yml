@@ -1,0 +1,175 @@
+# Alerts, from git (docs/architecture/scaling.md, *Monitoring*). Grafana sends them
+# to Pushover — one app on the phone, emergency priority repeating until
+# acknowledged. The token and user key come from cloud/.env, never from this file.
+# A provisioned rule is read-only in the UI: change it here and redeploy.
+apiVersion: 1
+contactPoints:
+  - orgId: 1
+    name: pushover
+    receivers:
+      - uid: splouch-pushover
+        type: pushover
+        settings:
+          apiToken: ${PUSHOVER_TOKEN}
+          userKey: ${PUSHOVER_USER}
+          priority: 2
+          retry: 60
+          expire: 3600
+          okPriority: 0
+policies:
+  - orgId: 1
+    receiver: pushover
+    group_by:
+      - alertname
+    repeat_interval: 4h
+groups:
+  - orgId: 1
+    name: splouch
+    folder: Splouch
+    interval: 1m
+    rules:
+      - uid: splouch-worker-cpu
+        title: Relay worker CPU
+        condition: B
+        for: 5m
+        noDataState: OK
+        execErrState: Error
+        annotations:
+          summary: A relay worker has used more than 70% of its core for 5 minutes.
+        data:
+          - refId: A
+            datasourceUid: prometheus
+            relativeTimeRange:
+              from: 600
+              to: 0
+            model:
+              refId: A
+              expr: rate(container_cpu_usage_seconds_total{name=~"cloud-app.*"}[5m])
+              instant: true
+          - refId: B
+            datasourceUid: __expr__
+            model:
+              refId: B
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator:
+                    type: gt
+                    params:
+                      - 0.7
+      - uid: splouch-loop-lag
+        title: Event-loop lag
+        condition: B
+        for: 2m
+        noDataState: OK
+        execErrState: Error
+        annotations:
+          summary: 'A Splouch process''s event loop runs more than 100 ms late: it is saturated.'
+        data:
+          - refId: A
+            datasourceUid: prometheus
+            relativeTimeRange:
+              from: 600
+              to: 0
+            model:
+              refId: A
+              expr: splouch_event_loop_lag_seconds
+              instant: true
+          - refId: B
+            datasourceUid: __expr__
+            model:
+              refId: B
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator:
+                    type: gt
+                    params:
+                      - 0.1
+      - uid: splouch-target-down
+        title: Scrape target down
+        condition: B
+        for: 2m
+        noDataState: OK
+        execErrState: Error
+        annotations:
+          summary: 'Prometheus cannot reach a target: a worker, the control plane or an exporter.'
+        data:
+          - refId: A
+            datasourceUid: prometheus
+            relativeTimeRange:
+              from: 600
+              to: 0
+            model:
+              refId: A
+              expr: up
+              instant: true
+          - refId: B
+            datasourceUid: __expr__
+            model:
+              refId: B
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator:
+                    type: lt
+                    params:
+                      - 1
+      - uid: splouch-disk
+        title: Disk filling
+        condition: B
+        for: 10m
+        noDataState: OK
+        execErrState: Error
+        annotations:
+          summary: The box's disk is more than 80% full.
+        data:
+          - refId: A
+            datasourceUid: prometheus
+            relativeTimeRange:
+              from: 600
+              to: 0
+            model:
+              refId: A
+              expr: 1 - node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"}
+              instant: true
+          - refId: B
+            datasourceUid: __expr__
+            model:
+              refId: B
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator:
+                    type: gt
+                    params:
+                      - 0.8
+      - uid: splouch-nodes-down
+        title: Node not reporting
+        condition: B
+        for: 5m
+        noDataState: OK
+        execErrState: Error
+        annotations:
+          summary: A node has stopped reporting to the control plane.
+        data:
+          - refId: A
+            datasourceUid: prometheus
+            relativeTimeRange:
+              from: 600
+              to: 0
+            model:
+              refId: A
+              expr: splouch_nodes{state="down"}
+              instant: true
+          - refId: B
+            datasourceUid: __expr__
+            model:
+              refId: B
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator:
+                    type: gt
+                    params:
+                      - 0

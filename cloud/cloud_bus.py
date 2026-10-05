@@ -10,6 +10,8 @@ import asyncio
 import contextlib
 import json
 
+from cloud_metrics import SENDS
+
 
 class ConnectionManager:
     """Attendee WebSockets grouped into per-meet channels."""
@@ -42,6 +44,7 @@ class ConnectionManager:
         # delay delivery to the rest (still one loop — this overlaps the I/O waits,
         # it is not parallelism). return_exceptions keeps one failure from
         # cancelling the others; failed sockets are dropped.
+        SENDS.inc(len(targets))
         results = await asyncio.gather(
             *(ws.send_text(frame) for ws in targets), return_exceptions=True
         )

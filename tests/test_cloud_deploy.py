@@ -5,6 +5,7 @@ version, pull the image CI published — or build it when there is none — star
 containers, and reload Caddy, which keeps every open socket.
 """
 
+import json
 import os
 import types
 
@@ -29,11 +30,16 @@ def box(tmp_path, monkeypatch):
     return env
 
 
+def main(calls):
+    """The main stack's commands, without the monitoring stack's."""
+    return [c for c in calls if c[0][0] != "--env-file"]
+
+
 def runner(fail=()):
     calls = []
 
     def run(argv, env, cwd, check):
-        calls.append((argv[2:], env["COMPOSE_FILE"]))
+        calls.append((argv[2:], env.get("COMPOSE_FILE", "")))
         return types.SimpleNamespace(returncode=1 if argv[2] in fail else 0)
 
     return run, calls
@@ -42,6 +48,7 @@ def runner(fail=()):
 def test_a_release_is_pulled_started_and_caddy_reloaded(box):
     run, calls = runner()
     assert cloud_deploy.deploy("v2026.10.3", runner=run) == 0
+    calls = main(calls)
     assert [c[0][0] for c in calls] == ["pull", "up", "exec"]
     assert "--remove-orphans" in calls[1][0]
     assert calls[2][0][-4:-2] == ["--config", "/etc/caddy/Caddyfile"]
@@ -52,6 +59,7 @@ def test_a_release_is_pulled_started_and_caddy_reloaded(box):
 def test_no_image_to_pull_builds_it_here(box):
     run, calls = runner(fail={"pull"})
     assert cloud_deploy.deploy("v2026.10.4", runner=run) == 0
+    calls = main(calls)
     assert [c[0][0] for c in calls] == ["pull", "build", "up", "exec"]
     assert calls[2][0][:4] == ["up", "-d", "--pull", "never"]
     assert calls[1][1].endswith(":docker-compose.build.yml")
@@ -60,7 +68,7 @@ def test_no_image_to_pull_builds_it_here(box):
 def test_a_branch_is_built_without_trying_to_pull(box):
     run, calls = runner()
     assert cloud_deploy.deploy("local-fix", build=True, runner=run) == 0
-    assert [c[0][0] for c in calls] == ["build", "up", "exec"]
+    assert [c[0][0] for c in main(calls)] == ["build", "up", "exec"]
 
 
 def test_a_failed_start_stops_before_caddy(box):
@@ -131,3 +139,49 @@ def test_ci_publishes_one_tag_for_both_architectures():
     assert arches == {"amd64", "arm64"}
     assert "imagetools create" in str(wf["jobs"]["manifest"])
     assert wf["permissions"] == {}, "write access only where a job needs it"
+
+
+# ── Monitoring ─────────────────────────────────────────────────────────────────
+
+
+@pytest.fixture
+def routes(tmp_path, monkeypatch):
+    monkeypatch.setattr(
+        cloud_deploy, "GRAFANA_ROUTE", str(tmp_path / "monitoring.caddy")
+    )
+    monkeypatch.setattr(cloud_deploy, "STATUS_SITE", str(tmp_path / "monitoring.site"))
+    return tmp_path
+
+
+def test_monitoring_on_starts_its_stack_and_routes_grafana(box, routes):
+    box.write_text(box.read_text() + "MONITORING=1\nSTATUS_DOMAIN=status.example.org\n")
+    run, calls = runner()
+    assert cloud_deploy.deploy("master", runner=run) == 0
+    stack = [c for c in calls if "monitoring/docker-compose.yml" in " ".join(c[0])]
+    assert stack and stack[0][0][-3:] == ["up", "-d", "--remove-orphans"]
+    assert "reverse_proxy grafana:3000" in (routes / "monitoring.caddy").read_text()
+    assert (routes / "monitoring.site").read_text().splitlines()[
+        1
+    ] == "status.example.org {"
+    assert calls[-1][0][0] == "exec", "Caddy reloads last, with the routes in place"
+
+
+def test_monitoring_off_stops_it_and_removes_its_routes(box, routes):
+    (routes / "monitoring.caddy").write_text("old")
+    run, calls = runner()
+    cloud_deploy.deploy("master", runner=run)
+    assert any(c[0][-2:] == ["down", "--remove-orphans"] for c in calls)
+    assert not (routes / "monitoring.caddy").exists()
+
+
+def test_no_status_domain_no_public_kuma():
+    assert cloud_deploy.monitoring_routes({"MONITORING": "1"})[1] == ""
+
+
+def test_prometheus_learns_every_worker():
+    targets = json.loads(cloud_workers.prometheus_targets(3))
+    assert [t["targets"] for t in targets] == [
+        ["app:5000"],
+        ["app2:5000"],
+        ["app3:5000"],
+    ]

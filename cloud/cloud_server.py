@@ -29,6 +29,7 @@ from starlette.concurrency import run_in_threadpool
 # which is exactly why `cloud_server.py` is named that way too.
 import cloud_bus
 import cloud_i18n
+import cloud_metrics
 import cloud_node
 import cloud_ticket
 from cloud_bus import manager
@@ -148,6 +149,7 @@ async def lifespan(app):
     tasks = [
         asyncio.create_task(cloud_node.heartbeat_loop(_heartbeat_snapshot, _on_moves)),
         asyncio.create_task(cloud_node.analytics_flush_loop()),
+        asyncio.create_task(cloud_metrics.lag_loop()),
     ]
     try:
         yield
@@ -412,6 +414,48 @@ def route_meet_schedule(meet_id: str):
     return {"heats": _build_heats_json(meet.get("schedule_data", {}))}
 
 
+def _live_count():
+    with _lock:
+        return {("splouch_meets_live", None): len(_meets)}
+
+
+def _socket_counts():
+    """Attendee sockets per page, for `/metrics`: counts, never ids."""
+    return {
+        ("splouch_sockets", ns): sum(
+            len(conns)
+            for ch, conns in manager.channels.items()
+            if ch.startswith(ns + ":")
+        )
+        for ns in ("scoreboard", "results", "schedule")
+    }
+
+
+cloud_metrics.WORKER.register(
+    cloud_metrics.Snapshot(
+        _live_count,
+        {"splouch_meets_live": "Meets whose Pi is connected to this worker."},
+    )
+)
+cloud_metrics.WORKER.register(
+    cloud_metrics.Snapshot(
+        _socket_counts,
+        {"splouch_sockets": "Attendee sockets open on this worker, by page."},
+        label="page",
+    )
+)
+cloud_metrics.version_info(cloud_metrics.WORKER, "worker", cloud_node.version())
+
+
+@app.get("/metrics", include_in_schema=False)
+def route_metrics(request: Request):
+    """Prometheus' view of this worker; 404 to anyone outside the private network."""
+    if not cloud_metrics.private_client(request):
+        raise HTTPException(status_code=404)
+    data, kind = cloud_metrics.body(cloud_metrics.WORKER)
+    return Response(data, media_type=kind)
+
+
 @app.get("/ping", tags=["Public"])
 def route_ping():
     return Response("ok", media_type="text/plain")
@@ -598,6 +642,7 @@ async def _forward(sid, event, data):
 
     # Console activity: a meet sending frames is running, not just connected.
     meet["last_frame_at"] = time.time()
+    cloud_metrics.FRAMES.inc()
     if event == "update_scoreboard":
         # `running_time` is the race clock, and the console sends it on every
         # timing tick. Forwarding that to every attendee is the traffic
