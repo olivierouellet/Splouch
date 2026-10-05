@@ -634,7 +634,25 @@ flowchart TD
 | `C-09` | `meet_live` gates live affordances; `disconnect` ⇒ `meet_live = false` | — | all | must |
 | `C-11` | **Meet's own address.** A meet's sockets (`C-01`), config, schedule and icon are at its `base`, not the server URL: the cloud runs several workers, each holding its meets in memory | `GET /meets` → `base` per meet; absent → server URL (older server). Pi: n/a | all | must |
 | `C-12` | `moved {url, base}` on any socket → the meet now lives at `base`: switch to it, reconnect all three sockets there, re-fetch config. Web: whole page to `url` | the admin moved the meet, or the socket reached the wrong worker ([`api.md`](api.md) §3) | all | must |
-| `C-10` | **Privacy binding.** Anonymous **per-server** id (`vid`) sent with `join_meet`; used only for `COUNT(DISTINCT)` attendance. Never derived from another `vid`, never sent to another server; Pi gets none (`C-02`). A server's meets may live on other hosts (`C-11`): they are still that server, and get its `vid` | random UUID per server the meet list came from (the address picked, `P-11`), stored locally, created on first `join_meet`, used for every meet's `base` on it. Web: the picker hands its `vid` to a meet page on another host in the URL **fragment** (`#vid=`, never sent to a server), which stores it and clears it from the address bar | all | must |
+| [`C-10`](#c-10) | **Privacy binding.** Anonymous **per-server** id (`vid`) sent with `join_meet`; used only for `COUNT(DISTINCT)` attendance. Never derived from another `vid`, never sent to another server; Pi gets none (`C-02`). A server's meets may live on other hosts (`C-11`): they are still that server, and get its `vid`. **Spectator may refuse**: per-server setting, on by default; off → `vid` deleted, `join_meet` sent without one, none created until turned back on. A `vid` older than **13 months** is replaced | random UUID per server the meet list came from (the address picked, `P-11`), stored locally with its creation date, created on first `join_meet` while counting is allowed, used for every meet's `base` on it. Server: no `vid` → not counted. Web: browser sending GPC (`navigator.globalPrivacyControl`) starts off. The picker hands its choice to a meet page on another host in the URL **fragment** (`#vid=<id>`, or `#vid=0` when off — never sent to a server), which applies it and clears it from the address bar | all | must |
+
+### <a id="c-10"></a>C-10 — counting the spectator can refuse
+
+**Why refusable.** A `vid` is stored on the spectator's device and singles it out, so
+EU ePrivacy (Art. 5(3)) and GDPR reach it. Audience measurement escapes consent only
+when first-party, aggregate, capped in lifetime and **open to objection** — the
+setting is the objection, the 13-month replacement the cap.
+
+- **Off forgets.** Turning it off deletes the `vid`; turning it back on makes a new
+  one, never the old. Each server keeps its own setting, like its own `vid`.
+- **Only while counting is on.** The setting shows only when the server reports
+  `analytics_enabled`; with counting off there is nothing to refuse.
+- **Web hand-off carries the refusal.** A meet page on another host keeps its own
+  `localStorage`: `#vid=0` deletes the `vid` there and stops it making one. Reached
+  without the picker, a meet page creates none while GPC is sent or its stored
+  setting is off.
+- **GPC is a starting point, not a lock.** It sets the default; the spectator's own
+  choice wins.
 
 ---
 

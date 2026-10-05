@@ -214,6 +214,8 @@ Client → server: `input <string>`, `resize {rows, cols}`.
 Spectator apps connect to the cloud, then **join a meet**. `meet_id` comes from the
 picker/meet list (§4). `vid` is a random per-device id the client generates once and
 stores locally (used only for anonymous attendance counts; send it or omit it).
+Omitting it is how a spectator who turned counting off (`app.md` `C-10`) joins: a
+join without `vid` is served the same and never counted.
 
 Join handshake, then listen — identical pattern on all three attendee paths:
 
