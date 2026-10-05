@@ -26,12 +26,17 @@ import urllib.request
 from contextlib import asynccontextmanager, suppress
 from typing import Any
 
-from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request, UploadFile
+from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request
 from fastapi.openapi.docs import get_redoc_html, get_swagger_ui_html
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from starlette.concurrency import run_in_threadpool
+
+# Starlette's, not FastAPI's: `request.form()` yields Starlette's UploadFile, and
+# FastAPI's is a subclass of it, so an isinstance check against FastAPI's never
+# matches and every uploaded file reads as absent.
+from starlette.datastructures import UploadFile
 
 import cloud_analytics
 import cloud_attendance

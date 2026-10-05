@@ -6,10 +6,11 @@ import subprocess
 import tarfile
 import time
 
-from fastapi import APIRouter, Depends, Request, UploadFile
+from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel, Field, field_validator
 from starlette.concurrency import run_in_threadpool
+from starlette.datastructures import UploadFile  # what request.form() yields
 
 import bus
 import state

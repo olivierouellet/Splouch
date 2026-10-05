@@ -11,13 +11,13 @@ from fastapi import (
     APIRouter,
     Depends,
     Request,
-    UploadFile,
     WebSocket,
     WebSocketDisconnect,
 )
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from starlette.concurrency import run_in_threadpool
+from starlette.datastructures import UploadFile  # what request.form() yields
 
 import bus
 import state
