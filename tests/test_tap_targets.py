@@ -19,20 +19,21 @@ from test_scoreboard_base_shared import _render, _sched
 @pytest.mark.usefixtures("pg")  # the picker reads the store
 def test_the_picker_controls_are_44px():
     html = _picker()
-    assert re.search(r"#prefs-btn \{[^}]*width: 44px; height: 44px", html)
-    assert re.search(r"\.notice-close \{[^}]*width: 44px; height: 44px", html)
+    assert re.search(r"#settings-btn \{[^}]*width: 44px; height: 44px", html)
+    assert re.search(r"\.sheet-close \{[^}]*width: 44px; height: 44px", html)
     assert re.search(r"\.prefs-opt \{[^}]*min-height: 44px", html)
-    assert (
-        ".notice-pill::after { content: ''; position: absolute; inset: -8px 0; }"
-        in html
-    )
+    assert re.search(r"\.switch-row \{[^}]*min-height: 44px", html)
+    assert re.search(r"\.disclaimer summary \{[^}]*min-height: 44px", html)
 
 
 @pytest.mark.usefixtures("pg")  # the picker reads the store
-def test_the_menu_says_whether_it_is_open():
+def test_the_settings_button_says_whether_its_sheet_is_open():
     html = _picker()
-    assert 'aria-expanded="false" aria-controls="prefs-panel"' in html
-    assert "setAttribute('aria-expanded', open ? 'true' : 'false')" in html
+    assert (
+        'aria-haspopup="dialog" aria-expanded="false" aria-controls="settings"' in html
+    )
+    assert "btn.setAttribute('aria-expanded', 'true');" in html
+    assert "btn.setAttribute('aria-expanded', 'false');" in html
 
 
 def test_the_shell_tabs_are_tabs_and_say_which_is_selected():
@@ -93,13 +94,11 @@ def test_decorative_motion_stands_still_on_request():
 
 
 @pytest.mark.usefixtures("pg")  # the picker reads the store
-def test_focus_follows_a_fold():
-    """`X-10`: the control that replaced itself hands focus to its replacement."""
+def test_focus_returns_to_the_gear():
+    """`X-10`: closing settings, however it closes, hands focus back to its opener."""
     html = _picker()
-    close = html.index("close.addEventListener('click'")
-    assert "pill.focus();" in html[close : close + 200]
-    reopen = html.index("pill.addEventListener('click'")
-    assert "close.focus();" in html[reopen : reopen + 200]
+    on_close = html.index("dlg.addEventListener('close'")
+    assert "btn.focus();" in html[on_close : on_close + 200]
 
 
 # ── X-08: 200% zoom ───────────────────────────────────────────────────────────

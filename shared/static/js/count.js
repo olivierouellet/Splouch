@@ -51,8 +51,8 @@ var SplouchCount = (function () {
     }
 
     function fresh() {
-        return window.crypto && crypto.randomUUID
-            ? crypto.randomUUID()
+        return window.crypto && window.crypto.randomUUID
+            ? window.crypto.randomUUID()
             : 'v' + Date.now() + Math.random().toString(36).slice(2);
     }
 

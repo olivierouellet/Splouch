@@ -24,6 +24,12 @@ interface Window {
     EVENT_VOCAB: Record<string, string>;
 }
 
+/** Global Privacy Control (count.js, docs/app.md `C-10`): not yet in TypeScript's DOM
+ *  types, and absent from browsers that do not send it. */
+interface Navigator {
+    globalPrivacyControl?: boolean;
+}
+
 // getElementById returns a plain HTMLElement, and the scripts read form-control
 // properties off it throughout. Declaring the four they use is the alternative to
 // a cast at every one of ~80 call sites; a typo in the name is still caught.
