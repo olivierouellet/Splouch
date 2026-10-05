@@ -268,14 +268,16 @@ def test_counting_down_needs_a_total(boards):
         )
 
 
-def test_the_countdown_shows_from_the_start_of_the_heat(boards):
+def test_the_countdown_shows_from_the_start_of_the_race(boards):
     """Counting up waits for the first wall; counting down has the whole race to
-    report and says so from the moment the heat loads. It needs a swimmer in the
-    lane — an empty lane in a short heat must not advertise lengths nobody swims."""
+    report and says so from the start — not from the heat loading. It needs a
+    swimmer in the lane — an empty lane in a short heat must not advertise lengths
+    nobody swims."""
     for name, html in boards.items():
         body = html[html.index("function lapVisible(") :]
         body = body[: body.index("\n}")]
         assert "countingDown()" in body, f"{name} still needs a split to show anything"
+        assert "lane_running[i]" in body, f"{name} counts down before the gun"
         assert "lane_name_blank" in body, f"{name} would count down an empty lane"
 
 
@@ -409,8 +411,9 @@ def test_the_setting_off_means_no_lap_at_all():
 @pytest.mark.skipif(
     not HAS_JS_ENGINE, reason="needs a JavaScript engine (osascript or node)"
 )
-def test_the_whole_race_shows_before_anyone_has_swum(phone_down):
-    """The heat loads, nobody has touched a wall, and every lane already reads 8."""
+def test_the_whole_race_shows_from_the_gun(phone_down):
+    """The heat loads and the cell stays blank; the gun goes, nobody has touched a
+    wall yet, and every lane reads 8."""
     _drive(
         phone_down,
         r"""
@@ -424,7 +427,9 @@ def test_the_whole_race_shows_before_anyone_has_swum(phone_down):
         heat['lane_running' + i] = false;
     }
     applyScoreboardFrame(heat);
-    assert(cell(1) === '8', 'lane 1 should read 8 before the gun, got ' + JSON.stringify(cell(1)));
+    assert(cell(1) === '', 'no countdown before the gun, got ' + JSON.stringify(cell(1)));
+    applyScoreboardFrame({lane_running1: true});
+    assert(cell(1) === '8', 'lane 1 should read 8 from the gun, got ' + JSON.stringify(cell(1)));
     """,
     )
 
@@ -444,7 +449,7 @@ def test_an_empty_lane_counts_down_nothing(phone_down):
     heat['lane_name7'] = ''; heat['lane_name8'] = '';
     for (var i = 1; i <= 8; i++) {
         heat['lane_splits' + i] = 0; heat['lane_place' + i] = ' ';
-        heat['lane_delta' + i] = '';
+        heat['lane_delta' + i] = ''; heat['lane_running' + i] = true;
     }
     applyScoreboardFrame(heat);
     assert(cell(1) === '8', 'a swum lane should count down: ' + JSON.stringify(cell(1)));
@@ -759,9 +764,10 @@ def test_qt_drops_the_lap_on_a_heat_change(qt_board, qt_app):
     assert "lane_splits1" not in qt_board.snapshot
 
 
-def test_qt_counts_down_from_the_start_of_the_heat(qt_app):
-    """The heat loads, nobody has swum, and a lane with a swimmer already reads 8 —
-    while an empty lane stays blank and counting up still waits for the first wall."""
+def test_qt_counts_down_from_the_start_of_the_race(qt_app):
+    """The heat loads and the cell stays blank; the gun goes, nobody has swum, and a
+    lane with a swimmer reads 8 — while an empty lane stays blank and counting up
+    still waits for the first wall."""
     from scoreboard.board import BoardWindow
     from scoreboard.theme import Config
 
@@ -785,7 +791,10 @@ def test_qt_counts_down_from_the_start_of_the_heat(qt_app):
 
     down = board("down")
     try:
-        assert down.rows[0].delta_label.text() == "8", "no countdown before the gun"
+        assert down.rows[0].delta_label.text() == "", "no countdown before the gun"
+        down.apply_update({f"lane_running{i}": True for i in range(1, 9)})
+        qt_app.processEvents()
+        assert down.rows[0].delta_label.text() == "8", "countdown from the gun"
         assert down.rows[6].delta_label.text() == "", (
             "an empty lane counts down nothing"
         )

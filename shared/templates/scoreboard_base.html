@@ -605,11 +605,13 @@ function lapVisible(i) {
     if (lane_splits_n[i] > 0) return true;
     /* Nothing swum yet, and here the two directions part company. Counting up has
        nothing to say — a column of noughts under a start list is noise. Counting
-       down has the whole race to report, so it shows from the moment the heat
-       loads rather than waiting for the first wall. It needs a swimmer in the lane
-       to say it about: an empty lane in a short heat must not advertise eight
-       lengths nobody is swimming. */
-    return countingDown() && (i in lane_name_blank) && !lane_name_blank[i];
+       down has the whole race to report, so it shows from the start rather than
+       waiting for the first wall — the start, not the heat loading: before the gun
+       the number is a promise about a race that has not begun. It needs a swimmer
+       in the lane to say it about: an empty lane in a short heat must not advertise
+       eight lengths nobody is swimming. */
+    return countingDown() && !!lane_running[i] &&
+           (i in lane_name_blank) && !lane_name_blank[i];
 }
 
 /* Counting down needs a total to count down from. `expected_splits` is 0 for any
@@ -787,6 +789,8 @@ function applyScoreboardFrame(new_s) {
             delta_lanes[di] = true;
             deltas_changed = true;
         }
+        /* The start puts the countdown up: `lapVisible` waits for the lane to run. */
+        if (k.startsWith("lane_running")) delta_lanes[k.replace("lane_running", "")] = true;
         if (k.startsWith("lane_name")) names_changed = true;
         if (k.startsWith("lane_name") && !k.startsWith("lane_name_alt"))
             lane_name_blank[k.replace("lane_name", "")] = (s[k].trim() === "");

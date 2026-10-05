@@ -645,11 +645,14 @@ class LaneRow(QFrame):
         counting_down = self.cfg.lap_direction == "down" and expected > 0
         # Nothing swum yet. Counting up has nothing to say — a column of noughts
         # under a start list is noise — but counting down has the whole race to
-        # report, so it shows from the moment the heat loads. It needs a swimmer
-        # in the lane to say it about: an empty lane in a short heat must not
-        # advertise eight lengths nobody is swimming.
+        # report, so it shows from the start: the start, not the heat loading, as
+        # before the gun the number is a promise about a race that has not begun.
+        # It needs a swimmer in the lane to say it about: an empty lane in a short
+        # heat must not advertise eight lengths nobody is swimming.
         if done <= 0 and not (
-            counting_down and (snapshot.get(f"lane_name{i}", "") or "").strip()
+            counting_down
+            and self.running
+            and (snapshot.get(f"lane_name{i}", "") or "").strip()
         ):
             return None, False
         # The final stretch, exactly as the browser's `lapIsFinal` puts it: the next

@@ -509,7 +509,7 @@ signal: colour changes, header doesn't.
 | condition | why |
 | --- | --- |
 | `settings.show_laps` | off by default; not every console counts exactly |
-| `lane_splits<i> > 0`, **or** counting down in lane with swimmer | up waits for first wall; down shows from start, never in empty lane |
+| `lane_splits<i> > 0`, **or** counting down in running lane with swimmer | up waits for first wall; down shows from the start (`lane_running<i>`), never before, never in empty lane |
 | lane has no place | finish ends lap, delta or not |
 | delta empty | for frame where both arrive together |
 
