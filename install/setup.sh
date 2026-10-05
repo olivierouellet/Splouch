@@ -85,7 +85,7 @@ while true; do
         echo "Which version to install?"
         for _i in "${!_labels[@]}"; do printf '%2d) %s\n' $((_i + 1)) "${_labels[_i]}"; done
         while true; do
-            read -rp "Choice [1]: " _n || exit 1 # end of input
+            read -rp "Type a number and press Enter (or just Enter for ${_labels[0]%% (*}): " _n || exit 1 # end of input
             _n="${_n:-1}"
             if [[ "$_n" =~ ^[0-9]+$ ]] && ((_n >= 1 && _n <= _quit)); then break; fi
             warn "Type a number from 1 to $_quit."

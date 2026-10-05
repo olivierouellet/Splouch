@@ -87,12 +87,12 @@ ROLE="${1:-}"
 if [[ -z "$ROLE" && "${SPLOUCH_NONINTERACTIVE:-}" == "1" ]]; then ROLE="server"; fi
 if [[ -z "$ROLE" ]]; then
     echo
-    echo "Which role is this?"
-    PS3="Choice: "
+    PS3="Type a number and press Enter: "
+    echo "What is this machine for?"
     select _choice in \
-        "Server  (Pi #1 — pool deck, FastAPI + serial decoder)" \
-        "Kiosk   (Pi #2 — TV display, native Qt scoreboard)" \
-        "Cloud   (Debian VM — public relay server)" \
+        "Server — the Raspberry Pi connected to the timing console; it runs the scoreboard" \
+        "Kiosk  — a Raspberry Pi plugged into a TV; it shows the server's scoreboard" \
+        "Cloud  — an internet server (Debian/Ubuntu) so people can follow from their phones" \
         "Quit"; do
         case "$_choice" in
             Server*)
@@ -128,7 +128,7 @@ if [[ -z "$VERSION_CHOICE" && "${SPLOUCH_NONINTERACTIVE:-}" == "1" ]]; then VERS
 if [[ -z "$VERSION_CHOICE" ]]; then
     echo
     echo "Which version to install?"
-    PS3="Choice: "
+    PS3="Type a number and press Enter: "
     select _choice in \
         "Latest release (recommended)" \
         "Master (development branch)"; do
@@ -1278,7 +1278,7 @@ PYEOF
     # one part per server later. Asked once; ROLES in .env is the answer after that.
     if ! grep -q '^ROLES=.' "$CLOUD_DIR/.env" && [[ "${SPLOUCH_NONINTERACTIVE:-}" != "1" ]]; then
         echo "Which parts does this server run?"
-        PS3="Choice: "
+        PS3="Type a number and press Enter: "
         select _parts in \
             "Everything (control plane + relay workers)" \
             "Everything + monitoring (a single server with its own Grafana)" \
