@@ -854,21 +854,25 @@ def test_the_rollout_line_escapes_node_names(pg, monkeypatch):
 
 
 def test_the_panel_schedules_with_the_browser_s_offset(pg):
+    import datetime
+
     from starlette.datastructures import FormData
 
+    # Always ahead of the clock: a fixed date turns into the past and starts now.
+    year = datetime.datetime.now(datetime.UTC).year + 1
     reg = cloud_control.cloud_registry
     form = FormData(
         {
             "action": "rollout_start",
             "version": "v2026.10.2",
-            "not_before": "2026-10-05T06:00:00.000Z",
+            "not_before": f"{year}-10-05T06:00:00.000Z",
             "force": "1",
         }
     )
     cloud_control._admin_action(form, None)
     r = reg.rollout()
     assert r["state"] == "scheduled" and r["force"] is True
-    assert r["not_before"] == "2026-10-05T06:00:00+00:00"
+    assert r["not_before"] == f"{year}-10-05T06:00:00+00:00"
 
 
 @pytest.mark.parametrize(
