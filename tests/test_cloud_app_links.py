@@ -313,36 +313,25 @@ def test_neither_file_is_behind_the_admin_password():
 
 
 def test_caddy_sends_well_known_to_the_control_plane():
-    """A `handle` or `file_server` above the catch-all would swallow both files.
-
-    The only symptom would be `1024` from `pm get-app-links`, on a phone, later.
-    Caddy's own ACME handler is scoped to `/.well-known/acme-challenge/*` and does
-    not overlap either path. The site block is pinned whole: the worker's paths,
-    the refused internal API, and the control plane as the catch-all.
-    """
+    """A `handle` or `file_server` that matched `/.well-known/` would swallow both
+    files; the only symptom would be `1024` from `pm get-app-links`, on a phone,
+    later. The site block is only imports now — the routes are generated per
+    server (cloud_deploy.py, cloud_workers.py) — so every generated route is held
+    to it below, for every combination of parts."""
     directives = [
         line.strip()
         for line in Path(CADDYFILE).read_text(encoding="utf-8").splitlines()
         if line.strip() and not line.strip().startswith("#")
     ]
-    body_lines = [d for d in directives if d != "}"]
-    assert body_lines == [
+    assert [d for d in directives if d != "}"] == [
         "import caddy.d/*.site",
         "{$SPLOUCH_DOMAIN} {",
         "import caddy.d/*.caddy",
-        "@worker path /ws/* /mobile /mobile/* /meet/* /manifest/* /icon/*",
-        "handle @worker {",
-        "reverse_proxy app:5000",
-        "handle /internal/* {",
-        "respond 404",
-        "handle {",
-        "reverse_proxy control:8000",
     ], "the site block changed — check it cannot shadow /.well-known/"
 
 
 def test_the_generated_worker_routes_only_claim_their_prefixes():
-    """`caddy.d/*.caddy` is imported above the catch-all, so it must never match
-    `/.well-known/`: every route it holds is a `/wN/*` prefix."""
+    """`/wN/*` per worker, and the meet paths for worker 1 — never `/.well-known/`."""
     import cloud_workers
 
     routes = [
@@ -350,7 +339,59 @@ def test_the_generated_worker_routes_only_claim_their_prefixes():
         for line in cloud_workers.caddy_routes(4).splitlines()
         if line.startswith("handle")
     ]
-    assert routes == [f"handle_path /w{i}/* {{" for i in range(1, 5)]
+    assert routes == [f"handle_path /w{i}/* {{" for i in range(1, 5)] + [
+        "handle @worker {"
+    ]
+    assert cloud_workers.caddy_routes(0).count("handle") == 0, "no workers, no routes"
+
+
+ROLE_SETS = [
+    "control,workers",
+    "workers",
+    "control",
+    "control,monitoring",
+    "monitoring",
+    "control,workers,monitoring",
+]
+
+
+@pytest.mark.parametrize("roles", ROLE_SETS)
+def test_no_generated_route_claims_well_known(roles):
+    import cloud_deploy
+    import cloud_workers
+
+    env = {"ROLES": roles, "PICKER_URL": "https://splouch.org/"}
+    text = (
+        cloud_workers.caddy_routes(cloud_workers.worker_count(env, cores=4))
+        + cloud_deploy.roles_routes(env)
+        + cloud_deploy.monitoring_routes(env)[0]
+    )
+    lines = [ln.strip() for ln in text.splitlines()]
+    meet_paths = {"/ws/*", "/mobile", "/mobile/*", "/meet/*", "/manifest/*", "/icon/*"}
+    for line in (ln for ln in lines if ln.startswith("@")):
+        # A named matcher: every path it lists is one of a meet's.
+        assert line.startswith("@worker path "), line
+        assert set(line.split()[2:]) <= meet_paths, line
+    for line in (ln for ln in lines if ln.startswith("handle")):
+        assert line in ("handle {", "handle @worker {") or line.split()[1].startswith(
+            ("/w", "/internal/", "/grafana")
+        ), line
+    # Only the control plane's catch-all reaches /.well-known; a workers-only node
+    # sends everything unclaimed to the meet list.
+    catch_all = text.split("handle {\n")[1].split("\n")[0].strip()
+    if "control" in roles:
+        assert catch_all == "reverse_proxy control:8000"
+    else:
+        assert catch_all == "redir https://splouch.org{uri} 302"
+
+
+def test_the_workers_api_is_public_only_for_remote_nodes():
+    import cloud_deploy
+
+    local = cloud_deploy.roles_routes({"ROLES": "control,workers"})
+    remote = cloud_deploy.roles_routes({"ROLES": "control", "REMOTE_NODES": "1"})
+    assert "handle /internal/* {\n    respond 404" in local
+    assert "handle /internal/* {\n    reverse_proxy control:8000" in remote
 
 
 def test_the_deployment_passes_the_fingerprints_in():

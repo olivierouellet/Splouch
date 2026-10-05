@@ -488,8 +488,9 @@ table: `labels` is the operator's pick, resolved from the same file.
 
 - **`base`** is where a client reaches the meet (`app.md` `C-11`): its sockets
   (`<base>/ws/scoreboard`, …), `<base>/meet/{id}/config`, `<base>/meet/{id}/schedule`,
-  `<base>/icon/{id}`. A live meet's worker; this server's own origin for a retained one,
-  which any worker serves. Absent from an older server → use the server URL.
+  `<base>/icon/{id}`. A live meet's worker; a finished meet's node, which keeps its
+  content (`<node>/w1`). Absent from an older server → use the server URL. A finished
+  meet whose node is not reporting is left out of the list until it is.
 - **`url`** is the meet's page there; the web picker links to it.
 - **`country`** (ISO 3166-1 alpha-2) and **`province`** are the organizer's, `""` when
   unrecorded (`P-01`, `P-17`).

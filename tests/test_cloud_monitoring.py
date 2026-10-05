@@ -159,7 +159,10 @@ def test_the_stack_keeps_its_admin_doors_shut():
     assert services["uptime-kuma"]["ports"] == ["127.0.0.1:3001:3001"], (
         "Kuma's first visitor creates its admin: loopback only until set up"
     )
-    assert "ports" not in services["prometheus"] and "ports" not in services["grafana"]
+    assert services["prometheus"]["ports"] == ["${WG_ADDRESS:-127.0.0.1}:9090:9090"], (
+        "on the WireGuard address of a hub, else loopback — never the internet"
+    )
+    assert "ports" not in services["grafana"]
     assert services["grafana"]["environment"]["GF_USERS_ALLOW_SIGN_UP"] == "false"
     assert ":?" in services["grafana"]["environment"]["GF_SECURITY_ADMIN_PASSWORD"]
 

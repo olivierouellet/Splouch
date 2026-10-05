@@ -55,6 +55,23 @@
             {% endif %}
             <div class="card mt-3"><div class="card-body">
                 <h2 class="panel-eyebrow mb-3">{{ t.get('backup', 'Backup') }}</h2>
+                {# The nightly pg_dump (docker-compose.yml, `backup`): its last run, in red
+                   when it failed or has stopped running. Times shown in the reader's clock. #}
+                <div class="mb-3" id="backup-last">
+                    <div class="small text-body-secondary mb-1">{{ t.backup_last }}</div>
+                    {% if not backup %}
+                    <div class="small">{{ t.backup_none }}</div>
+                    {% else %}
+                    {% set when = '<time class="local-time" datetime="' ~ backup.at | e ~ '">' ~ backup.at | e ~ '</time>' %}
+                    {% if not backup.ok %}
+                    <div class="small text-danger fw-semibold">{{ t.backup_failed | e | replace('{time}', when) | replace('{error}', backup.error | e) | safe }}</div>
+                    {% elif backup.stale %}
+                    <div class="small text-danger fw-semibold">{{ t.backup_stale | e | replace('{time}', when) | safe }}</div>
+                    {% else %}
+                    <div class="small">{{ t.backup_ok | e | replace('{time}', when) | replace('{file}', backup.file | e) | replace('{size}', (backup.bytes | filesizeformat) | e) | safe }}</div>
+                    {% endif %}
+                    {% endif %}
+                </div>
                 <div class="mb-3">
                     <div class="small text-body-secondary mb-1">{{ t.get('backup_keys', 'Keys & settings') }}</div>
                     <div class="d-flex flex-wrap gap-2">
@@ -73,11 +90,11 @@
                 </div>
                 <hr>
                 <div class="mb-3">
-                    <div class="small text-body-secondary mb-1">{{ t.get('backup_meets', 'Meets') }}</div>
+                    <div class="small text-body-secondary mb-1">{{ t.get('backup_meets', 'Meet cards') }}</div>
                     <a id="backup-meets-btn" href="/admin/backup/meets" class="btn btn-secondary btn-sm">{{ t.get('download_backup', 'Download') }}</a>
                 </div>
                 <div>
-                    <p class="small text-body-secondary mb-2">{{ t.get('restore_meets_note', 'Adds retained meets (schedules, images, icons). Removes nothing; live meets untouched.') }}</p>
+                    <p class="small text-body-secondary mb-2">{{ t.get('restore_meets_note', 'Picker cards of finished meets (name, date, location, expiry, picker image). Start lists stay on the nodes and are not in it. Adds; removes nothing; live meets untouched.') }}</p>
                     <div class="d-flex flex-wrap gap-2 align-items-center">
                         <label class="btn btn-secondary btn-sm m-0" style="cursor:pointer;">
                             {{ t.get('restore_backup', 'Restore…') }}<input type="file" accept=".json" style="display:none;" onchange="restoreMeets(this)">

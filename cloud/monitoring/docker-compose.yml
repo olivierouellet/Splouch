@@ -15,6 +15,12 @@ services:
     command:
       - --config.file=/etc/prometheus/prometheus.yml
       - --storage.tsdb.retention.time=30d
+      # Remote nodes' agents send here over WireGuard (monitoring/agent.yml).
+      - --web.enable-remote-write-receiver
+    # On this server's WireGuard address when it is the hub (WG_ADDRESS, set by
+    # install/scripts/wireguard.sh), else on loopback only: never the internet.
+    ports:
+      - "${WG_ADDRESS:-127.0.0.1}:9090:9090"
     volumes:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       # Written by cloud_workers.py on every deploy: one target per relay worker.

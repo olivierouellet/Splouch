@@ -29,12 +29,21 @@ from starlette.concurrency import run_in_threadpool
 # which is exactly why `cloud_server.py` is named that way too.
 import cloud_bus
 import cloud_i18n
+import cloud_meetstore
 import cloud_metrics
 import cloud_node
 import cloud_ticket
 from cloud_bus import manager
 from cloud_paths import _HERE, DATA_DIR, STATIC_DIR
-from cloud_store import _lock, _meets, _relay_sids, _retire_mem, meet_for
+from cloud_store import (
+    _lock,
+    _meets,
+    _relay_sids,
+    _retire_mem,
+    meet_for,
+    record_of,
+    store_offline,
+)
 from cloud_web import (
     _client_labels,
     _client_lang,
@@ -85,19 +94,24 @@ def _elsewhere(meet):
     here is in `_meets` and never reaches this; a record that says live *here* is a
     worker restart the heartbeat is about to correct, and is served as offline.
     """
-    if not meet.get("live") or not meet.get("node_url") or not meet.get("worker"):
-        return None
-    if (meet.get("node"), meet.get("worker")) == (
-        cloud_node.node_name(),
-        cloud_node.worker_index(),
-    ):
-        return None
+    if not meet.get("node_url"):
+        return None  # held here, or in this node's store
+    if meet.get("live") and meet.get("worker"):
+        if (meet.get("node"), meet.get("worker")) == (
+            cloud_node.node_name(),
+            cloud_node.worker_index(),
+        ):
+            return None
+    elif meet.get("node") == cloud_node.node_name():
+        return None  # ours, but not in the store any more: nothing to serve
     return f"{_meet_base(meet)}/mobile?meet={meet.get('id', '')}"
 
 
 def _meet_base(meet):
-    """The base a record names for its live meet: node URL and worker prefix."""
-    return f"{meet['node_url'].rstrip('/')}/w{meet['worker']}"
+    """The base a card names: a live meet's worker, a finished one's node (any of
+    its workers reads the node's store)."""
+    worker = meet["worker"] if meet.get("live") and meet.get("worker") else 1
+    return f"{meet['node_url'].rstrip('/')}/w{worker}"
 
 
 def _moved(meet):
@@ -571,14 +585,17 @@ async def _on_relay_register(ws, sid, data):
         # A ticket for another meet (the operator switched meets on this key).
         await _reassign(ws)
         return
+    # What this node already has of the meet: its start list shows at once on a
+    # reconnect, before the Pi re-sends it.
+    stored = await run_in_threadpool(cloud_meetstore.get, meet_id) or {}
 
     with _lock:  # fast: in-memory only
         # If this socket was publishing a different meet (operator switched
         # LENEX files), retire it so it stays available as schedule-only.
         prev_id = _relay_sids.get(sid)
-        displaced = bool(prev_id and prev_id != meet_id and prev_id in _meets)
-        if displaced:
-            _retire_mem(prev_id)
+        displaced_meet = (
+            _retire_mem(prev_id) if prev_id and prev_id != meet_id else None
+        )
 
         prev = _meets.get(meet_id, {})  # already-live data (settings re-register)
         _meets[meet_id] = {
@@ -596,11 +613,15 @@ async def _on_relay_register(ws, sid, data):
             # Restore the stored schedule on a fresh reconnect so it shows
             # immediately, before the relay re-sends its schedule_snapshot.
             "schedule_data": prev.get("schedule_data")
-            or result.get("schedule_data")
+            or stored.get("schedule_data")
             or {},
         }
         _relay_sids[sid] = meet_id
-    if displaced:
+        record = record_of(_meets[meet_id])
+    # The meet's content goes to the node's store, never the control plane.
+    await run_in_threadpool(cloud_meetstore.save, meet_id, record, None)
+    if displaced_meet:
+        await run_in_threadpool(store_offline, prev_id, displaced_meet)
         await run_in_threadpool(cloud_node.retire, prev_id)
         await _emit_meet_live(prev_id, False)
 
@@ -626,6 +647,7 @@ async def _on_relay_disconnect(sid):
         if retired:
             _retire_mem(meet_id)
     if retired:
+        await run_in_threadpool(store_offline, meet_id, meet)
         await run_in_threadpool(cloud_node.retire, meet_id)
         await _emit_meet_live(meet_id, False)
     if meet_id:
@@ -676,8 +698,9 @@ async def _forward(sid, event, data):
         await manager.broadcast(_ch("results", meet_id), event, data)
     elif event == "schedule_snapshot":
         meet["schedule_data"] = data
-        # Off the loop: the control plane keeps it for the retained meet's pages.
-        await run_in_threadpool(cloud_node.schedule, meet_id, data)
+        # Off the loop: the node's store keeps it for the meet's pages — the start
+        # list names every athlete, and stays in the meet's region.
+        await run_in_threadpool(cloud_meetstore.update, meet_id, schedule_data=data)
         await manager.broadcast(_ch("schedule", meet_id), "schedule_update")
 
 
