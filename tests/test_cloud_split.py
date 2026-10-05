@@ -23,7 +23,9 @@ import cloud_store
 import cloud_ticket
 
 SECRET = "test-node-secret"
-META = {"name": "Coupe", "meet_date": "2026-10-04", "settings": {"locale": "fr"}}
+# Far ahead: a retired meet expires at midnight after its date, and a date that
+# has passed would be swept before a test could read it back.
+META = {"name": "Coupe", "meet_date": "2099-06-04", "settings": {"locale": "fr"}}
 
 
 def _asgi(method, path, body=None, secret=SECRET):
@@ -660,7 +662,7 @@ def test_a_card_shows_and_searches_the_province_and_country(wired):
     html = _picker(1)
     assert '<span class="country" data-country="CA">CA</span>' in html
     assert "<span>QC</span>" in html
-    assert 'data-search="Meet 0 2026-10-04 Club QC CA"' in html
+    assert 'data-search="Meet 0 2099-06-04 Club QC CA"' in html
 
 
 # ── Rolling updates on the worker ──────────────────────────────────────────────

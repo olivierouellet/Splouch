@@ -20,7 +20,9 @@ META = {
     "name": "Coupe",
     "location": "Montréal",
     "sport": "Swimming",
-    "meet_date": "2026-10-04",
+    # Far ahead: a retired meet expires at midnight after its date, and a date
+    # that has passed would be swept before a test could read it back.
+    "meet_date": "2099-06-04",
     "settings": {"locale": "fr", "home_icon_b64": "SUNPTg==", "picker_image_b64": ""},
 }
 
@@ -78,7 +80,7 @@ def test_a_retired_meet_expires_after_its_date(key):
     reg.retire(mid, "ca1", 1)
     rec = reg.get(mid)
     assert not rec["live"]
-    assert rec["expires_at"] == "2026-10-05T00:00:00"
+    assert rec["expires_at"] == "2099-06-05T00:00:00"
 
 
 def test_only_the_holder_retires_a_meet(key):
