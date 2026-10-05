@@ -26,9 +26,13 @@ def test_the_picker_hands_it_over_only_across_hosts_and_in_the_fragment():
 
 
 def test_the_shell_takes_it_before_its_frames_and_clears_it():
+    """Through count.js, which the meet pages read the id from too (`C-10`)."""
     shell = read("shared", "templates", "mobile.html")
-    take = shell.index("location.hash")
+    take = shell.index("SplouchCount.accept()")
+    assert shell.index('src="/static/js/count.js"') < take
     assert take < shell.index("<iframe"), "a frame could join before the id is stored"
+    count = read("shared", "static", "js", "count.js")
+    assert "location.hash" in count
     assert (
-        "history.replaceState(null, '', location.pathname + location.search)" in shell
+        "history.replaceState(null, '', location.pathname + location.search)" in count
     )

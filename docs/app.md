@@ -854,7 +854,8 @@ Not on any phone client, now or planned:
 
   - **Added**: `P-19` (settings replace the picker menu), `P-20` (introduction, native),
     strings `privacy_count`, `privacy_policy`, `settings`, `settings_display`,
-    `settings_privacy`, `settings_about`.
+    `settings_privacy`, `settings_about`, and for the web `settings_close`,
+    `results_disclaimer_more`.
   - **Changed**: `P-06` (one line, no fold; tap for full text), `P-07` (privacy note
     moves to settings with the toggle), `C-10` (spectator may refuse; 13-month `vid`;
     GPC on web), `P-11`/`P-15` (in settings), `X-10` (sheets return focus).

@@ -131,42 +131,27 @@
         .meet-search:focus { outline: none; border-color: var(--accent); }
         .meet-search[hidden] { display: none; }
 
-        /* ── Notices (docs/app.md `P-06`, `P-07`) ──
-           Above the list, so a long season of meets cannot push them out of sight.
-           Each one collapses to a pill and never further: the pill is the notice,
-           shorter. Expanded, a notice takes the whole row; collapsed, the pills
-           share one, centred like the cards. */
-        .notices {
-            display: flex; flex-wrap: wrap; justify-content: center; gap: 8px;
-            width: 100%; max-width: var(--column); margin-bottom: 16px;
+        /* ── Unofficial results (docs/app.md `P-06`) ──
+           One quiet line above the list, always there: nothing to close, so it
+           never stands in the way. A tap opens the server's full text in place —
+           `<details>`, so it works before the script, and without it. */
+        .disclaimer {
+            width: 100%; max-width: var(--column); margin-bottom: 12px;
+            font-size: 0.8em; color: var(--note-text); text-align: center;
         }
-        .notice { flex: 1 1 100%; }
-        .notice.collapsed { flex: 0 0 auto; }
-        .notice-full {
-            position: relative; font-size: 0.8em; color: var(--note-text); line-height: 1.5;
+        .disclaimer summary {
+            display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; justify-content: center;
+            min-height: 44px; /* docs/app.md `X-05` */
+            cursor: pointer; list-style: none;
+        }
+        .disclaimer summary::-webkit-details-marker { display: none; }
+        .disclaimer summary svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0; }
+        .disclaimer .more { color: var(--accent); }
+        .disclaimer p {
+            line-height: 1.5; text-align: left;
             border: 1px solid var(--btn-line); border-radius: 10px; background: var(--note-bg);
             padding: 12px 16px;
         }
-        /* Room for the X only once the script has revealed it. */
-        .notices.ready .notice-full { padding-right: 44px; }
-        .notice-close {
-            position: absolute; top: 0; right: 0; width: 44px; height: 44px;
-            background: none; border: none; color: var(--muted);
-            font-size: 20px; line-height: 1; cursor: pointer;
-        }
-        .notice-close:active { opacity: 0.6; }
-        .notice-pill {
-            display: inline-flex; align-items: center; gap: 6px;
-            font: inherit; font-size: 0.8em; color: var(--note-text);
-            background: var(--note-bg); border: 1px solid var(--btn-line); border-radius: 999px;
-            padding: 6px 12px 6px 10px; cursor: pointer;
-            position: relative;
-        }
-        /* A 44px target around a 29px pill (docs/app.md `X-05`), without growing it. */
-        .notice-pill::after { content: ''; position: absolute; inset: -8px 0; }
-        .notice-pill svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0; }
-        .notice-pill:active { opacity: 0.7; }
-        .notice-full[hidden], .notice-pill[hidden], .notice-close[hidden] { display: none; }
 
         /* ── Pull-to-refresh ── */
         #ptr-edge {
@@ -231,28 +216,44 @@
             background: #1a3a5c; border: 1px solid #5ab4e8; color: #5ab4e8;
             font-size: 13px; padding: 6px 14px; border-radius: 8px; cursor: pointer;
         }
-        /* ── Display preferences ──
-           The one place a spectator sees every meet, so the one place the choice
-           belongs (docs/app.md `T-08`). Top-right, clear of the logo
-           and title, which are centred and may be either order. */
-        #prefs-btn {
+        /* ── Settings (docs/app.md `P-19`) ──
+           The one place a spectator sees every meet, so the one place the choices
+           belong: Display (`T-08`, `P-15`), Privacy (`P-07`), About (`P-06`). A gear,
+           top-right, clear of the logo and title, opens a side sheet — a modal
+           `<dialog>`, so Escape, the focus trap and focus back on the gear come from
+           the browser (`X-10`). Full width on a phone. */
+        #settings-btn {
             position: fixed; top: max(10px, env(safe-area-inset-top)); right: 12px;
             z-index: 60; width: 44px; height: 44px; border-radius: 10px;
             background: var(--surface); border: 1px solid var(--btn-line); color: var(--btn-text);
             display: flex; align-items: center; justify-content: center; cursor: pointer;
         }
-        #prefs-btn svg { width: 20px; height: 20px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; }
-        #prefs-btn:active { opacity: 0.7; }
-        #prefs-panel {
-            position: fixed; top: max(56px, calc(env(safe-area-inset-top) + 46px)); right: 12px;
-            z-index: 61; width: min(280px, calc(100vw - 24px));
-            background: var(--panel); border: 1px solid var(--btn-line); border-radius: 12px;
-            padding: 12px; display: none; box-shadow: 0 8px 28px var(--panel-shadow);
+        #settings-btn svg { width: 20px; height: 20px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+        #settings-btn:active { opacity: 0.7; }
+        #settings {
+            inset: 0 0 0 auto; margin: 0; height: 100%; max-height: none;
+            width: min(360px, 100vw); max-width: 100vw;
+            border: none; border-left: 1px solid var(--btn-line); padding: 0;
+            background: var(--panel); color: var(--text);
+            box-shadow: 0 0 28px var(--panel-shadow);
         }
-        #prefs-panel.open { display: block; }
-        .prefs-group { font-size: 12px; color: var(--group); text-transform: uppercase;
-                       letter-spacing: 0.04em; margin: 4px 2px 6px; }
-        .prefs-group + .prefs-group { margin-top: 14px; }
+        @media (max-width: 599px) { #settings { width: 100vw; border-left: none; } }
+        #settings::backdrop { background: rgba(0, 0, 0, 0.45); }
+        .sheet {
+            min-height: 100%;
+            padding: max(12px, env(safe-area-inset-top)) 16px max(24px, env(safe-area-inset-bottom));
+        }
+        .sheet-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+        .sheet-head h2 { font-size: 18px; font-weight: 600; }
+        .sheet-close {
+            width: 44px; height: 44px; margin-right: -10px;
+            background: none; border: none; color: var(--muted);
+            font-size: 26px; line-height: 1; cursor: pointer;
+        }
+        .sheet section + section { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--line); }
+        .prefs-group { font-size: 12px; font-weight: 400; color: var(--group); text-transform: uppercase;
+                       letter-spacing: 0.04em; margin: 4px 2px 8px; }
+        .prefs-sub { font-size: 13px; color: var(--muted); margin: 12px 2px 6px; }
         .prefs-opt {
             display: block; width: 100%; text-align: left; margin-bottom: 5px;
             background: var(--opt-bg); border: 1px solid var(--opt-line); border-radius: 8px;
@@ -261,24 +262,60 @@
         }
         .prefs-opt[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
         .prefs-opt:active { opacity: 0.7; }
+        .switch-row {
+            display: flex; align-items: center; justify-content: space-between; gap: 12px;
+            min-height: 44px; font-size: 15px; cursor: pointer;
+        }
+        .switch-row input { width: 22px; height: 22px; accent-color: var(--accent); flex-shrink: 0; }
+        .sheet-note { font-size: 13px; line-height: 1.5; color: var(--note-text); margin-top: 6px; }
+        .sheet-link { display: inline-flex; align-items: center; min-height: 44px; color: var(--accent); font-size: 14px; }
     </style>
 </head>
 <body>
-    <button type="button" id="prefs-btn" onclick="togglePrefs(event)" aria-label="{{ t.prefs_title or 'Display' }}" aria-expanded="false" aria-controls="prefs-panel">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+    <button type="button" id="settings-btn" aria-label="{{ t.settings or 'Settings' }}" aria-haspopup="dialog" aria-expanded="false" aria-controls="settings">
+        {#- Lucide `settings` (ISC); the apps draw SF `gearshape` and Material `settings`. #}
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
     </button>
-    <div id="prefs-panel">
-        <div class="prefs-group">{{ t.language or 'Language' }}</div>
-        <button type="button" class="prefs-opt" data-pref="lang" data-value="">{{ t.language_auto or 'Auto' }}</button>
-        {% for code, name in locales %}
-        <button type="button" class="prefs-opt" data-pref="lang" data-value="{{ code }}">{{ name }}</button>
-        {% endfor %}
-        <div class="prefs-group">{{ t.appearance or 'Appearance' }}</div>
-        {%- set theme_floor = {'dark': 'Dark', 'light': 'Light', 'auto': 'Automatic'} %}
-        {% for theme in reader_themes | default(['dark', 'light', 'auto'], true) %}
-        <button type="button" class="prefs-opt" data-pref="theme" data-value="{{ theme }}">{{ t['appearance_' ~ theme] or theme_floor[theme] }}</button>
-        {% endfor %}
-    </div>
+    {%- set disclaimer = t.get('results_disclaimer', 'These are live, unofficial results and are subject to validation. Validated results will be available on the SplashMe app.') %}
+    <dialog id="settings" aria-labelledby="settings-title">
+        <div class="sheet">
+            <div class="sheet-head">
+                <h2 id="settings-title">{{ t.settings or 'Settings' }}</h2>
+                <button type="button" class="sheet-close" aria-label="{{ t.settings_close or 'Close' }}">&times;</button>
+            </div>
+            <section aria-labelledby="settings-display">
+                <h3 class="prefs-group" id="settings-display">{{ t.settings_display or 'Display' }}</h3>
+                <div class="prefs-sub">{{ t.language or 'Language' }}</div>
+                <button type="button" class="prefs-opt" data-pref="lang" data-value="">{{ t.language_auto or 'Auto' }}</button>
+                {% for code, name in locales %}
+                <button type="button" class="prefs-opt" data-pref="lang" data-value="{{ code }}">{{ name }}</button>
+                {% endfor %}
+                <div class="prefs-sub">{{ t.appearance or 'Appearance' }}</div>
+                {%- set theme_floor = {'dark': 'Dark', 'light': 'Light', 'auto': 'Automatic'} %}
+                {% for theme in reader_themes | default(['dark', 'light', 'auto'], true) %}
+                <button type="button" class="prefs-opt" data-pref="theme" data-value="{{ theme }}">{{ t['appearance_' ~ theme] or theme_floor[theme] }}</button>
+                {% endfor %}
+            </section>
+            {# `P-07`: only while the server counts; the spectator's choice is kept
+               in the browser for when it counts again (`C-10`, count.js). #}
+            {% if analytics_enabled %}
+            <section aria-labelledby="settings-privacy">
+                <h3 class="prefs-group" id="settings-privacy">{{ t.settings_privacy or 'Privacy' }}</h3>
+                <label class="switch-row">
+                    <span>{{ t.privacy_count or 'Count my visit' }}</span>
+                    <input type="checkbox" role="switch" id="count-toggle" aria-describedby="privacy-note">
+                </label>
+                <p class="sheet-note" id="privacy-note">{{ t.get('privacy_note', 'This site counts visitors to estimate attendance, using a random identifier kept on your device — never your name, email or IP address.') }}</p>
+                <a class="sheet-link" href="/privacy">{{ t.privacy_policy or 'Privacy policy' }}</a>
+            </section>
+            {% endif %}
+            <section aria-labelledby="settings-about">
+                <h3 class="prefs-group" id="settings-about">{{ t.settings_about or 'About' }}</h3>
+                <p class="sheet-note">{{ disclaimer }}</p>
+                <a class="sheet-link" href="/privacy">{{ t.privacy_policy or 'Privacy policy' }}</a>
+            </section>
+        </div>
+    </dialog>
 
     <div id="ptr-edge"></div>
     <div id="ptr-wrap" aria-hidden="true"><div id="ptr-indicator">↻</div></div>
@@ -319,37 +356,16 @@
     {% if picker_logo and not picker_logo_above %}
     <img src="/picker_logo" class="picker-logo" alt="">
     {% endif %}
-    {# `P-06` always, `P-07` while attendance counting is on. The full text is what a
-       page without JavaScript shows; the pill and the X are revealed by the script
-       below, which also remembers a collapse against the exact words collapsed. #}
-    {%- set notices = [('results',
-                        t.get('results_disclaimer', 'These are live, unofficial results and are subject to validation. Validated results will be available on the SplashMe app.'),
-                        t.get('results_disclaimer_short', 'Unofficial results'))] %}
-    {%- if analytics_enabled %}
-    {%- set notices = notices + [('privacy',
-                                  t.get('privacy_note', 'This site counts visitors to estimate attendance, using a random identifier kept on your device — never your name, email or IP address.'),
-                                  t.get('privacy_note_short', 'Attendance counting'))] %}
-    {%- endif %}
-    <div class="notices">
-        {% for name, text, label in notices %}
-        <div class="notice" data-notice="{{ name }}">
-            <button type="button" class="notice-pill" aria-controls="notice-{{ name }}" aria-expanded="false" hidden>
-                {#- Lucide `hourglass` and `users` (ISC); the apps draw SF Symbols
-                    `hourglass`/`person.2` and Material `hourglass_top`/`group`. #}
-                {%- if name == 'results' %}
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 22h14M5 2h14"/><path d="M17 22v-4.172a2 2 0 0 0-.586-1.414L12 12l-4.414 4.414A2 2 0 0 0 7 17.828V22"/><path d="M7 2v4.172a2 2 0 0 0 .586 1.414L12 12l4.414-4.414A2 2 0 0 0 17 6.172V2"/></svg>
-                {%- else %}
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-                {%- endif %}
-                <span>{{ label }}</span>
-            </button>
-            <p class="notice-full" id="notice-{{ name }}">
-                <span class="notice-text">{{ text }}</span>
-                <button type="button" class="notice-close" aria-label="{{ t.get('notice_collapse', 'Collapse') }}" hidden>&times;</button>
-            </p>
-        </div>
-        {% endfor %}
-    </div>
+    {# `P-06`: one line, always shown; the full text a tap away. #}
+    <details class="disclaimer">
+        <summary>
+            {#- Lucide `hourglass` (ISC); the apps draw SF `hourglass` and Material `hourglass_top`. #}
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 22h14M5 2h14"/><path d="M17 22v-4.172a2 2 0 0 0-.586-1.414L12 12l-4.414 4.414A2 2 0 0 0 7 17.828V22"/><path d="M7 2v4.172a2 2 0 0 0 .586 1.414L12 12l4.414-4.414A2 2 0 0 0 17 6.172V2"/></svg>
+            <span>{{ t.get('results_disclaimer_short', 'Unofficial results') }}</span>
+            <span class="more">· {{ t.results_disclaimer_more or 'Details' }}</span>
+        </summary>
+        <p>{{ disclaimer }}</p>
+    </details>
     {% if meets %}
     {# Only once the list is long enough to need it: on a small server the picker looks
        as it always has. Rendered hidden and revealed by the script below, so a page
@@ -389,53 +405,15 @@
     {% else %}
     <div class="empty" role="heading" aria-level="2">{{ t.no_meets }}</div>
     {% endif %}
+    <script src="/static/js/count.js"></script>
     <script src="/static/js/fold.js"></script>
     <script>
-/* ── Notices (docs/app.md `P-06`, `P-07`) ──────────────────────────────────
-   The X folds a notice to its pill; the pill opens it again. A collapse is
-   remembered against the words collapsed, not a flag: when the server rewords a
-   notice, or the reader switches language, the new text is shown in full once.
-
-   `P-07`'s note is not on the page while counting is off, and its collapse is
-   forgotten then, so a server that turns counting back on says so in full. */
-var NOTICE_KEY = 'splouch_notice_';
-
-(function () {
-    var box = document.querySelector('.notices');
-    if (!box) return;
-    box.querySelectorAll('.notice').forEach(function (el) {
-        var key = NOTICE_KEY + el.dataset.notice;
-        var text = el.querySelector('.notice-text').textContent.trim();
-        var pill = el.querySelector('.notice-pill');
-        var full = el.querySelector('.notice-full');
-        var close = el.querySelector('.notice-close');
-
-        function show(collapsed) {
-            el.classList.toggle('collapsed', collapsed);
-            pill.hidden = !collapsed;
-            full.hidden = collapsed;
-        }
-
-        var seen = null;
-        try { seen = localStorage.getItem(key); } catch (e) {}
-        close.hidden = false;
-        show(seen === text);
-        close.addEventListener('click', function () {
-            show(true);
-            try { localStorage.setItem(key, text); } catch (e) {}
-            pill.focus();
-        });
-        pill.addEventListener('click', function () {
-            show(false);
-            try { localStorage.removeItem(key); } catch (e) {}
-            close.focus();
-        });
-    });
-    if (!box.querySelector('[data-notice="privacy"]')) {
-        try { localStorage.removeItem(NOTICE_KEY + 'privacy'); } catch (e) {}
-    }
-    box.classList.add('ready');
-})();
+/* The folding notices this page used to have remembered their folds here;
+   nothing reads them now (docs/app.md `P-06`, `P-07`). */
+try {
+    localStorage.removeItem('splouch_notice_results');
+    localStorage.removeItem('splouch_notice_privacy');
+} catch (e) {}
 
 /* ── Meet search (docs/app.md `P-17`) ───────────────────────────────────────
    Filters the cards already on the page; nothing is fetched. Every word of the
@@ -457,17 +435,8 @@ var MEET_SEARCH_KEY = 'splouch_meet_search';
             var url;
             try { url = new URL(card.href, location.href); } catch (e) { return; }
             if (url.origin === location.origin) return;
-            var vid = '';
-            try {
-                vid = localStorage.getItem('splouch_vid') || '';
-                if (!vid) {
-                    vid = (window.crypto && crypto.randomUUID)
-                        ? crypto.randomUUID()
-                        : 'v' + Date.now() + Math.random().toString(36).slice(2);
-                    localStorage.setItem('splouch_vid', vid);
-                }
-            } catch (e) { return; }
-            url.hash = 'vid=' + encodeURIComponent(vid);
+            // `C-10`: the attendance id, or `0` for a spectator who refused counting.
+            url.hash = 'vid=' + encodeURIComponent(SplouchCount.vid() || '0');
             card.href = url.href;
         });
     });
@@ -578,20 +547,31 @@ function markPrefs() {
     });
 }
 
-function togglePrefs(e) {
-    if (e) e.stopPropagation();
-    var open = document.getElementById('prefs-panel').classList.toggle('open');
-    document.getElementById('prefs-btn').setAttribute('aria-expanded', open ? 'true' : 'false');
-    markPrefs();
-}
+(function () {
+    var btn = document.getElementById('settings-btn');
+    var dlg = document.getElementById('settings');
+    function close() { dlg.close(); }
+    btn.addEventListener('click', function () {
+        markPrefs();
+        dlg.showModal();
+        btn.setAttribute('aria-expanded', 'true');
+    });
+    dlg.querySelector('.sheet-close').addEventListener('click', close);
+    // A tap on the backdrop lands on the dialog itself; the sheet fills it otherwise.
+    dlg.addEventListener('click', function (e) { if (e.target === dlg) close(); });
+    dlg.addEventListener('close', function () {
+        btn.setAttribute('aria-expanded', 'false');
+        btn.focus();
+    });
 
-document.addEventListener('click', function (e) {
-    var panel = document.getElementById('prefs-panel');
-    if (panel.classList.contains('open') && !panel.contains(e.target)) {
-        panel.classList.remove('open');
-        document.getElementById('prefs-btn').setAttribute('aria-expanded', 'false');
+    /* `P-07`, `C-10`: the counting toggle. Not on the page while the server
+       does not count. */
+    var count = document.getElementById('count-toggle');
+    if (count && count.tagName === 'INPUT') {
+        count.checked = SplouchCount.allowed();
+        count.addEventListener('change', function () { SplouchCount.set(count.checked); });
     }
-});
+})();
 
 document.querySelectorAll('.prefs-opt').forEach(function (b) {
     b.addEventListener('click', function () {

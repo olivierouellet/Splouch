@@ -454,6 +454,7 @@
 <script>window.EVENT_VOCAB = {{ event_vocab | default({}, true) | tojson }};</script>
 <script src="/static/js/ws.js"></script>
 <script src="/static/js/fold.js"></script>
+<script src="/static/js/count.js"></script>
 <script>
 // Empty on the Pi: one meet, no rooms, and nothing to count (docs/api.md §2).
 const MEET_ID = '{{ meet_id | default('', true) }}';
@@ -465,19 +466,10 @@ const SPOKEN_LABELS = {{ (spoken_labels or labels) | tojson }};
 // Suggestion-row type words, from the same [mobile] table as the rest of the sheet.
 const TYPE_LABELS = {{ {'swimmer': t.swimmer or 'Swimmer', 'club': t.club or 'Club'} | tojson }};
 
-// Random per-device id for anonymous attendance counting (opt-in, admin side).
-function splouchVid() {
-    try {
-        var k = 'splouch_vid', v = localStorage.getItem(k);
-        if (!v) {
-            v = (window.crypto && crypto.randomUUID)
-                ? crypto.randomUUID()
-                : 'v' + Date.now() + Math.random().toString(36).slice(2);
-            localStorage.setItem(k, v);
-        }
-        return v;
-    } catch (e) { return ''; }
-}
+// The attendance id for `join_meet`, or '' while the spectator refuses counting
+// (docs/app.md `C-10`, count.js). Cloud-only — the Pi renders this too but never
+// calls it, having one meet, no rooms and nobody to count.
+function splouchVid() { return SplouchCount.vid(); }
 
 var activeFilters = [];
 var currentEvent  = null;

@@ -235,9 +235,9 @@ def _picker(**ctx):
 
 
 def test_the_picker_offers_the_choice_under_the_language():
-    """Where the column-labels control was."""
+    """In settings' Display section (`P-19`), where the column-labels control was."""
     html = _picker(reader_theme="dark")
-    panel = html[html.index('id="prefs-panel"') : html.index('id="ptr-edge"')]
+    panel = html[html.index('<dialog id="settings"') : html.index("</dialog>")]
     assert panel.index('data-pref="lang"') < panel.index("Apparence")
     themes = re.findall(r'data-pref="theme" data-value="(\w+)">([^<]+)<', panel)
     assert [v for v, _ in themes] == ["dark", "light", "auto"]

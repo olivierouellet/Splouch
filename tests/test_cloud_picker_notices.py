@@ -1,12 +1,15 @@
-"""The picker's notices (`app.md` `P-06`, `P-07`).
+"""The picker's notices (`app.md` `P-06`, `P-07`) and the counting choice (`C-10`).
 
-Under the list, a season of meets pushed the unofficial-results disclaimer and the
-attendance note out of sight. They now sit above it, and each folds to a pill with
-an X — never further, so the disclaimer a **must** asks for is always on screen.
+The two folding banners above the list stood in the way. Now the unofficial-results
+disclaimer is one line that cannot be closed — a `<details>`, so the full text is a
+tap away with or without the script — and the attendance note lives in the settings
+sheet, beside the toggle that refuses counting.
 
-What this file guards: both notices are above the list and in full without
-JavaScript, the attendance note follows `analytics_enabled`, and a fold is
-remembered against the words folded, so new wording is shown in full again.
+What this file guards: the line is above the list and in the page without
+JavaScript; the privacy section follows `analytics_enabled`; and `count.js` — the one
+place the picker and every meet page get the attendance id from — keeps its
+promises: off deletes the id, back on makes a new one, Global Privacy Control starts
+off, an id is replaced after 13 months, and the hand-off fragment carries a refusal.
 """
 
 import json
@@ -22,7 +25,7 @@ from jsc import HAS_JS_ENGINE, run_page
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 DISCLAIMER = "Live, unofficial results."
-PRIVACY = "Visitors are counted anonymously."
+PRIVACY = "Visitors are counted with a random identifier."
 
 
 def _render(analytics_enabled=False, meets=3):
@@ -43,8 +46,6 @@ def _render(analytics_enabled=False, meets=3):
             "results_disclaimer": DISCLAIMER,
             "results_disclaimer_short": "Unofficial results",
             "privacy_note": PRIVACY,
-            "privacy_note_short": "Attendance counting",
-            "notice_collapse": "Collapse",
         },
         locales=[("en", "English")],
         analytics_enabled=analytics_enabled,
@@ -55,144 +56,187 @@ def _body(html):
     return html[html.index("<body") :]
 
 
+def _dialog(html):
+    start = html.index('<dialog id="settings"')
+    return html[start : html.index("</dialog>", start)]
+
+
 # ── The page ──────────────────────────────────────────────────────────────────
 
 
-def test_the_notices_come_before_the_search_box_and_the_cards():
+def test_the_disclaimer_comes_before_the_search_box_and_the_cards():
     body = _body(_render(analytics_enabled=True))
-    notices = body.index('class="notices"')
-    assert notices < body.index('id="meet-search"')
-    assert notices < body.index('class="meets"')
+    line = body.index('<details class="disclaimer"')
+    assert line < body.index('id="meet-search"')
+    assert line < body.index('class="meets"')
 
 
 def test_the_disclaimer_is_there_even_with_no_meets():
-    assert DISCLAIMER in _render(meets=0)
+    assert '<details class="disclaimer"' in _render(meets=0)
 
 
-def test_the_attendance_note_follows_counting():
-    assert '<div class="notice" data-notice="privacy"' not in _render(False)
+def test_the_disclaimer_is_one_line_with_its_full_text_a_tap_away():
+    """Closed by default; the full text is in the page, so no script is needed."""
+    html = _render()
+    details = html[html.index('<details class="disclaimer"') :]
+    details = details[: details.index("</details>")]
+    assert "open" not in details.split(">", 1)[0]
+    assert "Unofficial results" in details and DISCLAIMER in details
+
+
+def test_nothing_on_the_picker_can_close_it():
+    body = _body(_render(analytics_enabled=True))
+    for gone in ("notice-close", "notice-pill", 'class="notices"'):
+        assert gone not in body
+
+
+def test_the_privacy_note_lives_in_settings_only_while_counting():
     html = _render(analytics_enabled=True)
-    assert '<div class="notice" data-notice="privacy"' in html and PRIVACY in html
+    assert PRIVACY in _dialog(html)
+    assert html.count(PRIVACY) == 1
+    assert 'id="count-toggle"' in _dialog(html)
+    off = _render(analytics_enabled=False)
+    assert PRIVACY not in off and 'id="count-toggle"' not in off
 
 
-@pytest.mark.parametrize("control", ["notice-pill", "notice-close"])
-def test_without_javascript_only_the_full_text_shows(control):
-    """The pill and the X do nothing until the script is up, so they start hidden."""
-    for tag in re.findall(rf'<button[^>]*class="{control}"[^>]*>', _render(True)):
-        assert "hidden" in tag
+def test_settings_carry_the_disclaimer_and_the_policy():
+    dialog = _dialog(_render())
+    assert DISCLAIMER in dialog and 'href="/privacy"' in dialog
 
 
-def test_the_full_text_is_never_rendered_hidden():
-    for tag in re.findall(r'<p[^>]*class="notice-full"[^>]*>', _render(True)):
-        assert "hidden" not in tag
-
-
-def test_the_page_runs_with_both_notices():
+def test_the_page_runs():
     run_page(_render(analytics_enabled=True))
     run_page(_render(analytics_enabled=False, meets=0))
 
 
-# ── Folding ───────────────────────────────────────────────────────────────────
-
-# The stub DOM finds nothing by selector, so the notices are handed to the page
-# here, each recording whether its full text or its pill ends up showing. Adding
-# `ready` to the box is the script's last act: that is when the state is reported
-# and, when a test asks, one control clicked and the state reported again. A report
-# rides `__calls`, encoded so its commas survive the join.
-_FAKE_NOTICES = r"""
-var __store = %(store)s, __click = %(click)s, __notices = {};
-Object.keys(__store).forEach(function (k) { localStorage.setItem(k, __store[k]); });
-function __fakeNotice(name, text) {
-  function ctl() { var c = __node('button'); c.on = {};
-    c.addEventListener = function (t, fn) { c.on[t] = fn; }; return c; }
-  var el = __node('div'), full = __node('p'), span = __node('span');
-  var parts = { '.notice-text': span, '.notice-pill': ctl(), '.notice-full': full,
-                '.notice-close': ctl() };
-  el.dataset.notice = name; span.textContent = text;
-  el.querySelector = function (s) { return parts[s] || null; };
-  __notices[name] = parts;
-  return el;
-}
-function __report() {
-  var o = { stored: {} };
-  Object.keys(__notices).forEach(function (n) {
-    o[n] = __notices[n]['.notice-full'].hidden ? 'pill' : 'full'; });
-  ['results', 'privacy'].forEach(function (n) {
-    o.stored[n] = localStorage.getItem('splouch_notice_' + n); });
-  __calls.push('@' + encodeURIComponent(JSON.stringify(o)));
-}
-var __box = __node('div'), __items = __list(%(notices)s.map(function (p) {
-  return __fakeNotice(p[0], p[1]); }));
-__box.querySelectorAll = function () { return __items; };
-__box.querySelector = function (s) {
-  return s === '[data-notice="privacy"]' && __notices.privacy ? __node() : null; };
-__box.classList = { add: function () {
-  __report();
-  if (__click) { __notices[__click[0]][__click[1]].on.click(); __report(); }
-}, remove: function () {}, toggle: function () {}, contains: function () { return false; } };
-var __qs = document.querySelector;
-document.querySelector = function (s) { return s === '.notices' ? __box : __qs(s); };
-"""
+# ── count.js ──────────────────────────────────────────────────────────────────
 
 needs_js = pytest.mark.skipif(
-    not HAS_JS_ENGINE, reason="needs a JS engine to run the picker's own script"
+    not HAS_JS_ENGINE, reason="needs a JS engine to run count.js"
+)
+
+# Each fresh id differs, so "a new one, never the old" can be seen.
+_SETUP = r"""
+var __n = 0;
+window.crypto.randomUUID = function () { __n += 1; return 'id-' + __n; };
+var __store = %(store)s;
+Object.keys(__store).forEach(function (k) { localStorage.setItem(k, __store[k]); });
+navigator.globalPrivacyControl = %(gpc)s;
+location.hash = %(hash)s;
+"""
+
+
+def _count(steps, store=None, gpc=False, fragment=""):
+    """Run `steps` (JS) after count.js; each `__out(x)` is returned in order."""
+    page = (
+        '<script src="/static/js/count.js"></script>'
+        "<script>function __out(x) { __calls.push('@' + encodeURIComponent("
+        "JSON.stringify(x === undefined ? null : x))); }\n" + steps + "</script>"
+    )
+    extra = _SETUP % {
+        "store": json.dumps(store or {}),
+        "gpc": json.dumps(gpc),
+        "hash": json.dumps(fragment),
+    }
+    return [
+        json.loads(unquote(c[1:]))
+        for c in run_page(page, extra).split(",")
+        if c.startswith("@")
+    ]
+
+
+_STATE = (
+    "__out([SplouchCount.allowed(), localStorage.getItem('splouch_vid'), "
+    "localStorage.getItem('splouch_count')]);"
 )
 
 
-def _fold(store=None, click=None, privacy=True):
-    """The notices' state as the page leaves it, then after `click` if given."""
-    notices = [["results", DISCLAIMER]] + ([["privacy", PRIVACY]] if privacy else [])
-    extra = _FAKE_NOTICES % {
-        "store": json.dumps(store or {}),
-        "click": json.dumps(click),
-        "notices": json.dumps(notices),
-    }
-    scheduled = run_page(_render(analytics_enabled=privacy), extra)
-    return [
-        json.loads(unquote(c[1:])) for c in scheduled.split(",") if c.startswith("@")
+@needs_js
+def test_counting_is_on_by_default_and_makes_one_id():
+    assert _count("__out(SplouchCount.vid()); __out(SplouchCount.vid());") == [
+        "id-1",
+        "id-1",
     ]
 
 
 @needs_js
-def test_a_first_visit_shows_both_in_full():
-    (state,) = _fold()
-    assert (state["results"], state["privacy"]) == ("full", "full")
+def test_global_privacy_control_starts_off_until_the_spectator_says_otherwise():
+    assert _count("__out(SplouchCount.vid());" + _STATE, gpc=True) == [
+        "",
+        [False, None, None],
+    ]
+    assert _count("SplouchCount.set(true); __out(SplouchCount.vid());", gpc=True) == [
+        "id-1"
+    ]
 
 
 @needs_js
-def test_a_fold_of_these_very_words_is_kept():
-    (state,) = _fold({"splouch_notice_results": DISCLAIMER})
-    assert (state["results"], state["privacy"]) == ("pill", "full")
-
-
-@needs_js
-def test_new_words_are_shown_in_full_again():
-    """A reworded notice, or the same one in another language."""
-    (state,) = _fold({"splouch_notice_results": "The old wording."})
-    assert state["results"] == "full"
-
-
-@needs_js
-def test_the_x_folds_and_remembers_the_words():
-    _, after = _fold(click=["results", ".notice-close"])
-    assert after["results"] == "pill"
-    assert after["stored"]["results"] == DISCLAIMER
-
-
-@needs_js
-def test_the_pill_opens_and_forgets():
-    _, after = _fold(
-        {"splouch_notice_results": DISCLAIMER}, click=["results", ".notice-pill"]
+def test_off_deletes_the_id_and_back_on_makes_a_new_one():
+    out = _count(
+        "__out(SplouchCount.vid()); SplouchCount.set(false);"
+        + _STATE
+        + "__out(SplouchCount.vid()); SplouchCount.set(true); __out(SplouchCount.vid());"
     )
-    assert after["results"] == "full"
-    assert after["stored"]["results"] is None
+    assert out == ["id-1", [False, None, "off"], "", "id-2"]
 
 
 @needs_js
-def test_counting_off_forgets_the_attendance_fold():
-    """So a server that turns counting back on says so in full."""
-    (state,) = _fold(
-        {"splouch_notice_results": DISCLAIMER, "splouch_notice_privacy": PRIVACY},
-        privacy=False,
+def test_an_id_from_before_ages_were_kept_is_dated_not_replaced():
+    out = _count(
+        "__out(SplouchCount.vid()); __out(!!localStorage.getItem('splouch_vid_at'));",
+        store={"splouch_vid": "old"},
     )
-    assert state["stored"] == {"results": DISCLAIMER, "privacy": None}
+    assert out == ["old", True]
+
+
+@needs_js
+def test_an_id_older_than_13_months_is_replaced():
+    stale = "String(Date.now() - 396 * 24 * 3600 * 1000)"
+    young = "String(Date.now() - 300 * 24 * 3600 * 1000)"
+    for at, expect in ((stale, "id-1"), (young, "old")):
+        out = _count(
+            f"localStorage.setItem('splouch_vid_at', {at}); __out(SplouchCount.vid());",
+            store={"splouch_vid": "old"},
+        )
+        assert out == [expect]
+
+
+@needs_js
+def test_the_hand_off_carries_a_refusal():
+    out = _count(
+        "SplouchCount.accept();" + _STATE,
+        store={"splouch_vid": "mine"},
+        fragment="#vid=0",
+    )
+    assert out == [[False, None, "off"]]
+
+
+@needs_js
+def test_the_hand_off_carries_the_pickers_id_and_its_consent():
+    out = _count(
+        "SplouchCount.accept();" + _STATE,
+        store={"splouch_count": "off"},
+        fragment="#vid=abc",
+    )
+    assert out == [[True, "abc", "on"]]
+
+
+@needs_js
+def test_the_picker_forgets_the_old_folds():
+    page = _render(analytics_enabled=True) + (
+        "<script>__calls.push('@' + [localStorage.getItem('splouch_notice_results'),"
+        " localStorage.getItem('splouch_notice_privacy')].join('|'));</script>"
+    )
+    extra = (
+        "localStorage.setItem('splouch_notice_results', 'x');"
+        "localStorage.setItem('splouch_notice_privacy', 'y');"
+    )
+    marks = [c for c in run_page(page, extra).split(",") if c.startswith("@")]
+    assert marks == ["@|"]  # both gone: `[null, null].join` is "|"
+
+
+def test_the_hand_off_sends_zero_for_a_refusal():
+    script = _render()
+    assert re.search(
+        r"'vid=' \+ encodeURIComponent\(SplouchCount\.vid\(\) \|\| '0'\)", script
+    )

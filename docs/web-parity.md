@@ -23,8 +23,8 @@ from; the `diverges` rows are where v2 moved past them.
 | `P-03` | `done` | |
 | `P-04` | `done` | |
 | `P-05` | `done` | |
-| `P-06` | `done` | above the list and over the search field; fold stored per origin in `localStorage` against its exact text |
-| `P-07` | `done` | |
+| `P-06` | `done` | one `<details class="disclaimer">` above the list and the search field: short text + *Details*, full text inline on tap, no script needed; old fold keys removed on load |
+| `P-07` | `done` | settings' Privacy section, only while `analytics_enabled`: `#count-toggle` (`role="switch"`), `privacy_note`, `/privacy` link |
 | `P-08` | `done` | |
 | `P-09` | `done` | |
 | `P-10` | `done` | the install card offers the reader's own store when their platform has a listing — narrowed by `User-Agent` as `GET /add` narrows it, every listing for an agent that cannot be placed — and Add to Home Screen otherwise |
@@ -36,6 +36,8 @@ from; the `diverges` rows are where v2 moved past them.
 | `P-16` | `n/a` | native-only; the web half is `GET /add` ([`api.md`](api.md) §4) |
 | `P-17` | `done` | field in the list from 3 meets, `foldName()` from `fold.js`; province and country code in `data-search`, the country's name added by the page script |
 | `P-18` | `done` | `compact` from `COMPACT_AFTER` in `cloud_control.py`; `.meets.compact`, no `<img>` rendered |
+| `P-19` | `done` | gear `#settings-btn` → modal `<dialog id="settings">` side sheet (full width under 600px): Display, Privacy, About; Escape, backdrop tap and × close it |
+| `P-20` | `n/a` | native-only — the `P-06` line does the job on the web |
 
 ## 2. App shell
 
@@ -90,7 +92,7 @@ from; the `diverges` rows are where v2 moved past them.
 | ID | Status | Notes |
 | --- | --- | --- |
 | `C-01`–`C-09` | `done` | `shared/static/js/ws.js` |
-| `C-10` | `done` | `splouchVid()` in `scoreboard_base.html` / `schedule.html`; the picker appends `#vid=` to a card on another host, and `mobile.html` stores it before its frames load, then clears the fragment |
+| `C-10` | `done` | `shared/static/js/count.js` (`SplouchCount`): choice in `splouch_count`, id and its date in `splouch_vid` / `splouch_vid_at`, 13-month replacement, GPC starts off. `splouchVid()` in `scoreboard_base.html` / `schedule.html` calls it; the picker appends `#vid=<id>` or `#vid=0` to a card on another host, and `mobile.html` applies it with `accept()` before its frames load |
 | `C-11` | `done` | a worker renders its pages with its `/wN` base (`wbase`), so sockets and tabs reach it; the picker links to it |
 | `C-12` | `done` | `ws.js` sends the whole page to `moved.url` |
 
@@ -112,11 +114,11 @@ from; the `diverges` rows are where v2 moved past them.
 | `X-02` | `done` | `#spoken_heat`: `EVENT 12, HEAT 3`, empty before a number arrives; the two drawn cells are `aria-hidden` |
 | `X-03` | `done` | each start-list lane is one hidden sentence in the long words, its drawn fragments `aria-hidden`; the heat heading likewise |
 | `X-04` | `done` | heat headings, the picker's `<h1>`, and every empty state (`role="heading"`) |
-| `X-05` | `done` | measured in Chrome: the menu button, menu rows, notice X, install-card close and store buttons, filter-sheet ✓ are 44px; chips, pills, the filter button, the two toggles and Reset keep their size and grow an invisible 44px band (chips up and down only) |
+| `X-05` | `done` | measured in Chrome: the gear, settings rows and ×, the disclaimer line, install-card close and store buttons, filter-sheet ✓ are 44px; chips, pills, the filter button, the two toggles and Reset keep their size and grow an invisible 44px band (chips up and down only) |
 | `X-06` | `done` | menu rows `aria-pressed`, the menu button `aria-expanded`, the tab bar `tablist`/`tab`/`aria-selected`, the schedule toggles `aria-pressed`, an added suggestion `aria-disabled` |
-| `X-07` | `done` | icons and glyphs beside words are `aria-hidden` (menu, pills, install card, filter, ☰, ↺, ✓, ×, pull-to-refresh). A chip still reads only its name — no `[mobile]` word says a tap removes it |
+| `X-07` | `done` | icons and glyphs beside words are `aria-hidden` (gear, hourglass, install card, filter, ↺, ✓, ×, pull-to-refresh). A chip still reads only its name — no `[mobile]` word says a tap removes it |
 | `X-09` | `done` | the picker's live dot stands still and the schedule jumps rather than glides to the current heat under `prefers-reduced-motion`; the swipe settles without sliding (`A-10`). The board's lane pulse and lock flash keep running — they are information |
-| `X-10` | `done` | folding a notice focuses its pill; opening it focuses its X |
+| `X-10` | `done` | closing settings returns focus to the gear (`close` handler, on top of the `<dialog>` default) |
 | `X-08` | `done` | the browser's zoom, not the OS text size (the pages do not opt in to `-apple-system-body`). Checked at 200% — a 390px phone emulated as 195px at 4× — and at 320px: the picker's cards no longer force a 260px floor, its title and logo clear the menu button, the schedule wraps headings and names instead of cutting them below 360px, and the shell's hidden tab labels stay the tabs' names. Android Chrome's own text scaling is not emulated here |
 
 Checked against Chrome's accessibility tree (DevTools `Accessibility.getFullAXTree`), not yet heard under VoiceOver or TalkBack.

@@ -171,6 +171,7 @@
 }
 {% block extra_style %}{% endblock %}
 </style>
+<script src="/static/js/count.js"></script>
 <script>
 var NUM_LANES = {{ num_lanes }};
 // Lap counts in the delta column while a lane swims (Settings → Display).
@@ -181,22 +182,10 @@ var LAP_DIRECTION = {{ lap_direction | default('up', true) | tojson }};
 // (docs/api.md §2), so it renders this as "".
 var MEET_ID   = {{ meet_id | default('', true) | tojson }};
 
-// Random per-device id for anonymous attendance counting (opt-in, admin side).
-// Stored once in localStorage and shared across the meet's pages on this origin;
-// only ever used server-side for COUNT(DISTINCT). Cloud-only — the Pi renders this
-// too but never calls it, having one meet, no rooms and nobody to count.
-function splouchVid() {
-    try {
-        var k = 'splouch_vid', v = localStorage.getItem(k);
-        if (!v) {
-            v = (window.crypto && crypto.randomUUID)
-                ? crypto.randomUUID()
-                : 'v' + Date.now() + Math.random().toString(36).slice(2);
-            localStorage.setItem(k, v);
-        }
-        return v;
-    } catch (e) { return ''; }
-}
+// The attendance id for `join_meet`, or '' while the spectator refuses counting
+// (docs/app.md `C-10`, count.js). Cloud-only — the Pi renders this too but never
+// calls it, having one meet, no rooms and nobody to count.
+function splouchVid() { return SplouchCount.vid(); }
 
 function on_timer() {
     var d = new Date();
