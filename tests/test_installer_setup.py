@@ -36,6 +36,7 @@ def _stubs(tmp_path, pinning):
     return {
         **os.environ,
         "TMPDIR": str(tmp_path),
+        "SPLOUCH_SETUP_ANY_OS": "1",
         "PATH": f"{bin_dir}:{os.environ['PATH']}",
     }
 
@@ -59,8 +60,9 @@ def test_scripts_are_valid_bash():
 
 def test_the_menu_is_master_then_the_ten_newest_releases(tmp_path):
     out = _run(tmp_path, "13\n")  # Quit
-    assert "1) master" in out
-    assert "2) v2026.08.4 (latest release)" in out
+    assert " 1) v2026.08.4 (latest release)" in out
+    assert " 2) master" in out
+    assert " 3) v2026.08.3" in out
     assert "11) v2026.07.0" in out
     assert "v2026.06.4" not in out and "not-a-release" not in out
     assert "12) Custom" in out
@@ -70,7 +72,8 @@ def test_the_menu_is_master_then_the_ten_newest_releases(tmp_path):
 @pytest.mark.parametrize(
     "answers, expected",
     [
-        ("1\n", "ARGS[|master]"),
+        ("\n", "ARGS[|v2026.08.4]"),
+        ("2\n", "ARGS[|master]"),
         ("3\n", "ARGS[|v2026.08.3]"),
         ("12\nfeature/x\n", "ARGS[|feature/x]"),
     ],
@@ -86,7 +89,7 @@ def test_role_and_version_arguments_skip_the_menu(tmp_path):
 
 
 def test_an_old_installer_reaches_the_newest_release_as_latest(tmp_path):
-    assert "ARGS[|latest]" in _run(tmp_path, "2\n", pinning=False)
+    assert "ARGS[|latest]" in _run(tmp_path, "1\n", pinning=False)
 
 
 def test_end_of_input_at_the_menu_exits(tmp_path):
@@ -169,3 +172,21 @@ def test_checkout_version_refuses_an_unknown_version(repo):
     out = _checkout(clone, "nope")
     assert out.returncode != 0
     assert "not a tag, branch or commit" in out.stderr
+
+
+def test_it_refuses_to_run_outside_linux(tmp_path):
+    env = _stubs(tmp_path, pinning=True)
+    del env["SPLOUCH_SETUP_ANY_OS"]
+    (tmp_path / "bin" / "uname").write_text("#!/bin/sh\necho Darwin\n")
+    (tmp_path / "bin" / "uname").chmod(0o755)
+    out = subprocess.run(
+        ["bash", SETUP],
+        input="\n",
+        capture_output=True,
+        text=True,
+        env=env,
+        check=False,
+    )
+    assert out.returncode == 1
+    assert "not on Darwin" in out.stderr
+    assert "ARGS[" not in out.stdout

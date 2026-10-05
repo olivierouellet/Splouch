@@ -35,6 +35,13 @@ cat <<'EOF'
 EOF
 echo -e "${NC}"
 
+# The installer provisions Raspberry Pi OS, Debian or Ubuntu (apt, systemd, getent).
+if [[ "$(uname -s)" != "Linux" && "${SPLOUCH_SETUP_ANY_OS:-}" != "1" ]]; then
+    error "Splouch installs on a Raspberry Pi or a Debian/Ubuntu server, not on $(uname -s)."
+    error "SSH into the Pi or the VM and run this there."
+    exit 1
+fi
+
 # Release tags, newest first. git when it is there (a Pi has it); otherwise the
 # GitHub API over curl, which a fresh VM always has since it fetched this script.
 release_tags() {
@@ -68,27 +75,29 @@ NEWEST="${TAGS[0]:-}"
 while true; do
     if [[ -z "$VERSION" ]]; then
         [[ ${#TAGS[@]} -eq 0 ]] && warn "Could not list the releases — master or a typed version only."
+        # Not `select`: it has no default, and Enter should take the latest release.
+        _labels=() _values=()
+        [[ -n "$NEWEST" ]] && _labels+=("$NEWEST (latest release)") _values+=("$NEWEST")
+        _labels+=("master (development branch)") _values+=("master")
+        for _t in ${TAGS[@]+"${TAGS[@]:1}"}; do _labels+=("$_t") _values+=("$_t"); done
+        _labels+=("Custom (type a tag, branch or commit)" "Quit") _values+=("" "")
+        _custom=$((${#_labels[@]} - 1)) _quit=${#_labels[@]}
         echo "Which version to install?"
-        _options=("master (development branch)")
-        for _t in ${TAGS[@]+"${TAGS[@]}"}; do
-            if [[ "$_t" == "$NEWEST" ]]; then _options+=("$_t (latest release)"); else _options+=("$_t"); fi
+        for _i in "${!_labels[@]}"; do printf '%2d) %s\n' $((_i + 1)) "${_labels[_i]}"; done
+        while true; do
+            read -rp "Choice [1]: " _n || exit 1 # end of input
+            _n="${_n:-1}"
+            if [[ "$_n" =~ ^[0-9]+$ ]] && ((_n >= 1 && _n <= _quit)); then break; fi
+            warn "Type a number from 1 to $_quit."
         done
-        _options+=("Custom (type a tag, branch or commit)" "Quit")
-        PS3="Choice: "
-        select _choice in "${_options[@]}"; do
-            case "$_choice" in
-                master*) VERSION="master" ;;
-                Custom*)
-                    read -rp "Version: " VERSION
-                    [[ -z "$VERSION" ]] && continue
-                    ;;
-                Quit) exit 0 ;;
-                v*) VERSION="${_choice%% *}" ;;
-                *) continue ;;
-            esac
-            break
-        done
-        [[ -n "$VERSION" ]] || exit 1 # end of input at the menu
+        if ((_n == _quit)); then
+            exit 0
+        elif ((_n == _custom)); then
+            read -rp "Version: " VERSION || exit 1
+            [[ -z "$VERSION" ]] && continue
+        else
+            VERSION="${_values[_n - 1]}"
+        fi
     fi
 
     _dir="$(mktemp -d "${TMPDIR:-/tmp}/splouch-setup.XXXXXX")"
