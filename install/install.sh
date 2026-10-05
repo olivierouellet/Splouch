@@ -119,6 +119,10 @@ fi
 info "Role: $ROLE"
 
 # ── Version selection ─────────────────────────────────────────────────────────
+# `latest`, `master`, or any tag, branch or commit. install/setup.sh downloads the
+# installer of the version picked and passes that version here; it checks this
+# script for SPLOUCH_PINS_REF before trusting it to stay on that version (older
+# installers know only `latest` and `master`).
 VERSION_CHOICE="${2:-}"
 if [[ -z "$VERSION_CHOICE" && "${SPLOUCH_NONINTERACTIVE:-}" == "1" ]]; then VERSION_CHOICE="master"; fi
 if [[ -z "$VERSION_CHOICE" ]]; then
@@ -345,6 +349,19 @@ checkout_version() {
         else
             warn "No release tags found — using master."
         fi
+    elif [[ "$VERSION_CHOICE" != "master" && "$VERSION_CHOICE" != "main" ]]; then
+        # A version picked in setup.sh: a tag, else a branch, else a commit.
+        if git -C "$dir" rev-parse --verify --quiet "refs/tags/$VERSION_CHOICE" >/dev/null; then
+            git -C "$dir" checkout -B release "refs/tags/$VERSION_CHOICE" --quiet
+        elif git -C "$dir" rev-parse --verify --quiet "origin/$VERSION_CHOICE" >/dev/null; then
+            git -C "$dir" checkout -B "$VERSION_CHOICE" "origin/$VERSION_CHOICE" --quiet
+        elif git -C "$dir" rev-parse --verify --quiet "$VERSION_CHOICE^{commit}" >/dev/null; then
+            git -C "$dir" checkout -B release "$VERSION_CHOICE" --quiet
+        else
+            error "Version '$VERSION_CHOICE' is not a tag, branch or commit of this repo."
+            exit 1
+        fi
+        info "Version: $VERSION_CHOICE"
     else
         # `-B … origin/<branch>`, not a bare checkout. A display arriving here has
         # just skipped its pull (it was on the untracked `display` branch), so its
@@ -1422,8 +1439,18 @@ PYEOF
     # cloud_deploy.py sizes the worker set (one per spare core), pulls the image CI
     # published for this checkout — the release tag it sits on, else master — or
     # builds it here when there is none, and starts everything.
-    _version=$(git -C "$INSTALL_DIR" describe --tags --exact-match HEAD 2>/dev/null || echo master)
-    sg docker -c "python3 cloud_deploy.py $_version"
+    # A branch or commit other than master has no published image: built here,
+    # tagged with its short commit.
+    _version=$(git -C "$INSTALL_DIR" describe --tags --exact-match HEAD 2>/dev/null || true)
+    if [[ -n "$_version" ]]; then
+        _deploy_args="$_version"
+    elif [[ "$(git -C "$INSTALL_DIR" rev-parse HEAD)" == "$(git -C "$INSTALL_DIR" rev-parse origin/master 2>/dev/null)" ]]; then
+        _version=master _deploy_args=master
+    else
+        _version=$(git -C "$INSTALL_DIR" rev-parse --short HEAD)
+        _deploy_args="--build $_version"
+    fi
+    sg docker -c "python3 cloud_deploy.py $_deploy_args"
     info "Cloud server started ($_version)."
 
     # Remove the temporary NOPASSWD rule — sudo now requires the password set above.

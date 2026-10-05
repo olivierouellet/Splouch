@@ -46,11 +46,12 @@ The relay is two apps on one VM: a **worker** that carries a meet's live frames,
 SSH into the VM and run:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/olivierouellet/Splouch/master/install/install.sh -o install.sh && bash install.sh cloud
+curl -fsSL https://raw.githubusercontent.com/olivierouellet/Splouch/master/install/setup.sh -o setup.sh && bash setup.sh cloud
 ```
 
 The script handles everything interactively:
 
+- Asks which version to install — master, one of the 10 latest releases, or one you type — and runs that version's own installer
 - Installs Docker, fail2ban, and unattended security upgrades
 - Clones the repo and generates a `SECRET_KEY`, a `POSTGRES_PASSWORD` and a `NODE_SECRET`
 - Prompts for admin username and password
@@ -471,11 +472,12 @@ compétitions, le panneau d'administration et les données
 Connectez-vous en SSH à la VM et lancez :
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/olivierouellet/Splouch/master/install/install.sh -o install.sh && bash install.sh cloud
+curl -fsSL https://raw.githubusercontent.com/olivierouellet/Splouch/master/install/setup.sh -o setup.sh && bash setup.sh cloud
 ```
 
 Le script s'occupe de tout, de façon interactive :
 
+- Demande quelle version installer — master, une des 10 dernières versions, ou une version saisie — et lance l'installateur de cette version
 - Installe Docker, fail2ban et les mises à jour de sécurité automatiques
 - Clone le dépôt et génère une `SECRET_KEY`, un `POSTGRES_PASSWORD` et un `NODE_SECRET`
 - Demande l'identifiant et le mot de passe d'administration

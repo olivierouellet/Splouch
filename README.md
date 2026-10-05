@@ -112,7 +112,7 @@ via mDNS).
 Flash **Raspberry Pi OS Trixie** on each Pi with SSH enabled, then run on each:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/olivierouellet/Splouch/master/install/install.sh -o install.sh && bash install.sh
+curl -fsSL https://raw.githubusercontent.com/olivierouellet/Splouch/master/install/setup.sh -o setup.sh && bash setup.sh
 ```
 
 The script asks which role to install: **Server**, **Kiosk**, or **Cloud**. See [docs/installation.md](docs/installation.md) for details.
@@ -240,7 +240,7 @@ Pi n° 1 par son nom (`splouch.local`, via mDNS).
 Flashez **Raspberry Pi OS Trixie** sur chaque Pi avec SSH activé, puis lancez sur chacun :
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/olivierouellet/Splouch/master/install/install.sh -o install.sh && bash install.sh
+curl -fsSL https://raw.githubusercontent.com/olivierouellet/Splouch/master/install/setup.sh -o setup.sh && bash setup.sh
 ```
 
 Le script demande quel rôle installer : **Server**, **Kiosk** ou **Cloud**. Voir [docs/installation.md](docs/installation.md) pour les détails.

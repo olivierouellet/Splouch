@@ -71,11 +71,12 @@ Flash **Raspberry Pi OS Trixie** using Raspberry Pi Imager. Enable SSH during fl
 SSH in and run:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/olivierouellet/Splouch/master/install/install.sh -o install.sh && bash install.sh server
+curl -fsSL https://raw.githubusercontent.com/olivierouellet/Splouch/master/install/setup.sh -o setup.sh && bash setup.sh server
 ```
 
 The script:
 
+- Asks which version to install — master, one of the 10 latest releases, or one you type — and runs that version's own installer
 - Installs Python dependencies via `uv`
 - Creates the `splouch` systemd service (starts on boot)
 - Adds the user to the `dialout` group for serial port access
@@ -96,7 +97,7 @@ Raspberry Pi wheel.
 SSH in and run:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/olivierouellet/Splouch/master/install/install.sh -o install.sh && bash install.sh kiosk
+curl -fsSL https://raw.githubusercontent.com/olivierouellet/Splouch/master/install/setup.sh -o setup.sh && bash setup.sh kiosk
 ```
 
 The script:
@@ -345,11 +346,12 @@ Flashez **Raspberry Pi OS Trixie** avec Raspberry Pi Imager. Activez SSH lors du
 Connectez-vous en SSH et lancez :
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/olivierouellet/Splouch/master/install/install.sh -o install.sh && bash install.sh server
+curl -fsSL https://raw.githubusercontent.com/olivierouellet/Splouch/master/install/setup.sh -o setup.sh && bash setup.sh server
 ```
 
 Le script :
 
+- Demande quelle version installer — master, une des 10 dernières versions, ou une version saisie — et lance l'installateur de cette version
 - Installe les dépendances Python via `uv`
 - Crée le service systemd `splouch` (démarré au boot)
 - Ajoute l'utilisateur au groupe `dialout` pour l'accès au port série
@@ -370,7 +372,7 @@ aucun paquet (wheel) Raspberry Pi 32 bits.
 Connectez-vous en SSH et lancez :
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/olivierouellet/Splouch/master/install/install.sh -o install.sh && bash install.sh kiosk
+curl -fsSL https://raw.githubusercontent.com/olivierouellet/Splouch/master/install/setup.sh -o setup.sh && bash setup.sh kiosk
 ```
 
 Le script :
