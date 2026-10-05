@@ -39,12 +39,29 @@ function splouchSocket(path) {
         return proto + '//' + location.host + path;
     }
 
+    // A 'moved' target is followed only when it is a web address on this site:
+    // the same host or a sibling node under the same domain (ca1. → us1.splouch.org).
+    function movedTarget(raw) {
+        var u;
+        try {
+            u = new URL(String(raw || ''), location.href);
+        } catch (e) {
+            return null;
+        }
+        if (u.protocol !== 'https:' && u.protocol !== 'http:') return null;
+        var site = location.hostname.split('.').slice(-2).join('.');
+        var host = u.hostname;
+        if (host !== site && host.slice(-(site.length + 1)) !== '.' + site) return null;
+        return u.href;
+    }
+
     function fire(event, data) {
         // The cloud moved this meet to another worker (docs/architecture/scaling.md):
-        // the whole page goes to its new address, tabs and shell together. Only a
-        // web address is followed; the Pi never sends it.
-        if (event === 'moved' && data && /^https?:\/\//.test(String(data.url || ''))) {
-            (window.top || window).location.href = data.url;
+        // the whole page goes to its new address, tabs and shell together. The Pi
+        // never sends it.
+        if (event === 'moved') {
+            var target = data && movedTarget(data.url);
+            if (target) (window.top || window).location.assign(target);
             return;
         }
         (handlers[event] || []).forEach(function (cb) {

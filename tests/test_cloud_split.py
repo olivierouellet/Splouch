@@ -592,7 +592,7 @@ def test_the_panel_lists_nodes_and_offers_a_move(pg, monkeypatch):
     key = cloud_auth.add_organizer("Club", region="ca")
     reg.register(key, "uid", META, "ca1", 1)
     html = _admin_get(monkeypatch)
-    assert 'id="tab-nodes"' in html and "https://ca1.example" in html
+    assert 'id="tab-nodes"' in html and 'text-break">https://ca1.example</div>' in html
     assert '<option value="ca1:2">ca1 · w2</option>' in html
     assert '<option value="ca1:1">' not in html, "the worker holding it is not a target"
 
