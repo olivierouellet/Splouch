@@ -164,7 +164,7 @@ Entry screen. Web: site root. App: launch screen, and `A-02`'s return target.
 | `P-08` | Select meet → app shell | `GET /meet/{id}/config` | all | must |
 | `P-09` | Pull-to-refresh re-fetches list | — | all | should |
 | `P-10` | Install hand-off: store links once apps ship, Add-to-Home-Screen until then. In an app the slot renders nothing | `stores` ([`api.md`](api.md) §5.7), per platform, present once listed → no deploy on move, absent hides button; `P-16`'s `GET /add` uses same dict | web | should |
-| [`P-11`](#p-11) | Pick server from list in settings (`P-19`). Meet list always names it; a meet names it when not default | `GET /servers` ([`api.md`](api.md) §5.11), each checked via `GET /server` | native | must |
+| [`P-11`](#p-11) | Pick server from list in settings (`P-19`). Meet list names it only when it is not the app's default (`https://splouch.org`); a meet names it when not default | `GET /servers` ([`api.md`](api.md) §5.11), each checked via `GET /server` | native | must |
 | [`P-12`](#p-12) | LAN servers offered without typing — on tap, in server sheet section *Officials' local server*; one ~10 s scan, finds listed until sheet closes, none → *No server found*; *Search again* rescans | mDNS browse `_splouch._tcp` (not `splouch.local`), only after tap, ~10 s then stopped (sheet closing or app backgrounding stops it sooner); words native (`T-05`) | native | should |
 | [`P-13`](#p-11) | Add server by hand, checked before save | `GET /server` must answer | native | must |
 | `P-14` | Server on other contract versions → one-line notice naming both, once per session, beside server name; **never blocks connect** (newer = additive, older degrades a feature, e.g. `L-12` clock vs v1 relay) | `GET /server` → `contract.api`, `contract.app` ([`api.md`](api.md) §5.10) | native | should |
@@ -172,7 +172,7 @@ Entry screen. Web: site root. App: launch screen, and `A-02`'s return target.
 | [`P-16`](#p-11) | QR scan adds server: app asks; yes → adds, selects, lands on **meet list**. No app → page offers store | `https://<default host>/add?server=<origin>`; host's two `/.well-known/` files, `GET /add` ([`api.md`](api.md) §4) | native | should |
 | [`P-17`](#p-17) | Search meet list from **3** meets, narrows as typed, own empty state; field where platform puts search | local over `GET /meets` → `name`, `meet_date`, `location`, `sport`, `organizer`, `province`, `country` (code and reader's-language name); `strings.meet_search`, `no_meets_match` | all | should |
 | `P-18` | More than **10** meets → compact rows: name, date, location, province/country, live dot; **no picker image**, none fetched. 10 or fewer → `P-01` cards | count of `GET /meets` → `meets` | all | should |
-| [`P-19`](#p-19) | **Settings** — one container in place of picker menu: Server (`P-11`–`P-13`, native), Display (language `T-08`, Appearance `P-15`), Privacy (`P-07`), About (`P-06` full text, policy link, `P-20` replay). Platform's own form: web side sheet (full height under 600px), iOS sheet with `Form`, Android full-screen settings destination | section names native in apps (`T-05`); web reads `strings.settings`, `settings_display`, `settings_privacy`, `settings_about` | all | should |
+| [`P-19`](#p-19) | **Settings** — one container in place of picker menu, sections in this order: Display (language `T-08`, Appearance `P-15`), Privacy (`P-07`), Server (`P-11`–`P-13`, native), About (`P-06` full text, policy link, `P-20` replay). Platform's own form: web side sheet (full height under 600px), iOS sheet with `Form`, Android full-screen settings destination | section names native in apps (`T-05`); web reads `strings.settings`, `settings_display`, `settings_privacy`, `settings_about` | all | should |
 | [`P-20`](#p-20) | **Introduction** on first launch, once per install, replayable from settings About: unofficial results (`P-06`), three tabs, following a swimmer or club, attendance counting with its toggle (`C-10`) | pages 1 and 4 server text (`results_disclaimer`, `privacy_note`), rest native words (`T-05`); page 4 only while `analytics_enabled` | native | should |
 
 ### <a id="p-06"></a>P-06 — one line, always there
@@ -216,13 +216,14 @@ under it as the toggle's explanation, then the server's policy link.
 
 Menu held three choices; settings now hold a toggle, explanatory text and links,
 which a popover or `DropdownMenu` renders badly. One container, sections in this
-order, each platform's own form:
+order, each platform's own form. Display first: it is what most spectators open
+settings for; Server is for the few who follow a pool's own server, so it sits below:
 
 | Section | Holds | Web | iOS | Android |
 | --- | --- | --- | --- | --- |
-| Server | `P-11`–`P-13`, `P-14` notice | — (no server choice) | `Section` with current server → server list | row → server screen |
-| Display | language (`T-08`), Appearance (`P-15`) | radio groups | `Picker` rows | radio rows |
+| Display | language (`T-08`), Appearance (`P-15`) | radio groups | language row → list, Appearance `Picker` | language row → dialog, Appearance radio rows |
 | Privacy | `P-07` | toggle + note + link | `Toggle`, footer note + `Link` | `Switch` row, supporting text, link |
+| Server | `P-11`–`P-13`, `P-14` notice | — (no server choice) | row with current server → server list | row → server sheet |
 | About | `P-06` full text, policy link, *Show introduction* (`P-20`, native), app version | text | `Section` text | text |
 
 Opened from a **gear**, not ☰ or ⋮: web fixed button where ☰ was, iOS toolbar item,
@@ -252,7 +253,7 @@ QR code needs the board, not a carousel; `P-06`'s line does the job there.
 
 ### <a id="p-11"></a>P-11, P-13, P-16 — server list is data
 
-App ships one URL (default cloud); rest fetched, browsed or typed. At pool, useful
+App ships one URL — default cloud, `https://splouch.org`; rest fetched, browsed or typed. At pool, useful
 server = building's Pi (no internet dependency, unthrottled race clock), publishes
 `_splouch._tcp` → `P-12` is a browse. Every route meets the same check, and every
 address meets `P-12`'s cleartext floor before any request — typed, listed or scanned
@@ -278,8 +279,12 @@ flowchart TD
 ```
 
 - **`vid` per server** (`C-10`).
-- **Picker always names server; meet names it when not default** → spectator who
-  switched and forgot sees why meets changed.
+- **Picker names server only when not default; meet likewise** → spectator who
+  switched and forgot sees why meets changed; on the default, nothing to explain.
+- **Default moved `splouch.ca` → `splouch.org`** (2026-10-05). A stored selection of
+  `https://splouch.ca` is rewritten to the new default on first launch; its `vid` is
+  not carried over (`C-10`: never derived from another). App links (`P-16`) accept
+  both hosts while codes printed with `splouch.ca` are in circulation.
 - **Scan proposes, doesn't act**: nothing requested from the address before the yes.
   **Every scan ends on picker** — camera arrivals never saw `P-06`.
 
@@ -860,6 +865,9 @@ Not on any phone client, now or planned:
   - **Changed**: `P-06` (one line, no fold; tap for full text), `P-07` (privacy note
     moves to settings with the toggle), `C-10` (spectator may refuse; 13-month `vid`;
     GPC on web), `P-11`/`P-15` (in settings), `X-10` (sheets return focus).
+    Later the same day: `P-19` order Display, Privacy, Server, About (Android's);
+    default server `https://splouch.org`, named on the picker only when not default
+    (`P-11`).
   - **Retired**: `notice_collapse`, `privacy_note_short` (served until no client folds).
 
 - **v2, amended** (2026-10-01, no bump) — `P-12` cleartext floor widened to private and
