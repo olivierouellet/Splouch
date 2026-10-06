@@ -584,6 +584,23 @@ def test_a_moved_meet_s_pi_and_attendees_are_sent_on(wired):
     assert ws_pi.closed
 
 
+def test_a_revoked_key_s_pi_is_dropped(wired):
+    """The key is checked only at register, so revoking it left a connected Pi
+    publishing until it dropped by itself. Not told to reassign: `/api/assign`
+    would only refuse it."""
+    ws_pi = FakeWS()
+    meet_id = register(wired).frames[0]["data"]["meet_id"]
+    cs._relay_sockets["sid-1"] = ws_pi
+    try:
+        asyncio.run(cs._on_revoked([meet_id, "not-held-here"]))
+    finally:
+        cs._relay_sockets.pop("sid-1", None)
+    assert ws_pi.frames == [
+        {"event": "rejected", "data": {"reason": "invalid or inactive key"}}
+    ]
+    assert ws_pi.closed
+
+
 def test_the_panel_lists_nodes_and_offers_a_move(pg, monkeypatch):
     import cloud_auth
 

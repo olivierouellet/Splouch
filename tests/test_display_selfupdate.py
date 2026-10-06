@@ -190,3 +190,21 @@ def test_choosing_master_lands_on_the_remote_branch():
     body = source[source.index("checkout_version() {") :]
     body = body[: body.index("\n}")]
     assert "origin/$branch" in body, body
+
+
+# ── The target is a version, never an option ───────────────────────────────────
+
+
+@pytest.mark.parametrize("target", ["v2026.09.3", "v2026.09.3-5-gabc1234", "abc1234"])
+def test_what_the_server_describes_itself_as_is_accepted(ran, target):
+    assert Updater()._update(target)
+    assert any(target in c for c in ran if c[:2] == ["git", "checkout"])
+
+
+@pytest.mark.parametrize(
+    "target", ["--orphan=x", "-f", "origin/../x", "a b", "", "x" * 101, None]
+)
+def test_a_target_git_could_read_as_an_option_is_refused(ran, target):
+    """The target came off the scoreboard socket straight into `git checkout`."""
+    assert not Updater()._update(target)
+    assert ran == [], f"ran {ran} for {target!r}"

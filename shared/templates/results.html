@@ -109,7 +109,7 @@ function renderResults(d) {
             var tel = document.getElementById('lane_time' + i);
             tel.textContent = r.time || '—';
             if (r.time && r.time.trim()) tel.classList.add('time-locked');
-            document.getElementById('lane_delta'   + i).innerHTML   = r.delta || '';
+            document.getElementById('lane_delta'   + i).innerHTML   = safeDeltaHtml(r.delta);
             setLanePlace(i, r.place || '');
         } else {
             blankRow(i, laneMode ? i : '—');

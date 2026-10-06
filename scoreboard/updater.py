@@ -22,6 +22,7 @@ Two rules keep a failed update from taking the TV down:
 """
 
 import os
+import re
 import shutil
 import subprocess
 import threading
@@ -29,6 +30,7 @@ import threading
 from PySide6.QtCore import QObject, Signal
 
 _REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_TARGET_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$")
 
 # Each git/uv step gets its own ceiling: a fetch over venue Wi-Fi is slow, and a
 # `uv sync` that has to build a wheel on a Pi is slower still.
@@ -110,6 +112,12 @@ class Updater(QObject):
         return True
 
     def _update(self, target):
+        # What `git describe --tags --always` prints on the server: a tag, a tag
+        # with `-N-g<sha>`, or a bare sha. It goes to `git checkout` as an argument,
+        # so nothing that git could read as an option (`-…`) or as a path.
+        if not isinstance(target, str) or not _TARGET_RE.match(target):
+            self.line.emit(f"Refusing to update to {target!r}: not a version.", True)
+            return False
         if not os.path.isdir(os.path.join(_REPO, ".git")):
             self.line.emit(
                 "Not a git checkout — update from the installer instead.", True

@@ -439,13 +439,41 @@ if [[ "$ROLE" == "server" ]]; then
     uv sync
     info "Virtual environment ready at $INSTALL_DIR/.venv"
 
+    section "Privileged scripts"
+    # Root-owned copies of the scripts that run as root. The checkout belongs to the
+    # service user, so a grant naming a script *in* it let that user edit the script
+    # and then run it as root: anything running as the service user was root.
+    # `INSTALL_DIR` tells refresh-service.sh which checkout it serves, now that it no
+    # longer sits inside one. Re-copied on every install; a release that changes one
+    # of these bumps install/PROVISION_VERSION, so the panel asks for a reinstall.
+    PRIV_DIR="/usr/local/lib/splouch"
+    sudo install -d -o root -g root -m 0755 "$PRIV_DIR"
+    for _script in rtc_setup.sh refresh-service.sh mdns-aliases.sh; do
+        sudo install -o root -g root -m 0755 "$INSTALL_DIR/install/scripts/$_script" "$PRIV_DIR/$_script"
+    done
+    echo "$INSTALL_DIR" | sudo tee "$PRIV_DIR/INSTALL_DIR" >/dev/null
+    sudo chmod 0644 "$PRIV_DIR/INSTALL_DIR"
+    info "Privileged scripts installed in $PRIV_DIR (root-owned)."
+
     section "Sudo permissions"
+    # Exact commands, with exact arguments wherever the app's are fixed: a bare
+    # `/usr/bin/apt-get` or `/usr/bin/nmcli` lets the caller choose the options, and
+    # both have options that run commands. `""` means "no arguments at all".
     SUDOERS_FILE="/etc/sudoers.d/splouch"
     sudo tee "$SUDOERS_FILE" >/dev/null <<EOF
-$TARGET_USER ALL=(ALL) NOPASSWD: /usr/bin/timedatectl, /usr/bin/systemctl restart systemd-timesyncd, /usr/bin/nmcli, /usr/bin/apt-get, /usr/bin/systemctl restart splouch, /usr/sbin/reboot, /usr/sbin/poweroff, $INSTALL_DIR/install/scripts/rtc_setup.sh *, $INSTALL_DIR/install/scripts/refresh-service.sh
+$TARGET_USER ALL=(ALL) NOPASSWD: /usr/bin/timedatectl set-ntp true, /usr/bin/timedatectl set-ntp false, /usr/bin/timedatectl set-time *, /usr/bin/systemctl restart systemd-timesyncd, /usr/bin/systemctl restart splouch, /usr/sbin/reboot "", /usr/sbin/poweroff ""
+$TARGET_USER ALL=(ALL) NOPASSWD: /usr/bin/apt-get update, /usr/bin/apt-get upgrade -y
+$TARGET_USER ALL=(ALL) NOPASSWD: /usr/bin/nmcli dev wifi rescan, /usr/bin/nmcli radio wifi on, /usr/bin/nmcli radio wifi off, /usr/bin/nmcli connection delete -- *, /usr/bin/nmcli con mod splouch-eth *, /usr/bin/nmcli con add type ethernet ifname eth0 con-name splouch-eth *, /usr/bin/nmcli con up splouch-eth
+$TARGET_USER ALL=(ALL) NOPASSWD: $PRIV_DIR/rtc_setup.sh enable, $PRIV_DIR/rtc_setup.sh disable, $PRIV_DIR/rtc_setup.sh status, $PRIV_DIR/refresh-service.sh ""
 EOF
     sudo chmod 0440 "$SUDOERS_FILE"
-    info "Sudoers rules written to $SUDOERS_FILE"
+    if sudo visudo -cf "$SUDOERS_FILE" >/dev/null; then
+        info "Sudoers rules written to $SUDOERS_FILE"
+    else
+        # A sudoers file that does not parse breaks sudo for everyone on the box.
+        sudo rm -f "$SUDOERS_FILE"
+        error "The sudo rule did not validate and was removed — the panel's system actions will not work."
+    fi
 
     section "Serial port access"
     if ! groups "$TARGET_USER" | grep -qw dialout; then
@@ -465,6 +493,7 @@ EOF
     section "Settings"
     if [[ ! -f "$TARGET_HOME/SplouchData/settings.json" ]]; then
         as_user cp "$INSTALL_DIR/server/settings.default.json" "$TARGET_HOME/SplouchData/settings.json"
+        as_user chmod 600 "$TARGET_HOME/SplouchData/settings.json" # holds the admin password
         info "settings.json copied from default."
     else
         info "settings.json already exists — skipping."
@@ -712,7 +741,7 @@ Requires=avahi-daemon.service
 
 [Service]
 Type=simple
-ExecStart=$INSTALL_DIR/install/scripts/mdns-aliases.sh $MDNS_ALIASES
+ExecStart=$PRIV_DIR/mdns-aliases.sh $MDNS_ALIASES
 Restart=always
 RestartSec=10
 
@@ -1237,9 +1266,18 @@ PYEOF
         _set_env SECRET_KEY "$SECRET"
 
         echo
-        read -rp "Set the admin username for the /admin panel [admin]: " _au
-        _au="${_au:-admin}"
-        _set_env ADMIN_USER "$_au"
+        # Both typed values are written single-quoted. docker compose expands `$NAME`
+        # in an unquoted .env value — so a password beginning `$abc` reached the
+        # control plane as an empty string and seeded /admin with no password — and
+        # ` #` starts a comment. Inside single quotes nothing is expanded, which leaves
+        # the quote itself as the one character the value cannot hold.
+        while true; do
+            read -rp "Set the admin username for the /admin panel [admin]: " _au
+            _au="${_au:-admin}"
+            [[ "$_au" =~ ^[A-Za-z0-9._@-]+$ ]] && break
+            warn "Letters, digits and . _ @ - only — try again."
+        done
+        _set_env ADMIN_USER "'$_au'"
         info "ADMIN_USER set to '${_au}'."
 
         while true; do
@@ -1247,13 +1285,16 @@ PYEOF
             echo
             read -rsp "Confirm admin password: " _ap2
             echo
-            if [[ "$_ap1" == "$_ap2" && -n "$_ap1" ]]; then
-                _set_env ADMIN_PASSWORD "$_ap1"
+            if [[ "$_ap1" == *"'"* ]]; then
+                warn "The password cannot contain a single quote (') — try again."
+            elif [[ "$_ap1" == "$_ap2" && -n "$_ap1" ]]; then
+                _set_env ADMIN_PASSWORD "'$_ap1'"
                 info "ADMIN_PASSWORD set."
                 unset _ap1 _ap2
                 break
+            else
+                warn "Passwords did not match or were empty — try again."
             fi
-            warn "Passwords did not match or were empty — try again."
         done
 
         info "Created $CLOUD_DIR/.env with generated SECRET_KEY, ADMIN_USER, and ADMIN_PASSWORD."

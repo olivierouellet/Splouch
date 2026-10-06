@@ -145,6 +145,24 @@ async def _on_moves(moves):
         print(f"[cloud] meet {meet_id} moved to {url}", flush=True)
 
 
+async def _on_revoked(meet_ids):
+    """Drop the Pis publishing under a key the admin has revoked.
+
+    Told `rejected` without `reassign`: the Pi waits and asks `/api/assign` again,
+    which refuses the key. The disconnect that follows retires the meet as usual.
+    """
+    for meet_id in meet_ids:
+        with _lock:
+            meet = _meets.get(meet_id)
+            ws = _relay_sockets.get(meet.get("relay_sid")) if meet else None
+        if ws is None:
+            continue
+        await manager.send(ws, "rejected", {"reason": "invalid or inactive key"})
+        with suppress(Exception):
+            await ws.close()
+        print(f"[cloud] meet {meet_id}: key revoked, relay dropped", flush=True)
+
+
 def _heartbeat_snapshot():
     """The meets held here and each one's attendees — phones on its board — for the
     control plane to balance new meets on."""
@@ -161,7 +179,9 @@ def _heartbeat_snapshot():
 async def lifespan(app):
     os.makedirs(DATA_DIR, exist_ok=True)
     tasks = [
-        asyncio.create_task(cloud_node.heartbeat_loop(_heartbeat_snapshot, _on_moves)),
+        asyncio.create_task(
+            cloud_node.heartbeat_loop(_heartbeat_snapshot, _on_moves, _on_revoked)
+        ),
         asyncio.create_task(cloud_node.analytics_flush_loop()),
         asyncio.create_task(cloud_metrics.lag_loop()),
     ]

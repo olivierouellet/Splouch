@@ -215,3 +215,24 @@ def test_the_pi_sends_its_session_days_and_utc_offset(monkeypatch):
     assert relay._session_dates() == ["2026-10-11", "2026-10-12"]
     offset = relay._utc_offset_minutes()
     assert isinstance(offset, int) and -720 <= offset <= 840
+
+
+def test_a_stopped_relay_thread_ends_even_when_restarted_at_once(monkeypatch):
+    """`start()` swaps in a fresh `_stop`. A thread still waiting when the relay was
+    stopped and started again (the Cloud toggle, a short test session) read the
+    new, unset event and kept going: two relay threads publishing one meet."""
+    import state
+
+    monkeypatch.setitem(state.settings, "cloud_relay_url", "")  # idle: waits on stop
+    relay.start()
+    first = relay._thread
+    assert first is not None
+    relay.stop()
+    relay.start()
+    try:
+        first.join(timeout=3)
+        assert not first.is_alive(), "the stopped thread is still running"
+    finally:
+        relay.stop()
+        assert relay._thread is not None
+        relay._thread.join(timeout=3)

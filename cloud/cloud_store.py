@@ -74,11 +74,13 @@ def meet_for(meet_id):
     Blocking (reads the store, may fetch) — call from a threadpool route, or wrap in
     ``run_in_threadpool`` on the loop.
     """
+    if not cloud_node.valid_meet_id(meet_id):
+        return None  # from a query string or a socket frame: never a meet id
     with _lock:
         meet = _meets.get(meet_id)
     if meet:
         return meet
-    stored = cloud_meetstore.get(meet_id) if meet_id else None
+    stored = cloud_meetstore.get(meet_id)
     if stored and stored["live"]:
         # Live on another of this node's workers: its card says which, and the
         # visitor goes there. Without one (control plane unreachable, or the meet

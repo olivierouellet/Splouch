@@ -564,7 +564,8 @@ def test_login_is_rendered_with_the_globals():
     login page to the fallback whatever the server is set to."""
     src = Path(os.path.join(REPO, "server/app.py")).read_text(encoding="utf-8")
     assert 'templates.TemplateResponse(request, "login.html"' not in src
-    assert src.count('render(request, "login.html"') == 2
+    # The form, a wrong password, and the lockout after too many of them.
+    assert src.count('render(request, "login.html"') == 3
 
 
 # ── The results tab ────────────────────────────────────────────────────────────

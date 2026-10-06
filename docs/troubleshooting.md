@@ -90,6 +90,25 @@ pool-deck router that Pi #1 is plugged into.
 </details>
 
 <details>
+<summary><strong>The Pi answers <code>Unknown host</code> (421)</strong></summary>
+
+**How it looks.** The Pi is reached through a DNS name of the venue's own, such as
+`scores.club.example`, and every page answers *Unknown host*.
+
+**Why.** The Pi only answers to names the local network alone can resolve — its
+`.local` names, its hostname, `.lan` / `.home` names — and to bare addresses. That is
+what stops a website from re-pointing its own name at the Pi (DNS rebinding) and
+driving the board from a spectator's phone.
+
+**Fix.** Add the name to `~/SplouchData/settings.json` and restart the service:
+
+```json
+"allowed_hosts": ["scores.club.example"]
+```
+
+</details>
+
+<details>
 <summary><strong><code>apt update</code> fails with <code>404 NOT FOUND</code> on every repository</strong></summary>
 
 **How it looks.** Every repository fails at once, `deb.debian.org` and
@@ -213,6 +232,26 @@ Le réseau a l'isolation des clients WiFi (isolation AP) activée, courante sur 
 d'entreprise et les réseaux invités. Elle bloque le trafic entre appareils ; rien sur le
 Pi ne peut donc la contourner. Faites-la désactiver côté réseau, ou connectez les
 clients au routeur du bord de piscine auquel le Pi n° 1 est branché.
+
+</details>
+
+<details>
+<summary><strong>Le Pi répond <code>Unknown host</code> (421)</strong></summary>
+
+**Symptôme.** Le Pi est joint par un nom DNS propre au site, comme
+`scores.club.example`, et chaque page répond *Unknown host*.
+
+**Cause.** Le Pi ne répond qu'aux noms que seul le réseau local sait résoudre — ses
+noms `.local`, son nom d'hôte, les noms `.lan` / `.home` — et aux adresses IP. C'est ce
+qui empêche un site web de rediriger son propre nom vers le Pi (DNS rebinding) et de
+piloter le tableau depuis le téléphone d'un spectateur.
+
+**Correctif.** Ajoutez le nom dans `~/SplouchData/settings.json` et redémarrez le
+service :
+
+```json
+"allowed_hosts": ["scores.club.example"]
+```
 
 </details>
 

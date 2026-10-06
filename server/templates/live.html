@@ -396,12 +396,22 @@ function lapIsFinal(i) {
 }
 
 
+/* The delta arrives as markup — `<span class="delta-better">-1.20</span>`. Rebuilt
+   from its two parts rather than inserted, as on the shared board
+   (scoreboard_base.html), so only that one shape can reach the page as markup. */
+function safeDeltaHtml(html) {
+    function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+    var m = /^\s*<span class="(delta-better|delta-worse)">([^<]*)<\/span>\s*$/.exec(html || '');
+    if (m) return '<span class="' + m[1] + '">' + esc(m[2]) + '</span>';
+    return esc(String(html || '').replace(/<[^>]*>/g, ''));
+}
+
 function renderDelta(i) {
     var el = document.getElementById('lane_delta' + i);
     if (!el) return;
     var delta = lane_delta_html[i] || '';
     if (delta.trim() !== '') {
-        el.innerHTML = delta;
+        el.innerHTML = safeDeltaHtml(delta);
         el.classList.remove('lap-count', 'lap-final');
         return;
     }

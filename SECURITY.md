@@ -52,7 +52,7 @@ different one.
 | **Meet files are untrusted text** | Swimmer and club names come from whoever typed them into Splash. They reach templates escaped, and the Lenex parser refuses a `DOCTYPE` outright. |
 | **Pi #1 is never internet-facing** | Remote viewing goes through the cloud relay, which Pi #1 reaches by an *outbound* WebSocket. No port forwarding, no inbound anything. |
 | **The relay carries board data only** | Scoreboard, results, schedule. Meet files (`.lxf`, `.csv`) are never sent to it. |
-| **Each organizer's relay key is revocable** | Keys are per-organizer and can be withdrawn from the cloud admin panel, which throttles guesses. |
+| **Each organizer's relay key is revocable** | Keys are per-organizer and can be withdrawn from the cloud admin panel, which throttles guesses. A connected Pi is dropped within a heartbeat (about 10 s); while the control plane is unreachable, a worker still admits a Pi on its signed ticket for up to a day. |
 
 ### Out of scope
 
@@ -78,6 +78,14 @@ update targets, and the installer's sudo grant.
 A follow-up review in October 2026 found two more: the scoreboard wrote meet-file
 names into the page as markup — on the Pi and on the relay's public pages — and the
 relay admin panel accepted form posts from other sites.
+
+A second review that month found more: the relay put a Pi's finish-time difference
+on its public pages as markup, on the origin that also serves the admin panel; a
+backup restore wrote into the code checkout instead of the data folder; the Pi's sudo
+rule named scripts its own service account could edit; nothing stopped DNS
+rebinding from reaching the Pi's sockets; a UTF-16 meet file slipped past the
+`DOCTYPE` check; a cloud admin password containing `$` could be seeded empty; and a
+revoked relay key kept publishing until its Pi disconnected.
 
 Every one of them is pinned to a regression test in
 [`tests/test_security_hardening.py`](tests/test_security_hardening.py), grouped by what

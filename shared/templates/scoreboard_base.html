@@ -571,6 +571,16 @@ function escHtml(s) {
     return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
+/* The delta arrives as markup — `<span class="delta-better">-1.20</span>` — and on
+   the cloud that markup is whatever a relay sent, on the same origin as /admin. So
+   it is rebuilt from its two parts rather than inserted: that one shape renders as
+   it always has, and anything else reaches the page as text. */
+function safeDeltaHtml(html) {
+    var m = /^\s*<span class="(delta-better|delta-worse)">([^<]*)<\/span>\s*$/.exec(html || '');
+    if (m) return '<span class="' + m[1] + '">' + escHtml(m[2]) + '</span>';
+    return escHtml(String(html || '').replace(/<[^>]*>/g, ''));
+}
+
 /* ── Delta cell: lap count, then the time difference ──────────────────────────
    One cell, two tenants, and the handover is the point. While a lane is swimming
    the cell carries that lane's lengths, in the header's accent blue. At the finish
@@ -651,7 +661,7 @@ function renderDelta(i) {
     if (!el) return;
     var delta = lane_delta_html[i] || '';
     if (delta.trim() !== '') {
-        el.innerHTML = delta;
+        el.innerHTML = safeDeltaHtml(delta);
         el.classList.remove('lap-count', 'lap-final');
         return;
     }

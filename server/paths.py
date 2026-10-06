@@ -81,6 +81,20 @@ SESSION_KEY_FILE = os.path.join(SCOREBOARD_DIR, ".session_key")
 # app restart itself.
 SERVICE_NAME = "splouch"
 
+# Root-owned copies of the scripts the sudo rule lets this app run as root
+# (install.sh, "Privileged scripts"). Never the checkout's own: the service user
+# can write those, and a grant on a file its grantee can edit is a grant of root.
+PRIVILEGED_SCRIPTS_DIR = "/usr/local/lib/splouch"
+
+
+def privileged_script(name):
+    """The root-owned copy of `install/scripts/<name>`, or the checkout's own on an
+    install that predates the copies — whose sudo rule still names that one."""
+    installed = os.path.join(PRIVILEGED_SCRIPTS_DIR, name)
+    if os.path.isfile(installed):
+        return installed
+    return os.path.join(REPO_DIR, "install", "scripts", name)
+
 
 # ── First-run setup ───────────────────────────────────────────────────────────
 
@@ -102,6 +116,9 @@ def _ensure_data_dirs():
         import shutil
 
         shutil.copy2(_settings_default, settings_file)
+        # copy2 carries the repo file's 0644 over, and this file holds the admin
+        # password — save_settings writes it 0600, so the first copy is too.
+        os.chmod(settings_file, 0o600)
 
 
 _ensure_data_dirs()

@@ -356,8 +356,9 @@ def heartbeat(
 ):
     """A worker says which meets it holds, and how many attendees each has.
 
-    Returns `{"retired": [ids], "moves": [{"meet_id", "url"}], "update_to"}`: the
-    meets it no longer names are retired, the moves are meets the admin moved off
+    Returns `{"retired": [ids], "revoked": [ids], "moves": [{"meet_id", "url"}],
+    "update_to"}`: the meets it no longer names are retired, the revoked ones are
+    held here under a key the admin has withdrawn, the moves are meets the admin moved off
     this worker, with the page URL their attendees should go to, and `update_to`
     is the version a rollout released this node to, while it runs another.
     """
@@ -403,6 +404,19 @@ def heartbeat(
             (node, worker, list(live_ids), grace),
             now,
         )
+        # Live here under a key the admin has since revoked or deleted. The key is
+        # checked only when a Pi registers, so without this a revoked organizer's
+        # connected Pi kept publishing until it happened to drop.
+        revoked = [
+            r["id"]
+            for r in c.execute(
+                "SELECT m.id FROM meets m "
+                "LEFT JOIN organizers o ON o.key = m.organizer_key "
+                "WHERE m.live AND m.node = %s AND m.worker = %s AND m.id = ANY(%s) "
+                "AND (o.key IS NULL OR NOT o.active)",
+                (node, worker, list(live_ids)),
+            ).fetchall()
+        ]
         moves = c.execute(
             "SELECT m.id, m.worker, n.host FROM meets m JOIN nodes n ON n.name = m.node "
             "WHERE m.move_from_node = %s AND m.move_from_worker = %s "
@@ -421,6 +435,7 @@ def heartbeat(
     )
     return {
         "retired": retired,
+        "revoked": revoked,
         "update_to": update_to,
         "moves": [
             {

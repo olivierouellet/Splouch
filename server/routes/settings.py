@@ -22,7 +22,7 @@ from meet_data import announce_schedule, send_event_info
 from meet_parsers.lenex_parser import ROUND_NAMES, load_lenex
 from routes.qr import invite as qr_invite
 from splouch_regions import COUNTRIES, clean_location
-from web import render, require_login, save_upload
+from web import credentials_stamp, render, require_login, save_upload
 from worker import _restart_worker
 
 router = APIRouter(tags=["Settings"])
@@ -165,6 +165,22 @@ async def route_settings(request: Request):
     # POST parses uploads (PIL resize), enumerates serial ports and writes files;
     # the GET view also enumerates ports — all blocking, so run off the loop.
     return await run_in_threadpool(_settings_view, request, form)
+
+
+# Never set by the generic sweep. The login has its own handler; the rest name a
+# file that routes join onto a folder and serve or delete (`/picker_image`,
+# `/splash_delete`, `/theme_delete`), so they are only ever set by a handler that
+# reduces the value to a bare filename first.
+_NOT_SWEPT = {
+    "username",
+    "password",
+    "splash_url",
+    "active_theme",
+    "active_home_icon",
+    "active_picker_image",
+    "last_meet_file",
+    "allowed_hosts",
+}
 
 
 def _coerce_like(current, raw):
@@ -393,7 +409,7 @@ def _settings_view(request, form):
                 state.settings["splash_url"] = filename
                 modified = True
             elif "splash_url" in form:
-                val = form.get("splash_url", "")
+                val = os.path.basename(form.get("splash_url", ""))
                 if val != state.settings.get("splash_url", ""):
                     state.settings["splash_url"] = val
                     modified = True
@@ -417,8 +433,10 @@ def _settings_view(request, form):
                 state.settings["theme_fonts"] = fonts
                 modified = True
             else:
-                code = form.get(
-                    "theme_select", state.settings.get("active_theme", "default")
+                code = os.path.basename(
+                    form.get(
+                        "theme_select", state.settings.get("active_theme", "default")
+                    )
                 )
                 if code != state.settings.get("active_theme", "default"):
                     colors, fonts = state.load_theme(code)
@@ -464,12 +482,15 @@ def _settings_view(request, form):
                     **state.DEFAULT_THEME_FONTS,
                     **state.settings.get("theme_fonts", {}),
                 }
-                lines = [f'name = "{name}"\n', "\n", "[colors]\n"]
+                # json.dumps for every value: a TOML basic string takes the same
+                # escapes, and a `"` in a name or a font stack written raw ended
+                # the string early — the file no longer parsed, or gained a key.
+                lines = [f"name = {json.dumps(name)}\n", "\n", "[colors]\n"]
                 for k, v in colors.items():
-                    lines.append(f'{k} = "{v}"\n')
+                    lines.append(f"{k} = {json.dumps(str(v))}\n")
                 lines.append("\n[fonts]\n")
                 for k, v in fonts.items():
-                    lines.append(f'{k} = "{v}"\n')
+                    lines.append(f"{k} = {json.dumps(str(v))}\n")
                 with open(
                     os.path.join(state.CUSTOM_THEME_FOLDER, code + ".toml"),
                     "w",
@@ -531,7 +552,9 @@ def _settings_view(request, form):
                 except Exception as e:
                     picker_image_error = f"Could not process image: {e}"
             else:
-                selected_pi = form.get("selected_picker_image", "").strip()
+                selected_pi = os.path.basename(
+                    form.get("selected_picker_image", "").strip()
+                )
                 if selected_pi != state.settings.get("active_picker_image", ""):
                     state.settings["active_picker_image"] = selected_pi
                     modified = True
@@ -562,7 +585,7 @@ def _settings_view(request, form):
                 except Exception as e:
                     icon_error = f"Could not process image: {e}"
             else:
-                selected = form.get("selected_home_icon", "").strip()
+                selected = os.path.basename(form.get("selected_home_icon", "").strip())
                 if selected != state.settings.get("active_home_icon", ""):
                     _render_home_icon(selected)
                     state.settings["active_home_icon"] = selected
@@ -583,6 +606,13 @@ def _settings_view(request, form):
             if new_pass and new_pass != state.settings.get("password"):
                 state.settings["password"] = new_pass
                 modified = True
+            if (state.settings.get("username"), state.settings.get("password")) != (
+                before.get("username"),
+                before.get("password"),
+            ):
+                # Every other session ends with the old login (web.signed_in); the
+                # one that changed it carries on under the new one.
+                request.session["cred"] = credentials_stamp()
             # Generic sweep, so a form field with no dedicated handler still
             # saves. Two rules keep it from doing damage:
             #
@@ -597,7 +627,7 @@ def _settings_view(request, form):
             #    so nothing broke — but relay.py ships these values to the cloud
             #    as JSON, where a client checking `=== true` would.
             for k in state.settings:
-                if k in ("username", "password") or k not in form:
+                if k in _NOT_SWEPT or k not in form:
                     continue
                 if state.settings[k] != before.get(k):
                     continue

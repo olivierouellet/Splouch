@@ -208,7 +208,20 @@ def load_creds():
         # then own the value from here on so a password changed in /admin survives
         # a redeploy. The only path by which an admin login is ever created.
         user = os.environ.get("ADMIN_USER", "admin")
-        pw_hash, salt = hash_password(os.environ.get("ADMIN_PASSWORD", ""))
+        password = os.environ.get("ADMIN_PASSWORD", "")
+        if not password:
+            # Never seeded empty: that is a login of `admin` and nothing, on the open
+            # internet, kept for good. An unset or mangled ADMIN_PASSWORD (compose
+            # expands `$…` in an unquoted .env value) locks /admin behind a password
+            # nobody knows instead, and the next start seeds again once it is fixed.
+            print(
+                "[auth] ADMIN_PASSWORD is empty — /admin stays locked until it is "
+                "set in cloud/.env and the control plane restarted",
+                flush=True,
+            )
+            pw_hash, salt = hash_password(secrets.token_urlsafe(32))
+            return {**settings, "user": user, "password_hash": pw_hash, "salt": salt}
+        pw_hash, salt = hash_password(password)
         creds = {**settings, "user": user, "password_hash": pw_hash, "salt": salt}
         save_creds(creds)
         return creds

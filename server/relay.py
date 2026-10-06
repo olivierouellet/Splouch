@@ -382,29 +382,34 @@ _STALE = 50  # no inbound (incl. pong) for this long => dead link, reconnect
 _STATS_EVERY = 30  # how often to ask the cloud for its attendance counts
 
 
-def _run():
+def _run(stop=None):
+    """The relay thread. `stop` is this thread's own event, never re-read from the
+    module: `start()` replaces `_stop`, so a thread still connecting when it was
+    stopped and restarted used to read the *new*, unset event and carry on — two
+    threads, two sockets, the meet registered twice."""
     global _client, _connected, _meet_id, _stats
+    stop = stop or _stop
     from websocket import WebSocketTimeoutException, create_connection
 
     fails = 0
-    while not _stop.is_set():
+    while not stop.is_set():
         url = state.settings.get("cloud_relay_url", "").strip()
         key = state.settings.get("cloud_relay_key", "").strip()
         if not url or not key or _local_only():
             # `_local_only` is belt and braces: a local-only test stops this thread
             # outright, and a thread already inside `create_connection` would
             # otherwise register the meet and push a schedule on the way out.
-            _stop.wait(10)
+            stop.wait(10)
             continue
 
         try:
             assignment = _current_assignment(url, key)
         except Refused as e:
             print(f"[relay] rejected: {e}", flush=True)
-            _stop.wait(60)
+            stop.wait(60)
             continue
         if assignment is None:
-            _stop.wait(10)
+            stop.wait(10)
             continue
 
         ws = None
@@ -444,7 +449,7 @@ def _run():
             # and reconnects instead of blocking forever with no updates flowing.
             last_rx = time.time()
             last_stats = 0.0
-            while not _stop.is_set():
+            while not stop.is_set():
                 # Ask the cloud for fresh attendance counts on a slow cadence so
                 # the Settings → Cloud tab can show them. The cloud answers only
                 # for this relay's own meet, so there's nothing to spoof.
@@ -503,9 +508,9 @@ def _run():
                 pass
             print("[relay] disconnected from cloud", flush=True)
 
-        if not _stop.is_set():
+        if not stop.is_set():
             # A reassignment (new meet, refused ticket) reconnects promptly.
-            _stop.wait(1 if _reassign.is_set() else 5)
+            stop.wait(1 if _reassign.is_set() else 5)
 
 
 def status():
@@ -527,7 +532,9 @@ def status():
 def start():
     global _thread, _stop
     _stop = threading.Event()
-    _thread = threading.Thread(target=_run, daemon=True, name="cloud-relay")
+    _thread = threading.Thread(
+        target=_run, args=(_stop,), daemon=True, name="cloud-relay"
+    )
     _thread.start()
 
 

@@ -12,7 +12,7 @@ from typing import Annotated
 from fastapi import Depends, FastAPI, Form, Request, WebSocket, WebSocketDisconnect
 from fastapi.exceptions import RequestValidationError
 from fastapi.openapi.docs import get_redoc_html, get_swagger_ui_html
-from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi.responses import JSONResponse, PlainTextResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 
@@ -29,7 +29,15 @@ from routes.scoreboard import router as scoreboard_router
 from routes.settings import router as settings_router
 from routes.system import router as system_router
 from routes.update import router as update_router
-from web import CrossSiteRequest, NotAuthenticated, render, require_login, ws_guard
+from web import (
+    CrossSiteRequest,
+    NotAuthenticated,
+    credentials_stamp,
+    local_host,
+    render,
+    require_login,
+    ws_guard,
+)
 from worker import (
     _worker_adjust_splits,
     _worker_clear_heat,
@@ -105,10 +113,40 @@ async def lifespan(app: FastAPI):
         _watchdog.cancel()
 
 
+class _LanHostsOnly:
+    """Refuse any request or socket whose Host is not a name only the LAN uses.
+
+    Pure ASGI so it covers the WebSockets too — they are what DNS rebinding is
+    after: `/ws/scoreboard` drives the board for anyone the Origin check lets
+    through, and under rebinding the attacker's page *is* same-origin (see
+    `web.local_host`). Outermost, so nothing below it ever sees such a request.
+    """
+
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] in ("http", "websocket"):
+            host = dict(scope.get("headers") or []).get(b"host", b"")
+            extra = state.settings.get("allowed_hosts") or ()
+            if not local_host(host.decode("latin-1"), extra):
+                if scope["type"] == "websocket":
+                    await send({"type": "websocket.close", "code": 1008})
+                else:
+                    await PlainTextResponse(
+                        "Unknown host. Open this Pi by its .local name or address "
+                        "(or list the name under allowed_hosts in settings.json).",
+                        status_code=421,
+                    )(scope, receive, send)
+                return
+        await self.app(scope, receive, send)
+
+
 # Built-in docs are disabled here and re-served below behind `require_login`, so
 # the OpenAPI schema and Swagger/ReDoc UIs are only reachable once signed in.
 app = FastAPI(lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None)
 app.add_middleware(SessionMiddleware, secret_key=SECRET_KEY)
+app.add_middleware(_LanHostsOnly)
 app.mount("/static", StaticFiles(directory=state.STATIC_DIR), name="static")
 
 app.include_router(i18n_router)
@@ -210,9 +248,46 @@ def _safe_next(target: str) -> str:
     redirect: a link that shows this Pi's sign-in form and lands somewhere else
     afterwards.
     """
-    if target.startswith("/") and not target.startswith("//"):
+    # A backslash too: browsers read `/\evil.example` as `//evil.example`, and strip
+    # tabs and newlines from a URL before reading it — `/\t/evil.example` likewise.
+    if (
+        target.startswith("/")
+        and not target.startswith("//")
+        and "\\" not in target
+        and not any(ord(c) < 0x20 or ord(c) == 0x7F for c in target)
+    ):
         return target
     return "/"
+
+
+# Failed sign-ins per address. Anyone on the pool deck can reach this form, and
+# without a limit a script on any phone there gets unlimited guesses at the one
+# password guarding a shell. Generous enough that a mistyped password never meets it.
+_LOGIN_FAIL_MAX = 10
+_LOGIN_FAIL_WINDOW = 15 * 60
+_login_fails = {}  # ip -> [count, first failure, monotonic]
+
+
+def _login_locked(ip):
+    entry = _login_fails.get(ip)
+    if entry and time.monotonic() - entry[1] > _LOGIN_FAIL_WINDOW:
+        del _login_fails[ip]
+        return False
+    return bool(entry) and entry[0] >= _LOGIN_FAIL_MAX
+
+
+def _login_failed(ip):
+    now = time.monotonic()
+    entry = _login_fails.get(ip)
+    if entry and now - entry[1] <= _LOGIN_FAIL_WINDOW:
+        entry[0] += 1
+    else:
+        _login_fails[ip] = [1, now]
+    if len(_login_fails) > 1024:  # bounded, however many addresses try
+        for k in [
+            k for k, v in _login_fails.items() if now - v[1] > _LOGIN_FAIL_WINDOW
+        ]:
+            del _login_fails[k]
 
 
 @app.post("/login", tags=["Auth"])
@@ -221,16 +296,24 @@ async def route_login(
     username: Annotated[str, Form()] = "",
     password: Annotated[str, Form()] = "",
 ):
+    ip = request.client.host if request.client else "?"
+    if _login_locked(ip):
+        resp = render(request, "login.html", login_locked=True)
+        resp.status_code = 429
+        return resp
     # compare_digest, not ==: a plain comparison returns as soon as two characters
     # differ, which over enough tries measures out the password one character at a
     # time. Both halves are evaluated so the timing does not leak the username either.
     ok_user = secrets.compare_digest(username, str(state.settings["username"]))
     ok_pass = secrets.compare_digest(password, str(state.settings["password"]))
     if ok_user and ok_pass:
+        _login_fails.pop(ip, None)
         request.session["user"] = username
+        request.session["cred"] = credentials_stamp()
         return RedirectResponse(
             _safe_next(request.query_params.get("next") or "/"), status_code=303
         )
+    _login_failed(ip)
     resp = render(request, "login.html", login_failed=True)
     resp.status_code = 401
     return resp
@@ -238,7 +321,7 @@ async def route_login(
 
 @app.get("/logout", tags=["Auth"])
 async def route_logout(request: Request):
-    request.session.pop("user", None)
+    request.session.clear()
     return RedirectResponse("/", status_code=303)
 
 

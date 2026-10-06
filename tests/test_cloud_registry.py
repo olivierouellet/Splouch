@@ -114,6 +114,15 @@ def test_only_the_holder_retires_a_meet(key):
     assert reg.get(mid)["live"]
 
 
+def test_a_heartbeat_names_the_meets_held_under_a_revoked_key(key):
+    live = reg.register(key, "a", META, "ca1", 1)["meet_id"]
+    assert reg.heartbeat("ca1", 1, [live])["revoked"] == []
+    cloud_auth.update_organizer(key, active=False)
+    assert reg.heartbeat("ca1", 1, [live])["revoked"] == [live]
+    cloud_auth.delete_organizer(key)
+    assert reg.heartbeat("ca1", 1, [live])["revoked"] == [live]
+
+
 def test_a_heartbeat_retires_what_its_worker_no_longer_holds(key):
     a = reg.register(key, "a", META, "ca1", 1)["meet_id"]
     b = reg.register(key, "b", META, "ca1", 1)["meet_id"]

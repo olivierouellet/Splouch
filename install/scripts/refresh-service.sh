@@ -22,11 +22,22 @@ if [[ ${EUID:-$(id -u)} -ne 0 ]]; then
 fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-INSTALL_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
+# The root-owned copy the app runs (/usr/local/lib/splouch) is not inside the
+# checkout, so install.sh writes the checkout's path beside it. Run from the repo
+# itself — as install.sh does — the checkout is two levels up.
+if [[ -f "$SCRIPT_DIR/INSTALL_DIR" ]]; then
+    INSTALL_DIR="$(<"$SCRIPT_DIR/INSTALL_DIR")"
+else
+    INSTALL_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
+fi
 
 # Service base-name. Optional: install.sh passes it explicitly, the in-app update
-# calls this with no argument.
+# calls this with no argument. It becomes a path under /etc, so nothing but a name.
 NAME="${1:-splouch}"
+if [[ ! "$NAME" =~ ^[a-z0-9-]+$ ]]; then
+    echo "refresh-service.sh: invalid service name '$NAME'." >&2
+    exit 1
+fi
 
 # The service runs as the owner of the repo checkout. Prefer $SUDO_USER (the user
 # who invoked sudo — the installer or the running service account); fall back to

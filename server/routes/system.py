@@ -13,6 +13,7 @@ from starlette.concurrency import run_in_threadpool
 from starlette.datastructures import UploadFile  # what request.form() yields
 
 import bus
+import paths
 import state
 from web import ActionResult, LogTail, failure, require_login
 
@@ -154,10 +155,6 @@ def _time_set(date_str, time_str):
 
 # ── RTC (Adafruit PiRTC DS3231) ──────────────────────────────────────────────────
 
-_RTC_SCRIPT = os.path.join(
-    os.path.dirname(state.app_dir), "install", "scripts", "rtc_setup.sh"
-)
-
 
 @router.get(
     "/rtc_status", response_model=RtcStatus, dependencies=[Depends(require_login)]
@@ -194,8 +191,11 @@ def _run_rtc(action):
         state._rtc_log_lines.append({"text": text, "error": error})
 
     try:
-        emit(f"$ sudo bash install/scripts/rtc_setup.sh {action}\n")
-        out, rc = run_cmd_blocking(["sudo", "bash", _RTC_SCRIPT, action])
+        # Run directly, not through `bash`: the sudo rule names the script itself,
+        # and `sudo bash <script>` matched no rule at all.
+        script = paths.privileged_script("rtc_setup.sh")
+        emit(f"$ sudo {script} {action}\n")
+        out, rc = run_cmd_blocking(["sudo", "-n", script, action])
         if out:
             emit(out)
         if rc != 0:
@@ -316,11 +316,45 @@ def route_service_restart():
     return {"ok": True}
 
 
+# The archive's root folder: the data folder's own name. `Splouch` is what the
+# download called it before, and is still accepted on restore — it held the same
+# files, it was only the name that pointed at the checkout.
+_BACKUP_ROOT = "SplouchData"
+_LEGACY_BACKUP_ROOTS = ("Splouch",)
+
+# Not carried between installs: the session key is what makes one Pi's cookies
+# worthless on another (paths.session_secret), and a restored copy would make two
+# Pis accept each other's sessions. A restore without it simply signs everyone out.
+_NOT_BACKED_UP = (".session_key",)
+
+
+def _backup_member(info):
+    if os.path.basename(info.name) in _NOT_BACKED_UP:
+        return None
+    return info
+
+
+def _restorable(tar):
+    """The archive's members under its root folder, renamed relative to it."""
+    members = []
+    for m in tar.getmembers():
+        top, _, rest = m.name.removeprefix("./").partition("/")
+        if top not in (_BACKUP_ROOT, *_LEGACY_BACKUP_ROOTS) or not rest:
+            continue
+        if os.path.basename(rest) in _NOT_BACKED_UP:
+            continue
+        m.name = rest
+        if m.islnk():  # a hard link names its target from the archive root too
+            m.linkname = m.linkname.removeprefix("./").partition("/")[2]
+        members.append(m)
+    return members
+
+
 @router.get("/backup_download", dependencies=[Depends(require_login)])
 def route_backup_download():
     buf = io.BytesIO()
     with tarfile.open(fileobj=buf, mode="w:gz") as tar:
-        tar.add(state.SCOREBOARD_DIR, arcname="Splouch")
+        tar.add(state.SCOREBOARD_DIR, arcname=_BACKUP_ROOT, filter=_backup_member)
     date_str = datetime.datetime.now().strftime("%Y-%m-%d")
     return Response(
         content=buf.getvalue(),
@@ -353,15 +387,21 @@ def _restore_backup(data):
     try:
         buf = io.BytesIO(data)
         with tarfile.open(fileobj=buf, mode="r:gz") as tar:
-            home = os.path.expanduser("~")
-            # `filter='data'` is what actually contains the extraction: it refuses
-            # absolute and `..` paths, links pointing outside the destination, and
-            # device/setuid entries. The hand-rolled check this replaces read only
-            # `m.name`, so an archive could ship a symlink to anywhere writable and
-            # then a file "inside" it — and `startswith(home)` let a sibling like
-            # /home/pi-evil through as well. The service user can write the
-            # checkout it runs from, so that was a route to running code.
-            tar.extractall(path=home, filter="data")
+            members = _restorable(tar)
+            if not members:
+                return JSONResponse(
+                    {"ok": False, "error": "Not a Splouch backup"}, status_code=400
+                )
+            # Into the data folder, and only what was under the archive's root
+            # folder. This extracted into `~` once, as whatever paths the archive
+            # named: the download's root was `Splouch/`, which is the *checkout*,
+            # so a restore never put the data back — and an archive someone handed
+            # the operator could replace the server's own code.
+            #
+            # `filter='data'` is what contains the extraction beyond that: it
+            # refuses absolute and `..` paths, links pointing outside the
+            # destination, and device/setuid entries.
+            tar.extractall(path=state.SCOREBOARD_DIR, members=members, filter="data")
     except tarfile.TarError:
         # Not a gzipped tar, or an entry the `data` filter refused.
         return JSONResponse(

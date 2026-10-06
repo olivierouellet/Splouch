@@ -27,6 +27,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 import bus
+import paths
 import state
 from routes.system import run_cmd_blocking
 from web import ActionResult, LogTail, failure, require_login
@@ -35,10 +36,9 @@ router = APIRouter(tags=["Update"])
 
 # Single source of truth for the systemd unit (install/scripts/refresh-service.sh).
 # Run before each in-app restart so a changed entrypoint/layout self-heals rather
-# than crash-looping on a stale unit. Sibling of the repo's server/ dir.
-_REFRESH_SCRIPT = os.path.join(
-    state.REPO_DIR, "install", "scripts", "refresh-service.sh"
-)
+# than crash-looping on a stale unit. The root-owned copy, not the checkout's —
+# see paths.privileged_script.
+_REFRESH_SCRIPT = "refresh-service.sh"
 
 
 class UpdateStart(BaseModel):
@@ -216,10 +216,11 @@ def _run_update(target=None):
         # Self-heal the systemd unit to match the just-updated code before the
         # restart. Non-interactive (sudo -n): an install predating the sudoers grant
         # skips this and is told to re-run the installer.
-        if os.path.isfile(_REFRESH_SCRIPT):
+        refresh = paths.privileged_script(_REFRESH_SCRIPT)
+        if os.path.isfile(refresh):
             emit("$ sudo -n install/scripts/refresh-service.sh\n")
             r = subprocess.run(
-                ["sudo", "-n", _REFRESH_SCRIPT],
+                ["sudo", "-n", refresh],
                 capture_output=True,
                 text=True,
                 check=False,

@@ -5,7 +5,11 @@ every render), the login dependency, and small shared helpers (``redirect``,
 ``save_upload``) so the route modules stay lean.
 """
 
+import functools
+import hashlib
+import ipaddress
 import os
+import secrets
 import shutil
 import traceback
 from collections.abc import Mapping
@@ -346,6 +350,39 @@ class CrossSiteRequest(Exception):
     """Raised by :func:`require_login` for a request another site set off."""
 
 
+@functools.cache
+def _stamp_key() -> str:
+    return state.session_secret()  # a file read: once per process, not per request
+
+
+def credentials_stamp() -> str:
+    """A fingerprint of the current login, kept in each session it signed in.
+
+    The session is a signed cookie, so nothing on the Pi can revoke one: a cookie
+    copied off a laptop stayed good for its full lifetime, through a logout and
+    through the very password change meant to shut it out. Tying it to the login
+    it was issued under makes changing the password end every other session.
+    Keyed with the session secret, so the cookie does not carry a plain hash of
+    the password.
+    """
+    return hashlib.sha256(
+        "\0".join(
+            (
+                _stamp_key(),
+                str(state.settings.get("username", "")),
+                str(state.settings.get("password", "")),
+            )
+        ).encode()
+    ).hexdigest()[:24]
+
+
+def signed_in(session) -> bool:
+    """True for a session signed in under the login that is current now."""
+    return bool(session.get("user")) and secrets.compare_digest(
+        str(session.get("cred", "")), credentials_stamp()
+    )
+
+
 def require_login(request: Request):
     """FastAPI dependency: allow the request only when a session user is set.
 
@@ -364,7 +401,7 @@ def require_login(request: Request):
     """
     if request.headers.get("sec-fetch-site") == "cross-site":
         raise CrossSiteRequest
-    if not request.session.get("user"):
+    if not signed_in(request.session):
         raise NotAuthenticated
 
 
@@ -391,6 +428,41 @@ def same_origin(ws) -> bool:
     return bool(netloc) and netloc == ws.headers.get("host", "")
 
 
+# Name suffixes that only resolve on a local network: mDNS, and the ones home and
+# venue routers hand out. None of them can be registered on the public internet,
+# which is the whole test — see `local_host`.
+_LOCAL_SUFFIXES = (".local", ".lan", ".home", ".internal", ".home.arpa")
+
+
+def local_host(host: str, extra=()) -> bool:
+    """True when a request's Host names this Pi the way only the LAN can.
+
+    The defence against DNS rebinding. A page on `evil.example` can point that name
+    at this Pi's address once the browser has loaded it; from then on its requests
+    and sockets are same-origin to the browser, carry `Host: evil.example`, and pass
+    every Origin check here — `same_origin` compares Origin with Host, and the
+    attacker chose both. What it cannot choose is a name only the LAN resolves, or a
+    bare address, so those are what this accepts: `splouch.local` and its aliases,
+    the hostname, any IP literal. `extra` is the operator's own (`allowed_hosts` in
+    settings.json), for a Pi given a real DNS name on the venue's network.
+    """
+    host = (host or "").strip().lower()
+    if host.startswith("["):  # IPv6 literal, with or without a port
+        return "]" in host
+    name = host.rsplit(":", 1)[0] if host.count(":") == 1 else host
+    name = name.rstrip(".")
+    if not name:
+        return False
+    try:
+        ipaddress.ip_address(name)
+        return True
+    except ValueError:
+        pass
+    if "." not in name or name.endswith(_LOCAL_SUFFIXES):
+        return True
+    return name in {str(h).strip().lower().rstrip(".") for h in extra}
+
+
 async def ws_guard(ws, login_required: bool = False) -> bool:
     """Close a WebSocket that fails the origin (and optionally session) check.
 
@@ -398,7 +470,7 @@ async def ws_guard(ws, login_required: bool = False) -> bool:
     (policy violation) rather than accepting-then-closing, so a rejected client
     never sees a single frame.
     """
-    if not same_origin(ws) or (login_required and not ws.session.get("user")):
+    if not same_origin(ws) or (login_required and not signed_in(ws.session)):
         await ws.close(code=1008)
         return False
     return True

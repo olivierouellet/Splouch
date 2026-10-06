@@ -2,6 +2,7 @@ import contextlib
 import xml.etree.ElementTree as ET
 import zipfile
 from typing import NamedTuple
+from xml.parsers import expat
 
 
 class LenexData(NamedTuple):
@@ -43,6 +44,14 @@ ROUND_NAMES = tuple(dict.fromkeys(ROUND_KEYS.values()))
 MAX_XML_BYTES = 64 * 1024 * 1024
 
 
+class _PrologRead(Exception):
+    """The root element began: the prolog held no DOCTYPE."""
+
+
+def _refuse_doctype(*_):
+    raise ValueError("Lenex file contains a DOCTYPE declaration; refusing to parse it.")
+
+
 def _check_no_doctype(data):
     """Refuse a document type declaration before handing bytes to the parser.
 
@@ -53,26 +62,26 @@ def _check_no_doctype(data):
     the whole class of attack rather than reasoning about which entity forms are
     safe.
 
-    Checked on the bytes rather than through a parser hook: the accelerated
-    XMLParser exposes no handler to install, and XML requires the declaration to
-    sit in the prolog, ahead of the root element, where a scan can see it.
+    Asked of expat itself, stopped at the root element, rather than looked for in
+    the bytes: a scan for `<!DOCTYPE` read a UTF-16 file — or any encoding the
+    parser decodes and a byte search does not — as a clean prolog, and the parse
+    behind it expanded the entities anyway. Expat reports the declaration in
+    whatever encoding the file is in, before it expands anything.
     """
-    i = 0
-    while i < len(data):
-        i = data.find(b"<", i)
-        if i < 0:
-            return  # no element at all; let the parser complain
-        if data.startswith(b"<!DOCTYPE", i):
-            raise ValueError(
-                "Lenex file contains a DOCTYPE declaration; refusing to parse it."
-            )
-        if data[i + 1 : i + 2] not in (b"?", b"!"):
-            return  # root element reached — the prolog is clean
-        # A processing instruction, comment or other declaration: step over it.
-        end = data.find(b">", i)
-        if end < 0:
-            return
-        i = end + 1
+    parser = expat.ParserCreate()
+    parser.StartDoctypeDeclHandler = _refuse_doctype
+    parser.EntityDeclHandler = _refuse_doctype
+
+    def root_reached(*_):
+        raise _PrologRead
+
+    parser.StartElementHandler = root_reached
+    try:
+        parser.Parse(data, True)
+    except _PrologRead:
+        return
+    except expat.ExpatError:
+        return  # malformed before the root: the real parse reports it
 
 
 def _open_lenex_xml(path):

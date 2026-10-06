@@ -28,6 +28,7 @@ import datetime
 import json
 import os
 import queue
+import re
 import threading
 import time
 import urllib.error
@@ -45,6 +46,23 @@ _ANALYTICS_FLUSH_SECS = 5
 # expires); a page view within this window reuses the last fetch.
 _RECORD_TTL = 15.0
 _MISSING_TTL = 5.0
+# Most cards kept at once. Unknown ids come from the query string of a public page,
+# so without a hard ceiling a flood of fresh ones grows the cache for as long as
+# each stays inside its TTL.
+_RECORDS_MAX = 2048
+# Most control-plane lookups in flight at once. Each holds a threadpool thread for
+# up to the call's timeout, and the pool is what every page on this worker is
+# served from: a flood of unknown ids must not be able to take all of it.
+_FETCHES_MAX = 8
+_fetch_slots = threading.BoundedSemaphore(_FETCHES_MAX)
+# What a meet id can look like: 11 hex characters (`meet_id_for`) or a
+# `token_urlsafe` (a legacy relay's). Anything else is never a meet, and must not
+# reach the internal API's URL, where `/`, `?` or `..` would change the request.
+_MEET_ID_RE = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
+
+
+def valid_meet_id(meet_id):
+    return isinstance(meet_id, str) and bool(_MEET_ID_RE.match(meet_id))
 
 
 class ControlError(Exception):
@@ -143,7 +161,7 @@ _records_lock = threading.Lock()
 def fetch_meet(meet_id):
     """A meet's record from the control plane, or None. Cached briefly; while the
     control plane is unreachable the last record seen keeps serving."""
-    if not meet_id:
+    if not valid_meet_id(meet_id):
         return None
     now = time.monotonic()
     with _records_lock:
@@ -152,10 +170,15 @@ def fetch_meet(meet_id):
         rec, at = hit
         if now - at < (_RECORD_TTL if rec else _MISSING_TTL):
             return rec
+    if not _fetch_slots.acquire(blocking=False):
+        # Busy with others: answer from what is known rather than queue behind them.
+        return hit[0] if hit else None
     try:
         rec = _call("GET", f"/internal/meets/{meet_id}")
     except (ControlError, Refused):
         return hit[0] if hit else None
+    finally:
+        _fetch_slots.release()
     if rec and rec.get("expires_at"):
         try:
             if (
@@ -167,10 +190,15 @@ def fetch_meet(meet_id):
             pass
     with _records_lock:
         _records[meet_id] = (rec, now)
-        # Bound the cache: unknown ids are cheap to ask for and must not pile up.
-        if len(_records) > 2048:
+        if len(_records) > _RECORDS_MAX:
+            # Aged-out entries first, then the oldest, until back under the ceiling.
             for k in [k for k, (_, at) in _records.items() if now - at > _RECORD_TTL]:
                 del _records[k]
+            excess = len(_records) - _RECORDS_MAX
+            if excess > 0:
+                oldest = sorted(_records.items(), key=lambda kv: kv[1][1])[:excess]
+                for k, _ in oldest:
+                    del _records[k]
     return rec
 
 
@@ -278,25 +306,32 @@ def heartbeat(live_ids, attendees=None, frames=None):
         },
     )
     if not isinstance(result, dict):
-        return {"retired": [], "moves": []}
+        return {"retired": [], "moves": [], "revoked": []}
     _settings["analytics_enabled"] = bool(result.get("analytics_enabled"))
     if result.get("update_to"):
         update_node(result["update_to"])
     if "known" in result:
         # Worker 1: keep only the meets the control plane still places here.
         cloud_meetstore.keep_only(result["known"])
-    return {"retired": result.get("retired") or [], "moves": result.get("moves") or []}
+    return {
+        "retired": result.get("retired") or [],
+        "moves": result.get("moves") or [],
+        "revoked": result.get("revoked") or [],
+    }
 
 
-async def heartbeat_loop(snapshot, on_moves=None):
+async def heartbeat_loop(snapshot, on_moves=None, on_revoked=None):
     """Report every HEARTBEAT_SECS. `snapshot()` returns the meets held right now,
     `{meet_id: attendees}` and `{meet_id: last board frame}`; `on_moves(moves)`
-    lets go of the ones moved away."""
+    lets go of the ones moved away, `on_revoked(ids)` of the ones whose key the admin
+    withdrew."""
     while True:
         try:
             result = await run_in_threadpool(heartbeat, *snapshot())
             if on_moves and result["moves"]:
                 await on_moves(result["moves"])
+            if on_revoked and result["revoked"]:
+                await on_revoked(result["revoked"])
         except (ControlError, Refused) as e:
             print(f"[node] heartbeat failed: {e}", flush=True)
             # The control plane cannot say what to keep: expire by the store's own
