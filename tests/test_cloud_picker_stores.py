@@ -22,7 +22,7 @@ __all__ = ["stores"]  # a fixture, imported so pytest finds it here
 
 
 def picker(agent=None):
-    headers = [(b"host", b"splouch.ca")]
+    headers = [(b"host", b"splouch.org")]
     if agent:
         headers.append((b"user-agent", agent.encode()))
     scope = {
@@ -37,7 +37,7 @@ def picker(agent=None):
         "root_path": "",
         "headers": headers,
         "client": ("203.0.113.7", 41234),
-        "server": ("splouch.ca", 443),
+        "server": ("splouch.org", 443),
         "app": cs.app,
     }
     return cs.route_index(Request(scope)).body.decode()

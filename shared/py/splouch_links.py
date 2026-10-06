@@ -55,11 +55,11 @@ INVITE_PARAM = "server"
 
 # The server the published app ships knowing (`P-11`), and therefore the only
 # authority a link may carry: an App Link is verified per host, and the app matches
-# `https://splouch.ca/add` and nothing else. It is a property of the *app*, not of
+# `https://splouch.org/add` and nothing else. It is a property of the *app*, not of
 # any server here, which is why it is a constant rather than a setting — a Pi cannot
 # be asked what the app on a stranger's phone was built against. A fork publishing
 # its own app changes this line and the manifest together.
-DEFAULT_APP_SERVER = "https://splouch.ca"
+DEFAULT_APP_SERVER = "https://splouch.org"
 
 # The local network `http` is allowed to (`P-12`): these names, `*.local`, and an
 # address in `LOCAL_NETWORKS`. Decided 2026-10-01, when private ranges joined the

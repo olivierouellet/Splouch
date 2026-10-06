@@ -40,9 +40,9 @@ def get(query=""):
         "raw_path": b"/privacy",
         "query_string": query.encode(),
         "root_path": "",
-        "headers": [(b"host", b"splouch.ca")],
+        "headers": [(b"host", b"splouch.org")],
         "client": ("203.0.113.7", 41234),
-        "server": ("splouch.ca", 443),
+        "server": ("splouch.org", 443),
         "app": cs.app,
     }
     response = cs.route_privacy(Request(scope))
@@ -67,7 +67,7 @@ def test_every_language_renders_whole(code):
     assert f'<html lang="{code}">' in html
     assert section(code)["title"] in html
     assert "{host}" not in html and "{days}" not in html
-    assert "splouch.ca" in html
+    assert "splouch.org" in html
 
 
 @pytest.mark.parametrize("code", ["en", "fr", "es"])

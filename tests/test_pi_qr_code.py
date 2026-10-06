@@ -52,7 +52,7 @@ def cloud(monkeypatch):
     def set_url(url):
         monkeypatch.setitem(state.settings, "cloud_relay_url", url)
 
-    set_url("https://splouch.ca")
+    set_url("https://splouch.org")
     return set_url
 
 
@@ -67,7 +67,7 @@ def image(address=True):
 
 
 def test_the_code_names_the_cloud_this_pi_publishes_to(cloud):
-    assert invite()["link"] == "https://splouch.ca/add?server=https%3A%2F%2Fsplouch.ca"
+    assert invite()["link"] == "https://splouch.org/add?server=https%3A%2F%2Fsplouch.org"
 
 
 def test_no_local_address_is_ever_minted(cloud, monkeypatch):
@@ -80,7 +80,7 @@ def test_no_local_address_is_ever_minted(cloud, monkeypatch):
     monkeypatch.setattr("socket.gethostname", lambda: "splouch")
     data = invite()
     assert ".local" not in data["link"]
-    assert data["origin"] == "https://splouch.ca"
+    assert data["origin"] == "https://splouch.org"
 
 
 def test_a_club_cloud_is_carried_under_the_apps_default_host(cloud):
@@ -148,7 +148,7 @@ def test_a_longer_address_does_not_make_a_bigger_poster(cloud):
     """The module count grows with the URL, so the scale is derived per symbol.
 
     Left as a constant, a club with a long domain would get a physically larger
-    code than `splouch.ca` from the same button.
+    code than `splouch.org` from the same button.
     """
     short = image()
     cloud("https://scores.swimclub-montreal.ca")
@@ -252,7 +252,7 @@ def test_the_download_is_a_png_attachment_named_for_the_server(cloud):
     assert response.media_type == "image/png"
     assert (
         response.headers["content-disposition"]
-        == 'attachment; filename="splouch-qr-splouch.ca.png"'
+        == 'attachment; filename="splouch-qr-splouch.org.png"'
     )
 
 

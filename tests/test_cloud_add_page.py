@@ -74,7 +74,7 @@ IPAD_DESKTOP = (
 
 def respond(query="", agent=None):
     """Render `/add` through the real route, and hand back the response."""
-    headers = [(b"host", b"splouch.ca")]
+    headers = [(b"host", b"splouch.org")]
     if agent:
         headers.append((b"user-agent", agent.encode()))
     scope = {
@@ -89,7 +89,7 @@ def respond(query="", agent=None):
         "root_path": "",
         "headers": headers,
         "client": ("203.0.113.7", 41234),
-        "server": ("splouch.ca", 443),
+        "server": ("splouch.org", 443),
         "app": cs.app,
     }
     response = cs.route_add(Request(scope))
@@ -165,7 +165,7 @@ def test_the_page_says_so_when_the_code_named_this_very_server(stores, monkeypat
     neither.
     """
     configure(monkeypatch, "android")
-    here = get("server=https%3A%2F%2Fsplouch.ca", ANDROID)
+    here = get("server=https%3A%2F%2Fsplouch.org", ANDROID)
     assert "right place" in here
     assert "offer to add this server" not in here
 
@@ -220,9 +220,9 @@ def test_picker_config_carries_the_same_dict(stores, monkeypatch):
         "raw_path": b"/picker/config",
         "query_string": b"",
         "root_path": "",
-        "headers": [(b"host", b"splouch.ca")],
+        "headers": [(b"host", b"splouch.org")],
         "client": ("203.0.113.7", 41234),
-        "server": ("splouch.ca", 443),
+        "server": ("splouch.org", 443),
         "app": cs.app,
     }
     config = cs.route_picker_config(Request(scope))
@@ -285,7 +285,7 @@ def configure(monkeypatch, *platforms):
 )
 def test_what_each_reader_is_offered(stores, monkeypatch, agent, listed, expected):
     configure(monkeypatch, *listed)
-    assert offers(get("server=https%3A%2F%2Fsplouch.ca", agent)) == expected
+    assert offers(get("server=https%3A%2F%2Fsplouch.org", agent)) == expected
 
 
 def test_the_page_never_promises_an_install_it_cannot_deliver(stores, monkeypatch):
@@ -296,7 +296,7 @@ def test_the_page_never_promises_an_install_it_cannot_deliver(stores, monkeypatc
     no listing existed — which is to say, the whole pre-launch window.
     """
     for agent in (ANDROID, IPHONE, IPAD_DESKTOP, None):
-        html = get("server=https%3A%2F%2Fsplouch.ca", agent)
+        html = get("server=https%3A%2F%2Fsplouch.org", agent)
         assert "not available for download yet" in html
         assert "once the Splouch app is installed" not in html.lower()
         assert "install the splouch app" not in html.lower()
@@ -306,7 +306,7 @@ def test_the_page_never_promises_an_install_it_cannot_deliver(stores, monkeypatc
     assert "once the Splouch app is installed" in get(
         "server=https%3A%2F%2Fscores.myclub.ca", ANDROID
     )
-    assert "Install the Splouch app" in get("server=https%3A%2F%2Fsplouch.ca", ANDROID)
+    assert "Install the Splouch app" in get("server=https%3A%2F%2Fsplouch.org", ANDROID)
 
 
 def test_advice_for_inside_the_app_keeps_the_app_s_company(stores, monkeypatch):
@@ -333,8 +333,8 @@ def test_a_recognised_phone_with_its_app_listed_gets_no_browser_link(
     the easier tap and the one that ends the hand-off.
     """
     configure(monkeypatch, "android", "ios")
-    assert 'class="web"' not in get("server=https%3A%2F%2Fsplouch.ca", ANDROID)
-    assert 'class="web"' not in get("server=https%3A%2F%2Fsplouch.ca", IPHONE)
+    assert 'class="web"' not in get("server=https%3A%2F%2Fsplouch.org", ANDROID)
+    assert 'class="web"' not in get("server=https%3A%2F%2Fsplouch.org", IPHONE)
 
 
 def test_an_unplaceable_agent_learns_that_both_apps_exist(stores, monkeypatch):
@@ -347,7 +347,7 @@ def test_an_unplaceable_agent_learns_that_both_apps_exist(stores, monkeypatch):
     """
     configure(monkeypatch, "android", "ios")
     for agent in (IPAD_DESKTOP, None, "curl/8.4.0"):
-        html = get("server=https%3A%2F%2Fsplouch.ca", agent)
+        html = get("server=https%3A%2F%2Fsplouch.org", agent)
         assert PLAY in html and APPSTORE in html
 
 
@@ -362,7 +362,7 @@ def test_nobody_is_ever_left_with_nothing(stores, monkeypatch):
             monkeypatch.delenv("STORE_URL_ANDROID", raising=False)
             monkeypatch.delenv("STORE_URL_IOS", raising=False)
             configure(monkeypatch, *listed)
-            assert offers(get("server=https%3A%2F%2Fsplouch.ca", agent)), (
+            assert offers(get("server=https%3A%2F%2Fsplouch.org", agent)), (
                 agent,
                 listed,
             )
@@ -372,7 +372,7 @@ def test_the_browser_link_goes_to_the_picker_and_never_to_a_meet(stores):
     """`P-06`'s disclaimer is on the meet list, and a reader arriving by camera
     is the one who has never seen it. `/mobile` would walk them straight past it.
     """
-    html = get("server=https%3A%2F%2Fsplouch.ca", IPHONE)
+    html = get("server=https%3A%2F%2Fsplouch.org", IPHONE)
     web = matched(r'<a class="web" href="([^"]*)"', html)
     assert web == "/"
     assert "/mobile" not in html
@@ -382,7 +382,7 @@ def test_the_response_says_it_varies_by_agent(stores, monkeypatch):
     """Nothing caches this today; a proxy that one day does must not mix them up."""
     configure(monkeypatch, "android")
     assert (
-        respond("server=https%3A%2F%2Fsplouch.ca", ANDROID).headers["Vary"]
+        respond("server=https%3A%2F%2Fsplouch.org", ANDROID).headers["Vary"]
         == "User-Agent"
     )
 

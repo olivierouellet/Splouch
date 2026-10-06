@@ -4,7 +4,7 @@ This is the half of the feature with no symptom on the server. Everything here
 returns 200 in a browser whether or not it is right; what reads these files is
 the operating system, once, at install time, on someone else's phone. Android
 fetches `assetlinks.json` and **follows no redirects**; while it is wrong or
-missing, `adb shell pm get-app-links app.splouch.android` reports `splouch.ca:
+missing, `adb shell pm get-app-links app.splouch.android` reports `splouch.org:
 1024` — no response — and the OS offers a chooser instead of opening the app.
 Nobody deploying the cloud would notice.
 
@@ -103,9 +103,9 @@ def over_the_wire(path):
         "raw_path": path.encode(),
         "query_string": b"",
         "root_path": "",
-        "headers": [(b"host", b"splouch.ca")],
+        "headers": [(b"host", b"splouch.org")],
         "client": ("203.0.113.7", 41234),
-        "server": ("splouch.ca", 443),
+        "server": ("splouch.org", 443),
     }
     sent = []
 

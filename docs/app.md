@@ -281,10 +281,6 @@ flowchart TD
 - **`vid` per server** (`C-10`).
 - **Picker names server only when not default; meet likewise** → spectator who
   switched and forgot sees why meets changed; on the default, nothing to explain.
-- **Default moved `splouch.ca` → `splouch.org`** (2026-10-05). A stored selection of
-  `https://splouch.ca` is rewritten to the new default on first launch; its `vid` is
-  not carried over (`C-10`: never derived from another). App links (`P-16`) accept
-  both hosts while codes printed with `splouch.ca` are in circulation.
 - **Scan proposes, doesn't act**: nothing requested from the address before the yes.
   **Every scan ends on picker** — camera arrivals never saw `P-06`.
 

@@ -35,7 +35,7 @@
 | Worker count | Automatic from `nproc`; `WORKERS=` overrides | Set by hand |
 | Orchestration | Docker Compose | Kubernetes, OpenStack (ops cost for one maintainer) |
 | First box | Control plane + monitoring + CA node on one VPS, built to split | Separate boxes from day one |
-| Domain | `splouch.org` (control plane), `ca1.` / `us1.` / `eu1.splouch.org` (nodes); `splouch.ca` redirects | Users typing regional subdomains |
+| Domain | `splouch.org` (control plane), `ca1.` / `us1.` / `eu1.splouch.org` (nodes) | Users typing regional subdomains |
 | Region | Per organizer, set in `/admin` at key creation; per-meet override | Operator choice on the Pi |
 | Organizer location | Country + state/province, set by admin, correctable from the Pi | — |
 | Images | One image `ghcr.io/olivierouellet/splouch-cloud`, built by CI, two commands | Two images (version drift); building on the node |

@@ -4,10 +4,10 @@ The cloud runs uvicorn behind Caddy, which terminates TLS and proxies over plain
 HTTP, so the ASGI scope says `http`. The row for this server is derived from the
 request (`request.base_url`), so it inherits that — and uvicorn trusts
 `X-Forwarded-Proto` only from `127.0.0.1` by default, while Caddy reaches the app
-from a compose-bridge address. Production advertised `http://splouch.ca`.
+from a compose-bridge address. Production advertised `http://splouch.org`.
 
 That is worse than cosmetic. The iOS app deduplicates its server menu by origin, so
-`https://splouch.ca:443` and `http://splouch.ca:80` are two servers and "Splouch"
+`https://splouch.org:443` and `http://splouch.org:80` are two servers and "Splouch"
 appears twice; and its ATS policy is `NSAllowsLocalNetworking` only, so the cleartext
 row is one the OS refuses to connect to. Tapping it strands the user on a dead picker.
 
@@ -92,14 +92,14 @@ def _advertised(scope, trusted=None):
     "caddy_ip", ["172.18.0.3", "172.31.255.1", "10.5.0.2", "127.0.0.1"]
 )
 def test_a_trusted_proxy_sets_the_scheme(caddy_ip):
-    row = _advertised(_scope("splouch.ca", (caddy_ip, 54321), "https"))
-    assert row["url"] == "https://splouch.ca"
+    row = _advertised(_scope("splouch.org", (caddy_ip, 54321), "https"))
+    assert row["url"] == "https://splouch.org"
 
 
 def test_a_public_client_cannot_spoof_the_scheme():
     """Why the trust list is private ranges and not `*`."""
-    row = _advertised(_scope("splouch.ca", ("203.0.113.7", 54321), "https"))
-    assert row["url"] == "http://splouch.ca"
+    row = _advertised(_scope("splouch.org", ("203.0.113.7", 54321), "https"))
+    assert row["url"] == "http://splouch.org"
 
 
 def test_a_cleartext_deployment_stays_cleartext():
@@ -113,7 +113,7 @@ def test_a_cleartext_deployment_stays_cleartext():
 
 def test_the_row_shape_is_unchanged():
     """`api.md` §5.11 fixes `{name, url, kind}`. Only the `url` value was wrong."""
-    row = _advertised(_scope("splouch.ca", ("172.18.0.3", 54321), "https"))
+    row = _advertised(_scope("splouch.org", ("172.18.0.3", 54321), "https"))
     assert set(row) == {"name", "url", "kind"}
     assert row["kind"] == "cloud"
 
@@ -172,7 +172,7 @@ def test_the_directory_never_lists_cleartext_to_a_public_host(tmp_path, monkeypa
         encoding="utf-8",
     )
     monkeypatch.setattr(cs, "SERVERS_FILE", str(servers))
-    rows = cs.route_servers(Request(_scope("splouch.ca", ("127.0.0.1", 1), "https")))[
+    rows = cs.route_servers(Request(_scope("splouch.org", ("127.0.0.1", 1), "https")))[
         "servers"
     ]
     assert [r["url"] for r in rows[1:]] == [

@@ -33,14 +33,14 @@ import splouch_links as links
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-CLOUD = "https://splouch.ca"
+CLOUD = "https://splouch.org"
 
 
 def test_the_link_is_the_shape_the_app_was_built_against():
     """The one example in `parity.md` `P-16`, byte for byte."""
     assert (
         links.invite_link(CLOUD, "http://poolpi.local:5000")
-        == "https://splouch.ca/add?server=http%3A%2F%2Fpoolpi.local%3A5000"
+        == "https://splouch.org/add?server=http%3A%2F%2Fpoolpi.local%3A5000"
     )
 
 
@@ -84,7 +84,7 @@ def test_an_address_a_client_would_accept_round_trips(origin):
 @pytest.mark.parametrize(
     "origin",
     [
-        "http://splouch.ca",  # cleartext to a public name
+        "http://splouch.org",  # cleartext to a public name
         "http://172.15.0.1",  # either side of 172.16/12
         "http://172.32.0.1",
         "http://203.0.113.5",
@@ -131,16 +131,16 @@ def test_two_spellings_of_one_server_are_one_string():
     """The key a `vid` is stored under (`C-10`), so normalisation is not cosmetic."""
     same = {
         links.parse_origin(t)
-        for t in ("https://splouch.ca", "https://SPLOUCH.CA/", "https://splouch.ca:443")
+        for t in ("https://splouch.org", "https://SPLOUCH.ORG/", "https://splouch.org:443")
     }
-    assert same == {"https://splouch.ca"}
+    assert same == {"https://splouch.org"}
 
 
 def test_the_cloud_host_is_normalised_too():
     """An operator's trailing slash must not change the code from one boot to the next."""
     assert links.invite_link(
-        "https://splouch.ca/", "http://poolpi.local"
-    ) == links.invite_link("https://splouch.ca:443", "http://poolpi.local")
+        "https://splouch.org/", "http://poolpi.local"
+    ) == links.invite_link("https://splouch.org:443", "http://poolpi.local")
 
 
 def test_a_half_configured_server_mints_nothing():
@@ -171,7 +171,7 @@ def test_the_local_network_is_names_loopback_and_private_ranges(host):
 @pytest.mark.parametrize(
     "host",
     [
-        "splouch.ca",
+        "splouch.org",
         "192.169.1.1",
         "11.0.0.1",
         "localhost.example",

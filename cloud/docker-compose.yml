@@ -34,7 +34,7 @@ services:
       # scope says `http` unless the `X-Forwarded-Proto` Caddy sends is trusted.
       # uvicorn trusts only 127.0.0.1 by default, and Caddy reaches us from a
       # compose-bridge address, so the header was being dropped and `GET /servers`
-      # advertised `http://splouch.ca` — a second, untappable row in the app's
+      # advertised `http://splouch.org` — a second, untappable row in the app's
       # server menu, blocked by ATS (docs/api.md §5.11).
       #
       # Private ranges rather than `*`: this covers Caddy wherever Docker renumbers
