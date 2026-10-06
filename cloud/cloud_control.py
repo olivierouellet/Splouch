@@ -847,7 +847,7 @@ def route_add(request: Request):
 
 # The date at the top of `/privacy`. Bumped by hand with any change to `[privacy]`
 # in the locale files, which is what the page promises under "Changes".
-PRIVACY_UPDATED = "2026-10-05"
+PRIVACY_UPDATED = "2026-10-06"
 
 
 def _privacy_contact():
