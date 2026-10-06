@@ -161,7 +161,10 @@ def test_the_tab_routes_name_their_role():
             for r in cloud_control.app.routes
             if getattr(r, "path", "") == path and method in getattr(r, "methods", ())
         )
-        return [getattr(d.dependency, "role", "?") for d in route.dependencies]
+        return [
+            getattr(d.dependency, "role", "?")
+            for d in getattr(route, "dependencies", [])
+        ]
 
     assert role("/admin/picker_appearance", "POST") == ["appearance"]
     assert role("/admin/stats") == ["meets"]

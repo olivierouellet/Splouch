@@ -392,8 +392,8 @@ def has_role(session, role: str) -> bool:
     return signed_in(session) and role in state.user_roles(str(session["user"]))
 
 
-def require_role(role: str):
-    """FastAPI dependency factory: allow the request only to a user with *role*.
+class require_role:
+    """FastAPI dependency: allow the request only to a user with *role*.
 
     Not signed in raises :class:`NotAuthenticated` (a redirect to /login); signed
     in without the page raises :class:`NotAllowed` (a 403 that says so).
@@ -405,18 +405,21 @@ def require_role(role: str):
     wipe the meet files. `Sec-Fetch-Site` is set by the browser, cannot be
     overridden by the page, and is absent on every non-browser client (the Qt
     display, curl, the native apps), which is why absence has to mean allow.
+
+    A callable instance rather than a closure so `role` stays readable on it: the
+    tests pin which page needs what.
     """
 
-    def dependency(request: Request):
+    def __init__(self, role: str):
+        self.role = role
+
+    def __call__(self, request: Request):
         if request.headers.get("sec-fetch-site") == "cross-site":
             raise CrossSiteRequest
         if not signed_in(request.session):
             raise NotAuthenticated
-        if role not in state.user_roles(str(request.session["user"])):
+        if self.role not in state.user_roles(str(request.session["user"])):
             raise NotAllowed
-
-    dependency.role = role  # read by the tests that pin which page needs what
-    return dependency
 
 
 # The Settings panel and everything behind it.

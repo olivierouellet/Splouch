@@ -461,16 +461,20 @@ def check_admin(request):
     return authenticate(request) is not None
 
 
-def require_role(role):
-    """FastAPI dependency factory: a signed-in user who may open *role*'s tab, or
-    any signed-in user when *role* is None. Leaves who it is in
-    `request.state.admin_user` / `admin_roles` for the panel to read."""
+class require_role:
+    """FastAPI dependency: a signed-in user who may open *role*'s tab, or any
+    signed-in user when *role* is None. Leaves who it is in
+    `request.state.admin_user` / `admin_roles` for the panel to read.
 
-    def dependency(request: Request):
-        _guard(request, role)
+    A callable instance rather than a closure so `role` stays readable on it: the
+    tests pin which route needs what.
+    """
 
-    dependency.role = role
-    return dependency
+    def __init__(self, role: str | None):
+        self.role = role
+
+    def __call__(self, request: Request):
+        _guard(request, self.role)
 
 
 def _guard(request: Request, role):

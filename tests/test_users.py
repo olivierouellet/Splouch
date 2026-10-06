@@ -70,7 +70,10 @@ def test_the_console_and_mm_pages_name_their_role():
 
     def roles(router, path):
         route = next(r for r in router.routes if getattr(r, "path", "") == path)
-        return [getattr(d.dependency, "role", None) for d in route.dependencies]
+        return [
+            getattr(d.dependency, "role", None)
+            for d in getattr(route, "dependencies", [])
+        ]
 
     assert "console" in roles(scoreboard_routes.router, "/console")
     assert "manual" in roles(scoreboard_routes.router, "/manual")
@@ -80,7 +83,9 @@ def test_the_console_and_mm_pages_name_their_role():
         for r in settings_routes.router.routes
         if getattr(r, "path", "") == "/meet_update_file"
     )
-    assert "mm" in [getattr(d.dependency, "role", None) for d in upload.dependencies]
+    assert "mm" in [
+        getattr(d.dependency, "role", None) for d in getattr(upload, "dependencies", [])
+    ]
 
 
 def test_each_user_signs_in_with_their_own_password():
