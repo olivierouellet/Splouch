@@ -474,8 +474,12 @@ table: `labels` is the operator's pick, resolved from the same file.
 
 ```json
 { "events": [ [3, [1,2]] ], "names": { "3": "…" }, "times": { "3": { "1": "10:42" } },
-  "start_list": { "3": { "1": { "1": { "name":"…","club":"…","seed_time":"…","swimmers":[…] } } } } }
+  "start_list": { "3": { "1": { "1": { "name":"…","club":"…","seed_time":"…","swimmers":[…] } } } },
+  "results": { "3": { "1": { "1": { "time": "00:01:01.90", "status": "" } } } } }
 ```
+
+`results` are Meet Manager's official results (§5.8). No console times: the cloud keeps
+its own from the `results_snapshot` frames it relays, and stores them with the meet.
 
 ### 5.6 `GET /meets`
 
@@ -548,9 +552,30 @@ picker's chrome — the language and label-style controls — comes from.
 
 ```json
 { "heats": [ { "event": 3, "heat": 1, "event_name": "…", "time": "10:42",
+               "official": false,
                "lanes": [ { "lane": 4, "name": "…", "club": "…",
-                            "seed_time": "…", "swimmers": [ … ] } ] } ] }
+                            "seed_time": "00:01:02.40", "swimmers": [ … ],
+                            "console_time": "00:01:01.95",
+                            "result_time": "", "result_status": "",
+                            "result_delta_seconds": null,
+                            "result_delta_better": null } ] } ] }
 ```
+
+A lane's three times (`app.md` `S-22`), every one `HH:MM:SS.hh` or `""`:
+
+| Field | Meaning |
+| --- | --- |
+| `seed_time` | entry time from the meet file (Hytek: as written there) |
+| `console_time` | the timing console's finish, provisional |
+| `result_time` | official, validated in Meet Manager and uploaded on the Pi's `/mm` |
+| `result_status` | `DSQ`, `DNS`, `DNF`, `WDR`, `SICK`, or `""` for a finish |
+| `result_delta_seconds` | official − seed, negative = faster; `null` with no seed, no official time, or a status |
+| `result_delta_better` | `result_delta_seconds < 0`; `null` when that is |
+
+`official` on a heat is true once every lane with a `name` has a `result_time` or a
+`result_status` (`S-23`). Official results come only from heats Meet Manager marks
+`OFFICIAL` or `SEEDED`. Console times arrive between fetches in `results_snapshot`
+(§5.2): its `lanes[].channel` is the lane, its `time` is `SS.hh` or `M:SS.hh`.
 
 Every heat in running order — the whole start list, not just the next few
 (compare `next_heats`, §5.3). Heats with no entries still appear with an empty
@@ -777,6 +802,9 @@ them key for key; it never picks its own. Source of truth: `DEFAULT_THEME_COLORS
 | `schedule_time` | `#FFD700` | `#0055aa` |
 | `schedule_name` | `#e0e0e0` | `#111111` |
 | `schedule_club` | `#666666` | `#888888` |
+| `schedule_seed` | `#e0e0e0` | `#111111` |
+| `schedule_console` | `#FFD700` | `#0055aa` |
+| `schedule_official` | `#4ade80` | `#2e7d32` |
 
 **Known contrast shortfall:** dark `th_text` on `row_even` is 2.84:1, under WCAG's 3:1
 large-text bar (`app.md` §8). The fix is a change to this table, which every phone
@@ -789,6 +817,12 @@ can tell the console has stopped talking to it. Faces, both palettes: `family`
 ---
 
 ## Changelog
+
+- **Added since v2, additive**: `official` per heat; `console_time`, `result_time`,
+  `result_status`, `result_delta_seconds`, `result_delta_better` per lane in
+  `GET /meet/{id}/schedule` and `GET /schedule.json` (§5.8); `schedule_seed`,
+  `schedule_console`, `schedule_official` in both palettes (§6.1) — `app.md` `S-22`,
+  `S-23`. Relay only: `results` in `schedule_snapshot` (§5.5).
 
 - **Added since v2, additive**: `moved {url, base}` on the three attendee sockets (§3);
   `base`, `url`, `country`, `province` in `GET /meets` (§5.6); `base` in

@@ -193,8 +193,16 @@ def test_the_served_file_holds_only_what_a_spectator_reads():
     # `chrome` is the fourth because both operator pages draw the same sidebar and
     # theme switcher; its words live once rather than once per page. `manual` is the
     # fifth: /manual is a page of its own, not part of the settings panel, so a
-    # translator sees it whole instead of hunting its keys out of [settings].
-    assert set(_panel("en")) == {"preview", "cloud", "settings", "chrome", "manual"}
+    # translator sees it whole instead of hunting its keys out of [settings]. `mm` is
+    # the Meet Manager desk's /mm, a page of its own for the same reason.
+    assert set(_panel("en")) == {
+        "preview",
+        "cloud",
+        "settings",
+        "chrome",
+        "manual",
+        "mm",
+    }
 
 
 @pytest.mark.parametrize("style", ["short", "long"])

@@ -34,6 +34,18 @@ Fields available in the parsed data that are not currently used by the scoreboar
 | `relaycount` | `"4"` | Number of relay legs. `1` for individual events. Could be used to detect relay without checking for missing `athleteid`. |
 | `technique` | `"BREASTSTROKE"` | Used in some masters meets to specify a non-standard stroke variation. |
 
+### `RESULT` element
+
+Parsed since Meet Manager results reach the Schedule (`swimtime`, `status`, `lane`,
+`heatid`; docs/architecture/meet-manager-results.md). Still unused:
+
+| Attribute / child | Example | Notes |
+| --- | --- | --- |
+| `reactiontime` | `"+72"` | Start reaction in hundredths. |
+| `points` | `"512"` | FINA/World Aquatics points. |
+| `SPLITS > SPLIT` | `distance="50" swimtime="00:00:29.10"` | Official splits — the console's are provisional. |
+| `comment` | `"G-4"` | Why a swimmer was disqualified, in the judges' code. |
+
 ### `CLUB` element
 
 | Attribute | Example | Notes |

@@ -1,0 +1,221 @@
+{# /mm — the Meet Manager desk's page (docs/architecture/meet-manager-results.md).
+
+   One job: take the meet file exported again from Splash Meet Manager as heats are
+   validated, so their official results replace the console's times on every
+   Schedule (docs/app.md `S-22`). The upload is `/meet_update_file`, the same one
+   Settings uses: it refuses another meet and keeps the heat that is swimming.
+
+   After each upload the page says what the file changed — heats that became
+   official, statuses, and times the officials corrected — so the desk can see
+   that what they validated arrived. #}
+<!DOCTYPE html>
+<html lang="{{ lang | default('en', true) }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ t.title }}</title>
+    <style>
+        @font-face { font-family: 'Overpass Mono'; font-style: normal; font-weight: 400; font-display: swap; src: url('/static/fonts/OverpassMono-Regular.woff2') format('woff2'); }
+
+        :root {
+            --color-bg:            {{ theme_colors.bg }};
+            --color-header-bg:     {{ theme_colors.header_bg }};
+            --color-header-border: {{ theme_colors.header_border }};
+            --color-header-label:  {{ theme_colors.header_label }};
+            --color-row-odd:       {{ theme_colors.row_odd }};
+            --color-row-text:      {{ theme_colors.row_text }};
+            --color-th-text:       {{ theme_colors.th_text }};
+            --color-console:       {{ theme_colors.schedule_console }};
+            --color-official:      {{ theme_colors.schedule_official }};
+            --color-error:         {{ theme_colors.connection_lost }};
+            --font-family:         '{{ theme_fonts.family }}', monospace;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            background: var(--color-bg);
+            color: var(--color-row-text);
+            font-family: var(--font-family);
+            padding: 16px;
+            max-width: 640px;
+            margin: 0 auto;
+            -webkit-text-size-adjust: 100%;
+        }
+        h1 { font-size: 1.25em; color: var(--color-header-label); margin-bottom: 4px; }
+        h2 { font-size: 0.95em; color: var(--color-header-label); margin: 18px 0 6px; }
+        .meet { font-size: 0.95em; margin-bottom: 12px; }
+        .muted { color: var(--color-th-text); font-size: 0.85em; }
+        .lead { font-size: 0.9em; margin-bottom: 16px; line-height: 1.4; }
+
+        #progress { font-size: 1.6em; color: var(--color-official); margin: 6px 0 2px; }
+
+        /* The whole box takes the drop; the button inside opens the file chooser. */
+        #drop {
+            border: 2px dashed var(--color-header-border);
+            border-radius: 12px;
+            padding: 24px 16px;
+            text-align: center;
+            margin: 16px 0;
+            background: var(--color-header-bg);
+        }
+        #drop.over { border-color: var(--color-official); }
+        #pick {
+            font-family: var(--font-family);
+            font-size: 1.05em;
+            color: var(--color-bg);
+            background: var(--color-official);
+            border: none;
+            border-radius: 10px;
+            padding: 14px 20px;
+            min-height: 54px;
+            cursor: pointer;
+        }
+        #pick[disabled] { opacity: 0.5; cursor: default; }
+        #drop .muted { margin-top: 10px; }
+
+        #status { min-height: 1.4em; font-size: 0.95em; }
+        #status.ok  { color: var(--color-official); }
+        #status.err { color: var(--color-error); }
+
+        #summary ul { list-style: none; }
+        #summary li {
+            padding: 6px 8px;
+            background: var(--color-row-odd);
+            border-radius: 6px;
+            margin-bottom: 4px;
+            font-size: 0.9em;
+        }
+        .console  { color: var(--color-console); }
+        .official { color: var(--color-official); font-weight: 700; }
+
+        #help { margin-top: 24px; border-top: 1px solid var(--color-header-border); }
+        #help ol { padding-left: 1.4em; font-size: 0.9em; line-height: 1.5; }
+    </style>
+</head>
+<body>
+
+<h1>{{ t.title }}</h1>
+{% if not has_meet %}
+<p class="lead">{{ t.no_meet }}</p>
+{% else %}
+<div class="meet">{{ meet_name }}</div>
+<p class="lead">{{ t.lead }}</p>
+
+<div id="progress"><span id="official">{{ official }}</span> / <span id="total">{{ total }}</span></div>
+<div class="muted">{{ t.progress }}</div>
+<div class="muted">{{ t.last_upload }}: <span id="updated">{{ updated_at or t.never }}</span></div>
+
+<div id="drop">
+    <button type="button" id="pick">{{ t.upload }}</button>
+    <input id="file" type="file" accept=".lxf" hidden>
+    <div class="muted">{{ t.drop }}</div>
+</div>
+<div id="status" role="status" aria-live="polite"></div>
+<div id="summary"></div>
+{% endif %}
+
+<section id="help">
+    <h2>{{ t.help_title }}</h2>
+    <ol>
+        <li>{{ t.help_1 }}</li>
+        <li>{{ t.help_2 }}</li>
+        <li>{{ t.help_3 }}</li>
+    </ol>
+</section>
+
+{% if has_meet %}
+<script>
+const T = {{ t | tojson }};
+
+function esc(s) {
+    return String(s == null ? '' : s)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+// Every time travels as `HH:MM:SS.hh`; the hours go when there are none.
+function displayTime(t) {
+    t = String(t || '');
+    return t.indexOf('00:') === 0 && t.length > 8 ? t.slice(3) : t;
+}
+function where(it) {
+    var s = T.event + ' ' + it.event + '  ' + T.heat + ' ' + it.heat;
+    if (it.lane != null) s += '  ' + T.lane + ' ' + it.lane;
+    if (it.name) s += ' — ' + it.name;
+    return s;
+}
+function section(title, items, line) {
+    if (!items.length) return '';
+    return '<h2>' + esc(title) + '</h2><ul>' +
+        items.map(function(it) { return '<li>' + line(it) + '</li>'; }).join('') + '</ul>';
+}
+function showSummary(sum) {
+    var html =
+        section(T.sum_official, sum.official_heats, function(it) { return esc(where(it)); }) +
+        section(T.sum_status, sum.statuses, function(it) {
+            return esc(where(it)) + ' <span class="official">' + esc(it.status) + '</span>';
+        }) +
+        section(T.sum_corrected, sum.corrected, function(it) {
+            return esc(where(it)) + '<br><span class="console">' + esc(displayTime(it.console_time)) +
+                   '</span> → <span class="official">' + esc(displayTime(it.result_time)) + '</span>';
+        });
+    document.getElementById('summary').innerHTML =
+        html || '<p class="muted">' + esc(T.sum_nothing) + '</p>';
+}
+// The progress line, recounted from what the Schedule now serves.
+function refreshProgress() {
+    fetch('/schedule.json').then(function(r) { return r.json(); }).then(function(d) {
+        var swum = (d.heats || []).filter(function(h) {
+            return h.lanes.some(function(l) { return l.name; });
+        });
+        document.getElementById('official').textContent =
+            swum.filter(function(h) { return h.official; }).length;
+        document.getElementById('total').textContent = swum.length;
+    });
+}
+
+var pick = document.getElementById('pick');
+var input = document.getElementById('file');
+var drop = document.getElementById('drop');
+var status = document.getElementById('status');
+
+function say(text, cls) {
+    status.textContent = text;
+    status.className = cls || '';
+}
+
+function upload(file) {
+    if (!file) return;
+    pick.disabled = true;
+    say(T.uploading);
+    document.getElementById('summary').innerHTML = '';
+    var fd = new FormData();
+    fd.append('meet_file', file);
+    fetch('/meet_update_file', { method: 'POST', body: fd })
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+            if (!d.ok) { say(d.error || T.failed, 'err'); return; }
+            say(T.done, 'ok');
+            document.getElementById('updated').textContent =
+                new Date().toLocaleTimeString([], { hour12: false });
+            showSummary(d.summary);
+            refreshProgress();
+        })
+        .catch(function() { say(T.failed, 'err'); })
+        .finally(function() { pick.disabled = false; input.value = ''; });
+}
+
+pick.addEventListener('click', function() { input.click(); });
+input.addEventListener('change', function() { upload(input.files && input.files[0]); });
+['dragenter', 'dragover'].forEach(function(ev) {
+    drop.addEventListener(ev, function(e) { e.preventDefault(); drop.classList.add('over'); });
+});
+['dragleave', 'drop'].forEach(function(ev) {
+    drop.addEventListener(ev, function(e) { e.preventDefault(); drop.classList.remove('over'); });
+});
+drop.addEventListener('drop', function(e) {
+    upload(e.dataTransfer.files && e.dataTransfer.files[0]);
+});
+</script>
+{% endif %}
+</body>
+</html>

@@ -1,5 +1,6 @@
 import glob
 import os
+import time
 
 from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel
@@ -89,6 +90,39 @@ def route_schedule(request: Request):
     )
 
 
+@router.get("/mm", dependencies=[Depends(require_login)])
+def route_mm(request: Request):
+    """Where the person running Meet Manager re-uploads the meet file as heats are
+    validated (docs/architecture/meet-manager-results.md). The upload itself is
+    `/meet_update_file`, which refuses another meet and keeps the live heat.
+    """
+    heats = build_heats()
+    swum = [h for h in heats if any(lane["name"] for lane in h["lanes"])]
+    updated = state._meet_file_updated_at
+    return render(
+        request,
+        "mm.html",
+        has_meet=bool(state._active_meet_file),
+        meet_name=(
+            state.meet.meet_info.get("name") or state.settings.get("meet_title") or ""
+        ),
+        official=sum(1 for h in swum if h["official"]),
+        total=len(swum),
+        updated_at=time.strftime("%H:%M:%S", time.localtime(updated))
+        if updated
+        else "",
+        theme_colors={
+            **state.DEFAULT_THEME_COLORS,
+            **state.settings.get("theme_colors", {}),
+        },
+        theme_fonts={
+            **state.DEFAULT_THEME_FONTS,
+            **state.settings.get("theme_fonts", {}),
+        },
+        t=state.mm_strings(),
+    )
+
+
 @router.get("/hytek_preview")
 def route_hytek_preview():
     return redirect("/meet")
@@ -124,6 +158,7 @@ def route_meet_delete(request: Request):
         if os.path.isfile(filepath):
             os.remove(filepath)
             if state._active_meet_file == filename:
+                state.discard_console_times()
                 state.clear_meet()
                 state._active_meet_file = ""
                 state._active_meet_uid = ""
@@ -141,6 +176,9 @@ def route_meet_clear():
     for f in glob.glob(os.path.join(state.MEET_FOLDER, "*.csv")) + glob.glob(
         os.path.join(state.MEET_FOLDER, "*.lxf")
     ):
+        os.remove(f)
+    # Every meet file is gone, so every meet's console times go with them.
+    for f in glob.glob(os.path.join(state.CONSOLE_TIMES_DIR, "*.jsonl")):
         os.remove(f)
     state.clear_meet()
     state._active_meet_file = ""

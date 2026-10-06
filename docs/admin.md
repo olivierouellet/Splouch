@@ -35,6 +35,10 @@ Append `?test` to `/live` to overlay mode buttons (Intro, Running, Results, Next
 3. Turn on Pi #2: the TV boots straight into the scoreboard. Any other screen can open
    `http://splouch.local/` in a browser.
 4. Start the timing console — times appear automatically as heats run.
+5. As heats are validated in Meet Manager, export the meet again as `.lxf` (results
+   included) and upload it on **`/mm`** (Settings → Open → Meet Manager). Official times
+   and disqualifications replace the console's times on every Schedule; the heat that is
+   swimming is not disturbed. Only the same meet is accepted.
 
 > Prefer the command line? See [Manual and CLI reference](#manual-and-cli-reference) for
 > placing meet files directly in `~/SplouchData/meet/`.

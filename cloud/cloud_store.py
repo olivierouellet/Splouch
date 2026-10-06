@@ -21,7 +21,8 @@ import cloud_node
 
 # _meets: meet_id -> a dict of relay_key, relay_sid, organizer, name, location,
 #   sport, app_window_title, meet_date, settings, connected_at, clock_at,
-#   last_scoreboard, last_results, last_next_heats and schedule_data.
+#   last_scoreboard, last_results, last_next_heats, schedule_data and
+#   console_times.
 _meets = {}
 _relay_sids = {}  # relay connection id -> meet_id
 _lock = threading.Lock()
@@ -36,6 +37,7 @@ _RECORD_FIELDS = (
     "meet_date",
     "settings",
     "schedule_data",
+    "console_times",
     "connected_at",
 )
 

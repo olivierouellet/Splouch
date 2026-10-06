@@ -133,6 +133,19 @@ swimmer           = "Nadador"
 club              = "Club"
 
 # Pantalla de TV nativa (scoreboard/) — mensajes mostrados en lugar del tablero.
+
+# Tiempos del horario (docs/app.md `S-22`, `S-23`).
+time_seed      = "Tiempo de inscripción"
+time_console   = "Tiempo de la consola"
+time_official  = "Tiempo oficial"
+seed_diff      = "Diferencia con la inscripción"
+show_seed_diff = "Mostrar la diferencia con la inscripción"
+status_dsq     = "Descalificado"
+status_dns     = "No se presentó"
+status_dnf     = "No terminó"
+status_wdr     = "Retirado"
+status_sick    = "Enfermo"
+
 [display]
 waiting_server  = "Esperando al servidor de cronometraje"
 connection_lost = "⚠ CONEXIÓN PERDIDA"

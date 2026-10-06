@@ -28,6 +28,7 @@ from meet_data import (
     send_event_info,
 )
 from meet_parsers.lenex_parser import load_lenex
+from splouch_times import wire_time
 
 
 def _auto_dismiss_overlay():
@@ -346,6 +347,27 @@ def _lane_log_summary(updates):
     return changed, " ".join(lanes)
 
 
+def _remember_console_times(snap):
+    """Keep a confirmed heat's console times for the Schedule (docs/app.md `S-22`).
+
+    A lane's `channel` is its lane number — `_build_results_snapshot` looks the
+    swimmer up with it.
+    """
+    try:
+        ev, ht = int(snap.get("event") or 0), int(snap.get("heat") or 0)
+    except ValueError:
+        return
+    lanes = {
+        r["channel"]: t
+        for r in snap.get("lanes", [])
+        if (t := wire_time(r.get("time", "")))
+    }
+    if ev and ht and lanes:
+        # No `schedule_update`: Schedule tabs patch the heat in place from the
+        # `results_snapshot` that follows, rather than re-fetching every heat.
+        state.record_console_heat(ev, ht, lanes)
+
+
 def _on_race_state_changed(now_finished, updates=None):
     prev = state._results_prev_race_finished
 
@@ -371,6 +393,7 @@ def _on_race_state_changed(now_finished, updates=None):
             )
             if state._finish_timer_gen == gen:
                 print("[race-state] results confirmed", flush=True)
+                _remember_console_times(snap)
                 bus.emit("/scoreboard", "race_finished", {})
                 bus.emit("/results", "results_snapshot", snap)
                 relay.relay_emit("results_snapshot", snap)

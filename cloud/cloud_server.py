@@ -53,6 +53,7 @@ from cloud_web import (
     render,
 )
 from splouch_i18n import DEFAULT_THEME_FONTS as _DEFAULT_FONTS
+from splouch_times import heat_official, lane_times, wire_time
 
 _ch = cloud_bus.ch
 _strings = cloud_i18n.strings
@@ -338,24 +339,49 @@ def route_results(request: Request):
     )
 
 
-def _build_heats_json(sched):
+def _merge_console_times(console, snap):
+    """*console* with the finished heat in *snap* (a `results_snapshot`) added, or
+    None when the frame carries no heat or no time.
+
+    The cloud's copy of the console times the Pi keeps (docs/app.md `S-22`),
+    built from the frames it already relays rather than a new event:
+    {"event": {"heat": {"lane": "HH:MM:SS.hh"}}}. A new dict, never mutated in
+    place, so a reader on another thread sees the old one or the new one whole.
+    """
+    ev, ht = str(snap.get("event") or ""), str(snap.get("heat") or "")
+    lanes = {
+        str(r.get("channel")): t
+        for r in snap.get("lanes", [])
+        if (t := wire_time(r.get("time", "")))
+    }
+    if not (ev and ht and lanes):
+        return None
+    return {**console, ev: {**console.get(ev, {}), ht: lanes}}
+
+
+def _build_heats_json(sched, console=None):
     if not sched or not sched.get("events"):
         return []
     names = sched.get("names", {})
     name_parts = sched.get("name_parts", {})
     times = sched.get("times", {})
     start_list = sched.get("start_list", {})
+    results = sched.get("results", {})
+    console = console or {}
     heats = []
     for ev, sorted_heats in sched["events"]:
         ev_str = str(ev)
         for ht in sorted_heats:
             ht_str = str(ht)
             lanes_data = start_list.get(ev_str, {}).get(ht_str, {})
+            heat_results = results.get(ev_str, {}).get(ht_str, {})
+            heat_console = console.get(ev_str, {}).get(ht_str, {})
             lanes = []
             for lane_str in sorted(
                 lanes_data, key=lambda x: int(x) if x.lstrip("-").isdigit() else 0
             ):
                 entry = lanes_data[lane_str]
+                seed = entry.get("seed_time", "")
                 lanes.append(
                     {
                         "lane": int(lane_str)
@@ -363,8 +389,13 @@ def _build_heats_json(sched):
                         else lane_str,
                         "name": entry.get("name", ""),
                         "club": entry.get("club", ""),
-                        "seed_time": entry.get("seed_time", ""),
+                        "seed_time": seed,
                         "swimmers": entry.get("swimmers", []),
+                        **lane_times(
+                            seed,
+                            heat_console.get(lane_str),
+                            heat_results.get(lane_str),
+                        ),
                     }
                 )
             heats.append(
@@ -374,6 +405,7 @@ def _build_heats_json(sched):
                     "event_name": names.get(ev_str, ""),
                     "event_name_parts": name_parts.get(ev_str),
                     "time": times.get(ev_str, {}).get(ht_str, ""),
+                    "official": heat_official(lanes),
                     "lanes": lanes,
                 }
             )
@@ -388,7 +420,7 @@ def route_schedule(request: Request):
         return render(request, "offline.html")
     s = meet.get("settings", {})
     sched = meet.get("schedule_data", {})
-    heats = _build_heats_json(sched)
+    heats = _build_heats_json(sched, meet.get("console_times"))
     return render(
         request,
         "schedule.html",
@@ -445,7 +477,11 @@ def route_meet_schedule(meet_id: str):
     meet = meet_for(meet_id)
     if not meet:
         raise HTTPException(404)
-    return {"heats": _build_heats_json(meet.get("schedule_data", {}))}
+    return {
+        "heats": _build_heats_json(
+            meet.get("schedule_data", {}), meet.get("console_times")
+        )
+    }
 
 
 def _live_count():
@@ -635,6 +671,9 @@ async def _on_relay_register(ws, sid, data):
             "schedule_data": prev.get("schedule_data")
             or stored.get("schedule_data")
             or {},
+            "console_times": prev.get("console_times")
+            or stored.get("console_times")
+            or {},
         }
         _relay_sids[sid] = meet_id
         record = record_of(_meets[meet_id])
@@ -713,6 +752,12 @@ async def _forward(sid, event, data):
     elif event == "results_snapshot":
         meet["last_results"] = data
         await manager.broadcast(_ch("results", meet_id), event, data)
+        console = _merge_console_times(meet.get("console_times") or {}, data)
+        if console is not None:
+            meet["console_times"] = console
+            await run_in_threadpool(
+                cloud_meetstore.update, meet_id, console_times=console
+            )
     elif event == "next_heats":
         meet["last_next_heats"] = data
         await manager.broadcast(_ch("results", meet_id), event, data)

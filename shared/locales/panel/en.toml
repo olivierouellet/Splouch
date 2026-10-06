@@ -255,6 +255,7 @@ quick_live     = "Live"
 quick_operator = "Operator"
 quick_mobile   = "Mobile"
 quick_manual   = "Manual"
+quick_mm       = "Meet Manager"
 
 # The spectator QR code, offered in the Cloud tab (docs/app.md `P-16`). It carries
 # the cloud this Pi publishes to, not the Pi itself: a spectator scans it and lands
@@ -438,6 +439,9 @@ th_even                  = "Even"
 th_time                  = "Time"
 th_faster                = "Faster"
 th_slower                = "Slower"
+th_seed                  = "Seed"
+th_console               = "Console"
+th_official              = "Official"
 th_gold                  = "Gold"
 th_silver                = "Silver"
 th_bronze                = "Bronze"
@@ -681,3 +685,30 @@ not_active    = "A timing console is selected — it will override anything you 
 open_settings = "Change it in Timing settings"
 reconnecting  = "Reconnecting…"
 no_console    = "—"
+
+[mm]
+# The /mm page — where the person running Splash Meet Manager uploads the meet
+# file again as heats are validated, so official results reach the Schedule
+# (docs/app.md `S-22`).
+title         = "Meet Manager results"
+lead          = "Upload the meet file exported from Meet Manager. Official results replace console times on the Schedule."
+upload        = "Upload updated meet file (.lxf)"
+drop          = "or drop the file here"
+no_meet       = "No meet file loaded — add one in Settings first."
+progress      = "heats official"
+last_upload   = "Last upload"
+never         = "not since the meet was loaded"
+uploading     = "Uploading…"
+done          = "Meet file updated."
+failed        = "Upload failed."
+sum_official  = "Heats now official"
+sum_status    = "Statuses"
+sum_corrected = "Official time differs from the console"
+sum_nothing   = "No new official results in this file."
+event         = "Ev"
+heat          = "Ht"
+lane          = "Ln"
+help_title    = "From Meet Manager"
+help_1        = "Validate the heats in Meet Manager."
+help_2        = "Export the meet as a Lenex file (.lxf), results included."
+help_3        = "Upload it here. Do it again whenever more heats are validated."

@@ -2,6 +2,7 @@ import glob
 import json
 import os
 import re
+import time
 import traceback
 
 import serial.tools.list_ports
@@ -18,7 +19,12 @@ from console_decoders import (
     load_custom_decoders,
     make_decoder,
 )
-from meet_data import announce_schedule, send_event_info
+from meet_data import (
+    announce_schedule,
+    build_heats,
+    results_summary,
+    send_event_info,
+)
 from meet_parsers.lenex_parser import ROUND_NAMES, load_lenex
 from routes.qr import invite as qr_invite
 from splouch_regions import COUNTRIES, clean_location
@@ -87,6 +93,28 @@ def _load_meet_file(path):
     return None
 
 
+def _reload_same_meet(path):
+    """Re-read the loaded meet's own file, as re-exported from Meet Manager.
+
+    Not `_load_meet_file`: that one is for a *new* meet, and resets the live
+    results, the finish timers and the meet profile. A re-export of the same
+    meet only brings a newer start list and official results (docs/app.md
+    `S-22`), and lands while a heat may be swimming, so everything live stays.
+    Returns an error string or None.
+    """
+    try:
+        if path.endswith(".csv"):
+            state.load_event_info(path)
+        else:
+            state.set_lenex(load_lenex(path))
+    except Exception:
+        traceback.print_exc()
+        return f"Could not read {os.path.basename(path)} — see the log"
+    send_event_info()
+    announce_schedule()
+    return None
+
+
 def _candidate_meet_uid(path, name):
     """meet_uid() the file at *path* would produce, without disturbing state.
 
@@ -152,10 +180,12 @@ def _meet_update_file(file):
     # Same meet: overwrite the current file in place and reload it.
     dest = os.path.join(state.MEET_FOLDER, state._active_meet_file)
     os.replace(tmp, dest)
-    err = _load_meet_file(dest)
+    before = build_heats()
+    err = _reload_same_meet(dest)
     if err:
         return {"ok": False, "error": "Failed to load the updated file."}
-    return {"ok": True}
+    state._meet_file_updated_at = time.time()
+    return {"ok": True, "summary": results_summary(before, build_heats())}
 
 
 @router.get("/settings", dependencies=[Depends(require_login)])

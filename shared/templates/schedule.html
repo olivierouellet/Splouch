@@ -359,12 +359,42 @@
             padding-left: 0.5em;
             font-size: 0.85em;
         }
-        .seed-time {
-            color: var(--color-schedule-time);
+        /* A lane's time, coloured by how far it has come (docs/app.md `S-22`): the
+           seed, the console's provisional finish, then Meet Manager's official
+           result — set heavier too, so colour is never the only difference. */
+        .lane-time {
             font-family: var(--font-timing), monospace;
             font-size: 0.85em;
             flex-shrink: 0;
             padding-left: 0.4em;
+        }
+        .time-seed     { color: var(--color-schedule-seed); }
+        .time-console  { color: var(--color-schedule-console); }
+        .time-official { color: var(--color-schedule-official); font-weight: 700; }
+        .time-better   { color: var(--color-delta-better); font-weight: 700; }
+        .time-worse    { color: var(--color-delta-worse); font-weight: 700; }
+        /* `S-23`: an official heat's times swap with their gap to the seed. */
+        .heat-official .lane-time { cursor: pointer; }
+        .diff-btn {
+            flex-shrink: 0;
+            background: none;
+            border: 1px solid var(--color-header-border);
+            border-radius: 4px;
+            color: var(--color-schedule-official);
+            font-family: var(--font-timing), monospace;
+            font-size: 0.8em;
+            line-height: 1;
+            padding: 2px 5px;
+            cursor: pointer;
+        }
+        .diff-btn[aria-pressed="true"] { background: var(--color-header-border); }
+        @keyframes time-swap {
+            from { opacity: 0; transform: translateY(0.35em); }
+            to   { opacity: 1; transform: none; }
+        }
+        .lane-time.swap { animation: time-swap 250ms ease-out; }
+        @media (prefers-reduced-motion: reduce) {
+            .lane-time.swap { animation: none; }
         }
 
         /* ── Narrower than any phone held normally — in practice, zoomed ──
@@ -465,6 +495,21 @@ const LABELS  = {{ labels | tojson }};
 const SPOKEN_LABELS = {{ (spoken_labels or labels) | tojson }};
 // Suggestion-row type words, from the same [mobile] table as the rest of the sheet.
 const TYPE_LABELS = {{ {'swimmer': t.swimmer or 'Swimmer', 'club': t.club or 'Club'} | tojson }};
+// What a screen reader says for each kind of lane time (docs/app.md `S-22`).
+const TIME_WORDS = {{ {
+    'seed': t.time_seed or 'Seed time',
+    'console': t.time_console or 'Console time',
+    'official': t.time_official or 'Official time',
+    'diff': t.seed_diff or 'Difference with seed',
+    'show_diff': t.show_seed_diff or 'Show difference with seed',
+    'DSQ': t.status_dsq or 'Disqualified',
+    'DNS': t.status_dns or 'Did not start',
+    'DNF': t.status_dnf or 'Did not finish',
+    'WDR': t.status_wdr or 'Withdrawn',
+    'SICK': t.status_sick or 'Sick',
+} | tojson }};
+// How long an official heat shows its gaps to the seed before springing back (`S-23`).
+const DIFF_MS = 4000;
 
 // The attendance id for `join_meet`, or '' while the spectator refuses counting
 // (docs/app.md `C-10`, count.js). Cloud-only — the Pi renders this too but never
@@ -477,6 +522,133 @@ var currentHeat   = null;
 var needsScroll   = true;
 var upcomingOnly  = false;
 var showAllHeats  = false;
+
+// ── Lane times (docs/app.md `S-22`, `S-23`) ──
+// Every time travels as `HH:MM:SS.hh`; the hours go when there are none.
+function displayTime(t) {
+    t = String(t || '');
+    return t.indexOf('00:') === 0 && t.length > 8 ? t.slice(3) : t;
+}
+// A console time as the snapshot carries it (`58.21`, `1:02.34`), in wire form.
+function wireTime(t) {
+    var m = /^\s*(?:(\d+):)?(\d{1,2})\.(\d{2})\s*$/.exec(String(t || ''));
+    if (!m) return '';
+    var h = (parseInt(m[1] || '0', 10) * 60 + parseInt(m[2], 10)) * 100 + parseInt(m[3], 10);
+    if (h <= 0) return '';
+    function two(n) { return (n < 10 ? '0' : '') + n; }
+    return two(Math.floor(h / 360000)) + ':' + two(Math.floor(h / 6000) % 60) + ':' +
+           two(Math.floor(h / 100) % 60) + '.' + two(h % 100);
+}
+// The scoreboard's delta text: `-1.23`, `+1:02.34`.
+function formatDelta(sec) {
+    var h = Math.round(Math.abs(sec) * 100);
+    var s = Math.floor(h / 100) % 60, m = Math.floor(h / 6000), c = h % 100;
+    var cc = (c < 10 ? '0' : '') + c;
+    return (sec < 0 ? '-' : '+') + (m ? m + ':' + (s < 10 ? '0' : '') + s : String(s)) + '.' + cc;
+}
+// What a lane's time cell shows: `{text, cls, spoken}`, or null for nothing.
+function laneTime(lane, diff) {
+    var status = lane.result_status;
+    if (diff) {
+        if (status) {
+            if (lane.console_time) {
+                return { text: displayTime(lane.console_time), cls: 'time-console',
+                         spoken: TIME_WORDS.console + ' ' + displayTime(lane.console_time) };
+            }
+        } else if (lane.result_delta_seconds == null) {
+            var seed = lane.seed_time ? displayTime(lane.seed_time) : 'NT';
+            return { text: seed, cls: 'time-seed', spoken: TIME_WORDS.seed + ' ' + seed };
+        } else {
+            var d = formatDelta(lane.result_delta_seconds);
+            return { text: d, cls: lane.result_delta_better ? 'time-better' : 'time-worse',
+                     spoken: TIME_WORDS.diff + ' ' + d };
+        }
+    }
+    if (status) return { text: status, cls: 'time-official', spoken: TIME_WORDS[status] || status };
+    if (lane.result_time) {
+        return { text: displayTime(lane.result_time), cls: 'time-official',
+                 spoken: TIME_WORDS.official + ' ' + displayTime(lane.result_time) };
+    }
+    if (lane.console_time) {
+        return { text: displayTime(lane.console_time), cls: 'time-console',
+                 spoken: TIME_WORDS.console + ' ' + displayTime(lane.console_time) };
+    }
+    if (lane.seed_time) {
+        return { text: displayTime(lane.seed_time), cls: 'time-seed',
+                 spoken: TIME_WORDS.seed + ' ' + displayTime(lane.seed_time) };
+    }
+    return null;
+}
+
+function heatKey(ev, ht) { return String(ev) + '/' + String(ht); }
+// Official heats currently showing their gaps to the seed → their spring-back timer.
+var diffHeats = {};
+
+function laneDisplayName(lane) {
+    if (lane.swimmers && lane.swimmers.length > 0) {
+        var firsts = lane.swimmers.map(function(s) { return s.first || s.name; }).filter(Boolean);
+        return firsts.join(' · ') || lane.name || '—';
+    }
+    return lane.name || '—';
+}
+/* One utterance per lane, in the server's long column words, rather than four
+   unlabelled stops — `NT` alone tells a listener nothing (docs/app.md `X-03`). */
+function laneSpoken(lane, diff) {
+    var parts = [SPOKEN_LABELS.lane + ' ' + lane.lane, laneDisplayName(lane)];
+    if (lane.club) parts.push(SPOKEN_LABELS.club + ' ' + lane.club);
+    var lt = laneTime(lane, diff);
+    if (lt) parts.push(lt.spoken);
+    return parts.join(', ');
+}
+
+// Redraw one heat's time cells in place, animated (`S-23`), without rebuilding
+// the list — a full render would scroll and lose the reader's place.
+function refreshHeatTimes(h) {
+    var key = heatKey(h.event, h.heat);
+    var card = document.querySelector('.heat-card[data-event="' + CSS.escape(String(h.event)) +
+                                      '"][data-heat="' + CSS.escape(String(h.heat)) + '"]');
+    if (!card) return;
+    var diff = !!diffHeats[key];
+    var btn = card.querySelector('.diff-btn');
+    if (btn) btn.setAttribute('aria-pressed', String(diff));
+    card.querySelectorAll('.swimmer-row').forEach(function(row) {
+        var lane = null;
+        for (var i = 0; i < h.lanes.length; i++) {
+            if (String(h.lanes[i].lane) === row.dataset.lane) { lane = h.lanes[i]; break; }
+        }
+        if (!lane) return;
+        row.querySelector('.sr-only').textContent = laneSpoken(lane, diff);
+        var cell = row.querySelector('.lane-time');
+        var lt = laneTime(lane, diff);
+        if (!lt) { if (cell) cell.remove(); return; }
+        if (!cell) {
+            cell = document.createElement('span');
+            cell.setAttribute('aria-hidden', 'true');
+            row.appendChild(cell);
+        }
+        if (cell.textContent === lt.text && cell.classList.contains(lt.cls)) return;
+        cell.textContent = lt.text;
+        cell.className = 'lane-time ' + lt.cls;
+        void cell.offsetWidth;  // restart the animation on a second swap
+        cell.classList.add('swap');
+    });
+}
+
+function toggleDiff(ev, ht) {
+    var key = heatKey(ev, ht);
+    var h = HEATS.find(function(x) { return heatKey(x.event, x.heat) === key; });
+    if (!h || !h.official) return;
+    if (diffHeats[key]) {
+        clearTimeout(diffHeats[key]);
+        delete diffHeats[key];
+    } else {
+        diffHeats[key] = setTimeout(function() {
+            delete diffHeats[key];
+            refreshHeatTimes(h);
+        }, DIFF_MS);
+    }
+    refreshHeatTimes(h);
+}
 
 function esc(s) {
     return String(s == null ? '' : s)
@@ -576,7 +748,9 @@ function renderSchedule() {
         var isCurrent = evStr === currentEvent && htStr === currentHeat;
         var heatClass = (heatIndex % 2 === 0) ? 'heat-even' : 'heat-odd';
         heatIndex++;
+        var diff = !!diffHeats[heatKey(evStr, htStr)];
         html += '<div class="heat-card ' + heatClass + (isCurrent ? ' heat-current' : '') +
+                (h.official ? ' heat-official' : '') +
                 '" data-event="' + esc(evStr) + '" data-heat="' + esc(htStr) + '">';
         // One line: what the heat is on the left, when it swims on the right.
         var heatName = eventNameOf(h);
@@ -590,28 +764,23 @@ function renderSchedule() {
                 esc(LABELS.heat)  + ' <span class="heat-num">' + esc(htStr) + '</span></span>';
         html += '<span class="heat-name" aria-hidden="true">' + esc(heatName || '') + '</span>';
         if (h.time) html += '<span class="heat-time" aria-hidden="true">' + esc(h.time) + '</span>';
+        /* The visible hint and the screen reader's way in to `S-23`. */
+        if (h.official) {
+            html += '<button type="button" class="diff-btn" aria-pressed="' + diff + '"' +
+                    ' aria-label="' + esc(TIME_WORDS.show_diff) + '"' +
+                    ' data-event="' + esc(evStr) + '" data-heat="' + esc(htStr) + '">±</button>';
+        }
         html += '</div><div class="swimmer-list" role="list">';
         for (var j = 0; j < visibleLanes.length; j++) {
             var lane = visibleLanes[j];
-            var displayName;
-            if (lane.swimmers && lane.swimmers.length > 0) {
-                var firsts = lane.swimmers.map(function(s) { return s.first || s.name; }).filter(Boolean);
-                displayName = firsts.join(' · ') || lane.name || '—';
-            } else {
-                displayName = lane.name || '—';
-            }
-            /* One utterance per lane, in the server's long column words, rather
-               than four unlabelled stops — `NT` alone tells a listener nothing
-               (docs/app.md `X-03`). The drawn row is hidden from the reader. */
-            var spokenLane = [SPOKEN_LABELS.lane + ' ' + lane.lane, displayName];
-            if (lane.club)      spokenLane.push(SPOKEN_LABELS.club + ' ' + lane.club);
-            if (lane.seed_time) spokenLane.push(SPOKEN_LABELS.time + ' ' + lane.seed_time);
-            html += '<div class="swimmer-row" role="listitem">';
-            html += '<span class="sr-only">' + esc(spokenLane.join(', ')) + '</span>';
+            /* The drawn row is hidden from the reader, who hears `laneSpoken`. */
+            var lt = laneTime(lane, diff);
+            html += '<div class="swimmer-row" role="listitem" data-lane="' + esc(lane.lane) + '">';
+            html += '<span class="sr-only">' + esc(laneSpoken(lane, diff)) + '</span>';
             html += '<div class="lane-num" aria-hidden="true">' + esc(lane.lane) + '</div>';
-            html += '<div class="swimmer-name" aria-hidden="true">' + esc(displayName) + '</div>';
-            if (lane.club)      html += '<span class="swimmer-club" aria-hidden="true">' + esc(lane.club) + '</span>';
-            if (lane.seed_time) html += '<span class="seed-time" aria-hidden="true">' + esc(lane.seed_time) + '</span>';
+            html += '<div class="swimmer-name" aria-hidden="true">' + esc(laneDisplayName(lane)) + '</div>';
+            if (lane.club) html += '<span class="swimmer-club" aria-hidden="true">' + esc(lane.club) + '</span>';
+            if (lt) html += '<span class="lane-time ' + lt.cls + '" aria-hidden="true">' + esc(lt.text) + '</span>';
             html += '</div>';
         }
         html += '</div></div>';
@@ -747,6 +916,13 @@ document.getElementById('suggestions').addEventListener('click', function(e) {
     refreshSuggestions();
 });
 
+document.getElementById('schedule').addEventListener('click', function(e) {
+    var btn = e.target.closest('.diff-btn');
+    var card = e.target.closest('.heat-official');
+    if (btn) toggleDiff(btn.dataset.event, btn.dataset.heat);
+    else if (card && e.target.closest('.lane-time')) toggleDiff(card.dataset.event, card.dataset.heat);
+});
+
 function highlight() {
     var found = null;
     document.querySelectorAll('.heat-card').forEach(function(card) {
@@ -786,6 +962,20 @@ var sockSchedule   = splouchSocket('{{ wbase or '' }}/ws/schedule');
 sockResults.on('results_snapshot', function(d) {
     currentEvent = String(d.event).trim();
     currentHeat  = String(d.heat).trim();
+    // The finished heat's console times, patched in place (docs/app.md `S-22`):
+    // the server keeps them too, so a page opened later gets them in HEATS.
+    var key = heatKey(currentEvent, currentHeat);
+    var h = HEATS.find(function(x) { return heatKey(x.event, x.heat) === key; });
+    if (h) {
+        (d.lanes || []).forEach(function(r) {
+            var t = wireTime(r.time);
+            if (!t) return;
+            h.lanes.forEach(function(lane) {
+                if (String(lane.lane) === String(r.channel)) lane.console_time = t;
+            });
+        });
+        refreshHeatTimes(h);
+    }
     highlight();
 });
 sockScoreboard.on('update_scoreboard', function(d) {

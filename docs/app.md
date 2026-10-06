@@ -583,12 +583,14 @@ hundreds.
 | ID | Feature | Driven by | Scope | Level |
 | --- | --- | --- | --- | --- |
 | [`S-01`](#s-01) | Each heat a card, one-line heading: `EV 12  HT 3` in **short** labels, event name, scheduled time trailing | `GET /meet/{id}/schedule` ([`api.md`](api.md) §5.8); Pi: `GET /schedule.json` | all | must |
-| `S-02` | Card lists lanes: number, name, club, seed time | `lanes[]` | all | must |
+| `S-02` | Card lists lanes: number, name, club, time (`S-22`) | `lanes[]` | all | must |
 | `S-03` | Relay: member first names joined by `·` | `lane.swimmers[].first`, else `.name` | all | should |
 | `S-04` | Alternating card backgrounds over *visible* cards → stripe survives filtering | — | all | should |
 | `S-05` | Current heat highlighted | off the *other* two sockets (§6 diagram), whichever spoke last: `update_scoreboard.current_event` / `current_heat`, `results_snapshot.event` / `heat`, compared **as strings** ([`api.md`](api.md) §5.1) | all | must |
 | `S-06` | Auto-scroll to current heat once per appearance | re-armed on foreground | all | must |
 | `S-07` | Empty state, no meet file | `mobile.no_schedule` / `mobile.no_meet` | all | must |
+| [`S-22`](#s-22) | Lane time = best one known: official result (or its status) > console time > seed. Each its own colour, official also bolder | `lane.result_time` / `result_status`, `console_time`, `seed_time` ([`api.md`](api.md) §5.8); live `results_snapshot` patches console times; colours `schedule_seed` / `_console` / `_official` (§6.1) | all | should |
+| [`S-23`](#s-23) | Official heat: tap its times → gaps to the seed, spring back after 4 s or on a second tap | `heat.official`, `lane.result_delta_seconds` / `result_delta_better` | all | could |
 
 #### <a id="s-01"></a>S-01 — short on card, long aloud
 
@@ -596,6 +598,32 @@ Identifier repeats per card, its width is event name's → short labels (`short`
 `GET /i18n/{lang}`, or short form of `settings.labels`); board keeps long (`T-09`).
 Double space groups `EV 12` vs `HT 3` — no dash, not a range. No scheduled time → draw
 nothing. Words and event name `schedule_event`, numbers `schedule_name` — `L-01`'s split. The round is part of the name (`T-11` `round`), not a badge. Screen reader: `EVENT 12, HEAT 3, <name>, <time>`.
+
+#### <a id="s-22"></a>S-22 — three times, one cell
+
+| Lane has | Shows | Dark | Light |
+| --- | --- | --- | --- |
+| nothing swum | seed | white | black |
+| console time | console time | yellow | blue |
+| official time | official time, bolder | bright green | green |
+| official status | status code as Meet Manager writes it (`DSQ`, `DNS`…) | bright green | green |
+
+Hex values from [`api.md`](api.md) §6.1, copied key for key (`P-15`: never the operator's
+palette on a phone). Every time arrives `HH:MM:SS.hh`; drawn without a leading `00:`. A
+`results_snapshot` for a heat patches its lanes' `console_time` in place (`channel` =
+lane) — no re-fetch; a later page load gets them from the schedule. Screen reader names
+the kind: `seed time …`, `console time …`, `official time …`, or the status spelled out
+(`mobile.time_seed` / `time_console` / `time_official` / `status_dsq`…).
+
+#### <a id="s-23"></a>S-23 — gap to the seed
+
+Only on `official` heats, and the whole heat at once. Gap = `result_delta_seconds`, in
+the scoreboard's delta form and colours (`delta_better` green, `delta_worse` grey). A
+status lane shows its `console_time` in the console colour instead (its status if none);
+a lane without a seed shows `NT`. Back after 4 s or a second tap. The swap is animated
+the platform's own way, instant under reduce-motion (`X-09`). A visible affordance on
+the heat says it can be tapped, and is the screen reader's action
+(`mobile.show_seed_diff`).
 
 ### 5.2 Filtering
 
@@ -657,7 +685,7 @@ flowchart LR
   rs["/ws/results<br/>results_snapshot"] --> RT["Results tab"]
   sc["/ws/schedule<br/>schedule_update"] -- "re-fetch start list (S-21)" --> ST["Schedule tab"]
   sb -.->|"current event/heat (S-05)"| ST
-  rs -.->|"event/heat (S-05)"| ST
+  rs -.->|"event/heat (S-05), console times (S-22)"| ST
 ```
 
 Each runs this loop independently:
@@ -835,6 +863,16 @@ Not on any phone client, now or planned:
 ---
 
 ## Changelog
+
+- **v3, amended** (2026-10-06, no bump) — official results from Meet Manager
+  ([`architecture/meet-manager-results.md`](architecture/meet-manager-results.md)).
+  Additive: a client that ignores the new fields keeps showing seed times.
+
+  - **Added**: `S-22` (seed, console, official time per lane), `S-23` (tap for the gap
+    to the seed); `[mobile]` strings `time_seed`, `time_console`, `time_official`,
+    `seed_diff`, `show_seed_diff`, `status_dsq`, `status_dns`, `status_dnf`,
+    `status_wdr`, `status_sick`.
+  - **Changed**: `S-02` (the lane's time is `S-22`'s, not always the seed).
 
 - **v3** (2026-10-04) — the cloud runs several workers, each holding its meets
   ([`architecture/scaling.md`](architecture/scaling.md)). `contract.app` = `v3` → `P-14`

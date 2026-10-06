@@ -53,6 +53,10 @@ MEET_FOLDER = os.path.join(SCOREBOARD_DIR, "meet")
 # files are never touched, so nothing has to be put back, and a power cut mid-test
 # leaves load_settings() finding the real meet exactly where it always was.
 TEST_MEET_FOLDER = os.path.join(SCOREBOARD_DIR, "test_meet")
+# One append-only file per meet (`<meet_uid>.jsonl`) of the console's time for every
+# finished heat, so the Schedule's console times survive a restart (state.py,
+# `record_console_heat`).
+CONSOLE_TIMES_DIR = os.path.join(SCOREBOARD_DIR, "console_times")
 LOGS_DIR = os.path.join(SCOREBOARD_DIR, "logs")
 THEME_FOLDER = os.path.join(app_dir, "themes")
 CUSTOM_THEME_FOLDER = os.path.join(SCOREBOARD_DIR, "themes")
@@ -104,6 +108,7 @@ def _ensure_data_dirs():
         SCOREBOARD_DIR,
         MEET_FOLDER,
         TEST_MEET_FOLDER,
+        CONSOLE_TIMES_DIR,
         IMAGES_DIR,
         ICONS_DIR,
         PICKER_DIR,

@@ -23,6 +23,9 @@ schedule_event       = "#60d0ff"
 schedule_time        = "#00cfff"
 schedule_name        = "#b0ccff"
 schedule_club        = "#3a5a8a"
+schedule_seed        = "#b0ccff"
+schedule_console     = "#FFD700"
+schedule_official    = "#00e676"
 
 [fonts]
 family = "Overpass Mono"

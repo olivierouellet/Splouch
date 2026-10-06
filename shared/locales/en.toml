@@ -127,6 +127,20 @@ no_matches        = "No swimmers match these filters"
 swimmer           = "Swimmer"
 club              = "Club"
 
+# Schedule times (docs/app.md `S-22`, `S-23`). The status codes themselves (DSQ,
+# DNS, …) are drawn as Meet Manager writes them, in every language; these are
+# what a screen reader says instead.
+time_seed      = "Seed time"
+time_console   = "Console time"
+time_official  = "Official time"
+seed_diff      = "Difference with seed"
+show_seed_diff = "Show difference with seed"
+status_dsq     = "Disqualified"
+status_dns     = "Did not start"
+status_dnf     = "Did not finish"
+status_wdr     = "Withdrawn"
+status_sick    = "Sick"
+
 # Native TV display (scoreboard/) — status messages shown instead of the board.
 [display]
 waiting_server  = "Waiting for the timing server"

@@ -53,6 +53,12 @@ DEFAULT_THEME_COLORS = {
     "schedule_time": "#FFD700",
     "schedule_name": "#e0e0e0",
     "schedule_club": "#666666",
+    # A lane's time on the Schedule, by how far it has come (docs/app.md `S-22`):
+    # the seed from the meet file, the console's provisional finish, and the result
+    # Meet Manager validated. Read by the Schedule pages only, never by the board.
+    "schedule_seed": "#e0e0e0",
+    "schedule_console": "#FFD700",
+    "schedule_official": "#4ade80",
 }
 DEFAULT_THEME_FONTS = {
     "family": "Overpass Mono",
@@ -87,6 +93,9 @@ LIGHT_THEME_COLORS = {
     "schedule_time": "#0055aa",
     "schedule_name": "#111111",
     "schedule_club": "#888888",
+    "schedule_seed": "#111111",
+    "schedule_console": "#0055aa",
+    "schedule_official": "#2e7d32",
 }
 
 # The reader's Appearance (docs/app.md `P-15`), first the default: the pages were

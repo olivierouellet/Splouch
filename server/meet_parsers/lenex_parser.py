@@ -4,6 +4,8 @@ import zipfile
 from typing import NamedTuple
 from xml.parsers import expat
 
+from splouch_times import wire_time
+
 
 class LenexData(NamedTuple):
     """What `load_lenex` returns; the shapes are in its docstring."""
@@ -14,6 +16,18 @@ class LenexData(NamedTuple):
     meet_info: dict
     event_distances: dict
     event_rounds: dict
+    results: dict
+
+
+# HEAT `status` values whose results Splouch shows as official. `INOFFICIAL` is
+# left out on purpose: those are the console's own times, which Splouch already
+# has, and by the time a meet file is uploaded they should all have been
+# validated. A heat with no status at all is left out too.
+KEPT_HEAT_STATUSES = {"OFFICIAL", "SEEDED"}
+
+# RESULT `status` values that are not a finish (Lenex 3.0). `EXH` (exhibition) is
+# a finish with a valid time, so it is not here.
+NON_FINISH_STATUSES = {"DSQ", "DNS", "DNF", "WDR", "SICK"}
 
 
 # EVENT `round` codes, as `[event_name]` vocabulary keys. Every code the Lenex
@@ -134,6 +148,10 @@ def load_lenex(path):
         event_names  — {event_number: str}
         start_list   — {event_number: {heat_number: {lane: {'name': str, 'club': str}}}}
         event_rounds — {event_number: round key}; see `ROUND_KEYS`
+        results      — {event_number: {heat_number: {lane: {'time': str, 'status': str}}}},
+                       only from heats whose status is in `KEPT_HEAT_STATUSES`.
+                       `time` is `HH:MM:SS.hh` or `""`; `status` is one of
+                       `NON_FINISH_STATUSES` or `""`.
     """
     tree = _open_lenex_xml(path)
 
@@ -221,6 +239,7 @@ def load_lenex(path):
     event_rounds = {}  # {event_num: round key}
     eventid_map = {}  # eventid  → event_number  (Splash-style)
     heatid_map = {}  # heatid   → (event_number, heat_number)
+    kept_heats = set()  # (event_number, heat_number) whose results are shown
 
     for event in find(root, "EVENT"):
         ev_num = int(event.get("number"))
@@ -246,6 +265,8 @@ def load_lenex(path):
             hid = heat.get("heatid", "")
             if hid:
                 heatid_map[hid] = (ev_num, h_num)
+            if heat.get("status", "").upper() in KEPT_HEAT_STATUSES:
+                kept_heats.add((ev_num, h_num))
 
     def _relay_swimmers(entry):
         """Return sorted list of {'pos': int, 'name': str} for RELAYPOSITION children."""
@@ -387,6 +408,39 @@ def load_lenex(path):
                         "swimmers": _relay_swimmers(entry),
                     }
 
+    # Results — RESULT elements, wherever the exporter put them: inside a HEAT
+    # (hand-written files), or under the ATHLETE / RELAY that swam it, linked to
+    # its heat by `heatid` (Lenex 3.0, Splash). The heat is the one carrying the
+    # status, so a result is kept only when its heat is.
+    results = {}
+
+    def _add_result(res, ev_num, h_num):
+        if (ev_num, h_num) not in kept_heats:
+            return
+        lane = int(res.get("lane", 0) or 0)
+        if not lane:
+            return
+        status = res.get("status", "").upper()
+        results.setdefault(ev_num, {}).setdefault(h_num, {})[lane] = {
+            "time": wire_time(res.get("swimtime", "")),
+            "status": status if status in NON_FINISH_STATUSES else "",
+        }
+
+    seen_results = set()
+    for event in find(root, "EVENT"):
+        ev_num = int(event.get("number"))
+        for heat in find(event, "HEAT"):
+            h_num = int(heat.get("number"))
+            for res in find(heat, "RESULT"):
+                seen_results.add(id(res))
+                _add_result(res, ev_num, h_num)
+    for res in find(root, "RESULT"):
+        if id(res) in seen_results:
+            continue
+        ev_h = heatid_map.get(res.get("heatid", ""))
+        if ev_h:
+            _add_result(res, *ev_h)
+
     # Meet / pool / session metadata
     _course_to_metres = {"LCM": 50, "SCM": 25, "SCY": 25}
     meet_info = {}
@@ -418,4 +472,5 @@ def load_lenex(path):
         meet_info=meet_info,
         event_distances=event_distances,
         event_rounds=event_rounds,
+        results=results,
     )

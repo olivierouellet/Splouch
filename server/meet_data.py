@@ -5,6 +5,7 @@ import relay
 import state
 from console_decoders.utils import parse_time_hundredths
 from meet_parsers.lenex_parser import ROUND_NAMES
+from splouch_times import heat_official, lane_times
 
 
 def _delta_hundredths(finish_str, seed_str):
@@ -270,6 +271,7 @@ def _build_meet_data():
             "start_list": m.start_list,
             "heat_times": m.heat_times,
             "meet_info": m.meet_info,
+            "results": m.results,
         }
     info = m.event_info
     by_ev = {}
@@ -297,6 +299,7 @@ def _build_meet_data():
         "start_list": start_list,
         "heat_times": {},
         "meet_info": {},
+        "results": {},
     }
 
 
@@ -317,19 +320,24 @@ def build_heats():
     event_names = data.get("event_names", {})
     name_parts = data.get("event_name_parts", {})
     heat_times = data.get("heat_times", {})
+    results = data.get("results", {})
+    console = state.console_times
 
     heats_out = []
     for ev, heats in events_grouped:
         for ht in heats:
+            heat_results = results.get(ev, {}).get(ht, {})
+            heat_console = console.get((ev, ht), {})
             lanes_out = []
             for lane in sorted(start_list.get(ev, {}).get(ht, {})):
                 entry = start_list[ev][ht][lane]
+                seed = entry.get("seed_time", "")
                 lanes_out.append(
                     {
                         "lane": lane,
                         "name": entry.get("name", ""),
                         "club": entry.get("club", ""),
-                        "seed_time": entry.get("seed_time", ""),
+                        "seed_time": seed,
                         "swimmers": [
                             {
                                 "pos": s.get("pos", 0),
@@ -338,6 +346,9 @@ def build_heats():
                             }
                             for s in entry.get("swimmers", [])
                         ],
+                        **lane_times(
+                            seed, heat_console.get(lane), heat_results.get(lane)
+                        ),
                     }
                 )
             heats_out.append(
@@ -347,10 +358,58 @@ def build_heats():
                     "event_name": event_names.get(ev, ""),
                     "event_name_parts": name_parts.get(ev),
                     "time": heat_times.get(ev, {}).get(ht, ""),
+                    "official": heat_official(lanes_out),
                     "lanes": lanes_out,
                 }
             )
     return heats_out
+
+
+def results_summary(before, after):
+    """What a re-uploaded meet file changed in the official results, for `/mm`.
+
+    *before* and *after* are `build_heats()` taken either side of the reload.
+    Each list holds `{"event", "heat", "lane", "name", ...}` items; heats that
+    became official carry no lane.
+    """
+    old = {(h["event"], h["heat"]): h for h in before}
+    official, statuses, corrected = [], [], []
+    for h in after:
+        key = (h["event"], h["heat"])
+        prev = old.get(key, {})
+        if h["official"] and not prev.get("official"):
+            official.append({"event": key[0], "heat": key[1]})
+        prev_lanes = {lane["lane"]: lane for lane in prev.get("lanes", [])}
+        for lane in h["lanes"]:
+            was = prev_lanes.get(lane["lane"], {})
+            item = {
+                "event": key[0],
+                "heat": key[1],
+                "lane": lane["lane"],
+                "name": lane["name"],
+            }
+            status = lane["result_status"]
+            if status and status != was.get("result_status"):
+                statuses.append({**item, "status": status})
+            elif (
+                not status
+                and lane["result_time"]
+                and lane["console_time"]
+                and lane["result_time"] != lane["console_time"]
+                and lane["result_time"] != was.get("result_time")
+            ):
+                corrected.append(
+                    {
+                        **item,
+                        "console_time": lane["console_time"],
+                        "result_time": lane["result_time"],
+                    }
+                )
+    return {
+        "official_heats": official,
+        "statuses": statuses,
+        "corrected": corrected,
+    }
 
 
 def announce_schedule():

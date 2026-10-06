@@ -333,6 +333,15 @@ def send_schedule(client=None, clear=False):
                 for k, v in md["heat_times"].items()
             },
             "start_list": _serialise_start_list(md["start_list"]),
+            # Meet Manager's official results (docs/app.md `S-22`). Console times
+            # are not sent: the cloud keeps its own from `results_snapshot`.
+            "results": {
+                str(ev): {
+                    str(ht): {str(lane): r for lane, r in lanes.items()}
+                    for ht, lanes in heats.items()
+                }
+                for ev, heats in md.get("results", {}).items()
+            },
         }
         _send_schedule_data(client, data)
     except Exception as e:
@@ -349,6 +358,7 @@ _EMPTY_SCHEDULE = {
     "name_parts": {},
     "times": {},
     "start_list": {},
+    "results": {},
 }
 
 

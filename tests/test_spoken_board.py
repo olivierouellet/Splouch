@@ -138,8 +138,12 @@ def test_the_lap_count_is_named_not_read_as_a_difference(board):
 def test_a_start_list_lane_is_one_sentence():
     html = _sched("server/templates")
     assert (
-        "var spokenLane = [SPOKEN_LABELS.lane + ' ' + lane.lane, displayName];" in html
+        "var parts = [SPOKEN_LABELS.lane + ' ' + lane.lane, laneDisplayName(lane)];"
+        in html
     )
+    # The time is named by kind (`S-22`): `NT` or a bare number tells a listener
+    # nothing, and neither does a colour.
+    assert "if (lt) parts.push(lt.spoken);" in html
     assert '<span class="sr-only">' in html
     assert '<div class="lane-num" aria-hidden="true">' in html
     assert 'role="list"' in html

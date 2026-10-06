@@ -86,6 +86,8 @@ from; the `diverges` rows are where v2 moved past them.
 | `S-02`–`S-08` | `done` | |
 | `S-09` | `done` | local index, `foldName()`, no debounce |
 | `S-10`–`S-21` | `done` | |
+| `S-22` | `done` | colours from `_palette.html`; console times patched in place from `results_snapshot` |
+| `S-23` | `done` | `±` button in the heading is the affordance and the screen reader's action; CSS crossfade |
 
 ## 6. Connection and session
 

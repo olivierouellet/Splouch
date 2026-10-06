@@ -40,6 +40,7 @@ from meet_parsers.lenex_parser import load_lenex
 # checked and a name that really did die still shows up as unused. Drop one when
 # the last `state.X` caller goes.
 from paths import (
+    CONSOLE_TIMES_DIR as CONSOLE_TIMES_DIR,
     CUSTOM_DECODERS_FOLDER as CUSTOM_DECODERS_FOLDER,
     CUSTOM_SESSIONS_FOLDER as CUSTOM_SESSIONS_FOLDER,
     CUSTOM_THEME_FOLDER as CUSTOM_THEME_FOLDER,
@@ -190,6 +191,7 @@ class _Meet:
         "event_distances",
         "event_rounds",
         "event_info",
+        "results",
     )
 
     def __init__(
@@ -201,6 +203,7 @@ class _Meet:
         event_distances=None,
         event_rounds=None,
         event_info=None,
+        results=None,
     ):
         self.event_names = event_names or {}
         self.start_list = start_list or {}
@@ -209,6 +212,8 @@ class _Meet:
         self.event_distances = event_distances or {}
         self.event_rounds = event_rounds or {}
         self.event_info = event_info if event_info is not None else HytekParser()
+        # Official results from Meet Manager; see `lenex_parser.load_lenex`.
+        self.results = results or {}
 
 
 meet = _Meet()
@@ -224,7 +229,9 @@ def set_lenex(data):
         meet_info=data.meet_info,
         event_distances=data.event_distances,
         event_rounds=data.event_rounds,
+        results=data.results,
     )
+    load_console_times()
 
 
 def load_event_info(path):
@@ -233,12 +240,85 @@ def load_event_info(path):
     p = HytekParser()
     p.load(path)
     meet = _Meet(event_info=p)
+    load_console_times()
 
 
 def clear_meet():
     """Drop the loaded meet atomically."""
-    global meet
+    global meet, console_times
     meet = _Meet()
+    console_times = {}
+
+
+# The console's time for every finished heat of the loaded meet, so the Schedule
+# can show it until Meet Manager's official result replaces it:
+# {(event, heat): {lane: "HH:MM:SS.hh"}}. Swapped whole, never mutated in place,
+# like `meet`.
+#
+# Kept on disk as one append-only line per finished heat — a few hundred small
+# appends a meet day, no rewrite and no fsync, because most Pis run from an SD
+# card. A heat swum twice appends twice and the later line wins on replay.
+console_times: dict = {}
+
+
+def _console_times_path(uid):
+    return os.path.join(CONSOLE_TIMES_DIR, uid + ".jsonl")
+
+
+def load_console_times():
+    """Replay the loaded meet's console times from disk, or start empty."""
+    global console_times
+    out = {}
+    uid = meet_uid()
+    if uid:
+        try:
+            with open(_console_times_path(uid), encoding="utf-8") as f:
+                for line in f:
+                    try:
+                        rec = json.loads(line)
+                        out[(int(rec["event"]), int(rec["heat"]))] = {
+                            int(lane): t for lane, t in rec["lanes"].items()
+                        }
+                    except (ValueError, KeyError, TypeError, AttributeError):
+                        continue  # a line torn by a power cut
+        except OSError:
+            pass
+    console_times = out
+
+
+def record_console_heat(event, heat, lanes):
+    """Remember a finished heat's console times: *lanes* is {lane: "HH:MM:SS.hh"}.
+
+    A test session's replay is kept in memory only: its times are not the meet's.
+    """
+    global console_times
+    if not event or not heat:
+        return
+    updated = dict(console_times)
+    updated[(event, heat)] = dict(lanes)
+    console_times = updated
+    uid = meet_uid()
+    if not uid or _test_session is not None or _test_meet_active:
+        return
+    line = json.dumps(
+        {"event": event, "heat": heat, "lanes": {str(k): v for k, v in lanes.items()}}
+    )
+    try:
+        os.makedirs(CONSOLE_TIMES_DIR, exist_ok=True)
+        with open(_console_times_path(uid), "a", encoding="utf-8") as f:
+            f.write(line + "\n")
+    except OSError as e:
+        print(f"[console_times] could not save: {e!r}", flush=True)
+
+
+def discard_console_times():
+    """Forget the loaded meet's console times, on disk too (the meet is cleared)."""
+    global console_times
+    uid = meet_uid()
+    if uid:
+        with contextlib.suppress(OSError):
+            os.remove(_console_times_path(uid))
+    console_times = {}
 
 
 # Cloud-appearance overrides that travel per meet (not Pi-global). Keyed by
@@ -488,6 +568,9 @@ in_speed: float = 1.0
 _update_in_progress: bool = False
 _active_meet_file: str = ""  # basename of the currently loaded meet file
 _active_meet_uid: str = ""  # meet_uid() of the currently loaded meet
+# time.time() of the last same-meet file update (`/meet_update_file`), shown on
+# `/mm`; 0 when the file has not been updated since boot.
+_meet_file_updated_at: float = 0.0
 _os_update_in_progress: bool = False
 _update_log_lines = []
 _update_log_done: bool | None = None
@@ -579,6 +662,11 @@ def manual_strings(code=None):
     and `labels` and `event_vocab` on that page already come from the meet's language.
     """
     return i18n.panel_section(code or _locale(), "manual")
+
+
+def mm_strings(code=None):
+    """Words on /mm — an operator page like /manual, in the meet's language."""
+    return i18n.panel_section(code or _locale(), "mm")
 
 
 def _mobile_strings():
