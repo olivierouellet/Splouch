@@ -1190,14 +1190,19 @@ def test_the_cloud_image_drops_root_before_the_app_starts():
     """The relay is the internet-facing half; a bug in it should land in an
     account that owns /data and nothing else."""
     dockerfile = Path(os.path.join(REPO, "cloud", "Dockerfile")).read_text()
-    assert "useradd --system --uid 10001" in dockerfile
+    assert "groupadd --system --gid 10001" in dockerfile
+    assert "useradd --system --uid 10001 --gid 10001" in dockerfile
     assert 'ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]' in dockerfile
     entry = Path(os.path.join(REPO, "cloud", "docker-entrypoint.sh")).read_text()
-    assert "exec setpriv --reuid=splouch --regid=splouch --init-groups" in entry
+    assert "APP_UID=10001" in entry, "must match the Dockerfile's useradd --uid"
+    assert 'exec setpriv --reuid="$APP_UID" --regid="$APP_UID" --clear-groups' in entry
     # Volumes from before this are root-owned: handed over, not left unwritable.
-    assert "find /data ! -user splouch -exec chown splouch:splouch {} +" in entry
+    assert 'find /data ! -user "$APP_UID" -exec chown "$APP_UID:$APP_UID" {} +' in entry
 
 
+@pytest.mark.skipif(
+    os.geteuid() == 0, reason="as root it drops to the image's user, which is not here"
+)
 def test_the_entrypoint_runs_the_command_when_already_unprivileged(tmp_path):
     import subprocess
 

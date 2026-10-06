@@ -35,7 +35,8 @@ COPY shared/static/js/   static/js/
 
 # The app's own user (cloud/docker-entrypoint.sh drops to it). A fixed uid, so the
 # data volume's ownership means the same thing in every image version.
-RUN useradd --system --uid 10001 --user-group --no-create-home --home-dir /data splouch \
+RUN groupadd --system --gid 10001 splouch \
+    && useradd --system --uid 10001 --gid 10001 --no-create-home --home-dir /data splouch \
     && mkdir -p /data && chown splouch:splouch /data
 COPY --chmod=755 cloud/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
