@@ -43,6 +43,8 @@
             -webkit-text-size-adjust: 100%;
         }
         h1 { font-size: 1.25em; color: var(--color-header-label); margin-bottom: 4px; }
+        .signed-in { text-align: right; color: var(--color-th-text); font-size: 0.8em; margin: 0 0 8px; }
+        .signed-in a { color: inherit; }
         h2 { font-size: 0.95em; color: var(--color-header-label); margin: 18px 0 6px; }
         .meet { font-size: 0.95em; margin-bottom: 12px; }
         .muted { color: var(--color-th-text); font-size: 0.85em; }
@@ -95,6 +97,9 @@
 </head>
 <body>
 
+{% if request.session.get("user") %}
+<p class="signed-in">{{ t.signed_in_as }} <strong>{{ request.session.get("user") }}</strong> · <a href="/logout">{{ t.log_out }}</a></p>
+{% endif %}
 <h1>{{ t.title }}</h1>
 {% if not has_meet %}
 <p class="lead">{{ t.no_meet }}</p>

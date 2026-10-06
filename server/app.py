@@ -277,7 +277,12 @@ def _safe_next(target: str) -> str:
 
 # Where each page's role lives, for `_landing`. A user sent to a page they may not
 # open is sent to one they may instead, in this order.
-_ROLE_PAGES = (("admin", "/settings"), ("mm", "/mm"), ("console", "/console"))
+_ROLE_PAGES = (
+    ("admin", "/settings"),
+    ("mm", "/mm"),
+    ("manual", "/manual"),
+    ("console", "/console"),
+)
 
 
 def _landing(user, nxt):

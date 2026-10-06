@@ -72,6 +72,13 @@
             border-color: #555;
         }
 
+        .signed-in {
+            color: #9aa4b2;
+            font-size: 0.85em;
+            margin-bottom: 14px;
+            text-align: center;
+        }
+        .signed-in a { color: inherit; }
         .error {
             background: #2a1a1a;
             border: 1px solid #5c2020;
@@ -105,6 +112,9 @@
             <div class="logo-sub">Admin</div>
         </div>
 
+        {% if not not_allowed and request.session.get("user") %}
+        <div class="signed-in">Signed in as <strong>{{ request.session.get("user") }}</strong> · <a href="/logout">Log out</a></div>
+        {% endif %}
         {% if not_allowed %}
         <div class="error">Signed in as {{ user }}, who may not open this page. Sign in as someone who may, or <a href="/logout">log out</a>.</div>
         {% elif login_locked %}

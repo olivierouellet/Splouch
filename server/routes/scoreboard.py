@@ -137,7 +137,7 @@ def route_operator(request: Request):
     )
 
 
-@router.get("/manual")
+@router.get("/manual", dependencies=[Depends(require_role("manual"))])
 def route_manual(request: Request):
     """The manual console — drive event and heat by hand when the meet has none.
 
@@ -146,9 +146,10 @@ def route_manual(request: Request):
     drops off the Wi-Fi between heats. The socket then carries only what is genuinely
     live: which heat is on now, and the operator's three commands.
 
-    Not login-gated, like `/operator`. That would be theatre while `/ws/scoreboard`
-    accepts `next_heat` from any client on the LAN; locking it down means authing the
-    whole channel, which is a larger change than this page.
+    Gated to users with the Manual page (docs/admin.md, Users). That keeps the
+    page off a passer-by's phone, not the commands: `/ws/scoreboard` still accepts
+    `next_heat` from any client on the LAN, and authing the whole channel is a
+    larger change than this page.
     """
     heats = build_heats()
     ev, ht = state._decoder.last_event_sent

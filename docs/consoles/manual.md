@@ -82,8 +82,9 @@ event and heat, and will overwrite anything you set here, usually within a secon
 
 - With no meet file loaded the page says so and the buttons do nothing — there is no
   running order to step through.
-- The page is not password-protected, like `/operator`. Anyone on the pool's network
-  can change the heat.
+- The page needs a login with the **Manual** page ([Users](../admin.md#settings-tabs)).
+  That keeps it off a passer-by's phone, but the heat commands it sends travel on the
+  scoreboard channel, which stays open on the pool's network for the displays.
 - Playing a recorded session from **Settings → Devtools → Test** while the manual
   console is selected will show nothing: a recording is console packets, and this
   console does not decode any. Switch to the console the recording came from.

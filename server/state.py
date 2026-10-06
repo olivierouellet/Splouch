@@ -844,9 +844,9 @@ def migrate_password():
 # The login above is the owner: always an admin, never deleted, and the only one
 # a release from before users existed knows about. Everyone else is in `users`,
 # each allowed only some pages. `admin` is the Settings panel and everything
-# behind it, and implies the other two.
+# behind it, and implies the others.
 
-ROLES = ("admin", "console", "mm")
+ROLES = ("admin", "console", "manual", "mm")
 
 # Hashed once, for an unknown name: a miss costs one PBKDF2 like a hit does, so
 # the time a failed sign-in takes does not say whether the name exists.

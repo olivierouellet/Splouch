@@ -47,8 +47,8 @@ def _allowed(session, role):
 @pytest.mark.parametrize(
     "user, pages",
     [
-        ("score", {"admin", "console", "mm"}),
-        ("ref", {"admin", "console", "mm"}),
+        ("score", {"admin", "console", "manual", "mm"}),
+        ("ref", {"admin", "console", "manual", "mm"}),
         ("timer", {"console"}),
         ("mm", {"mm"}),
     ],
@@ -73,6 +73,7 @@ def test_the_console_and_mm_pages_name_their_role():
         return [getattr(d.dependency, "role", None) for d in route.dependencies]
 
     assert "console" in roles(scoreboard_routes.router, "/console")
+    assert "manual" in roles(scoreboard_routes.router, "/manual")
     assert "mm" in roles(meet_routes.router, "/mm")
     upload = next(
         r
