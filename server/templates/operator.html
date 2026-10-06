@@ -242,7 +242,9 @@ function start_chrono() {
     _chrono_timer = setInterval(function() {
         if (_chrono_base === null) return;
         var elapsed = Math.floor((Date.now() - _chrono_at) / 10);
-        document.getElementById('op-chrono').textContent = formatHundredths(_chrono_base + elapsed);
+        /* Tenths only, hundredths held at zero — as on the live board. */
+        var h = _chrono_base + elapsed;
+        document.getElementById('op-chrono').textContent = formatHundredths(h - h % 10);
     }, 50);
 }
 function stop_chrono() {
