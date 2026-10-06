@@ -85,7 +85,9 @@ backup restore wrote into the code checkout instead of the data folder; the Pi's
 rule named scripts its own service account could edit; nothing stopped DNS
 rebinding from reaching the Pi's sockets; a UTF-16 meet file slipped past the
 `DOCTYPE` check; a cloud admin password containing `$` could be seeded empty; and a
-revoked relay key kept publishing until its Pi disconnected.
+revoked relay key kept publishing until its Pi disconnected. The Pi's admin password
+is now stored hashed, the cloud relay runs as an unprivileged user, and the Wi-Fi
+password no longer appears on a command line.
 
 Every one of them is pinned to a regression test in
 [`tests/test_security_hardening.py`](tests/test_security_hardening.py), grouped by what

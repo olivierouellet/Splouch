@@ -90,6 +90,21 @@ pool-deck router that Pi #1 is plugged into.
 </details>
 
 <details>
+<summary><strong>Can't sign in — forgotten password, or after installing an older version</strong></summary>
+
+**Why.** The admin password is stored as a hash (`password_hash` in
+`~/SplouchData/settings.json`). A version from before that change reads only the
+`password` field, which now holds a random value — so after going back to one, no
+password works. That is deliberate: the alternative was falling back to the
+password printed in this documentation.
+
+**Fix.** On the Pi (keyboard or SSH), edit `~/SplouchData/settings.json`: delete the
+`"password_hash"` line, set `"password"` to the new password, then
+`sudo systemctl restart splouch`. A current version hashes it again on start.
+
+</details>
+
+<details>
 <summary><strong>The Pi answers <code>Unknown host</code> (421)</strong></summary>
 
 **How it looks.** The Pi is reached through a DNS name of the venue's own, such as
@@ -232,6 +247,23 @@ Le réseau a l'isolation des clients WiFi (isolation AP) activée, courante sur 
 d'entreprise et les réseaux invités. Elle bloque le trafic entre appareils ; rien sur le
 Pi ne peut donc la contourner. Faites-la désactiver côté réseau, ou connectez les
 clients au routeur du bord de piscine auquel le Pi n° 1 est branché.
+
+</details>
+
+<details>
+<summary><strong>Connexion impossible — mot de passe oublié, ou après l'installation d'une version antérieure</strong></summary>
+
+**Cause.** Le mot de passe d'administration est enregistré sous forme de hachage
+(`password_hash` dans `~/SplouchData/settings.json`). Une version antérieure à ce
+changement ne lit que le champ `password`, qui contient désormais une valeur
+aléatoire : après un retour en arrière, aucun mot de passe ne fonctionne. C'est
+voulu — l'autre option était de revenir au mot de passe imprimé dans cette
+documentation.
+
+**Correctif.** Sur le Pi (clavier ou SSH), modifiez `~/SplouchData/settings.json` :
+supprimez la ligne `"password_hash"`, mettez le nouveau mot de passe dans
+`"password"`, puis `sudo systemctl restart splouch`. Une version à jour le hache de
+nouveau au démarrage.
 
 </details>
 

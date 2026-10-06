@@ -303,9 +303,12 @@ async def route_login(
         return resp
     # compare_digest, not ==: a plain comparison returns as soon as two characters
     # differ, which over enough tries measures out the password one character at a
-    # time. Both halves are evaluated so the timing does not leak the username either.
-    ok_user = secrets.compare_digest(username, str(state.settings["username"]))
-    ok_pass = secrets.compare_digest(password, str(state.settings["password"]))
+    # time. Both halves are evaluated so the timing does not leak the username
+    # either; the password is checked against its hash (state.check_password).
+    ok_user = secrets.compare_digest(
+        username.encode(), str(state.settings["username"]).encode()
+    )
+    ok_pass = state.check_password(password)
     if ok_user and ok_pass:
         _login_fails.pop(ip, None)
         request.session["user"] = username

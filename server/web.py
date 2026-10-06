@@ -370,6 +370,7 @@ def credentials_stamp() -> str:
             (
                 _stamp_key(),
                 str(state.settings.get("username", "")),
+                str(state.settings.get("password_hash", "")),
                 str(state.settings.get("password", "")),
             )
         ).encode()

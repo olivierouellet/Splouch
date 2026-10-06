@@ -172,11 +172,11 @@ jobs:
 
       - name: ShellCheck
         # -S warning: install.sh provisions both Pis
-        run: uv run shellcheck -S warning install.sh install/*.sh install/scripts/*.sh
+        run: uv run shellcheck -S warning install.sh install/*.sh install/scripts/*.sh cloud/*.sh
 
       - name: shfmt
         # Check only. Its settings are in .editorconfig; `uv run shfmt -w install.sh install/` fixes.
-        run: uv run shfmt -d install.sh install/
+        run: uv run shfmt -d install.sh install/ cloud/docker-entrypoint.sh
 
       - name: Workflows
         # Expressions, runner labels, and ShellCheck over every `run:` block.

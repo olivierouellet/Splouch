@@ -174,6 +174,7 @@ async def route_settings(request: Request):
 _NOT_SWEPT = {
     "username",
     "password",
+    "password_hash",
     "splash_url",
     "active_theme",
     "active_home_icon",
@@ -603,13 +604,13 @@ def _settings_view(request, form):
                 state.settings["username"] = new_name
                 modified = True
             new_pass = form.get("password", "").strip()
-            if new_pass and new_pass != state.settings.get("password"):
-                state.settings["password"] = new_pass
+            if new_pass and not state.check_password(new_pass):
+                state.set_password(new_pass)
                 modified = True
-            if (state.settings.get("username"), state.settings.get("password")) != (
-                before.get("username"),
-                before.get("password"),
-            ):
+            if (
+                state.settings.get("username"),
+                state.settings.get("password_hash"),
+            ) != (before.get("username"), before.get("password_hash")):
                 # Every other session ends with the old login (web.signed_in); the
                 # one that changed it carries on under the new one.
                 request.session["cred"] = credentials_stamp()

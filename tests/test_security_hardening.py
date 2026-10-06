@@ -1118,3 +1118,114 @@ def test_a_settings_field_cannot_name_a_file_outside_its_folder(
     with contextlib.suppress(Exception):
         settings_routes._settings_view(_FakeRequest({}), form)
     assert "/" not in str(state.settings.get(key, "")), state.settings.get(key)
+
+
+# ── The Pi's admin password is stored hashed ──────────────────────────────────
+
+
+def test_a_clear_password_is_hashed_on_load_and_still_signs_in(tmp_path, monkeypatch):
+    """settings.json goes into every backup, and backups get passed around."""
+    import json
+
+    import state
+
+    path = tmp_path / "settings.json"
+    path.write_text(json.dumps({"username": "admin", "password": "correct-horse"}))
+    monkeypatch.setattr(state, "settings_file", str(path))
+    monkeypatch.setattr(state, "settings", dict(state.settings))
+    monkeypatch.setattr(state, "set_lenex", lambda *_: None)
+    monkeypatch.setattr(state, "load_event_info", lambda *_: None)
+    state.load_settings()
+
+    saved = json.loads(path.read_text())
+    assert "correct-horse" not in path.read_text(), "the password is still in clear"
+    assert saved["password_hash"].startswith("pbkdf2_sha256$")
+    assert state.check_password("correct-horse")
+    assert not state.check_password("wrong")
+
+
+def test_a_downgraded_release_finds_neither_the_password_nor_the_default(monkeypatch):
+    """A release from before hashing reads only `password`, and fell back to the
+    shipped default — printed in the README — when it was missing."""
+    import state
+
+    monkeypatch.setattr(state, "settings", {"username": "score"})
+    state.set_password("correct-horse")
+    shipped = state._shipped_credentials()[1]
+    assert state.settings["password"] not in ("correct-horse", shipped, "")
+
+
+def test_the_default_login_banner_still_knows_the_shipped_password(monkeypatch):
+    import state
+
+    user, shipped = state._shipped_credentials()
+    monkeypatch.setattr(state, "settings", {"username": user})
+    state.set_password(shipped)
+    assert state.using_default_credentials()
+    state.set_password("something-else")
+    assert not state.using_default_credentials()
+
+
+def test_changing_the_password_in_settings_stores_only_a_hash(monkeypatch):
+    import contextlib
+
+    import state
+    from routes import settings as settings_routes
+    from test_settings_display_form import _FakeRequest
+
+    monkeypatch.setattr(state, "settings", {**state.settings, "username": "score"})
+    state.set_password("old-one")
+    monkeypatch.setattr(state, "save_settings", lambda: None)
+    request = _FakeRequest({})
+    with contextlib.suppress(Exception):
+        settings_routes._settings_view(request, {"password": "new-one"})
+    assert state.check_password("new-one") and not state.check_password("old-one")
+    assert "new-one" not in str(state.settings)
+
+
+# ── The cloud relay does not run as root ──────────────────────────────────────
+
+
+def test_the_cloud_image_drops_root_before_the_app_starts():
+    """The relay is the internet-facing half; a bug in it should land in an
+    account that owns /data and nothing else."""
+    dockerfile = Path(os.path.join(REPO, "cloud", "Dockerfile")).read_text()
+    assert "useradd --system --uid 10001" in dockerfile
+    assert 'ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]' in dockerfile
+    entry = Path(os.path.join(REPO, "cloud", "docker-entrypoint.sh")).read_text()
+    assert "exec setpriv --reuid=splouch --regid=splouch --init-groups" in entry
+    # Volumes from before this are root-owned: handed over, not left unwritable.
+    assert "find /data ! -user splouch -exec chown splouch:splouch {} +" in entry
+
+
+def test_the_entrypoint_runs_the_command_when_already_unprivileged(tmp_path):
+    import subprocess
+
+    entry = os.path.join(REPO, "cloud", "docker-entrypoint.sh")
+    out = subprocess.run(
+        ["sh", entry, "echo", "started"], capture_output=True, text=True, check=True
+    )
+    assert out.stdout.strip() == "started"
+
+
+# ── The Wi-Fi password is not on a command line ───────────────────────────────
+
+
+def test_the_wifi_password_goes_to_nmcli_on_stdin(monkeypatch):
+    """As an argument it was readable from `ps` by every process on the Pi."""
+    import subprocess
+
+    from routes import network
+
+    runs = []
+
+    def fake_run(args, **kw):
+        runs.append((list(args), kw.get("input")))
+        return subprocess.CompletedProcess(args, 0, stdout="", stderr="")
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    assert network._wifi_connect("Pool", "s3cret-psk") == {"ok": True}
+    assert all("s3cret-psk" not in a for args, _ in runs for a in args)
+    connect = [(a, i) for a, i in runs if "connect" in a]
+    assert connect and connect[0][1] == "s3cret-psk\n"
+    assert "--ask" in connect[0][0]

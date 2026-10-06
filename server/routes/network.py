@@ -298,10 +298,17 @@ def _wifi_connect(ssid, password):
             check=False,
         )
 
-        cmd = ["dev", "wifi", "connect", "--", ssid]
-        if password:
-            cmd += ["password", password]
-        r = _nmcli(*cmd, timeout=30)
+        # The password goes in on stdin, answering `--ask`'s prompt — never as an
+        # argument, where every process on the Pi can read it from `ps` for as long
+        # as nmcli runs. An open network asks for nothing and the input is unread.
+        r = subprocess.run(
+            ["nmcli", "--ask", "dev", "wifi", "connect", "--", ssid],
+            input=password + "\n" if password else "",
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
         if r.returncode == 0:
             return {"ok": True}
         return JSONResponse({"error": (r.stderr or r.stdout).strip()}, status_code=400)

@@ -1,3 +1,4 @@
+import base64
 import collections
 import contextlib
 import glob
@@ -7,6 +8,7 @@ import json
 import os
 import os.path
 import queue
+import secrets
 import subprocess
 import sys
 from typing import Any, TextIO
@@ -684,7 +686,66 @@ def using_default_credentials():
     user, password = _shipped_credentials()
     if not user and not password:
         return False
-    return settings.get("username") == user and settings.get("password") == password
+    if settings.get("username") != user:
+        return False
+    # Memoised on the stored hash: this runs on every render, and a PBKDF2 check
+    # costs a Pi a noticeable fraction of a second.
+    global _default_check
+    stored = (settings.get("password_hash"), settings.get("password"))
+    if _default_check is None or _default_check[0] != stored:
+        _default_check = (stored, check_password(password))
+    return _default_check[1]
+
+
+_default_check = None
+
+
+# ── The admin password ─────────────────────────────────────────────────────────
+# Stored as a PBKDF2 hash in `password_hash`, never in clear: settings.json goes
+# into every backup, and a backup gets handed around. `password` stays in the file
+# holding a random value, never the real one and never absent — a release from
+# before hashing reads only `password`, and without it falls back to the shipped
+# default, which the README prints. Downgraded, a Pi is locked rather than open;
+# docs/troubleshooting.md says how to set a password by hand.
+
+_PBKDF2_ITERATIONS = 100_000
+
+
+def hash_password(password, salt=None, iterations=_PBKDF2_ITERATIONS):
+    salt = salt or secrets.token_hex(16)
+    dk = hashlib.pbkdf2_hmac("sha256", password.encode(), salt.encode(), iterations)
+    return f"pbkdf2_sha256${iterations}${salt}${base64.b64encode(dk).decode()}"
+
+
+def check_password(password):
+    """Whether *password* is the admin password. A file not migrated yet (or one
+    an operator edited by hand) still holds it in `password`, in clear."""
+    stored = settings.get("password_hash")
+    if not stored:
+        return secrets.compare_digest(
+            str(password).encode(), str(settings.get("password", "")).encode()
+        )
+    try:
+        algo, iterations, salt, _ = str(stored).split("$")
+        attempt = hash_password(str(password), salt, int(iterations))
+    except ValueError:
+        return False
+    return algo == "pbkdf2_sha256" and secrets.compare_digest(
+        attempt.encode(), str(stored).encode()
+    )
+
+
+def set_password(password):
+    settings["password_hash"] = hash_password(password)
+    settings["password"] = secrets.token_urlsafe(24)  # see the comment above
+
+
+def migrate_password():
+    """Hash a password still held in clear. True when settings changed."""
+    if settings.get("password_hash"):
+        return False
+    set_password(str(settings.get("password", "")))
+    return True
 
 
 # ── Settings loader ────────────────────────────────────────────────────────────
@@ -723,6 +784,8 @@ def load_settings():
             f"[settings] {settings_file} unreadable, using defaults: {e!r}", flush=True
         )
     merge_theme_defaults()
+    if migrate_password():
+        save_settings()
     csv_files = glob.glob(os.path.join(MEET_FOLDER, "*.csv"))
     if csv_files:
         with contextlib.suppress(Exception):
