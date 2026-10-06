@@ -13,7 +13,9 @@ import pytest
 
 from cloud.cloud_follows import fold
 
-PATH = Path(__file__).resolve().parent.parent / "shared" / "regions" / "subdivisions.json"
+PATH = (
+    Path(__file__).resolve().parent.parent / "shared" / "regions" / "subdivisions.json"
+)
 DATA = json.loads(PATH.read_text(encoding="utf-8"))["countries"]
 
 
@@ -22,7 +24,9 @@ def test_each_subdivision_has_a_name(country):
     assert len(country) == 2 and country.isupper()
     for code, spellings in DATA[country].items():
         assert code.isupper() and code.isalnum(), code
-        assert spellings and all(isinstance(s, str) and s.strip() for s in spellings), code
+        assert spellings and all(isinstance(s, str) and s.strip() for s in spellings), (
+            code
+        )
 
 
 @pytest.mark.parametrize("country", sorted(DATA))
