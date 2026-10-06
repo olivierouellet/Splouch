@@ -38,6 +38,7 @@ from; the `diverges` rows are where v2 moved past them.
 | `P-18` | `done` | `compact` from `COMPACT_AFTER` in `cloud_control.py`; `.meets.compact`, no `<img>` rendered |
 | `P-19` | `done` | gear `#settings-btn` → modal `<dialog id="settings">` side sheet (full width under 600px): Display, Privacy, About; Escape, backdrop tap and × close it |
 | `P-20` | `n/a` | native-only — the `P-06` line does the job on the web |
+| `P-21` | `n/a` | native-only |
 
 ## 2. App shell
 

@@ -174,6 +174,7 @@ Entry screen. Web: site root. App: launch screen, and `A-02`'s return target.
 | `P-18` | More than **10** meets → compact rows: name, date, location, province/country, live dot; **no picker image**, none fetched. 10 or fewer → `P-01` cards | count of `GET /meets` → `meets` | all | should |
 | [`P-19`](#p-19) | **Settings** — one container in place of picker menu, sections in this order: Display (language `T-08`, Appearance `P-15`), Privacy (`P-07`), Server (`P-11`–`P-13`, native), About (`P-06` full text, policy link, `P-20` replay). Platform's own form: web side sheet (full height under 600px), iOS sheet with `Form`, Android full-screen settings destination | section names native in apps (`T-05`); web reads `strings.settings`, `settings_display`, `settings_privacy`, `settings_about` | all | should |
 | [`P-20`](#p-20) | **Introduction** on first launch, once per install, replayable from settings About: unofficial results (`P-06`), three tabs, following a swimmer or club, attendance counting with its toggle (`C-10`) | pages 1 and 4 server text (`results_disclaimer`, `privacy_note`), rest native words (`T-05`); page 4 only while `analytics_enabled` | native | should |
+| [`P-21`](#p-21) | **Filter** the meet list by country, state/province and club (organizer), several values each; **remembered** by the app across launches and servers. Each facet lists the values the list holds; OR within a facet, AND across. Active filter → a line at the end of the list says meets are hidden, with *Clear*; filter hides every meet → own empty state with *Clear*, not `P-04`/`P-17`'s | local over `GET /meets` → `country`, `province`, `organizer`; stored pref, one per app; words native (`T-05`) | native | should |
 
 ### <a id="p-06"></a>P-06 — one line, always there
 
@@ -251,6 +252,27 @@ QR code needs the board, not a carousel; `P-06`'s line does the job there.
   `P-06`'s line, not a second run. Replay: settings About → *Show introduction*.
 - **Not consent.** Skipping leaves counting as it was (`C-10` default); the toggle on
   page 4 is the same setting as in `P-19`.
+
+### <a id="p-21"></a>P-21 — the picker's own filter, remembered
+
+A spectator follows one region or club across a season; the list spans every pool on
+the server. Search (`P-17`) answers "where is this meet"; the filter answers "show me my
+meets", every launch, without typing.
+
+- **Facets from the list.** Country (named in reader's language), state/province
+  (shown with its country; only those of the chosen countries, once one is chosen), club
+  (`organizer`, compared folded as `S-09`). A stored value the list no longer holds stays
+  listed, checked, so it can be unchecked.
+- **OR within, AND across.** A meet with a facet's field empty fails that facet while
+  it is active.
+- **Remembered, one per app.** Survives relaunch and a server switch (≠ `S-20`: a
+  schedule filter is for one meet, this one for a season). Cleared only by the spectator.
+- **Says so.** Filter button marked while active. List end: *N meets hidden by the
+  filter* · *Clear*. All hidden: own empty state, same *Clear*. Server has none at all →
+  `P-04`, filter or not.
+- **Before search.** `P-17` searches what the filter leaves; `P-18`'s shape still counts
+  every meet listed. Offered with `P-17`'s field (3 meets), and whenever a filter is
+  active.
 
 ### <a id="p-11"></a>P-11, P-13, P-16 — server list is data
 
@@ -999,6 +1021,10 @@ list until `A-09` says the meet is gone, then deletes it.
     `moved` is not gone), `C-10` (one `vid` per server the list came from, not per
     origin, so a meet on another host doesn't count a phone twice; ratifies iOS and
     Android).
+
+- **v3, amended** (2026-10-06, no bump) — picker filter, native.
+
+  - **Added**: `P-21` (filter by country, state/province, club; remembered per app).
 
 - **v3, amended** (2026-10-05, no bump) — picker notices out of the way, counting
   refusable. A v3 client that still folds `P-06`/`P-07` keeps working: the server only
