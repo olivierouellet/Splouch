@@ -67,7 +67,9 @@ def image(address=True):
 
 
 def test_the_code_names_the_cloud_this_pi_publishes_to(cloud):
-    assert invite()["link"] == "https://splouch.org/add?server=https%3A%2F%2Fsplouch.org"
+    assert (
+        invite()["link"] == "https://splouch.org/add?server=https%3A%2F%2Fsplouch.org"
+    )
 
 
 def test_no_local_address_is_ever_minted(cloud, monkeypatch):

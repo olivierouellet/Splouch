@@ -131,7 +131,11 @@ def test_two_spellings_of_one_server_are_one_string():
     """The key a `vid` is stored under (`C-10`), so normalisation is not cosmetic."""
     same = {
         links.parse_origin(t)
-        for t in ("https://splouch.org", "https://SPLOUCH.ORG/", "https://splouch.org:443")
+        for t in (
+            "https://splouch.org",
+            "https://SPLOUCH.ORG/",
+            "https://splouch.org:443",
+        )
     }
     assert same == {"https://splouch.org"}
 
