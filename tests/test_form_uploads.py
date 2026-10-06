@@ -190,8 +190,8 @@ def test_the_png_copy_draws_no_file_off_this_server(monkeypatch, tmp_path):
         "</svg>"
     ).encode()
     _, (app,) = _upload_logo("logo.svg", "image/svg+xml", svg, ["*/*"])
-    png = Image.open(io.BytesIO(app["body"])).convert("RGBA")
-    assert png.getpixel((256, 512))[3] == 0 and png.getpixel((768, 512))[3] == 0
+    alpha = Image.open(io.BytesIO(app["body"])).convert("RGBA").getchannel("A")
+    assert alpha.getpixel((256, 512)) == 0 and alpha.getpixel((768, 512)) == 0
 
 
 def test_an_unreadable_svg_is_refused(monkeypatch):
