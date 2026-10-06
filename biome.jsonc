@@ -44,6 +44,18 @@
   },
   "overrides": [
     {
+      // A table edited by hand, one subdivision per line: expanded, its 100-odd
+      // one-name arrays would take four times the lines and hide the codes.
+      "includes": [
+        "shared/regions/subdivisions.json"
+      ],
+      "json": {
+        "formatter": {
+          "expand": "auto"
+        }
+      }
+    },
+    {
       // Declarations for untyped vendored libraries (htmx, Bootstrap, xterm):
       // `any` is the accurate type there, not a shortcut.
       "includes": [
