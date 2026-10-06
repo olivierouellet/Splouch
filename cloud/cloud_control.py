@@ -17,6 +17,7 @@ import asyncio
 import base64
 import datetime
 import hmac
+import io
 import json
 import mimetypes
 import os
@@ -32,6 +33,7 @@ from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request
 from fastapi.openapi.docs import get_redoc_html, get_swagger_ui_html
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
+from PIL import ExifTags, Image, ImageOps
 from pydantic import BaseModel
 from starlette.concurrency import run_in_threadpool
 
@@ -242,6 +244,30 @@ def _svg_aspect(root):
         if len(box) == 4 and float(box[2]) > 0 and float(box[3]) > 0:
             return float(box[2]) / float(box[3])
     return 1.0
+
+
+def _upright(data):
+    """A raster logo with its EXIF rotation applied to the pixels, or None if unreadable.
+
+    Browsers and UIImage turn a photo by its EXIF orientation; Android's
+    BitmapFactory ignores it, so a phone's JPEG drew sideways there alone. Only a
+    still image that needs turning is re-encoded, so every other upload is kept
+    byte for byte.
+    """
+    try:
+        with Image.open(io.BytesIO(data)) as img:
+            img.verify()
+        with Image.open(io.BytesIO(data)) as img:
+            if img.getexif().get(ExifTags.Base.Orientation, 1) == 1:
+                return data
+            if getattr(img, "is_animated", False):
+                return data
+            fmt = img.format
+            out = io.BytesIO()
+            ImageOps.exif_transpose(img).save(out, fmt, quality=95)
+            return out.getvalue()
+    except (OSError, ValueError, SyntaxError, Image.DecompressionBombError):
+        return None
 
 
 def _svg_to_png(data):
@@ -1113,6 +1139,10 @@ async def route_picker_appearance(request: Request):
                 if png is None:
                     return {"ok": False, "error": "This SVG could not be read."}
                 creds["picker_logo_png_b64"] = base64.b64encode(png).decode()
+            else:
+                data = await run_in_threadpool(_upright, data)
+                if data is None:
+                    return {"ok": False, "error": "This image could not be read."}
             creds["picker_logo_b64"] = base64.b64encode(data).decode()
             creds["picker_logo_mime"] = mime
     if form.get("picker_icon_clear") == "1":

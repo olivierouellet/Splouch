@@ -12,12 +12,12 @@ import copy
 import io
 
 import starlette.datastructures
-from PIL import Image
+from PIL import ExifTags, Image
 
 # A 1×1 transparent PNG.
 PNG = bytes.fromhex(
     "89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c489"
-    "0000000d49444154789c6360000000000500010d0a2db40000000049454e44ae426082"
+    "0000000d49444154789c6360606060000000050001a5f645400000000049454e44ae426082"
 )
 
 
@@ -207,6 +207,37 @@ def test_a_raster_logo_drops_the_old_png_copy(monkeypatch):
     assert store["picker_logo_png_b64"]
     _, (app,) = _upload_logo("logo.png", "image/png", PNG, ["*/*"])
     assert "picker_logo_png_b64" not in store and app["body"] == PNG
+
+
+def _jpeg(orientation=None):
+    img, exif = Image.new("RGB", (20, 10), "white"), Image.Exif()
+    if orientation:
+        exif[ExifTags.Base.Orientation] = orientation
+    out = io.BytesIO()
+    img.save(out, "JPEG", exif=exif)
+    return out.getvalue()
+
+
+def test_a_rotated_jpeg_logo_is_stored_upright(monkeypatch):
+    """Android's BitmapFactory ignores EXIF orientation; browsers and iOS honour it."""
+    _logo_store(monkeypatch)
+    _, (got,) = _upload_logo("logo.jpg", "image/jpeg", _jpeg(6), ["*/*"])
+    img = Image.open(io.BytesIO(got["body"]))
+    assert img.size == (10, 20)
+    assert img.getexif().get(ExifTags.Base.Orientation, 1) == 1
+
+
+def test_an_upright_jpeg_logo_is_kept_byte_for_byte(monkeypatch):
+    _logo_store(monkeypatch)
+    jpeg = _jpeg()
+    _, (got,) = _upload_logo("logo.jpg", "image/jpeg", jpeg, ["*/*"])
+    assert got["body"] == jpeg
+
+
+def test_an_unreadable_raster_logo_is_refused(monkeypatch):
+    store = _logo_store(monkeypatch)
+    post, _ = _upload_logo("logo.png", "image/png", b"not a png", [])
+    assert b'"ok":false' in post["body"] and "picker_logo_b64" not in store
 
 
 def test_every_isinstance_check_uses_starlette_s_upload_file():
