@@ -46,13 +46,14 @@ CONSOLE_ONLY = (1, 2)
 DSQ_ONE_IN = 25
 PING_SECS = 20
 
-# (distance, stroke, gender, age, heats, the fastest seed in seconds)
+# (distance, stroke, heats, the fastest seed in seconds). Named by distance and
+# stroke alone — "50 m libre" — with no gender or age group.
 _EVENTS = (
-    ("50", "freestyle", "girls", "11-12", 2, 29.0),
-    ("100", "backstroke", "boys", "13-14", 2, 63.0),
-    ("200", "medley", "women", "", 2, 140.0),
-    ("50", "breaststroke", "men", "", 3, 30.0),
-    ("100", "butterfly", "mixed", "", 2, 62.0),
+    ("50", "freestyle", 2, 29.0),
+    ("100", "backstroke", 2, 63.0),
+    ("200", "medley", 2, 140.0),
+    ("50", "breaststroke", 3, 30.0),
+    ("100", "butterfly", 2, 62.0),
 )
 _FIRST = (
     "Emma", "Liam", "Olivia", "Noah", "Chloé", "Félix", "Léa", "Thomas", "Maya",
@@ -95,15 +96,15 @@ def build_meet(index, today=None):
     lang = _LANGS[(index - 1) % len(_LANGS)]
     vocab = cloud_i18n.strings(lang, "event_name")
     events = []
-    for n, (dist, stroke, gender, age, heats, best) in enumerate(_EVENTS, 1):
+    for n, (dist, stroke, heats, best) in enumerate(_EVENTS, 1):
         parts = {
-            "raw": f"{dist} {stroke.title()} {gender.title()} {age}".strip(),
+            "raw": f"{dist} {stroke.title()}",
             "dist": dist,
             "stroke": stroke,
             "relay": False,
-            "gender": gender,
-            "age": age,
-            "age_key": "" if age else "open",
+            "gender": "",
+            "age": "",
+            "age_key": "",
             "round": "",
         }
         start_list = {}
