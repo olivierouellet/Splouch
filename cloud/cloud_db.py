@@ -197,6 +197,15 @@ MIGRATIONS = [
             'console', settings -> 'console', 'locale', settings -> 'locale'));
         """,
     ),
+    (
+        8,
+        """
+        -- Mexico, a region of its own (`mx1.splouch.org`): organizers there are
+        -- suggested it from their country (shared/py/splouch_regions.py).
+        INSERT INTO regions (code, name) VALUES ('mx', 'Mexico')
+            ON CONFLICT (code) DO NOTHING;
+        """,
+    ),
 ]
 
 # Tables holding data, in an order TRUNCATE accepts. Tests empty these between

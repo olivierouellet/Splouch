@@ -716,7 +716,7 @@ connects to the given socket.
   carries a hash of the key, and lasts `expires_in` seconds. A worker checks it on
   `register` with no call to the control plane, so a Pi keeps reconnecting on a kept
   ticket while the control plane is down, until it runs out.
-- **`region`** is the organizer's region (`ca`, `us`, `eu`), the cloud administrator's
+- **`region`** is the organizer's region (`ca`, `us`, `mx`, `eu`), the cloud administrator's
   call; the Pi shows it read-only.
 - **403** `{reason}`: the key is unknown or revoked. **503** `{reason}`: no server in the
   organizer's region can take the meet; retry later.

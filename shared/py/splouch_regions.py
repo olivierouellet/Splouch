@@ -13,7 +13,7 @@ country names three times over.
 
 # The regions a deployment can have. Their display names are locale strings
 # (`region_<code>`), never stored here.
-REGIONS = ("ca", "us", "eu")
+REGIONS = ("ca", "us", "mx", "eu")
 
 # Country → the region an organizer there is suggested. The admin may still pick
 # another; nothing assigns a region from this on its own.
@@ -51,7 +51,7 @@ _EUROPE = [
     "SI",
     "SK",
 ]
-COUNTRIES = {"CA": "ca", "US": "us", **dict.fromkeys(_EUROPE, "eu")}
+COUNTRIES = {"CA": "ca", "US": "us", "MX": "mx", **dict.fromkeys(_EUROPE, "eu")}
 
 PROVINCE_MAX = 64
 

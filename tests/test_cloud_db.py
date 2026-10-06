@@ -19,10 +19,10 @@ def test_migrating_again_changes_nothing(pg):
     assert versions == [v for v, _ in pg.MIGRATIONS]
 
 
-def test_the_three_regions_exist_from_the_first_start(pg):
+def test_the_regions_exist_from_the_first_start(pg):
     with pg.conn() as c:
         codes = {r["code"] for r in c.execute("SELECT code FROM regions")}
-    assert codes == {"ca", "us", "eu"}
+    assert codes == {"ca", "us", "mx", "eu"}
 
 
 def test_tests_start_from_empty_tables(pg):

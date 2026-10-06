@@ -1,5 +1,5 @@
 {
-  "about": "States and provinces a client names in full (app.md P-01, P-21). Per ISO 3166-1 country, ISO 3166-2 subdivision code (without the country prefix) to [name, aliases...]. The name is the subdivision's own, in its majority language, never translated. A meet's province matches by code or by any listed spelling, compared folded (S-09). Splouch-ios and Splouch-android carry verbatim copies; edit here and copy.",
+  "about": "States and provinces a client names in full (app.md P-01, P-21). Per ISO 3166-1 country, ISO 3166-2 subdivision code (without the country prefix) to [name, aliases...]. The name is the subdivision's own, in its majority language, never translated. A meet's province matches by code or by any listed spelling, compared folded (S-09). Splouch-ios and Splouch-android carry verbatim copies: edit here, then run scripts/update-subdivisions.sh in each app (their CI fails on a stale copy).",
   "countries": {
     "CA": {
       "AB": ["Alberta"],

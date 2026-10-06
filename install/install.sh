@@ -1368,7 +1368,7 @@ PYEOF
         read -rsp "NODE_SECRET from the control plane's cloud/.env: " _node_secret
         echo
         read -rp "This node's name (e.g. us1): " _node_name
-        read -rp "This node's region (ca, us or eu): " _node_region
+        read -rp "This node's region (ca, us, mx or eu): " _node_region
         _set_env CONTROL_URL "${_control_url%/}"
         _set_env PICKER_URL "${_control_url%/}/"
         _set_env NODE_SECRET "$_node_secret"

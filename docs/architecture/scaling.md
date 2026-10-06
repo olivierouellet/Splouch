@@ -35,7 +35,7 @@
 | Worker count | Automatic from `nproc`; `WORKERS=` overrides | Set by hand |
 | Orchestration | Docker Compose | Kubernetes, OpenStack (ops cost for one maintainer) |
 | First box | Control plane + monitoring + CA node on one VPS, built to split | Separate boxes from day one |
-| Domain | `splouch.org` (control plane), `ca1.` / `us1.` / `eu1.splouch.org` (nodes) | Users typing regional subdomains |
+| Domain | `splouch.org` (control plane), `ca1.` / `us1.` / `mx1.` / `eu1.splouch.org` (nodes) | Users typing regional subdomains |
 | Region | Per organizer, set in `/admin` at key creation; per-meet override | Operator choice on the Pi |
 | Organizer location | Country + state/province, set by admin, correctable from the Pi | — |
 | Images | One image `ghcr.io/olivierouellet/splouch-cloud`, built by CI, two commands | Two images (version drift); building on the node |
@@ -123,7 +123,7 @@ down.
 ### Regions and organizers
 
 - **Region per organizer, nodes per region.** Organizers point at a region
-  (`ca`, `us`, `eu`); the region lists its nodes (`us → us1, us2`). Adding `us2`
+  (`ca`, `us`, `mx`, `eu`); the region lists its nodes (`us → us1, us2`). Adding `us2`
   or replacing a node never touches an organizer.
 - **Draining.** A node marked draining gets no new meets; its running meets finish
   where they are, or are moved. This is how a node is upgraded or retired.
