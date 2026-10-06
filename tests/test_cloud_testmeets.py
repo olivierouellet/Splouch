@@ -8,6 +8,7 @@ make a worker forget what a meet showed.
 """
 
 import asyncio
+import base64
 import datetime
 import random
 import re
@@ -166,6 +167,9 @@ def test_register_says_the_console_times():
     assert meta["settings"]["console"] == {"key": "test", "timed": True}
     assert meta["settings"]["labels"]
     assert meta["session_dates"] == [meta["meet_date"]]
+    png = base64.b64decode(meta["settings"]["picker_image_b64"])
+    assert png.startswith(b"\x89PNG\r\n\x1a\n")
+    assert "home_icon_b64" not in meta["settings"]  # the picker card only
 
 
 # ── Running them ───────────────────────────────────────────────────────────────

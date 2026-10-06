@@ -22,12 +22,16 @@ follower is notified again on the next pass.
 """
 
 import asyncio
+import base64
 import contextlib
 import datetime
+import functools
 import json
+import os
 import random
 
 import cloud_i18n
+import cloud_paths
 from splouch_i18n import DEFAULT_THEME_COLORS, DEFAULT_THEME_FONTS, compose_event_name
 
 MAX_MEETS = 10
@@ -155,6 +159,15 @@ def retime(meet, start, speed=1.0):
         at += datetime.timedelta(seconds=(PRE_START + slowest + RESULTS_HOLD) / speed)
 
 
+@functools.cache
+def picker_image_b64():
+    """The test meets' picker-card image: the Splouch swimmer in amber, with a
+    stopwatch (`img/test_meet.svg`, rendered to the PNG beside it)."""
+    path = os.path.join(cloud_paths.STATIC_DIR, "img", "test_meet.png")
+    with open(path, "rb") as f:
+        return base64.b64encode(f.read()).decode()
+
+
 def register_meta(meet, key, ticket):
     """The `register` payload (docs/api.md §5.4)."""
     lang = meet["lang"]
@@ -191,6 +204,7 @@ def register_meta(meet, key, ticket):
             "labels": labels,
             "label_style": "short",
             "console": {"key": "test", "timed": True},
+            "picker_image_b64": picker_image_b64(),
         },
     }
 
