@@ -1444,11 +1444,10 @@ def _backup_status():
 
 
 def _signed_in(request):
-    """Who `require_role` let in, and the tabs they may open."""
-    return (
-        getattr(request.state, "admin_user", ""),
-        getattr(request.state, "admin_roles", set(cloud_auth.CLOUD_ROLES)),
-    )
+    """Who `require_role` let in, and the tabs they may open. No tabs when it did
+    not run: a caller that skipped the guard gets nothing, never everything."""
+    st = getattr(request, "state", None)
+    return getattr(st, "admin_user", ""), getattr(st, "admin_roles", set())
 
 
 # Which tab each panel action belongs to. One not listed here is the owner's and

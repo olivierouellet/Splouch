@@ -149,6 +149,11 @@ def post(client, **form):
             "method": "POST",
             "path": "/admin",
             "headers": [(b"content-type", b"application/x-www-form-urlencoded")],
+            # What `require_role` leaves behind for the owner it let through.
+            "state": {
+                "admin_user": "pool-admin",
+                "admin_roles": set(cloud_auth.CLOUD_ROLES),
+            },
         },
         receive,
     )

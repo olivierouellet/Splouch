@@ -13,6 +13,7 @@ cannot be reached at all.
 
 import asyncio
 import json
+from types import SimpleNamespace
 
 import pytest
 
@@ -789,6 +790,14 @@ def test_the_heartbeat_reports_the_version_and_acts_on_a_release(monkeypatch):
     assert sent["version"] == "v1" and released == ["v2"]
 
 
+# What `require_role` leaves on a request it let through: the owner, every tab.
+_OWNER = SimpleNamespace(
+    state=SimpleNamespace(
+        admin_user="admin", admin_roles=set(cloud_control.cloud_auth.CLOUD_ROLES)
+    )
+)
+
+
 def test_the_panel_rolls_out_only_a_version_a_node_can_pull(pg, monkeypatch):
     from starlette.datastructures import FormData
 
@@ -800,7 +809,7 @@ def test_the_panel_rolls_out_only_a_version_a_node_can_pull(pg, monkeypatch):
         ("v2026.10.2", True),
     ):
         form = FormData({"action": "rollout_start", "version": version})
-        cloud_control._admin_action(form, None)
+        cloud_control._admin_action(form, _OWNER)
         assert bool(reg.rollout()) is started, version
 
 
@@ -886,7 +895,7 @@ def test_the_panel_schedules_with_the_browser_s_offset(pg):
             "force": "1",
         }
     )
-    cloud_control._admin_action(form, None)
+    cloud_control._admin_action(form, _OWNER)
     r = reg.rollout()
     assert r["state"] == "scheduled" and r["force"] is True
     assert r["not_before"] == f"{year}-10-05T06:00:00+00:00"
