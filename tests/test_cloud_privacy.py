@@ -67,7 +67,7 @@ def test_every_language_renders_whole(code):
     assert f'<html lang="{code}">' in html
     assert section(code)["title"] in html
     assert "{host}" not in html and "{days}" not in html
-    assert "splouch.org" in html
+    assert "(splouch.org)" in html  # the request host, filled into the intro
 
 
 @pytest.mark.parametrize("code", ["en", "fr", "es"])
