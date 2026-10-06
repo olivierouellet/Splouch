@@ -332,6 +332,10 @@ def send_schedule(client=None, clear=False):
                 str(k): {str(h): t for h, t in v.items()}
                 for k, v in md["heat_times"].items()
             },
+            # The day each event is swum, from its Lenex session: `times` are times
+            # of day, and the cloud's heat notifications need the date to place
+            # them (docs/app.md `N-05`). Absent for an event no session names.
+            "dates": _event_dates(md.get("meet_info", {})),
             "start_list": _serialise_start_list(md["start_list"]),
             # Meet Manager's official results (docs/app.md `S-22`). Console times
             # are not sent: the cloud keeps its own from `results_snapshot`.
@@ -357,9 +361,22 @@ _EMPTY_SCHEDULE = {
     "names": {},
     "name_parts": {},
     "times": {},
+    "dates": {},
     "start_list": {},
     "results": {},
 }
+
+
+def _event_dates(meet_info):
+    """`{"<event>": "YYYY-MM-DD"}` from the Lenex sessions. An event a session
+    names twice keeps its first day; a session without a date gives none."""
+    out = {}
+    for s in meet_info.get("sessions", []):
+        if not s.get("date"):
+            continue
+        for ev in s.get("events", []):
+            out.setdefault(str(ev), s["date"])
+    return out
 
 
 def _send_schedule_data(client, data):

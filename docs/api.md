@@ -293,8 +293,9 @@ JSON/asset endpoints (everything else the servers expose is HTML for the browser
 | `GET /` | picker page (HTML) — meet cards |
 | `GET /meets` | **meet list JSON** — `{ "meets": [ … ] }`, the same records the picker cards render (§5.6) |
 | `GET /picker/config` | **picker chrome JSON** — branding, localised strings, analytics flag (§5.7) |
-| `GET /meet/{meet_id}/config` | **meet config JSON** — `name`, `location`, `sport`, `meet_date`, `live`, `base`, and the `settings` block (§5.4). Lets a phone render the board without scraping the HTML page. `base` is where the meet is reached now (§5.6): asked of a worker after a move, it names the new one |
+| `GET /meet/{meet_id}/config` | **meet config JSON** — `name`, `location`, `sport`, `meet_date`, `live`, `base`, and the `settings` block (§5.4). Lets a phone render the board without scraping the HTML page. `base` is where the meet is reached now (§5.6): asked of a worker after a move, it names the new one. `push` lists the platforms the meet's node can notify — `"apns"`, `"fcm"` — `[]` when none (§5.13) |
 | `GET /meet/{meet_id}/schedule` | **start list JSON** — `{ "heats": [ … ] }` (§5.8); 404 for an unknown meet, empty `heats` when the meet has no schedule yet |
+| `PUT /meet/{meet_id}/follow` | **heat notifications** (§5.13) — the swimmers one device follows at the meet, at its `base`. `204`; `409 {base}` when the meet is held elsewhere |
 | `GET /server` | **who this server is** (§5.10) — `kind: "cloud"` |
 | `GET /servers` | **server directory** (§5.11) — where else a client may connect; this server always first |
 | `GET /i18n/{lang}` | **client strings for one language** (§5.9). No meet in the path: the table is a property of this server's locale files, not of a meet |
@@ -474,10 +475,13 @@ table: `labels` is the operator's pick, resolved from the same file.
 
 ```json
 { "events": [ [3, [1,2]] ], "names": { "3": "…" }, "times": { "3": { "1": "10:42" } },
+  "dates": { "3": "2026-10-10" },
   "start_list": { "3": { "1": { "1": { "name":"…","club":"…","seed_time":"…","swimmers":[…] } } } },
   "results": { "3": { "1": { "1": { "time": "00:01:01.90", "status": "" } } } } }
 ```
 
+`dates` puts a day on `times`, which are times of day: each event's Lenex session date,
+for the cloud's heat notifications (§5.13). An event no dated session names is absent.
 `results` are Meet Manager's official results (§5.8). No console times: the cloud keeps
 its own from the `results_snapshot` frames it relays, and stores them with the meet.
 
@@ -719,6 +723,50 @@ connects to the given socket.
 
 ---
 
+### 5.13 `PUT /meet/{meet_id}/follow` (cloud)
+
+The swimmers one device follows at one meet, for heat notifications (`app.md` §10).
+Asked of the meet's `base` (§5.6), like its sockets. One row per device and meet: each
+`PUT` replaces the last, and an empty `swimmers` removes it.
+
+```json
+{ "token": "<APNs device token, hex | FCM registration token>",
+  "platform": "apns" | "fcm", "sandbox": false, "lang": "fr",
+  "swimmers": [ { "name": "Emma Roy", "club": "CNQ" } ],
+  "lead": { "minutes": 5 } | { "heats": 2 },
+  "selected": true }
+```
+
+| Field | Rule |
+| --- | --- |
+| `token` | the platform's push token; 1–4096 characters |
+| `platform` | `apns` or `fcm`; must be in the meet's `push` (§4) unless `swimmers` is empty, else `503` |
+| `sandbox` | APNs only: the token is from a development build |
+| `lang` | the language the notification text is composed in (`[push]` of `GET /locales`' files); unknown → English |
+| `swimmers` | up to 20; `name` as the start list writes it (a lane's `name`, a relay team, or a `swimmers[].name`), `club` the lane's (`""` = any). Matched after `app.md` `S-09`'s fold |
+| `lead` | `minutes`: 5, 10 or 15; `heats`: 1, 2 or 3. Default 5 minutes |
+| `selected` | also notify when the console reaches the heat (`N-06`); default true |
+
+**Answers.** `204` stored. `400` a field breaks a rule (the reason in `detail`). `404`
+unknown meet. `409 {"base": "…"}` the meet is held by another worker: re-fetch its
+config and `PUT` there. `503` this node cannot notify that platform.
+
+**What is sent** (`app.md` `N-05`, `N-06`) — at most once per device, heat and kind:
+
+- **APNs** — an alert: `title` the followed names in the heat, `body` e.g.
+  `In about 5 min · Event 12, heat 3, lane 4\n200 m dos  —  Filles < 12`;
+  `interruption-level: time-sensitive`, `thread-id` = meet id, `apns-collapse-id`
+  `<meet>:<event>:<heat>`, expires after 15 min. Custom keys `meet_id`, `event`, `heat`
+  (integers) and `kind` (`upcoming` / `selected`).
+- **FCM** — data only, `priority: HIGH`, `ttl: 900s`, `collapse_key`
+  `<meet>:<event>:<heat>`: `title`, `body`, `meet_id`, `event`, `heat`, `kind`, all
+  strings. The app posts the notification itself, in its channel for `kind`.
+
+A token the platform reports dead (APNs `410`, `BadDeviceToken`; FCM `UNREGISTERED`) is
+deleted with every follow it had.
+
+---
+
 ## 6. Config for native clients
 
 The browser clients receive display config through server-rendered templates
@@ -817,6 +865,10 @@ can tell the console has stopped talking to it. Faces, both palettes: `family`
 ---
 
 ## Changelog
+
+- **Added since v2, additive**: `PUT /meet/{id}/follow` (§5.13) and `push` in
+  `GET /meet/{id}/config` (§4) — heat notifications, `app.md` §10. Relay only: `dates`
+  in `schedule_snapshot` (§5.5). A client that ignores `push` offers no notifications.
 
 - **Added since v2, additive**: `official` per heat; `console_time`, `result_time`,
   `result_status`, `result_delta_seconds`, `result_delta_better` per lane in

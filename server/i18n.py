@@ -34,6 +34,7 @@ from splouch_i18n import (
     DEFAULT_THEME_COLORS,
     DEFAULT_THEME_FONTS,
     STYLED_LABEL_KEYS as STYLED_LABEL_KEYS,
+    compose_event_name,
     resolve_labels,
 )
 
@@ -281,43 +282,6 @@ def parse_event_name(raw, round_key=""):
         "age_key": age_key,
         "round": round_key,
     }
-
-
-def compose_event_name(parts, ev):
-    """Render parsed parts with one locale's ``[event_name]`` vocabulary.
-
-    The other half of :func:`parse_event_name`, and the only half a client needs: a
-    lookup and a join, no parsing. An unknown key renders as itself rather than
-    blank, the same floor `T-10` sets for every other string.
-    """
-    if not parts:
-        return ""
-    if not ev:
-        return parts.get("raw", "")
-    unit = ev.get("unit", "m")
-    sep = ev.get("separator", "  \u2014  ")
-
-    left_parts = []
-    if parts.get("dist"):
-        left_parts.append(parts["dist"] + " " + unit)
-    if parts.get("stroke"):
-        left_parts.append(ev.get(parts["stroke"], parts["stroke"]))
-    if parts.get("relay") and ev.get("relay"):
-        left_parts.append(ev["relay"])
-    left = " ".join(left_parts)
-
-    age = parts.get("age") or (
-        ev.get(parts["age_key"], parts["age_key"]) if parts.get("age_key") else ""
-    )
-    gender = ev.get(parts["gender"], parts["gender"]) if parts.get("gender") else ""
-    right = " ".join(p for p in [gender, age] if p)
-
-    name = (
-        left + sep + right if left and right else left or right or parts.get("raw", "")
-    )
-    if parts.get("round"):
-        name += sep + ev.get(parts["round"], parts["round"])
-    return name
 
 
 def translate_event_name(raw, ev, round_key=""):

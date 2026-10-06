@@ -14,9 +14,12 @@ plane (``cloud_control``), reached through ``cloud_node``.
 import asyncio
 import base64
 import datetime
+import hmac
 import json
 import os
 import time
+import urllib.error
+import urllib.request
 from contextlib import asynccontextmanager, suppress
 
 from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
@@ -28,10 +31,12 @@ from starlette.concurrency import run_in_threadpool
 # sys.path when the suite runs, so a plain `bus.py` here would shadow the Pi's —
 # which is exactly why `cloud_server.py` is named that way too.
 import cloud_bus
+import cloud_follows
 import cloud_i18n
 import cloud_meetstore
 import cloud_metrics
 import cloud_node
+import cloud_push
 import cloud_ticket
 from cloud_bus import manager
 from cloud_paths import _HERE, DATA_DIR, STATIC_DIR
@@ -135,6 +140,8 @@ async def _on_moves(moves):
             ws = _relay_sockets.get(meet.get("relay_sid")) if meet else None
         if not meet:
             continue
+        cloud_follows.forget(meet_id)
+        await run_in_threadpool(_hand_over_follows, meet_id, base)
         for ns in ("scoreboard", "results", "schedule"):
             await manager.broadcast(
                 _ch(ns, meet_id), "moved", {"url": url, "base": base}
@@ -144,6 +151,37 @@ async def _on_moves(moves):
             with suppress(Exception):
                 await ws.close()
         print(f"[cloud] meet {meet_id} moved to {url}", flush=True)
+
+
+def _hand_over_follows(meet_id, base):
+    """Carry a meet's follows to the node it moved to (docs/app.md `N-09`).
+
+    Another worker on this node reads the same store, so there is nothing to do;
+    another node gets them over its internal route, and only once it has them are
+    they dropped here. A failure is logged and the follows stay: this node's sweep
+    drops them with the meet, and the phones re-register when next opened.
+    """
+    node = cloud_node.node_url()
+    if not base or (node and base.startswith(node + "/")):
+        return
+    data = cloud_follows.export_meet(meet_id)
+    if not data["follows"]:
+        return
+    req = urllib.request.Request(
+        f"{base.rstrip('/')}/internal/follows/{meet_id}",
+        data=json.dumps(data).encode(),
+        method="POST",
+    )
+    req.add_header("Authorization", f"Bearer {os.environ.get('NODE_SECRET', '')}")
+    req.add_header("Content-Type", "application/json")
+    try:
+        with urllib.request.urlopen(req, timeout=10):
+            pass
+    except (urllib.error.URLError, OSError, ValueError) as e:
+        print(f"[follows] meet {meet_id}: hand-over failed: {e}", flush=True)
+        return
+    cloud_follows.drop_meet(meet_id)
+    print(f"[follows] meet {meet_id}: follows carried to {base}", flush=True)
 
 
 async def _on_revoked(meet_ids):
@@ -176,6 +214,12 @@ def _heartbeat_snapshot():
     return ids, attendees, frames
 
 
+def _live_meets():
+    """The meets this worker carries, for the follow loop (`cloud_follows.run`)."""
+    with _lock:
+        return dict(_meets)
+
+
 @asynccontextmanager
 async def lifespan(app):
     os.makedirs(DATA_DIR, exist_ok=True)
@@ -185,6 +229,7 @@ async def lifespan(app):
         ),
         asyncio.create_task(cloud_node.analytics_flush_loop()),
         asyncio.create_task(cloud_metrics.lag_loop()),
+        asyncio.create_task(cloud_follows.run(_live_meets)),
     ]
     try:
         yield
@@ -197,6 +242,8 @@ async def lifespan(app):
         # Send anything still queued, without letting a failed send error shutdown.
         with suppress(Exception):
             await run_in_threadpool(cloud_node.flush_analytics)
+        with suppress(Exception):
+            await cloud_push.close()
 
 
 class _OwnPrefix:
@@ -463,6 +510,9 @@ def route_meet_config(meet_id: str):
         # Where the meet is reached (`app.md` `C-11`): this worker, or the one
         # holding it now — a client that fetched here after a move follows it.
         "base": _meet_base(meet) if _elsewhere(meet) else _own_base(),
+        # The platforms this node can send heat notifications to (docs/app.md
+        # `N-01`): an app shows its bell only when its own is listed.
+        "push": cloud_push.platforms(),
     }
 
 
@@ -482,6 +532,50 @@ def route_meet_schedule(meet_id: str):
             meet.get("schedule_data", {}), meet.get("console_times")
         )
     }
+
+
+@app.put("/meet/{meet_id}/follow", tags=["Public"])
+async def route_follow(meet_id: str, request: Request):
+    """Register the swimmers one device follows at a meet (docs/api.md §5.13).
+
+    Replaces what that device followed here before; no swimmers stops it. Asked of
+    the meet's `base`: a meet held elsewhere answers 409 with its `base`, so the
+    phone re-registers there, and the node keeps nothing for it.
+    """
+    meet = await run_in_threadpool(meet_for, meet_id)
+    if not meet:
+        raise HTTPException(404)
+    if _elsewhere(meet):
+        return Response(
+            json.dumps({"base": _meet_base(meet)}),
+            status_code=409,
+            media_type="application/json",
+        )
+    try:
+        sub = cloud_follows.clean(await request.json())
+    except ValueError as e:  # bad JSON, or cloud_follows.Invalid
+        raise HTTPException(400, detail=str(e)) from e
+    if sub["swimmers"] and sub["platform"] not in cloud_push.platforms():
+        raise HTTPException(503, detail="notifications are not set up here")
+    await run_in_threadpool(cloud_follows.put, meet_id, sub)
+    if sub["swimmers"]:
+        cloud_follows.note_followed(meet_id, True)
+    return Response(status_code=204)
+
+
+@app.post("/internal/follows/{meet_id}", include_in_schema=False)
+async def route_follows_import(meet_id: str, request: Request):
+    """Follows carried here with a meet moved from another node (`N-09`). Guarded
+    by `NODE_SECRET`, which only the control plane and the nodes hold."""
+    secret = os.environ.get("NODE_SECRET", "")
+    given = request.headers.get("authorization", "")
+    if not secret or not hmac.compare_digest(given, f"Bearer {secret}"):
+        raise HTTPException(404)
+    if not cloud_node.valid_meet_id(meet_id):
+        raise HTTPException(404)
+    await run_in_threadpool(cloud_follows.import_meet, meet_id, await request.json())
+    cloud_follows.note_followed(meet_id, True)
+    return Response(status_code=204)
 
 
 def _live_count():
@@ -736,6 +830,9 @@ async def _forward(sid, event, data):
         # with no way to say how old it is, and a stale clock is worse than none —
         # a client joining mid-heat waits for the next re-base instead.
         meet["last_scoreboard"].update(data)
+        # The heat on the console, and when it started: what follows are
+        # notified by (docs/app.md `N-05`, `N-06`).
+        await cloud_follows.observe(meet_id, meet, data)
 
         # A frame that also moves a lane's running flag is a start, a touch, the
         # end of the console's split hold or a finish: rare, and exactly where the

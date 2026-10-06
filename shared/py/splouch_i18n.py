@@ -255,3 +255,42 @@ def i18n_bundle(code, read_section, available):
         # `short` only for STYLED_LABEL_KEYS; the narrow columns are short in both.
         "labels": {style: resolve_labels(labels, style) for style in ("short", "long")},
     }
+
+
+def compose_event_name(parts, ev):
+    """Render parsed parts with one locale's ``[event_name]`` vocabulary.
+
+    The other half of the Pi's ``i18n.parse_event_name``, and the only half a client
+    needs: a lookup and a join, no parsing. An unknown key renders as itself rather
+    than blank, the same floor `T-10` sets for every other string. Shared because
+    the relay composes too: a heat notification reads in the follower's language,
+    not the meet's (docs/app.md `N-06`).
+    """
+    if not parts:
+        return ""
+    if not ev:
+        return parts.get("raw", "")
+    unit = ev.get("unit", "m")
+    sep = ev.get("separator", "  \u2014  ")
+
+    left_parts = []
+    if parts.get("dist"):
+        left_parts.append(parts["dist"] + " " + unit)
+    if parts.get("stroke"):
+        left_parts.append(ev.get(parts["stroke"], parts["stroke"]))
+    if parts.get("relay") and ev.get("relay"):
+        left_parts.append(ev["relay"])
+    left = " ".join(left_parts)
+
+    age = parts.get("age") or (
+        ev.get(parts["age_key"], parts["age_key"]) if parts.get("age_key") else ""
+    )
+    gender = ev.get(parts["gender"], parts["gender"]) if parts.get("gender") else ""
+    right = " ".join(p for p in [gender, age] if p)
+
+    name = (
+        left + sep + right if left and right else left or right or parts.get("raw", "")
+    )
+    if parts.get("round"):
+        name += sep + ev.get(parts["round"], parts["round"])
+    return name

@@ -186,6 +186,9 @@ def test_the_served_file_holds_only_what_a_spectator_reads():
         "aliases",
         "mobile",
         "display",
+        # Heat notifications (docs/app.md §10): the cloud composes them in the
+        # follower's language, so they are here, and no client renders them.
+        "push",
         # `/privacy`'s text: a spectator reads it, so it is here, and its own
         # section keeps it out of `GET /i18n/{lang}`, which serves `[mobile]`.
         "privacy",

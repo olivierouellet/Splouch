@@ -7,3 +7,5 @@ psycopg-pool
 prometheus-client
 resvg-py
 pillow
+httpx[http2]
+pyjwt[crypto]

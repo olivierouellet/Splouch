@@ -189,6 +189,43 @@ server list afterwards, which is what that list is for.
 
 ---
 
+## Heat notifications
+
+A spectator can follow swimmers in the app and be told when their heat is coming up, and
+when it is on the console ([`app.md`](app.md) §10). Each node sends for the meets it
+carries, straight to Apple (APNs) and Google (Firebase Cloud Messaging); nothing goes
+through the control plane. A node with neither configured simply shows no bell in the apps.
+
+Add to `cloud/.env` on **every node**, put the two key files in the data volume, then
+**Update**:
+
+```ini
+# Apple: Certificates, Identifiers & Profiles → Keys → a key with Apple Push
+# Notifications service. One key serves the sandbox and production.
+APNS_KEY_ID=ABC123DEFG
+APNS_TEAM_ID=TEAM123456
+APNS_TOPIC=app.splouch.ios        # the iOS app's bundle id (the default)
+# Firebase console → Project settings → Service accounts → Generate new private key.
+# The paths are inside the container; these are the defaults.
+APNS_KEY_FILE=/data/apns.p8
+FCM_SERVICE_ACCOUNT_FILE=/data/fcm.json
+```
+
+```bash
+docker compose cp AuthKey_ABC123DEFG.p8 app:/data/apns.p8
+docker compose cp splouch-firebase.json app:/data/fcm.json
+```
+
+Check with `curl https://yourdomain/w1/meet/<a live meet>/config`: `push` lists `apns`,
+`fcm` or both.
+
+**What a node keeps.** Per device and meet: the push token, its platform, its language, and
+the names and clubs it follows — until the meet leaves the node, when they go with it. A
+meet moved to another node carries them along. A token Apple or Google reports dead is
+dropped at once. `/privacy` says so.
+
+---
+
 ## Privacy policy
 
 `https://yourdomain/privacy` is the policy a store listing links to, in English, French and
@@ -620,6 +657,44 @@ pour qui s'y est connecté. Une affiche ne peut pas demander sur quel réseau se
 lecteur ; elle donne donc l'adresse qui fonctionne de partout. Les spectateurs sur le WiFi de
 la piscine peuvent ensuite choisir le Pi dans la liste de serveurs de l'application, qui sert
 précisément à cela.
+
+---
+
+### Notifications de série
+
+Un spectateur peut suivre des nageurs dans l'application et être prévenu quand leur série
+approche, puis quand elle est à la console ([`app.md`](app.md) §10). Chaque nœud envoie
+pour les compétitions qu'il porte, directement à Apple (APNs) et à Google (Firebase Cloud
+Messaging) ; rien ne passe par le plan de contrôle. Un nœud sans ni l'un ni l'autre
+n'affiche simplement pas de cloche dans les applications.
+
+Ajoutez à `cloud/.env` sur **chaque nœud**, déposez les deux fichiers de clé dans le volume
+de données, puis **Mettre à jour** :
+
+```ini
+# Apple : Certificates, Identifiers & Profiles → Keys → une clé avec Apple Push
+# Notifications service. Une seule clé sert le bac à sable et la production.
+APNS_KEY_ID=ABC123DEFG
+APNS_TEAM_ID=TEAM123456
+APNS_TOPIC=app.splouch.ios        # l'identifiant de l'app iOS (par défaut)
+# Console Firebase → Paramètres du projet → Comptes de service → Générer une clé privée.
+# Chemins dans le conteneur ; ce sont les valeurs par défaut.
+APNS_KEY_FILE=/data/apns.p8
+FCM_SERVICE_ACCOUNT_FILE=/data/fcm.json
+```
+
+```bash
+docker compose cp AuthKey_ABC123DEFG.p8 app:/data/apns.p8
+docker compose cp splouch-firebase.json app:/data/fcm.json
+```
+
+Vérifiez avec `curl https://votredomaine/w1/meet/<une compétition en direct>/config` :
+`push` liste `apns`, `fcm` ou les deux.
+
+**Ce que garde un nœud.** Par appareil et par compétition : le jeton de notification, sa
+plateforme, sa langue, et les noms et clubs suivis — jusqu'à ce que la compétition quitte le
+nœud ; ils partent avec elle. Une compétition déplacée vers un autre nœud les emporte. Un
+jeton qu'Apple ou Google déclare mort est supprimé aussitôt. `/privacy` le dit.
 
 ---
 

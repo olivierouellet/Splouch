@@ -185,8 +185,11 @@ count_3       = "While counting is on, the server carrying the meet stores that 
 count_4       = "Counting is done by this website's servers alone. A pool's own Splouch server never receives the identifier; it may be shown the totals. Stored records are deleted after {days} days. They are never sold or shared, and never used to identify, locate or profile anyone."
 count_basis   = "Counting rests on the operator's legitimate interest in knowing how many people follow a meet, to plan for them. The identifier is treated as personal information, even though it says nothing about you."
 app_h         = "The Splouch apps"
-app_1         = "The Android and iOS apps talk only to the servers you choose: this website by default, one you add by its address or by scanning a QR code, or a pool's server found on your local network. They contain no advertising, analytics or crash-reporting services, and ask for no permission beyond network access — on iOS and on recent Android versions, that includes the local network, to find and reach a pool's server."
+app_1         = "The Android and iOS apps talk only to the servers you choose: this website by default, one you add by its address or by scanning a QR code, or a pool's server found on your local network. They contain no advertising, analytics or crash-reporting services, and ask for no permission beyond network access — on iOS and on recent Android versions, that includes the local network, to find and reach a pool's server — and, once you follow a swimmer, notifications."
 app_2         = "Your settings — the servers you added and the one in use, your language, display style and appearance, the last tab you viewed — are stored on your device, along with each server's attendance identifier and a copy of its text. Uninstalling the app deletes them."
+notify_h      = "Heat notifications"
+notify_1      = "In the apps you can follow swimmers at a meet and be told when their heat is coming up and when it is on the timing console. Only when you turn this on does the app ask your phone for permission to show notifications, and send the server carrying the meet a push token (a random address Apple or Google issues so a notification reaches your phone), the app's language, and the names and clubs you follow there — never anything else about you. On Android the token comes from Google's Firebase Cloud Messaging, through Google Play services; on iOS, from Apple."
+notify_2      = "That server keeps them only to send these notifications, in the region where the meet's organizer is based, and passes the token and the notification's text to Apple or Google to deliver it. They are deleted when the meet is deleted from this website (midnight after its last day), when you stop following, or when Apple or Google report the token is no longer valid. A meet moved to another of this website's servers takes them with it. Turning notifications off in the app, or for the app in your phone's settings, stops them; uninstalling the app makes the token invalid."
 web_h         = "This website"
 web_1         = "Your display choices (language, label style and appearance) are kept in cookies on your device for up to a year. Your attendance identifier, the date it was made, and whether you allow counting are kept in your browser's local storage; the identifier is replaced after 13 months. None of these is used to follow you."
 web_2         = "This website keeps no request logs: the pages you open and your IP address are not recorded."
@@ -199,3 +202,14 @@ changes_h     = "Changes"
 changes       = "When this policy changes, the date at the top changes with it."
 contact_h     = "Contact"
 contact       = "Questions about this policy, and requests about your information, go to the person in charge of protecting personal information:"
+
+# Heat notifications (docs/app.md §10). Composed by the cloud in the follower's
+# language and sent through APNs or FCM; not in GET /i18n/{lang}, since no client
+# renders them. {minutes}, {heats}, {event}, {heat}, {lane} are filled in.
+[push]
+selected   = "Heat on the console"
+in_minutes = "In about {minutes} min"
+next_heat  = "Next heat"
+in_heats   = "In {heats} heats"
+heat       = "Event {event}, heat {heat}"
+lane       = "lane {lane}"

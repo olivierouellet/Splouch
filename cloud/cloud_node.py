@@ -37,6 +37,7 @@ import urllib.request
 from starlette.concurrency import run_in_threadpool
 
 import cloud_attendance
+import cloud_follows
 import cloud_meetstore
 from cloud_metrics import CONTROL_ERRORS
 
@@ -313,6 +314,8 @@ def heartbeat(live_ids, attendees=None, frames=None):
     if "known" in result:
         # Worker 1: keep only the meets the control plane still places here.
         cloud_meetstore.keep_only(result["known"])
+        # Follows go with their meet (docs/app.md `N-09`).
+        cloud_follows.keep_only(cloud_meetstore.ids())
     return {
         "retired": result.get("retired") or [],
         "moves": result.get("moves") or [],
@@ -337,6 +340,9 @@ async def heartbeat_loop(snapshot, on_moves=None, on_revoked=None):
             # The control plane cannot say what to keep: expire by the store's own
             # dates meanwhile.
             await run_in_threadpool(cloud_meetstore.prune_expired)
+            await run_in_threadpool(
+                cloud_follows.keep_only, await run_in_threadpool(cloud_meetstore.ids)
+            )
         await asyncio.sleep(HEARTBEAT_SECS)
 
 

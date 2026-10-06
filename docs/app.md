@@ -239,7 +239,8 @@ QR code needs the board, not a carousel; `P-06`'s line does the job there.
 1. **Unofficial results** — server's `results_disclaimer`, in full.
 2. **Three tabs** — Scoreboard (heat in the water), Results (finished heats), Schedule
    (start lists); swipe between them where `A-03` swipes.
-3. **Follow a swimmer or club** — Schedule's filter (`S-08`) and *All heats* (`S-16`).
+3. **Follow a swimmer or club** — Schedule's filter (`S-08`) and *All heats* (`S-16`);
+   where the meet can notify, the bell (`N-01`) to be told when their heat is near.
 4. **Attendance counting** — server's `privacy_note` with `C-10`'s toggle on the page,
    and where to find it again (settings, `P-19`). Only while `analytics_enabled`.
 
@@ -862,7 +863,118 @@ Not on any phone client, now or planned:
 
 ---
 
+## 10. Heat notifications (`N`)
+
+Follow swimmers at one meet; the phone is told when their heat is near and when the
+console reaches it. **Native only**: needs a push token, which a phone page lacks.
+The cloud node carrying the meet decides and sends ([`api.md`](api.md) §5.13,
+[`cloud.md`](cloud.md)): APNs on iOS, Firebase Cloud Messaging on Android. No server
+push → no feature — a Pi alone sends nothing, and the bell is not shown.
+
+```mermaid
+sequenceDiagram
+  participant P as Phone
+  participant W as Worker (meet's base)
+  participant A as APNs / FCM
+  P->>W: PUT /meet/{id}/follow {token, swimmers, lead, selected, lang}
+  Note over W: frames from the Pi: heat on console, race starts
+  W->>A: "In about 5 min · Event 12, heat 3, lane 4" (N-05)
+  W->>A: "Heat on the console · …" (N-06)
+  A->>P: notification
+```
+
+| ID | Feature | Driven by | Scope | Level |
+| --- | --- | --- | --- | --- |
+| [`N-01`](#n-01) | **Bell** in the Schedule tab's top bar, beside the filter (`S-08`), opening the Notifications sheet (`N-02`). Marked while the meet has followed swimmers. Shown only when the meet's node can notify this platform | `GET /meet/{id}/config` → `push` contains `apns` (iOS) / `fcm` (Android); absent (Pi, older cloud, node not set up) → no bell | native | should |
+| [`N-02`](#n-02) | **Notifications sheet**, per meet: followed swimmers as removable chips, added through `S-09`'s search (swimmers and relay teams, no clubs); **Upcoming** — about 5 / 10 / 15 min, or 1 / 2 / 3 heats before; **Heat on the console** on/off (on by default); one status line when it cannot work; one privacy line with the policy link | stored per meet on the device; words native (`T-05`) | native | should |
+| `N-03` | Filter sheet (`S-08`), with swimmer filters active: **Notify me for these swimmers** adds them to `N-02`'s list (clubs are not copied) and opens the sheet. Filters stay session-only (`S-20`) | — | native | could |
+| [`N-04`](#n-04) | **Permission at the first follow**, never at launch or on opening the sheet. Refused → follows kept on the device, nothing registered, status line says so and links to the system's settings for the app | platform permission | native | should |
+| [`N-05`](#n-05) | **Upcoming**: once per followed heat, when its estimated start is within the chosen minutes, or it is within the chosen heats (heats with swimmers, `1` = next) | server, from the start list, the heat on the console and race starts | native | should |
+| [`N-06`](#n-06) | **Heat on the console**: once per followed heat, when the console moves *forward* onto it. CTS consoles: held **5 s** first | `update_scoreboard.current_event` / `current_heat` via the relay; `settings.console.key` | native | should |
+| [`N-07`](#n-07) | **Registration**: one `PUT` per device and meet with every followed swimmer; re-sent on any change, a new token, a language change, and each time the meet opens. Empty list = stop | [`api.md`](api.md) §5.13, at the meet's `base` (`C-11`); `409` → re-fetch config, `PUT` at the new `base` | native | should |
+| `N-08` | Tapping a notification opens that meet on the Schedule tab, scrolled to the heat | payload `meet_id`, `event`, `heat` | native | could |
+| [`N-09`](#n-09) | **Privacy binding**: the node keeps token, platform, language, followed names and clubs — nothing else — until the meet leaves it; carried with a meet moved to another node; a token the platform reports dead is dropped. The device forgets a meet's follows when the meet is gone (`A-09`) | `/privacy` → *Heat notifications* | native | must |
+
+### <a id="n-01"></a>N-01 — where the bell lives
+
+On the Schedule tab because that is where a spectator already looks for their swimmer
+(`S-09`), and the follow is per meet, which settings (`P-19`, opened from the picker)
+are not. Not on Scoreboard or Results: they are about the heat in the water and the
+heats swum. iOS: toolbar item, `bell` / `bell.badge`. Android: top app bar action,
+`Notifications` / `NotificationsActive` with a badge.
+
+### <a id="n-02"></a>N-02 — the sheet
+
+Native words (`T-05`): the web has no such sheet. iOS: sheet with `Form` — a section
+of swimmers, a segmented **Upcoming** picker (Minutes / Heats) and a `Picker` of three
+values, a `Toggle`, footer text with the privacy line and `Link`. Android: full-screen
+dialog — the swimmer chips, a segmented button row and three filter chips, a `Switch`
+row, supporting text and link. The search adds a swimmer with the club it was found
+with; two swimmers of the same name in two clubs stay two.
+
+### <a id="n-04"></a>N-04 — ask when it means something
+
+The request comes right after the first **add**, so the system prompt follows an
+action that needs it. iOS: `requestAuthorization([.alert, .sound, .badge])`, then
+`registerForRemoteNotifications`. Android 13+: `POST_NOTIFICATIONS`; below, none.
+Turned off later in the system → the status line says so on next opening; the app
+does not register while it is off. Both platforms: Time Sensitive / high-priority
+channel so a heat in five minutes is not held back by a focus mode or Doze.
+
+### <a id="n-05"></a>N-05 — the estimate
+
+Server-side, one rule for both platforms ([`cloud_follows.py`](../cloud/cloud_follows.py)):
+
+1. **Schedule + lateness.** Heat's scheduled start (Lenex `daytime`, dated by its
+   session, in the pool's UTC offset) + (current heat's actual start − its own
+   scheduled start). Before it starts: the moment it was selected, or now if later.
+2. **No schedule.** Current heat's start + Σ (swim + changeover) over the heats
+   between. Swim = the heat's longest seed, else the event's, else an age-group table
+   (stroke × distance × gender × age band). Changeover = median of this meet's
+   observed `gap − swim`, 15–180 s, 45 s until seen.
+3. Nothing on the console today → the scheduled start as written, today only.
+
+Not shown anywhere in the app: the Schedule tab keeps its scheduled times (`S-17`'s
+reason holds — they are estimates). The text is composed by the server in the
+follower's language (`[push]` in the locale files; event name per `T-11`):
+`In about 5 min · Event 12, heat 3, lane 4` / `Next heat · …` / `In 2 heats · …`, then
+the event name. Title: the followed names in that heat.
+
+### <a id="n-06"></a>N-06 — selected, forward only
+
+A heat change counts once it has stayed on the console for the hold — 5 s on a CTS
+console, whose operator scrolls through heats; none elsewhere (Omnisport's heat is the
+operator's own advance). Backwards (a correction) notifies nothing. Text: `Heat on the
+console · Event 12, heat 3, lane 4`. Replaces that heat's upcoming notification on the
+device: APNs `apns-collapse-id`, Android the same notification tag. iOS groups a meet's
+notifications by `thread-id`; Android posts each kind in its own channel —
+*Upcoming heats* and *Heat on the console* — so a spectator can tune them apart.
+
+### <a id="n-07"></a>N-07 — one row per device and meet
+
+The `PUT` carries the whole list: no add/remove protocol to fall out of step. Language =
+the app's language for the meet (`T-08`, else `T-06`). A device's token can change
+(reinstall, restore, the platform's own refresh) → every meet with follows is
+re-registered. Re-sending on each open costs one small request and heals a node that
+lost the row.
+
+### <a id="n-09"></a>N-09 — what leaves the phone
+
+A follow sends the server a name and club the start list already shows, plus a push
+token and a language: no `vid` (`C-10`), no account. Kept in the meet's region, used
+for nothing but these notifications, gone with the meet. The device keeps each meet's
+list until `A-09` says the meet is gone, then deletes it.
+
+---
+
 ## Changelog
+
+- **v3, amended** (2026-10-06, no bump) — heat notifications (§10). Native only, and
+  only where the meet's node can push: a client that ignores `push` shows no bell.
+
+  - **Added**: `N-01`–`N-09`; `push` in `GET /meet/{id}/config`; `PUT /meet/{id}/follow`
+    ([`api.md`](api.md) §5.13).
+  - **Changed**: `P-20` page 3 also names the bell (`N-01`).
 
 - **v3, amended** (2026-10-06, no bump) — official results from Meet Manager
   ([`architecture/meet-manager-results.md`](architecture/meet-manager-results.md)).

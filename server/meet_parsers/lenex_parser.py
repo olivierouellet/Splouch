@@ -461,6 +461,13 @@ def load_lenex(path):
                 "endtime": s.get("endtime", ""),
                 "warmupfrom": s.get("warmupfrom", ""),
                 "warmupuntil": s.get("warmupuntil", ""),
+                # Which events the session holds: a heat's `daytime` is a time of
+                # day, and this is what puts a date on it (docs/app.md `N-05`).
+                "events": [
+                    int(e.get("number"))
+                    for e in find(s, "EVENT")
+                    if (e.get("number") or "").isdigit()
+                ],
             }
             for s in find(meet_el, "SESSION")
         ]

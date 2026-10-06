@@ -41,6 +41,10 @@ dev = [
     # from TEST_DATABASE_URL, and skip without one.
     "psycopg[binary]",
     "psycopg-pool",
+    # The cloud's heat notifications (cloud/cloud_push.py): HTTP/2 for APNs, and the
+    # JWTs both APNs and FCM authenticate with.
+    "httpx[http2]",
+    "pyjwt[crypto]",
     # The cloud's /metrics (cloud/cloud_metrics.py).
     "prometheus-client",
     "pytest",

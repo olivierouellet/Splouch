@@ -124,3 +124,9 @@ from; the `diverges` rows are where v2 moved past them.
 | `X-08` | `done` | the browser's zoom, not the OS text size (the pages do not opt in to `-apple-system-body`). Checked at 200% — a 390px phone emulated as 195px at 4× — and at 320px: the picker's cards no longer force a 260px floor, its title and logo clear the menu button, the schedule wraps headings and names instead of cutting them below 360px, and the shell's hidden tab labels stay the tabs' names. Android Chrome's own text scaling is not emulated here |
 
 Checked against Chrome's accessibility tree (DevTools `Accessibility.getFullAXTree`), not yet heard under VoiceOver or TalkBack.
+
+## 10. Heat notifications
+
+| ID | Status | Notes |
+| --- | --- | --- |
+| `N-01`–`N-09` | `n/a — native` | a phone page has no push token; the server half (`cloud_follows`, `cloud_push`) is shared by both apps |

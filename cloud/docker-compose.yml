@@ -115,6 +115,14 @@ services:
       PICKER_URL:             ${PICKER_URL:-https://${SPLOUCH_DOMAIN}/}
       WORKER:                 "1"
       DATA_DIR:               /data
+      # ── Heat notifications (docs/app.md §10, docs/cloud.md) ────────────────
+      # Each node sends for the meets it carries. The key files go in the data
+      # volume; a half left unset offers no bell to that platform's phones.
+      APNS_KEY_FILE:          ${APNS_KEY_FILE:-/data/apns.p8}
+      APNS_KEY_ID:            ${APNS_KEY_ID:-}
+      APNS_TEAM_ID:           ${APNS_TEAM_ID:-}
+      APNS_TOPIC:             ${APNS_TOPIC:-app.splouch.ios}
+      FCM_SERVICE_ACCOUNT_FILE: ${FCM_SERVICE_ACCOUNT_FILE:-/data/fcm.json}
       FORWARDED_ALLOW_IPS:    ${FORWARDED_ALLOW_IPS:-127.0.0.1,::1,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16}
     extra_hosts:
       - "host.docker.internal:host-gateway"
