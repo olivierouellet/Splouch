@@ -154,7 +154,7 @@ Entry screen. Web: site root. App: launch screen, and `A-02`'s return target.
 
 | ID | Feature | Driven by | Scope | Level |
 | --- | --- | --- | --- | --- |
-| `P-01` | Meets as cards: name, date, location, sport, and the organizer's state/province and country (country named in the reader's language) | `GET /meets` ([`api.md`](api.md) §5.6) → `country` (ISO code), `province` | all | must |
+| `P-01` | Meets as cards: name, date, location, sport, and the organizer's state/province and country (country named in the reader's language; state/province named in full when the client knows it — its own name, never translated: *Québec*, *Nuevo León* — else as sent) | `GET /meets` ([`api.md`](api.md) §5.6) → `country` (ISO code), `province` (free text); names from [`shared/regions/subdivisions.json`](../shared/regions/subdivisions.json) (CA, US, MX), matched by code or listed spelling, folded (`S-09`) | all | must |
 | `P-02` | Per-meet picker image on card, if supplied — only while the list is short (`P-18`) | `settings.picker_image_b64` → `GET /picker_image/{meet_id}` | all | should |
 | `P-03` | Offline meets stay listed, dimmed dot; opened → last scoreboard frame, empty Results (`R-02`) | `offline`: retained, no relay connected | all | must |
 | `P-04` | Empty state, no active meets | `strings.no_meets` | all | must |
@@ -260,7 +260,8 @@ the server. Search (`P-17`) answers "where is this meet"; the filter answers "sh
 meets", every launch, without typing.
 
 - **Facets from the list.** Country (named in reader's language), state/province
-  (shown with its country; only those of the chosen countries, once one is chosen), club
+  (named in full as `P-01`, with its country; spellings of one known province — `QC`,
+  `Québec` — are one choice; only those of the chosen countries, once one is chosen), club
   (`organizer`, compared folded as `S-09`). A stored value the list no longer holds stays
   listed, checked, so it can be unchecked.
 - **OR within, AND across.** A meet with a facet's field empty fails that facet while
@@ -1025,6 +1026,8 @@ list until `A-09` says the meet is gone, then deletes it.
 - **v3, amended** (2026-10-06, no bump) — picker filter, native.
 
   - **Added**: `P-21` (filter by country, state/province, club; remembered per app).
+  - **Changed**: `P-01` (state/province named in full from
+    `shared/regions/subdivisions.json`; apps carry copies; searched by that name too).
 
 - **v3, amended** (2026-10-05, no bump) — picker notices out of the way, counting
   refusable. A v3 client that still folds `P-06`/`P-07` keeps working: the server only

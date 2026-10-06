@@ -18,7 +18,7 @@ from; the `diverges` rows are where v2 moved past them.
 
 | ID | Status | Notes |
 | --- | --- | --- |
-| `P-01` | `done` | `picker.html` over `_public_meet_list`; country named by `Intl.DisplayNames` in the page's language |
+| `P-01` | `deferred` | `picker.html` over `_public_meet_list`; country named by `Intl.DisplayNames` in the page's language. State/province still as sent — full name from `shared/regions/subdivisions.json` (2026-10-06) not yet read |
 | `P-02` | `done` | |
 | `P-03` | `done` | |
 | `P-04` | `done` | |
