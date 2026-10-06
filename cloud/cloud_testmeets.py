@@ -34,7 +34,7 @@ import cloud_i18n
 import cloud_paths
 from splouch_i18n import DEFAULT_THEME_COLORS, DEFAULT_THEME_FONTS, compose_event_name
 
-MAX_MEETS = 10
+MAX_MEETS = 15
 DEFAULT_MEETS = 5
 # The `settings` row that remembers how many run, so a restart resumes them.
 SETTING = "test_meets"

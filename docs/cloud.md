@@ -128,7 +128,7 @@ On iOS, tap **Share → Add to Home Screen** for a full-screen app-like experien
 ## Test meets
 
 To try the web page and the apps without a pool, `/admin` → **Test meets** (Admin role)
-starts up to 10 fake meets (5 by default). Each swims five events of two or three heats,
+starts up to 15 fake meets (5 by default). Each swims five events of two or three heats,
 eight lanes, in real time — splits, finishes, places, results, next heats — and starts over
 about every 17 minutes. Validated results follow one or two heats behind, so the schedule
 always shows official times (the odd DSQ among them), then one or two heats of console
@@ -625,7 +625,7 @@ application (l'invitation s'affiche automatiquement à la première visite).
 ### Compétitions test
 
 Pour essayer la page web et les applis sans piscine, `/admin` → **Compétitions test** (rôle
-Admin) démarre jusqu'à 10 fausses compétitions (5 par défaut). Chacune nage cinq épreuves de
+Admin) démarre jusqu'à 15 fausses compétitions (5 par défaut). Chacune nage cinq épreuves de
 deux ou trois séries, huit couloirs, en temps réel — passages, arrivées, rangs, résultats,
 prochaines séries — puis recommence environ toutes les 17 minutes. Les résultats validés
 suivent avec une ou deux séries de retard : le programme montre toujours des temps
