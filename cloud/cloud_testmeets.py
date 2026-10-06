@@ -9,8 +9,11 @@ organizer the database marks `test` (`cloud_auth.test_organizer`), which the
 picker badges and a rollout does not wait for. A Pi's own tests never reach the
 cloud at all (`server/relay._local_only`).
 
-A meet swims a few events of two or three heats, eight lanes, in real time, then
-starts over: the schedule's results are cleared and `test_loop` tells the worker
+A meet swims a few events of two or three heats, eight lanes, in real time.
+Meet Manager's validated results follow one or two heats behind the pool, so the
+schedule always shows the three kinds of lane time side by side (docs/app.md
+`S-22`): official for the older heats, the console's for the last one or two, seeds
+for the heats still to swim. Then it starts over: the schedule's results are cleared and `test_loop` tells the worker
 to forget the loop's console times and which heat notifications were sent, so a
 follower is notified again on the next pass.
 
@@ -37,6 +40,10 @@ POOL_LENGTH = 25
 # Seconds: on the blocks before the start, and the results held after the finish.
 PRE_START = 10
 RESULTS_HOLD = 15
+# How many swum heats wait for validation: one or the other, drawn after each heat.
+CONSOLE_ONLY = (1, 2)
+# One validated lane in this many is a disqualification instead of a time.
+DSQ_ONE_IN = 25
 PING_SECS = 20
 
 # (distance, stroke, gender, age, heats, the fastest seed in seconds)
@@ -187,8 +194,9 @@ def register_meta(meet, key, ticket):
     }
 
 
-def schedule(meet):
-    """The `schedule_snapshot` (docs/api.md §5.5), with no official results."""
+def schedule(meet, results=None):
+    """The `schedule_snapshot` (docs/api.md §5.5), with the official `results` so
+    far (`validate`)."""
     return {
         "events": [[e["num"], sorted(e["heats"])] for e in meet["events"]],
         "names": {str(e["num"]): e["name"] for e in meet["events"]},
@@ -213,8 +221,36 @@ def schedule(meet):
             }
             for e in meet["events"]
         },
-        "results": {},
+        "results": results or {},
     }
+
+
+def official(finals, rng):
+    """A heat's validated results from its console finals: `{lane: {"time",
+    "status"}}`, as Meet Manager would publish them. Mostly the console's time, at
+    times a hundredth or three off (a backup time, a judge's call), now and then a
+    disqualification."""
+    out = {}
+    for lane, (_, t) in finals.items():
+        if rng.randrange(DSQ_ONE_IN) == 0:
+            out[str(lane)] = {"time": "", "status": "DSQ"}
+            continue
+        adjust = 0 if rng.random() < 0.7 else rng.choice((-3, -2, -1, 1, 2, 3))
+        out[str(lane)] = {"time": _lenex(t + adjust), "status": ""}
+    return out
+
+
+def validate(results, swum, lag, rng):
+    """Validate every swum heat but the last `lag`, into `results` (the schedule's
+    `{event: {heat: {lane: …}}}`). `swum` is `[(event, heat, finals)]` in swim
+    order. True when a heat was added."""
+    added = False
+    for event, heat, finals in swum[: max(len(swum) - lag, 0)]:
+        heats_done = results.setdefault(str(event["num"]), {})
+        if str(heat) not in heats_done:
+            heats_done[str(heat)] = official(finals, rng)
+            added = True
+    return added
 
 
 def heats(meet):
@@ -272,9 +308,10 @@ def _results(event, heat, finals):
     }
 
 
-def heat_frames(meet, at, rng):
+def heat_frames(meet, at, rng, finals=None):
     """One heat, as `(seconds to wait first, event, data)`: the heat's frames, from
-    the board filling to the results held. `at` indexes `heats(meet)`."""
+    the board filling to the results held. `at` indexes `heats(meet)`. `finals`,
+    when given, is filled with each lane's `(place, hundredths)` as it touches."""
     event, heat = heats(meet)[at]
     entries = event["heats"][heat]
     n = event["lengths"]
@@ -311,7 +348,7 @@ def heat_frames(meet, at, rng):
 
     # Every touch, in race time: each length a little slower than the first.
     touches = []
-    finals = {}
+    finals = {} if finals is None else finals
     for lane, s in entries.items():
         final = s["seed"] * rng.uniform(0.97, 1.03)
         weights = [1.0] + [1.06] * (n - 1)
@@ -449,10 +486,13 @@ class Runner:
             retime(meet, datetime.datetime.now(), self.speed)
             await _send(ws, "test_loop", {})
             await _send(ws, "schedule_snapshot", schedule(meet))
+            swum, results = [], {}
             for at in range(len(heats(meet))):
                 event, heat = heats(meet)[at]
                 self.state[i] |= {"event": event["num"], "heat": heat}
-                for wait, name, data in heat_frames(meet, at, rng):
+                finals = {}
+                swum.append((event, heat, finals))
+                for wait, name, data in heat_frames(meet, at, rng, finals):
                     # Sleep in slices so an idle hold still pings the worker.
                     remaining = wait / self.speed
                     while remaining > 0:
@@ -468,6 +508,10 @@ class Runner:
                     if name:
                         await _send(ws, name, data)
                         last_send = asyncio.get_running_loop().time()
+                # The results held, the next heat to the blocks: Meet Manager
+                # catches up to within one or two heats of the pool.
+                if validate(results, swum, rng.choice(CONSOLE_ONLY), rng):
+                    await _send(ws, "schedule_snapshot", schedule(meet, results))
 
 
 def _connect(url):

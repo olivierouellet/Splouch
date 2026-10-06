@@ -123,6 +123,36 @@ def test_the_schedule_names_every_heat_and_its_start_list():
     assert s["results"] == {}
 
 
+def test_validated_results_are_meet_manager_shaped():
+    meet = tm.build_meet(1)
+    finals = {}
+    for _ in tm.heat_frames(meet, 0, random.Random(1), finals):
+        pass
+    entries = meet["events"][0]["heats"][1]
+    assert set(finals) == set(entries)
+    out = tm.official(finals, random.Random(2))
+    assert set(out) == {str(lane) for lane in entries}
+    for r in out.values():
+        if r["status"]:
+            assert r == {"time": "", "status": "DSQ"}
+        else:
+            assert re.match(r"^\d{2}:\d{2}:\d{2}\.\d{2}$", r["time"])
+
+
+@pytest.mark.parametrize("lag", tm.CONSOLE_ONLY)
+def test_validation_leaves_the_last_heats_to_the_console(lag):
+    meet = tm.build_meet(1)
+    order = tm.heats(meet)
+    swum, results = [], {}
+    rng = random.Random(3)
+    assert not tm.validate(results, swum, lag, rng)
+    for e, h in order[:4]:
+        swum.append((e, h, {1: (1, 3000.0)}))
+        tm.validate(results, swum, lag, rng)
+    validated = [(int(ev), int(h)) for ev, hs in results.items() for h in hs]
+    assert validated == [(e["num"], h) for e, h in order[: 4 - lag]]
+
+
 def test_a_loop_is_timed_from_when_it_starts():
     meet = tm.build_meet(1)
     tm.retime(meet, datetime.datetime(2026, 10, 6, 14, 0))
@@ -197,6 +227,21 @@ def test_a_meet_registers_then_loops_with_a_clean_start_each_pass():
     meet = tm.build_meet(1)
     assert heats == [(str(e["num"]), str(h)) for e, h in tm.heats(meet)]
     assert status[0]["connected"] and status[0]["meet_id"] == "m-test-1"
+
+    # Every schedule sent mid-pass: official for the older heats, the console's
+    # alone for the last one or two swum, seeds for the rest.
+    started, checked = 0, 0
+    for m in sent[first_loop:second]:
+        if m["event"] == "update_scoreboard" and "current_heat" in m["data"]:
+            started += 1
+        elif m["event"] == "schedule_snapshot" and started:
+            results = m["data"]["results"]
+            official = sum(len(hs) for hs in results.values())
+            assert started - official in tm.CONSOLE_ONLY
+            checked += 1
+    # A heat that adds nothing to validate sends nothing; by the end of the pass
+    # all but the last one or two are official.
+    assert checked and official >= len(heats) - max(tm.CONSOLE_ONLY)
 
 
 def test_start_caps_the_count_and_stop_ends_every_meet():

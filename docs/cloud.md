@@ -130,7 +130,9 @@ On iOS, tap **Share → Add to Home Screen** for a full-screen app-like experien
 To try the web page and the apps without a pool, `/admin` → **Test meets** (Admin role)
 starts up to 10 fake meets (5 by default). Each swims five events of two or three heats,
 eight lanes, in real time — splits, finishes, places, results, next heats — and starts over
-about every 17 minutes. They are listed on the picker like any meet, with a **TEST** badge
+about every 17 minutes. Validated results follow one or two heats behind, so the schedule
+always shows official times (the odd DSQ among them), then one or two heats of console
+times, then seed times. They are listed on the picker like any meet, with a **TEST** badge
 (`"test": true` in `GET /meets`), under an organizer of their own that the Organizers tab
 does not show.
 
@@ -625,7 +627,10 @@ application (l'invitation s'affiche automatiquement à la première visite).
 Pour essayer la page web et les applis sans piscine, `/admin` → **Compétitions test** (rôle
 Admin) démarre jusqu'à 10 fausses compétitions (5 par défaut). Chacune nage cinq épreuves de
 deux ou trois séries, huit couloirs, en temps réel — passages, arrivées, rangs, résultats,
-prochaines séries — puis recommence environ toutes les 17 minutes. Elles figurent dans le
+prochaines séries — puis recommence environ toutes les 17 minutes. Les résultats validés
+suivent avec une ou deux séries de retard : le programme montre toujours des temps
+officiels (avec une disqualification de temps en temps), puis une ou deux séries de temps de
+console, puis les temps d'inscription. Elles figurent dans le
 sélecteur comme toute compétition, avec un badge **TEST** (`"test": true` dans
 `GET /meets`), sous un organisateur à part que l'onglet Organisateurs n'affiche pas.
 
