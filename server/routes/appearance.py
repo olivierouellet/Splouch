@@ -14,11 +14,17 @@ router = APIRouter(tags=["Appearance"])
 
 @router.get("/images/{filename:path}")
 def serve_image(filename: str):
-    # realpath and a separator-aware comparison: a bare `startswith` let a sibling
-    # whose name begins `images` through, and normpath leaves symlinks unresolved.
+    # The folder is flat — uploads are stored under their basename — so only a bare
+    # filename can name an image. Then resolved and checked against the folder *with*
+    # its separator: a bare `startswith(root)` let a sibling whose name begins
+    # `images` through, and normpath alone leaves symlinks unresolved.
+    if not filename or os.path.basename(filename) != filename:
+        raise HTTPException(404)
     root = os.path.realpath(state.IMAGES_DIR)
     path = os.path.realpath(os.path.join(root, filename))
-    if os.path.commonpath([root, path]) != root or not os.path.isfile(path):
+    if not path.startswith(root + os.sep):
+        raise HTTPException(404)
+    if not os.path.isfile(path):
         raise HTTPException(404)
     return FileResponse(path)
 
