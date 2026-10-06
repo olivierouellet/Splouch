@@ -46,6 +46,8 @@ dev = [
     "pytest",
     "pytest-cov",
     "ruff",
+    # The PNG copy of an SVG picker logo, for the apps (cloud/cloud_control.py).
+    "resvg-py>=0.5.0",
     "ty",
 ]
 # Non-Python linters, pinned by uv.lock like the rest. Opt-in — `uv sync --group

@@ -5,3 +5,4 @@ python-multipart
 psycopg[binary]
 psycopg-pool
 prometheus-client
+resvg-py

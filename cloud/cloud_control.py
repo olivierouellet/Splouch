@@ -23,9 +23,11 @@ import os
 import re
 import traceback
 import urllib.request
+import xml.etree.ElementTree as ET
 from contextlib import asynccontextmanager, suppress
 from typing import Any
 
+import resvg_py
 from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request
 from fastapi.openapi.docs import get_redoc_html, get_swagger_ui_html
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Response
@@ -218,6 +220,58 @@ LOGO_MIME_TYPES = (
 )
 ICON_MIME_TYPES = ("image/png",)
 MAX_IMAGE_BYTES = 2 * 1024 * 1024
+# The apps draw the logo with the platform's bitmap decoder (UIImage, BitmapFactory)
+# and neither reads SVG, so an SVG logo also gets a PNG copy, rendered once at
+# upload, for every client whose Accept does not name SVG. The longest side is the
+# Android app's own decode cap: anything larger it would only scale down.
+LOGO_RASTER_SIDE = 1024
+
+
+def _svg_aspect(root):
+    """Width over height of an SVG, from width/height in one unit, else its viewBox."""
+
+    def length(name):
+        m = re.fullmatch(r"\s*([0-9]*\.?[0-9]+)\s*([a-z]*)\s*", root.get(name) or "")
+        return (float(m[1]), m[2]) if m and float(m[1]) > 0 else None
+
+    w, h = length("width"), length("height")
+    if w and h and w[1] == h[1]:
+        return w[0] / h[0]
+    box = re.split(r"[\s,]+", (root.get("viewBox") or "").strip())
+    with suppress(ValueError):
+        if len(box) == 4 and float(box[2]) > 0 and float(box[3]) > 0:
+            return float(box[2]) / float(box[3])
+    return 1.0
+
+
+def _svg_to_png(data):
+    """The PNG copy of an SVG logo, or None when the SVG cannot be read.
+
+    External references are dropped first. A browser's `<img>` loads none, so the
+    copy matches what the web page shows, and resvg would otherwise open any path an
+    `<image href>` names, drawing this server's own files into the logo.
+    """
+    try:
+        root = ET.fromstring(data)
+    except ET.ParseError:
+        return None
+    for el in root.iter():
+        for key in [k for k in el.attrib if k == "href" or k.endswith("}href")]:
+            if not el.attrib[key].lstrip().startswith(("#", "data:")):
+                del el.attrib[key]
+    wide = _svg_aspect(root) >= 1
+    # resvg's default DPI is 0, which turns every mm/pt/in size (as print tools
+    # export) into an "invalid size"; 96 is the CSS pixel browsers assume.
+    try:
+        png = resvg_py.svg_to_bytes(
+            svg_string=ET.tostring(root, "unicode"),
+            width=LOGO_RASTER_SIDE if wide else None,
+            height=None if wide else LOGO_RASTER_SIDE,
+            dpi=96,
+        )
+        return bytes(png)
+    except ValueError:
+        return None
 
 
 def _picker_appearance():
@@ -908,13 +962,19 @@ def route_meet_picker_image(meet_id: str):
 
 
 @app.get("/picker_logo", tags=["Public"])
-def route_picker_logo():
+def route_picker_logo(request: Request):
     creds = _load_creds()
     logo_b64 = creds.get("picker_logo_b64", "")
     if not logo_b64:
         raise HTTPException(404)
-    data = base64.b64decode(logo_b64)
     mime = creds.get("picker_logo_mime", "image/png")
+    # Every browser's `<img>` names SVG in its Accept; the apps' loaders do not, and
+    # get the PNG copy. A logo stored before the copy existed has none to give.
+    png_b64 = creds.get("picker_logo_png_b64", "")
+    accept = request.headers.get("accept", "")
+    if mime == "image/svg+xml" and png_b64 and "image/svg+xml" not in accept:
+        logo_b64, mime = png_b64, "image/png"
+    data = base64.b64decode(logo_b64)
     # An SVG logo is a document, not a bitmap: opened directly (rather than through
     # the `<img>` on the picker page, which already inerts it) it would run its own
     # script on this origin. The sandbox costs nothing for the other formats.
@@ -924,6 +984,7 @@ def route_picker_logo():
         headers={
             "Cache-Control": "public, max-age=300",
             "Content-Security-Policy": "default-src 'none'; sandbox",
+            "Vary": "Accept",
             "X-Content-Type-Options": "nosniff",
         },
     )
@@ -1039,12 +1100,19 @@ async def route_picker_appearance(request: Request):
     if form.get("picker_logo_clear") == "1":
         creds["picker_logo_b64"] = ""
         creds.pop("picker_logo_mime", None)
+        creds.pop("picker_logo_png_b64", None)
     else:
         logo = form.get("picker_logo")
         if isinstance(logo, UploadFile) and logo.filename:
             data, mime, error = await _read_image(logo, LOGO_MIME_TYPES)
             if error:
                 return {"ok": False, "error": error}
+            creds.pop("picker_logo_png_b64", None)
+            if mime == "image/svg+xml":
+                png = await run_in_threadpool(_svg_to_png, data)
+                if png is None:
+                    return {"ok": False, "error": "This SVG could not be read."}
+                creds["picker_logo_png_b64"] = base64.b64encode(png).decode()
             creds["picker_logo_b64"] = base64.b64encode(data).decode()
             creds["picker_logo_mime"] = mime
     if form.get("picker_icon_clear") == "1":
