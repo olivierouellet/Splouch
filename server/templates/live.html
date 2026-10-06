@@ -142,7 +142,11 @@ function stop_chrono() {
 function tick_chrono() {
     if (_chrono_base === null) return;
     var elapsed = Math.floor((Date.now() - _chrono_at) / 10);
-    document.getElementById('live_chrono').textContent = formatHundredths(_chrono_base + elapsed);
+    /* Interpolate in hundredths, show tenths — the hundredths digit held at zero,
+       as the Qt board does (fmt_clock tenths=True). The console only reports
+       tenths while a race runs, so that digit was ours alone, strobing. */
+    var h = _chrono_base + elapsed;
+    document.getElementById('live_chrono').textContent = formatHundredths(h - h % 10);
 }
 
 /* Fields the socket handler may write directly to the DOM — as text, never markup:
