@@ -165,7 +165,7 @@ class _FakeRequest:
     def __init__(self, form):
         self._form = form
         self.method = "POST"
-        self.session = {"user": "test"}
+        self.session = {"user": "score"}  # the owner, as shipped
         self.url = type("U", (), {"path": "/settings"})()
         self.cookies = {}
         self.headers = {}
@@ -465,6 +465,7 @@ def _admin_html(rows):
     with open(os.path.join(REPO, "shared", "locales", "panel", "en.toml"), "rb") as f:
         t = tomllib.load(f)
     return env.get_template("admin.html").render(
+        roles=("admin", "meets", "organizers", "appearance"),
         t={**t["chrome"], **t["cloud"]},
         has_deploy=True,
         creds_error=None,

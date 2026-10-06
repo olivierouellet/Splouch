@@ -19,8 +19,9 @@ the bottom of the sidebar → **Change password**.
 | `/mobile` | Mobile shell — three-tab view (Scoreboard, Results, Schedule) |
 | `/results` | Results after each heat |
 | `/schedule` | Meet schedule with start times and heat entry lists |
-| `/console` | Live serial console viewer |
-| `/settings` | Admin settings (login required) |
+| `/console` | Live serial console viewer (login with the **Console** page required) |
+| `/mm` | Meet Manager re-upload (login with the **Meet Manager** page required) |
+| `/settings` | Admin settings (login with the **Settings** page required) |
 
 Append `?test` to `/live` to overlay mode buttons (Intro, Running, Results, Next Heat) on the board — useful for testing without a live console.
 
@@ -71,10 +72,16 @@ no event or heat number at all, so `/manual` is how you supply it.
 | **Terminal** | In-browser terminal — Shell, raspi-config, Scoreboard logs, dmesg, serial ports |
 | **Cloud** | Cloud relay URL and key; per-meet picker appearance (title, image, home icon, location, sport) |
 | **Power** | Restart the app service, reboot, or shut down the Pi — press-and-hold to confirm |
-| **Account** | Change the admin UI username and password (via the sidebar account menu) |
+| **Users** | Add people with their own login, each allowed only some pages: **Settings** (this panel, and every page), **Console** (`/console`), **Meet Manager** (`/mm`). Changing someone's password or pages, or deleting them, signs them out |
+| **Account** | Change your own password, and the owner's username (via the sidebar account menu) |
 
 > In the sidebar, **Display / Theme** live under the **Scoreboard** group, and **Test /
 > Terminal** under **Debug**; **Account** opens from the user menu at the bottom.
+
+The first login (`score` until changed) is the **owner**: it always has every page and
+cannot be deleted. Someone signing in lands on the first page they may open. `/console`
+gates the page only — the scoreboard feed behind it (`/ws/scoreboard`) stays open on the
+LAN, as the displays need it.
 
 ---
 
@@ -341,8 +348,9 @@ passe**.
 | `/mobile` | Coquille mobile — trois onglets (Tableau, Résultats, Programme) |
 | `/results` | Résultats après chaque série |
 | `/schedule` | Programme de la compétition avec heures de départ et listes de départ par série |
-| `/console` | Visualiseur de la console série en direct |
-| `/settings` | Réglages d'administration (connexion requise) |
+| `/console` | Visualiseur de la console série en direct (connexion avec la page **Console** requise) |
+| `/mm` | Renvoi du fichier Meet Manager (connexion avec la page **Meet Manager** requise) |
+| `/settings` | Réglages d'administration (connexion avec la page **Paramètres** requise) |
 
 Ajoutez `?test` à `/live` pour superposer des boutons de mode (Intro, Running, Results, Next
 Heat) sur le tableau — utile pour tester sans console branchée.
@@ -393,10 +401,17 @@ mais n'envoie aucun numéro d'épreuve ni de série ; c'est donc `/manual` qui l
 | **Terminal** | Terminal dans le navigateur — Shell, raspi-config, journaux du tableau, dmesg, ports série |
 | **Nuage** | URL et clé du relais cloud ; apparence de la compétition dans le sélecteur (titre, image, icône, lieu, sport) |
 | **Alimentation** | Redémarrer le service, redémarrer ou éteindre le Pi — maintenir appuyé pour confirmer |
-| **Compte** | Changer l'identifiant et le mot de passe d'administration (depuis le menu utilisateur de la barre latérale) |
+| **Utilisateurs** | Ajouter des personnes avec leur propre connexion, chacune limitée à certaines pages : **Paramètres** (ce panneau, et toutes les pages), **Console** (`/console`), **Meet Manager** (`/mm`). Changer le mot de passe ou les pages de quelqu'un, ou le supprimer, le déconnecte |
+| **Compte** | Changer votre propre mot de passe, et l'identifiant du propriétaire (depuis le menu utilisateur de la barre latérale) |
 
 > Dans la barre latérale, **Affichage / Thème** sont regroupés sous **Tableau**, et **Test /
 > Terminal** sous **Débogage** ; **Compte** s'ouvre depuis le menu utilisateur en bas.
+
+La première connexion (`score` tant qu'elle n'est pas changée) est le **propriétaire** : elle
+a toujours toutes les pages et ne peut pas être supprimée. Une personne qui se connecte arrive
+sur la première page qu'elle peut ouvrir. `/console` ne protège que la page — le flux du
+tableau derrière (`/ws/scoreboard`) reste ouvert sur le réseau local, les affichages en ont
+besoin.
 
 ---
 

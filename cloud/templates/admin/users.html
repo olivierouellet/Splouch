@@ -1,0 +1,62 @@
+        <div class="tab-pane" id="tab-users">
+            <p class="text-body-secondary small">{{ t.users_intro }}</p>
+            {% if users_error %}<div class="alert alert-danger py-2">{{ users_error }}</div>{% endif %}
+            <div class="card mb-3"><div class="card-body">
+                <div class="d-flex align-items-center gap-2 mb-2">
+                    <strong>{{ owner_name }}</strong>
+                    <span class="badge text-bg-secondary">{{ t.users_owner }}</span>
+                </div>
+                {% for u in admin_users %}
+                {% set row = loop.index %}
+                <hr>
+                <form method="post" class="row g-2 align-items-center">
+                    <input type="hidden" name="user_name" value="{{ u.name }}">
+                    <div class="col-md-3"><strong>{{ u.name }}</strong></div>
+                    <div class="col-md-4">
+                        {% for role in cloud_roles %}
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="checkbox" name="user_roles" value="{{ role }}" id="user-{{ row }}-{{ role }}"{% if role in u.roles %} checked{% endif %}>
+                            <label class="form-check-label" for="user-{{ row }}-{{ role }}">{{ t['role_' ~ role] }}</label>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    <div class="col-md-3">
+                        <input name="user_password" type="password" autocomplete="new-password" class="form-control form-control-sm" placeholder="{{ t.user_new_password_ph }}">
+                    </div>
+                    <div class="col-md-2 d-flex gap-1">
+                        <button type="submit" name="action" value="user_save" class="btn btn-secondary btn-sm">{{ t.save }}</button>
+                        <button type="submit" name="action" value="user_delete" class="btn btn-outline-danger btn-sm"
+                            onclick="return confirm({{ t.users_delete_confirm | tojson | forceescape }});">{{ t.users_delete }}</button>
+                    </div>
+                </form>
+                {% else %}
+                <hr>
+                <p class="text-body-secondary small mb-0">{{ t.users_none }}</p>
+                {% endfor %}
+            </div></div>
+            <div class="card"><div class="card-body">
+                <form method="post" class="row g-2 align-items-end">
+                    <input type="hidden" name="action" value="user_add">
+                    <div class="col-md-3">
+                        <label for="user-add-name" class="form-label">{{ t.user_name }}</label>
+                        <input name="user_name" id="user-add-name" autocomplete="off" class="form-control form-control-sm">
+                    </div>
+                    <div class="col-md-4">
+                        <div class="form-label">{{ t.user_tabs }}</div>
+                        {% for role in cloud_roles %}
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="checkbox" name="user_roles" value="{{ role }}" id="user-add-{{ role }}">
+                            <label class="form-check-label" for="user-add-{{ role }}">{{ t['role_' ~ role] }}</label>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    <div class="col-md-3">
+                        <label for="user-add-password" class="form-label">{{ t.new_password }}</label>
+                        <input name="user_password" id="user-add-password" type="password" autocomplete="new-password" class="form-control form-control-sm">
+                    </div>
+                    <div class="col-md-2">
+                        <button type="submit" class="btn btn-primary btn-sm">{{ t.users_add }}</button>
+                    </div>
+                </form>
+            </div></div>
+        </div>

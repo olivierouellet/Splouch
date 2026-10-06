@@ -2,11 +2,14 @@
             <div class="row"><div class="col-lg-8">
                 <div class="card">
                     <div class="card-body">
+                        {% if account_error %}
+                        <div class="alert alert-danger py-2">{{ t[account_error] }}</div>
+                        {% endif %}
                         <form id="account_form" action="/settings" method="POST">
                             <div class="row g-3 mb-1">
                                 <div class="col-md-6">
                                     <label for="user_name" class="form-label">{{ t.account_user_name }}</label>
-                                    <input name="user_name" id="user_name" value="{{ user_name }}" class="form-control">
+                                    <input name="user_name" id="user_name" value="{{ user_name }}" class="form-control"{% if user_name != owner_name %} readonly{% endif %}>
                                 </div>
                             </div>
                             <hr>

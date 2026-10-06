@@ -8,8 +8,10 @@ internal API.
   country, state/province and region the admin records for them
   (docs/architecture/scaling.md). A Pi sends its key on `register`; the worker
   asks the control plane, which accepts or rejects it.
-* **The admin login and server settings** — one username and password guarding
-  `/admin`, and the settings the panel edits (picker appearance, the analytics
+* **Other admin users** — each with their own login and only some of the panel's
+  tabs (`CLOUD_ROLES`). The login above is the owner's and always has every tab.
+* **The admin login and server settings** — the owner's username and password
+  guarding `/admin`, and the settings the panel edits (picker appearance, the analytics
   switch, the public-page locale). Seeded from the environment on first run, then
   owned by the database so a password change survives a redeploy. Read and
   written together as one dict, the shape `credentials.json` had, so the panel's
@@ -318,24 +320,160 @@ def _admin_note_success(ip):
         _admin_fails.pop(ip, None)
 
 
-def check_admin(request):
-    hdr = request.headers.get("Authorization", "")
-    if not hdr.startswith("Basic "):
-        return False
-    try:
-        user, _, pw = base64.b64decode(hdr[6:]).decode().partition(":")
-    except Exception:
-        return False
+# ── Other admin users ──────────────────────────────────────────────────────────
+# `admin` is everything, users and the infrastructure tabs included, and implies
+# the rest; the others are one tab each.
+CLOUD_ROLES = ("admin", "meets", "organizers", "appearance")
+
+
+def clean_roles(roles):
+    return [r for r in CLOUD_ROLES if r in set(roles or ())]
+
+
+def expand_roles(roles):
+    roles = set(clean_roles(roles))
+    return set(CLOUD_ROLES) if "admin" in roles else roles
+
+
+def load_users():
+    """Every non-owner user, oldest first, without their password."""
+    with cloud_db.conn() as c:
+        rows = c.execute(
+            "SELECT username, roles FROM admin_users ORDER BY created, username"
+        ).fetchall()
+    return [{"name": r["username"], "roles": clean_roles(r["roles"])} for r in rows]
+
+
+def _user_row(name):
+    with cloud_db.conn() as c:
+        return c.execute(
+            "SELECT * FROM admin_users WHERE username = %s", (name,)
+        ).fetchone()
+
+
+def user_exists(name):
+    return name == load_creds()["user"] or _user_row(name) is not None
+
+
+def add_user(name, password, roles):
+    pw_hash, salt = hash_password(password)
+    with cloud_db.conn() as c:
+        c.execute(
+            "INSERT INTO admin_users (username, password_hash, salt, roles) "
+            "VALUES (%s, %s, %s, %s)",
+            (name, pw_hash, salt, clean_roles(roles)),
+        )
+
+
+def update_user(name, password=None, roles=None):
+    with cloud_db.conn() as c:
+        if password:
+            pw_hash, salt = hash_password(password)
+            c.execute(
+                "UPDATE admin_users SET password_hash = %s, salt = %s "
+                "WHERE username = %s",
+                (pw_hash, salt, name),
+            )
+        if roles is not None:
+            c.execute(
+                "UPDATE admin_users SET roles = %s WHERE username = %s",
+                (clean_roles(roles), name),
+            )
+
+
+def delete_user(name):
+    with cloud_db.conn() as c:
+        c.execute("DELETE FROM admin_users WHERE username = %s", (name,))
+
+
+def dump_users():
+    """Every non-owner user with their password hash, for a full backup."""
+    with cloud_db.conn() as c:
+        rows = c.execute(
+            "SELECT username, password_hash, salt, roles FROM admin_users "
+            "ORDER BY created, username"
+        ).fetchall()
+    return [
+        {
+            "name": r["username"],
+            "password_hash": r["password_hash"],
+            "salt": r["salt"],
+            "roles": clean_roles(r["roles"]),
+        }
+        for r in rows
+    ]
+
+
+def restore_users(users):
+    """Upsert a full backup's users. Ones not in the backup are left alone."""
+    with cloud_db.conn() as c:
+        for u in users:
+            if not isinstance(u, dict) or not u.get("name"):
+                continue
+            c.execute(
+                "INSERT INTO admin_users (username, password_hash, salt, roles) "
+                "VALUES (%s, %s, %s, %s) ON CONFLICT (username) DO UPDATE SET "
+                "password_hash = EXCLUDED.password_hash, salt = EXCLUDED.salt, "
+                "roles = EXCLUDED.roles",
+                (
+                    str(u["name"]),
+                    str(u.get("password_hash", "")),
+                    str(u.get("salt", "")),
+                    clean_roles(u.get("roles")),
+                ),
+            )
+
+
+def verify_user(name, password):
+    """The tabs *name* may open when *password* is theirs, else None. One PBKDF2
+    whichever way it goes, so the time taken does not say whether a name exists."""
     creds = load_creds()
     # compare_digest on the username too: `!=` returns on the first differing
     # character, which given enough attempts reveals it.
-    ok_user = hmac.compare_digest(user, creds["user"])
-    pw_hash, _ = hash_password(pw, creds["salt"])
-    ok_pw = hmac.compare_digest(pw_hash, creds["password_hash"])
-    return ok_user and ok_pw
+    if hmac.compare_digest(name, creds["user"]):
+        stored, salt, roles = creds["password_hash"], creds["salt"], CLOUD_ROLES
+    else:
+        row = _user_row(name)
+        if row is None:
+            stored, salt, roles = "", "0" * 32, None
+        else:
+            stored, salt, roles = row["password_hash"], row["salt"], row["roles"]
+    pw_hash, _ = hash_password(password, salt)
+    if roles is None or not hmac.compare_digest(pw_hash, stored):
+        return None
+    return expand_roles(roles)
 
 
-def require_admin(request: Request):
+def authenticate(request):
+    """`(name, roles)` for the request's Basic credentials, or None."""
+    hdr = request.headers.get("Authorization", "")
+    if not hdr.startswith("Basic "):
+        return None
+    try:
+        user, _, pw = base64.b64decode(hdr[6:]).decode().partition(":")
+    except Exception:
+        return None
+    roles = verify_user(user, pw)
+    return None if roles is None else (user, roles)
+
+
+def check_admin(request):
+    return authenticate(request) is not None
+
+
+def require_role(role):
+    """FastAPI dependency factory: a signed-in user who may open *role*'s tab, or
+    any signed-in user when *role* is None. Leaves who it is in
+    `request.state.admin_user` / `admin_roles` for the panel to read."""
+
+    def dependency(request: Request):
+        _guard(request, role)
+
+    dependency.role = role
+    return dependency
+
+
+def _guard(request: Request, role):
     # Basic credentials are cached by the browser and sent on a cross-site form POST
     # too, so without this any page the admin visits could submit to /admin. Only
     # writes: a cross-site GET cannot read the reply, and a link to /admin from
@@ -355,7 +493,8 @@ def require_admin(request: Request):
             detail="Too many failed sign-in attempts. Try again later.",
             headers={"Retry-After": str(int(_ADMIN_FAIL_WINDOW))},
         )
-    if not check_admin(request):
+    who = authenticate(request)
+    if who is None:
         _admin_note_failure(ip)
         raise HTTPException(
             status_code=401,
@@ -363,3 +502,12 @@ def require_admin(request: Request):
             headers={"WWW-Authenticate": 'Basic realm="Splouch Admin"'},
         )
     _admin_note_success(ip)
+    # A test's stand-in request may have no `state`; a real one always does.
+    if hasattr(request, "state"):
+        request.state.admin_user, request.state.admin_roles = who
+    if role is not None and role not in who[1]:
+        raise HTTPException(status_code=403, detail="Not allowed for this user")
+
+
+# Everything but the tabs other roles name: users, nodes, update, backup, debug.
+require_admin = require_role("admin")

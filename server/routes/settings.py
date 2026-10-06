@@ -28,7 +28,7 @@ from meet_data import (
 from meet_parsers.lenex_parser import ROUND_NAMES, load_lenex
 from routes.qr import invite as qr_invite
 from splouch_regions import COUNTRIES, clean_location
-from web import credentials_stamp, render, require_login, save_upload
+from web import credentials_stamp, render, require_login, require_role, save_upload
 from worker import _restart_worker
 
 router = APIRouter(tags=["Settings"])
@@ -129,7 +129,7 @@ def _candidate_meet_uid(path, name):
     return state.uid_from_meet_info(data.meet_info, base)
 
 
-@router.post("/meet_update_file", dependencies=[Depends(require_login)])
+@router.post("/meet_update_file", dependencies=[Depends(require_role("mm"))])
 async def route_meet_update_file(request: Request):
     """Replace the loaded meet's file in place, keeping its cloud link.
 
@@ -203,6 +203,7 @@ async def route_settings(request: Request):
 # reduces the value to a bare filename first.
 _NOT_SWEPT = {
     "username",
+    "users",
     "password",
     "password_hash",
     "splash_url",
@@ -257,7 +258,37 @@ def _console_info_in(t, console_type):
     }
 
 
+def _users_action(form):
+    """Add, change or delete one of the non-owner users. Returns an error key, or
+    None once settings changed."""
+    action = form.get("users_action", "")
+    name = form.get("users_name", "").strip()
+    password = form.get("users_password", "")
+    roles = state.clean_roles(form.getlist("users_roles"))
+    if not name:
+        return "users_error_name"
+    if action == "add":
+        if state.user_exists(name):
+            return "users_error_exists"
+        if not password:
+            return "users_error_password"
+        if not roles:
+            return "users_error_roles"
+        state.add_user(name, password, roles)
+    elif action == "save":
+        if not roles:
+            return "users_error_roles"
+        if not state.update_user(name, password=password or None, roles=roles):
+            return "users_error_name"
+    elif action == "delete":
+        state.delete_user(name)
+    else:
+        return "users_error_name"
+    return None
+
+
 def _settings_view(request, form):
+    users_error = account_error = None
     if request.method == "POST":
         modified = False
         icon_error = None
@@ -553,6 +584,10 @@ def _settings_view(request, form):
 
                 _relay.update_metadata()
 
+        if "users_action" in form:
+            users_error = _users_action(form)
+            modified = users_error is None
+
         if "meet_appearance_submit" in form:
             # Per-meet cloud appearance — saved to the loaded meet's profile so
             # each meet (e.g. each day of a split meet) keeps its own.
@@ -628,22 +663,32 @@ def _settings_view(request, form):
 
                 _relay.update_metadata()
 
-        elif "cloud_settings_submit" not in form:
+        elif "cloud_settings_submit" not in form and "users_action" not in form:
+            # The account form changes the signed-in user's own login. Only the
+            # owner can rename here: another user's name is what the owner gave them.
+            me = str(request.session.get("user", ""))
             new_name = form.get("user_name", "").strip()
-            if new_name and new_name != state.settings.get("username"):
-                state.settings["username"] = new_name
-                modified = True
             new_pass = form.get("password", "").strip()
-            if new_pass and not state.check_password(new_pass):
-                state.set_password(new_pass)
+            if new_pass and new_pass != form.get("password2", new_pass).strip():
+                account_error = "account_error_mismatch"
+            elif state.is_owner(me):
+                if new_name and new_name != state.settings.get("username"):
+                    if state.find_user(new_name) is not None:
+                        account_error = "users_error_exists"
+                    else:
+                        state.settings["username"] = new_name
+                        me = new_name
+                        modified = True
+                if new_pass and not state.check_password(new_pass):
+                    state.set_password(new_pass)
+                    modified = True
+            elif new_pass and state.update_user(me, password=new_pass):
                 modified = True
-            if (
-                state.settings.get("username"),
-                state.settings.get("password_hash"),
-            ) != (before.get("username"), before.get("password_hash")):
-                # Every other session ends with the old login (web.signed_in); the
-                # one that changed it carries on under the new one.
-                request.session["cred"] = credentials_stamp()
+            if modified:
+                # Every other session of this user ends with the old login
+                # (web.signed_in); the one that changed it carries on under the new.
+                request.session["user"] = me
+                request.session["cred"] = credentials_stamp(me)
             # Generic sweep, so a form field with no dedicated handler still
             # saves. Two rules keep it from doing damage:
             #
@@ -755,7 +800,15 @@ def _settings_view(request, form):
         # nothing to open, nothing to connect to and no packets to watch. Read off
         # the live decoder so a portless local-only plugin gets the same treatment.
         console_requires_serial=state._decoder.requires_serial,
-        user_name=state.settings["username"],
+        user_name=request.session.get("user") or state.settings["username"],
+        owner_name=state.settings["username"],
+        users=[
+            {"name": u.get("name", ""), "roles": state.clean_roles(u.get("roles"))}
+            for u in state.users()
+        ],
+        user_roles=state.ROLES,
+        users_error=users_error,
+        account_error=account_error,
         splash_url_list=splash_url_list,
         splash_url=state.settings.get("splash_url", ""),
         carousel_interval=int(state.settings.get("carousel_interval", 10)),

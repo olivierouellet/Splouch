@@ -880,7 +880,7 @@ Not on any phone client, now or planned:
 | Operator controls — start, heat advance, column toggles | Pi admin web UI |
 | Settings panel | browser, laptop on LAN ([`docs/architecture/native-app-strategy.md`](architecture/native-app-strategy.md)) |
 | Cloud admin — retention, relay keys, attendance stats | `cloud/templates/admin.html`, password-gated |
-| Console/terminal views, `/ws/settings`, `/ws/terminal` | admin only ([`api.md`](api.md) §2) |
+| Console/terminal views, `/ws/settings`, `/ws/terminal` | signed-in users with that page ([`admin.md`](admin.md) Users, [`api.md`](api.md) §2) |
 | Full-screen kiosk board | Qt display, [`docs/architecture/scoreboard-parity.md`](architecture/scoreboard-parity.md) |
 | Kiosk carousel, test banner, operator column collapse | kiosk board `server/templates/live.html`, mirrored by Qt display ([`docs/architecture/cloud-parity.md`](architecture/cloud-parity.md)) |
 

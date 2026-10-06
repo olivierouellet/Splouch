@@ -206,6 +206,20 @@ MIGRATIONS = [
             ON CONFLICT (code) DO NOTHING;
         """,
     ),
+    (
+        9,
+        """
+        -- Admin panel users besides the one in `admin`, which stays the owner:
+        -- each opens only the tabs its roles name (cloud_auth.CLOUD_ROLES).
+        CREATE TABLE admin_users (
+            username      text PRIMARY KEY,
+            password_hash text NOT NULL,
+            salt          text NOT NULL,
+            roles         text[] NOT NULL DEFAULT '{}',
+            created       timestamptz NOT NULL DEFAULT now()
+        );
+        """,
+    ),
 ]
 
 # Tables holding data, in an order TRUNCATE accepts. Tests empty these between
@@ -218,6 +232,7 @@ DATA_TABLES = (
     "organizers",
     "settings",
     "admin",
+    "admin_users",
 )
 
 

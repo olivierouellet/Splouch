@@ -1,12 +1,19 @@
 import os
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Depends, Request
 
 import state
 from console_decoders import console_info_for
 from console_decoders.utils import split_step
 from meet_data import build_heats
-from web import client_strings, display_config, redirect, remember_prefs, render
+from web import (
+    client_strings,
+    display_config,
+    redirect,
+    remember_prefs,
+    render,
+    require_role,
+)
 
 router = APIRouter(tags=["Scoreboard"])
 
@@ -174,7 +181,7 @@ def route_manual(request: Request):
     )
 
 
-@router.get("/console")
+@router.get("/console", dependencies=[Depends(require_role("console"))])
 def route_console(request: Request):
     return render(
         request,

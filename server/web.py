@@ -66,12 +66,16 @@ class LogTail(BaseModel):
 
 
 class NotAuthenticated(Exception):
-    """Raised by :func:`require_login` when no session user is set.
+    """Raised by :func:`require_role` when no session user is set.
 
     The app registers an exception handler that turns this into a redirect to
     /login, keeping the auth check as a clean dependency (no redirect plumbing
     smuggled through an HTTPException).
     """
+
+
+class NotAllowed(Exception):
+    """Raised by :func:`require_role` for a signed-in user without the page."""
 
 
 # Two roots: this server's own templates, then shared/templates for the ones the
@@ -355,42 +359,44 @@ def _stamp_key() -> str:
     return state.session_secret()  # a file read: once per process, not per request
 
 
-def credentials_stamp() -> str:
-    """A fingerprint of the current login, kept in each session it signed in.
+def credentials_stamp(user: str | None = None) -> str:
+    """A fingerprint of *user*'s login, kept in each session it signed in.
 
     The session is a signed cookie, so nothing on the Pi can revoke one: a cookie
     copied off a laptop stayed good for its full lifetime, through a logout and
     through the very password change meant to shut it out. Tying it to the login
-    it was issued under makes changing the password end every other session.
-    Keyed with the session secret, so the cookie does not carry a plain hash of
-    the password.
+    it was issued under makes changing a password end every other session of that
+    user, and changing their pages or deleting them end all of theirs. Keyed with
+    the session secret, so the cookie does not carry a plain hash of the password.
+    Without *user*, the owner's.
     """
-    return hashlib.sha256(
-        "\0".join(
-            (
-                _stamp_key(),
-                str(state.settings.get("username", "")),
-                str(state.settings.get("password_hash", "")),
-                str(state.settings.get("password", "")),
-            )
-        ).encode()
-    ).hexdigest()[:24]
+    if user is None:
+        user = str(state.settings.get("username", ""))
+    material = state.user_credential(user)
+    if material is None:
+        return ""
+    return hashlib.sha256(f"{_stamp_key()}\0{material}".encode()).hexdigest()[:24]
 
 
 def signed_in(session) -> bool:
-    """True for a session signed in under the login that is current now."""
-    return bool(session.get("user")) and secrets.compare_digest(
-        str(session.get("cred", "")), credentials_stamp()
-    )
+    """True for a session signed in under a login that is current now."""
+    user = session.get("user")
+    if not user:
+        return False
+    stamp = credentials_stamp(str(user))
+    return bool(stamp) and secrets.compare_digest(str(session.get("cred", "")), stamp)
 
 
-def require_login(request: Request):
-    """FastAPI dependency: allow the request only when a session user is set.
+def has_role(session, role: str) -> bool:
+    """True for a current session whose user may open *role*'s pages."""
+    return signed_in(session) and role in state.user_roles(str(session["user"]))
 
-    Unauthenticated requests raise :class:`NotAuthenticated`, which the app's
-    exception handler turns into a redirect to /login (browser navigations follow
-    it; XHR endpoints are only ever hit from the already-authenticated settings
-    page).
+
+def require_role(role: str):
+    """FastAPI dependency factory: allow the request only to a user with *role*.
+
+    Not signed in raises :class:`NotAuthenticated` (a redirect to /login); signed
+    in without the page raises :class:`NotAllowed` (a 403 that says so).
 
     Cross-site requests are refused even when the session is valid. Several
     destructive endpoints here are plain GETs (`/meet_clear`, `/theme_delete_all`,
@@ -400,10 +406,21 @@ def require_login(request: Request):
     overridden by the page, and is absent on every non-browser client (the Qt
     display, curl, the native apps), which is why absence has to mean allow.
     """
-    if request.headers.get("sec-fetch-site") == "cross-site":
-        raise CrossSiteRequest
-    if not signed_in(request.session):
-        raise NotAuthenticated
+
+    def dependency(request: Request):
+        if request.headers.get("sec-fetch-site") == "cross-site":
+            raise CrossSiteRequest
+        if not signed_in(request.session):
+            raise NotAuthenticated
+        if role not in state.user_roles(str(request.session["user"])):
+            raise NotAllowed
+
+    dependency.role = role  # read by the tests that pin which page needs what
+    return dependency
+
+
+# The Settings panel and everything behind it.
+require_login = require_role("admin")
 
 
 def same_origin(ws) -> bool:
@@ -471,7 +488,7 @@ async def ws_guard(ws, login_required: bool = False) -> bool:
     (policy violation) rather than accepting-then-closing, so a rejected client
     never sees a single frame.
     """
-    if not same_origin(ws) or (login_required and not signed_in(ws.session)):
+    if not same_origin(ws) or (login_required and not has_role(ws.session, "admin")):
         await ws.close(code=1008)
         return False
     return True

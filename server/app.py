@@ -3,11 +3,11 @@ import asyncio
 import datetime
 import glob
 import os
-import secrets
 import time
 import traceback
 from contextlib import asynccontextmanager
 from typing import Annotated
+from urllib.parse import urlencode
 
 from fastapi import Depends, FastAPI, Form, Request, WebSocket, WebSocketDisconnect
 from fastapi.exceptions import RequestValidationError
@@ -31,6 +31,7 @@ from routes.system import router as system_router
 from routes.update import router as update_router
 from web import (
     CrossSiteRequest,
+    NotAllowed,
     NotAuthenticated,
     credentials_stamp,
     local_host,
@@ -163,7 +164,21 @@ app.include_router(qr_router)
 
 @app.exception_handler(NotAuthenticated)
 async def _redirect_to_login(request: Request, exc: NotAuthenticated):
+    # Back to the page asked for once signed in: someone given only /mm bookmarks
+    # /mm, and landing on a Settings panel they may not open would be a dead end.
+    if request.method == "GET":
+        nxt = request.url.path + (f"?{request.url.query}" if request.url.query else "")
+        return RedirectResponse(f"/login?{urlencode({'next': nxt})}", status_code=303)
     return RedirectResponse("/login", status_code=303)
+
+
+@app.exception_handler(NotAllowed)
+async def _refuse_not_allowed(request: Request, exc: NotAllowed):
+    resp = render(
+        request, "login.html", not_allowed=True, user=request.session.get("user")
+    )
+    resp.status_code = 403
+    return resp
 
 
 @app.exception_handler(CrossSiteRequest)
@@ -260,6 +275,24 @@ def _safe_next(target: str) -> str:
     return "/"
 
 
+# Where each page's role lives, for `_landing`. A user sent to a page they may not
+# open is sent to one they may instead, in this order.
+_ROLE_PAGES = (("admin", "/settings"), ("mm", "/mm"), ("console", "/console"))
+
+
+def _landing(user, nxt):
+    """Where to go after signing in: `next` when this user may open it, else the
+    first page they may. Pages that name no role here (the API docs, …) are admin's.
+    """
+    roles = state.user_roles(user)
+    target = _safe_next(nxt) if nxt else "/"
+    path = target.split("?", 1)[0]
+    needs = next((r for r, p in _ROLE_PAGES if path == p), "admin")
+    if needs in roles:
+        return target
+    return next((p for r, p in _ROLE_PAGES if r in roles), "/")
+
+
 # Failed sign-ins per address. Anyone on the pool deck can reach this form, and
 # without a limit a script on any phone there gets unlimited guesses at the one
 # password guarding a shell. Generous enough that a mistyped password never meets it.
@@ -305,16 +338,13 @@ async def route_login(
     # differ, which over enough tries measures out the password one character at a
     # time. Both halves are evaluated so the timing does not leak the username
     # either; the password is checked against its hash (state.check_password).
-    ok_user = secrets.compare_digest(
-        username.encode(), str(state.settings["username"]).encode()
-    )
-    ok_pass = state.check_password(password)
-    if ok_user and ok_pass:
+    if username and state.check_user(username, password):
         _login_fails.pop(ip, None)
         request.session["user"] = username
-        request.session["cred"] = credentials_stamp()
+        request.session["cred"] = credentials_stamp(username)
         return RedirectResponse(
-            _safe_next(request.query_params.get("next") or "/"), status_code=303
+            _landing(username, request.query_params.get("next") or ""),
+            status_code=303,
         )
     _login_failed(ip)
     resp = render(request, "login.html", login_failed=True)

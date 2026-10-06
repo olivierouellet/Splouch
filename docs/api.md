@@ -53,7 +53,7 @@ matches the `Host` it connected to; anything else is closed with 1008. Browsers 
 a socket onto the pool LAN through a visitor's browser — the same-origin policy does
 not apply to WebSockets. Native clients (the Qt display, iOS/Android) send no
 `Origin` and are unaffected. `/ws/settings` and `/ws/terminal` additionally require
-the admin session cookie.
+the session cookie of a user with the Settings page.
 
 ### `/ws/scoreboard`
 

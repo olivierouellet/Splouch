@@ -38,12 +38,15 @@
             </div>
             <div class="offcanvas-body d-flex flex-column">
                 <nav class="nav flex-column app-nav">
-                    <a class="nav-link" data-target="#tab-meets"><i class="bi bi-water me-2"></i>{{ t.active_meets }}</a>
-                    <a class="nav-link" data-target="#tab-organizers"><i class="bi bi-people me-2"></i>{{ t.organizers }}</a>
-                    <a class="nav-link" data-target="#tab-nodes"><i class="bi bi-hdd-network me-2"></i>{{ t.tab_nodes }}</a>
-                    <a class="nav-link" data-target="#tab-appearance"><i class="bi bi-palette me-2"></i>{{ t.get('tab_appearance', 'Appearance') }}</a>
+                    {% if 'meets' in roles %}<a class="nav-link" data-target="#tab-meets"><i class="bi bi-water me-2"></i>{{ t.active_meets }}</a>{% endif %}
+                    {% if 'organizers' in roles %}<a class="nav-link" data-target="#tab-organizers"><i class="bi bi-people me-2"></i>{{ t.organizers }}</a>{% endif %}
+                    {% if 'admin' in roles %}<a class="nav-link" data-target="#tab-nodes"><i class="bi bi-hdd-network me-2"></i>{{ t.tab_nodes }}</a>{% endif %}
+                    {% if 'appearance' in roles %}<a class="nav-link" data-target="#tab-appearance"><i class="bi bi-palette me-2"></i>{{ t.get('tab_appearance', 'Appearance') }}</a>{% endif %}
+                    {% if 'admin' in roles %}
+                    <a class="nav-link" data-target="#tab-users"><i class="bi bi-person-gear me-2"></i>{{ t.tab_users }}</a>
                     <a class="nav-link" data-target="#tab-update"><i class="bi bi-arrow-repeat me-2"></i>{{ t.get('tab_update', 'Update & Backup') }}</a>
                     <a class="nav-link" data-target="#tab-debug"><i class="bi bi-bug me-2"></i>{{ t.get('tab_debug', 'Debug') }}</a>
+                    {% endif %}
                 </nav>
                 <hr>
                 <!-- Same pills as the Pi's Settings sidebar: the public page this server serves. -->
@@ -97,22 +100,35 @@
              indentation, which would indent each pane's opening line twice. -->
 
         <!-- ── Meets (live + retained) ── -->
+{% if 'meets' in roles %}
 {% include 'admin/meets.html' %}
+{% endif %}
 
         <!-- ── Organizers ── -->
+{% if 'organizers' in roles %}
 {% include 'admin/organizers.html' %}
+{% endif %}
 
         <!-- ── Nodes ── -->
+{% if 'admin' in roles %}
 {% include 'admin/nodes.html' %}
+{% endif %}
 
         <!-- ── Appearance ── -->
+{% if 'appearance' in roles %}
 {% include 'admin/appearance.html' %}
+{% endif %}
 
         <!-- ── Update & Backup ── -->
+{% if 'admin' in roles %}
+{% include 'admin/users.html' %}
 {% include 'admin/update.html' %}
+{% endif %}
 
         <!-- ── Debug ── -->
+{% if 'admin' in roles %}
 {% include 'admin/debug.html' %}
+{% endif %}
 
         <!-- ── Account ── -->
 {% include 'admin/account.html' %}
@@ -231,8 +247,11 @@
 
         // ── Sidebar navigation ──────────────────────────────────────────────────
         // Generic switcher + copyKey are in panel.js; just pick the initial tab.
-        panelShowTab(location.hash || '#tab-meets');
+        // The first tab this user may open, unless the address names another.
+        const firstTab = document.querySelector('.app-nav .nav-link')?.getAttribute('data-target') || '#tab-account';
+        panelShowTab(location.hash && document.querySelector(location.hash + '.tab-pane') ? location.hash : firstTab);
         {% if creds_error %}panelShowTab('#tab-account');{% endif %}
+        {% if users_error %}panelShowTab('#tab-users');{% endif %}
 
         // Times the server keeps in UTC (a scheduled rollout, the last backup), in
         // the reader's own clock.
@@ -241,7 +260,7 @@
             if (!isNaN(d)) t.textContent = d.toLocaleString();
         });
 
-        {% if has_deploy %}
+        {% if has_deploy and 'admin' in roles %}
         // ── Version list ──────────────────────────────────────────────────────
         document.addEventListener('DOMContentLoaded', loadVersions);
         // The list comes from the deploy webhook — a systemd service outside Docker,
@@ -401,6 +420,7 @@
         }
         {% endif %}
 
+        {% if 'appearance' in roles %}
         // ── Picker appearance ─────────────────────────────────────────────────
         // Applies as you change it, like the Pi's Appearance panel. The Save button
         // was both the trigger and the receipt, so anything not pressed through
@@ -510,6 +530,8 @@
         }
         function clearPickerLogo() { clearPickerImage('picker_logo_clear', 'picker-logo-current', 'picker-logo-remove-btn'); }
         function clearPickerIcon() { clearPickerImage('picker_icon_clear', 'picker-icon-current', 'picker-icon-remove-btn'); }
+
+        {% endif %}
 
         // ── Restore keys ──────────────────────────────────────────────────────
         function restoreKeys(input) {

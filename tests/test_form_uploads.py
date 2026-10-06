@@ -85,7 +85,7 @@ def test_an_uploaded_logo_is_stored_and_served(monkeypatch):
     )
     monkeypatch.setitem(
         cloud_control.app.dependency_overrides,
-        cloud_control.require_admin,
+        cloud_control.require_appearance,
         lambda: None,
     )
     # What the page posts: the whole form, the icon's file input left empty.
@@ -124,7 +124,7 @@ def _logo_store(monkeypatch):
     )
     monkeypatch.setitem(
         cloud_control.app.dependency_overrides,
-        cloud_control.require_admin,
+        cloud_control.require_appearance,
         lambda: None,
     )
     return store

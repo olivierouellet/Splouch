@@ -47,6 +47,7 @@ def render_admin(analytics_enabled, privacy_incomplete=False):
     with open(os.path.join(REPO, "shared", "locales", "panel", "en.toml"), "rb") as f:
         t = tomllib.load(f)
     return env.get_template("admin.html").render(
+        roles=("admin", "meets", "organizers", "appearance"),
         t={**t["chrome"], **t["cloud"]},
         has_deploy=False,
         creds_error=None,

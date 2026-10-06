@@ -805,14 +805,7 @@ def hash_password(password, salt=None, iterations=_PBKDF2_ITERATIONS):
     return f"pbkdf2_sha256${iterations}${salt}${base64.b64encode(dk).decode()}"
 
 
-def check_password(password):
-    """Whether *password* is the admin password. A file not migrated yet (or one
-    an operator edited by hand) still holds it in `password`, in clear."""
-    stored = settings.get("password_hash")
-    if not stored:
-        return secrets.compare_digest(
-            str(password).encode(), str(settings.get("password", "")).encode()
-        )
+def _check_hash(password, stored):
     try:
         algo, iterations, salt, _ = str(stored).split("$")
         attempt = hash_password(str(password), salt, int(iterations))
@@ -821,6 +814,17 @@ def check_password(password):
     return algo == "pbkdf2_sha256" and secrets.compare_digest(
         attempt.encode(), str(stored).encode()
     )
+
+
+def check_password(password):
+    """Whether *password* is the admin password. A file not migrated yet (or one
+    an operator edited by hand) still holds it in `password`, in clear."""
+    stored = settings.get("password_hash")
+    if not stored:
+        return secrets.compare_digest(
+            str(password).encode(), str(settings.get("password", "")).encode()
+        )
+    return _check_hash(password, stored)
 
 
 def set_password(password):
@@ -834,6 +838,120 @@ def migrate_password():
         return False
     set_password(str(settings.get("password", "")))
     return True
+
+
+# ── Other users ────────────────────────────────────────────────────────────────
+# The login above is the owner: always an admin, never deleted, and the only one
+# a release from before users existed knows about. Everyone else is in `users`,
+# each allowed only some pages. `admin` is the Settings panel and everything
+# behind it, and implies the other two.
+
+ROLES = ("admin", "console", "mm")
+
+# Hashed once, for an unknown name: a miss costs one PBKDF2 like a hit does, so
+# the time a failed sign-in takes does not say whether the name exists.
+_DUMMY_HASH = None
+
+
+def users():
+    """The non-owner accounts, as stored. Never None, never a non-list."""
+    u = settings.get("users")
+    return u if isinstance(u, list) else []
+
+
+def _same_name(a, b):
+    return secrets.compare_digest(str(a).encode(), str(b).encode())
+
+
+def is_owner(name):
+    return _same_name(name, settings.get("username", ""))
+
+
+def find_user(name):
+    """The stored record for a non-owner user, or None."""
+    return next((u for u in users() if _same_name(u.get("name", ""), name)), None)
+
+
+def user_exists(name):
+    return is_owner(name) or find_user(name) is not None
+
+
+def clean_roles(roles):
+    return [r for r in ROLES if r in set(roles or ())]
+
+
+def user_roles(name):
+    """What *name* may open, with `admin` expanded to every page. Empty if unknown."""
+    if is_owner(name):
+        return set(ROLES)
+    u = find_user(name)
+    roles = set(clean_roles(u.get("roles"))) if u else set()
+    return set(ROLES) if "admin" in roles else roles
+
+
+def check_user(name, password):
+    """Whether *name* / *password* is a login on this Pi."""
+    global _DUMMY_HASH
+    if is_owner(name):
+        return check_password(password)
+    u = find_user(name)
+    if u is None:
+        if _DUMMY_HASH is None:
+            _DUMMY_HASH = hash_password(secrets.token_hex(8))
+        _check_hash(password, _DUMMY_HASH)
+        return False
+    return _check_hash(password, u.get("password_hash", ""))
+
+
+def user_credential(name):
+    """What a session's stamp is made of for *name*: changes with its password and
+    its pages, so changing either ends that user's sessions and no one else's."""
+    if is_owner(name):
+        return "\0".join(
+            (
+                "owner",
+                str(settings.get("username", "")),
+                str(settings.get("password_hash", "")),
+                str(settings.get("password", "")),
+            )
+        )
+    u = find_user(name)
+    if u is None:
+        return None
+    return "\0".join(
+        (
+            "user",
+            str(u.get("name", "")),
+            str(u.get("password_hash", "")),
+            ",".join(clean_roles(u.get("roles"))),
+        )
+    )
+
+
+def add_user(name, password, roles):
+    settings["users"] = [
+        *users(),
+        {
+            "name": name,
+            "password_hash": hash_password(password),
+            "roles": clean_roles(roles),
+        },
+    ]
+
+
+def update_user(name, password=None, roles=None):
+    u = find_user(name)
+    if u is None:
+        return False
+    if password:
+        u["password_hash"] = hash_password(password)
+    if roles is not None:
+        u["roles"] = clean_roles(roles)
+    return True
+
+
+def delete_user(name):
+    settings["users"] = [u for u in users() if not _same_name(u.get("name", ""), name)]
 
 
 # ── Settings loader ────────────────────────────────────────────────────────────

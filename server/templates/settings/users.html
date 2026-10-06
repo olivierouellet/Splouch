@@ -1,0 +1,69 @@
+        <div class="tab-pane" id="tab-users">
+            <div class="row"><div class="col-lg-10">
+                <p class="text-body-secondary small">{{ t.users_intro }}</p>
+                {% if users_error %}
+                <div class="alert alert-danger py-2">{{ t[users_error] }}</div>
+                {% endif %}
+                <div class="card mb-3">
+                    <div class="card-body">
+                        <div class="d-flex align-items-center gap-2 mb-2">
+                            <strong>{{ owner_name }}</strong>
+                            <span class="badge text-bg-secondary">{{ t.users_owner }}</span>
+                        </div>
+                        {% for u in users %}
+                        <hr>
+                        <form action="/settings" method="POST" class="row g-2 align-items-center">
+                            <input type="hidden" name="users_name" value="{{ u.name }}">
+                            <div class="col-md-3"><strong>{{ u.name }}</strong></div>
+                            <div class="col-md-4">
+                                {% for role in user_roles %}
+                                <div class="form-check form-check-inline">
+                                    <input class="form-check-input" type="checkbox" name="users_roles" value="{{ role }}" id="u{{ loop.index }}-{{ u.name }}-{{ role }}"{% if role in u.roles %} checked{% endif %}>
+                                    <label class="form-check-label" for="u{{ loop.index }}-{{ u.name }}-{{ role }}">{{ t["users_role_" ~ role] }}</label>
+                                </div>
+                                {% endfor %}
+                            </div>
+                            <div class="col-md-3">
+                                <input name="users_password" type="password" autocomplete="new-password" class="form-control form-control-sm" placeholder="{{ t.users_new_password_ph }}">
+                            </div>
+                            <div class="col-md-2 d-flex gap-1">
+                                <button type="submit" name="users_action" value="save" class="btn btn-secondary btn-sm">{{ t.users_save }}</button>
+                                <button type="submit" name="users_action" value="delete" class="btn btn-outline-danger btn-sm"
+                                    onclick="return confirm({{ t.users_delete_confirm | tojson | forceescape }});">{{ t.users_delete }}</button>
+                            </div>
+                        </form>
+                        {% else %}
+                        <hr>
+                        <p class="text-body-secondary small mb-0">{{ t.users_none }}</p>
+                        {% endfor %}
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-body">
+                        <form action="/settings" method="POST" class="row g-2 align-items-end">
+                            <input type="hidden" name="users_action" value="add">
+                            <div class="col-md-3">
+                                <label for="users-add-name" class="form-label">{{ t.users_name }}</label>
+                                <input name="users_name" id="users-add-name" autocomplete="off" class="form-control form-control-sm">
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-label">{{ t.users_pages }}</div>
+                                {% for role in user_roles %}
+                                <div class="form-check form-check-inline">
+                                    <input class="form-check-input" type="checkbox" name="users_roles" value="{{ role }}" id="users-add-{{ role }}">
+                                    <label class="form-check-label" for="users-add-{{ role }}">{{ t["users_role_" ~ role] }}</label>
+                                </div>
+                                {% endfor %}
+                            </div>
+                            <div class="col-md-3">
+                                <label for="users-add-password" class="form-label">{{ t.account_password }}</label>
+                                <input name="users_password" id="users-add-password" type="password" autocomplete="new-password" class="form-control form-control-sm">
+                            </div>
+                            <div class="col-md-2">
+                                <button type="submit" class="btn btn-primary btn-sm">{{ t.users_add }}</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div></div>
+        </div>

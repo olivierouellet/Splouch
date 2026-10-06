@@ -90,6 +90,8 @@
                         <a class="nav-link sub" data-target="#tab-terminal"><i class="bi bi-terminal me-2"></i>{{ t.nav_terminal }}</a>
                     </div>
 
+                    <a class="nav-link" data-target="#tab-users"><i class="bi bi-people me-2"></i>{{ t.nav_users }}</a>
+
                     <a class="nav-link" data-target="#tab-power"><i class="bi bi-power me-2"></i>{{ t.nav_power }}</a>
                 </nav>
                 <hr>
@@ -104,6 +106,7 @@
                            that does not transmit event/heat needs it too. #}
                         <a href="/manual"   target="_blank" class="btn btn-secondary">{{ t.quick_manual }}</a>
                         <a href="/mm"       target="_blank" class="btn btn-secondary">{{ t.quick_mm }}</a>
+                        <a href="/console"  target="_blank" class="btn btn-secondary">{{ t.quick_console }}</a>
                     </div>
                 </div>
                 <hr>
@@ -171,6 +174,9 @@
 
         <!-- ── Account ─────────────────────────────────────────────── -->
 {% include 'settings/account.html' %}
+
+        <!-- ── Users ───────────────────────────────────────────────── -->
+{% include 'settings/users.html' %}
 
         <!-- ── Time ────────────────────────────────────────────────── -->
 {% include 'settings/time.html' %}

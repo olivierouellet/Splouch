@@ -66,6 +66,12 @@ When it finishes, open `https://yourdomain/admin` and add organizers.
 
 ## Managing organizers
 
+> **Users.** The install login is the owner and always sees every tab. Under **Users** it can
+> add others, each limited to some tabs: **Admin** (everything, including Nodes, Users,
+> Update & Backup and Debug), **Meets**, **Organizers**, **Appearance**. Each signs in with
+> their own name and changes their own password from the user menu. A full backup
+> (`?full=1`) carries them with their password hashes.
+
 The `/admin` page (HTTP basic auth — the login you chose at install; change it from the user
 menu → **Change password**) lets you, under **Organizers** and **Active Meets**:
 

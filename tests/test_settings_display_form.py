@@ -31,7 +31,7 @@ class _FakeRequest:
     def __init__(self, form):
         self._form = form
         self.method = "POST"
-        self.session = {"user": "test"}
+        self.session = {"user": "score"}  # the owner, as shipped
         self.url = type("U", (), {"path": "/settings"})()
         self.cookies = {}
         self.headers = {}

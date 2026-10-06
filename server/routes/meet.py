@@ -7,7 +7,7 @@ from pydantic import BaseModel
 
 import state
 from meet_data import _build_meet_data, build_heats, send_event_info
-from web import client_strings, redirect, render, require_login
+from web import client_strings, redirect, render, require_login, require_role
 
 router = APIRouter(tags=["Meet"])
 
@@ -90,7 +90,7 @@ def route_schedule(request: Request):
     )
 
 
-@router.get("/mm", dependencies=[Depends(require_login)])
+@router.get("/mm", dependencies=[Depends(require_role("mm"))])
 def route_mm(request: Request):
     """Where the person running Meet Manager re-uploads the meet file as heats are
     validated (docs/architecture/meet-manager-results.md). The upload itself is

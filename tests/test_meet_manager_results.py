@@ -19,7 +19,6 @@ import os
 import zipfile
 
 import pytest
-from fastapi import Depends
 
 import cloud_server as cs
 import state
@@ -27,7 +26,6 @@ from meet_data import build_heats, results_summary
 from meet_parsers.lenex_parser import load_lenex
 from routes import meet as meet_routes, settings as settings_routes
 from splouch_times import heat_official, lane_times, wire_time
-from web import require_login
 
 
 def _lxf(xml):
@@ -287,12 +285,12 @@ def test_a_summary_reports_only_what_changed(pi_meet):
     }
 
 
-def test_the_mm_page_needs_the_login():
+def test_the_mm_page_needs_the_mm_role():
     route = next(
         r for r in meet_routes.router.routes if getattr(r, "path", "") == "/mm"
     )
-    assert Depends(require_login).dependency in [
-        d.dependency for d in getattr(route, "dependencies", [])
+    assert "mm" in [
+        getattr(d.dependency, "role", None) for d in getattr(route, "dependencies", [])
     ]
 
 

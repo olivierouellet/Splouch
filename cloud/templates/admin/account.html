@@ -5,7 +5,9 @@
                 <form method="post" class="d-flex flex-column gap-2">
                     <input type="hidden" name="action" value="change_credentials">
                     <input type="password" name="current_password" class="form-control form-control-sm" placeholder="{{ t.current_password }}" required autocomplete="current-password">
+                    {% if user_name == owner_name %}
                     <input type="text"     name="new_user"         class="form-control form-control-sm" placeholder="{{ t.new_username }}"    autocomplete="username">
+                    {% endif %}
                     <input type="password" name="new_password"     class="form-control form-control-sm" placeholder="{{ t.new_password }}"    required autocomplete="new-password">
                     <input type="password" name="new_password2"    class="form-control form-control-sm" placeholder="{{ t.confirm_password }}" required autocomplete="new-password">
                     <div><button type="submit" class="btn btn-secondary btn-sm">{{ t.save }}</button></div>

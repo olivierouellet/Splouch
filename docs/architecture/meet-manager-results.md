@@ -197,7 +197,7 @@ Only on heats where `official` is true.
   - `results_snapshot` fills `console_times` and persists it;
   - `GET /meet/{id}/schedule` returns the fields.
 - **Same-meet update**: keeps `_last_results_snapshot` and console times, and emits `schedule_update`. A different meet is still refused.
-- **`/mm`**: requires login; the summary diff is correct.
+- **`/mm`**: requires a user with the Meet Manager page; the summary diff is correct.
 - **iOS and Android**: decoding (absent fields → empty), the cell state choice, and the toggle only on official heats.
 
 ## Verification

@@ -55,7 +55,7 @@ from cloud_analytics import (
     analytics_enabled as _analytics_enabled,
     attendee_count as _attendee_count,
 )
-from cloud_auth import require_admin
+from cloud_auth import require_admin, require_role
 from cloud_paths import _HERE, DATA_DIR, STATIC_DIR
 from cloud_web import (
     _browser_lang,
@@ -69,6 +69,11 @@ from cloud_web import (
 from splouch_i18n import READER_THEMES
 from splouch_links import INVITE_PARAM, INVITE_PATH
 from splouch_regions import COUNTRIES, clean_location
+
+# The tabs other roles open; everything else is `require_admin`.
+require_appearance = require_role("appearance")
+require_meets = require_role("meets")
+require_any_user = require_role(None)
 
 _ANALYTICS_WINDOWS = cloud_analytics._ANALYTICS_WINDOWS
 _load_keys = cloud_auth.load_keys
@@ -1114,7 +1119,7 @@ async def _read_image(upload, allowed):
     tags=["Admin"],
     response_model=ActionResult,
     response_model_exclude_none=True,
-    dependencies=[Depends(require_admin)],
+    dependencies=[Depends(require_appearance)],
 )
 async def route_picker_appearance(request: Request):
     form = await request.form()
@@ -1175,6 +1180,7 @@ def route_backup_keys(request: Request):
     backup = {"version": 2, "keys": keys, "credentials": creds}
     if full:
         backup["full"] = True
+        backup["users"] = cloud_auth.dump_users()
     name = "splouch-backup-full.json" if full else "splouch-backup.json"
     return Response(
         json.dumps(backup, indent=2),
@@ -1216,6 +1222,8 @@ async def route_restore_keys(request: Request):
                 for f in _LOGIN_FIELDS:
                     creds_in.pop(f, None)
             await run_in_threadpool(_save_creds, {**_load_creds(), **creds_in})
+        if data.get("full") and isinstance(data.get("users"), list):
+            await run_in_threadpool(cloud_auth.restore_users, data["users"])
         return {"ok": True, "count": len(keys)}
     except Exception:
         return JSONResponse({"error": _failure("Restoring the keys")}, status_code=500)
@@ -1355,7 +1363,7 @@ def route_versions():
     "/admin/stats",
     tags=["Admin"],
     response_model=StatsResult,
-    dependencies=[Depends(require_admin)],
+    dependencies=[Depends(require_meets)],
 )
 def route_stats(request: Request):
     if not _analytics_enabled():
@@ -1435,23 +1443,55 @@ def _backup_status():
     }
 
 
-def _admin_page(request, t=None, creds_error=None):
-    """The whole panel. Blocking (database) — run off the loop."""
+def _signed_in(request):
+    """Who `require_role` let in, and the tabs they may open."""
+    return (
+        getattr(request.state, "admin_user", ""),
+        getattr(request.state, "admin_roles", set(cloud_auth.CLOUD_ROLES)),
+    )
+
+
+# Which tab each panel action belongs to. One not listed here is the owner's and
+# other `admin` users' only; `change_credentials` is everyone's own.
+_ACTION_ROLES = {
+    "set_expiry": "meets",
+    "delete_meet": "meets",
+    "add": "organizers",
+    "update_org": "organizers",
+    "accept_location": "organizers",
+    "revoke": "organizers",
+    "delete": "organizers",
+    "set_analytics": "appearance",
+    "change_locale": "appearance",
+    "change_credentials": None,
+}
+
+
+def _admin_page(request, t=None, creds_error=None, users_error=None):
+    """The whole panel, or the tabs of it this user may open. Blocking (database)
+    — run off the loop."""
     creds = _load_creds()
+    user, roles = _signed_in(request)
+    admin = "admin" in roles
     return render(
         request,
         "admin.html",
-        keys=_load_keys(),
+        roles=roles,
+        keys=_load_keys() if "organizers" in roles else {},
         regions=cloud_auth.regions(),
         countries=COUNTRIES,
-        active_meets=_admin_meet_list(),
-        nodes=_admin_nodes(),
-        rollout=cloud_registry.rollout(),
-        backup=_backup_status(),
+        active_meets=_admin_meet_list() if "meets" in roles else [],
+        nodes=_admin_nodes() if admin else [],
+        rollout=cloud_registry.rollout() if admin else None,
+        backup=_backup_status() if admin else None,
+        admin_users=cloud_auth.load_users() if admin else [],
+        owner_name=creds.get("user", ""),
+        cloud_roles=cloud_auth.CLOUD_ROLES,
+        users_error=users_error,
         t=t or _load_cloud_strings(request),
         ui_lang=_admin_lang(request),
         creds_error=creds_error,
-        user_name=creds.get("user", "Admin"),
+        user_name=user or creds.get("user", "Admin"),
         locales=_available_locales(),
         current_locale=creds.get("locale", ""),
         ui_lang_cookie=_ui_lang_cookie(request),
@@ -1473,6 +1513,30 @@ def _org_fields(form):
     return {"country": country, "province": province, "region": region}
 
 
+def _user_action(action, form):
+    """Add, change or delete a non-owner admin user. An error string key, or None."""
+    name = _form_text(form, "user_name")
+    password = form.get("user_password", "")
+    roles = cloud_auth.clean_roles(form.getlist("user_roles"))
+    if not name:
+        return "err_user_name"
+    if action == "user_add":
+        if cloud_auth.user_exists(name):
+            return "err_user_exists"
+        if not password:
+            return "err_empty_password"
+        if not roles:
+            return "err_user_roles"
+        cloud_auth.add_user(name, password, roles)
+    elif action == "user_save":
+        if not roles:
+            return "err_user_roles"
+        cloud_auth.update_user(name, password=password or None, roles=roles)
+    else:
+        cloud_auth.delete_user(name)
+    return None
+
+
 def _admin_action(form, request):
     """Apply one panel form post. Blocking (database) — run off the loop.
 
@@ -1480,7 +1544,17 @@ def _admin_action(form, request):
     or None.
     """
     action = form.get("action")
-    if action == "add":
+    user, roles = _signed_in(request)
+    needs = _ACTION_ROLES.get(action, "admin")
+    if needs is not None and needs not in roles:
+        return Response("Not allowed for this user", status_code=403)
+    if action in ("user_add", "user_save", "user_delete"):
+        error = _user_action(action, form)
+        if error:
+            return _admin_page(
+                request, users_error=_load_cloud_strings(request).get(error, error)
+            )
+    elif action == "add":
         org = _form_text(form, "organizer")
         if org:
             cloud_auth.add_organizer(org, **_org_fields(form))
@@ -1542,7 +1616,7 @@ def _admin_action(form, request):
         creds["analytics_enabled"] = enable
         if enable:
             creds["analytics_ack"] = {
-                "user": creds.get("user", ""),
+                "user": user or creds.get("user", ""),
                 "at": datetime.datetime.now(datetime.UTC).isoformat(timespec="seconds"),
             }
         _save_creds(creds)
@@ -1552,23 +1626,30 @@ def _admin_action(form, request):
         _save_creds(creds)
         cloud_i18n._locale_cache.clear()
     elif action == "change_credentials":
+        # The signed-in user's own login. Only the owner renames here: another
+        # user's name is the one the owner gave them.
         t = _load_cloud_strings(request)
         creds = _load_creds()
-        cur_pw = form.get("current_password", "")
-        new_user = _form_text(form, "new_user")
+        me = user or creds["user"]
+        owner = hmac.compare_digest(me, creds["user"])
+        new_user = _form_text(form, "new_user") if owner else ""
         new_pw1 = form.get("new_password", "")
         new_pw2 = form.get("new_password2", "")
-        cur_hash, _ = _hash_password(cur_pw, creds["salt"])
-        if not hmac.compare_digest(cur_hash, creds["password_hash"]):
+        if cloud_auth.verify_user(me, form.get("current_password", "")) is None:
             error = t.get("err_wrong_password", "Incorrect current password.")
         elif new_pw1 != new_pw2:
             error = t.get("err_password_mismatch", "New passwords do not match.")
         elif not new_pw1:
             error = t.get("err_empty_password", "Password cannot be empty.")
+        elif new_user and new_user != me and cloud_auth.user_exists(new_user):
+            error = t.get("err_user_exists", "That name is already taken.")
         else:
-            creds["user"] = new_user or creds["user"]
-            creds["password_hash"], creds["salt"] = _hash_password(new_pw1)
-            _save_creds(creds)
+            if owner:
+                creds["user"] = new_user or creds["user"]
+                creds["password_hash"], creds["salt"] = _hash_password(new_pw1)
+                _save_creds(creds)
+            else:
+                cloud_auth.update_user(me, password=new_pw1)
             return Response(
                 'Credentials updated — <a href="/admin">sign in with new credentials</a>',
                 status_code=401,
@@ -1578,8 +1659,10 @@ def _admin_action(form, request):
     return None
 
 
-@app.get("/admin", tags=["Admin"], dependencies=[Depends(require_admin)])
-@app.post("/admin", tags=["Admin"], dependencies=[Depends(require_admin)])
+# Any signed-in user: the page shows only their tabs, and `_admin_action` checks
+# each post against `_ACTION_ROLES`.
+@app.get("/admin", tags=["Admin"], dependencies=[Depends(require_any_user)])
+@app.post("/admin", tags=["Admin"], dependencies=[Depends(require_any_user)])
 async def route_admin(request: Request):
     if request.method == "POST":
         form = await request.form()

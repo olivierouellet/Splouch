@@ -249,6 +249,7 @@ def test_the_unavailable_state_is_what_the_operator_sees():
     # Rendered, not raw: the message is `{{ t.… | tojson }}` now, and French proves the
     # operator gets their own language rather than a hard-coded English sentence.
     src = env.get_template("admin.html").render(
+        roles=("admin", "meets", "organizers", "appearance"),
         t=t,
         has_deploy=True,
         creds_error=None,
