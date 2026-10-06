@@ -45,6 +45,7 @@
                     {% if 'admin' in roles %}
                     <a class="nav-link" data-target="#tab-users"><i class="bi bi-person-gear me-2"></i>{{ t.tab_users }}</a>
                     <a class="nav-link" data-target="#tab-update"><i class="bi bi-arrow-repeat me-2"></i>{{ t.get('tab_update', 'Update & Backup') }}</a>
+                    <a class="nav-link" data-target="#tab-test"><i class="bi bi-stopwatch me-2"></i>{{ t.get('tab_test', 'Test meets') }}</a>
                     <a class="nav-link" data-target="#tab-debug"><i class="bi bi-bug me-2"></i>{{ t.get('tab_debug', 'Debug') }}</a>
                     {% endif %}
                 </nav>
@@ -123,6 +124,11 @@
 {% if 'admin' in roles %}
 {% include 'admin/users.html' %}
 {% include 'admin/update.html' %}
+{% endif %}
+
+        <!-- ── Test meets ── -->
+{% if 'admin' in roles %}
+{% include 'admin/test.html' %}
 {% endif %}
 
         <!-- ── Debug ── -->
@@ -607,9 +613,68 @@
             }
         }
 
-        document.querySelector('.nav-tabs a[href="#tab-debug"]').addEventListener('click', () => {
+        document.querySelector('.app-nav .nav-link[data-target="#tab-debug"]')?.addEventListener('click', () => {
             setTimeout(loadLogs, 50);
         });
+
+        // ── Test meets (cloud_testmeets) ────────────────────────────────────────
+        // Polled only while the tab is open.
+        const TEST_STR = {
+            none: {{ t.get('test_meets_none', 'No test meets running.') | tojson }},
+            connected: {{ t.get('test_connected', 'Connected') | tojson }},
+            connecting: {{ t.get('test_connecting', 'Connecting…') | tojson }},
+            event: {{ t.get('test_event_heat', 'Event {event} · heat {heat}') | tojson }},
+            failed: {{ t.get('test_failed', 'Failed') | tojson }},
+        };
+
+        function renderTestMeets(d) {
+            const rows = document.getElementById('test-rows');
+            if (!rows) return;
+            rows.replaceChildren();
+            if (!d.running.length) {
+                const td = rows.insertRow().insertCell();
+                td.colSpan = 3;
+                td.className = 'text-body-secondary';
+                td.textContent = TEST_STR.none;
+                return;
+            }
+            d.running.forEach(m => {
+                const tr = rows.insertRow();
+                tr.insertCell().textContent = 'Test meet ' + m.index;
+                tr.insertCell().textContent = m.event
+                    ? TEST_STR.event.replace('{event}', m.event).replace('{heat}', m.heat)
+                    : '—';
+                tr.insertCell().textContent = m.connected ? TEST_STR.connected : TEST_STR.connecting;
+            });
+            document.getElementById('test-count').value = d.running.length;
+        }
+
+        function loadTestMeets() {
+            fetch('/admin/test').then(r => r.json()).then(renderTestMeets).catch(() => {});
+        }
+
+        function testMeets(action) {
+            const status = document.getElementById('test-status');
+            const count = parseInt(document.getElementById('test-count').value, 10) || 5;
+            fetch('/admin/test/' + action, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ count }),
+            })
+                .then(r => r.json().then(d => ({ ok: r.ok, d })))
+                .then(({ ok, d }) => {
+                    status.textContent = ok ? '' : TEST_STR.failed + ': ' + (d.error || '');
+                    if (ok) renderTestMeets(d);
+                })
+                .catch(() => { status.textContent = TEST_STR.failed; });
+        }
+
+        if (document.getElementById('tab-test')) {
+            loadTestMeets();
+            setInterval(() => {
+                if (document.getElementById('tab-test').classList.contains('active')) loadTestMeets();
+            }, 3000);
+        }
     </script>
 </body>
 </html>

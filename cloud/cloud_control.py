@@ -49,6 +49,7 @@ import cloud_db
 import cloud_i18n
 import cloud_metrics
 import cloud_registry
+import cloud_testmeets
 import cloud_ticket
 import splouch_links
 from cloud_analytics import (
@@ -194,9 +195,18 @@ async def lifespan(app):
         asyncio.create_task(_maintenance_loop()),
         asyncio.create_task(cloud_metrics.lag_loop(cloud_metrics.CONTROL_LOOP_LAG)),
     ]
+    # Test meets the admin left running carry on after a restart.
+    try:
+        wanted = await run_in_threadpool(cloud_registry.test_meets_wanted)
+        if wanted:
+            (await _test_runner()).start(wanted)
+    except Exception as e:
+        print(f"[control] test meets not resumed: {e!r}", flush=True)
     try:
         yield
     finally:
+        if _test_meets is not None:
+            await _test_meets.stop()
         for task in tasks:
             task.cancel()
         for task in tasks:
@@ -412,6 +422,8 @@ def _public_meet_list(here=""):
             "province": m["province"],
             "base": cloud_registry.meet_base(m, here),
             "url": cloud_registry.page_url(m),
+            # One of the control plane's own test meets (cloud_testmeets).
+            "test": m["test"],
         }
         # A finished meet whose node is not reporting is left out until it is.
         for m in cloud_registry.list_meets(reachable_only=True)
@@ -1756,29 +1768,96 @@ def route_assign(body: AssignIn):
     `register` (docs/api.md §5.12). A bad key is a 403 with the same reason a
     worker gives; no node able to take the meet is a 503 the Pi retries.
     """
-    secret = os.environ.get("NODE_SECRET", "")
-    if not secret:
+    if not os.environ.get("NODE_SECRET", ""):
         raise HTTPException(status_code=503, detail="NODE_SECRET is not set")
     try:
-        found = cloud_registry.assign(body.key, body.meet_uid)
+        found = _assignment(body.key, body.meet_uid)
     except cloud_registry.NoNode:
         return JSONResponse({"reason": "no server available"}, status_code=503)
     if found is None:
         return JSONResponse({"reason": "invalid or inactive key"}, status_code=403)
+    return found
+
+
+def _assignment(key, meet_uid):
+    """`/api/assign`'s answer, or None for a refused key. Raises NoNode. Also how
+    the test meets are placed (cloud_testmeets), without a round trip."""
+    found = cloud_registry.assign(key, meet_uid)
+    if found is None:
+        return None
     return {
         "meet_id": found["meet_id"],
         "relay_url": _relay_url(found["url"], found["worker"], found["meet_id"]),
         "ticket": cloud_ticket.sign(
-            secret,
+            os.environ.get("NODE_SECRET", ""),
             found["meet_id"],
             found["node"],
             found["worker"],
-            body.key,
+            key,
             organizer=found["organizer"],
         ),
         "region": found["region"],
         "expires_in": cloud_ticket.TTL_SECONDS,
     }
+
+
+# ── Test meets ─────────────────────────────────────────────────────────────────
+# Fake Pis this process runs for trying the apps (cloud_testmeets, docs/cloud.md).
+# One control plane, so one runner: the workers only ever see relay sockets.
+
+_test_meets: cloud_testmeets.Runner | None = None
+
+
+def _test_assign(key, meet_uid):
+    try:
+        return _assignment(key, meet_uid)
+    except cloud_registry.NoNode:
+        return None
+
+
+async def _test_runner():
+    global _test_meets
+    if _test_meets is None:
+        key = await run_in_threadpool(cloud_auth.test_organizer_key)
+        _test_meets = cloud_testmeets.Runner(key, _test_assign)
+    return _test_meets
+
+
+class TestMeetsIn(BaseModel):
+    count: int = cloud_testmeets.DEFAULT_MEETS
+
+
+def _test_status():
+    return {
+        "running": _test_meets.status() if _test_meets else [],
+        "max": cloud_testmeets.MAX_MEETS,
+        "default": cloud_testmeets.DEFAULT_MEETS,
+    }
+
+
+@app.get("/admin/test", tags=["Admin"], dependencies=[Depends(require_admin)])
+def route_test_meets():
+    return _test_status()
+
+
+@app.post("/admin/test/start", tags=["Admin"], dependencies=[Depends(require_admin)])
+async def route_test_meets_start(body: TestMeetsIn):
+    if not os.environ.get("NODE_SECRET", ""):
+        return JSONResponse(
+            {"ok": False, "error": "NODE_SECRET is not set"}, status_code=503
+        )
+    count = (await _test_runner()).start(body.count)
+    await run_in_threadpool(cloud_registry.set_test_meets_wanted, count)
+    return _test_status()
+
+
+@app.post("/admin/test/stop", tags=["Admin"], dependencies=[Depends(require_admin)])
+async def route_test_meets_stop():
+    if _test_meets is not None:
+        await _test_meets.stop()
+    await run_in_threadpool(cloud_registry.set_test_meets_wanted, 0)
+    await run_in_threadpool(cloud_registry.forget_test_meets)
+    return _test_status()
 
 
 # ── Internal API (workers → control plane) ─────────────────────────────────────

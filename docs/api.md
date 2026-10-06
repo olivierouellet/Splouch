@@ -266,6 +266,10 @@ events it broadcasts locally.
 `reassign: true` means the ticket is not for this worker or this meet: ask
 `/api/assign` again before reconnecting. Any other rejection is the key.
 
+`test_loop {}` is sent only by the cloud's own test meets ([`cloud.md`](cloud.md#test-meets))
+at the top of each pass: the worker drops that meet's console times and which heat
+notifications it sent. From any other meet it is ignored.
+
 ---
 
 ## 4. REST endpoints native clients need
@@ -493,7 +497,8 @@ its own from the `results_snapshot` frames it relays, and stores them with the m
                "offline": false, "has_picker_image": true,
                "country": "CA", "province": "QC",
                "base": "https://ca1.splouch.org/w2",
-               "url": "https://ca1.splouch.org/w2/mobile?meet=aBc123" } ] }
+               "url": "https://ca1.splouch.org/w2/mobile?meet=aBc123",
+               "test": false } ] }
 ```
 
 - **`base`** is where a client reaches the meet (`app.md` `C-11`): its sockets
@@ -504,6 +509,9 @@ its own from the `results_snapshot` frames it relays, and stores them with the m
 - **`url`** is the meet's page there; the web picker links to it.
 - **`country`** (ISO 3166-1 alpha-2) and **`province`** are the organizer's, `""` when
   unrecorded (`P-01`, `P-17`).
+- **`test`** marks one of the server's own test meets ([`cloud.md`](cloud.md#test-meets)):
+  fake, looping, for trying a client. The web picker badges it **TEST**; its name starts
+  with "Test meet", so a client that ignores the field still reads it as one.
 
 All additive. The list is readable from any origin (`Access-Control-Allow-Origin: *`):
 a meet page on a worker's host checks it before going back to the picker (`A-12`).

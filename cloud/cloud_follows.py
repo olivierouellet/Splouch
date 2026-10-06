@@ -255,6 +255,15 @@ def drop_meet(meet_id):
         db.commit()
 
 
+def clear_fired(meet_id):
+    """Forget which notifications a meet has sent, keeping its follows: a test meet
+    starting its heats over (cloud_testmeets) notifies its followers again."""
+    with _lock:
+        db = _conn()
+        db.execute("DELETE FROM fired WHERE meet_id = ?", (meet_id,))
+        db.commit()
+
+
 def keep_only(meet_ids):
     """Drop the follows of every meet this node no longer has (it expired, was
     deleted, or moved to another node and was carried there)."""

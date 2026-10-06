@@ -160,12 +160,12 @@ reloaded the moment the session ends — whether you press **Stop** or the recor
 simply runs out. Deleting the meet first and re-uploading it afterwards is no longer
 part of the job.
 
-**Keep this test local.** Ticked, the replay reaches the TV display and phones on the
-pool's own network, and nothing else: the cloud link is closed for the duration, so
-spectators watching remotely see the meet as offline rather than a recording dressed
-up as the race in front of them. It is ticked and locked whenever a meet is loaded —
-publishing invented times under a live meet's identity is not something a checkbox
-should allow. With no meet loaded it is yours to set, and the choice is remembered.
+**A test stays local.** The replay reaches the TV display and phones on the pool's own
+network, and nothing else: the cloud link is closed for the duration, so spectators
+watching remotely see the meet as offline rather than a recording dressed up as the race
+in front of them. There is no switch for it, meet loaded or not. To try the apps against
+a live cloud, its administrator runs the cloud's own
+[test meets](cloud.md#test-meets).
 
 When the session ends, every board is wiped of the replay, the meet comes back, the
 cloud link is restored if it was up before, and playback speed returns to 1×.
@@ -491,13 +491,12 @@ rechargée dès la fin de la session — que vous appuyiez sur **Arrêter** ou q
 l'enregistrement arrive simplement à son terme. Supprimer la compétition puis la téléverser à
 nouveau ne fait plus partie du travail.
 
-**Garder ce test local.** Coché, la lecture atteint le téléviseur et les téléphones du réseau
-de la piscine, et rien d'autre : le lien cloud est fermé pour la durée de la session, de sorte
-que les spectateurs à distance voient la compétition hors ligne plutôt qu'un enregistrement
-déguisé en course réelle. La case est cochée et verrouillée dès qu'une compétition est
-chargée — publier des temps inventés sous l'identité d'une compétition en direct n'est pas
-une chose qu'une case à cocher devrait permettre. Sans compétition chargée, le choix vous
-revient, et il est mémorisé.
+**Un test reste local.** La lecture atteint le téléviseur et les téléphones du réseau de la
+piscine, et rien d'autre : le lien cloud est fermé pour la durée de la session, de sorte que
+les spectateurs à distance voient la compétition hors ligne plutôt qu'un enregistrement
+déguisé en course réelle. Aucun réglage ne le change, compétition chargée ou non. Pour
+essayer les applis sur un cloud en direct, son administrateur lance les
+[compétitions test](cloud.md#compétitions-test) du cloud.
 
 À la fin de la session, chaque tableau est vidé de la lecture, la compétition revient, le lien
 cloud est rétabli s'il était actif avant, et la vitesse de lecture revient à 1×.

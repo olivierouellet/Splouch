@@ -1,0 +1,22 @@
+        <div class="tab-pane" id="tab-test">
+            <div class="card"><div class="card-body">
+                <p class="small text-body-secondary">{{ t.get('test_meets_intro', 'Fake meets for trying the apps: each swims a few events and heats in real time, then starts over. Listed on the picker with a TEST badge.') }}</p>
+                <div class="d-flex gap-2 align-items-center mb-3 flex-wrap">
+                    <label class="small" for="test-count">{{ t.get('test_meets_count', 'Meets') }}</label>
+                    <input type="number" id="test-count" class="form-control form-control-sm w-auto" min="1" max="10" value="5">
+                    <button type="button" class="btn btn-primary btn-sm" onclick="testMeets('start')">{{ t.get('test_meets_start', 'Start') }}</button>
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="testMeets('stop')">{{ t.get('test_meets_stop', 'Stop') }}</button>
+                    <span id="test-status" class="small text-body-secondary ms-auto"></span>
+                </div>
+                <table class="table table-sm mb-0">
+                    <thead><tr>
+                        <th>{{ t.get('test_col_meet', 'Meet') }}</th>
+                        <th>{{ t.get('test_col_heat', 'Event / heat') }}</th>
+                        <th>{{ t.get('test_col_link', 'Link') }}</th>
+                    </tr></thead>
+                    <tbody id="test-rows">
+                        <tr><td colspan="3" class="text-body-secondary">{{ t.get('test_meets_none', 'No test meets running.') }}</td></tr>
+                    </tbody>
+                </table>
+            </div></div>
+        </div>

@@ -58,11 +58,6 @@ class RecordBody(BaseModel):
 
 class PlayBody(BaseModel):
     name: str = ""
-    # Keep this session off the cloud. Defaults on: a replay is for the people in
-    # the building, and the cost of getting it wrong is spectators watching a
-    # recording as if it were the race in front of them. Forced on when a real meet
-    # is loaded — see _test_play.
-    local_only: bool = True
 
 
 class SpeedBody(BaseModel):
@@ -84,8 +79,6 @@ class TestStatus(BaseModel):
     has_meet: bool
     test_meet: bool
     test_meet_name: str
-    local_only: bool  # what a session started now would do, or is doing
-    local_only_forced: bool  # a meet is loaded, so the choice is not the operator's
     meet_set_aside: str  # the meet being held for this session, '' if none
     # The console the replay is being decoded as, when that is not the configured
     # one — the board is not being driven by the operator's console and they should
@@ -135,10 +128,6 @@ def route_test_status():
         "has_meet": bool(state._active_meet_file) and not state._test_meet_active,
         "test_meet": state._test_meet_active,
         "test_meet_name": state._test_meet_name,
-        "local_only": (
-            state._test_local_only if state._test_session else _local_only_default()
-        ),
-        "local_only_forced": bool(state._active_meet_file),
         "meet_set_aside": state._active_meet_file if state._test_meet_active else "",
         "replay_console": (
             state.REPLAY_CONSOLE_TYPE if state._test_saved_decoder is not None else ""
@@ -151,22 +140,15 @@ def route_test_status():
     }
 
 
-def _local_only_default() -> bool:
-    """What the checkbox shows for a session not yet started."""
-    if state._active_meet_file:
-        return True  # not the operator's choice — see _test_play
-    return bool(state.settings.get("test_local_only", True))
-
-
 @router.post(
     "/test_play", response_model=ActionResult, dependencies=[Depends(require_login)]
 )
 async def route_test_play(body: PlayBody):
     # Parsing the companion LENEX is blocking — run off the loop.
-    return await run_in_threadpool(_test_play, body.name, body.local_only)
+    return await run_in_threadpool(_test_play, body.name)
 
 
-def _test_play(name, local_only=True):
+def _test_play(name):
     """Start a recorded session.
 
     The recording's own event and heat numbers only line up with the start lists
@@ -179,10 +161,9 @@ def _test_play(name, local_only=True):
     for s in _list_sessions():
         if s["name"] != name:
             continue
-        # A replay must never publish under a live meet's identity: the times are
-        # invented and the cloud would show them to spectators as the real race.
-        local_only = bool(local_only) or bool(state._active_meet_file)
-        _begin_local_only(local_only)
+        # A replay never reaches the cloud: its times are invented, and spectators
+        # would watch it as a real race. The cloud runs its own test meets.
+        _begin_local_only()
         bus.emit("/scoreboard", "test_mode", {"active": True})
         # Before the worker starts, and before `forget_current_heat` below: both of
         # those touch `state._decoder`, and the replay needs one that can read the
@@ -213,7 +194,7 @@ def _test_play(name, local_only=True):
     return JSONResponse({"error": "Session not found"}, status_code=404)
 
 
-def _begin_local_only(local_only: bool):
+def _begin_local_only():
     """Take the cloud out of the picture for the duration of a test session.
 
     The relay is stopped rather than filtered. The cloud already derives its
@@ -224,8 +205,8 @@ def _begin_local_only(local_only: bool):
     """
     import relay
 
-    state._test_local_only = bool(local_only)
-    if not local_only or state._test_saved_results is not None:
+    state._test_local_only = True
+    if state._test_saved_results is not None:
         # Already holding a session's worth of state: a second `_test_play` (the
         # Play buttons are disabled while one runs, but not from the API) must not
         # overwrite the *real* snapshot with the first test's, or record the relay
@@ -291,27 +272,6 @@ def _test_meet_upload(file):
         with contextlib.suppress(OSError):
             os.remove(dest)
         return {"ok": False, "error": str(e)}
-
-
-class LocalOnlyBody(BaseModel):
-    local_only: bool = True
-
-
-@router.post(
-    "/test_set_local_only",
-    response_model=ActionResult,
-    dependencies=[Depends(require_login)],
-)
-def route_test_set_local_only(body: LocalOnlyBody):
-    """Remember the checkbox between sessions.
-
-    Only the preference for the *next* session — a session already running keeps
-    whatever it started with, since the relay was stopped (or not) at that point
-    and flipping it mid-replay would publish half a test.
-    """
-    state.settings["test_local_only"] = bool(body.local_only)
-    state.save_settings()
-    return {"ok": True}
 
 
 @router.post("/test_set_speed", dependencies=[Depends(require_login)])

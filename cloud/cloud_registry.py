@@ -45,7 +45,8 @@ _LIST_COLUMNS = (
     "m.connected_at, m.expires_at, m.settings, m.node, m.worker, n.host AS node_url, "
     "(m.picker_image_b64 <> '') AS has_picker_image, "
     "m.last_frame_at, m.session_dates, m.utc_offset, "
-    "coalesce(o.country, '') AS country, coalesce(o.province, '') AS province"
+    "coalesce(o.country, '') AS country, coalesce(o.province, '') AS province, "
+    "coalesce(o.test, false) AS test"
 )
 
 
@@ -195,7 +196,8 @@ def assign(key, meet_uid):
 def register(key, meet_uid, meta, node, worker, location=None):
     """A Pi registered a meet on `node`/`worker`. None when the key is refused.
 
-    Returns `{"meet_id", "organizer", "connected_at"}`. Only the card is stored; the
+    Returns `{"meet_id", "organizer", "connected_at", "test"}` — `test` for the
+    control plane's own test meets (cloud_testmeets). Only the card is stored; the
     worker keeps the rest on its node. `location` is where the organizer says it is based (`{"country", "province"}`,
     from the Pi's Cloud tab); it is recorded beside the admin's, never over it.
     """
@@ -267,6 +269,7 @@ def register(key, meet_uid, meta, node, worker, location=None):
         "meet_id": meet_id,
         "organizer": org["name"],
         "connected_at": connected_at,
+        "test": bool(org["test"]),
     }
 
 
@@ -630,6 +633,28 @@ def restore(meets, node=None):
     return written
 
 
+def forget_test_meets():
+    """Drop the test meets' cards, live or not, once they are stopped: a test meet
+    leaves nothing behind for the picker. The nodes drop their copies on the next
+    heartbeat (`node_meet_ids`)."""
+    with cloud_db.conn() as c:
+        c.execute(
+            "DELETE FROM meets WHERE organizer_key IN "
+            "(SELECT key FROM organizers WHERE test)"
+        )
+
+
+def test_meets_wanted():
+    """How many test meets should run (cloud_testmeets.SETTING), 0 when none."""
+    with cloud_db.conn() as c:
+        return int(_settings_get(c, "test_meets") or 0)
+
+
+def set_test_meets_wanted(count):
+    with cloud_db.conn() as c:
+        _settings_put(c, "test_meets", int(count))
+
+
 def node_meet_ids(node):
     """Every meet the registry places on `node`, live or not — what the node keeps
     in its store; it drops the rest (`cloud_meetstore.keep_only`)."""
@@ -747,9 +772,13 @@ def advance_rollout(now=None):
         nodes = c.execute("SELECT * FROM nodes ORDER BY name").fetchall()
         busy = {}
         if not r.get("force"):
+            # A test meet (cloud_testmeets) sends frames all day and reconnects
+            # wherever it lands: never a reason to wait.
             for m in c.execute(
-                "SELECT node, last_frame_at, session_dates, utc_offset, meet_date "
-                "FROM meets WHERE live"
+                "SELECT m.node, m.last_frame_at, m.session_dates, m.utc_offset, "
+                "m.meet_date FROM meets m "
+                "LEFT JOIN organizers o ON o.key = m.organizer_key "
+                "WHERE m.live AND NOT coalesce(o.test, false)"
             ).fetchall():
                 if running(m, now):
                     busy[m["node"]] = True

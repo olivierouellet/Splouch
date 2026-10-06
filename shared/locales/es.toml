@@ -71,6 +71,7 @@ picker_unavailable = "Lista de competiciones no disponible — inténtelo de nue
 page_title               = "Splouch"
 no_meets                 = "No hay competiciones activas ahora mismo."
 unnamed_meet             = "Competición sin nombre"
+test_meet                = "PRUEBA"
 meet_search              = "Buscar competiciones"
 no_meets_match           = "Ninguna competición coincide con su búsqueda."
 a2hs_action              = "Agregar a la pantalla de inicio"

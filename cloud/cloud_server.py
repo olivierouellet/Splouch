@@ -752,6 +752,8 @@ async def _on_relay_register(ws, sid, data):
             "relay_key": key,
             "relay_sid": sid,
             "organizer": result["organizer"],
+            # One of the control plane's test meets (cloud_testmeets).
+            "test": bool(result.get("test")),
             **meta,
             "connected_at": prev.get("connected_at")
             or result.get("connected_at")
@@ -866,6 +868,22 @@ async def _forward(sid, event, data):
         await manager.broadcast(_ch("schedule", meet_id), "schedule_update")
 
 
+async def _on_test_loop(sid):
+    """A test meet starting its heats over: drop the last pass's console times and
+    sent notifications. Ignored from any other meet — a Pi has no business erasing
+    what its spectators were shown."""
+    with _lock:
+        meet_id = _relay_sids.get(sid)
+        meet = _meets.get(meet_id)
+    if not meet or not meet.get("test"):
+        return
+    meet["console_times"] = {}
+    meet["last_results"] = {}
+    await run_in_threadpool(cloud_meetstore.update, meet_id, console_times={})
+    await run_in_threadpool(cloud_follows.clear_fired, meet_id)
+    await manager.broadcast(_ch("schedule", meet_id), "schedule_update")
+
+
 async def _on_relay_reload(sid):
     with _lock:
         meet_id = _relay_sids.get(sid)
@@ -908,6 +926,8 @@ async def ws_relay(ws: WebSocket):
                 await _forward(sid, event, data)
             elif event == "reload":
                 await _on_relay_reload(sid)
+            elif event == "test_loop":
+                await _on_test_loop(sid)
             elif event == "get_stats":
                 await _on_relay_stats(ws, sid)
             elif event == "ping":

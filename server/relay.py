@@ -258,9 +258,14 @@ def _local_only():
     so in the ordinary case there is no socket to send on and this changes nothing.
     It is here for the window that stopping cannot close: the relay thread can be
     mid-reconnect when a test starts, and `_run` sends a registration, a schedule
-    and the last results snapshot the instant it gets a socket.
+    and the last results snapshot the instant it gets a socket. A test meet or a
+    replay is never relayed, whichever of the three flags says so first.
     """
-    return state._test_local_only
+    return (
+        state._test_local_only
+        or state._test_session is not None
+        or state._test_meet_active
+    )
 
 
 def relay_emit(event, data):

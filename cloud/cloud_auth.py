@@ -63,10 +63,31 @@ def _org_row(r):
 
 
 def load_keys():
-    """Every organizer, keyed by relay key, oldest first."""
+    """Every organizer, keyed by relay key, oldest first. Not the test one: its key
+    is the control plane's own, and is neither handed out nor backed up."""
     with cloud_db.conn() as c:
-        rows = c.execute("SELECT * FROM organizers ORDER BY created, name").fetchall()
+        rows = c.execute(
+            "SELECT * FROM organizers WHERE NOT test ORDER BY created, name"
+        ).fetchall()
     return {r["key"]: _org_row(r) for r in rows}
+
+
+TEST_ORGANIZER = "Splouch Test"
+
+
+def test_organizer_key():
+    """The key the control plane's test meets publish under (cloud_testmeets),
+    made the first time it is asked for. No region: any node may carry them."""
+    with cloud_db.conn() as c:
+        row = c.execute("SELECT key FROM organizers WHERE test").fetchone()
+        if row:
+            return row["key"]
+        key = secrets.token_urlsafe(32)
+        c.execute(
+            "INSERT INTO organizers (key, name, test) VALUES (%s, %s, true)",
+            (key, TEST_ORGANIZER),
+        )
+    return key
 
 
 def organizer(key):

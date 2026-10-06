@@ -101,6 +101,12 @@
         .card-name { font-size: 1em; font-weight: 600; margin-bottom: 4px; }
         .card-meta { font-size: 0.85em; color: var(--muted); line-height: 1.5; }
         .card-meta span + span::before { content: ' · '; }
+        /* One of the server's own test meets (docs/cloud.md, Test meets). */
+        .test-badge {
+            display: inline-block; margin-left: 6px; padding: 1px 6px; border-radius: 4px;
+            font-size: 0.7em; font-weight: 700; letter-spacing: 0.05em; vertical-align: 2px;
+            color: var(--accent); border: 1px solid var(--accent);
+        }
         /* docs/app.md `P-18`: past ten meets, rows instead of cards and no images. */
         .meets.compact { flex-direction: column; gap: 6px; }
         .meets.compact .card { max-width: none; padding: 10px 14px; gap: 10px; border-radius: 8px; }
@@ -389,7 +395,7 @@
             <img src="/picker_image/{{ meet.id }}" class="card-img" alt="" loading="lazy">
             {% endif %}
             <div class="card-body">
-                <div class="card-name">{{ meet.name or t.unnamed_meet }}</div>
+                <div class="card-name">{{ meet.name or t.unnamed_meet }}{% if meet.test %}<span class="test-badge">{{ t.test_meet or 'TEST' }}</span>{% endif %}</div>
                 <div class="card-meta">
                     {% if meet.meet_date %}<span>{{ meet.meet_date }}</span>{% endif %}
                     {% if meet.location %}<span>{{ meet.location }}</span>{% endif %}

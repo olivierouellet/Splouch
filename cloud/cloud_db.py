@@ -220,6 +220,14 @@ MIGRATIONS = [
         );
         """,
     ),
+    (
+        10,
+        """
+        -- The one organizer the control plane's own test meets publish under
+        -- (cloud_testmeets): badged on the picker, never in the Organizers tab.
+        ALTER TABLE organizers ADD COLUMN test boolean NOT NULL DEFAULT false;
+        """,
+    ),
 ]
 
 # Tables holding data, in an order TRUNCATE accepts. Tests empty these between

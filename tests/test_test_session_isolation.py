@@ -297,7 +297,7 @@ def cloud(monkeypatch):
 
 
 def test_local_only_sends_the_cloud_nothing(rig, cloud):
-    debug._test_play(SESSION, local_only=True)
+    debug._test_play(SESSION)
     assert state._test_local_only
     assert not cloud.running["on"], "the relay was left connected"
 
@@ -308,14 +308,26 @@ def test_local_only_sends_the_cloud_nothing(rig, cloud):
     assert cloud.sent == []
 
 
+def test_a_running_test_is_never_relayed_whatever_the_flag(rig, cloud):
+    """The relay checks the session and the test meet too, not only the flag
+    `_begin_local_only` sets: a test reaching the cloud is the one thing a Pi
+    must never do (the cloud runs its own test meets)."""
+    state._test_session = "x.serial"
+    relay.relay_emit("update_scoreboard", {"lane_time1": "58.12"})
+    state._test_session = None
+    state._test_meet_active = True
+    relay.send_schedule()
+    assert cloud.sent == []
+
+
 def test_the_cloud_comes_back_only_if_it_was_there(rig, cloud):
-    debug._test_play(SESSION, local_only=True)
+    debug._test_play(SESSION)
     worker.end_test_session()
     assert cloud.running["on"], "the cloud was not restored"
     assert not state._test_local_only
 
     cloud.running["on"] = False  # operator had the cloud switched off
-    debug._test_play(SESSION, local_only=True)
+    debug._test_play(SESSION)
     worker.end_test_session()
     assert not cloud.running["on"], "a test switched the cloud on behind the operator"
 
@@ -328,7 +340,7 @@ def test_a_replay_result_does_not_reach_the_cloud_on_the_next_connect(
     real = {"event": 3, "lanes": [{"lane": 1, "time": "58.12"}]}
     monkeypatch.setattr(state, "_last_results_snapshot", real, raising=False)
 
-    debug._test_play(SESSION, local_only=True)
+    debug._test_play(SESSION)
     state._last_results_snapshot = {"event": 99, "lanes": [{"lane": 1, "time": "1.00"}]}
     worker.end_test_session()
 
@@ -339,17 +351,12 @@ def _schedules(cloud):
     return [d for ev, d in cloud.sent if ev == "schedule_snapshot"]
 
 
-def test_a_test_with_no_meet_to_go_back_to_clears_the_cloud_schedule(rig, cloud):
-    """No meet before, cloud allowed: the recording's start list reached the
-    cloud, and with nothing to replace it the cloud kept serving it after the test.
-    """
+def test_a_test_with_no_meet_sends_the_cloud_no_schedule(rig, cloud):
+    """No meet loaded used to let the operator untick "local only", and the
+    recording's start list then went out as the cloud's schedule."""
     state.clear_meet()
-    debug._test_play(SESSION, local_only=False)
-    assert _schedules(cloud)[-1]["events"], "the test's start list never went out"
-
-    worker.end_test_session()
-
-    assert _schedules(cloud)[-1]["events"] == [], "the test's start list outlived it"
+    debug._test_play(SESSION)
+    assert _schedules(cloud) == [], "the test's start list went out"
 
 
 def test_a_connect_with_no_meet_leaves_the_cloud_schedule_alone(rig, cloud):
@@ -360,34 +367,15 @@ def test_a_connect_with_no_meet_leaves_the_cloud_schedule_alone(rig, cloud):
     assert _schedules(cloud) == []
 
 
-def test_a_meet_loaded_forces_local_only(rig, cloud):
-    """Not the operator's choice: a replay under a live meet's identity would show
-    spectators invented times as the race in front of them."""
-    _load_real_meet(rig)
-    debug._test_play(SESSION, local_only=False)
+@pytest.mark.parametrize("meet", [True, False])
+def test_every_test_is_local_only(rig, cloud, meet):
+    """Meet loaded or not: there is no choice left to the operator."""
+    if meet:
+        _load_real_meet(rig)
+    debug._test_play(SESSION)
     assert state._test_local_only
     assert not cloud.running["on"]
-
-
-def test_without_a_meet_the_choice_is_honoured(rig, cloud):
-    debug._test_play(SESSION, local_only=False)
-    assert not state._test_local_only
-    assert cloud.running["on"], "the cloud was dropped for a session meant to reach it"
-
-
-def test_the_status_reports_what_the_checkbox_should_show(rig, monkeypatch):
-    monkeypatch.setitem(state.settings, "test_local_only", True)
-    assert debug.route_test_status()["local_only"] is True
-    assert debug.route_test_status()["local_only_forced"] is False
-
-    monkeypatch.setitem(state.settings, "test_local_only", False)
-    assert debug.route_test_status()["local_only"] is False
-
-    _load_real_meet(rig)
-    status = debug.route_test_status()
-    assert status["local_only"] is True and status["local_only_forced"] is True, (
-        "the checkbox would offer a choice the route overrides"
-    )
+    assert "local_only" not in debug.route_test_status()
 
 
 # ── Ending a session ───────────────────────────────────────────────────────────
@@ -447,9 +435,9 @@ def test_a_second_play_does_not_lose_the_real_state(rig, cloud, monkeypatch):
     real = {"event": 3, "lanes": []}
     monkeypatch.setattr(state, "_last_results_snapshot", real, raising=False)
 
-    debug._test_play(SESSION, local_only=True)
+    debug._test_play(SESSION)
     state._last_results_snapshot = {"event": 99, "lanes": []}  # the replay's
-    debug._test_play(SESSION, local_only=True)
+    debug._test_play(SESSION)
     worker.end_test_session()
 
     assert state._last_results_snapshot == real

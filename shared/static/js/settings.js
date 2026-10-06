@@ -429,16 +429,6 @@ function _loadTestStatus() {
                 replayNote.style.display =
                     d.replay_console || d.replay_console_needed ? '' : 'none';
 
-            // Locked on with a meet loaded: a replay must never be published to
-            // the cloud under a live meet's identity. Also locked while a session
-            // is running, since the relay was already stopped (or not) at start.
-            var local = document.getElementById('test-local-only');
-            var hint = document.getElementById('test-local-only-hint');
-            local.checked = d.local_only;
-            local.disabled = d.local_only_forced || d.playing;
-            hint.textContent = d.local_only_forced
-                ? T.test_local_only_forced
-                : T.test_local_only_hint;
             _renderSessions(d.sessions, d.playing);
 
             // Test meet section
@@ -574,23 +564,12 @@ function _highlightSpeed(s) {
 }
 
 function testPlay(name) {
-    var localOnly = document.getElementById('test-local-only').checked;
     fetch('/test_play', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: name, local_only: localOnly }),
+        body: JSON.stringify({ name: name }),
     }).then(function () {
         setTimeout(_loadTestStatus, 400);
-    });
-}
-
-// The preference for the next session only — a session already running keeps
-// what it started with, so the checkbox is disabled while one plays.
-function setTestLocalOnly(on) {
-    fetch('/test_set_local_only', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ local_only: on }),
     });
 }
 

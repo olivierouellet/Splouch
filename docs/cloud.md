@@ -125,6 +125,27 @@ On iOS, tap **Share → Add to Home Screen** for a full-screen app-like experien
 
 ---
 
+## Test meets
+
+To try the web page and the apps without a pool, `/admin` → **Test meets** (Admin role)
+starts up to 10 fake meets (5 by default). Each swims five events of two or three heats,
+eight lanes, in real time — splits, finishes, places, results, next heats — and starts over
+about every 17 minutes. They are listed on the picker like any meet, with a **TEST** badge
+(`"test": true` in `GET /meets`), under an organizer of their own that the Organizers tab
+does not show.
+
+- They are run by the control plane as relay clients, through `/api/assign` and
+  `/ws/relay` like a Pi, so they land on whichever node and worker the registry picks.
+- Following a swimmer sends real pushes when push is configured; each pass starts clean,
+  so the next one notifies again.
+- They keep running across a restart of the control plane. A rollout never waits for them.
+- **Stop** ends them and removes their cards.
+
+A Pi's own Test tab never reaches the cloud: a replay is always local
+([Test sessions](admin.md#test-sessions)).
+
+---
+
 ## Letting a QR code open the app
 
 A poster at a pool carries a code for `https://yourdomain/add?server=<the pool's Pi>`
@@ -596,6 +617,28 @@ reprend le thème et les réglages d'affichage du Pi de l'organisateur.
 
 Sur iOS, touchez **Partager → Sur l'écran d'accueil** pour une expérience plein écran façon
 application (l'invitation s'affiche automatiquement à la première visite).
+
+---
+
+### Compétitions test
+
+Pour essayer la page web et les applis sans piscine, `/admin` → **Compétitions test** (rôle
+Admin) démarre jusqu'à 10 fausses compétitions (5 par défaut). Chacune nage cinq épreuves de
+deux ou trois séries, huit couloirs, en temps réel — passages, arrivées, rangs, résultats,
+prochaines séries — puis recommence environ toutes les 17 minutes. Elles figurent dans le
+sélecteur comme toute compétition, avec un badge **TEST** (`"test": true` dans
+`GET /meets`), sous un organisateur à part que l'onglet Organisateurs n'affiche pas.
+
+- Le plan de contrôle les fait tourner comme clients du relais, par `/api/assign` et
+  `/ws/relay` comme un Pi : elles arrivent sur le nœud et le worker que choisit le registre.
+- Suivre un nageur envoie de vraies notifications si le push est configuré ; chaque passage
+  repart à zéro, si bien que le suivant notifie de nouveau.
+- Elles reprennent après un redémarrage du plan de contrôle. Une mise à jour progressive ne
+  les attend jamais.
+- **Arrêter** les termine et retire leurs cartes.
+
+L'onglet Test d'un Pi n'atteint jamais le cloud : une lecture reste toujours locale
+([Sessions de test](admin.md#sessions-de-test)).
 
 ---
 

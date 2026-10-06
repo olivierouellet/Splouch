@@ -171,3 +171,6 @@ def test_the_tab_routes_name_their_role():
     assert role("/admin") == [None]
     assert role("/admin/backup/keys") == ["admin"]
     assert role("/admin/update", "POST") == ["admin"]
+    assert role("/admin/test") == ["admin"]
+    assert role("/admin/test/start", "POST") == ["admin"]
+    assert role("/admin/test/stop", "POST") == ["admin"]
