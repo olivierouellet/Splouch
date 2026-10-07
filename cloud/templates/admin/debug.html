@@ -1,19 +1,74 @@
         <div class="tab-pane" id="tab-debug">
-            <div class="card"><div class="card-body">
-                <div class="d-flex gap-2 align-items-center mb-3 flex-wrap">
-                    <select id="log-source" class="form-select form-select-sm w-auto" onchange="loadLogs()">
+            <!-- ── Logs: this server directly, another node through its heartbeat ── -->
+            <div class="card mb-3"><div class="card-body">
+                <div class="panel-title">{{ t.diag_logs }}</div>
+                <div class="d-flex gap-2 align-items-center mb-2 flex-wrap">
+                    <select id="log-node" class="form-select form-select-sm w-auto" onchange="logNodeChanged()" aria-label="{{ t.diag_server }}"></select>
+                    <select id="log-source" class="form-select form-select-sm w-auto" onchange="loadLogs()" aria-label="{{ t.diag_source }}">
                         <option value="control">{{ t.log_source_control }}</option>
                         <option value="app">{{ t.log_source_app }}</option>
                         <option value="caddy">Caddy</option>
                         <option value="webhook">{{ t.log_source_webhook }}</option>
+                    </select>
+                    <select id="log-since" class="form-select form-select-sm w-auto" onchange="loadLogs()" aria-label="{{ t.diag_since }}">
+                        <option value="">{{ t.diag_since_tail }}</option>
+                        <option value="10m">{{ t.diag_since_10m }}</option>
+                        <option value="1h">{{ t.diag_since_1h }}</option>
+                        <option value="24h">{{ t.diag_since_24h }}</option>
                     </select>
                     <button type="button" onclick="loadLogs()" class="btn btn-secondary btn-sm">{{ t.log_refresh }}</button>
                     <div class="form-check m-0">
                         <input class="form-check-input" type="checkbox" id="log-follow" onchange="toggleFollow()">
                         <label class="form-check-label" for="log-follow">{{ t.log_follow }}</label>
                     </div>
+                    <input id="log-filter" type="search" class="form-control form-control-sm" style="max-width:220px;" placeholder="{{ t.diag_filter_ph }}" oninput="renderLogs()">
+                    <button type="button" onclick="downloadLogs()" class="btn btn-secondary btn-sm">{{ t.diag_download }}</button>
                     <span id="log-status" class="small text-body-secondary ms-auto"></span>
                 </div>
+                <div class="small text-body-secondary mb-2">{{ t.diag_logs_hint }}</div>
                 <pre id="log-output" class="border rounded p-2 mb-0" style="background:#111;color:#e0e0e0;height:480px;overflow-y:auto;font-size:0.78em;white-space:pre-wrap;word-break:break-all;"></pre>
+            </div></div>
+
+            <!-- ── App checks ─────────────────────────────────────────────────── -->
+            <div class="card mb-3"><div class="card-body">
+                <div class="d-flex align-items-center mb-1">
+                    <span class="panel-title flex-fill mb-0">{{ t.diag_applinks }}</span>
+                    <button type="button" id="btn-applinks" class="btn btn-secondary btn-sm" onclick="checkAppLinks()">{{ t.diag_check }}</button>
+                </div>
+                <div class="small text-body-secondary mb-2">{{ t.diag_applinks_hint }}</div>
+                <div id="applinks-result" class="small"></div>
+            </div></div>
+
+            <div class="card mb-3"><div class="card-body">
+                <div class="d-flex align-items-center mb-1">
+                    <span class="panel-title flex-fill mb-0">{{ t.diag_push }}</span>
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="loadPushOverview()">{{ t.log_refresh }}</button>
+                </div>
+                <div class="small text-body-secondary mb-2">{{ t.diag_push_hint }}</div>
+                <div class="table-responsive"><table class="table table-sm small mb-2">
+                    <thead><tr><th>{{ t.col_node }}</th><th>APNs</th><th>FCM</th><th>{{ t.diag_push_counts }}</th><th>{{ t.diag_push_last }}</th><th></th></tr></thead>
+                    <tbody id="push-rows"></tbody>
+                </table></div>
+
+                <hr>
+                <div class="fw-semibold small mb-1">{{ t.diag_test_send }}</div>
+                <div class="small text-body-secondary mb-2">{{ t.diag_test_send_hint }}</div>
+                <div class="d-flex flex-wrap gap-1 align-items-start">
+                    <textarea id="push-token" class="form-control form-control-sm font-monospace" rows="2" style="flex:1; min-width:240px;" placeholder="apns:production:…  /  fcm:…" autocomplete="off" spellcheck="false"></textarea>
+                    <select id="push-node" class="form-select form-select-sm w-auto" aria-label="{{ t.col_node }}"></select>
+                    <button type="button" id="btn-push-test" class="btn btn-primary btn-sm" onclick="sendTestPush()">{{ t.diag_send }}</button>
+                </div>
+                <div id="push-test-result" class="small mt-2"></div>
+            </div></div>
+
+            <!-- ── Commands to copy, grouped by where they run ────────────────── -->
+            <div class="card"><div class="card-body">
+                <div class="panel-title">{{ t.diag_commands }}</div>
+                <div class="d-flex align-items-center gap-2 mb-3 flex-wrap">
+                    <label for="ssh-user" class="small text-body-secondary">{{ t.diag_ssh_user }}</label>
+                    <input id="ssh-user" type="text" class="form-control form-control-sm" style="max-width:180px;" autocomplete="off" spellcheck="false" oninput="sshUserChanged()">
+                    <span class="small text-body-secondary">{{ t.diag_ssh_user_hint }}</span>
+                </div>
+                <div id="commands-list"></div>
             </div></div>
         </div>

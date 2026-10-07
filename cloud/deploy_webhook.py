@@ -6,6 +6,8 @@ Authenticated endpoints:
   POST /deploy   — check out a ref, then cloud_deploy.py (pull or build, start)
   GET  /versions — list available release tags
   GET  /log      — stream output of the last deploy
+  GET  /logs     — the tail of a container's or this service's log
+  GET  /info     — where the checkout is and who owns it, for the admin's commands
 
 Setup:
   1. Copy deploy_webhook.service to /etc/systemd/system/
@@ -17,6 +19,7 @@ import hmac
 import http.server
 import json
 import os
+import pwd
 import re
 import subprocess
 import threading
@@ -27,6 +30,9 @@ _VERSION_RE = re.compile(r"^v\d{4}\.\d{2}\.\d+$")
 # Git branch names that are safe to put in a shell command: letters, digits and
 # the handful of separators a branch actually uses. No spaces, quotes or metachars.
 _REF_RE = re.compile(r"^[A-Za-z0-9._/-]{1,100}$")
+# The log windows the admin's Logs card offers, as docker and journalctl read them
+# (`--since 10m`; `--since -10m`, a relative time).
+_SINCE = {"10m": "10m", "1h": "1h", "24h": "24h"}
 
 SECRET = os.environ.get("DEPLOY_SECRET", "")
 REPO = os.path.expanduser(os.environ.get("REPO_DIR", "~/Splouch"))
@@ -162,6 +168,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self._handle_log()
         elif path == "/logs":
             self._handle_logs()
+        elif path == "/info":
+            self._handle_info()
         else:
             self._reply(404, b"not found")
 
@@ -247,6 +255,18 @@ class Handler(http.server.BaseHTTPRequestHandler):
         body = json.dumps({"lines": lines, "done": done}).encode()
         self._reply(200, body, "application/json")
 
+    def _handle_info(self):
+        # The admin's Debug → Commands card prints `ssh <owner>@<domain>` and
+        # `cd <repo>/cloud`: the checkout's owner is the account that installed it.
+        if not self._check_auth():
+            return
+        try:
+            owner = pwd.getpwuid(os.stat(REPO).st_uid).pw_name
+        except (OSError, KeyError):
+            owner = ""
+        body = json.dumps({"ok": True, "repo": REPO, "user": owner}).encode()
+        self._reply(200, body, "application/json")
+
     def _handle_logs(self):
         if not self._check_auth():
             return
@@ -261,51 +281,25 @@ class Handler(http.server.BaseHTTPRequestHandler):
         except (TypeError, ValueError):
             tail = 300
         tail = str(tail)
+        # A window instead of (and capped by) the tail: one of a fixed few, so
+        # nothing from the query string reaches the command line.
+        since = _SINCE.get(params.get("since", [""])[0], "")
         compose = f"{REPO}/cloud/docker-compose.yml"
 
+        def docker(service):
+            cmd = ["docker", "compose", "-f", compose, "logs", "--tail", tail]
+            if since:
+                cmd += ["--since", since]
+            return [*cmd, "--no-color", service]
+
+        journal = ["journalctl", "-u", "deploy-webhook", "-n", tail]
+        if since:
+            journal += ["--since", f"-{since}"]
         cmds = {
-            "app": [
-                "docker",
-                "compose",
-                "-f",
-                compose,
-                "logs",
-                "--tail",
-                tail,
-                "--no-color",
-                "app",
-            ],
-            "control": [
-                "docker",
-                "compose",
-                "-f",
-                compose,
-                "logs",
-                "--tail",
-                tail,
-                "--no-color",
-                "control",
-            ],
-            "caddy": [
-                "docker",
-                "compose",
-                "-f",
-                compose,
-                "logs",
-                "--tail",
-                tail,
-                "--no-color",
-                "caddy",
-            ],
-            "webhook": [
-                "journalctl",
-                "-u",
-                "deploy-webhook",
-                "-n",
-                tail,
-                "--no-pager",
-                "--output=short",
-            ],
+            "app": docker("app"),
+            "control": docker("control"),
+            "caddy": docker("caddy"),
+            "webhook": [*journal, "--no-pager", "--output=short"],
         }
         if source not in cmds:
             self._reply(400, b"unknown source")

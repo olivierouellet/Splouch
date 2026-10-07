@@ -22,7 +22,11 @@ import json
 import mimetypes
 import os
 import re
+import secrets
+import time
 import traceback
+import urllib.error
+import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
 from contextlib import asynccontextmanager, suppress
@@ -1407,9 +1411,14 @@ def route_logs(request: Request):
     if not webhook_url or not secret:
         return JSONResponse({"ok": False, "error": "not configured"}, status_code=503)
 
-    source = request.query_params.get("source", "app")
-    tail = request.query_params.get("tail", "300")
-    logs_url = webhook_url.rsplit("/", 1)[0] + f"/logs?source={source}&tail={tail}"
+    query = urllib.parse.urlencode(
+        {
+            "source": request.query_params.get("source", "app"),
+            "tail": request.query_params.get("tail", "300"),
+            "since": request.query_params.get("since", ""),
+        }
+    )
+    logs_url = webhook_url.rsplit("/", 1)[0] + f"/logs?{query}"
     try:
         req = urllib.request.Request(logs_url, method="GET")
         req.add_header("X-Deploy-Token", secret)
@@ -1420,6 +1429,303 @@ def route_logs(request: Request):
             {"ok": False, "error": _failure("Reaching the deploy webhook")},
             status_code=502,
         )
+
+
+# ── Debug: diagnostics on the nodes ─────────────────────────────────────────────
+# A node is reached only through its own heartbeat (cloud_node.run_diag): a job
+# queued here rides the next answer to that node's worker 1, which runs it and
+# posts the result to /internal/diag/{id}. So a result takes up to a heartbeat to
+# arrive, and the admin page polls. All of it is in memory — one control process —
+# and short-lived: a pasted push token is in a job for seconds, then gone.
+
+_DIAG_KINDS = ("logs", "info", "push_check", "push_test")
+_DIAG_PICKUP_SECS = 45  # a node that has not taken a job by then is not answering
+_DIAG_KEEP_SECS = 300
+_DIAG_QUEUE_MAX = 20
+_diag_queue: dict[str, list[dict]] = {}
+_diag_jobs: dict[str, dict] = {}
+# Each worker's push counters (cloud_push.stats), as last reported, with when.
+_push_stats: dict[tuple[str, int], tuple[float, dict]] = {}
+_PUSH_STATS_FRESH_SECS = 60
+
+
+def _diag_prune(now):
+    for job_id, job in list(_diag_jobs.items()):
+        if job["state"] == "queued" and now - job["at"] > _DIAG_PICKUP_SECS:
+            job.update(state="done", result={"ok": False, "error": "no_answer"})
+            queue = _diag_queue.get(job["node"], [])
+            _diag_queue[job["node"]] = [j for j in queue if j["id"] != job_id]
+        if now - job["at"] > _DIAG_KEEP_SECS:
+            del _diag_jobs[job_id]
+
+
+def diag_enqueue(node, kind, params):
+    now = time.time()
+    _diag_prune(now)
+    queue = _diag_queue.setdefault(node, [])
+    if len(queue) >= _DIAG_QUEUE_MAX:
+        return None
+    job_id = secrets.token_hex(16)
+    queue.append({"id": job_id, "kind": kind, "params": params})
+    _diag_jobs[job_id] = {"node": node, "state": "queued", "at": now, "result": None}
+    return job_id
+
+
+def diag_take(node):
+    """The jobs waiting for `node`, handed to its worker 1 once."""
+    jobs = _diag_queue.pop(node, [])
+    for job in jobs:
+        if job["id"] in _diag_jobs:
+            _diag_jobs[job["id"]]["state"] = "running"
+    # The token goes no further than this answer.
+    return jobs
+
+
+def diag_store(node, job_id, result):
+    job = _diag_jobs.get(job_id)
+    if job is None or job["node"] != node:
+        return False
+    job.update(state="done", result=result)
+    return True
+
+
+def push_stats_by_node(now=None):
+    """Every worker's counters summed per node, from reports still fresh."""
+    now = time.time() if now is None else now
+    out: dict[str, dict[str, dict]] = {}
+    for (node, _worker), (at, stats) in _push_stats.items():
+        if now - at > _PUSH_STATS_FRESH_SECS:
+            continue
+        for platform, c in (stats or {}).items():
+            agg = out.setdefault(node, {}).setdefault(
+                platform,
+                {"ok": 0, "gone": 0, "failed": 0, "last_reason": "", "last_at": 0.0},
+            )
+            for k in ("ok", "gone", "failed"):
+                agg[k] += int(c.get(k, 0) or 0)
+            if float(c.get("last_at", 0) or 0) > agg["last_at"]:
+                agg["last_at"] = float(c["last_at"])
+                agg["last_reason"] = str(c.get("last_reason", ""))[:200]
+    return out
+
+
+def _local_node():
+    return os.environ.get("NODE_NAME", "ca1")
+
+
+class DiagIn(BaseModel):
+    node: str
+    kind: str
+    params: dict[str, Any] = {}
+
+
+@app.get("/admin/diag/overview", tags=["Admin"], dependencies=[Depends(require_admin)])
+def route_diag_overview():
+    stats = push_stats_by_node()
+    return {
+        "local": _local_node(),
+        "nodes": [
+            {
+                "name": n["name"],
+                "url": n["url"],
+                "region": n["region"],
+                "up": n["up"],
+                "push": n["push"] or [],
+                "push_stats": stats.get(n["name"], {}),
+            }
+            for n in _admin_nodes()
+        ],
+    }
+
+
+@app.post("/admin/diag", tags=["Admin"], dependencies=[Depends(require_admin)])
+def route_diag_start(body: DiagIn, request: Request):
+    if body.kind not in _DIAG_KINDS:
+        return JSONResponse({"ok": False, "error": "unknown kind"}, status_code=400)
+    if body.node not in {n["name"] for n in cloud_registry.nodes()}:
+        return JSONResponse({"ok": False, "error": "unknown node"}, status_code=404)
+    params = dict(body.params)
+    if body.kind == "push_test":
+        # Fixed words, in the admin's language: the admin picks a phone, not a message.
+        t = _load_cloud_strings(request)
+        params = {
+            "token": str(params.get("token", ""))[:4200],
+            "title": t.get("diag_test_title", "Splouch test notification"),
+            "body": t.get("diag_test_body", "Notifications reach this phone."),
+        }
+    job_id = diag_enqueue(body.node, body.kind, params)
+    if job_id is None:
+        return JSONResponse({"ok": False, "error": "busy"}, status_code=429)
+    return {"ok": True, "id": job_id}
+
+
+@app.get("/admin/diag/{job_id}", tags=["Admin"], dependencies=[Depends(require_admin)])
+def route_diag_result(job_id: str):
+    _diag_prune(time.time())
+    job = _diag_jobs.get(job_id)
+    if job is None:
+        return {"state": "gone", "result": None}
+    return {"state": job["state"], "result": job["result"]}
+
+
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, *args, **kwargs):
+        return None  # report the 3xx itself: Android follows none
+
+
+def _fetch(url, timeout=8):
+    """`(status, content_type, body)` for one GET, redirects not followed."""
+    opener = urllib.request.build_opener(_NoRedirect)
+    req = urllib.request.Request(url, headers={"User-Agent": "Splouch-diag"})
+    try:
+        with opener.open(req, timeout=timeout) as resp:
+            return resp.status, resp.headers.get("content-type", ""), resp.read(200_000)
+    except urllib.error.HTTPError as e:
+        return e.code, e.headers.get("content-type", "") if e.headers else "", b""
+    except (urllib.error.URLError, OSError) as e:
+        return 0, "", str(e).encode()
+
+
+def applinks_check(host, fetch=_fetch):
+    """The app-link checks, as `[{key, ok, detail}]`, from where phones look.
+
+    Android reads `assetlinks.json` from this host at install; Google's statement
+    list is what its verifier concluded. iPhones read Apple's CDN copy of the
+    association file, not this host's — so a fix here shows there only once
+    Apple has fetched it again, which can take a day or more.
+    """
+    links = _app_links()
+    checks = []
+
+    status, ctype, body = fetch(f"https://{host}/.well-known/assetlinks.json")
+    ok = status == 200 and ctype.startswith("application/json")
+    detail = f"HTTP {status or '—'} {ctype}".strip()
+    if ok:
+        try:
+            served = {
+                fp
+                for entry in json.loads(body)
+                for fp in entry.get("target", {}).get("sha256_cert_fingerprints", [])
+            }
+            ok = bool(served)
+            detail += f" · {len(served)} fingerprint(s)"
+        except (ValueError, AttributeError, TypeError):
+            ok, detail = False, detail + " · not valid JSON"
+    elif status in (301, 302, 307, 308):
+        detail += " · redirect"
+    elif status == 404 and not links["android_fingerprints"]:
+        detail += " · ANDROID_CERT_FINGERPRINTS not set"
+    checks.append({"key": "assetlinks", "ok": ok, "detail": detail})
+
+    status, _ctype, body = fetch(
+        "https://digitalassetlinks.googleapis.com/v1/statements:list?"
+        + urllib.parse.urlencode(
+            {
+                "source.web.site": f"https://{host}",
+                "relation": "delegate_permission/common.handle_all_urls",
+            }
+        )
+    )
+    found = 0
+    with suppress(ValueError, AttributeError, TypeError):
+        found = sum(
+            1
+            for st in json.loads(body).get("statements", [])
+            if st.get("target", {}).get("androidApp", {}).get("packageName")
+            == links["android_package"]
+        )
+    checks.append(
+        {
+            "key": "google_view",
+            "ok": status == 200 and found > 0,
+            "detail": f"HTTP {status or '—'} · {found} statement(s) for {links['android_package']}",
+        }
+    )
+
+    status, ctype, body = fetch(
+        f"https://{host}/.well-known/apple-app-site-association"
+    )
+    checks.append(
+        {
+            "key": "aasa",
+            "ok": status == 200 and ctype.startswith("application/json"),
+            "detail": f"HTTP {status or '—'} {ctype}".strip(),
+        }
+    )
+
+    status, _ctype, body = fetch(
+        f"https://app-site-association.cdn-apple.com/a/v1/{host}"
+    )
+    ids = []
+    with suppress(ValueError, AttributeError, TypeError):
+        ids = [
+            app_id
+            for d in json.loads(body).get("applinks", {}).get("details", [])
+            for app_id in (d.get("appIDs") or [d.get("appID")])
+            if app_id
+        ]
+    missing = [i for i in links["ios_app_ids"] if i not in ids]
+    checks.append(
+        {
+            "key": "apple_cdn",
+            "ok": status == 200 and not missing,
+            "detail": f"HTTP {status or '—'}"
+            + (f" · missing {', '.join(missing)}" if status == 200 and missing else ""),
+        }
+    )
+
+    stores = _store_links()
+    checks.append(
+        {
+            "key": "stores",
+            "ok": {"android", "ios"} <= set(stores),
+            "detail": ", ".join(sorted(stores)) or "—",
+        }
+    )
+    return checks
+
+
+@app.get("/admin/applinks_check", tags=["Admin"], dependencies=[Depends(require_admin)])
+async def route_applinks_check(request: Request):
+    host = (request.url.hostname or "").strip()
+    return {"host": host, "checks": await run_in_threadpool(applinks_check, host)}
+
+
+@app.get("/admin/commands_info", tags=["Admin"], dependencies=[Depends(require_admin)])
+async def route_commands_info(request: Request):
+    """What the Commands card fills its lines with: this server's checkout and its
+    owner (from the deploy webhook), the domain, each node, and the app ids."""
+    info = await run_in_threadpool(_webhook_info)
+    links = _app_links()
+    return {
+        "host": request.url.hostname or "",
+        "repo": info.get("repo", ""),
+        "user": info.get("user", ""),
+        "nodes": [
+            {"name": n["name"], "url": n["url"]}
+            for n in _admin_nodes()
+            if n["name"] != _local_node()
+        ],
+        "android_package": links["android_package"],
+        "ios_bundle": (
+            links["ios_app_ids"][0].split(".", 1)[1] if links["ios_app_ids"] else ""
+        ),
+    }
+
+
+def _webhook_info():
+    url = os.environ.get("DEPLOY_WEBHOOK_URL", "")
+    secret = os.environ.get("DEPLOY_WEBHOOK_SECRET", "")
+    if not url or not secret:
+        return {}
+    req = urllib.request.Request(url.rsplit("/", 1)[0] + "/info", method="GET")
+    req.add_header("X-Deploy-Token", secret)
+    try:
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            data = json.loads(resp.read())
+            return data if isinstance(data, dict) else {}
+    except (urllib.error.URLError, OSError, ValueError):
+        return {}
 
 
 @app.get("/admin/versions", tags=["Admin"], dependencies=[Depends(require_admin)])
@@ -1556,9 +1862,12 @@ def _admin_page(request, t=None, creds_error=None, users_error=None):
     creds = _load_creds()
     user, roles = _signed_in(request)
     admin = "admin" in roles
+    t = t or _load_cloud_strings(request)
     return render(
         request,
         "admin.html",
+        # The Debug tab's words, as the script's `T.diag` (admin/debug.html).
+        diag_strings={k: v for k, v in t.items() if k.startswith("diag_")},
         roles=roles,
         keys=_load_keys() if "organizers" in roles else {},
         regions=cloud_auth.regions(),
@@ -1573,7 +1882,7 @@ def _admin_page(request, t=None, creds_error=None, users_error=None):
         owner_name=creds.get("user", ""),
         cloud_roles=cloud_auth.CLOUD_ROLES,
         users_error=users_error,
-        t=t or _load_cloud_strings(request),
+        t=t,
         ui_lang=_admin_lang(request),
         creds_error=creds_error,
         user_name=user or creds.get("user", "Admin"),
@@ -1990,6 +2299,8 @@ class HeartbeatIn(BaseModel):
     # The platforms it can send heat notifications to (cloud_push.platforms);
     # None from a node too old to say, which keeps what was stored.
     push: list[str] | None = None
+    # Its send counters since it started (cloud_push.stats), for the Debug tab.
+    push_stats: dict[str, dict[str, Any]] | None = None
 
 
 @internal.post("/register")
@@ -2036,11 +2347,26 @@ def internal_heartbeat(body: HeartbeatIn):
     )
     if body.attendance:
         cloud_analytics.store(body.node, body.attendance)
+    if body.push_stats is not None:
+        _push_stats[(body.node, body.worker)] = (time.time(), body.push_stats)
     if body.worker == 1:
+        jobs = diag_take(body.node)
+        if jobs:
+            result["diag"] = jobs
         # The meets this node should keep in its store; it drops the others —
         # expired, deleted, moved away (cloud_meetstore.keep_only).
         result["known"] = cloud_registry.node_meet_ids(body.node)
     return {"analytics_enabled": _analytics_enabled(), **result}
+
+
+@internal.post("/diag/{job_id}")
+def internal_diag_result(job_id: str, body: dict[str, Any]):
+    """A node's answer to a Debug-tab diagnostic (cloud_node.run_diag)."""
+    # The job names its node; the answer is accepted only for that node's job.
+    job = _diag_jobs.get(job_id)
+    if job is None or not diag_store(job["node"], job_id, body):
+        raise HTTPException(404)
+    return {"ok": True}
 
 
 app.include_router(internal)

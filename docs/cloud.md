@@ -254,6 +254,13 @@ Check in **/admin → Nodes**: the **Push** column shows `APNs ✓` and `FCM ✓
 reports them, within a heartbeat. Or `curl https://yourdomain/w1/meet/<a live meet>/config`:
 `push` lists `apns`, `fcm` or both.
 
+**Is it working?** `/admin` → **Debug** → **Notifications**: per node, what it has sent
+since it started (ok / token dead / failed) and the last failure as Apple or Google worded
+it. **Test keys** asks Apple and Google whether the node's keys are accepted, no phone
+needed. For one spectator's phone: in the app, *Settings → About*, a long press on the
+version shows its token (`apns:…` or `fcm:…`, docs/app.md `N-10`); paste it in **Send a
+test notification**. The token is not kept.
+
 **What a node keeps.** Per device and meet: the push token, its platform, its language, and
 the names and clubs it follows — until the meet leaves the node, when they go with it. A
 meet moved to another node carries them along. A token Apple or Google reports dead is
@@ -480,6 +487,13 @@ compose file (`cloud`), not its parent, so containers and the `pgdata` and `data
 survive a rename of the checkout.
 
 ## Logs
+
+`/admin` → **Debug** shows each node's logs — this server's directly, another node's
+through its next heartbeat — with a window (10 min, 1 h, 24 h), a filter (`[push]` for
+notification sends) and a download. Below it, **App links** checks what phones read
+(this site, Google's verifier, Apple's CDN), and **Commands** lists what to copy: the ssh
+line, then commands on the server, for an Android phone over adb, and for iOS on a Mac.
+Over SSH:
 
 ```bash
 cd ~/Splouch/cloud && docker compose logs -f
@@ -760,6 +774,14 @@ Vérifiez dans **/admin → Nœuds** : la colonne **Notifications** affiche `APN
 `curl https://votredomaine/w1/meet/<une compétition en direct>/config` : `push` liste
 `apns`, `fcm` ou les deux.
 
+**Ça marche ?** `/admin` → **Débogage** → **Notifications** : par nœud, ce qu'il a envoyé
+depuis son démarrage (ok / jeton mort / échec) et le dernier échec, dans les mots d'Apple
+ou de Google. **Tester les clés** demande à Apple et Google si les clés du nœud sont
+acceptées, sans téléphone. Pour le téléphone d'un spectateur : dans l'appli, *Réglages →
+À propos*, un appui long sur la version affiche son jeton (`apns:…` ou `fcm:…`,
+docs/app.md `N-10`) ; le coller dans **Envoyer une notification de test**. Le jeton n'est
+pas conservé.
+
 **Ce que garde un nœud.** Par appareil et par compétition : le jeton de notification, sa
 plateforme, sa langue, et les noms et clubs suivis — jusqu'à ce que la compétition quitte le
 nœud ; ils partent avec elle. Une compétition déplacée vers un autre nœud les emporte. Un
@@ -1021,6 +1043,14 @@ compose (`cloud`), pas celui de son parent ; les conteneurs et les volumes `pgda
 survivent donc au renommage du dépôt.
 
 ### Journaux
+
+`/admin` → **Débogage** affiche les journaux de chaque nœud — ceux de ce serveur
+directement, ceux d'un autre nœud à son prochain battement — avec une période (10 min,
+1 h, 24 h), un filtre (`[push]` pour les envois de notifications) et un téléchargement.
+Dessous, **Liens d'application** vérifie ce que lisent les téléphones (ce site, le
+vérificateur de Google, le CDN d'Apple), et **Commandes** liste quoi copier : la ligne ssh,
+puis les commandes sur le serveur, pour un téléphone Android via adb, et pour iOS sur un Mac.
+En SSH :
 
 ```bash
 cd ~/Splouch/cloud && docker compose logs -f

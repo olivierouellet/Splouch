@@ -42,7 +42,24 @@ _TIMEOUT = 10.0
 
 OK, GONE, FAILED = "ok", "gone", "failed"
 
-_state: dict[str, Any] = {"client": None, "apns_jwt": None, "apns_at": 0.0, "fcm": None}
+_state: dict[str, Any] = {
+    "client": None,
+    "apns_jwt": None,
+    "apns_at": 0.0,
+    "fcm": None,
+    # Why the last send did not answer `ok`: what Apple or Google said, or the
+    # exception. Read by `send` into the counters below.
+    "reason": "",
+}
+
+# What this worker has sent since it started, per platform: the admin's Debug tab
+# sums them per node (heartbeat → `push_stats`), so "nobody gets notifications"
+# and "one phone does not" read differently. In memory only, counts and the last
+# reason — never a token.
+_stats: dict[str, dict[str, Any]] = {
+    p: {OK: 0, GONE: 0, FAILED: 0, "last_reason": "", "last_at": 0.0}
+    for p in ("apns", "fcm")
+}
 
 
 def _env(name):
@@ -152,12 +169,14 @@ async def _send_apns(note, sandbox):
         resp = await _client().post(url, headers=headers, content=body)
     except Exception as e:
         print(f"[push] apns: {e!r}", flush=True)
+        _state["reason"] = repr(e)
         return FAILED
     if resp.status_code == 200:
         return OK
     reason = ""
     with contextlib.suppress(Exception):
         reason = resp.json().get("reason", "")
+    _state["reason"] = f"{resp.status_code} {reason}".strip()
     # 410: uninstalled. BadDeviceToken / DeviceTokenNotForTopic: a token from the
     # other environment or another app — never going to work against this key.
     if resp.status_code == 410 or reason in (
@@ -239,6 +258,7 @@ async def _send_fcm(note):
         )
     except Exception as e:
         print(f"[push] fcm: {e!r}", flush=True)
+        _state["reason"] = repr(e)
         return FAILED
     if resp.status_code == 200:
         return OK
@@ -250,6 +270,7 @@ async def _send_fcm(note):
             status = detail.get("errorCode", status)
     except Exception:
         pass
+    _state["reason"] = f"{resp.status_code} {status}".strip()
     if status in ("UNREGISTERED", "NOT_FOUND") or (
         resp.status_code == 400 and status == "INVALID_ARGUMENT"
     ):
@@ -262,6 +283,23 @@ async def send(note):
     """Deliver one notification; `ok`, `gone` or `failed`. `note` carries `token`,
     `platform` (`apns` / `fcm`), `sandbox`, `meet_id`, `event`, `heat`, `kind`,
     `title`, `body` and `collapse`."""
+    _state["reason"] = ""
+    result = await _deliver(note)
+    counts = _stats.get(note["platform"])
+    if counts is not None:
+        counts[result] += 1
+        if result != OK:
+            counts["last_reason"] = _state["reason"] or "not configured"
+            counts["last_at"] = time.time()
+    return result
+
+
+def stats():
+    """This worker's counters, for the heartbeat."""
+    return {p: dict(c) for p, c in _stats.items()}
+
+
+async def _deliver(note):
     if note["platform"] == "apns":
         if not apns_configured():
             return FAILED
@@ -271,3 +309,123 @@ async def send(note):
             return FAILED
         return await _send_fcm(note)
     return GONE
+
+
+# ── Diagnostics (admin → Debug → App checks) ──────────────────────────────────
+# Run on a node at the admin's request (cloud_node.run_diag), never on their own.
+
+# A token no device has: Apple answers `BadDeviceToken` to it only once the key,
+# team and topic are accepted, so that answer is the "credentials work" one.
+_DUMMY_APNS_TOKEN = "0" * 64
+_APNS_KEY_OK = ("BadDeviceToken", "DeviceTokenNotForTopic")
+
+
+async def check():
+    """Whether each configured platform's credentials are accepted, without a phone.
+
+    `{platform: {"configured", "ok", "detail"}}`. APNs: a send to a token that does
+    not exist, which Apple refuses for the token only when the key is good (in both
+    environments — one key serves both). FCM: an access token, then a
+    `validate_only` send to a topic, which Google checks fully but delivers nowhere.
+    """
+    out = {}
+    if apns_configured():
+        envs = {}
+        for sandbox in (False, True):
+            note = {
+                "token": _DUMMY_APNS_TOKEN,
+                "meet_id": "diag",
+                "event": 0,
+                "heat": 0,
+                "kind": "diag",
+                "title": "",
+                "body": "",
+                "collapse": "diag",
+            }
+            try:
+                url, headers, body = apns_request(note, sandbox)
+                resp = await _client().post(url, headers=headers, content=body)
+                reason = ""
+                with contextlib.suppress(Exception):
+                    reason = resp.json().get("reason", "")
+                envs["sandbox" if sandbox else "production"] = (
+                    reason in _APNS_KEY_OK,
+                    f"{resp.status_code} {reason}".strip(),
+                )
+            except Exception as e:
+                envs["sandbox" if sandbox else "production"] = (False, repr(e))
+        out["apns"] = {
+            "configured": True,
+            "ok": all(ok for ok, _ in envs.values()),
+            "detail": "; ".join(f"{env}: {d}" for env, (_, d) in envs.items()),
+        }
+    else:
+        out["apns"] = {"configured": False, "ok": False, "detail": ""}
+    if fcm_configured():
+        try:
+            auth = await _fcm_token(time.time())
+            resp = await _client().post(
+                f"https://fcm.googleapis.com/v1/projects/{auth['project']}/messages:send",
+                headers={"authorization": f"Bearer {auth['token']}"},
+                json={
+                    "validate_only": True,
+                    "message": {"topic": "splouch-diag", "data": {"kind": "diag"}},
+                },
+            )
+            status = ""
+            with contextlib.suppress(Exception):
+                status = resp.json().get("error", {}).get("status", "")
+            out["fcm"] = {
+                "configured": True,
+                "ok": resp.status_code == 200,
+                "detail": f"{resp.status_code} {status}".strip()
+                + f" (project {auth['project']})",
+            }
+        except Exception as e:
+            out["fcm"] = {"configured": True, "ok": False, "detail": repr(e)}
+    else:
+        out["fcm"] = {"configured": False, "ok": False, "detail": ""}
+    return out
+
+
+def parse_support_token(text):
+    """`apns:production:<hex>`, `apns:sandbox:<hex>` or `fcm:<token>` — what the
+    apps show on a long press of their version (docs/app.md `N-10`) — as
+    `(platform, sandbox, token)`, or None."""
+    parts = (text or "").strip().split(":", 2)
+    if len(parts) == 3 and parts[0] == "apns" and parts[1] in ("production", "sandbox"):
+        token = parts[2].strip()
+        if token and all(c in "0123456789abcdefABCDEF" for c in token):
+            return "apns", parts[1] == "sandbox", token
+    if len(parts) >= 2 and parts[0] == "fcm":
+        # FCM tokens hold ':' themselves: everything after the prefix is the token.
+        token = text.strip()[len("fcm:") :]
+        if token and len(token) <= 4096 and not any(c.isspace() for c in token):
+            return "fcm", False, token
+    return None
+
+
+async def send_test(text, title, body):
+    """One fixed test notification to a token pasted by the admin. Not counted in
+    the node's numbers, and the token is not kept. `{ok, result, detail}`."""
+    parsed = parse_support_token(text)
+    if parsed is None:
+        return {"ok": False, "result": FAILED, "detail": "unrecognised token"}
+    platform, sandbox, token = parsed
+    # No meet: an empty `meet_id` is what tells the app this is a test, so a tap
+    # opens the app and nothing else (docs/app.md `N-10`).
+    note = {
+        "token": token,
+        "platform": platform,
+        "sandbox": sandbox,
+        "meet_id": "",
+        "event": 0,
+        "heat": 0,
+        "kind": "selected",
+        "title": title,
+        "body": body,
+        "collapse": "diag",
+    }
+    _state["reason"] = ""
+    result = await _deliver(note)
+    return {"ok": result == OK, "result": result, "detail": _state["reason"]}

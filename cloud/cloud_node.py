@@ -32,6 +32,7 @@ import re
 import threading
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 
 from starlette.concurrency import run_in_threadpool
@@ -306,10 +307,11 @@ def heartbeat(live_ids, attendees=None, frames=None):
             "version": version(),
             "frames": frames or {},
             "push": cloud_push.platforms(),
+            "push_stats": cloud_push.stats(),
         },
     )
     if not isinstance(result, dict):
-        return {"retired": [], "moves": [], "revoked": []}
+        return {"retired": [], "moves": [], "revoked": [], "diag": []}
     _settings["analytics_enabled"] = bool(result.get("analytics_enabled"))
     if result.get("update_to"):
         update_node(result["update_to"])
@@ -322,6 +324,7 @@ def heartbeat(live_ids, attendees=None, frames=None):
         "retired": result.get("retired") or [],
         "moves": result.get("moves") or [],
         "revoked": result.get("revoked") or [],
+        "diag": result.get("diag") or [],
     }
 
 
@@ -337,6 +340,10 @@ async def heartbeat_loop(snapshot, on_moves=None, on_revoked=None):
                 await on_moves(result["moves"])
             if on_revoked and result["revoked"]:
                 await on_revoked(result["revoked"])
+            for job in result["diag"]:
+                task = asyncio.create_task(run_diag(job))
+                _diag_tasks.add(task)  # held, or the loop may collect it mid-run
+                task.add_done_callback(_diag_tasks.discard)
         except (ControlError, Refused) as e:
             print(f"[node] heartbeat failed: {e}", flush=True)
             # The control plane cannot say what to keep: expire by the store's own
@@ -346,6 +353,72 @@ async def heartbeat_loop(snapshot, on_moves=None, on_revoked=None):
                 cloud_follows.keep_only, await run_in_threadpool(cloud_meetstore.ids)
             )
         await asyncio.sleep(HEARTBEAT_SECS)
+
+
+# ── Diagnostics ────────────────────────────────────────────────────────────────
+# The admin's Debug tab asks a node for things only that node can answer — its
+# logs, whether its push keys work, a test notification sent with them. The ask
+# rides the heartbeat answer to worker 1 (the control plane has no way in to a
+# node), and the result comes back on the internal API.
+
+_LOG_SOURCES = ("app", "caddy", "webhook")
+_DIAG_ID_RE = re.compile(r"^[0-9a-f]{32}$")
+_diag_tasks: set = set()
+
+
+def _webhook_get(path):
+    """GET this node's deploy webhook (`/logs`, `/info`), as JSON."""
+    url = os.environ.get("DEPLOY_WEBHOOK_URL", "")
+    secret = os.environ.get("DEPLOY_WEBHOOK_SECRET", "")
+    if not url or not secret:
+        return {"ok": False, "error": "no deploy webhook on this node"}
+    req = urllib.request.Request(url.rsplit("/", 1)[0] + path, method="GET")
+    req.add_header("X-Deploy-Token", secret)
+    try:
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            return json.loads(resp.read())
+    except (urllib.error.URLError, OSError, ValueError) as e:
+        return {"ok": False, "error": f"deploy webhook: {e}"}
+
+
+async def _diag_result(job):
+    kind, params = job.get("kind"), job.get("params") or {}
+    if kind == "logs":
+        source = params.get("source")
+        if source not in _LOG_SOURCES:
+            return {"ok": False, "error": "unknown source"}
+        query = urllib.parse.urlencode(
+            {
+                "source": source,
+                "tail": params.get("tail", 300),
+                "since": params.get("since", ""),
+            }
+        )
+        return await run_in_threadpool(_webhook_get, f"/logs?{query}")
+    if kind == "info":
+        return await run_in_threadpool(_webhook_get, "/info")
+    if kind == "push_check":
+        return {"ok": True, "push": await cloud_push.check()}
+    if kind == "push_test":
+        return await cloud_push.send_test(
+            params.get("token", ""), params.get("title", ""), params.get("body", "")
+        )
+    return {"ok": False, "error": f"unknown diagnostic: {kind}"}
+
+
+async def run_diag(job):
+    if not _DIAG_ID_RE.match(str(job.get("id", ""))):
+        return
+    try:
+        result = await _diag_result(job)
+    except Exception as e:
+        result = {"ok": False, "error": repr(e)}
+    try:
+        await run_in_threadpool(
+            _call, "POST", f"/internal/diag/{job.get('id', '')}", result
+        )
+    except (ControlError, Refused) as e:
+        print(f"[node] diagnostic result not delivered: {e}", flush=True)
 
 
 # ── Analytics ──────────────────────────────────────────────────────────────────

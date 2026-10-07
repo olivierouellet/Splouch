@@ -182,6 +182,9 @@
         meetsRestored:           {{ t.st_meets_restored | tojson }},
         confirmRestoreKeys:      {{ t.confirm_restore_keys | tojson }},
         confirmRestoreMeets:     {{ t.confirm_restore_meets | tojson }},
+        copy:                    {{ t['copy'] | tojson }},
+        copied:                  {{ t['copied'] | tojson }},
+        diag:                    {{ (diag_strings or {}) | tojson }},
     };
     const PICKER_MAX_UPLOAD = {{ picker_max_upload }};
     </script>
@@ -601,36 +604,306 @@
                 .catch(() => { status.style.color = '#c55'; status.textContent = T.uploadFailed; input.value = ''; });
         }
 
-        // ── Debug logs ────────────────────────────────────────────────────────
+        // ── Debug tab ─────────────────────────────────────────────────────────
+        // Logs, app checks and commands (admin/debug.html). This server's logs come
+        // straight from its deploy webhook; another node's, and anything that needs
+        // a node's push keys, go as a job on that node's next heartbeat — so those
+        // poll /admin/diag/<id> until the node answers (cloud_control, "Debug").
+        const D = T.diag;
         let _followTimer = null;
+        let _logLines = [];
+        let _diagOverview = { local: '', nodes: [] };
 
-        function loadLogs() {
-            const source = document.getElementById('log-source').value;
-            const out    = document.getElementById('log-output');
-            const status = document.getElementById('log-status');
-            const wasAtBottom = out.scrollHeight - out.scrollTop <= out.clientHeight + 40;
-            fetch('/admin/logs?source=' + source + '&tail=300')
+        function _esc(s) {
+            const div = document.createElement('div');
+            div.textContent = s == null ? '' : String(s);
+            return div.innerHTML;
+        }
+
+        // Start a job on `node`, then poll until it is done; resolves to its result.
+        function runDiag(node, kind, params) {
+            return fetch('/admin/diag', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ node, kind, params: params || {} }),
+            })
                 .then(r => r.json())
                 .then(d => {
-                    if (!d.ok) { status.textContent = T.errorC + (d.error || '?'); return; }
-                    out.textContent = d.lines.join('\n');
-                    if (wasAtBottom) out.scrollTop = out.scrollHeight;
-                    status.textContent = new Date().toLocaleTimeString();
-                })
-                .catch(() => { status.textContent = T.failed; });
+                    if (!d.ok) return { ok: false, error: d.error || '?' };
+                    return new Promise(resolve => {
+                        const poll = () => fetch('/admin/diag/' + d.id)
+                            .then(r => r.json())
+                            .then(j => {
+                                if (j.state === 'done') resolve(j.result || { ok: false, error: '?' });
+                                else if (j.state === 'gone') resolve({ ok: false, error: 'no_answer' });
+                                else setTimeout(poll, 1500);
+                            })
+                            .catch(() => resolve({ ok: false, error: T.failed }));
+                        setTimeout(poll, 1000);
+                    });
+                });
+        }
+
+        function _diagError(err) {
+            return err === 'no_answer' ? D.diag_no_answer : (err || '?');
+        }
+
+        // ── Logs
+        function logNodeChanged() {
+            const local = document.getElementById('log-node').value === _diagOverview.local;
+            const control = document.querySelector('#log-source option[value="control"]');
+            control.disabled = !local; // the control plane runs on this server only
+            if (!local && document.getElementById('log-source').value === 'control') {
+                document.getElementById('log-source').value = 'app';
+            }
+            loadLogs();
+        }
+
+        function renderLogs() {
+            const out = document.getElementById('log-output');
+            const needle = document.getElementById('log-filter').value.trim().toLowerCase();
+            const wasAtBottom = out.scrollHeight - out.scrollTop <= out.clientHeight + 40;
+            const lines = needle ? _logLines.filter(l => l.toLowerCase().includes(needle)) : _logLines;
+            out.textContent = lines.join('\n');
+            if (wasAtBottom) out.scrollTop = out.scrollHeight;
+        }
+
+        function loadLogs() {
+            const node = document.getElementById('log-node').value || _diagOverview.local;
+            const source = document.getElementById('log-source').value;
+            const since = document.getElementById('log-since').value;
+            const status = document.getElementById('log-status');
+            const tail = since ? 1000 : 300;
+            const show = d => {
+                if (!d.ok) { status.textContent = T.errorC + _diagError(d.error); return; }
+                _logLines = d.lines || [];
+                renderLogs();
+                status.textContent = new Date().toLocaleTimeString();
+            };
+            if (!node || node === _diagOverview.local) {
+                fetch('/admin/logs?source=' + encodeURIComponent(source) + '&tail=' + tail + '&since=' + encodeURIComponent(since))
+                    .then(r => r.json()).then(show)
+                    .catch(() => { status.textContent = T.failed; });
+            } else {
+                status.textContent = D.diag_waiting_node;
+                runDiag(node, 'logs', { source, tail, since }).then(show);
+            }
         }
 
         function toggleFollow() {
             clearInterval(_followTimer); _followTimer = null;
             if (document.getElementById('log-follow').checked) {
                 loadLogs();
-                _followTimer = setInterval(loadLogs, 3000);
+                const remote = document.getElementById('log-node').value !== _diagOverview.local;
+                _followTimer = setInterval(loadLogs, remote ? 15000 : 3000);
             }
         }
 
-        document.querySelector('.app-nav .nav-link[data-target="#tab-debug"]')?.addEventListener('click', () => {
-            setTimeout(loadLogs, 50);
+        function downloadLogs() {
+            const blob = new Blob([document.getElementById('log-output').textContent + '\n'], { type: 'text/plain' });
+            const a = document.createElement('a');
+            const node = document.getElementById('log-node').value || 'server';
+            a.href = URL.createObjectURL(blob);
+            a.download = 'splouch-' + node + '-' + document.getElementById('log-source').value + '-' +
+                new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19) + '.log';
+            a.click();
+            setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+        }
+
+        // ── App links
+        function checkAppLinks() {
+            const btn = document.getElementById('btn-applinks');
+            const box = document.getElementById('applinks-result');
+            btn.disabled = true;
+            box.innerHTML = '<span class="text-body-secondary">' + _esc(D.diag_checking) + '</span>';
+            fetch('/admin/applinks_check')
+                .then(r => r.json())
+                .then(d => {
+                    box.innerHTML = '<ul class="list-unstyled mb-0">' + d.checks.map(c =>
+                        '<li class="mb-2"><span class="' + (c.ok ? 'text-success' : 'text-danger') + ' fw-semibold">' +
+                        (c.ok ? '✓' : '✗') + '</span> ' + _esc(D['diag_al_' + c.key] || c.key) +
+                        ' <span class="text-body-secondary">— ' + _esc(c.detail) + '</span>' +
+                        (c.ok ? '' : '<div class="text-body-secondary ms-3">' + _esc(D['diag_al_' + c.key + '_fix'] || '') + '</div>') +
+                        '</li>').join('') + '</ul>';
+                })
+                .catch(() => { box.textContent = T.failed; })
+                .finally(() => { btn.disabled = false; });
+        }
+
+        // ── Notifications
+        function _pushBadge(node, platform) {
+            const on = (node.push || []).includes(platform);
+            return '<span class="badge rounded-pill ' + (on ? 'text-bg-success' : 'text-bg-secondary') + '" id="pk-' +
+                _esc(node.name) + '-' + platform + '">' + (on ? D.diag_present : D.diag_absent) + '</span>';
+        }
+
+        function loadPushOverview() {
+            return fetch('/admin/diag/overview')
+                .then(r => r.json())
+                .then(d => {
+                    _diagOverview = d;
+                    const rows = d.nodes.map(n => {
+                        const counts = ['apns', 'fcm'].map(p => {
+                            const c = (n.push_stats || {})[p];
+                            return c ? (p === 'apns' ? 'APNs ' : 'FCM ') + c.ok + ' / ' + c.gone + ' / ' + c.failed : '';
+                        }).filter(Boolean).join('<br>') || '—';
+                        const last = ['apns', 'fcm'].map(p => {
+                            const c = (n.push_stats || {})[p];
+                            return c && c.last_reason
+                                ? _esc(c.last_reason) + ' <span class="text-body-secondary">' + new Date(c.last_at * 1000).toLocaleString() + '</span>'
+                                : '';
+                        }).filter(Boolean).join('<br>') || '—';
+                        return '<tr><td>' + _esc(n.name) + (n.up ? '' : ' <span class="badge text-bg-danger">' + _esc(D.diag_offline) + '</span>') +
+                            '</td><td>' + _pushBadge(n, 'apns') + '</td><td>' + _pushBadge(n, 'fcm') + '</td><td>' + counts +
+                            '</td><td>' + last + '</td><td class="text-end"><button type="button" class="btn btn-outline-secondary btn-sm" data-node="' +
+                            _esc(n.name) + '" onclick="testPushKeys(this)">' + _esc(D.diag_test_keys) + '</button></td></tr>' +
+                            '<tr class="d-none" id="pkr-' + _esc(n.name) + '"><td colspan="6" class="small"></td></tr>';
+                    });
+                    document.getElementById('push-rows').innerHTML = rows.join('');
+                    for (const id of ['log-node', 'push-node']) {
+                        const sel = document.getElementById(id);
+                        const keep = sel.value;
+                        sel.innerHTML = d.nodes.map(n => '<option value="' + _esc(n.name) + '">' + _esc(n.name) +
+                            (n.name === d.local ? ' — ' + _esc(D.diag_this_server) : '') + '</option>').join('');
+                        sel.value = keep || d.local;
+                    }
+                });
+        }
+
+        function testPushKeys(btn) {
+            const node = btn.dataset.node;
+            const row = document.getElementById('pkr-' + node);
+            const cell = row.firstElementChild;
+            row.classList.remove('d-none');
+            cell.textContent = D.diag_waiting_node;
+            btn.disabled = true;
+            runDiag(node, 'push_check').then(d => {
+                btn.disabled = false;
+                if (!d.ok) { cell.textContent = T.errorC + _diagError(d.error); return; }
+                cell.innerHTML = ['apns', 'fcm'].map(p => {
+                    const r = d.push[p];
+                    const label = p === 'apns' ? 'APNs' : 'FCM';
+                    if (!r.configured) return '<div>' + label + ': <span class="text-body-secondary">' + _esc(D.diag_absent) + '</span></div>';
+                    return '<div>' + label + ': <span class="' + (r.ok ? 'text-success' : 'text-danger') + ' fw-semibold">' +
+                        (r.ok ? '✓ ' + _esc(D.diag_keys_ok) : '✗ ' + _esc(D['diag_keys_bad_' + p])) + '</span> <span class="text-body-secondary">' +
+                        _esc(r.detail) + '</span></div>';
+                }).join('');
+            });
+        }
+
+        function sendTestPush() {
+            const token = document.getElementById('push-token').value.trim();
+            const node = document.getElementById('push-node').value || _diagOverview.local;
+            const box = document.getElementById('push-test-result');
+            const btn = document.getElementById('btn-push-test');
+            if (!/^(apns:(production|sandbox):[0-9a-fA-F]+|fcm:\S+)$/.test(token)) {
+                box.innerHTML = '<span class="text-danger">' + _esc(D.diag_token_format) + '</span>';
+                return;
+            }
+            btn.disabled = true;
+            box.textContent = D.diag_waiting_node;
+            runDiag(node, 'push_test', { token }).then(d => {
+                btn.disabled = false;
+                const key = d.ok ? 'diag_sent_ok' : d.result === 'gone' ? 'diag_sent_gone' : 'diag_sent_failed';
+                box.innerHTML = '<span class="' + (d.ok ? 'text-success' : 'text-danger') + '">' + _esc(D[key]) + '</span> ' +
+                    '<span class="text-body-secondary">' + _esc(d.detail || _diagError(d.error)) + '</span>';
+            });
+        }
+
+        // ── Commands
+        const SSH_USER_KEY = 'splouch_admin_ssh_user';
+        let _cmdInfo = null;
+
+        function _readSshUser() {
+            try { return localStorage.getItem(SSH_USER_KEY) || ''; } catch (_) { return ''; }
+        }
+
+        function sshUserChanged() {
+            const v = document.getElementById('ssh-user').value.trim();
+            try {
+                if (v && v !== (_cmdInfo && _cmdInfo.user)) localStorage.setItem(SSH_USER_KEY, v);
+                else localStorage.removeItem(SSH_USER_KEY);
+            } catch (_) { /* private window: the field still works for this visit */ }
+            renderCommands();
+        }
+
+        function _cmdRow(titleKey, line, hintKey) {
+            return '<div class="mb-2"><div class="small fw-semibold">' + _esc(D[titleKey] || titleKey) + '</div>' +
+                (hintKey && D[hintKey] ? '<div class="small text-body-secondary">' + _esc(D[hintKey]) + '</div>' : '') +
+                '<div class="d-flex gap-1 align-items-stretch"><code class="flex-fill border rounded px-2 py-1 small text-break" style="background:var(--bs-tertiary-bg);">' +
+                _esc(line) + '</code><button type="button" class="btn btn-outline-secondary btn-sm copy" data-copied="' + _esc(T.copied) +
+                '" data-line="' + _esc(line) + '" onclick="copyKey(this, this.dataset.line)">' + _esc(T.copy) + '</button></div></div>';
+        }
+
+        function renderCommands() {
+            const i = _cmdInfo;
+            if (!i) return;
+            const user = document.getElementById('ssh-user').value.trim() || 'you';
+            const repo = i.repo || '~/Splouch';
+            const host = i.host;
+            const link = 'https://' + host + '/add?server=' + encodeURIComponent('http://splouch.local');
+            const groups = [
+                ['diag_cmd_group_connect', [
+                    ['diag_cmd_ssh', 'ssh ' + user + '@' + host],
+                    ...i.nodes.map(n => ['diag_cmd_ssh_node', 'ssh ' + user + '@' + n.url.replace(/^https?:\/\//, '').replace(/\/.*$/, '')]),
+                    ['diag_cmd_cd', 'cd ' + repo + '/cloud'],
+                ]],
+                ['diag_cmd_group_server', [
+                    ['diag_cmd_ps', 'docker compose ps'],
+                    ['diag_cmd_follow', 'docker compose logs -f --since 10m app'],
+                    ['diag_cmd_push_logs', "docker compose logs --since 1h app | grep '\\[push\\]'"],
+                    ['diag_cmd_push_files', 'docker compose exec app ls -l /data/apns.p8 /data/fcm.json'],
+                    ['diag_cmd_restart', 'docker compose restart app', 'diag_cmd_restart_hint'],
+                    ['diag_cmd_webhook', 'systemctl status deploy-webhook --no-pager'],
+                    ['diag_cmd_disk', 'df -h /; docker system df'],
+                ]],
+                ['diag_cmd_group_android', [
+                    ['diag_cmd_adb_links', 'adb shell pm get-app-links ' + i.android_package, 'diag_cmd_adb_links_hint'],
+                    ['diag_cmd_adb_verify', 'adb shell pm verify-app-links --re-verify ' + i.android_package],
+                    ['diag_cmd_adb_open', 'adb shell am start -a android.intent.action.VIEW -d "' + link + '"'],
+                    ['diag_cmd_adb_log', 'adb logcat | grep -iE "splouch|FirebaseMessaging"'],
+                    ['diag_cmd_adb_notif', 'adb shell dumpsys notification | grep -A3 ' + i.android_package],
+                ]],
+                ['diag_cmd_group_ios', [
+                    ['diag_cmd_sim_open', 'xcrun simctl openurl booted "' + link + '"'],
+                    ['diag_cmd_sim_push', 'echo \'{"aps":{"alert":{"title":"Splouch","body":"Test"}},"meet_id":""}\' > test.apns && xcrun simctl push booted ' + i.ios_bundle + ' test.apns', 'diag_cmd_sim_push_hint'],
+                    ['diag_cmd_ios_aasa', 'curl -s https://app-site-association.cdn-apple.com/a/v1/' + host, 'diag_cmd_ios_aasa_hint'],
+                    ['diag_cmd_ios_log', 'curl -sI https://' + host + '/.well-known/apple-app-site-association', 'diag_cmd_ios_log_hint'],
+                ]],
+            ];
+            document.getElementById('commands-list').innerHTML = groups.map(([g, rows], idx) =>
+                '<div class="' + (idx ? 'mt-3' : '') + '"><div class="panel-eyebrow mb-1">' + _esc(D[g]) + '</div>' +
+                (D[g + '_hint'] ? '<div class="small text-body-secondary mb-2">' + _esc(D[g + '_hint']) + '</div>' : '') +
+                rows.map(r => _cmdRow(r[0], r[1], r[2])).join('') + '</div>').join('');
+        }
+
+        function loadCommands() {
+            fetch('/admin/commands_info')
+                .then(r => r.json())
+                .then(d => {
+                    _cmdInfo = d;
+                    const field = document.getElementById('ssh-user');
+                    if (!field.value) field.value = _readSshUser() || d.user || '';
+                    renderCommands();
+                });
+        }
+
+        function _debugShown() {
+            loadPushOverview().then(loadLogs);
+            if (!_cmdInfo) loadCommands();
+        }
+
+        document.addEventListener('panel:tab-shown', e => {
+            if (e.detail.target === '#tab-debug') {
+                _debugShown();
+            } else {
+                clearInterval(_followTimer); _followTimer = null;
+                const follow = document.getElementById('log-follow');
+                if (follow) follow.checked = false;
+            }
         });
+        // Opened straight on #tab-debug: the switcher ran before this listener existed.
+        if (document.getElementById('tab-debug')?.classList.contains('active')) _debugShown();
 
         // ── Test meets (cloud_testmeets) ────────────────────────────────────────
         // Polled only while the tab is open.

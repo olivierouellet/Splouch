@@ -969,6 +969,7 @@ sequenceDiagram
 | [`N-07`](#n-07) | **Registration**: one `PUT` per device and meet with every followed swimmer; re-sent on any change, a new token, a language change, and each time the meet opens. Empty list = stop | [`api.md`](api.md) §5.13, at the meet's `base` (`C-11`); `409` → re-fetch config, `PUT` at the new `base` | native | should |
 | `N-08` | Tapping a notification opens that meet on the Schedule tab, scrolled to the heat | payload `meet_id`, `event`, `heat` | native | could |
 | [`N-09`](#n-09) | **Privacy binding**: the node keeps token, platform, language, followed names and clubs — nothing else — until the meet leaves it; carried with a meet moved to another node; a token the platform reports dead is dropped. The device forgets a meet's follows when the meet is gone (`A-09`) | `/privacy` → *Heat notifications* | native | must |
+| [`N-10`](#n-10) | **Support token**: long press on the app version (settings About, `P-19`) shows this install's push token as one line with Copy, the platform's way; a notification with an empty `meet_id` is a test — tapping it opens the app, nothing else | iOS `apns:production:<hex>` or `apns:sandbox:<hex>` (the environment the build registers with); Android `fcm:<token>`; no token yet → says so. Pasted by an admin in `/admin` → Debug → *Send a test notification* | native | should |
 
 ### <a id="n-01"></a>N-01 — where the bell lives
 
@@ -1040,9 +1041,25 @@ token and a language: no `vid` (`C-10`), no account. Kept in the meet's region, 
 for nothing but these notifications, gone with the meet. The device keeps each meet's
 list until `A-09` says the meet is gone, then deletes it.
 
+### <a id="n-10"></a>N-10 — a token the spectator hands over
+
+For "I don't get notifications": the spectator copies the line and sends it to the
+organizer, who sends it one test notification from the admin panel — proving the keys,
+the token and the phone's settings in one go. A token cannot send anything by itself
+(that takes the server's keys), but it does name one install, so it is shown only on a
+deliberate long press, never in plain view, and the app sends it nowhere on its own.
+The prefix is part of the line: the admin side needs the platform, and for iOS the APNs
+environment, since a sandbox token is dead against production.
+
 ---
 
 ## Changelog
+
+- **v3, amended** (2026-10-07, no bump) — support token. Native only; a client without
+  it simply has no long press, and the admin's test send has nothing to paste.
+
+  - **Added**: `N-10` (push token on a long press of the version, with its platform and
+    APNs environment; an empty `meet_id` marks a test notification).
 
 - **v3, amended** (2026-10-07, no bump) — picker filter widens. Native only: no server
   change. A client still on the old rules hides a chosen country's meets once another
