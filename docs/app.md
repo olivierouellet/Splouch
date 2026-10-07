@@ -257,8 +257,10 @@ Android top app bar action. Closing returns to picker with list and query intact
 
 Up to six short pages — icon, title, each sentence on its own line where it reads
 alone — paged, skippable from the first, ending on the picker. Each says what is on
-screen today, never what changed. iOS: full-screen cover, `TabView` `.page` style;
-Android: full-screen `HorizontalPager` with dots. Not on web: a visitor arriving mid-meet from a
+screen today, never what changed. A control named in the text — filter, gear, bell,
+`±` — is drawn inline beside its name, as it looks on screen (a `{filter}` token in
+the native string), and left out of what the screen reader says. iOS: full-screen
+cover, `TabView` `.page` style; Android: full-screen `HorizontalPager` with dots. Not on web: a visitor arriving mid-meet from a
 QR code needs the board, not a carousel; `P-06`'s line does the job there.
 
 1. **Unofficial results** — server's `results_disclaimer`, in full.
@@ -1036,7 +1038,7 @@ list until `A-09` says the meet is gone, then deletes it.
   - **Changed**: `P-20` six pages: *Find your meet* (`P-01`, `P-21`, `P-19`'s gear) after
     the disclaimer, *Times in the schedule* (`S-22`, `S-23`) after the tabs; the bell
     placed in Schedule; the counting page says it can be turned off; a sentence per
-    line.
+    line; the filter, gear, bell and `±` drawn inline where the text names them.
 
 - **v3, amended** (2026-10-06, no bump) — picker cards tidied. A client still showing
   date and sport on each card keeps working: the server only reorders and adds.
