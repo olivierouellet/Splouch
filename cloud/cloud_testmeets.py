@@ -129,8 +129,9 @@ def build_meet(index, today=None):
                 if h == 1 and heats > 1 and lane in (1, LANES):
                     continue  # a short first heat leaves the outside lanes empty
                 seed = (best + slow + abs(lane - 4.5) * 0.6 + rng.uniform(0, 1.5)) * 100
+                last, first = rng.choice(_LAST), rng.choice(_FIRST)
                 lanes[lane] = {
-                    "name": f"{rng.choice(_LAST)}, {rng.choice(_FIRST)}",
+                    "name": f"{first} {last}",
                     "club": rng.choice(_CLUBS),
                     "seed": seed,
                 }
