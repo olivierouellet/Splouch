@@ -205,6 +205,26 @@ changes       = "When this policy changes, the date at the top changes with it."
 contact_h     = "Contact"
 contact       = "Questions about this policy, and requests about your information, go to the person in charge of protecting personal information:"
 
+# `/about` on the cloud: what Splouch is, the apps, and their source. Not in
+# GET /i18n/{lang}: only that page reads it.
+[about]
+title        = "About Splouch"
+tagline      = "Live swimming scoreboards, results and start lists — from the pool deck to every phone."
+intro        = "Splouch reads the timing console at a swimming meet, adds swimmers' names and clubs from the meet file, and shows a live scoreboard on the pool's TVs. The same feed reaches spectators' phones on the pool's network, and through this website, anywhere."
+how_h        = "How it works"
+how_1        = "At the pool: a Raspberry Pi decodes the timing console's serial feed and drives the scoreboard TVs. No internet needed."
+how_2        = "On the pool's network: phones open the scoreboard, the results and the start list straight from the Pi."
+how_3        = "Online: when the pool has internet, the Pi relays the meet to this website, so family and coaches can follow from anywhere."
+apps_h       = "The apps"
+apps         = "The Splouch apps for iOS and Android show the same three tabs, and can tell you when a swimmer you follow is about to race."
+apps_soon    = "Coming soon to the App Store and Google Play."
+source_h     = "Open source"
+source       = "Splouch is free software under the MIT license. Bug reports and contributions are welcome."
+repo_server  = "Pool server, scoreboard and this website"
+repo_ios     = "iOS app"
+repo_android = "Android app"
+meets_link   = "See live meets"
+
 # Heat notifications (docs/app.md §10). Composed by the cloud in the follower's
 # language and sent through APNs or FCM; not in GET /i18n/{lang}, since no client
 # renders them. {minutes}, {heats}, {event}, {heat}, {lane} are filled in.

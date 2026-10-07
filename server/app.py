@@ -22,6 +22,7 @@ import state
 from meet_data import _get_next_heats, send_event_info
 from routes.appearance import router as appearance_router
 from routes.debug import router as debug_router
+from routes.help import router as help_router
 from routes.i18n import router as i18n_router
 from routes.meet import router as meet_router
 from routes.network import router as network_router
@@ -153,6 +154,7 @@ app.add_middleware(_LanHostsOnly)
 app.mount("/static", StaticFiles(directory=state.STATIC_DIR), name="static")
 
 app.include_router(i18n_router)
+app.include_router(help_router)
 app.include_router(scoreboard_router)
 app.include_router(meet_router)
 app.include_router(settings_router)

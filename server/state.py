@@ -670,6 +670,11 @@ def mm_strings(code=None):
     return i18n.panel_section(code or _locale(), "mm")
 
 
+def help_strings(code):
+    """Words on /help — in the language its URL names, not the meet's."""
+    return i18n.panel_section(code, "help")
+
+
 def _mobile_strings():
     return i18n.locale_section(_locale(), "mobile")
 

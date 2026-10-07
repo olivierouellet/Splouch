@@ -195,6 +195,9 @@ def test_the_served_file_holds_only_what_a_spectator_reads():
         # The cloud's test meets are named after teams, in the meet's language; a
         # spectator reads the name on the picker, from `GET /meets`.
         "test_meets",
+        # `/about` on the cloud: a visitor reads it, and like `[privacy]` it stays
+        # out of `GET /i18n/{lang}`.
+        "about",
     }
     # `chrome` is the fourth because both operator pages draw the same sidebar and
     # theme switcher; its words live once rather than once per page. `manual` is the
@@ -208,6 +211,8 @@ def test_the_served_file_holds_only_what_a_spectator_reads():
         "chrome",
         "manual",
         "mm",
+        # /help, /aide, /ayuda: the Pi's list of its own pages.
+        "help",
     }
 
 

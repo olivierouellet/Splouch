@@ -9,7 +9,7 @@ here over the internal API at the bottom of this module.
 
 Public routes are the picker (`/`, `/meets`, `/picker/config` and its images),
 the server's identity (`/server`, `/servers`), the QR hand-off (`/add`,
-`/.well-known/*`), `/privacy`, and the locale tables. `/admin` is every tab of
+`/.well-known/*`), `/privacy`, `/about`, and the locale tables. `/admin` is every tab of
 the panel.
 """
 
@@ -980,6 +980,43 @@ def route_privacy(request: Request):
             updated=PRIVACY_UPDATED,
             contact=_privacy_contact(),
             operator=_privacy_operator(),
+        ),
+    )
+
+
+# The source, for `/about`. Constants rather than settings: they name the project,
+# not whoever runs this deployment — a fork that moves them edits them here.
+REPOS = (
+    ("server", "https://github.com/olivierouellet/Splouch"),
+    ("ios", "https://github.com/olivierouellet/Splouch-ios"),
+    ("android", "https://github.com/olivierouellet/Splouch-android"),
+)
+
+
+@app.get("/about", tags=["Public"])
+def route_about(request: Request):
+    """What Splouch is, the apps, and where their source lives.
+
+    In the visitor's language like `/privacy`, its words `[about]` in the locale
+    files, so nothing here reaches `GET /i18n/{lang}`. The store buttons are the
+    same `_store_links()` the picker offers, absent until an app is listed.
+    """
+    lang = _picker_lang(request)
+    mobile = _strings(lang, "mobile")
+    return _remember_prefs(
+        request,
+        render(
+            request,
+            "about.html",
+            lang=lang,
+            t=_strings(lang, "about"),
+            locales=_available_locales(),
+            repos=REPOS,
+            stores={
+                key: {"url": url, "label": mobile.get(f"add_store_{key}", "")}
+                for key, url in _store_links().items()
+            },
+            privacy_label=mobile.get("privacy_policy", ""),
         ),
     )
 

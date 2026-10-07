@@ -1,0 +1,35 @@
+<svg width="1300" height="640" viewBox="0 0 1300 640" xmlns="http://www.w3.org/2000/svg">
+  <title>Splouch — seven-segment wordmark</title>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="640" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#093B86"/>
+      <stop offset="0.5" stop-color="#1379CE"/>
+      <stop offset="1" stop-color="#2AC3EA"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.3" cy="0.25" r="0.9">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.18"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="led" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="5" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <rect width="1300" height="640" fill="url(#bg)"/>
+  <rect width="1300" height="640" fill="url(#glow)"/>
+  <!-- splash accent -->
+  <circle cx="1158" cy="96" r="18" fill="#FFFFFF"/>
+  <circle cx="1210" cy="60" r="12" fill="#FFFFFF"/>
+  <circle cx="1126" cy="52" r="8" fill="#FFFFFF"/>
+  <!-- LED panel -->
+  <rect x="50" y="150" width="1200" height="380" rx="46" fill="#06223B" stroke="#0C3A63" stroke-width="3"/>
+  <rect x="64" y="164" width="1172" height="70" rx="30" fill="#FFFFFF" opacity="0.04"/>
+  <!-- ghost segments -->
+  <g fill="#FFC22E" opacity="0.10">
+    <rect x="148" y="210" width="74" height="28" rx="14"/><rect x="222" y="238" width="28" height="88" rx="14"/><rect x="222" y="354" width="28" height="88" rx="14"/><rect x="148" y="442" width="74" height="28" rx="14"/><rect x="120" y="354" width="28" height="88" rx="14"/><rect x="120" y="238" width="28" height="88" rx="14"/><rect x="148" y="326" width="74" height="28" rx="14"/><rect x="303" y="210" width="74" height="28" rx="14"/><rect x="377" y="238" width="28" height="88" rx="14"/><rect x="377" y="354" width="28" height="88" rx="14"/><rect x="303" y="442" width="74" height="28" rx="14"/><rect x="275" y="354" width="28" height="88" rx="14"/><rect x="275" y="238" width="28" height="88" rx="14"/><rect x="303" y="326" width="74" height="28" rx="14"/><rect x="458" y="210" width="74" height="28" rx="14"/><rect x="532" y="238" width="28" height="88" rx="14"/><rect x="532" y="354" width="28" height="88" rx="14"/><rect x="458" y="442" width="74" height="28" rx="14"/><rect x="430" y="354" width="28" height="88" rx="14"/><rect x="430" y="238" width="28" height="88" rx="14"/><rect x="458" y="326" width="74" height="28" rx="14"/><rect x="613" y="210" width="74" height="28" rx="14"/><rect x="687" y="238" width="28" height="88" rx="14"/><rect x="687" y="354" width="28" height="88" rx="14"/><rect x="613" y="442" width="74" height="28" rx="14"/><rect x="585" y="354" width="28" height="88" rx="14"/><rect x="585" y="238" width="28" height="88" rx="14"/><rect x="613" y="326" width="74" height="28" rx="14"/><rect x="768" y="210" width="74" height="28" rx="14"/><rect x="842" y="238" width="28" height="88" rx="14"/><rect x="842" y="354" width="28" height="88" rx="14"/><rect x="768" y="442" width="74" height="28" rx="14"/><rect x="740" y="354" width="28" height="88" rx="14"/><rect x="740" y="238" width="28" height="88" rx="14"/><rect x="768" y="326" width="74" height="28" rx="14"/><rect x="923" y="210" width="74" height="28" rx="14"/><rect x="997" y="238" width="28" height="88" rx="14"/><rect x="997" y="354" width="28" height="88" rx="14"/><rect x="923" y="442" width="74" height="28" rx="14"/><rect x="895" y="354" width="28" height="88" rx="14"/><rect x="895" y="238" width="28" height="88" rx="14"/><rect x="923" y="326" width="74" height="28" rx="14"/><rect x="1078" y="210" width="74" height="28" rx="14"/><rect x="1152" y="238" width="28" height="88" rx="14"/><rect x="1152" y="354" width="28" height="88" rx="14"/><rect x="1078" y="442" width="74" height="28" rx="14"/><rect x="1050" y="354" width="28" height="88" rx="14"/><rect x="1050" y="238" width="28" height="88" rx="14"/><rect x="1078" y="326" width="74" height="28" rx="14"/>
+  </g>
+  <!-- lit segments -->
+  <g fill="#FFC22E" filter="url(#led)">
+    <rect x="148" y="210" width="74" height="28" rx="14"/><rect x="222" y="354" width="28" height="88" rx="14"/><rect x="148" y="442" width="74" height="28" rx="14"/><rect x="120" y="238" width="28" height="88" rx="14"/><rect x="148" y="326" width="74" height="28" rx="14"/><rect x="303" y="210" width="74" height="28" rx="14"/><rect x="377" y="238" width="28" height="88" rx="14"/><rect x="275" y="354" width="28" height="88" rx="14"/><rect x="275" y="238" width="28" height="88" rx="14"/><rect x="303" y="326" width="74" height="28" rx="14"/><rect x="458" y="442" width="74" height="28" rx="14"/><rect x="430" y="354" width="28" height="88" rx="14"/><rect x="430" y="238" width="28" height="88" rx="14"/><rect x="613" y="210" width="74" height="28" rx="14"/><rect x="687" y="238" width="28" height="88" rx="14"/><rect x="687" y="354" width="28" height="88" rx="14"/><rect x="613" y="442" width="74" height="28" rx="14"/><rect x="585" y="354" width="28" height="88" rx="14"/><rect x="585" y="238" width="28" height="88" rx="14"/><rect x="842" y="238" width="28" height="88" rx="14"/><rect x="842" y="354" width="28" height="88" rx="14"/><rect x="768" y="442" width="74" height="28" rx="14"/><rect x="740" y="354" width="28" height="88" rx="14"/><rect x="740" y="238" width="28" height="88" rx="14"/><rect x="923" y="210" width="74" height="28" rx="14"/><rect x="923" y="442" width="74" height="28" rx="14"/><rect x="895" y="354" width="28" height="88" rx="14"/><rect x="895" y="238" width="28" height="88" rx="14"/><rect x="1152" y="238" width="28" height="88" rx="14"/><rect x="1152" y="354" width="28" height="88" rx="14"/><rect x="1050" y="354" width="28" height="88" rx="14"/><rect x="1050" y="238" width="28" height="88" rx="14"/><rect x="1078" y="326" width="74" height="28" rx="14"/>
+  </g>
+</svg>

@@ -205,6 +205,25 @@ changes       = "Cuando esta política cambie, la fecha de arriba cambiará con 
 contact_h     = "Contacto"
 contact       = "Las preguntas sobre esta política y las solicitudes sobre su información se dirigen a la persona responsable de la protección de la información personal:"
 
+# `/about` en la nube. Ver en.toml.
+[about]
+title        = "Acerca de Splouch"
+tagline      = "Marcadores de natación, resultados y listas de salida en directo — del borde de la piscina a cada teléfono."
+intro        = "Splouch lee la consola de cronometraje de una competición de natación, añade los nombres de los nadadores y los clubes desde el archivo de la competición y muestra un marcador en directo en los televisores de la piscina. La misma señal llega a los teléfonos de los espectadores en la red de la piscina y, a través de este sitio, a cualquier lugar."
+how_h        = "Cómo funciona"
+how_1        = "En la piscina: una Raspberry Pi decodifica la señal serie de la consola de cronometraje y alimenta los televisores. No necesita internet."
+how_2        = "En la red de la piscina: los teléfonos abren el marcador, los resultados y la lista de salida directamente desde la Pi."
+how_3        = "En línea: cuando la piscina tiene internet, la Pi retransmite la competición a este sitio, para que familias y entrenadores la sigan desde cualquier lugar."
+apps_h       = "Las aplicaciones"
+apps         = "Las aplicaciones Splouch para iOS y Android muestran las mismas tres pestañas y pueden avisarle cuando un nadador que sigue está a punto de nadar."
+apps_soon    = "Próximamente en el App Store y Google Play."
+source_h     = "Código abierto"
+source       = "Splouch es software libre bajo la licencia MIT. Los informes de errores y las contribuciones son bienvenidos."
+repo_server  = "Servidor de piscina, marcador y este sitio"
+repo_ios     = "Aplicación iOS"
+repo_android = "Aplicación Android"
+meets_link   = "Ver competiciones en directo"
+
 # Notificaciones de serie (docs/app.md §10). Ver en.toml.
 [push]
 selected   = "Serie en la consola"

@@ -205,6 +205,25 @@ changes       = "Quand cette politique change, la date en haut de la page change
 contact_h     = "Contact"
 contact       = "Les questions sur cette politique et les demandes au sujet de vos renseignements s'adressent à la personne responsable de la protection des renseignements personnels :"
 
+# `/about` sur le nuage. Voir en.toml.
+[about]
+title        = "À propos de Splouch"
+tagline      = "Tableaux de natation, résultats et listes de départ en direct — du bord de la piscine à chaque téléphone."
+intro        = "Splouch lit la console de chronométrage d'une compétition de natation, ajoute les noms des nageurs et des clubs à partir du fichier de la compétition, et affiche un tableau en direct sur les téléviseurs de la piscine. Le même flux rejoint les téléphones des spectateurs sur le réseau de la piscine, et partout grâce à ce site."
+how_h        = "Comment ça marche"
+how_1        = "À la piscine : un Raspberry Pi décode le flux série de la console de chronométrage et alimente les téléviseurs. Aucune connexion Internet requise."
+how_2        = "Sur le réseau de la piscine : les téléphones ouvrent le tableau, les résultats et la liste de départ directement depuis le Pi."
+how_3        = "En ligne : quand la piscine a Internet, le Pi relaie la compétition vers ce site, pour que familles et entraîneurs la suivent de partout."
+apps_h       = "Les applications"
+apps         = "Les applications Splouch pour iOS et Android offrent les trois mêmes onglets et peuvent vous avertir quand un nageur que vous suivez s'apprête à nager."
+apps_soon    = "Bientôt sur l'App Store et Google Play."
+source_h     = "Code source ouvert"
+source       = "Splouch est un logiciel libre sous licence MIT. Les signalements de bogues et les contributions sont les bienvenus."
+repo_server  = "Serveur de piscine, tableau et ce site"
+repo_ios     = "Application iOS"
+repo_android = "Application Android"
+meets_link   = "Voir les compétitions en direct"
+
 # Notifications de série (docs/app.md §10). Voir en.toml.
 [push]
 selected   = "Série à la console"

@@ -288,6 +288,15 @@ bump `PRIVACY_UPDATED` in `cloud/cloud_control.py` with any change to it.
 
 ---
 
+## About page
+
+`https://yourdomain/about` presents Splouch: what it does, the apps, and links to the three
+GitHub repositories (`REPOS` in `cloud/cloud_control.py`). Its text is `[about]` in
+`shared/locales/*.toml`, in the visitor's language like the picker. The App Store and Google
+Play buttons appear once the store links are set (`STORE_URL_IOS`, `STORE_URL_ANDROID`).
+
+---
+
 ## Updating the cloud server
 
 Click **Update** in `/admin` → **Update & Backup** — it checks out the version from GitHub and pulls its container image, built by CI for every release tag and for `master` (`ghcr.io/olivierouellet/splouch-cloud`). The page polls until the server is back up, then reloads. Prefer it: it resolves the right ref for the way this server was installed, which the manual commands below leave to you. A version with no published image — a branch, a fork, a tag whose build has not finished — is built on the server instead. So is one whose image was built from another commit than the one checked out: **Update** right after a push to `master` would otherwise pull the previous image, since CI takes a few minutes to publish the new one. Every image is stamped with its commit (`org.opencontainers.image.revision`), and the deploy compares it with the checkout. The local build carries the same tag, and the next **Update** replaces it with CI's.
@@ -809,6 +818,16 @@ Sans elles, la page omet cette phrase ou sa section Contact, et la carte Comptag
 l'assistance du panneau le signale. Le texte est `[privacy]` dans
 `shared/locales/*.toml` ; mettez à jour `PRIVACY_UPDATED` dans `cloud/cloud_control.py` à
 chaque modification.
+
+---
+
+### Page À propos
+
+`https://votredomaine/about` présente Splouch : ce qu'il fait, les applications et les liens
+vers les trois dépôts GitHub (`REPOS` dans `cloud/cloud_control.py`). Son texte est `[about]`
+dans `shared/locales/*.toml`, dans la langue du visiteur comme le sélecteur. Les boutons App
+Store et Google Play apparaissent une fois les liens de boutique définis (`STORE_URL_IOS`,
+`STORE_URL_ANDROID`).
 
 ---
 

@@ -22,6 +22,8 @@ the bottom of the sidebar → **Change password**.
 | `/console` | Live serial console viewer (login with the **Console** page required) |
 | `/mm` | Meet Manager re-upload (login with the **Meet Manager** page required) |
 | `/settings` | Admin settings (login with the **Settings** page required) |
+| `/login` | Sign in to the pages that need it |
+| `/help` | Every page above, with who may open it — `/aide` in French, `/ayuda` in Spanish |
 
 Append `?test` to `/live` to overlay mode buttons (Intro, Running, Results, Next Heat) on the board — useful for testing without a live console.
 
@@ -352,6 +354,8 @@ passe**.
 | `/console` | Visualiseur de la console série en direct (connexion avec la page **Console** requise) |
 | `/mm` | Renvoi du fichier Meet Manager (connexion avec la page **Meet Manager** requise) |
 | `/settings` | Réglages d'administration (connexion avec la page **Paramètres** requise) |
+| `/login` | Connexion aux pages qui la demandent |
+| `/aide` | Toutes les pages ci-dessus, avec qui peut les ouvrir — `/help` en anglais, `/ayuda` en espagnol |
 
 Ajoutez `?test` à `/live` pour superposer des boutons de mode (Intro, Running, Results, Next
 Heat) sur le tableau — utile pour tester sans console branchée.
