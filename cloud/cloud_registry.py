@@ -309,14 +309,27 @@ def running(meet, now=None):
     last = meet.get("last_frame_at")
     if last and (now - last).total_seconds() < RUNNING_FRAME_SECS:
         return True
-    offset = meet.get("utc_offset")
-    today = (
-        (now + datetime.timedelta(minutes=offset)).date()
-        if offset is not None
-        else now.astimezone().date()
-    )
     days = list(meet.get("session_dates") or []) or [meet.get("meet_date") or ""]
-    return today.isoformat() in days
+    return _pool_today(meet, now).isoformat() in days
+
+
+def _pool_today(meet, now):
+    """Today at the pool: its UTC offset, the server's when unknown."""
+    offset = meet.get("utc_offset")
+    if offset is not None:
+        return (now + datetime.timedelta(minutes=offset)).date()
+    return now.astimezone().date()
+
+
+def ended(meet, now=None):
+    """Whether a meet's last session day is behind it at the pool (`app.md` `P-01`).
+
+    A retained meet expires the midnight after it; a live one whose Pi still holds
+    an old meet file never would, and the picker leaves it out instead. A meet
+    with no date has not ended."""
+    now = now or datetime.datetime.now(datetime.UTC)
+    date = meet.get("meet_date") or ""
+    return bool(date) and date < _pool_today(meet, now).isoformat()
 
 
 def _retire_where(c, clause, params, now):
@@ -532,24 +545,29 @@ def sweep_expired(now=None):
 
 
 def list_meets(reachable_only=False):
-    """Live and retained meets, live first then by name — list columns only.
+    """Live and retained meets by date, then city, then name — list columns only.
+    A meet with no date comes last.
 
     `reachable_only` (the picker): a finished meet is served by its node, so while
     that node is not reporting its card is left out rather than leading to an error;
-    it comes back with the node, until it expires.
+    it comes back with the node, until it expires. A meet whose dates are past is
+    left out too (`ended`).
     """
     sweep_expired()
-    cutoff = datetime.datetime.now(datetime.UTC) - datetime.timedelta(
-        seconds=SILENT_AFTER_SECS
-    )
+    now = datetime.datetime.now(datetime.UTC)
+    cutoff = now - datetime.timedelta(seconds=SILENT_AFTER_SECS)
     where = "WHERE m.live OR n.last_seen >= %s" if reachable_only else ""
     with cloud_db.conn() as c:
-        return c.execute(
+        rows = c.execute(
             f"SELECT {_LIST_COLUMNS} FROM meets m LEFT JOIN nodes n ON n.name = m.node "
             f"LEFT JOIN organizers o ON o.key = m.organizer_key {where} "
-            "ORDER BY NOT m.live, lower(m.name), m.id",
+            "ORDER BY m.meet_date = '', m.meet_date, lower(m.location), "
+            "lower(m.name), m.id",
             (cutoff,) if reachable_only else (),
         ).fetchall()
+    if reachable_only:
+        rows = [r for r in rows if not ended(r, now)]
+    return rows
 
 
 # ── Admin ──────────────────────────────────────────────────────────────────────

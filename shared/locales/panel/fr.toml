@@ -323,6 +323,7 @@ meet_howto_2         = '''<strong>Ajouter un fichier</strong> → téléverser l
 meet_howto_3         = '''Tableau sur la télé : <a href="http://splouch.local/" target="_blank" rel="noopener"><code>http://splouch.local/</code></a> (mDNS du Pi).'''
 meet_howto_4         = "Démarrer la console de chronométrage (ou la console manuelle) — temps affichés à chaque série."
 meet_test_warning    = "⚠ Test en cours — téléversement désactivé."
+meet_date_past       = "Les dates de cette compétition sont passées — le cloud ne l'affichera pas. Chargez le fichier d'une compétition à venir."
 meet_files           = "Fichiers de compétition"
 meet_no_file         = "— Aucun fichier —"
 meet_add_file        = "Ajouter un fichier"

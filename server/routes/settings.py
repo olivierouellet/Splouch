@@ -1,3 +1,4 @@
+import datetime
 import glob
 import json
 import os
@@ -27,7 +28,7 @@ from meet_data import (
 )
 from meet_parsers.lenex_parser import ROUND_NAMES, load_lenex
 from routes.qr import invite as qr_invite
-from splouch_regions import COUNTRIES, clean_location
+from splouch_regions import COUNTRIES, clean_location, province_choices, province_code
 from web import credentials_stamp, render, require_login, require_role, save_upload
 from worker import _restart_worker
 
@@ -91,6 +92,13 @@ def _load_meet_file(path):
     relay.update_metadata()  # re-register under the new meet_uid before the schedule
     relay.send_schedule()
     return None
+
+
+def _meet_ended():
+    """Whether the loaded meet's last session day is behind it (`app.md` `P-01`):
+    the cloud does not list it, and the Meet and Cloud tabs say so."""
+    last = relay.last_session_date()
+    return bool(last) and last < datetime.date.today().isoformat()
 
 
 def _reload_same_meet(path):
@@ -853,8 +861,13 @@ def _settings_view(request, form):
         cloud_relay_url=state.settings.get("cloud_relay_url", ""),
         cloud_relay_key=state.settings.get("cloud_relay_key", ""),
         cloud_country=state.settings.get("cloud_country", ""),
-        cloud_province=state.settings.get("cloud_province", ""),
+        cloud_province=province_code(
+            state.settings.get("cloud_country", ""),
+            state.settings.get("cloud_province", ""),
+        ),
         countries=COUNTRIES,
+        provinces=province_choices(ui_lang),
+        meet_ended=_meet_ended(),
         meet_location=state.settings.get("meet_location", ""),
         meet_sport=state.settings.get("meet_sport", ""),
         cloud_label_style=state.settings.get("cloud_label_style", "short"),

@@ -40,13 +40,13 @@ import sqlite3
 import statistics
 import threading
 import time
-import unicodedata
 
 from starlette.concurrency import run_in_threadpool
 
 import cloud_i18n
 import cloud_paths
 import cloud_push
+from splouch_fold import fold
 from splouch_i18n import compose_event_name
 from splouch_times import hundredths
 
@@ -303,22 +303,6 @@ def import_meet(meet_id, data):
 
 
 # ── Names ─────────────────────────────────────────────────────────────────────
-
-# docs/app.md `S-09`: the 17 letters with no canonical decomposition.
-_EXPAND = {
-    "ß": "ss", "æ": "ae", "ð": "d", "ø": "o", "þ": "th", "đ": "d", "ħ": "h",
-    "ı": "i", "ĳ": "ij", "ĸ": "k", "ŀ": "l", "ł": "l", "ŉ": "n", "ŋ": "n",
-    "œ": "oe", "ŧ": "t", "ſ": "s",
-}  # fmt: skip
-
-
-def fold(s):
-    """`S-09`'s fold, so a name followed on a phone matches the same name here:
-    lowercase, NFD, expand the 17, drop anything past ASCII. Spaces collapsed."""
-    s = unicodedata.normalize("NFD", (s or "").lower())
-    s = "".join(_EXPAND.get(c, c) for c in s)
-    s = "".join(c for c in s if ord(c) <= 0x7F)
-    return " ".join(s.split())
 
 
 def _matches(lane, swimmer):

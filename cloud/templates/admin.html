@@ -243,10 +243,25 @@
                         opt.textContent = names.of(opt.value) || opt.value;
                     });
                 }
+                // The state/province list: the chosen country's only, hidden when it
+                // has none. Rebuilt rather than hidden: Safari shows hidden options.
+                const prov = sel.form && sel.form.querySelector('select.province-select');
+                const all = prov ? Array.from(prov.querySelectorAll('option[data-country]')) : [];
+                function syncProvinces(reset) {
+                    if (!prov) return;
+                    const keep = reset ? '' : prov.value;
+                    all.forEach(function (o) { o.remove(); });
+                    const mine = all.filter(function (o) { return o.dataset.country === sel.value; });
+                    mine.forEach(function (o) { prov.appendChild(o); });
+                    prov.value = keep;
+                    prov.hidden = mine.length === 0;
+                }
+                syncProvinces(false);
                 sel.addEventListener('change', function () {
                     const region = sel.form && sel.form.querySelector('select.region-select');
                     const opt = sel.selectedOptions[0];
                     if (region && opt && opt.dataset.region) region.value = opt.dataset.region;
+                    syncProvinces(true);
                 });
             });
         })();

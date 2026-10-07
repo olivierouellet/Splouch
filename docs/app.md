@@ -154,7 +154,7 @@ Entry screen. Web: site root. App: launch screen, and `A-02`'s return target.
 
 | ID | Feature | Driven by | Scope | Level |
 | --- | --- | --- | --- | --- |
-| `P-01` | Meets as cards: name, date, location, sport, and the organizer's state/province and country (country named in the reader's language; state/province named in full when the client knows it — its own name, *Québec*, *Nuevo León*, *California*; translated only where the country has two or more official languages, into those of them the app speaks: *British Columbia* / *Colombie-Britannique*, *Québec* in both — else as sent) | `GET /meets` ([`api.md`](api.md) §5.6) → `country` (ISO code), `province` (free text); names from [`shared/regions/subdivisions.json`](../shared/regions/subdivisions.json) (CA, US, MX), matched by code or listed spelling, folded (`S-09`) | all | must |
+| [`P-01`](#p-01) | Meets as cards **under their day**, the day named once above them in the reader's language (undated meets last, under `date_unknown`). Card: name (two lines at most, then an ellipsis; may shrink a little first), then one line — city, state/province **code**, country **code** — cut with an ellipsis. Every card one height. No date, no sport on the card. A country or state/province the picker filter (`P-21`) narrows to exactly one is not repeated on the card | `GET /meets` ([`api.md`](api.md) §5.6) → `meet_date`, `location`, `country` (ISO code), `province` (ISO 3166-2 code without the country, or as sent when not a known one); `strings.date_unknown` | all | must |
 | `P-02` | Per-meet picker image on card, if supplied — only while the list is short (`P-18`) | `settings.picker_image_b64` → `GET /picker_image/{meet_id}` | all | should |
 | `P-03` | Offline meets stay listed, dimmed dot; opened → last scoreboard frame, empty Results (`R-02`) | `offline`: retained, no relay connected | all | must |
 | `P-04` | Empty state, no active meets | `strings.no_meets` | all | must |
@@ -171,10 +171,29 @@ Entry screen. Web: site root. App: launch screen, and `A-02`'s return target.
 | [`P-15`](#p-15) | Spectator's Appearance — Dark (default), Light, Automatic — in settings (`P-19`), applies on every screen of every meet | stored pref; server's two palettes ([`api.md`](api.md) §6.1), never `settings.theme_colors`; words native in apps (`T-05`); web reads `strings.appearance`, `appearance_dark` / `_light` / `_auto` | all | should |
 | [`P-16`](#p-11) | QR scan adds server: app asks; yes → adds, selects, lands on **meet list**. No app → page offers store | `https://<default host>/add?server=<origin>`; host's two `/.well-known/` files, `GET /add` ([`api.md`](api.md) §4) | native | should |
 | [`P-17`](#p-17) | Search meet list from **3** meets, narrows as typed, own empty state; field where platform puts search | local over `GET /meets` → `name`, `meet_date`, `location`, `sport`, `organizer`, `province`, `country` (code and reader's-language name); `strings.meet_search`, `no_meets_match` | all | should |
-| `P-18` | More than **10** meets → compact rows: name, date, location, province/country, live dot; **no picker image**, none fetched. 10 or fewer → `P-01` cards | count of `GET /meets` → `meets` | all | should |
+| `P-18` | More than **10** meets → compact rows, still under their day: name on one line, city · state/province · country codes, live dot; **no picker image**, none fetched. 10 or fewer → `P-01` cards | count of `GET /meets` → `meets` | all | should |
 | [`P-19`](#p-19) | **Settings** — one container in place of picker menu, sections in this order: Display (language `T-08`, Appearance `P-15`), Privacy (`P-07`), Server (`P-11`–`P-13`, native), About (`P-06` full text, policy link, `P-20` replay). Platform's own form: web side sheet (full height under 600px), iOS sheet with `Form`, Android full-screen settings destination | section names native in apps (`T-05`); web reads `strings.settings`, `settings_display`, `settings_privacy`, `settings_about` | all | should |
 | [`P-20`](#p-20) | **Introduction** on first launch, once per install, replayable from settings About: unofficial results (`P-06`), three tabs, following a swimmer or club, attendance counting with its toggle (`C-10`) | pages 1 and 4 server text (`results_disclaimer`, `privacy_note`), rest native words (`T-05`); page 4 only while `analytics_enabled` | native | should |
 | [`P-21`](#p-21) | **Filter** the meet list by club (organizer), country and state/province, in that order, several values each; **remembered** by the app across launches and servers. Each facet lists the values the list holds; OR within a facet, AND across. Active filter → a line at the end of the list says meets are hidden, with *Clear*; filter hides every meet → own empty state with *Clear*, not `P-04`/`P-17`'s | local over `GET /meets` → `country`, `province`, `organizer`; stored pref, one per app; words native (`T-05`) | native | should |
+
+### <a id="p-01"></a>P-01 — a day, then its meets
+
+A spectator looks for today's meet, then this weekend's: the day heads the cards
+instead of sitting on each. Server order is the order (`api.md` §5.6): by date, then
+city, then name; a meet whose last day is past at the pool is not listed, whether or
+not its Pi is still connected — the Pi's Meet and Cloud tabs say so when its file is
+one.
+
+- **Day heading**: weekday, day, month, in the reader's language; the year only when it
+  is not this one. Web: `toLocaleDateString`; iOS: `Date.FormatStyle`; Android:
+  `DateTimeFormatter.ofLocalizedDate` pattern.
+- **One height**: one line of name leaves the card its padding; a second line takes it
+  back, so a two-line card is no taller.
+- **Codes, not names**: `QC`, `US`, `CMX` — the city carries the place, the codes only
+  tell two Springfields apart. A province not in `subdivisions.json` is shown as sent,
+  cut by the line's ellipsis.
+- **Filter says it once** (native): a filter (`P-21`) holding exactly one country leaves
+  the country code off every card; exactly one state/province, its code too.
 
 ### <a id="p-06"></a>P-06 — one line, always there
 
@@ -261,8 +280,10 @@ meets", every launch, without typing.
 
 - **Facets from the list, in this order.** Club (`organizer`, compared folded as
   `S-09`) — the narrowest, most often a spectator's own; country (named in reader's
-  language); state/province (named in full as `P-01`, with its country; spellings of one
-  known province — `QC`, `Québec` — are one choice; only those of the chosen countries,
+  language); state/province (named in full in the facet — its own name, translated only
+  where the country has two or more official languages the app speaks: *British
+  Columbia* / *Colombie-Britannique*, *Québec* in both — with its country; spellings of
+  one known province — `QC`, `Québec` — are one choice; only those of the chosen countries,
   once one is chosen). A stored value the list no longer holds stays
   listed, checked, so it can be unchecked.
 - **OR within, AND across.** A meet with a facet's field empty fails that facet while
@@ -365,12 +386,15 @@ cookie). App stores choice itself.
 - Every query word, any order, must be substring of meet's folded fields space-joined —
   `quebec 2026` matches location + date.
 - Fold both sides per `S-09`'s four steps; web: `foldName()` in `shared/static/js/fold.js`.
-- Organizer searched, not shown. Country searched by code and by its name in the
-  reader's language (web: `Intl.DisplayNames`); province as sent.
+- Organizer, day and sport searched, not shown. Country searched by code and by its
+  name in the reader's language (web: `Intl.DisplayNames`); state/province as sent and
+  by its name from [`subdivisions.json`](../shared/regions/subdivisions.json) (web: every
+  spelling listed there).
 - `P-06` stays above list regardless of filter.
 - Query survives return from meet (`A-02`) and `P-09`, not cold launch: web
   `sessionStorage`, app while picker on stack.
-- Keep server order — live first ([`api.md`](api.md) §5.6).
+- Keep server order — by date, then city ([`api.md`](api.md) §5.6). A day whose meets
+  all fail the query goes, heading and all.
 
 ---
 
@@ -992,6 +1016,17 @@ list until `A-09` says the meet is gone, then deletes it.
 ---
 
 ## Changelog
+
+- **v3, amended** (2026-10-06, no bump) — picker cards tidied. A client still showing
+  date and sport on each card keeps working: the server only reorders and adds.
+
+  - **Changed**: `P-01` (cards under their day; name two lines; city, state/province
+    code, country code on one line; no date, no sport; one country or province in the
+    filter → not on the card), `P-18` (rows under their day too), `P-17` (server order
+    by date then city; province searched by every spelling), `P-21` (province named in
+    full in the facet, moved from `P-01`).
+  - **Added**: string `date_unknown`; `GET /meets` leaves out a meet whose dates are
+    past and sends `province` as a code where it names a known one.
 
 - **v3, amended** (2026-10-06, no bump) — heat notifications (§10). Native only, and
   only where the meet's node can push: a client that ignores `push` shows no bell.

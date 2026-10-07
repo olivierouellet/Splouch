@@ -22,6 +22,7 @@ COPY cloud/cloud_*.py ./
 # so a plain `import splouch_i18n` finds it; cloud_paths adds the from-source
 # location instead when running outside the image.
 COPY shared/py/ ./
+COPY shared/regions/subdivisions.json ./
 COPY cloud/templates/ templates/
 COPY shared/templates/ templates_shared/
 COPY shared/locales/ locales/

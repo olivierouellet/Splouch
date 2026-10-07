@@ -332,6 +332,7 @@ meet_howto_2         = '''<strong>Add Meet File</strong> → upload <code>.lxf</
 meet_howto_3         = '''Scoreboard on TV: <a href="http://splouch.local/" target="_blank" rel="noopener"><code>http://splouch.local/</code></a> (Pi mDNS).'''
 meet_howto_4         = "Start timing console (or manual console) — times appear as heats run."
 meet_test_warning    = "⚠ Test running — meet upload disabled."
+meet_date_past       = "This meet's dates are past — the cloud will not list it. Load the file for an upcoming meet."
 meet_files           = "Meet Files"
 meet_no_file         = "— No file —"
 meet_add_file        = "Add Meet File"

@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pytest
 
-from cloud.cloud_follows import fold
+from splouch_fold import fold
 
 PATH = (
     Path(__file__).resolve().parent.parent / "shared" / "regions" / "subdivisions.json"

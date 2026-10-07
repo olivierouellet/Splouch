@@ -323,6 +323,7 @@ meet_howto_2         = '''<strong>Añadir archivo</strong> → subir el <code>.l
 meet_howto_3         = '''Marcador en la TV: <a href="http://splouch.local/" target="_blank" rel="noopener"><code>http://splouch.local/</code></a> (mDNS del Pi).'''
 meet_howto_4         = "Iniciar la consola de cronometraje (o la consola manual) — tiempos en cada serie."
 meet_test_warning    = "⚠ Prueba en curso — subida desactivada."
+meet_date_past       = "Las fechas de esta competición ya pasaron — el cloud no la mostrará. Cargue el archivo de una competición próxima."
 meet_files           = "Archivos de competición"
 meet_no_file         = "— Sin archivo —"
 meet_add_file        = "Añadir archivo"

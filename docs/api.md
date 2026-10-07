@@ -508,7 +508,10 @@ its own from the `results_snapshot` frames it relays, and stores them with the m
   meet whose node is not reporting is left out of the list until it is.
 - **`url`** is the meet's page there; the web picker links to it.
 - **`country`** (ISO 3166-1 alpha-2) and **`province`** are the organizer's, `""` when
-  unrecorded (`P-01`, `P-17`).
+  unrecorded (`P-01`, `P-17`). `province` is its ISO 3166-2 code without the country
+  prefix (`QC`, `NY`, `CMX`), picked from
+  [`subdivisions.json`](../shared/regions/subdivisions.json); a value recorded before
+  the pick-list may still be free text, sent as recorded when it names no known one.
 - **`test`** marks one of the server's own test meets ([`cloud.md`](cloud.md#test-meets)):
   fake, looping, for trying a client. The web picker badges it **TEST**; its name starts
   with "Test meet", so a client that ignores the field still reads it as one.
@@ -521,9 +524,11 @@ on purpose, so an attendee can read its last scoreboard frame. Not its results: 
 join replays `meet_live: false`, and a phone wipes its Results board on that
 (`app.md` `P-03`, `R-02`). `has_picker_image` says
 whether `GET /picker_image/{id}` will return an image. Both live and retained
-meets appear; expired ones are swept before the list is built. Live meets
-(`offline: false`) come first; keep this order rather than re-sorting (`app.md`
-`P-17`).
+meets appear; expired ones are swept before the list is built, and a meet whose
+`meet_date` — its last session day — is past at the pool (its UTC offset, else the
+server's) is left out, live or not. Meets come by `meet_date`, then `location`, then
+`name`, compared case-insensitively; an undated meet last. Keep this order rather than
+re-sorting (`app.md` `P-01`, `P-17`).
 
 ### 5.7 `GET /picker/config`
 
@@ -532,7 +537,7 @@ meets appear; expired ones are swept before the list is built. Live meets
   "logo_above": false, "lang": "fr", "analytics_enabled": true,
   "stores": { "ios": "https://apps.apple.com/…", "android": "https://play.google.com/…" },
   "strings": { "page_title": "…", "no_meets": "…", "unnamed_meet": "…",
-               "meet_search": "…", "no_meets_match": "…",
+               "meet_search": "…", "no_meets_match": "…", "date_unknown": "…",
                "results_disclaimer": "…", "privacy_note": "…",
                "results_disclaimer_short": "…", "privacy_note_short": "…",
                "notice_collapse": "…" } }

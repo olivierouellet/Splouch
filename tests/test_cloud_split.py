@@ -736,7 +736,7 @@ def test_a_card_shows_and_searches_the_province_and_country(wired):
     html = _picker(1)
     assert '<span class="country" data-country="CA">CA</span>' in html
     assert "<span>QC</span>" in html
-    assert 'data-search="Meet 0 2099-06-04 Club QC CA"' in html
+    assert 'data-search="Meet 0 2099-06-04 Club QC Québec PQ CA"' in html
 
 
 # ── Rolling updates on the worker ──────────────────────────────────────────────

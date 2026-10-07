@@ -69,7 +69,13 @@ from cloud_web import (
 )
 from splouch_i18n import READER_THEMES
 from splouch_links import INVITE_PARAM, INVITE_PATH
-from splouch_regions import COUNTRIES, clean_location
+from splouch_regions import (
+    COUNTRIES,
+    SUBDIVISIONS,
+    clean_location,
+    province_choices,
+    province_code,
+)
 
 # The tabs other roles open; everything else is `require_admin`.
 require_appearance = require_role("appearance")
@@ -416,16 +422,16 @@ async def route_redoc():
 
 
 def _public_meet_list(here=""):
-    """Meets for the picker — live and retained alike, live ones first.
+    """Meets for the picker — live and retained alike, by date then city.
 
     Shared by the HTML picker and ``GET /meets`` so a native client's list can
     never drift from the web one. Deliberately excludes anything an attendee has
     no business seeing (relay keys, expiry, connection times); the admin table
     has its own builder, ``_admin_meet_list``.
 
-    Live first because a spectator opening the list is almost always after a
-    meet that is running now; a retained one is a meet they are looking back
-    at. The registry returns them in that order.
+    By date because the picker groups its cards under each day (`app.md`
+    `P-01`); a meet whose dates are past is not listed. The registry returns
+    them in that order.
 
     ``base`` is where a client reaches each meet (`app.md` `C-11`): a live meet's
     worker, or ``here`` — this server — for a retained one. ``country`` and
@@ -442,7 +448,9 @@ def _public_meet_list(here=""):
             "offline": not m["live"],
             "has_picker_image": m["has_picker_image"],
             "country": m["country"],
-            "province": m["province"],
+            # A code where it names a known one: a value recorded before the
+            # drop-down may still be spelled out.
+            "province": province_code(m["country"], m["province"]),
             "base": cloud_registry.meet_base(m, here),
             "url": cloud_registry.page_url(m),
             # One of the control plane's own test meets (cloud_testmeets).
@@ -475,6 +483,39 @@ def _picker_branding():
 # `P-18`): five hundred picker images would be the page's whole weight.
 COMPACT_AFTER = 10
 
+
+def _picker_days(meets):
+    """`P-01`: the picker's cards under each day, in list order — the list is by
+    date already, an undated meet last. Each card carries what the search matches,
+    the state/province's every spelling among it."""
+    days = []
+    for m in meets:
+        code = m["province"]
+        names = SUBDIVISIONS.get(m["country"], {}).get(code, [])
+        card = {
+            **m,
+            "search": " ".join(
+                x
+                for x in (
+                    m["name"],
+                    m["meet_date"],
+                    m["location"],
+                    m["sport"],
+                    m["organizer"],
+                    code,
+                    *names,
+                    m["country"],
+                )
+                if x
+            ),
+        }
+        if days and days[-1]["date"] == m["meet_date"]:
+            days[-1]["meets"].append(card)
+        else:
+            days.append({"date": m["meet_date"], "meets": [card]})
+    return days
+
+
 # The picker chrome a native client renders itself. Kept server-side rather than
 # shipped in the app because results_disclaimer and privacy_note are compliance
 # text: they must be correctable without waiting on an App Store review.
@@ -484,6 +525,7 @@ _PICKER_STRING_KEYS = (
     "unnamed_meet",
     "meet_search",
     "no_meets_match",
+    "date_unknown",
     "results_disclaimer",
     "privacy_note",
     "results_disclaimer_short",
@@ -516,6 +558,7 @@ def route_index(request: Request):
             request,
             "picker.html",
             meets=meets,
+            days=_picker_days(meets),
             compact=len(meets) > COMPACT_AFTER,
             store_buttons=store_buttons,
             t=_strings(lang, "mobile"),
@@ -1518,6 +1561,8 @@ def _admin_page(request, t=None, creds_error=None, users_error=None):
         keys=_load_keys() if "organizers" in roles else {},
         regions=cloud_auth.regions(),
         countries=COUNTRIES,
+        provinces=province_choices(_admin_lang(request)),
+        province_code=province_code,
         active_meets=_admin_meet_list() if "meets" in roles else [],
         nodes=_admin_nodes() if admin else [],
         rollout=cloud_registry.rollout() if admin else None,

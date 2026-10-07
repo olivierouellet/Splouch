@@ -1,5 +1,9 @@
                 <div class="tab-pane" id="tab-cloud">
                     <div class="row"><div class="col-lg-8">
+                    {# docs/app.md `P-01`: the cloud lists no meet whose dates are past. #}
+                    {% if meet_ended %}
+                    <div class="alert alert-danger py-2 px-3 small">{{ t.meet_date_past }}</div>
+                    {% endif %}
                     <form id="cloud_settings_form" action="/settings" method="post">
                     <input type="hidden" name="cloud_settings_submit" value="1">
                         <div class="card mb-3"><div class="card-body">
@@ -35,10 +39,17 @@
                                             {% endfor %}
                                         </select>
                                     </div>
-                                    <div class="flex-fill" style="min-width:10rem;">
+                                    {# The chosen country's states/provinces only, swapped by
+                                       settings.js when the country changes; none listed →
+                                       no field. #}
+                                    <div id="cloud_province_field">
                                         <label class="form-label" for="cloud_province">{{ t.cloud_province }}</label>
-                                        <input type="text" name="cloud_province" id="cloud_province" value="{{ cloud_province }}" maxlength="64"
-                                               class="form-control form-control-sm" autocomplete="off">
+                                        <select name="cloud_province" id="cloud_province" class="form-select form-select-sm" style="width:auto;">
+                                            <option value="">—</option>
+                                            {% for country, subs in (provinces or {}).items() %}{% for code, name in subs %}
+                                            <option value="{{ code }}" data-country="{{ country }}" {{ 'selected' if country == cloud_country and code == cloud_province else '' }}>{{ name }}</option>
+                                            {% endfor %}{% endfor %}
+                                        </select>
                                     </div>
                                     <div>
                                         <span class="form-label d-block">{{ t.cloud_region }}</span>

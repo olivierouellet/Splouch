@@ -18,7 +18,7 @@ from; the `diverges` rows are where v2 moved past them.
 
 | ID | Status | Notes |
 | --- | --- | --- |
-| `P-01` | `deferred` | `picker.html` over `_public_meet_list`; country named by `Intl.DisplayNames` in the page's language. State/province still as sent — full name from `shared/regions/subdivisions.json` (2026-10-06) not yet read |
+| `P-01` | `done` | `picker.html` over `_picker_days(_public_meet_list)`: a `.day` per date, heading named by `toLocaleDateString`; name clamped to two lines, city · province code · country code on one line; one card height from `min-height`. Name does not shrink (CSS has no fit-to-box); no filter, so the codes always show. `test_cloud_picker_search.py` |
 | `P-02` | `done` | |
 | `P-03` | `done` | |
 | `P-04` | `done` | |
@@ -34,8 +34,8 @@ from; the `diverges` rows are where v2 moved past them.
 | `P-14` | `n/a` | native-only — a page is always the server's own version |
 | `P-15` | `done` | `splouch_theme` cookie; the Pi's pages keep the operator's palette (no picker) |
 | `P-16` | `n/a` | native-only; the web half is `GET /add` ([`api.md`](api.md) §4) |
-| `P-17` | `done` | field in the list from 3 meets, `foldName()` from `fold.js`; province and country code in `data-search`, the country's name added by the page script |
-| `P-18` | `done` | `compact` from `COMPACT_AFTER` in `cloud_control.py`; `.meets.compact`, no `<img>` rendered |
+| `P-17` | `done` | field in the list from 3 meets, `foldName()` from `fold.js`; province code and spellings, country code in `data-search`, the country's name added by the page script; a day with no match hidden |
+| `P-18` | `done` | `compact` from `COMPACT_AFTER` in `cloud_control.py`; `.meets.compact` per day, no `<img>` rendered |
 | `P-19` | `done` | gear `#settings-btn` → modal `<dialog id="settings">` side sheet (full width under 600px): Display, Privacy, About; Escape, backdrop tap and × close it |
 | `P-20` | `n/a` | native-only — the `P-06` line does the job on the web |
 | `P-21` | `n/a` | native-only |

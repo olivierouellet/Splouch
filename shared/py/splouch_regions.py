@@ -8,8 +8,15 @@ offer the same list, so it lives here.
 
 ISO 3166-1 alpha-2 codes only: the names are drawn by the browser
 (`Intl.DisplayNames`) in the reader's language, so no locale file carries 34
-country names three times over.
+country names three times over. A state or province is its ISO 3166-2 code,
+picked from `shared/regions/subdivisions.json` — the file the apps carry copies
+of — for the countries it lists, and none elsewhere.
 """
+
+import json
+import os
+
+from splouch_fold import fold
 
 # The regions a deployment can have. Their display names are locale strings
 # (`region_<code>`), never stored here.
@@ -53,13 +60,64 @@ _EUROPE = [
 ]
 COUNTRIES = {"CA": "ca", "US": "us", "MX": "mx", **dict.fromkeys(_EUROPE, "eu")}
 
-PROVINCE_MAX = 64
+
+def _load_subdivisions():
+    """`subdivisions.json`: beside this file in the cloud image, in
+    `shared/regions/` in a checkout."""
+    here = os.path.dirname(os.path.abspath(__file__))
+    for path in (
+        os.path.join(here, "subdivisions.json"),
+        os.path.join(here, os.pardir, "regions", "subdivisions.json"),
+    ):
+        if os.path.exists(path):
+            with open(path, encoding="utf-8") as fh:
+                return json.load(fh)
+    return {"countries": {}, "names": {}}
+
+
+_FILE = _load_subdivisions()
+# Country → subdivision code → [its own name, other spellings…].
+SUBDIVISIONS = _FILE["countries"]
+_NAMES = _FILE.get("names", {})
+# Country → folded code or spelling → code.
+_SPELLINGS = {
+    country: {fold(s): code for code, names in subs.items() for s in (code, *names)}
+    for country, subs in SUBDIVISIONS.items()
+}
+
+
+def province_code(country, province):
+    """The subdivision code *province* spells in *country* — by code or by any
+    listed spelling, folded (`app.md` `P-01`) — else *province* as sent."""
+    province = str(province or "").strip()
+    return _SPELLINGS.get(country, {}).get(fold(province), province)
+
+
+def province_name(country, code, lang=""):
+    """A subdivision's name for a reader of *lang*: its own, or the one in the
+    reader's language where the country has two official ones."""
+    names = SUBDIVISIONS.get(country, {}).get(code)
+    if not names:
+        return code
+    return _NAMES.get(country, {}).get(lang, {}).get(code, names[0])
+
+
+def province_choices(lang=""):
+    """Country → [(code, name)] by name, for a state/province drop-down."""
+    return {
+        country: sorted(
+            ((code, province_name(country, code, lang)) for code in subs),
+            key=lambda c: fold(c[1]),
+        )
+        for country, subs in SUBDIVISIONS.items()
+    }
 
 
 def clean_location(country, province):
-    """(country, province) as stored: a known code or '', and bounded free text."""
+    """(country, province) as stored: known codes or ''. A province is one of the
+    country's subdivisions, given by code or by any spelling of it."""
     country = str(country or "").strip().upper()
-    return (
-        country if country in COUNTRIES else "",
-        str(province or "").strip()[:PROVINCE_MAX],
-    )
+    if country not in COUNTRIES:
+        return "", ""
+    code = province_code(country, province)
+    return country, code if code in SUBDIVISIONS.get(country, {}) else ""

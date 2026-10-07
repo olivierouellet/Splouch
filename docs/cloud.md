@@ -100,15 +100,17 @@ In the admin UI on Pi #1 (`/settings` → **Cloud** tab):
 | --- | --- |
 | **Server URL** | `https://yourdomain` |
 | **Relay Key** | Key from `/admin` on the cloud server |
-| **Country**, **State / province** | Where the club is based; the cloud's administrator sees it |
+| **Country**, **State / province** | Where the club is based, picked from lists (a state/province only for Canada, the US and Mexico); the cloud's administrator sees it |
 | **Region** | Read-only — the region the cloud put this organizer in, shown once connected |
 | **Location** | Venue or city (auto-filled from Lenex if blank) |
-| **Sport** | Optional — shown on the meet picker (e.g. `Swimming`) |
+| **Sport** | Optional — not shown on the meet picker, but a spectator can search by it (e.g. `Swimming`) |
 
 Click **Save**. The Pi asks the cloud which server carries its meet, connects there, and
 appears in the cloud's meet picker.
 Location, sport and the rest of the picker card (title, image, home icon) only show once a
-meet file is loaded.
+meet file is loaded. The picker lists a meet under the day of its last session, and stops
+listing it once that day is past — even with the Pi still connected. A meet file whose
+dates are past says so in red on the Pi's **Meet** and **Cloud** tabs.
 
 ---
 
@@ -596,14 +598,17 @@ Dans l'interface d'administration du Pi n° 1 (`/settings` → onglet **Nuage**)
 | --- | --- |
 | **URL du serveur** | `https://votredomaine` |
 | **Clé de relais** | Clé obtenue dans `/admin` sur le serveur cloud |
-| **Pays**, **État / province** | Où le club est établi ; l'administrateur du cloud le voit |
+| **Pays**, **État / province** | Où le club est établi, choisis dans des listes (une province ou un État seulement pour le Canada, les États-Unis et le Mexique) ; l'administrateur du cloud le voit |
 | **Région** | Lecture seule — la région attribuée par le cloud, affichée une fois connecté |
 | **Lieu** | Lieu ou ville (rempli depuis le Lenex s'il est vide) |
-| **Sport** | Facultatif — affiché dans le sélecteur de compétitions (p. ex. `Natation`) |
+| **Sport** | Facultatif — non affiché dans le sélecteur de compétitions, mais un spectateur peut le chercher (p. ex. `Natation`) |
 
 Cliquez sur **Enregistrer**. Le Pi demande au cloud quel serveur diffuse sa compétition,
 s'y connecte et apparaît dans le sélecteur de compétitions du cloud. Le lieu, le sport et le reste de la fiche du sélecteur (titre, image,
-icône) n'apparaissent qu'une fois un fichier de compétition chargé.
+icône) n'apparaissent qu'une fois un fichier de compétition chargé. Le sélecteur range une
+compétition sous le jour de sa dernière session et ne l'affiche plus une fois ce jour passé
+— même si le Pi est toujours connecté. Un fichier de compétition dont les dates sont passées
+l'indique en rouge dans les onglets **Compétition** et **Cloud** du Pi.
 
 ---
 

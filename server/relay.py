@@ -149,7 +149,7 @@ def _get_metadata():
         "location": meet_info.get("city") or state.settings.get("meet_location", ""),
         "sport": state.settings.get("meet_sport", ""),
         "app_window_title": state.settings.get("app_window_title", ""),
-        "meet_date": _last_session_date(),
+        "meet_date": last_session_date(),
         # Every session day, and this Pi's UTC offset: how the cloud tells a meet
         # in progress from a Pi plugged in ahead of it, which an update may not
         # wait for (docs/architecture/scaling.md).
@@ -214,7 +214,7 @@ def _utc_offset_minutes():
     return int(offset.total_seconds() // 60) if offset is not None else None
 
 
-def _last_session_date():
+def last_session_date():
     """Latest session date from the loaded LENEX ('YYYY-MM-DD'), or '' if unknown.
 
     LENEX dates are ISO-formatted, so a lexical max is also the chronological max.

@@ -793,7 +793,7 @@ function _ethFormError(ip, prefix, gateway, dns) {
     var a = _ipv4ToInt(ip);
     var p = parseInt(prefix, 10);
     if (a === null || !(p >= 8 && p <= 30)) return T.js_eth_bad_ip;
-    var size = Math.pow(2, 32 - p);
+    var size = 2 ** (32 - p);
     var host = a % size;
     if (host === 0 || host === size - 1) return T.js_eth_bad_ip;
     var g = _ipv4ToInt(gateway);
@@ -1866,6 +1866,36 @@ function _applyCloudRegion(d) {
     }
     sel.querySelectorAll('option[value]').forEach(function (opt) {
         if (opt.value) opt.textContent = names.of(opt.value) || opt.value;
+    });
+})();
+
+// The state/province list: the chosen country's only, and no field for a country
+// with none. Rebuilt rather than hidden: Safari shows hidden options.
+(function () {
+    var country = /** @type {HTMLSelectElement | null} */ (
+        document.getElementById('cloud_country')
+    );
+    var prov = /** @type {HTMLSelectElement | null} */ (document.getElementById('cloud_province'));
+    var field = document.getElementById('cloud_province_field');
+    if (!country || !prov || !field) return;
+    var all = Array.prototype.slice.call(prov.querySelectorAll('option[data-country]'));
+    function sync(reset) {
+        var keep = reset ? '' : prov.value;
+        all.forEach(function (o) {
+            o.remove();
+        });
+        var mine = all.filter(function (o) {
+            return o.dataset.country === country.value;
+        });
+        mine.forEach(function (o) {
+            prov.appendChild(o);
+        });
+        prov.value = keep;
+        field.hidden = mine.length === 0;
+    }
+    sync(false);
+    country.addEventListener('change', function () {
+        sync(true);
     });
 })();
 

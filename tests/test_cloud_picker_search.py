@@ -6,9 +6,10 @@ every meet, so the search is a filter over the cards rather than an endpoint.
 
 What this file guards: the box appears only once the list is long, a card carries
 what the search reads, the matching is every word in any order through `S-09`'s
-fold, and `GET /meets` leads with the meets that are live.
+fold, and `GET /meets` comes by date, then city, without the meets already over.
 """
 
+import datetime
 import json
 import os
 import re
@@ -39,6 +40,8 @@ def _meet(i, **kw):
         "sport": "",
         "organizer": "",
         "meet_date": "",
+        "country": "",
+        "province": "",
         "offline": False,
         "has_picker_image": False,
         **kw,
@@ -57,6 +60,7 @@ def _render(meets):
     )
     return env.get_template("picker.html").render(
         meets=meets,
+        days=cs._picker_days(meets),
         t={"meet_search": "Search meets", "no_meets_match": "No match"},
         locales=[("en", "English")],
     )
@@ -81,7 +85,8 @@ def test_three_meets_bring_the_search_box():
 
 
 def test_a_card_carries_what_it_shows_and_its_organizer():
-    """The organizer is not on the card, but a spectator may know a meet by its club."""
+    """The organizer, day and sport are not on the card, but a spectator may know a
+    meet by them; and a province by any of its names."""
     html = _render(
         [
             _meet(
@@ -91,10 +96,54 @@ def test_a_card_carries_what_it_shows_and_its_organizer():
                 location="Montréal",
                 sport="Swimming",
                 organizer="CAMO",
+                country="CA",
+                province="QC",
             )
         ]
     )
-    assert 'data-search="Coupe du Québec 2026-10-04 Montréal Swimming CAMO"' in html
+    assert (
+        'data-search="Coupe du Québec 2026-10-04 Montréal Swimming CAMO QC Québec PQ CA"'
+        in html
+    )
+
+
+def test_the_card_shows_the_city_and_the_codes_not_the_day_or_sport():
+    html = _render(
+        [
+            _meet(
+                1,
+                meet_date="2026-10-04",
+                location="Montréal",
+                sport="Swimming",
+                country="CA",
+                province="QC",
+            )
+        ]
+    )
+    meta = re.search(r'<div class="card-meta">(.*?)</div>', html, re.DOTALL).group(1)
+    assert re.findall(r"<span[^>]*>([^<]*)</span>", meta) == ["Montréal", "QC", "CA"]
+    assert "Swimming" not in meta and "2026-10-04" not in meta
+
+
+def test_cards_sit_under_their_day():
+    html = _render(
+        [
+            _meet(1, meet_date="2026-10-04"),
+            _meet(2, meet_date="2026-10-04"),
+            _meet(3, meet_date="2026-10-05"),
+            _meet(4),
+        ]
+    )
+    heads = re.findall(r'<h2 class="day-head"([^>]*)>([^<]*)</h2>', html)
+    assert heads == [
+        (' data-date="2026-10-04"', "2026-10-04"),
+        (' data-date="2026-10-05"', "2026-10-05"),
+        ("", "Date to be announced"),
+    ]
+    first = html[
+        html.index('data-date="2026-10-04"') : html.index('data-date="2026-10-05"')
+    ]
+    assert first.count('class="card"') == 2
 
 
 def test_empty_fields_leave_no_gaps_in_the_card_text():
@@ -167,21 +216,31 @@ def test_an_empty_or_blank_query_shows_everything():
 # ── The order `GET /meets` serves ─────────────────────────────────────────────
 
 
-def test_live_meets_come_before_retained_ones():
-    """Live first, then retained; each group in name order."""
+def test_meets_come_by_date_then_city_and_a_past_one_not_at_all():
+    """By day, a day's meets by city, an undated meet last; a live meet whose Pi
+    still holds a meet already over is not listed."""
     import cloud_auth
     import cloud_registry
 
+    today = datetime.date.today()
+    day = [(today + datetime.timedelta(days=n)).isoformat() for n in (-1, 0, 1)]
     key = cloud_auth.add_organizer("Club")
     cloud_registry.heartbeat("ca1", 1, [], host="https://ca1.example")
-    cloud_registry.restore({"old-c": {"name": "C"}, "old-a": {"name": "A"}}, node="ca1")
-    live = [
-        cloud_registry.register(key, uid, {"name": name}, "ca1", 1)["meet_id"]
-        for uid, name in (("d", "D"), ("b", "B"))
-    ]
+    cloud_registry.restore(
+        {"old-z": {"name": "A", "location": "Laval", "meet_date": day[1]}}, node="ca1"
+    )
+    ids = {
+        name: cloud_registry.register(key, name, meta, "ca1", 1)["meet_id"]
+        for name, meta in (
+            ("past", {"name": "Past", "meet_date": day[0]}),
+            ("later", {"name": "Later", "location": "Alma", "meet_date": day[2]}),
+            ("undated", {"name": "Undated"}),
+            ("today", {"name": "Z", "location": "Gatineau", "meet_date": day[1]}),
+        )
+    }
     assert [m["id"] for m in cs._public_meet_list()] == [
-        live[1],
-        live[0],
-        "old-a",
-        "old-c",
+        ids["today"],
+        "old-z",
+        ids["later"],
+        ids["undated"],
     ]

@@ -5,7 +5,15 @@
                     <option value="{{ code }}" data-region="{{ region }}" {{ 'selected' if info and info.country == code else '' }}>{{ code }}</option>
                     {% endfor %}
                 </select>
-                <input type="text" name="province" class="form-control form-control-sm" style="width:9rem;" maxlength="64" placeholder="{{ t.province }}" aria-label="{{ t.province }}" value="{{ info.province if info else '' }}" autocomplete="off">
+                {# The country's states/provinces only, swapped by the script in admin.html
+                   when the country changes; none listed → no field. #}
+                {% set current = province_code(info.country, info.province) if info else '' %}
+                <select name="province" class="form-select form-select-sm province-select" style="width:auto;" aria-label="{{ t.province }}">
+                    <option value="">{{ t.province }}</option>
+                    {% for country, subs in (provinces or {}).items() %}{% for code, name in subs %}
+                    <option value="{{ code }}" data-country="{{ country }}" {{ 'selected' if info and info.country == country and current == code else '' }}>{{ name }}</option>
+                    {% endfor %}{% endfor %}
+                </select>
                 <select name="region" class="form-select form-select-sm region-select" style="width:auto;" aria-label="{{ t.region }}">
                     <option value="">{{ t.region }}</option>
                     {% for r in (regions or []) %}

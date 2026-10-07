@@ -68,7 +68,7 @@ def test_the_disclaimer_comes_before_the_search_box_and_the_cards():
     body = _body(_render(analytics_enabled=True))
     line = body.index('<details class="disclaimer"')
     assert line < body.index('id="meet-search"')
-    assert line < body.index('class="meets"')
+    assert line < body.index('class="days"')
 
 
 def test_the_disclaimer_is_there_even_with_no_meets():

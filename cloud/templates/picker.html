@@ -83,11 +83,22 @@
             body { padding-top: 64px; }
             .picker-logo.above { margin-top: 0; }
         }
+        /* docs/app.md `P-01`: the cards under each day, the day said once above them. */
+        .days { width: 100%; max-width: var(--column); }
+        .day + .day { margin-top: 28px; }
+        .day[hidden] { display: none; }
+        .day-head {
+            font-size: 0.8em; font-weight: 600; color: var(--title); letter-spacing: 0.06em;
+            text-transform: uppercase; margin-bottom: 10px; text-align: center;
+        }
         .card {
             background: var(--surface); border: 1px solid var(--line); border-radius: 10px;
+            /* One height for every card, so a row of them lines up: one line of name
+               sits between 20px paddings, and a name on two lines takes them back. */
+            min-height: 86px; padding: 10px 24px;
             /* `min()`: at 200% zoom a phone is ~195px wide, and a 260px floor made the
                whole picker scroll sideways (docs/app.md `X-08`). */
-            padding: 20px 24px; min-width: min(260px, 100%); max-width: 340px; flex: 1;
+            min-width: min(260px, 100%); max-width: 340px; flex: 1;
             text-decoration: none; color: inherit;
             transition: border-color 0.15s, background 0.15s;
             display: flex; align-items: center; gap: 14px;
@@ -98,8 +109,17 @@
         .card[hidden] { display: none; }
         .card-img { width: 56px; height: 56px; border-radius: 6px; object-fit: cover; flex-shrink: 0; }
         .card-body { flex: 1; min-width: 0; }
-        .card-name { font-size: 1em; font-weight: 600; margin-bottom: 4px; }
-        .card-meta { font-size: 0.85em; color: var(--muted); line-height: 1.5; }
+        /* Two lines at most, then an ellipsis. */
+        .card-name {
+            font-size: 1em; font-weight: 600; line-height: 1.3; margin-bottom: 4px;
+            display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;
+            overflow: hidden; overflow-wrap: anywhere;
+        }
+        /* City, state/province code, country code: one line, cut with an ellipsis. */
+        .card-meta {
+            font-size: 0.85em; color: var(--muted); line-height: 1.5;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
         .card-meta span + span::before { content: ' · '; }
         /* One of the server's own test meets (docs/cloud.md, Test meets). */
         .test-badge {
@@ -109,8 +129,8 @@
         }
         /* docs/app.md `P-18`: past ten meets, rows instead of cards and no images. */
         .meets.compact { flex-direction: column; gap: 6px; }
-        .meets.compact .card { max-width: none; padding: 10px 14px; gap: 10px; border-radius: 8px; }
-        .meets.compact .card-name { margin-bottom: 1px; }
+        .meets.compact .card { max-width: none; min-height: 0; padding: 10px 14px; gap: 10px; border-radius: 8px; }
+        .meets.compact .card-name { margin-bottom: 1px; -webkit-line-clamp: 1; }
         .status-dot {
             width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
             background: #4CAF50; box-shadow: 0 0 6px rgba(76,175,80,0.7);
@@ -383,28 +403,34 @@
            autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
            enterkeyhint="search">
     {% endif %}
-    <div class="meets{% if compact %} compact{% endif %}">
-        {% for meet in meets %}
-        {# What the search matches: what the card shows, plus the organizer, which a
-           spectator may know the meet by. The country's name in the reader's
-           language is added by the script below (`P-17`). #}
-        <a class="card" href="{{ meet.url }}"
-           data-search="{{ [meet.name, meet.meet_date, meet.location, meet.sport, meet.organizer, meet.province, meet.country] | select | join(' ') }}">
-            <span class="status-dot{% if meet.offline %} off{% endif %}"></span>
-            {% if meet.has_picker_image and not compact %}
-            <img src="/picker_image/{{ meet.id }}" class="card-img" alt="" loading="lazy">
-            {% endif %}
-            <div class="card-body">
-                <div class="card-name">{{ meet.name or t.unnamed_meet }}{% if meet.test %}<span class="test-badge">{{ t.test_meet or 'TEST' }}</span>{% endif %}</div>
-                <div class="card-meta">
-                    {% if meet.meet_date %}<span>{{ meet.meet_date }}</span>{% endif %}
-                    {% if meet.location %}<span>{{ meet.location }}</span>{% endif %}
-                    {% if meet.province %}<span>{{ meet.province }}</span>{% endif %}
-                    {% if meet.country %}<span class="country" data-country="{{ meet.country }}">{{ meet.country }}</span>{% endif %}
-                    {% if meet.sport and not compact %}<span>{{ meet.sport }}</span>{% endif %}
-                </div>
+    <div class="days">
+        {% for day in days %}
+        <section class="day">
+            {# The script below names the day in the reader's language. #}
+            <h2 class="day-head"{% if day.date %} data-date="{{ day.date }}"{% endif %}>{{ day.date or t.date_unknown or 'Date to be announced' }}</h2>
+            <div class="meets{% if compact %} compact{% endif %}">
+                {% for meet in day.meets %}
+                {# What the search matches: what the card shows, plus what a spectator
+                   may know the meet by — its day, sport, organizer, and the
+                   state/province's spellings. The country's name in the reader's
+                   language is added by the script below (`P-17`). #}
+                <a class="card" href="{{ meet.url }}" data-search="{{ meet.search }}">
+                    <span class="status-dot{% if meet.offline %} off{% endif %}"></span>
+                    {% if meet.has_picker_image and not compact %}
+                    <img src="/picker_image/{{ meet.id }}" class="card-img" alt="" loading="lazy">
+                    {% endif %}
+                    <div class="card-body">
+                        <div class="card-name">{{ meet.name or t.unnamed_meet }}{% if meet.test %}<span class="test-badge">{{ t.test_meet or 'TEST' }}</span>{% endif %}</div>
+                        <div class="card-meta">
+                            {% if meet.location %}<span>{{ meet.location }}</span>{% endif %}
+                            {% if meet.province %}<span>{{ meet.province }}</span>{% endif %}
+                            {% if meet.country %}<span class="country" data-country="{{ meet.country }}">{{ meet.country }}</span>{% endif %}
+                        </div>
+                    </div>
+                </a>
+                {% endfor %}
             </div>
-        </a>
+        </section>
         {% endfor %}
     </div>
     <div class="empty" id="meet-search-empty" role="heading" aria-level="2" hidden>{{ t.no_meets_match or 'No meets match your search.' }}</div>
@@ -448,10 +474,27 @@ var MEET_SEARCH_KEY = 'splouch_meet_search';
     });
 })();
 
-/* docs/app.md `P-01`, `P-17`: the organizer's country is sent as a code; the card
-   names it in the reader's language and the search matches that name too. The
-   browser's own table, so no locale file carries country names; one without it
-   keeps the code. Runs before the search index below is built. */
+/* docs/app.md `P-01`: each day named in the reader's language — the year only
+   when it is not this one. A browser without `Intl` keeps the ISO date. */
+(function () {
+    var lang = document.documentElement.lang || 'en';
+    var thisYear = new Date().getFullYear();
+    document.querySelectorAll('.day-head[data-date]').forEach(function (el) {
+        var p = el.dataset.date.split('-').map(Number);
+        if (p.length !== 3 || p.some(isNaN)) return;
+        var date = new Date(p[0], p[1] - 1, p[2]);
+        var opts = { weekday: 'long', day: 'numeric', month: 'long' };
+        if (p[0] !== thisYear) opts.year = 'numeric';
+        try {
+            el.textContent = date.toLocaleDateString(lang, opts);
+        } catch (e) {}
+    });
+})();
+
+/* docs/app.md `P-17`: the card shows the organizer's country as its code; the
+   search matches its name in the reader's language too. The browser's own table,
+   so no locale file carries country names. Runs before the search index below is
+   built. */
 (function () {
     var DisplayNames = typeof Intl !== 'undefined' && Intl.DisplayNames;
     if (!DisplayNames) return;
@@ -465,9 +508,7 @@ var MEET_SEARCH_KEY = 'splouch_meet_search';
         var el = card.querySelector('.country[data-country]');
         if (!el) return;
         var name = names.of(el.dataset.country);
-        if (!name) return;
-        el.textContent = name;
-        card.dataset.search += ' ' + name;
+        if (name) card.dataset.search += ' ' + name;
     });
 })();
 
@@ -493,6 +534,10 @@ function meetMatches(key, query) {
         cards.forEach(function (c) {
             c.el.hidden = !meetMatches(c.key, input.value);
             if (!c.el.hidden) shown++;
+        });
+        // A day whose meets the search hides all goes with them, heading and all.
+        document.querySelectorAll('.day').forEach(function (day) {
+            day.hidden = !day.querySelector('.card:not([hidden])');
         });
         if (empty) empty.hidden = shown > 0;
         try { sessionStorage.setItem(MEET_SEARCH_KEY, input.value); } catch (e) {}
