@@ -7,6 +7,9 @@ services:
     build: &build
       context: ..          # repo root — gives Dockerfile access to shared/
       dockerfile: cloud/Dockerfile
+      args:
+        # The commit checked out here, as CI stamps its own (cloud_deploy.py).
+        SPLOUCH_COMMIT: ${SPLOUCH_COMMIT:-}
   # On a workers-only node there is no control service to build from.
   app:
     build: *build

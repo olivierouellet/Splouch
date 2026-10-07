@@ -277,7 +277,7 @@ bump `PRIVACY_UPDATED` in `cloud/cloud_control.py` with any change to it.
 
 ## Updating the cloud server
 
-Click **Update** in `/admin` → **Update & Backup** — it checks out the version from GitHub and pulls its container image, built by CI for every release tag and for `master` (`ghcr.io/olivierouellet/splouch-cloud`). The page polls until the server is back up, then reloads. Prefer it: it resolves the right ref for the way this server was installed, which the manual commands below leave to you. A version with no published image — a branch, a fork, a tag whose build has not finished — is built on the server instead.
+Click **Update** in `/admin` → **Update & Backup** — it checks out the version from GitHub and pulls its container image, built by CI for every release tag and for `master` (`ghcr.io/olivierouellet/splouch-cloud`). The page polls until the server is back up, then reloads. Prefer it: it resolves the right ref for the way this server was installed, which the manual commands below leave to you. A version with no published image — a branch, a fork, a tag whose build has not finished — is built on the server instead. So is one whose image was built from another commit than the one checked out: **Update** right after a push to `master` would otherwise pull the previous image, since CI takes a few minutes to publish the new one. Every image is stamped with its commit (`org.opencontainers.image.revision`), and the deploy compares it with the checkout. The local build carries the same tag, and the next **Update** replaces it with CI's.
 
 **Several nodes:** **Roll out to every node**, under the same menu, updates them one at a time — now, or at a time you set (2:00 the next night by default) — each only while no meet is in progress on it. A meet is in progress on its session days, or while its console is sending; a Pi plugged in ahead of its meet holds nothing back. **Active Meets** marks each live meet *in progress* or *connected ahead*. Tick **Even during a meet in progress** to force it. Each node pulls the version itself; the panel shows where the rollout stands, and the **Nodes** tab each node's version. A node that has not come back on the new version within 15 minutes stops the rollout; roll it back by rolling out the previous version.
 
@@ -784,6 +784,11 @@ interroge le serveur jusqu'à son retour, puis se recharge. Préférez cette voi
 la bonne référence selon la façon dont ce serveur a été installé, ce que les commandes
 manuelles ci-dessous vous laissent faire. Une version sans image publiée — une branche, un
 fork, une étiquette dont la construction n'est pas terminée — est construite sur le serveur.
+De même pour une image construite à partir d'un autre commit que celui récupéré : **Mettre à
+jour** juste après un push sur `master` téléchargerait sinon l'image précédente, la CI mettant
+quelques minutes à publier la nouvelle. Chaque image porte son commit
+(`org.opencontainers.image.revision`), que le déploiement compare au dépôt. La construction
+locale porte la même étiquette, et la **Mise à jour** suivante la remplace par celle de la CI.
 
 **Plusieurs nœuds :** **Déployer sur tous les nœuds**, sous le même menu, les met à jour un
 à la fois — maintenant, ou à l'heure choisie (2 h la nuit suivante par défaut) — chacun

@@ -35,8 +35,13 @@ def main(calls):
     return [c for c in calls if c[0][0] != "--env-file"]
 
 
-def runner(fail=(), running=()):
-    """`running`: the compose files whose project has containers (`ps -a -q`)."""
+HEAD = "c0ffee"
+
+
+def runner(fail=(), running=(), head=HEAD, built=HEAD):
+    """`running`: the compose files whose project has containers (`ps -a -q`).
+    `head`: the checkout's commit (`git rev-parse`, '' when unreadable); `built`:
+    the commit the pulled image is stamped with ('' when unstamped)."""
     calls = []
 
     def run(argv, env, cwd, check, **kw):
@@ -44,7 +49,11 @@ def runner(fail=(), running=()):
             return types.SimpleNamespace(
                 returncode=0, stdout="abc\n" if argv[5] in running else ""
             )
-        calls.append((argv[2:], env.get("COMPOSE_FILE", "")))
+        if argv[0] == "git":
+            return types.SimpleNamespace(returncode=0 if head else 128, stdout=head)
+        if argv[1:3] == ["image", "inspect"]:
+            return types.SimpleNamespace(returncode=0, stdout=built or "<no value>")
+        calls.append((argv[2:], env.get("COMPOSE_FILE", ""), env.get("SPLOUCH_COMMIT")))
         return types.SimpleNamespace(returncode=1 if argv[2] in fail else 0)
 
     return run, calls
@@ -68,6 +77,48 @@ def test_no_image_to_pull_builds_it_here(box):
     assert [c[0][0] for c in calls] == ["pull", "build", "up", "exec"]
     assert calls[2][0][:4] == ["up", "-d", "--pull", "never"]
     assert calls[1][1].endswith(":docker-compose.build.yml")
+
+
+def test_master_pulled_before_ci_published_it_is_built_here(box):
+    """The webhook checks the new commit out at once; CI takes minutes to publish
+    its image, so the pull gets the previous one."""
+    run, calls = runner(built="0ld")
+    assert cloud_deploy.deploy("master", runner=run) == 0
+    calls = main(calls)
+    assert [c[0][0] for c in calls] == ["pull", "build", "up", "exec"]
+    assert calls[1][2] == HEAD, "the local build is stamped with the checkout"
+    assert calls[2][0][:4] == ["up", "-d", "--pull", "never"]
+
+
+def test_master_pulled_after_ci_published_it_is_used(box):
+    run, calls = runner()
+    assert cloud_deploy.deploy("master", runner=run) == 0
+    assert [c[0][0] for c in main(calls)] == ["pull", "up", "exec"]
+
+
+def test_an_unstamped_master_image_is_built_here(box):
+    run, calls = runner(built="")
+    cloud_deploy.deploy("master", runner=run)
+    assert "build" in [c[0][0] for c in main(calls)]
+
+
+def test_an_unstamped_release_image_is_trusted(box):
+    """Published before images were stamped: its tag only ever named one build."""
+    run, calls = runner(built="")
+    cloud_deploy.deploy("v2026.10.3", runner=run)
+    assert [c[0][0] for c in main(calls)] == ["pull", "up", "exec"]
+
+
+def test_a_release_image_of_another_commit_is_built_here(box):
+    run, calls = runner(built="0ld")
+    cloud_deploy.deploy("v2026.10.3", runner=run)
+    assert "build" in [c[0][0] for c in main(calls)]
+
+
+def test_no_checkout_commit_no_check(box):
+    run, calls = runner(head="", built="0ld")
+    cloud_deploy.deploy("master", runner=run)
+    assert [c[0][0] for c in main(calls)] == ["pull", "up", "exec"]
 
 
 def test_a_branch_is_built_without_trying_to_pull(box):
@@ -146,6 +197,12 @@ def test_ci_publishes_one_tag_for_both_architectures():
     arches = {m["arch"] for m in wf["jobs"]["build"]["strategy"]["matrix"]["include"]}
     assert arches == {"amd64", "arm64"}
     assert "imagetools create" in str(wf["jobs"]["manifest"])
+    # Stamped with its commit, which a deploy checks against its checkout.
+    assert '--build-arg "SPLOUCH_COMMIT=$GITHUB_SHA"' in str(wf["jobs"]["build"])
+    dockerfile = read("cloud", "Dockerfile")
+    assert "LABEL org.opencontainers.image.revision=$SPLOUCH_COMMIT" in dockerfile
+    build = yaml.safe_load(read("cloud", "docker-compose.build.yml"))["services"]
+    assert build["control"]["build"]["args"]["SPLOUCH_COMMIT"] == "${SPLOUCH_COMMIT:-}"
     assert wf["permissions"] == {}, "write access only where a job needs it"
 
 

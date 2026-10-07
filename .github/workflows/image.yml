@@ -56,7 +56,8 @@ jobs:
         # image tags as they stand.
         run: |
           image="ghcr.io/${OWNER,,}/splouch-cloud"
-          docker build -f cloud/Dockerfile -t "$image:$REF_NAME-$ARCH" .
+          docker build -f cloud/Dockerfile --build-arg "SPLOUCH_COMMIT=$GITHUB_SHA" \
+            -t "$image:$REF_NAME-$ARCH" .
           docker push "$image:$REF_NAME-$ARCH"
 
   manifest:

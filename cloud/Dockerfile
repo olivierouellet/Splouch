@@ -44,6 +44,11 @@ ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
 ENV PYTHONUNBUFFERED=1
 EXPOSE 5000
 
+# The commit this image was built from, which a deploy checks against its checkout
+# (cloud_deploy.stale_image). Last, so a new commit rebuilds no layer above it.
+ARG SPLOUCH_COMMIT=""
+LABEL org.opencontainers.image.revision=$SPLOUCH_COMMIT
+
 # No access log: uvicorn's default writes every request with the visitor's IP (the
 # real one, through Caddy's X-Forwarded-For) to `docker compose logs`, kept for as
 # long as the container is. `/privacy` says this server keeps no request logs.
