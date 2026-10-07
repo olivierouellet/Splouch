@@ -151,9 +151,10 @@ def _get_metadata():
         "sport": state.settings.get("meet_sport", ""),
         "app_window_title": state.settings.get("app_window_title", ""),
         "meet_date": last_session_date(),
-        # docs/app.md `P-01`: a meet past its dates, kept on the picker a while by
-        # its operator. The cloud holds it to three days past the last session.
-        "keep_listed_until": _keep_listed_iso(),
+        # docs/app.md `P-01`: when the meet ends, and how long its operator keeps it
+        # on the picker past that. The cloud holds both to its last day.
+        "meet_end": _aware_iso(meet_end()),
+        "keep_listed_until": _aware_iso(keep_listed_until()),
         # Every session day, and this Pi's UTC offset: how the cloud tells a meet
         # in progress from a Pi plugged in ahead of it, which an update may not
         # wait for (docs/architecture/scaling.md).
@@ -217,8 +218,10 @@ def _utc_offset_minutes():
 
 
 # How long past the meet's end its operator may keep it on the cloud's picker
-# (`keep_listed_until`); the cloud holds it to the same.
+# (`keep_listed_until`), and how long it stays there while connected with no one
+# asking. The cloud holds it to the same (cloud_registry.ended).
 KEEP_LISTED_HOURS = 72
+LIVE_GRACE_HOURS = 24
 
 
 def meet_end():
@@ -241,12 +244,17 @@ def meet_end():
     )
 
 
-def meet_over(today=None):
-    """Whether the loaded meet's last session day is behind it: the cloud no
-    longer lists it (docs/app.md `P-01`). A meet is never over on its last day."""
-    last = last_session_date()
-    today = today or datetime.date.today()
-    return bool(last) and last < today.isoformat()
+def meet_over(now=None):
+    """Whether the cloud no longer lists the loaded meet, connected as it is
+    (docs/app.md `P-01`): `LIVE_GRACE_HOURS` past its end, and never on its last
+    day. A meet with no dates is never over."""
+    end = meet_end()
+    now = now or datetime.datetime.now()
+    return (
+        bool(end)
+        and last_session_date() < now.date().isoformat()
+        and now >= end + datetime.timedelta(hours=LIVE_GRACE_HOURS)
+    )
 
 
 def keep_listed_deadline():
@@ -261,7 +269,12 @@ def can_keep_listed(now=None):
     within `KEEP_LISTED_HOURS` of its end."""
     deadline = keep_listed_deadline()
     now = now or datetime.datetime.now()
-    return meet_over() and not keep_listed_until() and bool(deadline) and now < deadline
+    return (
+        meet_over(now)
+        and not keep_listed_until(now)
+        and bool(deadline)
+        and now < deadline
+    )
 
 
 def keep_listed_until(now=None):
@@ -277,9 +290,9 @@ def keep_listed_until(now=None):
     return deadline if deadline and now < deadline else None
 
 
-def _keep_listed_iso():
-    until = keep_listed_until()
-    return until.astimezone(datetime.UTC).isoformat() if until else None
+def _aware_iso(when):
+    """A local time as the cloud takes it: aware ISO, UTC; None for none."""
+    return when.astimezone(datetime.UTC).isoformat() if when else None
 
 
 def last_session_date():

@@ -109,9 +109,10 @@ Click **Save**. The Pi asks the cloud which server carries its meet, connects th
 appears in the cloud's meet picker.
 Location, sport and the rest of the picker card (title, image, home icon) only show once a
 meet file is loaded. The picker lists a meet under the day of its last session, and stops
-listing it once that day is past — even with the Pi still connected. A meet file whose
-dates are past says so in red on the Pi's **Meet** and **Cloud** tabs; for 72 hours after
-its last session ends, holding **Keep listing** there keeps it on the picker until then.
+listing it once that day is past and the Pi disconnects. While the Pi stays connected, it
+stays listed until 24 hours after its last session ends; past that, the Pi's **Meet** and
+**Cloud** tabs say so in red, and until 72 hours after the end, holding **Keep listing**
+there keeps it on the picker as long as the Pi stays connected.
 
 ---
 
@@ -607,10 +608,11 @@ Dans l'interface d'administration du Pi n° 1 (`/settings` → onglet **Nuage**)
 Cliquez sur **Enregistrer**. Le Pi demande au cloud quel serveur diffuse sa compétition,
 s'y connecte et apparaît dans le sélecteur de compétitions du cloud. Le lieu, le sport et le reste de la fiche du sélecteur (titre, image,
 icône) n'apparaissent qu'une fois un fichier de compétition chargé. Le sélecteur range une
-compétition sous le jour de sa dernière session et ne l'affiche plus une fois ce jour passé
-— même si le Pi est toujours connecté. Un fichier de compétition dont les dates sont passées
-l'indique en rouge dans les onglets **Compétition** et **Cloud** du Pi ; pendant les 72 heures
-qui suivent la fin de sa dernière session, maintenir **Garder affichée** l'y garde jusque-là.
+compétition sous le jour de sa dernière session et ne l'affiche plus, une fois ce jour passé,
+dès que le Pi se déconnecte. Tant que le Pi reste connecté, elle reste affichée jusqu'à 24
+heures après la fin de sa dernière session ; ensuite, les onglets **Compétition** et **Cloud**
+du Pi l'indiquent en rouge et, jusqu'à 72 heures après la fin, maintenir **Garder affichée**
+l'y garde tant que le Pi reste connecté.
 
 ---
 

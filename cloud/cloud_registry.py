@@ -44,7 +44,7 @@ _LIST_COLUMNS = (
     "m.id, m.organizer, m.name, m.location, m.sport, m.meet_date, m.live, "
     "m.connected_at, m.expires_at, m.settings, m.node, m.worker, n.host AS node_url, "
     "(m.picker_image_b64 <> '') AS has_picker_image, "
-    "m.last_frame_at, m.session_dates, m.utc_offset, m.keep_listed_until, "
+    "m.last_frame_at, m.session_dates, m.utc_offset, m.meet_end, m.keep_listed_until, "
     "coalesce(o.country, '') AS country, coalesce(o.province, '') AS province, "
     "coalesce(o.test, false) AS test"
 )
@@ -259,13 +259,17 @@ def register(key, meet_uid, meta, node, worker, location=None):
         # running meet from a Pi plugged in ahead (`running`).
         offset = _offset(meta.get("utc_offset_minutes"))
         c.execute(
-            "UPDATE meets SET session_dates = %s, utc_offset = %s, "
+            "UPDATE meets SET session_dates = %s, utc_offset = %s, meet_end = %s, "
             "keep_listed_until = %s WHERE id = %s",
             (
                 Jsonb(_dates(meta.get("session_dates"))),
                 offset,
-                _keep_listed_until(
-                    meta.get("keep_listed_until"), meta.get("meet_date"), offset
+                _within_last_day(meta.get("meet_end"), meta.get("meet_date"), offset, 0),
+                _within_last_day(
+                    meta.get("keep_listed_until"),
+                    meta.get("meet_date"),
+                    offset,
+                    KEEP_LISTED_HOURS,
                 ),
                 meet_id,
             ),
@@ -293,24 +297,34 @@ def _dates(value):
 
 # How long past its last session day an operator may keep a meet listed (`ended`).
 KEEP_LISTED_HOURS = 72
+# How long past its end a live meet stays listed with no one asking (`ended`).
+LIVE_GRACE_HOURS = 24
 
 
-def _keep_listed_until(value, meet_date, offset):
-    """Until when the Pi asks to keep a past meet listed — an aware ISO time — held
-    to `KEEP_LISTED_HOURS` past the end of its last session day at the pool. None
-    when not asked, or past that."""
+def _end_of_day(meet_date, offset):
+    """Midnight after `meet_date` at the pool, aware; None for no date."""
     try:
-        until = datetime.datetime.fromisoformat(str(value))
         last = datetime.date.fromisoformat(str(meet_date))
     except ValueError:
         return None
-    if until.tzinfo is None:
-        return None
     pool = datetime.timezone(datetime.timedelta(minutes=offset or 0))
-    end_of_day = datetime.datetime.combine(
+    return datetime.datetime.combine(
         last + datetime.timedelta(days=1), datetime.time.min, pool
     )
-    return min(until, end_of_day + datetime.timedelta(hours=KEEP_LISTED_HOURS))
+
+
+def _within_last_day(value, meet_date, offset, hours):
+    """An aware ISO time the Pi sent — the meet's end, or until when it keeps it
+    listed — held to `hours` past the end of its last day at the pool. None when
+    not sent, not aware, or the meet has no date."""
+    try:
+        when = datetime.datetime.fromisoformat(str(value))
+    except ValueError:
+        return None
+    limit = _end_of_day(meet_date, offset)
+    if when.tzinfo is None or limit is None:
+        return None
+    return min(when, limit + datetime.timedelta(hours=hours))
 
 
 def _offset(value):
@@ -349,36 +363,37 @@ def _pool_today(meet, now):
 
 
 def ended(meet, now=None):
-    """Whether a meet's last session day is behind it at the pool (`app.md` `P-01`).
+    """Whether a meet is off the picker for its dates (`app.md` `P-01`).
 
-    A retained meet expires the midnight after it; a live one whose Pi still holds
-    an old meet file never would, and the picker leaves it out instead. A meet
-    with no date has not ended, nor one its operator keeps listed a while longer
-    (`keep_listed_until`)."""
+    Never on its last session day at the pool. Past it, a live meet stays until
+    `LIVE_GRACE_HOURS` after its end (`meet_end`, else the end of that day) — the
+    results come in late — and then while its operator keeps it listed
+    (`keep_listed_until`). A retained one is gone: it expired the midnight after
+    its day. A meet with no date has not ended."""
     now = now or datetime.datetime.now(datetime.UTC)
-    keep = meet.get("keep_listed_until")
-    if keep and now < keep:
-        return False
     date = meet.get("meet_date") or ""
-    return bool(date) and date < _pool_today(meet, now).isoformat()
+    if not date or date >= _pool_today(meet, now).isoformat():
+        return False
+    if not meet.get("live"):
+        return True
+    end = meet.get("meet_end") or _end_of_day(date, meet.get("utc_offset"))
+    if end and now < end + datetime.timedelta(hours=LIVE_GRACE_HOURS):
+        return False
+    keep = meet.get("keep_listed_until")
+    return not (keep and now < keep)
 
 
 def _retire_where(c, clause, params, now):
     """Retire every live meet matching `clause`: not live, expiring after its date."""
     rows = c.execute(
-        f"SELECT id, meet_date, keep_listed_until FROM meets WHERE live AND {clause}",
-        params,
+        f"SELECT id, meet_date FROM meets WHERE live AND {clause}", params
     ).fetchall()
     for r in rows:
-        expires = compute_expiry(r["meet_date"], now)
-        # Kept listed past its dates: it stays until then, not gone at midnight.
-        if r["keep_listed_until"]:
-            keep = r["keep_listed_until"].astimezone().replace(tzinfo=None)
-            expires = max(expires, keep)
+        # A keep is for a live meet: one whose Pi left goes with its date.
         c.execute(
             "UPDATE meets SET live = false, attendees = 0, last_seen = %s, "
-            "expires_at = %s WHERE id = %s",
-            (now, expires, r["id"]),
+            "expires_at = %s, keep_listed_until = NULL WHERE id = %s",
+            (now, compute_expiry(r["meet_date"], now), r["id"]),
         )
     return [r["id"] for r in rows]
 

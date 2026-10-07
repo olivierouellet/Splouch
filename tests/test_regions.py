@@ -74,9 +74,61 @@ NOW = datetime.datetime(2026, 10, 6, 12, 0, tzinfo=datetime.UTC)
         ("2026-10-06", -10 * 60, False),
     ],
 )
-def test_a_meet_ends_after_its_last_day_at_the_pool(meet_date, offset, ended):
-    meet = {"meet_date": meet_date, "utc_offset": offset}
+def test_a_retained_meet_ends_after_its_last_day_at_the_pool(meet_date, offset, ended):
+    meet = {"meet_date": meet_date, "utc_offset": offset, "live": False}
     assert cloud_registry.ended(meet, NOW) is ended
+
+
+def _live(end_hours_ago, **kw):
+    """A live meet whose last day was yesterday at the pool (UTC), ended so long ago."""
+    return {
+        "meet_date": "2026-10-05",
+        "utc_offset": 0,
+        "live": True,
+        "meet_end": NOW - datetime.timedelta(hours=end_hours_ago),
+        **kw,
+    }
+
+
+def test_a_live_meet_stays_listed_24_hours_past_its_end_without_asking():
+    assert cloud_registry.ended(_live(23), NOW) is False
+    assert cloud_registry.ended(_live(24), NOW) is True
+
+
+def test_a_live_meet_without_an_end_time_stays_24_hours_past_its_last_day():
+    """From a Pi older than `meet_end`: the end of its day, 00:00 on the 6th."""
+    meet = _live(0, meet_end=None)
+    assert cloud_registry.ended(meet, NOW) is False
+    assert cloud_registry.ended(meet, NOW + datetime.timedelta(hours=12)) is True
+
+
+def test_a_kept_live_meet_stays_until_its_keep_runs_out():
+    keep = NOW + datetime.timedelta(hours=1)
+    assert cloud_registry.ended(_live(30, keep_listed_until=keep), NOW) is False
+    assert cloud_registry.ended(_live(30, keep_listed_until=keep), keep) is True
+
+
+def test_a_keep_is_nothing_once_its_pi_has_left():
+    keep = NOW + datetime.timedelta(hours=1)
+    meet = {**_live(1, keep_listed_until=keep), "live": False}
+    assert cloud_registry.ended(meet, NOW) is True
+
+
+def test_the_cloud_holds_what_the_pi_sends_to_its_last_day():
+    hold = cloud_registry._within_last_day
+    asked = "2026-10-20T00:00:00+00:00"
+    # Midnight after the 5th in Montréal (UTC-4) is 04:00 UTC on the 6th.
+    assert hold(asked, "2026-10-05", -240, 72) == datetime.datetime(
+        2026, 10, 9, 4, 0, tzinfo=datetime.UTC
+    )
+    assert hold(asked, "2026-10-05", -240, 0) == datetime.datetime(
+        2026, 10, 6, 4, 0, tzinfo=datetime.UTC
+    )
+    soon = "2026-10-05T22:00:00+00:00"
+    assert hold(soon, "2026-10-05", -240, 0).isoformat() == soon
+    assert hold(None, "2026-10-05", 0, 72) is None
+    assert hold("2026-10-07T12:00:00", "2026-10-05", 0, 72) is None
+    assert hold(soon, "", 0, 72) is None
 
 
 def _sessions(monkeypatch, *sessions):
@@ -93,11 +145,27 @@ def _day(n):
     return (datetime.date.today() + datetime.timedelta(days=n)).isoformat()
 
 
-@pytest.mark.parametrize(("days", "over"), [(-1, True), (0, False), (3, False)])
-def test_the_pi_knows_its_meet_is_over(monkeypatch, days, over):
-    """Never on its last day: a meet running late is still running."""
-    _sessions(monkeypatch, (_day(days), "17:00"))
-    assert relay.meet_over() is over
+def _at(days, hour):
+    """Local time, `days` from today at `hour`."""
+    return datetime.datetime.combine(
+        datetime.date.today() + datetime.timedelta(days=days), datetime.time(hour)
+    )
+
+
+@pytest.mark.parametrize(
+    ("days", "now", "over"),
+    [
+        (-1, _at(0, 17), False),  # 23 hours past its end
+        (-1, _at(0, 18), True),  # 24
+        (0, _at(0, 23), False),  # its last day, however late
+        (-2, _at(0, 23), True),
+        (3, _at(0, 12), False),
+    ],
+)
+def test_the_pi_knows_its_meet_is_off_the_picker(monkeypatch, days, now, over):
+    """Listed while connected until 24 hours past its 18:00 end."""
+    _sessions(monkeypatch, (_day(days), "18:00"))
+    assert relay.meet_over(now) is over
 
 
 def test_a_meet_without_dates_is_not_over(monkeypatch):
@@ -119,32 +187,33 @@ def test_the_meet_ends_with_its_last_session_or_its_last_day(monkeypatch):
 
 
 def test_a_past_meet_can_be_kept_listed_for_72_hours_after_its_end(monkeypatch):
-    _sessions(monkeypatch, (_day(-1), "18:00"))
-    end = datetime.datetime.combine(
-        datetime.date.today() - datetime.timedelta(days=1), datetime.time(18)
-    )
+    _sessions(monkeypatch, (_day(-2), "18:00"))
+    end = _at(-2, 18)
     assert relay.keep_listed_deadline() == end + datetime.timedelta(hours=72)
+    assert not relay.can_keep_listed(now=end + datetime.timedelta(hours=23)), (
+        "still listed on its own"
+    )
     assert relay.can_keep_listed(now=end + datetime.timedelta(hours=71))
     assert not relay.can_keep_listed(now=end + datetime.timedelta(hours=72))
 
 
-def test_kept_listed_is_sent_to_the_cloud_and_stops_at_the_deadline(monkeypatch):
-    _sessions(monkeypatch, (_day(-1), "18:00"))
-    assert relay._keep_listed_iso() is None
+def test_the_end_and_the_keep_are_sent_to_the_cloud(monkeypatch):
+    _sessions(monkeypatch, (_day(-2), "18:00"))
+    sent = datetime.datetime.fromisoformat(relay._aware_iso(relay.meet_end()))
+    assert sent == _at(-2, 18).astimezone(datetime.UTC)
+    assert relay._aware_iso(relay.keep_listed_until()) is None
     monkeypatch.setitem(state.settings, "cloud_keep_listed", state.meet_uid())
     deadline = relay.keep_listed_deadline()
     assert relay.keep_listed_until() == deadline
-    sent = datetime.datetime.fromisoformat(relay._keep_listed_iso())
-    assert sent == deadline.astimezone(datetime.UTC)
     assert relay.can_keep_listed() is False, "already kept: no second offer"
     assert relay.keep_listed_until(now=deadline) is None
 
 
 def test_keeping_one_meet_listed_does_not_keep_the_next(monkeypatch):
-    _sessions(monkeypatch, (_day(-1), "18:00"))
+    _sessions(monkeypatch, (_day(-2), "18:00"))
     monkeypatch.setitem(state.settings, "cloud_keep_listed", state.meet_uid())
     monkeypatch.setattr(
-        state.meet, "meet_info", {"name": "Other", "sessions": [{"date": _day(-1)}]}
+        state.meet, "meet_info", {"name": "Other", "sessions": [{"date": _day(-2)}]}
     )
     assert relay.keep_listed_until() is None and relay.can_keep_listed()
 
@@ -156,35 +225,12 @@ def test_the_route_refuses_a_meet_not_over(monkeypatch):
     monkeypatch.setattr(state, "save_settings", lambda: None)
     monkeypatch.setattr(relay, "update_metadata", lambda: None)
     assert route_meet_keep_listed().status_code == 409
-    _sessions(monkeypatch, (_day(-1), "18:00"))
+    _sessions(monkeypatch, (_day(-2), "18:00"))
     assert route_meet_keep_listed() == {"ok": True}
     assert state.settings["cloud_keep_listed"] == state.meet_uid()
 
 
 # ── The cloud's side ────────────────────────────────────────────────────────
-
-
-def test_the_cloud_holds_a_keep_to_72_hours_past_the_last_day():
-    asked = "2026-10-20T00:00:00+00:00"
-    held = cloud_registry._keep_listed_until(asked, "2026-10-05", -240)
-    # Midnight after the 5th in Montréal (UTC-4) is 04:00 UTC on the 6th.
-    assert held == datetime.datetime(2026, 10, 9, 4, 0, tzinfo=datetime.UTC)
-    soon = "2026-10-07T12:00:00+00:00"
-    assert (
-        cloud_registry._keep_listed_until(soon, "2026-10-05", -240).isoformat() == soon
-    )
-    assert cloud_registry._keep_listed_until(None, "2026-10-05", 0) is None
-    assert (
-        cloud_registry._keep_listed_until("2026-10-07T12:00:00", "2026-10-05", 0)
-        is None
-    )
-
-
-def test_a_kept_meet_has_not_ended_until_its_keep_runs_out():
-    keep = NOW + datetime.timedelta(hours=1)
-    meet = {"meet_date": "2026-10-04", "utc_offset": 0, "keep_listed_until": keep}
-    assert cloud_registry.ended(meet, NOW) is False
-    assert cloud_registry.ended(meet, keep) is True
 
 
 def _settings_page(**ctx):

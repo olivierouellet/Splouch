@@ -231,10 +231,12 @@ MIGRATIONS = [
     (
         11,
         """
-        -- A meet whose dates are past stays on the picker until this, when its
-        -- operator held *Keep listing* on the Pi (docs/app.md `P-01`): at most
-        -- three days past its last session.
-        ALTER TABLE meets ADD COLUMN keep_listed_until timestamptz;
+        -- When a meet ends — its last session's end time, from the Pi — and, when
+        -- its operator held *Keep listing*, until when a live meet past that stays
+        -- on the picker (docs/app.md `P-01`): at most three days past its last day.
+        ALTER TABLE meets
+            ADD COLUMN meet_end          timestamptz,
+            ADD COLUMN keep_listed_until timestamptz;
         """,
     ),
 ]

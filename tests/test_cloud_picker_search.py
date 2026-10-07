@@ -218,12 +218,12 @@ def test_an_empty_or_blank_query_shows_everything():
 
 def test_meets_come_by_date_then_city_and_a_past_one_not_at_all():
     """By day, a day's meets by city, an undated meet last; a live meet whose Pi
-    still holds a meet already over is not listed."""
+    still holds a meet over for more than a day is not listed."""
     import cloud_auth
     import cloud_registry
 
     today = datetime.date.today()
-    day = [(today + datetime.timedelta(days=n)).isoformat() for n in (-1, 0, 1)]
+    day = [(today + datetime.timedelta(days=n)).isoformat() for n in (-2, 0, 1)]
     key = cloud_auth.add_organizer("Club")
     cloud_registry.heartbeat("ca1", 1, [], host="https://ca1.example")
     cloud_registry.restore(
@@ -246,21 +246,44 @@ def test_meets_come_by_date_then_city_and_a_past_one_not_at_all():
     ]
 
 
-def test_a_past_meet_its_operator_keeps_stays_listed_and_after_its_pi_leaves():
-    """`app.md` `P-01`: held *Keep listing* on the Pi — on the picker until the keep
-    runs out, still there when the Pi disconnects."""
+def test_a_past_meet_its_operator_keeps_stays_listed_until_its_pi_leaves():
+    """`app.md` `P-01`: held *Keep listing* on the Pi — on the picker while it is
+    connected, until the keep runs out; gone the moment the Pi disconnects."""
     import cloud_auth
     import cloud_registry
 
-    yesterday = (datetime.date.today() - datetime.timedelta(days=1)).isoformat()
-    keep = datetime.datetime.now(datetime.UTC) + datetime.timedelta(hours=12)
+    now = datetime.datetime.now(datetime.UTC)
+    past = (now - datetime.timedelta(days=2)).date().isoformat()
+    keep = now + datetime.timedelta(hours=12)
     key = cloud_auth.add_organizer("Club")
     cloud_registry.heartbeat("ca1", 1, [], host="https://ca1.example")
-    meta = {"name": "Kept", "meet_date": yesterday, "utc_offset_minutes": 0}
+    meta = {"name": "Kept", "meet_date": past, "utc_offset_minutes": 0}
     kept = cloud_registry.register(
         key, "kept", {**meta, "keep_listed_until": keep.isoformat()}, "ca1", 1
     )["meet_id"]
     cloud_registry.register(key, "gone", {**meta, "name": "Gone"}, "ca1", 1)
     assert [m["id"] for m in cs._public_meet_list()] == [kept]
     cloud_registry.retire(kept, "ca1", 1)
-    assert [m["id"] for m in cs._public_meet_list()] == [kept]
+    assert cs._public_meet_list() == []
+
+
+def test_a_live_meet_stays_listed_the_day_after_its_end():
+    """The results come in late: 24 hours past its end, no one asking."""
+    import cloud_auth
+    import cloud_registry
+
+    now = datetime.datetime.now(datetime.UTC)
+    yesterday = (now - datetime.timedelta(days=1)).date().isoformat()
+    key = cloud_auth.add_organizer("Club")
+    cloud_registry.heartbeat("ca1", 1, [], host="https://ca1.example")
+    meta = {"name": "Late", "meet_date": yesterday, "utc_offset_minutes": 0}
+    ids = {
+        name: cloud_registry.register(
+            key, name, {**meta, "meet_end": end.isoformat()}, "ca1", 1
+        )["meet_id"]
+        for name, end in (
+            ("recent", now - datetime.timedelta(hours=23)),
+            ("old", now - datetime.timedelta(hours=25)),
+        )
+    }
+    assert [m["id"] for m in cs._public_meet_list()] == [ids["recent"]]

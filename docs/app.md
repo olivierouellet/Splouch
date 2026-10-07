@@ -181,10 +181,12 @@ Entry screen. Web: site root. App: launch screen, and `A-02`'s return target.
 A spectator looks for today's meet, then this weekend's: the day heads the cards
 instead of sitting on each. Server order is the order (`api.md` §5.6): by date, then
 city, then name. A meet is listed through the whole of its last session day at the
-pool, however late it runs; after that it is not, whether or not its Pi is still
-connected. The Pi's Meet and Cloud tabs say so, and for 72 hours after the last
-session's `endtime` (else the end of its day) offer a held *Keep listing* that keeps it
-on the picker until then (`api.md` §5.4 `keep_listed_until`).
+pool, however late it runs. Past that day, only while its Pi is connected: until 24
+hours after its end — the last session's `endtime`, else the end of its day — with no
+one asking; then, up to 72 hours after its end, while its operator keeps it with a held
+*Keep listing* on the Pi's Meet or Cloud tab (`api.md` §5.4 `keep_listed_until`). A Pi
+that disconnects takes a past meet off the picker, kept or not. The Pi's tabs say when
+the meet is off it.
 
 - **Day heading**: weekday, day, month, in the reader's language; the year only when it
   is not this one. Web: `toLocaleDateString`; iOS: `Date.FormatStyle`; Android:
@@ -1029,8 +1031,9 @@ list until `A-09` says the meet is gone, then deletes it.
     full in the facet, moved from `P-01`).
   - **Added**: string `date_unknown`; `GET /meets` leaves out a meet whose dates are
     past and sends `province` as a code where it names a known one.
-  - **Added** (server and Pi): a held *Keep listing* on the Pi, up to 72 hours past a
-    meet's end; `register` → `keep_listed_until` (`api.md` §5.4).
+  - **Added** (server and Pi): a live meet listed until 24 hours past its end, then by
+    a held *Keep listing* on the Pi up to 72 hours past it; `register` → `meet_end`,
+    `keep_listed_until` (`api.md` §5.4).
 
 - **v3, amended** (2026-10-06, no bump) — heat notifications (§10). Native only, and
   only where the meet's node can push: a client that ignores `push` shows no bell.

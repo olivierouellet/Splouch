@@ -424,7 +424,7 @@ row by lane (blank gaps) or by finishing place. `delta` is browser HTML;
   "organizer_location": { "country": "CA", "province": "QC" },
   "session_dates": ["2026-10-11", "2026-10-12"], "utc_offset_minutes": -240,
   "name": "…", "location": "…", "sport": "…", "app_window_title": "…", "meet_date": "YYYY-MM-DD",
-  "keep_listed_until": "2026-10-15T22:00:00+00:00",
+  "meet_end": "2026-10-12T22:00:00+00:00", "keep_listed_until": "2026-10-15T22:00:00+00:00",
   "settings": { "num_lanes": 8, "show_name": true, "show_club": true, "show_delta": true,
                 "show_position": true, "show_podium": true, "show_*_header": true,
                 "show_laps": false, "lap_direction": "up",
@@ -445,11 +445,13 @@ entry and never acts on it on its own. `session_dates` (every LENEX session day)
 `utc_offset_minutes` (the Pi's offset from UTC) tell the cloud when the meet is in
 progress at the pool, which a rolling update waits for; a Pi plugged in days ahead is
 connected but not in progress. Additive: without them the cloud uses `meet_date`.
-`keep_listed_until` (aware ISO time, or `null`) keeps a meet whose `meet_date` is past
-on the picker (§5.6, `app.md` `P-01`): the operator held *Keep listing* on the Pi,
-offered up to 72 hours after the last session's `endtime` (else the end of its day).
-The cloud holds it to 72 hours past the end of `meet_date` at the pool, and a kept
-meet that disconnects is retained until then rather than until midnight.
+`meet_end` (aware ISO time, or `null`) is when the meet ends: the last session's
+`endtime`, else the end of its day. A live meet past `meet_date` stays on the picker
+until 24 hours after it (§5.6, `app.md` `P-01`); without it the cloud takes the end of
+`meet_date` at the pool. `keep_listed_until` (aware ISO time, or `null`) keeps a live
+meet listed past that: the operator held *Keep listing* on the Pi, offered up to 72
+hours after `meet_end`. The cloud holds `meet_end` to the end of `meet_date` at the pool
+and `keep_listed_until` to 72 hours past it, and drops a keep when the Pi disconnects.
 
 | field | meaning |
 | --- | --- |
@@ -532,8 +534,8 @@ join replays `meet_live: false`, and a phone wipes its Results board on that
 whether `GET /picker_image/{id}` will return an image. Both live and retained
 meets appear; expired ones are swept before the list is built, and a meet whose
 `meet_date` — its last session day — is past at the pool (its UTC offset, else the
-server's) is left out, live or not, unless its Pi keeps it listed (§5.4
-`keep_listed_until`). Meets come by `meet_date`, then `location`, then
+server's) is left out — retained, or live for more than 24 hours past its end and not
+kept listed by its Pi (§5.4 `meet_end`, `keep_listed_until`). Meets come by `meet_date`, then `location`, then
 `name`, compared case-insensitively; an undated meet last. Keep this order rather than
 re-sorting (`app.md` `P-01`, `P-17`).
 
