@@ -423,6 +423,7 @@ def heartbeat(
     attendees=None,
     version="",
     frames=None,
+    push=None,
 ):
     """A worker says which meets it holds, and how many attendees each has.
 
@@ -437,14 +438,15 @@ def heartbeat(
     with cloud_db.conn() as c:
         c.execute(
             "INSERT INTO nodes (name, region, host, workers, wg_pubkey, version, "
-            "last_seen) VALUES (%s, %s, %s, %s, %s, %s, now()) "
+            "push, last_seen) VALUES (%s, %s, %s, %s, %s, %s, "
+            "COALESCE(%s, '{}'::text[]), now()) "
             "ON CONFLICT (name) DO UPDATE SET "
             "region = COALESCE(EXCLUDED.region, nodes.region), host = EXCLUDED.host, "
             "workers = EXCLUDED.workers, "
             "wg_pubkey = COALESCE(NULLIF(EXCLUDED.wg_pubkey, ''), nodes.wg_pubkey), "
             "version = COALESCE(NULLIF(EXCLUDED.version, ''), nodes.version), "
-            "last_seen = now()",
-            (node, region or None, host, workers, wg_pubkey, version or ""),
+            "push = COALESCE(%s, nodes.push), last_seen = now()",
+            (node, region or None, host, workers, wg_pubkey, version or "", push, push),
         )
         target = c.execute(
             "SELECT target_version, version FROM nodes WHERE name = %s", (node,)

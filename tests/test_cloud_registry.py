@@ -146,6 +146,15 @@ def test_the_heartbeat_records_the_node(key):
     assert node["host"] == "ca1.splouch.org" and node["workers"] == 4
 
 
+def test_the_heartbeat_records_what_the_node_can_push_and_an_old_node_keeps_it(key):
+    reg.heartbeat("ca1", 1, [], push=["apns"])
+    assert reg.nodes()[0]["push"] == ["apns"]
+    reg.heartbeat("ca1", 1, [])  # a node too old to say
+    assert reg.nodes()[0]["push"] == ["apns"]
+    reg.heartbeat("ca1", 1, [], push=[])
+    assert reg.nodes()[0]["push"] == []
+
+
 def test_expired_retained_meets_are_swept_and_live_ones_never(key):
     live = reg.register(key, "live", META, "ca1", 1)["meet_id"]
     reg.restore({"old": {"name": "Old", "expires_at": "2000-01-01T00:00:00"}})

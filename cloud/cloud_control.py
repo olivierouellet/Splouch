@@ -1480,6 +1480,7 @@ def _admin_nodes():
                 "wg_pubkey": n["wg_pubkey"],
                 "version": n["version"],
                 "target": n["target_version"] or "",
+                "push": n["push"],
                 "meets": n["meets"],
                 "attendees": n["attendees"],
                 "up": up,
@@ -1985,6 +1986,9 @@ class HeartbeatIn(BaseModel):
     # When each meet's console last sent a board frame (unix seconds): what makes
     # a meet running rather than just connected (cloud_registry.running).
     frames: dict[str, float] = {}
+    # The platforms it can send heat notifications to (cloud_push.platforms);
+    # None from a node too old to say, which keeps what was stored.
+    push: list[str] | None = None
 
 
 @internal.post("/register")
@@ -2027,6 +2031,7 @@ def internal_heartbeat(body: HeartbeatIn):
         attendees=body.attendees,
         version=body.version,
         frames=body.frames,
+        push=body.push,
     )
     if body.attendance:
         cloud_analytics.store(body.node, body.attendance)

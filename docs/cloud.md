@@ -249,8 +249,9 @@ docker compose cp AuthKey_ABC123DEFG.p8 app:/data/apns.p8
 docker compose cp splouch-firebase.json app:/data/fcm.json
 ```
 
-Check with `curl https://yourdomain/w1/meet/<a live meet>/config`: `push` lists `apns`,
-`fcm` or both.
+Check in **/admin → Nodes**: the **Push** column shows `APNs ✓` and `FCM ✓` once the node
+reports them, within a heartbeat. Or `curl https://yourdomain/w1/meet/<a live meet>/config`:
+`push` lists `apns`, `fcm` or both.
 
 **What a node keeps.** Per device and meet: the push token, its platform, its language, and
 the names and clubs it follows — until the meet leaves the node, when they go with it. A
@@ -751,8 +752,10 @@ docker compose cp AuthKey_ABC123DEFG.p8 app:/data/apns.p8
 docker compose cp splouch-firebase.json app:/data/fcm.json
 ```
 
-Vérifiez avec `curl https://votredomaine/w1/meet/<une compétition en direct>/config` :
-`push` liste `apns`, `fcm` ou les deux.
+Vérifiez dans **/admin → Nœuds** : la colonne **Notifications** affiche `APNs ✓` et
+`FCM ✓` dès que le nœud les signale, au battement suivant. Ou
+`curl https://votredomaine/w1/meet/<une compétition en direct>/config` : `push` liste
+`apns`, `fcm` ou les deux.
 
 **Ce que garde un nœud.** Par appareil et par compétition : le jeton de notification, sa
 plateforme, sa langue, et les noms et clubs suivis — jusqu'à ce que la compétition quitte le

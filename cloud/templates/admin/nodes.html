@@ -2,7 +2,7 @@
             <p class="small text-body-secondary">{{ t.nodes_note }}</p>
             <div class="table-responsive">
             <table class="table table-sm align-middle">
-                <thead><tr><th>{{ t.col_node }}</th><th>{{ t.col_region }}</th><th>{{ t.col_version }}</th><th>{{ t.col_workers }}</th><th>{{ t.col_meets }}</th><th>{{ t.col_status }}</th><th>{{ t.col_last_seen }}</th><th>{{ t.col_wg_key }}</th><th></th></tr></thead>
+                <thead><tr><th>{{ t.col_node }}</th><th>{{ t.col_region }}</th><th>{{ t.col_version }}</th><th>{{ t.col_workers }}</th><th>{{ t.col_meets }}</th><th>{{ t.col_status }}</th><th>{{ t.col_push }}</th><th>{{ t.col_last_seen }}</th><th>{{ t.col_wg_key }}</th><th></th></tr></thead>
                 <tbody>
                 {% for n in (nodes or []) %}
                     <tr>
@@ -17,6 +17,11 @@
                         <td class="text-nowrap">
                             <span class="badge rounded-pill {{ 'text-bg-success' if n.up else 'text-bg-danger' }}">{{ t.node_up if n.up else t.node_down }}</span>
                             <span class="badge rounded-pill {{ 'text-bg-secondary' if n.state == 'active' else 'text-bg-warning' }}">{{ t.node_active if n.state == 'active' else t.node_draining }}</span>
+                        </td>
+                        <td class="text-nowrap" title="{{ t.push_note }}">
+                            {% for p, label in [('apns', 'APNs'), ('fcm', 'FCM')] %}
+                            <span class="badge rounded-pill {{ 'text-bg-success' if p in (n.push or []) else 'text-bg-secondary' }}">{{ label }} {{ '✓' if p in (n.push or []) else '✗' }}</span>
+                            {% endfor %}
                         </td>
                         <td class="small text-nowrap">{{ n.last_seen or '—' }}</td>
                         <td>
@@ -47,7 +52,7 @@
                         </td>
                     </tr>
                 {% else %}
-                    <tr><td colspan="9" class="text-body-secondary fst-italic">{{ t.no_nodes }}</td></tr>
+                    <tr><td colspan="10" class="text-body-secondary fst-italic">{{ t.no_nodes }}</td></tr>
                 {% endfor %}
                 </tbody>
             </table>

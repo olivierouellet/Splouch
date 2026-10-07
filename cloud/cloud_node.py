@@ -39,6 +39,7 @@ from starlette.concurrency import run_in_threadpool
 import cloud_attendance
 import cloud_follows
 import cloud_meetstore
+import cloud_push
 from cloud_metrics import CONTROL_ERRORS
 
 HEARTBEAT_SECS = 10
@@ -304,6 +305,7 @@ def heartbeat(live_ids, attendees=None, frames=None):
             "attendance": attendance,
             "version": version(),
             "frames": frames or {},
+            "push": cloud_push.platforms(),
         },
     )
     if not isinstance(result, dict):

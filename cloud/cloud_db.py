@@ -239,6 +239,14 @@ MIGRATIONS = [
             ADD COLUMN keep_listed_until timestamptz;
         """,
     ),
+    (
+        12,
+        """
+        -- The platforms a node can send heat notifications to (cloud_push), from
+        -- its heartbeat: the Nodes tab shows a node whose keys are missing.
+        ALTER TABLE nodes ADD COLUMN push text[] NOT NULL DEFAULT '{}';
+        """,
+    ),
 ]
 
 # Tables holding data, in an order TRUNCATE accepts. Tests empty these between
