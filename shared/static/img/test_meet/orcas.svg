@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <defs>
+    <radialGradient id="oc-bg" cx=".35" cy=".3" r=".8">
+      <stop offset="0" stop-color="#7fdcff"/>
+      <stop offset=".6" stop-color="#1e88e5"/>
+      <stop offset="1" stop-color="#0d3b8a"/>
+    </radialGradient>
+  </defs>
+  <circle cx="128" cy="128" r="120" fill="#111827"/>
+  <circle cx="128" cy="128" r="108" fill="url(#oc-bg)"/>
+  <g fill="#fff" opacity=".35">
+    <circle cx="70" cy="70" r="6"/><circle cx="84" cy="54" r="4"/><circle cx="58" cy="92" r="3"/>
+    <circle cx="190" cy="196" r="5"/><circle cx="206" cy="180" r="3"/>
+  </g>
+  <path d="M40 150 C52 104 98 76 150 80 C186 82 214 100 222 128 C210 122 200 124 194 130 C200 146 196 162 184 172 C182 162 176 156 168 154 C140 166 104 170 74 162 C62 170 50 172 38 170 C44 162 44 156 40 150Z" fill="#111827"/>
+  <path d="M120 82 C126 56 140 38 156 30 C152 52 154 70 162 84Z" fill="#111827"/>
+  <path d="M60 154 C90 158 128 156 162 144 C150 160 118 168 82 166 C72 164 64 160 60 154Z" fill="#f8fafc"/>
+  <path d="M168 104 C178 96 192 98 198 106 C188 112 176 112 168 104Z" fill="#f8fafc"/>
+  <path d="M124 124 C140 126 152 124 160 116 C156 130 142 136 124 124Z" fill="#9aa5b1"/>
+  <path d="M188 128 C204 138 214 150 216 166 C200 160 190 148 188 128Z" fill="#111827"/>
+  <path d="M28 196 Q56 184 84 196 T140 196 T196 196 T236 192" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" opacity=".85"/>
+  <path d="M40 214 Q68 204 96 214 T152 214 T208 212" fill="none" stroke="#ffcc33" stroke-width="5" stroke-linecap="round"/>
+</svg>

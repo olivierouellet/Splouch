@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <defs>
+    <linearGradient id="dl-sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffd27a"/>
+      <stop offset=".55" stop-color="#ff8a5c"/>
+      <stop offset="1" stop-color="#e2557a"/>
+    </linearGradient>
+    <linearGradient id="dl-body" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#2fc6e0"/>
+      <stop offset="1" stop-color="#0b5d9e"/>
+    </linearGradient>
+    <clipPath id="dl-clip"><circle cx="128" cy="128" r="108"/></clipPath>
+  </defs>
+  <circle cx="128" cy="128" r="122" fill="#0b2a4a"/>
+  <circle cx="128" cy="128" r="114" fill="none" stroke="#ffd27a" stroke-width="4"/>
+  <g clip-path="url(#dl-clip)">
+    <rect width="256" height="256" fill="url(#dl-sky)"/>
+    <circle cx="128" cy="150" r="42" fill="#fff3c4" opacity=".9"/>
+    <path d="M0 160 Q32 146 64 160 T128 160 T192 160 T256 160 V256 H0Z" fill="#1aa3c8"/>
+    <path d="M0 178 Q32 164 64 178 T128 178 T192 178 T256 178 V256 H0Z" fill="#0d7bb0"/>
+    <path d="M0 198 Q32 184 64 198 T128 198 T192 198 T256 198 V256 H0Z" fill="#0b4f86"/>
+  </g>
+  <path d="M128 62 C134 46 146 38 158 36 C152 48 152 56 156 64Z" fill="#0b5d9e"/>
+  <path d="M216 98 C206 92 202 80 192 72 C170 54 128 56 100 86 C86 102 80 124 80 148 L56 168 C70 166 80 170 88 180 C90 168 94 160 100 156 C102 132 114 110 140 98 C160 90 182 92 200 104 C206 102 212 100 216 98Z" fill="url(#dl-body)"/>
+  <path d="M100 150 C104 128 118 110 140 100 C160 92 180 94 198 104 C176 100 150 104 130 118 C116 128 106 140 100 150Z" fill="#e6fbff"/>
+  <path d="M150 102 C150 118 142 130 130 136 C132 122 136 110 142 100Z" fill="#0b5d9e"/>
+  <circle cx="184" cy="84" r="4" fill="#0b2a4a"/>
+  <path d="M200 102 L212 99" stroke="#0b2a4a" stroke-width="2" stroke-linecap="round"/>
+  <g fill="#fff" opacity=".9">
+    <circle cx="74" cy="196" r="4"/><circle cx="62" cy="206" r="3"/><circle cx="88" cy="204" r="2.5"/>
+  </g>
+</svg>

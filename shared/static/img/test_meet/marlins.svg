@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <defs>
+    <linearGradient id="ml-bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#7b2ff7"/>
+      <stop offset=".5" stop-color="#f107a3"/>
+      <stop offset="1" stop-color="#ff9a3c"/>
+    </linearGradient>
+    <linearGradient id="ml-fish" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#173a7a"/>
+      <stop offset=".6" stop-color="#2a8fd6"/>
+      <stop offset="1" stop-color="#d9f4ff"/>
+    </linearGradient>
+  </defs>
+  <rect x="12" y="12" width="232" height="232" rx="48" fill="url(#ml-bg)"/>
+  <rect x="24" y="24" width="208" height="208" rx="38" fill="none" stroke="#fff" stroke-opacity=".6" stroke-width="3"/>
+  <g fill="#fff" opacity=".18">
+    <path d="M24 70 L232 30 V60 L24 100Z"/>
+    <path d="M24 130 L232 90 V110 L24 150Z"/>
+  </g>
+  <g transform="rotate(-22 128 128)">
+    <path d="M18 128 L84 122 C104 104 140 98 170 108 L204 82 L196 118 L226 96 L214 128 L226 160 L196 138 L204 174 L170 148 C140 158 104 152 84 134Z" fill="url(#ml-fish)"/>
+    <path d="M104 112 C116 84 136 64 160 56 C150 76 146 94 148 106Z" fill="#173a7a"/>
+    <path d="M118 140 L132 160 L140 142Z" fill="#173a7a"/>
+    <circle cx="96" cy="124" r="4" fill="#fff"/><circle cx="96" cy="124" r="2" fill="#111"/>
+    <g stroke="#ffd166" stroke-width="3" stroke-linecap="round">
+      <path d="M120 116 v20M134 114 v22M148 114 v20M162 116 v16"/>
+    </g>
+  </g>
+</svg>

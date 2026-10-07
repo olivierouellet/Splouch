@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <defs>
+    <linearGradient id="wv-sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fef3c7"/>
+      <stop offset="1" stop-color="#fcd9b8"/>
+    </linearGradient>
+    <linearGradient id="wv-wave" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#2563eb"/>
+      <stop offset="1" stop-color="#1e1b6b"/>
+    </linearGradient>
+    <clipPath id="wv-clip"><rect x="20" y="20" width="216" height="216" rx="108"/></clipPath>
+  </defs>
+  <circle cx="128" cy="128" r="122" fill="#1e1b6b"/>
+  <g clip-path="url(#wv-clip)">
+    <rect width="256" height="256" fill="url(#wv-sky)"/>
+    <circle cx="186" cy="80" r="26" fill="#ef4444"/>
+    <path d="M20 236 V150 C30 96 80 58 132 62 C170 64 196 90 192 120 C188 146 160 156 144 142 C132 132 138 112 154 114 C146 100 124 98 110 112 C92 130 96 168 128 186 C160 204 210 196 236 176 V236Z" fill="url(#wv-wave)"/>
+    <path d="M132 62 C170 64 196 90 192 120 C188 146 160 156 144 142 C152 144 172 138 176 118 C180 96 160 76 132 62Z" fill="#60a5fa"/>
+    <g fill="#fff">
+      <circle cx="194" cy="118" r="6"/><circle cx="188" cy="104" r="5"/><circle cx="180" cy="92" r="4"/><circle cx="168" cy="82" r="4"/><circle cx="154" cy="74" r="3.5"/>
+      <circle cx="200" cy="130" r="4"/><circle cx="206" cy="112" r="3"/><circle cx="198" cy="96" r="2.5"/>
+    </g>
+    <path d="M20 200 Q60 182 100 200 T180 200 T260 200 V256 H20Z" fill="#14b8a6"/>
+    <path d="M20 218 Q60 202 100 218 T180 218 T260 218 V256 H20Z" fill="#0f766e"/>
+    <g fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" opacity=".7">
+      <path d="M40 160 C60 120 92 96 120 90"/><path d="M52 180 C70 150 92 132 108 126"/>
+    </g>
+  </g>
+  <circle cx="128" cy="128" r="110" fill="none" stroke="#f59e0b" stroke-width="5"/>
+</svg>

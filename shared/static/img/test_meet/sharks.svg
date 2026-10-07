@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <defs>
+    <linearGradient id="sh-bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1c2b4a"/>
+      <stop offset="1" stop-color="#0a1222"/>
+    </linearGradient>
+    <linearGradient id="sh-fin" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#c9d3df"/>
+      <stop offset="1" stop-color="#5e6f86"/>
+    </linearGradient>
+    <clipPath id="sh-clip"><path d="M128 22 L222 52 V128 C222 182 182 218 128 238 C74 218 34 182 34 128 V52Z"/></clipPath>
+  </defs>
+  <path d="M128 10 L234 44 V128 C234 190 188 230 128 250 C68 230 22 190 22 128 V44Z" fill="#e63946"/>
+  <path d="M128 22 L222 52 V128 C222 182 182 218 128 238 C74 218 34 182 34 128 V52Z" fill="url(#sh-bg)"/>
+  <g clip-path="url(#sh-clip)">
+    <path d="M70 168 C96 140 116 84 168 48 C156 92 160 134 186 168Z" fill="url(#sh-fin)"/>
+    <path d="M168 48 C156 92 160 134 186 168 L170 168 C150 136 148 96 168 48Z" fill="#3c4a5e"/>
+    <path d="M20 168 Q48 152 76 168 T132 168 T188 168 T244 168 V260 H20Z" fill="#1d6fb8"/>
+    <path d="M20 188 Q48 172 76 188 T132 188 T188 188 T244 188 V260 H20Z" fill="#15528c"/>
+    <path d="M20 168 Q48 152 76 168 T132 168 T188 168 T244 168" fill="none" stroke="#9fe3ff" stroke-width="4"/>
+    <path d="M20 210 Q48 196 76 210 T132 210 T188 210 T244 210" fill="none" stroke="#e63946" stroke-width="5"/>
+  </g>
+  <g fill="#e63946">
+    <path d="M60 64 l6 12 13 2 -10 9 3 13 -12 -7 -12 7 3 -13 -10 -9 13 -2Z" transform="scale(.6) translate(30 40)"/>
+  </g>
+</svg>

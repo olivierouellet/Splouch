@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <defs>
+    <linearGradient id="bc-bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0f5132"/>
+      <stop offset="1" stop-color="#062b1b"/>
+    </linearGradient>
+    <linearGradient id="bc-fish" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#b8f15a"/>
+      <stop offset="1" stop-color="#e8ffd0"/>
+    </linearGradient>
+  </defs>
+  <path d="M128 8 L232 68 V188 L128 248 L24 188 V68Z" fill="#ffc300"/>
+  <path d="M128 22 L220 75 V181 L128 234 L36 181 V75Z" fill="url(#bc-bg)"/>
+  <path d="M36 150 Q82 130 128 150 T220 150 V181 L128 234 L36 181Z" fill="#127c5a" opacity=".7"/>
+  <path d="M36 172 Q82 152 128 172 T220 172 V181 L128 234 L36 181Z" fill="#0b5a40"/>
+  <path d="M40 120 C66 98 120 92 170 104 L210 88 L200 120 L210 152 L170 136 C120 148 66 142 40 120Z" fill="url(#bc-fish)"/>
+  <path d="M40 120 L64 122 L40 128Z" fill="#062b1b"/>
+  <g fill="#fff"><path d="M50 118 l4 5 4 -5 4 5 4 -5Z"/></g>
+  <circle cx="72" cy="114" r="4.5" fill="#062b1b"/>
+  <g fill="#3a7d18" opacity=".7">
+    <path d="M96 106 l8 -2 -4 30 -8 2Z"/><path d="M120 104 l8 -1 -4 32 -8 1Z"/><path d="M144 104 l8 0 -4 32 -8 0Z"/>
+  </g>
+  <path d="M120 104 C130 86 144 78 158 76 C152 88 150 96 152 104Z" fill="#ffc300"/>
+  <path d="M128 136 L138 154 L146 138Z" fill="#ffc300"/>
+  <g fill="#ffc300">
+    <circle cx="128" cy="46" r="5"/><circle cx="110" cy="52" r="3"/><circle cx="146" cy="52" r="3"/>
+  </g>
+</svg>
