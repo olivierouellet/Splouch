@@ -174,7 +174,7 @@ Entry screen. Web: site root. App: launch screen, and `A-02`'s return target.
 | `P-18` | More than **10** meets → compact rows, still under their day: name on one line, city · state/province · country codes, live dot; **no picker image**, none fetched. 10 or fewer → `P-01` cards | count of `GET /meets` → `meets` | all | should |
 | [`P-19`](#p-19) | **Settings** — one container in place of picker menu, sections in this order: Display (language `T-08`, Appearance `P-15`), Privacy (`P-07`), Server (`P-11`–`P-13`, native), About (`P-06` full text, policy link, `P-20` replay). Platform's own form: web side sheet (full height under 600px), iOS sheet with `Form`, Android full-screen settings destination | section names native in apps (`T-05`); web reads `strings.settings`, `settings_display`, `settings_privacy`, `settings_about` | all | should |
 | [`P-20`](#p-20) | **Introduction** on first launch, once per install, replayable from settings About: unofficial results (`P-06`), finding a meet, three tabs, the schedule's times, following a swimmer or club, attendance counting with its toggle (`C-10`) | first and last pages server text (`results_disclaimer`, `privacy_note`), rest native words (`T-05`); last page only while `analytics_enabled` | native | should |
-| [`P-21`](#p-21) | **Filter** the meet list by country, state/province and club (organizer), in that order, several values each; **remembered** by the app across launches and servers. Country and state/province list every one the app knows (`shared/regions/subdivisions.json`), plus any other the list holds; club lists the clubs the list holds, plus any the spectator adds by its official letters; every value an alternative (OR within and across facets). Active filter → a line at the end of the list says meets are hidden, with *Clear*; filter hides every meet → own empty state with *Clear*, not `P-04`/`P-17`'s | local over `GET /meets` → `country`, `province`, `organizer`; stored pref, one per app; words native (`T-05`) | native | should |
+| [`P-21`](#p-21) | **Filter** the meet list by country, state/province and club (organizer), in that order, several values each; **remembered** by the app across launches and servers. Country and state/province list every one the app knows (`shared/regions/subdivisions.json`), plus any other the list holds; club lists the clubs the list holds, plus any the spectator adds by its official letters; a province narrows its own country only, clubs narrow the places (OR within a facet). Active filter → a line at the end of the list says meets are hidden, with *Clear*; filter hides every meet → own empty state with *Clear*, not `P-04`/`P-17`'s | local over `GET /meets` → `country`, `province`, `organizer`; stored pref, one per app; words native (`T-05`) | native | should |
 | `P-22` | A test meet carries a **TEST** badge after its name, on its card and its compact row (`P-18`): small, bold, uppercase as served, outlined in the accent colour. The name is a team's and does not say it is a test; the badge does. Not searched (`P-17`) | `GET /meets` → `test`; `strings.test_meet` | all | should |
 
 ### <a id="p-01"></a>P-01 — a day, then its meets
@@ -198,8 +198,9 @@ the meet is off it.
   tell two Springfields apart. A province not in `subdivisions.json` is shown as sent,
   cut by the line's ellipsis.
 - **Filter says it once** (native): a filter (`P-21`) whose countries and
-  states/provinces are all of one country, and no club, leaves the country code off
-  every card; exactly one state/province and nothing else, its code too.
+  states/provinces are all of one country leaves the country code off every card;
+  exactly one state/province and no other country, its code too. Clubs only narrow, so
+  they change neither.
 
 ### <a id="p-06"></a>P-06 — one line, always there
 
@@ -294,8 +295,8 @@ meets", every launch, without typing.
 
 - **Facets, in this order.** Country (every one the app's subdivision table knows, plus
   any other the list holds; named in reader's language); state/province (every one of
-  those countries the table knows, plus any other the list holds, whatever countries are
-  chosen; named in full in the facet — its own name, translated only where the country
+  those countries the table knows, plus any other the list holds; only those of the
+  chosen countries once one is chosen; named in full in the facet — its own name, translated only where the country
   has two or more official languages the app speaks: *British Columbia* /
   *Colombie-Britannique*, *Québec* in both — with its country; spellings of one known
   province — `QC`, `Québec` — are one choice); club (`organizer`, from the list). A stored
@@ -305,10 +306,12 @@ meets", every launch, without typing.
   upper-cased, spaces and symbols dropped (` c.a.m.o ` → `CAMO`); nothing left → nothing
   added. Clubs compare folded as `S-09`, then on letters and digits only, so a meet's
   `C.A.M.O.` is the `CAMO` chosen.
-- **Every value an alternative.** A meet shows when it holds any chosen country,
-  state/province or club — OR within a facet and across. Choosing a country and one of
-  its provinces is the whole country; dropping a country keeps its provinces. A meet
-  with a field empty holds none of that facet's values.
+- **Places, then clubs.** A meet is in the chosen places when it is in a chosen
+  state/province, or in a chosen country none of whose states/provinces is chosen: a
+  province narrows its own country only — *Canada*, *Québec* and *United States* are
+  Québec and the whole United States. Any chosen club will do (OR); clubs then narrow
+  the places (AND). Dropping a country drops its provinces. A meet with a field empty
+  holds none of that field's values.
 - **Remembered, one per app.** Survives relaunch and a server switch (≠ `S-20`: a
   schedule filter is for one meet, this one for a season). Cleared only by the spectator.
 - **Says so.** Filter button marked while active. List end: *N meets hidden by the
@@ -1042,13 +1045,14 @@ list until `A-09` says the meet is gone, then deletes it.
 ## Changelog
 
 - **v3, amended** (2026-10-07, no bump) — picker filter widens. Native only: no server
-  change. A client still on the old rules hides meets the spectator chose.
+  change. A client still on the old rules hides a chosen country's meets once another
+  country's province is chosen.
 
   - **Changed**: `P-21` facets ordered country, state/province, club; country and
     state/province list every one the app's subdivision table knows (Canada, Mexico,
-    United States), provinces whatever countries are chosen; every value an alternative
-    (OR across facets, was AND); a club added by its official letters; clubs compared on
-    letters and digits. `P-01` *Filter says it once* follows the OR.
+    United States); a province narrows its own country only (was: every province
+    narrowed every country); a club added by its official letters; clubs compared on
+    letters and digits. `P-01` *Filter says it once* counts provinces' countries.
 
 - **v3, amended** (2026-10-07, no bump) — test meets badged everywhere. A client that
   ignores `test` shows a test meet as an ordinary one under a team's name.
