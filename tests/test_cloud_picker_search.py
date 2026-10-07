@@ -120,9 +120,14 @@ def test_the_card_shows_the_city_and_the_codes_not_the_day_or_sport():
             )
         ]
     )
-    meta = re.search(r'<div class="card-meta">(.*?)</div>', html, re.DOTALL).group(1)
-    assert re.findall(r"<span[^>]*>([^<]*)</span>", meta) == ["Montréal", "QC", "CA"]
-    assert "Swimming" not in meta and "2026-10-04" not in meta
+    meta = re.search(r'<div class="card-meta">(.*?)</div>', html, re.DOTALL)
+    assert meta, "no card-meta line"
+    assert re.findall(r"<span[^>]*>([^<]*)</span>", meta.group(1)) == [
+        "Montréal",
+        "QC",
+        "CA",
+    ]
+    assert "Swimming" not in meta.group(1) and "2026-10-04" not in meta.group(1)
 
 
 def test_cards_sit_under_their_day():
