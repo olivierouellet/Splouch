@@ -79,9 +79,9 @@ def test_with_no_terminal_a_shell_is_started_and_the_line_typed(pty):
 
 def test_a_shell_idle_at_its_prompt_is_typed_into_as_is(pty):
     _running("bash")
-    assert debug.route_terminal_run(debug.TerminalRun(cmd="mdns"))["ok"]
+    assert debug.route_terminal_run(debug.TerminalRun(cmd="checkout"))["ok"]
     assert pty.started == [] and pty.stopped == 0
-    assert pty.typed == ["avahi-browse -rt _splouch._tcp\n"]
+    assert pty.typed == [dict(debug.terminal_commands())["checkout"] + "\n"]
 
 
 @pytest.mark.parametrize("cmd", ["bash", "raspi-config"])

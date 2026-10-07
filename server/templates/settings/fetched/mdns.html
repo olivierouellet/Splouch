@@ -1,0 +1,40 @@
+{# The Discovery card's result (routes/network.py mdns_check). Problems first,
+   each with its fix; then what was seen. A fix that needs the installer points at
+   the Terminal tab's Reinstall row rather than at SSH. #}
+{% set fix_reinstall %}<a href="#tab-terminal" class="alert-link" onclick="panelShowTab('#tab-terminal'); return false;">{{ t.net_mdns_fix_reinstall | safe }}</a>{% endset %}
+{% if problems %}
+<div class="alert alert-warning small py-2 mb-2">
+    <ul class="mb-0 ps-3">
+        {% for key, name, address in problems %}
+        <li>
+            {{ t['net_mdns_p_' ~ key] | replace('{name}', name) | replace('{address}', address) }}
+            {% if key in ('no_tools', 'no_daemon', 'not_advertised', 'no_alias', 'no_name') %}{{ fix_reinstall }}{% endif %}
+        </li>
+        {% endfor %}
+    </ul>
+</div>
+{% else %}
+<div class="alert alert-success small py-2 mb-2">{{ t.net_mdns_all_ok }}</div>
+{% endif %}
+<div class="small">
+    <div class="fw-semibold">{{ t.net_mdns_service }} <code>_splouch._tcp</code></div>
+    {% for s in services %}
+    <div class="d-flex gap-2">
+        <span class="text-truncate">{{ s.name }}</span>
+        <span class="text-body-secondary">{{ s.host }} · {{ s.address }}:{{ s.port }}</span>
+        {% if s.own %}<span class="badge text-bg-success">{{ t.net_mdns_this_pi }}</span>
+        {% else %}<span class="badge text-bg-secondary">{{ t.net_mdns_other }}</span>{% endif %}
+    </div>
+    {% else %}
+    <div class="text-body-secondary">{{ t.net_mdns_none }}</div>
+    {% endfor %}
+    <div class="fw-semibold mt-2">{{ t.net_mdns_names }}</div>
+    {% for n in names %}
+    <div class="d-flex gap-2">
+        <span>{{ n.name }}</span>
+        {% if not n.address %}<span class="text-danger">{{ t.net_mdns_none }}</span>
+        {% elif n.own %}<span class="text-body-secondary">{{ n.address }}</span><span class="badge text-bg-success">{{ t.net_mdns_this_pi }}</span>
+        {% else %}<span class="text-body-secondary">{{ n.address }}</span><span class="badge text-bg-danger">{{ t.net_mdns_other }}</span>{% endif %}
+    </div>
+    {% endfor %}
+</div>

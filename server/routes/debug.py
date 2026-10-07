@@ -130,12 +130,11 @@ def terminal_commands():
         ("reinstall", f"bash {installer} server"),
         ("service", f"systemctl status {state.SERVICE_NAME} --no-pager"),
         ("checkout", f"git -C {repo} status; git -C {repo} log --oneline -5"),
-        ("mdns", "avahi-browse -rt _splouch._tcp"),
     ]
 
 
 class TerminalRun(BaseModel):
-    cmd: Literal["reinstall", "service", "checkout", "mdns"]
+    cmd: Literal["reinstall", "service", "checkout"]
     # Stop whatever the terminal is running first. Without it, a busy terminal is
     # refused rather than handed keystrokes meant for a fresh prompt: typed into a
     # running install, a command line would answer its next question.

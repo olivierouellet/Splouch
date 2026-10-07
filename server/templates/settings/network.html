@@ -14,6 +14,29 @@
                         </div>
                     </div></div>
 
+                    <!-- Discovery (mDNS) block: checked on demand, a few seconds of lookups -->
+                    <div class="card mb-3"><div class="card-body">
+                        <div class="d-flex align-items-center mb-1">
+                            <span class="panel-title flex-fill mb-0">{{ t.net_mdns_title }}</span>
+                            <button type="button" class="btn btn-secondary btn-sm text-nowrap" style="min-width:80px;"
+                                    hx-get="/mdns_fragment" hx-target="#mdns-result" hx-disabled-elt="this"
+                                    hx-on::before-request="document.getElementById('mdns-result').innerHTML = '<span class=&quot;text-body-secondary small&quot;>{{ t.net_mdns_checking }}</span>'">{{ t.net_mdns_check }}</button>
+                        </div>
+                        <div class="small text-body-secondary mb-2">{{ t.net_mdns_intro }}</div>
+                        <div id="mdns-result" class="mb-2"><span class="text-body-secondary small">{{ t.net_mdns_click }}</span></div>
+                        <details class="small">
+                            <summary>{{ t.net_mdns_help_title }}</summary>
+                            <p class="mt-2 mb-2 text-body-secondary">{{ t.net_mdns_help_intro }}</p>
+                            <ul class="ps-3 mb-2">
+                                {% for key in ['isolation', 'multicast', 'vlan', 'firewall', 'phone'] %}
+                                <li class="mb-1"><strong>{{ t['net_mdns_r_' ~ key] }}</strong> — {{ t['net_mdns_r_' ~ key ~ '_text'] }}</li>
+                                {% endfor %}
+                            </ul>
+                            <p class="mb-1">{{ t.net_mdns_help_admin | safe }}</p>
+                            <p class="mb-0 text-body-secondary">{{ t.net_mdns_help_fallback }}</p>
+                        </details>
+                    </div></div>
+
                     <!-- Ethernet block -->
                     <div class="card mb-3"><div class="card-body">
                         <div class="panel-title">{{ t.net_eth_static_ip }}</div>

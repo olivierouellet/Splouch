@@ -488,9 +488,9 @@ def test_no_jinja_block_straddles_a_partial():
 
 
 def test_the_fetched_fragments_are_not_included_anywhere():
-    """`settings/fetched/` holds the two HTMX targets the Settings page
-    pulls in after load — `clients.html` (Network *and* Update tabs) and
-    `wifi_networks.html`. They are rendered as standalone responses with their own
+    """`settings/fetched/` holds the HTMX targets the Settings page pulls in
+    after load — `clients.html` (Network *and* Update tabs), `wifi_networks.html`
+    and `mdns.html` (Network → Discovery). They are rendered as standalone responses with their own
     context, so an `{% include %}` of one would render blanks rather than fail.
     The subdirectory is what keeps that distinction visible; this keeps it true.
     """
@@ -500,7 +500,7 @@ def test_the_fetched_fragments_are_not_included_anywhere():
         os.path.basename(p)
         for p in glob.glob(os.path.join(SETTINGS_DIR, "fetched", "*.html"))
     }
-    assert fetched == {"clients.html", "wifi_networks.html"}
+    assert fetched == {"clients.html", "wifi_networks.html", "mdns.html"}
     for path in _settings_sources():
         body = Path(path).read_text(encoding="utf-8")
         for name in fetched:

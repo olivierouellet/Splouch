@@ -1,4 +1,6 @@
 import ipaddress
+import re
+import socket
 import subprocess
 import time
 
@@ -389,4 +391,142 @@ async def route_clients_fragment(request: Request):
         clients=list(state._scoreboard_clients.values()),
         server_version=state.git_describe()["version"],
         t=state.settings_strings(state.ui_locale(request)),
+    )
+
+
+# ── Discovery (mDNS) ──────────────────────────────────────────────────────────
+# What the phone apps and browsers rely on to find this Pi without an address:
+# the `_splouch._tcp` service they browse for, and the `.local` names typed by
+# hand. Checked from the Pi's side with the same avahi tools the installer sets
+# up — it proves the Pi answers, not that a given phone can hear it, which is why
+# the card also lists what usually sits in between (see the template).
+
+SERVICE_TYPE = "_splouch._tcp"
+# install.sh MDNS_ALIASES, and mdns-aliases.sh's own fallback. Read off the
+# installed unit when there is one, so a Pi set up with other names checks those.
+_DEFAULT_ALIASES = ("tableau.local", "marcador.local")
+_ALIASES_UNIT = "/etc/systemd/system/splouch-mdns-aliases.service"
+
+
+def _run(cmd, timeout=6):
+    try:
+        return subprocess.run(
+            cmd, capture_output=True, text=True, timeout=timeout, check=False
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+
+
+def _active(unit):
+    r = _run(["systemctl", "is-active", unit], timeout=3)
+    return r is not None and r.stdout.strip() == "active"
+
+
+def mdns_aliases(unit_path=_ALIASES_UNIT):
+    try:
+        with open(unit_path, encoding="utf-8") as f:
+            for line in f:
+                if line.startswith("ExecStart="):
+                    names = line.split()[1:]
+                    return tuple(names) or _DEFAULT_ALIASES
+    except OSError:
+        pass
+    return _DEFAULT_ALIASES
+
+
+def own_addresses():
+    r = _run(["hostname", "-I"], timeout=3)
+    return set(r.stdout.split()) if r is not None else set()
+
+
+def _unescape(value):
+    """avahi-browse -p escapes a byte as `\\DDD` (decimal) and itself as `\\\\`."""
+    return re.sub(
+        r"\\(\d{3}|.)", lambda m: chr(int(m[1])) if m[1].isdigit() else m[1], value
+    )
+
+
+def parse_browse(output):
+    """Resolved rows of `avahi-browse -rtp` as `{name, host, address, port}`.
+
+    `=;eth0;IPv4;Splouch;_splouch._tcp;local;splouch.local;192.168.1.50;5000;"…"`.
+    The same service shows once per interface and protocol; one row per address.
+    """
+    seen, found = set(), []
+    for line in output.splitlines():
+        # Split on ';' not preceded by a backslash: an escaped one is part of a name.
+        fields = re.split(r"(?<!\\);", line)
+        if len(fields) < 9 or fields[0] != "=":
+            continue
+        name, host, address = _unescape(fields[3]), fields[6], fields[7]
+        if (name, address) in seen:
+            continue
+        seen.add((name, address))
+        found.append(
+            {"name": name, "host": host, "address": address, "port": fields[8]}
+        )
+    return found
+
+
+def resolve(name):
+    """The IPv4 address `name` resolves to over mDNS, or '' when nothing answers."""
+    r = _run(["avahi-resolve", "-4", "-n", name], timeout=5)
+    if r is None or r.returncode != 0:
+        return ""
+    parts = r.stdout.split()
+    return parts[1] if len(parts) >= 2 else ""
+
+
+def mdns_check():
+    """Everything the Discovery card shows, with each problem named by a key."""
+    tools = _run(["avahi-browse", "--version"], timeout=3) is not None
+    own = own_addresses()
+    daemon = _active("avahi-daemon")
+    services = []
+    if tools and daemon:
+        r = _run(["avahi-browse", "-rtp", SERVICE_TYPE], timeout=8)
+        services = parse_browse(r.stdout) if r is not None else []
+    for svc in services:
+        svc["own"] = svc["address"] in own
+    host = socket.gethostname().split(".")[0] + ".local"
+    names = []
+    for name in (host, *mdns_aliases()):
+        address = resolve(name) if tools and daemon else ""
+        names.append({"name": name, "address": address, "own": address in own})
+
+    problems = []
+    if not tools:
+        problems.append("no_tools")
+    elif not daemon:
+        problems.append("no_daemon")
+    else:
+        if not any(s["own"] for s in services):
+            problems.append("not_advertised")
+        aliases_up = _active("splouch-mdns-aliases")
+        for n in names:
+            if not n["address"]:
+                alias = n["name"] != host
+                key = "no_alias" if alias and not aliases_up else "no_name"
+                problems.append((key, n["name"], ""))
+            elif not n["own"]:
+                problems.append(("name_taken", n["name"], n["address"]))
+    return {
+        "own": sorted(own),
+        "services": services,
+        "names": names,
+        # (key, name, address): the locale's `net_mdns_p_<key>`, with its blanks.
+        "problems": [p if isinstance(p, tuple) else (p, "", "") for p in problems],
+    }
+
+
+@router.get("/mdns_fragment", dependencies=[Depends(require_login)])
+async def route_mdns_fragment(request: Request):
+    # An HTML fragment (HTMX hx-get) for the Network tab's Discovery card. A few
+    # seconds of avahi lookups, so it runs off the event loop and only on demand.
+    result = await run_in_threadpool(mdns_check)
+    return render(
+        request,
+        "settings/fetched/mdns.html",
+        t=state.settings_strings(state.ui_locale(request)),
+        **result,
     )
