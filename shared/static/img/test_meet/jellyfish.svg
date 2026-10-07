@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <defs>
+    <radialGradient id="jf-bg" cx=".5" cy=".4" r=".7">
+      <stop offset="0" stop-color="#1e40af"/>
+      <stop offset="1" stop-color="#020617"/>
+    </radialGradient>
+    <radialGradient id="jf-bell" cx=".5" cy=".3" r=".8">
+      <stop offset="0" stop-color="#fef9c3"/>
+      <stop offset=".4" stop-color="#f0abfc"/>
+      <stop offset="1" stop-color="#7c3aed"/>
+    </radialGradient>
+  </defs>
+  <circle cx="128" cy="128" r="122" fill="#a78bfa"/>
+  <circle cx="128" cy="128" r="114" fill="url(#jf-bg)"/>
+  <circle cx="128" cy="100" r="80" fill="#a78bfa" opacity=".15"/>
+  <g fill="#fff">
+    <circle cx="54" cy="90" r="2"/><circle cx="196" cy="70" r="2.5"/><circle cx="208" cy="150" r="1.5"/><circle cx="48" cy="160" r="1.5"/><circle cx="76" cy="200" r="2"/>
+  </g>
+  <g fill="none" stroke-width="5" stroke-linecap="round" opacity=".9">
+    <path d="M96 118 C88 140 104 156 94 178 C86 196 98 210 92 224" stroke="#f0abfc"/>
+    <path d="M116 122 C110 146 124 164 116 190 C110 206 120 216 116 230" stroke="#67e8f9"/>
+    <path d="M140 122 C146 146 132 164 140 190 C146 206 136 216 140 230" stroke="#fde68a"/>
+    <path d="M160 118 C168 140 152 156 162 178 C170 196 158 210 164 224" stroke="#f0abfc"/>
+  </g>
+  <g fill="none" stroke="#e9d5ff" stroke-width="10" stroke-linecap="round" opacity=".7">
+    <path d="M118 120 C114 140 126 150 122 168"/><path d="M138 120 C142 140 130 150 134 168"/>
+  </g>
+  <path d="M60 116 C60 64 92 36 128 36 C164 36 196 64 196 116 C186 112 180 122 172 120 C164 118 160 110 150 114 C142 118 136 124 128 120 C120 124 114 118 106 114 C96 110 92 118 84 120 C76 122 70 112 60 116Z" fill="url(#jf-bell)"/>
+  <path d="M82 84 C88 62 104 50 122 48 C104 60 94 72 90 92Z" fill="#fff" opacity=".55"/>
+  <g fill="#7c3aed" opacity=".35"><circle cx="112" cy="84" r="8"/><circle cx="144" cy="84" r="8"/><circle cx="128" cy="68" r="7"/></g>
+</svg>

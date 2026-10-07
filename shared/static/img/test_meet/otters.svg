@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <defs>
+    <linearGradient id="ot-bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#22d3ee"/>
+      <stop offset="1" stop-color="#155e75"/>
+    </linearGradient>
+    <radialGradient id="ot-fur" cx=".5" cy=".35" r=".7">
+      <stop offset="0" stop-color="#c08552"/>
+      <stop offset="1" stop-color="#6b3e1d"/>
+    </radialGradient>
+  </defs>
+  <path d="M128 8 L240 52 V136 C240 190 194 230 128 250 C62 230 16 190 16 136 V52Z" fill="#fb7185"/>
+  <path d="M128 22 L226 61 V136 C226 182 186 216 128 234 C70 216 30 182 30 136 V61Z" fill="url(#ot-bg)"/>
+  <g fill="none" stroke="#fff" stroke-opacity=".5" stroke-width="4" stroke-linecap="round">
+    <path d="M44 196 Q64 186 84 196"/><path d="M172 196 Q192 186 212 196"/>
+  </g>
+  <circle cx="84" cy="80" r="16" fill="url(#ot-fur)"/><circle cx="172" cy="80" r="16" fill="url(#ot-fur)"/>
+  <circle cx="84" cy="80" r="7" fill="#3b1f0b"/><circle cx="172" cy="80" r="7" fill="#3b1f0b"/>
+  <path d="M128 60 C176 60 196 96 196 132 C196 170 166 196 128 196 C90 196 60 170 60 132 C60 96 80 60 128 60Z" fill="url(#ot-fur)"/>
+  <path d="M128 112 C160 112 176 130 176 152 C176 176 154 188 128 188 C102 188 80 176 80 152 C80 130 96 112 128 112Z" fill="#f5deb3"/>
+  <circle cx="102" cy="112" r="9" fill="#1c0f05"/><circle cx="154" cy="112" r="9" fill="#1c0f05"/>
+  <circle cx="105" cy="109" r="3" fill="#fff"/><circle cx="157" cy="109" r="3" fill="#fff"/>
+  <path d="M116 136 C116 128 140 128 140 136 C140 144 132 148 128 148 C124 148 116 144 116 136Z" fill="#1c0f05"/>
+  <path d="M128 148 V158 M128 158 C122 166 112 166 108 160 M128 158 C134 166 144 166 148 160" fill="none" stroke="#1c0f05" stroke-width="3" stroke-linecap="round"/>
+  <g stroke="#6b3e1d" stroke-width="2" stroke-linecap="round">
+    <path d="M100 150 L72 146 M100 156 L74 160 M156 150 L184 146 M156 156 L182 160"/>
+  </g>
+  <circle cx="92" cy="140" r="7" fill="#fb7185" opacity=".5"/><circle cx="164" cy="140" r="7" fill="#fb7185" opacity=".5"/>
+</svg>

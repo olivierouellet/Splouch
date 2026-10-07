@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <defs>
+    <linearGradient id="nw-sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1e1b4b"/>
+      <stop offset=".6" stop-color="#4338ca"/>
+      <stop offset="1" stop-color="#0e7490"/>
+    </linearGradient>
+    <linearGradient id="nw-aurora" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#4ade80" stop-opacity="0"/>
+      <stop offset=".5" stop-color="#4ade80" stop-opacity=".8"/>
+      <stop offset="1" stop-color="#f472b6" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="nw-body" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#94a3b8"/>
+      <stop offset="1" stop-color="#e2e8f0"/>
+    </linearGradient>
+    <clipPath id="nw-clip"><circle cx="128" cy="128" r="110"/></clipPath>
+  </defs>
+  <circle cx="128" cy="128" r="122" fill="#e2e8f0"/>
+  <g clip-path="url(#nw-clip)">
+    <rect width="256" height="256" fill="url(#nw-sky)"/>
+    <path d="M10 80 C60 40 110 90 160 60 C190 42 220 50 250 40 L250 70 C220 80 190 72 160 92 C110 120 60 70 10 110Z" fill="url(#nw-aurora)"/>
+    <g fill="#fff"><circle cx="60" cy="50" r="1.5"/><circle cx="186" cy="38" r="2"/><circle cx="210" cy="100" r="1.5"/><circle cx="40" cy="120" r="1.5"/></g>
+    <path d="M0 180 Q32 168 64 180 T128 180 T192 180 T256 180 V256 H0Z" fill="#155e75"/>
+    <path d="M0 202 Q32 190 64 202 T128 202 T192 202 T256 202 V256 H0Z" fill="#164e63"/>
+  </g>
+  <path d="M168 104 L234 46" stroke="#fef3c7" stroke-width="7" stroke-linecap="round"/>
+  <g stroke="#d6a84a" stroke-width="2"><path d="M180 98 l-4 -6 M192 87 l-4 -6 M204 76 l-4 -6 M216 66 l-4 -6"/></g>
+  <path d="M176 116 C180 98 166 88 146 92 C110 98 76 120 62 150 C56 160 48 166 36 164 C40 172 50 174 58 172 C52 180 46 190 48 200 C58 192 66 180 70 168 C100 168 140 160 162 140 C170 134 176 126 176 116Z" fill="url(#nw-body)"/>
+  <g fill="#64748b" opacity=".6"><circle cx="110" cy="116" r="4"/><circle cx="124" cy="108" r="3"/><circle cx="96" cy="128" r="3"/><circle cx="136" cy="104" r="2.5"/></g>
+  <path d="M130 140 C126 152 116 160 104 162 C110 152 116 144 120 136Z" fill="#94a3b8"/>
+  <circle cx="160" cy="112" r="4" fill="#1e1b4b"/>
+  <path d="M158 126 Q166 128 172 122" fill="none" stroke="#1e1b4b" stroke-width="2.5" stroke-linecap="round"/>
+  <circle cx="128" cy="128" r="110" fill="none" stroke="#4ade80" stroke-width="4"/>
+</svg>

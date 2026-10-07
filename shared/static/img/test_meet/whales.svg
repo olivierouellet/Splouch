@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <defs>
+    <linearGradient id="wh-sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f97316"/>
+      <stop offset=".5" stop-color="#fb7185"/>
+      <stop offset="1" stop-color="#a855f7"/>
+    </linearGradient>
+    <linearGradient id="wh-sea" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3730a3"/>
+      <stop offset="1" stop-color="#1e1b4b"/>
+    </linearGradient>
+    <clipPath id="wh-clip"><path d="M128 24 L226 64 V132 C226 184 184 220 128 236 C72 220 30 184 30 132 V64Z"/></clipPath>
+  </defs>
+  <path d="M128 8 L242 54 V132 C242 194 194 234 128 252 C62 234 14 194 14 132 V54Z" fill="#1e1b4b"/>
+  <g clip-path="url(#wh-clip)">
+    <rect width="256" height="256" fill="url(#wh-sky)"/>
+    <circle cx="128" cy="160" r="54" fill="#fde047"/>
+    <g fill="#1e1b4b" opacity=".25"><rect x="20" y="132" width="216" height="5"/><rect x="20" y="146" width="216" height="5"/></g>
+    <rect x="0" y="160" width="256" height="100" fill="url(#wh-sea)"/>
+    <g stroke="#fde047" stroke-width="4" stroke-linecap="round" opacity=".8">
+      <path d="M92 176 h72 M104 192 h48 M116 208 h24"/>
+    </g>
+  </g>
+  <path d="M120 168 C122 140 118 118 104 100 C88 80 60 74 42 82 C58 88 72 96 80 104 C92 118 108 118 116 112 C114 130 114 150 112 168Z" fill="#0f172a"/>
+  <path d="M136 168 C134 140 138 118 152 100 C168 80 196 74 214 82 C198 88 184 96 176 104 C164 118 148 118 140 112 C142 130 142 150 144 168Z" fill="#0f172a"/>
+  <path d="M110 166 Q128 158 146 166 L150 172 H106Z" fill="#0f172a"/>
+  <g fill="#fff">
+    <circle cx="44" cy="84" r="3"/><circle cx="54" cy="96" r="2.5"/><circle cx="212" cy="84" r="3"/><circle cx="202" cy="96" r="2.5"/>
+  </g>
+  <path d="M96 172 Q112 166 128 172 T160 172" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round"/>
+  <path d="M128 24 L226 64 V132 C226 184 184 220 128 236 C72 220 30 184 30 132 V64Z" fill="none" stroke="#fb923c" stroke-width="4"/>
+</svg>
