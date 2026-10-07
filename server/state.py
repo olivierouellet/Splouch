@@ -548,6 +548,7 @@ _last_packet_at: float = 0.0  # time.monotonic() of the last decoded packet
 _meet_live: bool = False  # last value broadcast — only transitions are emitted
 _pty_fd: int | None = None
 _pty_pid: int | None = None
+_pty_cmd: str | None = None  # the _TERMINAL_ALLOWED_CMDS key it runs
 main_thread = None
 
 # The decoder is owned by a single thread — the serial/playback worker. Other

@@ -1,0 +1,54 @@
+                <div class="tab-pane" id="tab-hardware">
+                <div class="row"><div class="col-lg-8">
+                    <div id="hw-unavailable" class="alert alert-secondary" style="display:none;">{{ t.hw_unavailable }}</div>
+                    <div id="hw-body">
+                        <div class="card mb-3"><div class="card-body">
+                            <div class="d-flex flex-wrap gap-4">
+                                <div>
+                                    <div class="text-body-secondary small">{{ t.hw_temperature }}</div>
+                                    <div class="fs-3 fw-semibold" id="hw-temp">—</div>
+                                    <div class="small text-body-secondary" id="hw-temp-range"></div>
+                                </div>
+                                <div>
+                                    <div class="text-body-secondary small">{{ t.hw_power }}</div>
+                                    <div class="fs-3 fw-semibold" id="hw-power">—</div>
+                                    <div class="small text-body-secondary" id="hw-power-detail"></div>
+                                </div>
+                                <div>
+                                    <div class="text-body-secondary small">{{ t.hw_cpu_freq }}</div>
+                                    <div class="fs-3 fw-semibold" id="hw-freq">—</div>
+                                </div>
+                            </div>
+                            <svg id="hw-chart" class="mt-3 w-100" height="140" role="img" aria-label="{{ t.hw_history }}"></svg>
+                            <div class="d-flex justify-content-between small text-body-secondary">
+                                <span id="hw-chart-from"></span><span>{{ t.hw_history }}</span><span>{{ t.hw_now }}</span>
+                            </div>
+                            <div class="small text-body-secondary mt-2">{{ t.hw_ram_note }}</div>
+                        </div></div>
+
+                        <div class="card mb-3"><div class="card-body">
+                            <div class="panel-title">{{ t.hw_flags }}</div>
+                            <table class="table table-sm mb-2 small">
+                                <thead><tr><th></th><th class="text-center">{{ t.hw_now }}</th><th class="text-center">{{ t.hw_since_boot }}</th></tr></thead>
+                                <tbody>
+                                    {% for key in ['undervoltage', 'freq_capped', 'throttled', 'soft_temp_limit'] %}
+                                    <tr><td>{{ t['hw_flag_' ~ key] }}</td><td class="text-center" id="hw-flag-{{ key }}-now">—</td><td class="text-center" id="hw-flag-{{ key }}-boot">—</td></tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                            <div class="small text-body-secondary">{{ t.hw_flags_hint }}</div>
+                        </div></div>
+
+                        <div class="card"><div class="card-body">
+                            <div class="panel-title">{{ t.hw_system }}</div>
+                            <dl class="row small mb-0">
+                                <dt class="col-sm-4 fw-normal text-body-secondary">{{ t.hw_model }}</dt><dd class="col-sm-8" id="hw-model">—</dd>
+                                <dt class="col-sm-4 fw-normal text-body-secondary">{{ t.hw_uptime }}</dt><dd class="col-sm-8" id="hw-uptime">—</dd>
+                                <dt class="col-sm-4 fw-normal text-body-secondary">{{ t.hw_load }}</dt><dd class="col-sm-8" id="hw-load">—</dd>
+                                <dt class="col-sm-4 fw-normal text-body-secondary">{{ t.hw_memory }}</dt><dd class="col-sm-8" id="hw-memory">—</dd>
+                                <dt class="col-sm-4 fw-normal text-body-secondary">{{ t.hw_disk }}</dt><dd class="col-sm-8 mb-0" id="hw-disk">—</dd>
+                            </dl>
+                        </div></div>
+                    </div>
+                </div></div>
+                </div>

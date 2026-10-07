@@ -251,7 +251,8 @@ download_backup_full = "Télécharger tout (avec l’identifiant)"
 [settings]
 
 # Bannière affichée dans les Réglages quand une mise à jour du code exige une réinstallation complète.
-reinstall_banner = '''<strong>Réinstallation requise pour finir la mise à jour.</strong> Config système modifiée ; hors de portée du programme de mise à jour. Relancer l'installateur sur cet appareil : raccourci <strong>Réinstaller</strong> du bureau, ou <code>bash install/install.sh server</code> en SSH.'''
+reinstall_banner        = '''<strong>Réinstallation requise pour finir la mise à jour.</strong> Config système modifiée ; hors de portée du programme de mise à jour. Relancer l'installateur sur cet appareil : <strong>Réinstaller</strong> dans Débogage → Terminal, raccourci <strong>Réinstaller</strong> du bureau, ou <code>bash install/install.sh server</code> en SSH.'''
+reinstall_banner_action = "Ouvrir le terminal"
 
 # Bannière affichée dans les Réglages tant que l'identifiant d'administration est celui d'origine.
 default_password_banner        = '''<strong>Mot de passe par défaut.</strong> Publié dans la doc — n'importe qui sur ce réseau accède aux réglages, fichiers, terminal. À changer avant la compétition —'''
@@ -275,6 +276,8 @@ nav_update     = "Mise à jour et sauvegarde"
 nav_debug      = "Débogage"
 nav_test       = "Test"
 nav_terminal   = "Terminal"
+nav_logs       = "Journaux"
+nav_hardware   = "Matériel"
 nav_power      = "Alimentation"
 
 # Liens rapides + menu du compte
@@ -598,11 +601,54 @@ test_load              = "Charger"
 test_no_meet_hint      = "Aucun fichier — en charger un pour les noms."
 
 # Terminal
-term_save_logs       = "Enregistrer les journaux ▾"
-term_save_to_pi      = "Enregistrer sur le Pi"
-term_shell           = "Shell"
-term_scoreboard_logs = "Journaux du tableau"
-term_serial_ports    = "Ports série"
+term_shell              = "Shell"
+term_serial_ports       = "Ports série"
+term_commands           = "Commandes"
+term_copy               = "Copier"
+term_copied             = "Copié !"
+term_run                = "Exécuter"
+term_cmd_reinstall      = "Réinstaller (serveur)"
+term_cmd_reinstall_hint = "Relance l'installateur de ce Pi ; répondre à ses questions dans le terminal. Redémarrer le service ensuite (Alimentation). Changement d'eth0 : le Pi redémarre seul à la fin."
+term_cmd_service        = "État du service"
+term_cmd_checkout       = "État du code"
+term_cmd_checkout_hint  = "Modifications locales et derniers commits du code installé."
+term_cmd_mdns           = "Découverte (mDNS)"
+term_cmd_mdns_hint      = "Ce que voient les applis mobiles en cherchant ce Pi."
+
+# Logs
+logs_source_run  = "Cette exécution (mémoire)"
+logs_source_boot = "Depuis le démarrage (journal)"
+logs_source_prev = "Démarrage précédent (journal)"
+logs_follow      = "Suivre"
+logs_save        = "Enregistrer ▾"
+logs_save_to_pi  = "Enregistrer sur le Pi"
+logs_hint        = "Démarrage précédent : ce qui a précédé un plantage, une coupure ou un redémarrage. Enregistrer ne garde que cette exécution."
+
+# Hardware
+hw_unavailable          = "Aucun capteur matériel ici (pas un Raspberry Pi)."
+hw_temperature          = "Température"
+hw_power                = "Alimentation"
+hw_cpu_freq             = "Processeur"
+hw_power_ok             = "OK"
+hw_power_low            = "Sous-tension"
+hw_power_low_boot       = "Sous-tension depuis le démarrage"
+hw_min_max              = "Min {min} · Max {max}"
+hw_history              = "Dernière heure"
+hw_now                  = "Maintenant"
+hw_since_boot           = "Depuis le démarrage"
+hw_ram_note             = "Gardé en mémoire seulement, jamais écrit sur la carte SD ; redémarrer l'appli efface l'historique."
+hw_flags                = "Indicateurs du firmware"
+hw_flag_undervoltage    = "Sous-tension"
+hw_flag_freq_capped     = "Fréquence plafonnée"
+hw_flag_throttled       = "Bridé"
+hw_flag_soft_temp_limit = "Limite de température douce"
+hw_flags_hint           = "Sous-tension : utiliser l'alimentation officielle et un câble court et épais. Bridage : Pi trop chaud ; ajouter dissipateur ou ventilateur, garder à l'ombre."
+hw_system               = "Système"
+hw_model                = "Modèle"
+hw_uptime               = "En marche depuis"
+hw_load                 = "Charge (1 min)"
+hw_memory               = "Mémoire"
+hw_disk                 = "Disque de données"
 
 # Alimentation
 power_intro           = '''Redémarrer l'app, redémarrer ou éteindre le Pi. <strong>Maintenir</strong> pour confirmer.'''
@@ -675,6 +721,10 @@ js_no_eth_wifi_off        = "WiFi désactivé, Ethernet débranché."
 js_no_eth_wifi_disc       = "WiFi + Ethernet non connectés."
 js_no_network_ntp         = "Pas de réseau — NTP injoignable."
 js_failed_to_start        = "Échec du démarrage"
+js_term_busy_confirm      = "Le terminal est occupé. Arrêter ce qui s'y exécute et lancer ceci à la place ?"
+js_hw_yes                 = "Oui"
+js_hw_no                  = "Non"
+js_logs_empty             = "(vide)"
 js_disable                = "Désactiver"
 js_opening                = "Ouverture…"
 js_connected              = "Connecté"

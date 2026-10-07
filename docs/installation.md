@@ -83,7 +83,7 @@ The script:
 - Creates `~/SplouchData/` with `meet/`, `images/`, `icons/`, and `recorded/` subdirectories
 - Copies `settings.default.json` to `~/SplouchData/settings.json`
 - Downloads xterm.js
-- Asks how `eth0` gets its address: **DHCP** (default) or a **static IP** you enter, with its router and DNS (validated: must be a host address, router inside the same subnet). Choosing DHCP on a re-run clears a static address set earlier. Both live in the `splouch-eth` profile that **Settings → Network** edits too. The change is saved, then applied as the very last step (by the reboot, or 3 s after the script exits), so an SSH session over Ethernet only drops once the install is done — reconnect to `splouch.local` or the new IP
+- Asks how `eth0` gets its address: **DHCP** (default) or a **static IP** you enter, with its router and DNS (validated: must be a host address, router inside the same subnet). Choosing DHCP on a re-run clears a static address set earlier. Both live in the `splouch-eth` profile that **Settings → Network** edits too. It is the installer's last question. A change is saved, then applied by an automatic reboot 10 s after the script ends (no prompt), so an SSH session or the **Settings → Terminal** page over Ethernet only drops once the install is done — reconnect to `splouch.local` or the new IP
 - Sets the hostname to `splouch` (accessible as `splouch.local` on the network)
 
 ---
@@ -256,6 +256,8 @@ Update displays** moves every connected kiosk to the version the server is on.
 
 ## Reinstalling
 
+From the web UI: **Settings → Debug → Terminal**, **Reinstall (server)**, **Run**. The installer's questions are answered in that terminal; restart the service (**Power**) when it ends.
+
 If the server is down and the web UI is unreachable, re-run the install script directly on Pi #1.
 
 **From the desktop** — double-click the **Reinstall Splouch** icon created during install.
@@ -358,7 +360,7 @@ Le script :
 - Crée `~/SplouchData/` avec les sous-dossiers `meet/`, `images/`, `icons/` et `recorded/`
 - Copie `settings.default.json` vers `~/SplouchData/settings.json`
 - Télécharge xterm.js
-- Demande comment `eth0` obtient son adresse : **DHCP** (par défaut) ou une **IP statique** que vous saisissez, avec son routeur et son DNS (validés : ce doit être une adresse d'hôte, et le routeur doit être dans le même sous-réseau). Choisir DHCP lors d'une nouvelle exécution efface une adresse statique définie auparavant. Les deux vivent dans le profil `splouch-eth`, que **Réglages → Réseau** modifie aussi. Le changement est enregistré, puis appliqué en toute dernière étape (au redémarrage, ou 3 s après la fin du script) : une session SSH par Ethernet ne tombe donc qu'une fois l'installation terminée — reconnectez-vous à `splouch.local` ou à la nouvelle IP
+- Demande comment `eth0` obtient son adresse : **DHCP** (par défaut) ou une **IP statique** que vous saisissez, avec son routeur et son DNS (validés : ce doit être une adresse d'hôte, et le routeur doit être dans le même sous-réseau). Choisir DHCP lors d'une nouvelle exécution efface une adresse statique définie auparavant. Les deux vivent dans le profil `splouch-eth`, que **Réglages → Réseau** modifie aussi. C'est la dernière question de l'installateur. Un changement est enregistré, puis appliqué par un redémarrage automatique 10 s après la fin du script (sans confirmation) : une session SSH ou la page **Réglages → Terminal** par Ethernet ne tombe donc qu'une fois l'installation terminée — reconnectez-vous à `splouch.local` ou à la nouvelle IP
 - Règle le nom d'hôte à `splouch` (joignable en `splouch.local` sur le réseau)
 
 ---
@@ -536,6 +538,10 @@ kiosque connecté à la version du serveur.
 ---
 
 ### Réinstallation
+
+Depuis l'interface web : **Réglages → Débogage → Terminal**, **Réinstaller (serveur)**,
+**Exécuter**. On répond aux questions de l'installateur dans ce terminal ; redémarrez le
+service (**Alimentation**) à la fin.
 
 Si le serveur est arrêté et l'interface web injoignable, relancez le script d'installation
 directement sur le Pi n° 1.

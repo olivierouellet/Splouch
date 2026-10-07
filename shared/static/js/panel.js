@@ -97,14 +97,32 @@
     window.copyKey = function (btn, text) {
         var orig = btn.textContent;
         var copied = btn.dataset.copied || 'Copied!';
-        navigator.clipboard.writeText(text).then(function () {
+        function done() {
             btn.textContent = copied;
             btn.classList.add('copied');
             setTimeout(function () {
                 btn.textContent = orig;
                 btn.classList.remove('copied');
             }, 2000);
-        });
+        }
+        // The Clipboard API exists only on secure origins, and the Pi's panel is
+        // plain http://splouch.local — there the old select-and-copy still works.
+        if (navigator.clipboard && window.isSecureContext) {
+            navigator.clipboard.writeText(text).then(done);
+            return;
+        }
+        var ta = document.createElement('textarea');
+        ta.value = text;
+        ta.setAttribute('readonly', '');
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        try {
+            if (document.execCommand('copy')) done();
+        } finally {
+            document.body.removeChild(ta);
+        }
     };
 
     /* ── UI-language selector: store a per-device cookie and reload so the

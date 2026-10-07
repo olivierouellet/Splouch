@@ -26,6 +26,7 @@ from meet_data import (
     send_event_info,
 )
 from meet_parsers.lenex_parser import ROUND_NAMES, load_lenex
+from routes.debug import terminal_commands
 from routes.qr import invite as qr_invite
 from splouch_regions import COUNTRIES, clean_location, province_choices, province_code
 from web import credentials_stamp, render, require_login, require_role, save_upload
@@ -788,6 +789,7 @@ def _settings_view(request, form):
         ui_locale=ui_lang,
         ui_lang_cookie=ui_lang_cookie,
         meet_file_list=meet_file_list,
+        terminal_commands=terminal_commands(),
         active_meet_file=state._active_meet_file,
         meet_title=state.settings["meet_title"],
         serial_port=state.settings["serial_port"],

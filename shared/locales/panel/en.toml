@@ -256,7 +256,8 @@ download_backup_full = "Download full (incl. login)"
 [settings]
 
 # Banner shown in Settings when a code update needs a full reinstall to apply.
-reinstall_banner = '''<strong>Reinstall needed to finish update.</strong> System setup changed; in-app updater can't apply it. Rerun installer on this device: <strong>Reinstall</strong> desktop shortcut, or <code>bash install/install.sh server</code> over SSH.'''
+reinstall_banner        = '''<strong>Reinstall needed to finish update.</strong> System setup changed; in-app updater can't apply it. Rerun installer on this device: <strong>Reinstall</strong> in Debug → Terminal, <strong>Reinstall</strong> desktop shortcut, or <code>bash install/install.sh server</code> over SSH.'''
+reinstall_banner_action = "Open Terminal"
 
 # Banner shown in Settings while the admin login is still the shipped default.
 default_password_banner        = '''<strong>Default password in use.</strong> Published in docs — anyone on this network can open settings, meet files, terminal. Change before meet day —'''
@@ -280,6 +281,8 @@ nav_update     = "Update & Backup"
 nav_debug      = "Debug"
 nav_test       = "Test"
 nav_terminal   = "Terminal"
+nav_logs       = "Logs"
+nav_hardware   = "Hardware"
 nav_power      = "Power"
 
 # Quick links + account menu
@@ -608,11 +611,54 @@ test_load              = "Load"
 test_no_meet_hint      = "No meet file — load one for swimmer names."
 
 # Terminal
-term_save_logs       = "Save Logs ▾"
-term_save_to_pi      = "Save to Pi"
-term_shell           = "Shell"
-term_scoreboard_logs = "Scoreboard logs"
-term_serial_ports    = "Serial ports"
+term_shell              = "Shell"
+term_serial_ports       = "Serial ports"
+term_commands           = "Commands"
+term_copy               = "Copy"
+term_copied             = "Copied!"
+term_run                = "Run"
+term_cmd_reinstall      = "Reinstall (server)"
+term_cmd_reinstall_hint = "Reruns installer for this Pi; answer its questions in terminal. Restart service when done (Power). eth0 change: Pi reboots by itself at end."
+term_cmd_service        = "Service status"
+term_cmd_checkout       = "Checkout state"
+term_cmd_checkout_hint  = "Local changes and latest commits of installed code."
+term_cmd_mdns           = "Discovery (mDNS)"
+term_cmd_mdns_hint      = "What the phone apps see when they look for this Pi."
+
+# Logs
+logs_source_run  = "This run (memory)"
+logs_source_boot = "Since boot (journal)"
+logs_source_prev = "Previous boot (journal)"
+logs_follow      = "Follow"
+logs_save        = "Save ▾"
+logs_save_to_pi  = "Save to Pi"
+logs_hint        = "Previous boot: what led up to a crash, power cut or reboot. Save keeps this run only."
+
+# Hardware
+hw_unavailable          = "No hardware sensors here (not a Raspberry Pi)."
+hw_temperature          = "Temperature"
+hw_power                = "Power"
+hw_cpu_freq             = "CPU"
+hw_power_ok             = "OK"
+hw_power_low            = "Under-voltage"
+hw_power_low_boot       = "Under-voltage since boot"
+hw_min_max              = "Min {min} · Max {max}"
+hw_history              = "Last hour"
+hw_now                  = "Now"
+hw_since_boot           = "Since boot"
+hw_ram_note             = "Kept in memory only, never written to SD card; restarting app clears history."
+hw_flags                = "Firmware flags"
+hw_flag_undervoltage    = "Under-voltage"
+hw_flag_freq_capped     = "Frequency capped"
+hw_flag_throttled       = "Throttled"
+hw_flag_soft_temp_limit = "Soft temperature limit"
+hw_flags_hint           = "Under-voltage: use official power supply and short, thick cable. Throttling: Pi too hot; add heatsink or fan, keep out of sun."
+hw_system               = "System"
+hw_model                = "Model"
+hw_uptime               = "Uptime"
+hw_load                 = "Load (1 min)"
+hw_memory               = "Memory"
+hw_disk                 = "Data disk"
 
 # Power
 power_intro           = '''Restart app, reboot or shut down Pi. <strong>Hold</strong> to confirm.'''
@@ -685,6 +731,10 @@ js_no_eth_wifi_off        = "WiFi off, Ethernet unplugged."
 js_no_eth_wifi_disc       = "WiFi + Ethernet not connected."
 js_no_network_ntp         = "No network — NTP unreachable."
 js_failed_to_start        = "Failed to start"
+js_term_busy_confirm      = "Terminal is busy. Stop what it runs and run this instead?"
+js_hw_yes                 = "Yes"
+js_hw_no                  = "No"
+js_logs_empty             = "(empty)"
 js_disable                = "Disable"
 js_opening                = "Opening…"
 js_connected              = "Connected"

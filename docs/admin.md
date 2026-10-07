@@ -69,7 +69,9 @@ no event or heat number at all, so `/manual` is how you supply it.
 | **Network** | WiFi management; Ethernet DHCP or static IP (address, router, DNS); view connected scoreboard clients |
 | **Update & Backup** | Pull latest version from GitHub, sync dependencies, restart; download or restore a backup of `~/SplouchData` |
 | **Test** | Play back pre-recorded sessions; adjust playback speed; record live serial sessions. Safe to run with a meet loaded — see [Test sessions](#test-sessions) |
-| **Terminal** | In-browser terminal — Shell, raspi-config, Scoreboard logs, dmesg, serial ports |
+| **Terminal** | In-browser terminal — Shell, raspi-config, dmesg, serial ports; a **Commands** list (Reinstall, service status, checkout state, mDNS) to copy or run in it |
+| **Logs** | The app's output: this run (from memory), since boot or the previous boot (from the journal — where a crash or power cut shows); follow live; save this run |
+| **Hardware** | SoC temperature with its last hour (min/max), under-voltage and throttling now and since boot, CPU frequency, memory, disk. Sampled in memory only, never written to the SD card |
 | **Cloud** | Cloud relay URL and key; per-meet picker appearance (title, image, home icon, location, sport) |
 | **Power** | Restart the app service, reboot, or shut down the Pi — press-and-hold to confirm |
 | **Users** | Add people with their own login, each allowed only some pages: **Settings** (this panel, and every page), **Console** (`/console`), **Manual** (`/manual`), **Meet Manager** (`/mm`). Changing someone's password or pages, or deleting them, signs them out |
@@ -93,7 +95,7 @@ stays open on the LAN, as the displays need it.
 | `~/SplouchData/images/` | Sponsor or club logo images for the splash screen |
 | `~/SplouchData/icons/` | Home-screen icon for the phone pages (Cloud tab) |
 | `~/SplouchData/picker/` | Meet image shown on the cloud's meet picker (Cloud tab) |
-| `~/SplouchData/logs/` | Logs saved from the Terminal tab |
+| `~/SplouchData/logs/` | Logs saved from the Logs tab |
 | `~/SplouchData/recorded/` | Custom recorded sessions for playback in the Test tab |
 | `~/SplouchData/test_meet/` | Start lists for a running test session — cleared when it ends, never mixed with `meet/` |
 | `~/SplouchData/themes/` | Custom theme `.toml` files |
@@ -295,8 +297,7 @@ They appear in the Meet Setup file dropdown — select one to load it live.
 ### Service management
 
 The app runs as a systemd service named **`splouch`**. The **Power** tab does restart /
-reboot / shutdown and **Terminal** has a "Scoreboard logs" launcher and "Save Logs", but
-over SSH:
+reboot / shutdown and **Logs** shows, follows and saves the journal, but over SSH:
 
 ```sh
 sudo systemctl restart splouch    # restart after manual changes (same as the Power tab)
@@ -398,7 +399,9 @@ mais n'envoie aucun numéro d'épreuve ni de série ; c'est donc `/manual` qui l
 | **Réseau** | Gestion du WiFi ; Ethernet en DHCP ou IP statique (adresse, routeur, DNS) ; clients d'affichage connectés |
 | **Mise à jour et sauvegarde** | Récupérer la dernière version depuis GitHub, synchroniser les dépendances, redémarrer ; télécharger ou restaurer une sauvegarde de `~/SplouchData` |
 | **Test** | Rejouer des sessions enregistrées ; régler la vitesse de lecture ; enregistrer des sessions série en direct. Sans risque avec une compétition chargée — voir [Sessions de test](#sessions-de-test) |
-| **Terminal** | Terminal dans le navigateur — Shell, raspi-config, journaux du tableau, dmesg, ports série |
+| **Terminal** | Terminal dans le navigateur — Shell, raspi-config, dmesg, ports série ; une liste de **Commandes** (Réinstaller, état du service, état du code, mDNS) à copier ou exécuter dedans |
+| **Journaux** | La sortie de l'application : cette exécution (en mémoire), depuis le démarrage ou le démarrage précédent (dans le journal — là où se voit un plantage ou une coupure) ; suivi en direct ; enregistrer cette exécution |
+| **Matériel** | Température du SoC et sa dernière heure (min/max), sous-tension et bridage maintenant et depuis le démarrage, fréquence CPU, mémoire, disque. Échantillonné en mémoire seulement, jamais écrit sur la carte SD |
 | **Nuage** | URL et clé du relais cloud ; apparence de la compétition dans le sélecteur (titre, image, icône, lieu, sport) |
 | **Alimentation** | Redémarrer le service, redémarrer ou éteindre le Pi — maintenir appuyé pour confirmer |
 | **Utilisateurs** | Ajouter des personnes avec leur propre connexion, chacune limitée à certaines pages : **Paramètres** (ce panneau, et toutes les pages), **Console** (`/console`), **Manuel** (`/manual`), **Meet Manager** (`/mm`). Changer le mot de passe ou les pages de quelqu'un, ou le supprimer, le déconnecte |
@@ -423,7 +426,7 @@ en ont besoin.
 | `~/SplouchData/images/` | Logos de commanditaires ou de clubs pour l'écran d'accueil |
 | `~/SplouchData/icons/` | Icône d'écran d'accueil des pages mobiles (onglet Nuage) |
 | `~/SplouchData/picker/` | Image de la compétition dans le sélecteur du cloud (onglet Nuage) |
-| `~/SplouchData/logs/` | Journaux enregistrés depuis l'onglet Terminal |
+| `~/SplouchData/logs/` | Journaux enregistrés depuis l'onglet Journaux |
 | `~/SplouchData/recorded/` | Sessions enregistrées pour la lecture dans l'onglet Test |
 | `~/SplouchData/test_meet/` | Listes de départ d'une session de test en cours — vidé à la fin, jamais mêlé à `meet/` |
 | `~/SplouchData/themes/` | Thèmes personnalisés `.toml` |
@@ -614,8 +617,7 @@ sélectionnez-en un pour le charger en direct.
 #### Gestion du service
 
 L'application tourne comme service systemd nommé **`splouch`**. L'onglet **Alimentation**
-redémarre / relance / éteint, et **Terminal** propose un lanceur « Journaux du tableau » et
-« Enregistrer les journaux », mais en SSH :
+redémarre / relance / éteint, et **Journaux** affiche, suit et enregistre le journal, mais en SSH :
 
 ```sh
 sudo systemctl restart splouch    # redémarrer après des modifications (comme l'onglet Alimentation)

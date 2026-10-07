@@ -1567,7 +1567,7 @@ function rtcReboot() {
     fetch('/system_reboot', { method: 'POST' });
 }
 
-// ── Save logs ────────────────────────────────────────────────────────────
+// ── Save logs (Logs tab) ────────────────────────────────────────────────────────────
 function toggleLogMenu(e) {
     e.stopPropagation();
     var m = document.getElementById('log-menu');
@@ -1674,10 +1674,42 @@ function _initTerminal() {
     }
 }
 
-function termLaunch(cmdKey) {
+// Ask before replacing a session that is still running something — an install
+// halfway through its questions, a log being followed. A shell idle at its prompt
+// is let go silently: nothing is lost but the scrollback.
+function _termConfirmReplace(then) {
+    fetch('/terminal_status')
+        .then(function (r) {
+            return r.json();
+        })
+        .then(function (st) {
+            if (st.running && !st.idle_shell && !confirm(T.js_term_busy_confirm)) return;
+            then();
+        });
+}
+
+// Run `fn` once the terminal is drawn and its socket is up — output that arrives
+// before then would be lost.
+function _termReady(fn) {
     _loadXterm(function () {
         _initTerminal();
-        function _doStart() {
+        if (_termSock.connected) fn();
+        else _termSock.once('connect', fn);
+    });
+}
+
+function _termStarted() {
+    document.getElementById('btn-term-stop').style.display = '';
+    _termSock.emit('resize', { rows: _term.rows, cols: _term.cols });
+}
+
+function _termError(d) {
+    _term.write('\r\n\x1b[31mError: ' + (d.error || T.js_failed_to_start) + '\x1b[0m\r\n');
+}
+
+function termLaunch(cmdKey) {
+    _termConfirmReplace(function () {
+        _termReady(function () {
             fetch('/terminal_stop', { method: 'POST' })
                 .then(function () {
                     if (_term) _term.clear();
@@ -1691,24 +1723,45 @@ function termLaunch(cmdKey) {
                     return r.json();
                 })
                 .then(function (d) {
+                    if (d.ok) _termStarted();
+                    else _termError(d);
+                });
+        });
+    });
+}
+
+// Type one of the Commands card's lines into the shell — into the one already at
+// its prompt, or a fresh one. The server refuses a busy terminal ('busy') unless
+// told to replace it, so the question is asked only when it matters.
+function termRun(key) {
+    _termReady(function () {
+        function send(replace) {
+            fetch('/terminal_run', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ cmd: key, replace: replace }),
+            })
+                .then(function (r) {
+                    return r.json();
+                })
+                .then(function (d) {
                     if (d.ok) {
-                        document.getElementById('btn-term-stop').style.display = '';
-                        _termSock.emit('resize', { rows: _term.rows, cols: _term.cols });
+                        _termStarted();
+                        _term.focus();
+                        document
+                            .getElementById('terminal-container')
+                            .scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                    } else if (d.error === 'busy') {
+                        if (confirm(T.js_term_busy_confirm)) {
+                            if (_term) _term.clear();
+                            send(true);
+                        }
                     } else {
-                        _term.write(
-                            '\r\n\x1b[31mError: ' +
-                                (d.error || T.js_failed_to_start) +
-                                '\x1b[0m\r\n',
-                        );
+                        _termError(d);
                     }
                 });
         }
-        // Wait for socket connection before starting — early output would be lost otherwise
-        if (_termSock.connected) {
-            _doStart();
-        } else {
-            _termSock.once('connect', _doStart);
-        }
+        send(false);
     });
 }
 
@@ -1719,11 +1772,224 @@ function termStop() {
     });
 }
 
-document.querySelectorAll('.app-nav .nav-link').forEach(function (link) {
-    if (link.getAttribute('data-target') === '#tab-terminal')
-        link.addEventListener('click', function () {
-            _loadXterm(function () {});
+// A session outlives the page (an install keeps going through a reload), so on
+// opening the tab, reattach to one that is running instead of showing it stopped.
+document.addEventListener('panel:tab-shown', function (e) {
+    if (/** @type {CustomEvent} */ (e).detail.target !== '#tab-terminal') return;
+    _loadXterm(function () {});
+    fetch('/terminal_status')
+        .then(function (r) {
+            return r.json();
+        })
+        .then(function (st) {
+            if (st.running) _termReady(_termStarted);
         });
+});
+
+// ── Logs tab ─────────────────────────────────────────────────────────────
+var _logFollowTimer = null;
+
+function loadLogs() {
+    var source = document.getElementById('log-source').value;
+    var out = document.getElementById('log-output');
+    var status = document.getElementById('log-status');
+    var wasAtBottom = out.scrollHeight - out.scrollTop <= out.clientHeight + 40;
+    fetch('/logs_view?source=' + encodeURIComponent(source) + '&tail=1000')
+        .then(function (r) {
+            return r.json();
+        })
+        .then(function (d) {
+            if (!d.ok) {
+                out.textContent = d.error || T.js_request_failed;
+                status.textContent = '';
+                return;
+            }
+            out.textContent = d.lines.length ? d.lines.join('\n') : T.js_logs_empty;
+            if (wasAtBottom) out.scrollTop = out.scrollHeight;
+            status.textContent = new Date().toLocaleTimeString();
+        })
+        .catch(function () {
+            status.textContent = T.js_request_failed;
+        });
+}
+
+function _stopLogFollow() {
+    clearInterval(_logFollowTimer);
+    _logFollowTimer = null;
+}
+
+function toggleLogFollow() {
+    _stopLogFollow();
+    if (document.getElementById('log-follow').checked) {
+        loadLogs();
+        _logFollowTimer = setInterval(loadLogs, 3000);
+    }
+}
+
+document.addEventListener('panel:tab-shown', function (e) {
+    if (/** @type {CustomEvent} */ (e).detail.target === '#tab-logs') {
+        var out = document.getElementById('log-output');
+        loadLogs();
+        out.scrollTop = out.scrollHeight;
+        toggleLogFollow();
+    } else {
+        _stopLogFollow();
+    }
+});
+
+// ── Hardware tab ─────────────────────────────────────────────────────────
+// Polled only while the tab is open; the history itself is sampled server-side
+// (server/hardware.py), so a closed tab misses nothing.
+var _hwTimer = null;
+
+function _hwBytes(n) {
+    return (n / 1073741824).toFixed(1) + ' GB';
+}
+
+function _hwDuration(sec) {
+    var d = Math.floor(sec / 86400),
+        h = Math.floor((sec % 86400) / 3600),
+        m = Math.floor((sec % 3600) / 60);
+    return (d ? d + 'd ' : '') + (d || h ? h + 'h ' : '') + m + 'min';
+}
+
+function _hwText(id, text) {
+    document.getElementById(id).textContent = text;
+}
+
+// The last hour as a line: temperature on a band from 30 °C to whichever is
+// higher of 85 °C (where the firmware throttles) and the hottest reading, with
+// the 80 °C soft limit dashed and every under-voltage sample ticked in red below.
+function _hwChart(history, every) {
+    var svg = document.getElementById('hw-chart');
+    var w = svg.clientWidth || 600,
+        h = 140,
+        pad = 4;
+    var pts = history.filter(function (s) {
+        return s[1] !== null;
+    });
+    var span = Math.max(3600, history.length ? history[0][0] + every : 0);
+    var hi = Math.max(
+        85,
+        Math.max.apply(
+            null,
+            pts
+                .map(function (s) {
+                    return s[1];
+                })
+                .concat([0]),
+        ),
+    );
+    var lo = 30;
+    function x(ago) {
+        return w - (ago / span) * w;
+    }
+    function y(temp) {
+        return pad + (1 - (Math.min(Math.max(temp, lo), hi) - lo) / (hi - lo)) * (h - 2 * pad - 8);
+    }
+    var cs = getComputedStyle(document.body);
+    var line = cs.getPropertyValue('--bs-primary') || '#0d6efd';
+    var grid = cs.getPropertyValue('--bs-border-color') || '#888';
+    var danger = cs.getPropertyValue('--bs-danger') || '#dc3545';
+    var parts = [
+        '<line x1="0" x2="' +
+            w +
+            '" y1="' +
+            y(80) +
+            '" y2="' +
+            y(80) +
+            '" stroke="' +
+            grid +
+            '" stroke-dasharray="4 4"/>',
+        '<text x="2" y="' + (y(80) - 3) + '" font-size="10" fill="' + grid + '">80 °C</text>',
+    ];
+    if (pts.length > 1) {
+        var d = pts
+            .map(function (s, i) {
+                return (i ? 'L' : 'M') + x(s[0]).toFixed(1) + ' ' + y(s[1]).toFixed(1);
+            })
+            .join(' ');
+        parts.push('<path d="' + d + '" fill="none" stroke="' + line + '" stroke-width="2"/>');
+    }
+    history.forEach(function (s) {
+        if (s[2])
+            parts.push(
+                '<rect x="' +
+                    (x(s[0]) - 1).toFixed(1) +
+                    '" y="' +
+                    (h - 6) +
+                    '" width="2" height="6" fill="' +
+                    danger +
+                    '"/>',
+            );
+    });
+    svg.setAttribute('viewBox', '0 0 ' + w + ' ' + h);
+    svg.innerHTML = parts.join('');
+    _hwText('hw-chart-from', '−' + Math.round(span / 60) + ' min');
+}
+
+function _hwRender(d) {
+    document.getElementById('hw-unavailable').style.display = d.available ? 'none' : '';
+    document.getElementById('hw-body').style.display = d.available ? '' : 'none';
+    if (!d.available) return;
+    var latest = d.latest || {};
+    _hwText(
+        'hw-temp',
+        latest.temp !== null && latest.temp !== undefined ? latest.temp + ' °C' : '—',
+    );
+    _hwText(
+        'hw-temp-range',
+        d.temp_min !== null
+            ? T.hw_min_max.replace('{min}', d.temp_min + ' °C').replace('{max}', d.temp_max + ' °C')
+            : '',
+    );
+    _hwText('hw-freq', latest.freq_mhz ? latest.freq_mhz + ' MHz' : '—');
+    var power = document.getElementById('hw-power');
+    var uv = d.flags && d.flags.undervoltage;
+    power.textContent = !uv ? '—' : uv.now ? T.hw_power_low : T.hw_power_ok;
+    power.className =
+        'fs-3 fw-semibold' +
+        (uv && uv.now ? ' text-danger' : uv && uv.since_boot ? ' text-warning' : '');
+    _hwText('hw-power-detail', uv && !uv.now && uv.since_boot ? T.hw_power_low_boot : '');
+    ['undervoltage', 'freq_capped', 'throttled', 'soft_temp_limit'].forEach(function (k) {
+        var f = d.flags && d.flags[k];
+        [
+            ['now', 'now'],
+            ['boot', 'since_boot'],
+        ].forEach(function (pair) {
+            var cell = document.getElementById('hw-flag-' + k + '-' + pair[0]);
+            var on = f && f[pair[1]];
+            cell.textContent = !f ? '—' : on ? T.js_hw_yes : T.js_hw_no;
+            cell.className = 'text-center' + (on ? ' text-danger fw-semibold' : '');
+        });
+    });
+    _hwChart(d.history || [], d.sample_every || 5);
+    _hwText('hw-model', d.model || '—');
+    _hwText('hw-uptime', d.uptime !== null ? _hwDuration(d.uptime) : '—');
+    _hwText('hw-load', d.load !== null ? d.load.toFixed(2) : '—');
+    _hwText(
+        'hw-memory',
+        d.memory ? _hwBytes(d.memory.used) + ' / ' + _hwBytes(d.memory.total) : '—',
+    );
+    _hwText('hw-disk', d.disk ? _hwBytes(d.disk.used) + ' / ' + _hwBytes(d.disk.total) : '—');
+}
+
+function _hwLoad() {
+    fetch('/hardware_status')
+        .then(function (r) {
+            return r.json();
+        })
+        .then(_hwRender)
+        .catch(function () {});
+}
+
+document.addEventListener('panel:tab-shown', function (e) {
+    clearInterval(_hwTimer);
+    _hwTimer = null;
+    if (/** @type {CustomEvent} */ (e).detail.target === '#tab-hardware') {
+        _hwLoad();
+        _hwTimer = setInterval(_hwLoad, 5000);
+    }
 });
 
 // ── Debug tab ────────────────────────────────────────────────────────────

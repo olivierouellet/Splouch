@@ -13,6 +13,7 @@ from starlette.concurrency import run_in_threadpool
 from starlette.datastructures import UploadFile  # what request.form() yields
 
 import bus
+import hardware
 import paths
 import state
 from web import ActionResult, LogTail, failure, require_login
@@ -239,6 +240,60 @@ def route_rtc_remove_start():
 @router.get("/rtc_log", response_model=LogTail, dependencies=[Depends(require_login)])
 def route_rtc_log():
     return {"lines": state._rtc_log_lines, "done": state._rtc_log_done}
+
+
+class LogsView(BaseModel):
+    ok: bool
+    lines: list[str] = []
+    error: str = ""
+
+
+# The Logs tab's sources. `run` is this process's own output, from the RAM ring;
+# the other two read the journal, which outlives a restart — `prev` is where a
+# crash or a power cut shows up, since the run that died is no longer this one.
+_JOURNAL_BOOTS = {"boot": "0", "prev": "-1"}
+
+
+@router.get(
+    "/logs_view", response_model=LogsView, dependencies=[Depends(require_login)]
+)
+def route_logs_view(source: str = "run", tail: int = 500):
+    tail = max(50, min(tail, 5000))
+    if source == "run":
+        return {"ok": True, "lines": list(state._log_ring)[-tail:]}
+    if source not in _JOURNAL_BOOTS:
+        return {"ok": False, "error": f"Unknown source: {source}"}
+    try:
+        proc = subprocess.run(
+            [
+                "journalctl",
+                "-u",
+                state.SERVICE_NAME,
+                "-b",
+                _JOURNAL_BOOTS[source],
+                "-n",
+                str(tail),
+                "--no-pager",
+                "-o",
+                "short-iso",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=15,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return {"ok": False, "error": failure("Reading the journal")}
+    if proc.returncode != 0:
+        # No previous boot in the journal (it is volatile until /var/log/journal
+        # exists) reads as an error from journalctl; say so plainly.
+        return {"ok": False, "error": (proc.stderr or proc.stdout).strip()}
+    return {"ok": True, "lines": proc.stdout.splitlines()}
+
+
+@router.get("/hardware_status", dependencies=[Depends(require_login)])
+def route_hardware_status():
+    return hardware.status(paths.SCOREBOARD_DIR)
 
 
 @router.get("/logs_download", dependencies=[Depends(require_login)])

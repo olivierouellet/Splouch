@@ -88,6 +88,8 @@
                     <div class="collapse" id="grp-debug">
                         <a class="nav-link sub" data-target="#tab-test"><i class="bi bi-play-circle me-2"></i>{{ t.nav_test }}</a>
                         <a class="nav-link sub" data-target="#tab-terminal"><i class="bi bi-terminal me-2"></i>{{ t.nav_terminal }}</a>
+                        <a class="nav-link sub" data-target="#tab-logs"><i class="bi bi-journal-text me-2"></i>{{ t.nav_logs }}</a>
+                        <a class="nav-link sub" data-target="#tab-hardware"><i class="bi bi-thermometer-half me-2"></i>{{ t.nav_hardware }}</a>
                     </div>
 
                     <a class="nav-link" data-target="#tab-users"><i class="bi bi-people me-2"></i>{{ t.nav_users }}</a>
@@ -146,7 +148,11 @@
             {% if provision_stale %}
             <div class="alert alert-warning d-flex align-items-start gap-2 mb-3" role="alert">
                 <i class="bi bi-exclamation-triangle-fill mt-1"></i>
-                <div>{{ t.reinstall_banner | safe }}</div>
+                <div>
+                    {{ t.reinstall_banner | safe }}
+                    <a href="#tab-terminal" class="alert-link"
+                       onclick="panelShowTab('#tab-terminal'); return false;">{{ t.reinstall_banner_action }}</a>
+                </div>
             </div>
             {% endif %}
             {% if default_credentials %}

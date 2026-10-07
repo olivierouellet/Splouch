@@ -40,8 +40,9 @@ section() { echo -e "\n${BOLD}──── $* ────${NC}"; }
 # optional prompts (static IP, RTC, reboot) safely keep the current config.
 # STATIC_IP holds eth0's address once this run pinned one, so messages only quote
 # a raw IP when it is actually the Pi's address. ETH_PENDING marks an eth0 change
-# saved but not yet active: activating it drops an SSH session over Ethernet, which
-# would kill the script, so it is applied last (see apply_pending_network).
+# saved but not yet active: activating it drops an SSH session or the web terminal
+# over Ethernet, which would kill the script, so it only takes effect through the
+# automatic reboot that ends the run (see reboot_for_network).
 STATIC_IP=
 ETH_PENDING=0
 confirm() {
@@ -245,6 +246,9 @@ configure_network() {
     fi
     info "Every device reaches this Pi as ${SERVER_HOSTNAME}.local — no fixed IP needed."
     info "eth0 is currently: ${current:+static $current}${current:-DHCP}"
+    warn "Changing eth0 reboots the Pi automatically at the end of this install."
+    warn "SSH sessions and the Settings → Terminal page will disconnect; reconnect"
+    warn "to ${SERVER_HOSTNAME}.local once it is back up."
     echo "  1) DHCP — address from the venue router (default)"
     echo "  2) Static IP"
     local choice
@@ -298,16 +302,18 @@ configure_network() {
     fi
     ETH_PENDING=1
     STATIC_IP="${cidr%/*}"
-    info "Static IP $STATIC_IP saved — applied at the end."
+    info "Static IP $STATIC_IP saved — the Pi reboots at the end to apply it."
 }
 
-# Activate a saved eth0 change as the script's very last act. Detached through
-# systemd so it still runs after the SSH session it drops has taken this shell down.
-apply_pending_network() {
-    ((ETH_PENDING)) || return 0
-    warn "Applying the eth0 change in 3 s — an SSH session over Ethernet will drop."
-    info "Reconnect to ${SERVER_HOSTNAME}.local${STATIC_IP:+ or $STATIC_IP}."
-    sudo systemd-run --quiet --collect --on-active=3 nmcli con up "$ETH_CON"
+# Reboot to activate a saved eth0 change, as the script's very last act and
+# without asking: the profile is saved with autoconnect priority, so the boot
+# brings it up, and nothing is left to run after the connection drops. Detached
+# through systemd so the reboot still happens after the session it drops (SSH or
+# the web terminal) has taken this shell down.
+reboot_for_network() {
+    warn "eth0 changed — rebooting in 10 s to apply it. This session will drop."
+    info "Reconnect to ${SERVER_HOSTNAME}.local${STATIC_IP:+ or $STATIC_IP} in about a minute."
+    sudo systemd-run --quiet --collect --on-active=10 systemctl reboot
 }
 
 # ── Fetching without assuming a tracked branch ────────────────────────────────
@@ -792,9 +798,6 @@ EOF
     sudo systemctl enable --now splouch-redirect
     info "Port 80 redirects to 5000 — http://${SERVER_HOSTNAME}.local/ reaches the scoreboard"
 
-    section "Network — Pi #1"
-    configure_network
-
     section "Real-time clock (Adafruit PiRTC DS3231)"
     echo "Adds a hardware clock so the Pi keeps accurate time without network access."
     if confirm "Install Adafruit PiRTC (DS3231) support now?"; then
@@ -803,6 +806,11 @@ EOF
     else
         info "Skipping RTC setup — can be installed later from Settings → Clock."
     fi
+
+    # Last question on purpose: an eth0 change ends the run with an automatic
+    # reboot, so nothing may come after it that still needs an answer.
+    section "Network — Pi #1"
+    configure_network
 
     section "Done — Pi #1 (server)"
     echo
@@ -821,10 +829,10 @@ EOF
     echo -e "  Settings    : ~/SplouchData/settings.json"
     echo
     echo
-    if confirm "Reboot now to apply group membership and network changes?"; then
+    if ((ETH_PENDING)); then
+        reboot_for_network
+    elif confirm "Reboot now to apply group membership changes?"; then
         sudo reboot
-    else
-        apply_pending_network
     fi
 fi
 

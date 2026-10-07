@@ -251,7 +251,8 @@ download_backup_full = "Descargar todo (incl. el acceso)"
 [settings]
 
 # Aviso mostrado en Ajustes cuando una actualización de código requiere una reinstalación completa.
-reinstall_banner = '''<strong>Reinstalar para terminar la actualización.</strong> Configuración del sistema cambiada; el actualizador no puede aplicarla. Ejecutar el instalador en este equipo: acceso directo <strong>Reinstalar</strong> del escritorio, o <code>bash install/install.sh server</code> por SSH.'''
+reinstall_banner        = '''<strong>Reinstalar para terminar la actualización.</strong> Configuración del sistema cambiada; el actualizador no puede aplicarla. Ejecutar el instalador en este equipo: <strong>Reinstalar</strong> en Depuración → Terminal, acceso directo <strong>Reinstalar</strong> del escritorio, o <code>bash install/install.sh server</code> por SSH.'''
+reinstall_banner_action = "Abrir terminal"
 
 # Aviso mostrado en Ajustes mientras el acceso de administración siga siendo el de fábrica.
 default_password_banner        = '''<strong>Contraseña por defecto.</strong> Publicada en la documentación — cualquiera en esta red accede a ajustes, archivos, terminal. Cambiar antes de la competición —'''
@@ -275,6 +276,8 @@ nav_update     = "Actualización y copia"
 nav_debug      = "Depuración"
 nav_test       = "Prueba"
 nav_terminal   = "Terminal"
+nav_logs       = "Registros"
+nav_hardware   = "Hardware"
 nav_power      = "Energía"
 
 # Enlaces rápidos + menú de cuenta
@@ -598,11 +601,54 @@ test_load              = "Cargar"
 test_no_meet_hint      = "Sin archivo — cargar uno para los nombres."
 
 # Terminal
-term_save_logs       = "Guardar registros ▾"
-term_save_to_pi      = "Guardar en el Pi"
-term_shell           = "Shell"
-term_scoreboard_logs = "Registros del marcador"
-term_serial_ports    = "Puertos serie"
+term_shell              = "Shell"
+term_serial_ports       = "Puertos serie"
+term_commands           = "Comandos"
+term_copy               = "Copiar"
+term_copied             = "¡Copiado!"
+term_run                = "Ejecutar"
+term_cmd_reinstall      = "Reinstalar (servidor)"
+term_cmd_reinstall_hint = "Vuelve a ejecutar el instalador de este Pi; responder sus preguntas en el terminal. Reiniciar el servicio al terminar (Energía). Cambio de eth0: el Pi se reinicia solo al final."
+term_cmd_service        = "Estado del servicio"
+term_cmd_checkout       = "Estado del código"
+term_cmd_checkout_hint  = "Cambios locales y últimos commits del código instalado."
+term_cmd_mdns           = "Descubrimiento (mDNS)"
+term_cmd_mdns_hint      = "Lo que ven las apps móviles al buscar este Pi."
+
+# Logs
+logs_source_run  = "Esta ejecución (memoria)"
+logs_source_boot = "Desde el arranque (journal)"
+logs_source_prev = "Arranque anterior (journal)"
+logs_follow      = "Seguir"
+logs_save        = "Guardar ▾"
+logs_save_to_pi  = "Guardar en el Pi"
+logs_hint        = "Arranque anterior: lo que precedió a un fallo, corte de luz o reinicio. Guardar conserva solo esta ejecución."
+
+# Hardware
+hw_unavailable          = "No hay sensores de hardware aquí (no es una Raspberry Pi)."
+hw_temperature          = "Temperatura"
+hw_power                = "Alimentación"
+hw_cpu_freq             = "CPU"
+hw_power_ok             = "OK"
+hw_power_low            = "Bajo voltaje"
+hw_power_low_boot       = "Bajo voltaje desde el arranque"
+hw_min_max              = "Mín {min} · Máx {max}"
+hw_history              = "Última hora"
+hw_now                  = "Ahora"
+hw_since_boot           = "Desde el arranque"
+hw_ram_note             = "Solo en memoria, nunca se escribe en la tarjeta SD; reiniciar la app borra el historial."
+hw_flags                = "Indicadores del firmware"
+hw_flag_undervoltage    = "Bajo voltaje"
+hw_flag_freq_capped     = "Frecuencia limitada"
+hw_flag_throttled       = "Ralentizado"
+hw_flag_soft_temp_limit = "Límite de temperatura suave"
+hw_flags_hint           = "Bajo voltaje: usar la fuente oficial y un cable corto y grueso. Ralentización: Pi demasiado caliente; añadir disipador o ventilador, mantener a la sombra."
+hw_system               = "Sistema"
+hw_model                = "Modelo"
+hw_uptime               = "Encendido desde hace"
+hw_load                 = "Carga (1 min)"
+hw_memory               = "Memoria"
+hw_disk                 = "Disco de datos"
 
 # Energía
 power_intro           = '''Reiniciar la app, reiniciar o apagar el Pi. <strong>Mantener</strong> para confirmar.'''
@@ -675,6 +721,10 @@ js_no_eth_wifi_off        = "WiFi apagado, Ethernet desconectado."
 js_no_eth_wifi_disc       = "WiFi + Ethernet sin conexión."
 js_no_network_ntp         = "Sin red — NTP inaccesible."
 js_failed_to_start        = "Error al iniciar"
+js_term_busy_confirm      = "El terminal está ocupado. ¿Detener lo que ejecuta y ejecutar esto en su lugar?"
+js_hw_yes                 = "Sí"
+js_hw_no                  = "No"
+js_logs_empty             = "(vacío)"
 js_disable                = "Desactivar"
 js_opening                = "Abriendo…"
 js_connected              = "Conectado"

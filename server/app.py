@@ -17,6 +17,7 @@ from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 
 import bus
+import hardware
 import state
 from meet_data import _get_next_heats, send_event_info
 from routes.appearance import router as appearance_router
@@ -105,6 +106,7 @@ async def lifespan(app: FastAPI):
     state.load_settings()
     load_custom_decoders(state.CUSTOM_DECODERS_FOLDER)
     relay.start()
+    hardware.start()
     _register_locale_aliases()
     await asyncio.to_thread(_reload_last_meet, _load_meet_file)
     _watchdog = asyncio.create_task(_meet_live_watchdog())

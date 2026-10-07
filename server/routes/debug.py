@@ -2,9 +2,11 @@ import contextlib
 import os
 import re
 import select
+import shlex
 import signal
 import struct
 import subprocess
+import time
 from typing import Literal
 
 from fastapi import (
@@ -103,16 +105,47 @@ class SeedTimes(BaseModel):
 class TerminalStart(BaseModel):
     # Keys must mirror _TERMINAL_ALLOWED_CMDS below; an unknown value is rejected
     # by validation before the handler runs.
-    cmd: Literal["bash", "raspi-config", "logs", "dmesg-tty", "serial-ports"] = "bash"
+    cmd: Literal["bash", "raspi-config", "dmesg-tty", "serial-ports"] = "bash"
 
 
 _TERMINAL_ALLOWED_CMDS = {
     "bash": ["bash"],
     "raspi-config": ["sudo", "raspi-config"],
-    "logs": ["journalctl", "-u", state.SERVICE_NAME, "-f"],
     "dmesg-tty": ["bash", "-c", "dmesg | grep -i tty"],
     "serial-ports": ["python3", "-m", "serial.tools.list_ports", "-v"],
 }
+
+
+def terminal_commands():
+    """The Terminal tab's command list: (key, command line), in display order.
+
+    Only what the panel has no screen for. Each line is typed into a shell, so the
+    operator sees exactly what runs and can copy the same line into SSH. Paths are
+    this checkout's, never `~/Splouch`, since install.sh finds the checkout wherever
+    it lives. A key is also the title's locale key (`term_cmd_<key>`).
+    """
+    repo = shlex.quote(state.REPO_DIR)
+    installer = shlex.quote(os.path.join(state.REPO_DIR, "install", "install.sh"))
+    return [
+        ("reinstall", f"bash {installer} server"),
+        ("service", f"systemctl status {state.SERVICE_NAME} --no-pager"),
+        ("checkout", f"git -C {repo} status; git -C {repo} log --oneline -5"),
+        ("mdns", "avahi-browse -rt _splouch._tcp"),
+    ]
+
+
+class TerminalRun(BaseModel):
+    cmd: Literal["reinstall", "service", "checkout", "mdns"]
+    # Stop whatever the terminal is running first. Without it, a busy terminal is
+    # refused rather than handed keystrokes meant for a fresh prompt: typed into a
+    # running install, a command line would answer its next question.
+    replace: bool = False
+
+
+class TerminalStatus(BaseModel):
+    running: bool
+    # A shell sitting at its prompt — a command can be typed into it as is.
+    idle_shell: bool
 
 
 @router.get(
@@ -429,8 +462,41 @@ def _pty_reader():
             break
         except Exception:
             break
-    state._pty_fd = state._pty_pid = None
+    state._pty_fd = state._pty_pid = state._pty_cmd = None
     bus.emit("/terminal", "exit", {})
+
+
+def _has_children(pid):
+    """Whether `pid` has a child process — a shell that does is running something."""
+    for entry in os.listdir("/proc"):
+        if not entry.isdigit():
+            continue
+        try:
+            with open(f"/proc/{entry}/stat", encoding="utf-8") as f:
+                # The command name is in parentheses and may hold spaces, so the
+                # parent pid is read after its closing one: `state ppid ...`.
+                fields = f.read().rsplit(")", 1)[1].split()
+        except (OSError, IndexError):
+            continue
+        if fields[1:2] == [str(pid)]:
+            return True
+    return False
+
+
+def _terminal_status():
+    pid = state._pty_pid
+    running = state._pty_fd is not None and pid is not None
+    idle = running and state._pty_cmd == "bash" and not _has_children(pid)
+    return {"running": running, "idle_shell": idle}
+
+
+@router.get(
+    "/terminal_status",
+    response_model=TerminalStatus,
+    dependencies=[Depends(require_login)],
+)
+def route_terminal_status():
+    return _terminal_status()
 
 
 @router.post(
@@ -439,6 +505,33 @@ def _pty_reader():
     dependencies=[Depends(require_login)],
 )
 def route_terminal_start(body: TerminalStart):
+    return _start_pty(body.cmd)
+
+
+@router.post(
+    "/terminal_run",
+    response_model=ActionResult,
+    dependencies=[Depends(require_login)],
+)
+def route_terminal_run(body: TerminalRun):
+    status = _terminal_status()
+    if status["running"] and not status["idle_shell"]:
+        if not body.replace:
+            return {"ok": False, "error": "busy"}
+        route_terminal_stop()
+    if not status["idle_shell"]:
+        started = _start_pty("bash")
+        if not started["ok"]:
+            return started
+        # Let the shell reach its prompt first; typed ahead of it, the line is
+        # echoed twice — once by the tty, once when readline redraws it.
+        time.sleep(0.3)
+    line = dict(terminal_commands())[body.cmd]
+    _terminal_input(line + "\n")
+    return {"ok": True}
+
+
+def _start_pty(key):
     if not state._PTY_AVAILABLE:
         return {"ok": False, "error": "PTY not available on this platform"}
     if state._pty_fd is not None:
@@ -448,8 +541,8 @@ def route_terminal_start(body: TerminalStart):
         import pty
         import termios
 
-        # body.cmd is constrained to _TERMINAL_ALLOWED_CMDS keys by the model.
-        cmd = _TERMINAL_ALLOWED_CMDS[body.cmd]
+        # key is constrained to _TERMINAL_ALLOWED_CMDS keys by the models.
+        cmd = _TERMINAL_ALLOWED_CMDS[key]
         master_fd, slave_fd = pty.openpty()
         winsize = struct.pack("HHHH", 24, 80, 0, 0)
         fcntl.ioctl(slave_fd, termios.TIOCSWINSZ, winsize)
@@ -472,6 +565,7 @@ def route_terminal_start(body: TerminalStart):
         os.close(slave_fd)
         state._pty_fd = master_fd
         state._pty_pid = proc.pid
+        state._pty_cmd = key
         bus.run_bg(_pty_reader)
         return {"ok": True}
     except Exception:
@@ -488,7 +582,7 @@ def route_terminal_stop():
     if state._pty_fd:
         with contextlib.suppress(OSError):
             os.close(state._pty_fd)
-    state._pty_fd = state._pty_pid = None
+    state._pty_fd = state._pty_pid = state._pty_cmd = None
     return {"ok": True}
 
 
