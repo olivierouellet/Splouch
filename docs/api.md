@@ -521,8 +521,9 @@ its own from the `results_snapshot` frames it relays, and stores them with the m
   [`subdivisions.json`](../shared/regions/subdivisions.json); a value recorded before
   the pick-list may still be free text, sent as recorded when it names no known one.
 - **`test`** marks one of the server's own test meets ([`cloud.md`](cloud.md#test-meets)):
-  fake, looping, for trying a client. The web picker badges it **TEST**; its name starts
-  with "Test meet", so a client that ignores the field still reads it as one.
+  fake, looping, for trying a client. Its name is a team's, in the meet's language
+  (*Dolphins*, *Requins*), so the badge is what says it is a test: every picker draws
+  `strings.test_meet` beside the name (`app.md` `P-22`).
 
 All additive. The list is readable from any origin (`Access-Control-Allow-Origin: *`):
 a meet page on a worker's host checks it before going back to the picker (`A-12`).
@@ -546,7 +547,7 @@ re-sorting (`app.md` `P-01`, `P-17`).
   "logo_above": false, "lang": "fr", "analytics_enabled": true,
   "stores": { "ios": "https://apps.apple.com/…", "android": "https://play.google.com/…" },
   "strings": { "page_title": "…", "no_meets": "…", "unnamed_meet": "…",
-               "meet_search": "…", "no_meets_match": "…", "date_unknown": "…",
+               "test_meet": "…", "meet_search": "…", "no_meets_match": "…", "date_unknown": "…",
                "results_disclaimer": "…", "privacy_note": "…",
                "results_disclaimer_short": "…", "privacy_note_short": "…",
                "notice_collapse": "…" } }

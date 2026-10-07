@@ -215,3 +215,28 @@ next_heat  = "Next heat"
 in_heats   = "In {heats} heats"
 heat       = "Event {event}, heat {heat}"
 lane       = "lane {lane}"
+
+# The cloud's test meets (docs/cloud.md, Test meets): each is named after a team,
+# in the meet's language, with the logo of the same name in static/img/test_meet/.
+# Not in GET /i18n/{lang}: a client reads the name from GET /meets.
+[test_meets]
+dolphins    = "Dolphins"
+sharks      = "Sharks"
+orcas       = "Orcas"
+turtles     = "Sea Turtles"
+octopus     = "Octopuses"
+marlins     = "Marlins"
+penguins    = "Penguins"
+seahorses   = "Seahorses"
+narwhals    = "Narwhals"
+jellyfish   = "Jellyfish"
+frogs       = "Frogs"
+stingrays   = "Stingrays"
+otters      = "Otters"
+whales      = "Whales"
+kingfishers = "Kingfishers"
+barracudas  = "Barracudas"
+piranhas    = "Piranhas"
+flyingfish  = "Flying Fish"
+tritons     = "Tritons"
+waves       = "Waves"

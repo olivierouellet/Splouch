@@ -192,6 +192,9 @@ def test_the_served_file_holds_only_what_a_spectator_reads():
         # `/privacy`'s text: a spectator reads it, so it is here, and its own
         # section keeps it out of `GET /i18n/{lang}`, which serves `[mobile]`.
         "privacy",
+        # The cloud's test meets are named after teams, in the meet's language; a
+        # spectator reads the name on the picker, from `GET /meets`.
+        "test_meets",
     }
     # `chrome` is the fourth because both operator pages draw the same sidebar and
     # theme switcher; its words live once rather than once per page. `manual` is the
@@ -271,6 +274,7 @@ PICKER_KEYS = (
     "page_title",
     "no_meets",
     "unnamed_meet",
+    "test_meet",
     "meet_search",
     "no_meets_match",
     "results_disclaimer",

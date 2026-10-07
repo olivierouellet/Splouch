@@ -136,9 +136,10 @@ starts up to 15 fake meets (5 by default). Each swims five events of two or thre
 eight lanes, in real time — splits, finishes, places, results, next heats — and starts over
 about every 17 minutes. Validated results follow one or two heats behind, so the schedule
 always shows official times (the odd DSQ among them), then one or two heats of console
-times, then seed times. They are listed on the picker like any meet, with a **TEST** badge
-(`"test": true` in `GET /meets`), under an organizer of their own that the Organizers tab
-does not show.
+times, then seed times. Each is named after a team in its own language — *Dolphins*,
+*Requins*, *Pulpos* — with that team's logo on its card (`static/img/test_meet/`). They
+are listed on the picker like any meet, with a **TEST** badge (`"test": true` in
+`GET /meets`), under an organizer of their own that the Organizers tab does not show.
 
 - They are run by the control plane as relay clients, through `/api/assign` and
   `/ws/relay` like a Pi, so they land on whichever node and worker the registry picks.
@@ -640,9 +641,11 @@ deux ou trois séries, huit couloirs, en temps réel — passages, arrivées, ra
 prochaines séries — puis recommence environ toutes les 17 minutes. Les résultats validés
 suivent avec une ou deux séries de retard : le programme montre toujours des temps
 officiels (avec une disqualification de temps en temps), puis une ou deux séries de temps de
-console, puis les temps d'inscription. Elles figurent dans le
-sélecteur comme toute compétition, avec un badge **TEST** (`"test": true` dans
-`GET /meets`), sous un organisateur à part que l'onglet Organisateurs n'affiche pas.
+console, puis les temps d'inscription. Chacune porte le nom d'une équipe dans sa propre
+langue — *Dolphins*, *Requins*, *Pulpos* — avec le logo de cette équipe sur sa carte
+(`static/img/test_meet/`). Elles figurent dans le sélecteur comme toute compétition, avec
+un badge **TEST** (`"test": true` dans `GET /meets`), sous un organisateur à part que
+l'onglet Organisateurs n'affiche pas.
 
 - Le plan de contrôle les fait tourner comme clients du relais, par `/api/assign` et
   `/ws/relay` comme un Pi : elles arrivent sur le nœud et le worker que choisit le registre.

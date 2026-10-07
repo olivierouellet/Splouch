@@ -70,6 +70,14 @@ _LAST = (
 _CLUBS = ("CAMO", "CNQ", "PPO", "CNHR", "NEO", "SAMAK")
 _PLACES = ("Montréal", "Québec", "Sherbrooke", "Gatineau", "Laval", "Trois-Rivières")
 _LANGS = ("en", "fr", "en", "es", "fr")
+# The teams the meets are named after, in the order they start: a key of the
+# locales' `[test_meets]` and a logo in `img/test_meet/`, one per meet up to
+# MAX_MEETS. Varied up front, since five run by default.
+_TEAMS = (
+    "dolphins", "sharks", "orcas", "turtles", "octopus", "marlins", "penguins",
+    "seahorses", "narwhals", "jellyfish", "frogs", "stingrays", "otters", "whales",
+    "kingfishers", "barracudas", "piranhas", "flyingfish", "tritons", "waves",
+)  # fmt: skip
 
 
 def clock(hundredths):
@@ -98,6 +106,7 @@ def build_meet(index, today=None):
     today = today or datetime.date.today()
     rng = random.Random(index)
     lang = _LANGS[(index - 1) % len(_LANGS)]
+    team = _TEAMS[(index - 1) % len(_TEAMS)]
     vocab = cloud_i18n.strings(lang, "event_name")
     events = []
     for n, (dist, stroke, heats, best) in enumerate(_EVENTS, 1):
@@ -139,7 +148,8 @@ def build_meet(index, today=None):
     meet = {
         "index": index,
         "uid": f"test-{index}",
-        "name": f"Test meet {index}",
+        "name": cloud_i18n.strings(lang, "test_meets")[team],
+        "team": team,
         "location": _PLACES[(index - 1) % len(_PLACES)],
         "lang": lang,
         "date": today.isoformat(),
@@ -160,10 +170,10 @@ def retime(meet, start, speed=1.0):
 
 
 @functools.cache
-def picker_image_b64():
-    """The test meets' picker-card image: the Splouch swimmer in amber, with a
-    stopwatch (`img/test_meet.svg`, rendered to the PNG beside it)."""
-    path = os.path.join(cloud_paths.STATIC_DIR, "img", "test_meet.png")
+def picker_image_b64(team):
+    """A test meet's picker-card image: its team's logo (`img/test_meet/<team>.svg`,
+    rendered to the PNG beside it)."""
+    path = os.path.join(cloud_paths.STATIC_DIR, "img", "test_meet", f"{team}.png")
     with open(path, "rb") as f:
         return base64.b64encode(f.read()).decode()
 
@@ -204,7 +214,7 @@ def register_meta(meet, key, ticket):
             "labels": labels,
             "label_style": "short",
             "console": {"key": "test", "timed": True},
-            "picker_image_b64": picker_image_b64(),
+            "picker_image_b64": picker_image_b64(meet["team"]),
         },
     }
 

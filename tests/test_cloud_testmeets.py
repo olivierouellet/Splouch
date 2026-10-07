@@ -10,12 +10,15 @@ make a worker forget what a meet showed.
 import asyncio
 import base64
 import datetime
+import os
 import random
 import re
 import time
 
 import pytest
 
+import cloud_i18n
+import cloud_paths
 import cloud_server as cs
 import cloud_testmeets as tm
 
@@ -170,6 +173,34 @@ def test_register_says_the_console_times():
     png = base64.b64decode(meta["settings"]["picker_image_b64"])
     assert png.startswith(b"\x89PNG\r\n\x1a\n")
     assert "home_icon_b64" not in meta["settings"]  # the picker card only
+
+
+def test_each_meet_is_a_team_with_its_own_logo():
+    meets = [tm.build_meet(i) for i in range(1, tm.MAX_MEETS + 1)]
+    assert len({m["team"] for m in meets}) == tm.MAX_MEETS
+    assert len({m["name"] for m in meets}) == tm.MAX_MEETS
+    images = {
+        tm.register_meta(m, "k", "t")["settings"]["picker_image_b64"] for m in meets
+    }
+    assert len(images) == tm.MAX_MEETS
+
+
+@pytest.mark.parametrize("lang", ["en", "fr", "es"])
+def test_every_team_is_named_and_drawn(lang):
+    names = cloud_i18n.strings(lang, "test_meets")
+    assert set(names) == set(tm._TEAMS)
+    for team in tm._TEAMS:
+        logo = os.path.join(cloud_paths.STATIC_DIR, "img", "test_meet", f"{team}.png")
+        with open(logo, "rb") as f:
+            assert f.read(8) == b"\x89PNG\r\n\x1a\n", team
+        assert os.path.exists(logo[: -len("png")] + "svg"), team
+
+
+def test_a_meet_is_named_in_its_own_language():
+    meets = [tm.build_meet(i) for i in range(1, len(tm._LANGS) + 1)]
+    assert {m["lang"] for m in meets} == {"en", "fr", "es"}
+    for m in meets:
+        assert m["name"] == cloud_i18n.strings(m["lang"], "test_meets")[m["team"]]
 
 
 # ── Running them ───────────────────────────────────────────────────────────────
