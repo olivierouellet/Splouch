@@ -174,7 +174,7 @@ Entry screen. Web: site root. App: launch screen, and `A-02`'s return target.
 | `P-18` | More than **10** meets → compact rows: name, date, location, province/country, live dot; **no picker image**, none fetched. 10 or fewer → `P-01` cards | count of `GET /meets` → `meets` | all | should |
 | [`P-19`](#p-19) | **Settings** — one container in place of picker menu, sections in this order: Display (language `T-08`, Appearance `P-15`), Privacy (`P-07`), Server (`P-11`–`P-13`, native), About (`P-06` full text, policy link, `P-20` replay). Platform's own form: web side sheet (full height under 600px), iOS sheet with `Form`, Android full-screen settings destination | section names native in apps (`T-05`); web reads `strings.settings`, `settings_display`, `settings_privacy`, `settings_about` | all | should |
 | [`P-20`](#p-20) | **Introduction** on first launch, once per install, replayable from settings About: unofficial results (`P-06`), three tabs, following a swimmer or club, attendance counting with its toggle (`C-10`) | pages 1 and 4 server text (`results_disclaimer`, `privacy_note`), rest native words (`T-05`); page 4 only while `analytics_enabled` | native | should |
-| [`P-21`](#p-21) | **Filter** the meet list by country, state/province and club (organizer), several values each; **remembered** by the app across launches and servers. Each facet lists the values the list holds; OR within a facet, AND across. Active filter → a line at the end of the list says meets are hidden, with *Clear*; filter hides every meet → own empty state with *Clear*, not `P-04`/`P-17`'s | local over `GET /meets` → `country`, `province`, `organizer`; stored pref, one per app; words native (`T-05`) | native | should |
+| [`P-21`](#p-21) | **Filter** the meet list by club (organizer), country and state/province, in that order, several values each; **remembered** by the app across launches and servers. Each facet lists the values the list holds; OR within a facet, AND across. Active filter → a line at the end of the list says meets are hidden, with *Clear*; filter hides every meet → own empty state with *Clear*, not `P-04`/`P-17`'s | local over `GET /meets` → `country`, `province`, `organizer`; stored pref, one per app; words native (`T-05`) | native | should |
 
 ### <a id="p-06"></a>P-06 — one line, always there
 
@@ -259,10 +259,11 @@ A spectator follows one region or club across a season; the list spans every poo
 the server. Search (`P-17`) answers "where is this meet"; the filter answers "show me my
 meets", every launch, without typing.
 
-- **Facets from the list.** Country (named in reader's language), state/province
-  (named in full as `P-01`, with its country; spellings of one known province — `QC`,
-  `Québec` — are one choice; only those of the chosen countries, once one is chosen), club
-  (`organizer`, compared folded as `S-09`). A stored value the list no longer holds stays
+- **Facets from the list, in this order.** Club (`organizer`, compared folded as
+  `S-09`) — the narrowest, most often a spectator's own; country (named in reader's
+  language); state/province (named in full as `P-01`, with its country; spellings of one
+  known province — `QC`, `Québec` — are one choice; only those of the chosen countries,
+  once one is chosen). A stored value the list no longer holds stays
   listed, checked, so it can be unchecked.
 - **OR within, AND across.** A meet with a facet's field empty fails that facet while
   it is active.
