@@ -170,7 +170,7 @@ def test_a_tall_svg_logo_is_capped_by_its_height(monkeypatch):
     # Millimetres, as print tools export: resvg refuses them without a DPI.
     svg = (
         b'<svg xmlns="http://www.w3.org/2000/svg" width="10mm" height="40mm">'
-        b'<rect width="5" height="5"/></svg>'
+        b'<rect width="100%" height="100%"/></svg>'
     )
     _, (app,) = _upload_logo("logo.svg", "image/svg+xml", svg, ["*/*"])
     w, h = Image.open(io.BytesIO(app["body"])).size
@@ -238,6 +238,45 @@ def test_an_unreadable_raster_logo_is_refused(monkeypatch):
     store = _logo_store(monkeypatch)
     post, _ = _upload_logo("logo.png", "image/png", b"not a png", [])
     assert b'"ok":false' in post["body"] and "picker_logo_b64" not in store
+
+
+def _png(size, box=None, mode="RGBA"):
+    """A `size` PNG, transparent but for an opaque red `box`, or opaque throughout."""
+    img = Image.new(mode, size, (0, 0, 0, 0) if box else "red")
+    if box:
+        img.paste((255, 0, 0, 255), box)
+    out = io.BytesIO()
+    img.save(out, "PNG")
+    return out.getvalue()
+
+
+def test_a_png_logo_is_cropped_to_its_visible_pixels(monkeypatch):
+    """The apps draw the logo at a fixed height; a transparent margin is dead space."""
+    _logo_store(monkeypatch)
+    _, (got,) = _upload_logo(
+        "logo.png", "image/png", _png((130, 64), (5, 4, 125, 53)), ["*/*"]
+    )
+    img = Image.open(io.BytesIO(got["body"]))
+    assert img.format == "PNG" and img.size == (120, 49)
+    assert img.getpixel((0, 0)) == (255, 0, 0, 255)
+
+
+def test_a_png_logo_without_a_margin_is_kept_byte_for_byte(monkeypatch):
+    _logo_store(monkeypatch)
+    for png in (_png((30, 20), (0, 0, 30, 20)), _png((30, 20), mode="RGB")):
+        _, (got,) = _upload_logo("logo.png", "image/png", png, ["*/*"])
+        assert got["body"] == png
+
+
+def test_an_svg_logo_s_png_copy_is_cropped(monkeypatch):
+    store = _logo_store(monkeypatch)
+    svg = (
+        b'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 100">'
+        b'<rect x="50" y="25" width="100" height="50" fill="#00f"/></svg>'
+    )
+    _, (web, app) = _upload_logo("logo.svg", "image/svg+xml", svg, [BROWSER_IMG, "*/*"])
+    assert web["body"] == svg and store["picker_logo_mime"] == "image/svg+xml"
+    assert Image.open(io.BytesIO(app["body"])).size == (512, 256)
 
 
 def test_every_isinstance_check_uses_starlette_s_upload_file():

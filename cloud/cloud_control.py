@@ -285,6 +285,29 @@ def _upright(data):
         return None
 
 
+def _trimmed(data):
+    """A PNG logo cropped to its visible pixels, or None if unreadable.
+
+    The apps draw the logo at a fixed height, so a transparent margin in the file
+    showed as dead space around it on every client. Only a still PNG with such a
+    margin is re-encoded, so every other upload is kept byte for byte.
+    """
+    try:
+        with Image.open(io.BytesIO(data)) as img:
+            if img.format != "PNG" or getattr(img, "is_animated", False):
+                return data
+            if "A" not in img.getbands() and "transparency" not in img.info:
+                return data
+            box = img.convert("RGBA").getchannel("A").getbbox()
+            if box is None or box == (0, 0, *img.size):
+                return data
+            out = io.BytesIO()
+            img.crop(box).save(out, "PNG", optimize=True)
+            return out.getvalue()
+    except (OSError, ValueError, SyntaxError, Image.DecompressionBombError):
+        return None
+
+
 def _svg_to_png(data):
     """The PNG copy of an SVG logo, or None when the SVG cannot be read.
 
@@ -1153,11 +1176,15 @@ async def route_picker_appearance(request: Request):
             creds.pop("picker_logo_png_b64", None)
             if mime == "image/svg+xml":
                 png = await run_in_threadpool(_svg_to_png, data)
+                if png is not None:
+                    png = await run_in_threadpool(_trimmed, png)
                 if png is None:
                     return {"ok": False, "error": "This SVG could not be read."}
                 creds["picker_logo_png_b64"] = base64.b64encode(png).decode()
             else:
                 data = await run_in_threadpool(_upright, data)
+                if data is not None:
+                    data = await run_in_threadpool(_trimmed, data)
                 if data is None:
                     return {"ok": False, "error": "This image could not be read."}
             creds["picker_logo_b64"] = base64.b64encode(data).decode()
