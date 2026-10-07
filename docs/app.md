@@ -643,7 +643,7 @@ hundreds.
 | `S-06` | Auto-scroll to current heat once per appearance | re-armed on foreground | all | must |
 | `S-07` | Empty state, no meet file | `mobile.no_schedule` / `mobile.no_meet` | all | must |
 | [`S-22`](#s-22) | Lane time = best one known: official result (or its status) > console time > seed. Each its own colour, official also bolder | `lane.result_time` / `result_status`, `console_time`, `seed_time` ([`api.md`](api.md) §5.8); live `results_snapshot` patches console times; colours `schedule_seed` / `_console` / `_official` (§6.1) | all | should |
-| [`S-23`](#s-23) | Official heat: tap its times → gaps to the seed, spring back after 4 s or on a second tap | `heat.official`, `lane.result_delta_seconds` / `result_delta_better` | all | could |
+| [`S-23`](#s-23) | Official or console-timed heat: tap its times or its `±` → gaps to the seed, spring back after 4 s or on a second tap | `heat.official`, `lane.result_delta_seconds` / `result_delta_better`, else `console_time` − `seed_time` | all | could |
 
 #### <a id="s-01"></a>S-01 — short on card, long aloud
 
@@ -670,12 +670,15 @@ the kind: `seed time …`, `console time …`, `official time …`, or the statu
 
 #### <a id="s-23"></a>S-23 — gap to the seed
 
-Only on `official` heats, and the whole heat at once. Gap = `result_delta_seconds`, in
-the scoreboard's delta form and colours (`delta_better` green, `delta_worse` grey). A
-status lane shows its `console_time` in the console colour instead (its status if none);
-a lane without a seed shows `NT`. Back after 4 s or a second tap. The swap is animated
-the platform's own way, instant under reduce-motion (`X-09`). A visible affordance on
-the heat says it can be tapped, and is the screen reader's action
+On `official` heats and on heats with a lane's `console_time`, the whole heat at once.
+Gap = `result_delta_seconds`; before the heat is official, a lane's `console_time` −
+`seed_time`, computed on the server's rule (hundredths, negative = better, level is not).
+Both in the scoreboard's delta form and colours (`delta_better` green, `delta_worse`
+grey). A status lane shows its `console_time` in the console colour instead (its status
+if none); a lane without a seed shows `NT`. Back after 4 s or a second tap; a heat turning
+official ends the swap. The swap is animated the platform's own way, instant under
+reduce-motion (`X-09`). A visible `±` on the heat, in the official or console colour,
+says it can be tapped, is itself a tap target, and is the screen reader's action
 (`mobile.show_seed_diff`).
 
 ### 5.2 Filtering
@@ -1050,7 +1053,8 @@ list until `A-09` says the meet is gone, then deletes it.
     to the seed); `[mobile]` strings `time_seed`, `time_console`, `time_official`,
     `seed_diff`, `show_seed_diff`, `status_dsq`, `status_dns`, `status_dnf`,
     `status_wdr`, `status_sick`.
-  - **Changed**: `S-02` (the lane's time is `S-22`'s, not always the seed).
+  - **Changed**: `S-02` (the lane's time is `S-22`'s, not always the seed); `S-23` also
+    on a console-timed heat (console − seed), and its `±` is a tap target.
 
 - **v3** (2026-10-04) — the cloud runs several workers, each holding its meets
   ([`architecture/scaling.md`](architecture/scaling.md)). `contract.app` = `v3` → `P-14`
