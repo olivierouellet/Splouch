@@ -1,9 +1,6 @@
                 <div class="tab-pane" id="tab-cloud">
                     <div class="row"><div class="col-lg-8">
-                    {# docs/app.md `P-01`: the cloud lists no meet whose dates are past. #}
-                    {% if meet_ended %}
-                    <div class="alert alert-danger py-2 px-3 small">{{ t.meet_date_past }}</div>
-                    {% endif %}
+{% include "settings/_meet_past.html" %}
                     <form id="cloud_settings_form" action="/settings" method="post">
                     <input type="hidden" name="cloud_settings_submit" value="1">
                         <div class="card mb-3"><div class="card-body">

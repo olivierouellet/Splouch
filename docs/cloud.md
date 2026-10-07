@@ -110,7 +110,8 @@ appears in the cloud's meet picker.
 Location, sport and the rest of the picker card (title, image, home icon) only show once a
 meet file is loaded. The picker lists a meet under the day of its last session, and stops
 listing it once that day is past — even with the Pi still connected. A meet file whose
-dates are past says so in red on the Pi's **Meet** and **Cloud** tabs.
+dates are past says so in red on the Pi's **Meet** and **Cloud** tabs; for 72 hours after
+its last session ends, holding **Keep listing** there keeps it on the picker until then.
 
 ---
 
@@ -608,7 +609,8 @@ s'y connecte et apparaît dans le sélecteur de compétitions du cloud. Le lieu,
 icône) n'apparaissent qu'une fois un fichier de compétition chargé. Le sélecteur range une
 compétition sous le jour de sa dernière session et ne l'affiche plus une fois ce jour passé
 — même si le Pi est toujours connecté. Un fichier de compétition dont les dates sont passées
-l'indique en rouge dans les onglets **Compétition** et **Cloud** du Pi.
+l'indique en rouge dans les onglets **Compétition** et **Cloud** du Pi ; pendant les 72 heures
+qui suivent la fin de sa dernière session, maintenir **Garder affichée** l'y garde jusque-là.
 
 ---
 

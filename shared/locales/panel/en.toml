@@ -326,28 +326,32 @@ hold_play       = "Hold to play…"
 hold_start      = "Hold to start…"
 
 # Meet Setup
-meet_howto_title     = "How to run a meet"
-meet_howto_1         = '''<strong>Splash Meet Manager</strong>: <em>File → Export → Lenex</em> → <code>.lxf</code>.'''
-meet_howto_2         = '''<strong>Add Meet File</strong> → upload <code>.lxf</code>; names live on scoreboard at once. <em>Or</em> Hytek <code>.csv</code> schedule for event names in header.'''
-meet_howto_3         = '''Scoreboard on TV: <a href="http://splouch.local/" target="_blank" rel="noopener"><code>http://splouch.local/</code></a> (Pi mDNS).'''
-meet_howto_4         = "Start timing console (or manual console) — times appear as heats run."
-meet_test_warning    = "⚠ Test running — meet upload disabled."
-meet_date_past       = "This meet's dates are past — the cloud will not list it. Load the file for an upcoming meet."
-meet_files           = "Meet Files"
-meet_no_file         = "— No file —"
-meet_add_file        = "Add Meet File"
-meet_update_file_btn = "Update File"
-meet_no_names_hint   = '''No names on scoreboard? Re-upload <code>.lxf</code> via <strong>Add Meet File</strong>.'''
-meet_update_hint     = '''<strong>Update File</strong>: replaces file, keeps cloud link. Same meet only (name + dates). Other meet → <strong>Add Meet File</strong>.'''
-pool_num_lanes       = "Number of Lanes"
-pool_lanes           = "Lanes"
-pool_length          = "Pool length"
-pool_length_hint     = "For expected splits."
-pool_touchpads       = "Touchpads"
-touchpads_both       = "Both ends"
-touchpads_one        = "One end only"
-touchpads_hint       = "One end: touch = 2 splits."
-lenex_pool_warning   = "⚠ Lenex says {lenex} m — using your {pool} m."
+meet_howto_title      = "How to run a meet"
+meet_howto_1          = '''<strong>Splash Meet Manager</strong>: <em>File → Export → Lenex</em> → <code>.lxf</code>.'''
+meet_howto_2          = '''<strong>Add Meet File</strong> → upload <code>.lxf</code>; names live on scoreboard at once. <em>Or</em> Hytek <code>.csv</code> schedule for event names in header.'''
+meet_howto_3          = '''Scoreboard on TV: <a href="http://splouch.local/" target="_blank" rel="noopener"><code>http://splouch.local/</code></a> (Pi mDNS).'''
+meet_howto_4          = "Start timing console (or manual console) — times appear as heats run."
+meet_test_warning     = "⚠ Test running — meet upload disabled."
+meet_date_past        = "This meet's dates are past — the cloud no longer lists it."
+meet_keep_listed_hint = "Hold Keep listing to show it until {until}."
+meet_keep_listed      = "Keep listing"
+hold_keep_listed      = "Hold to keep listing…"
+meet_kept_listed      = "This meet's dates are past; the cloud keeps listing it until {until}."
+meet_files            = "Meet Files"
+meet_no_file          = "— No file —"
+meet_add_file         = "Add Meet File"
+meet_update_file_btn  = "Update File"
+meet_no_names_hint    = '''No names on scoreboard? Re-upload <code>.lxf</code> via <strong>Add Meet File</strong>.'''
+meet_update_hint      = '''<strong>Update File</strong>: replaces file, keeps cloud link. Same meet only (name + dates). Other meet → <strong>Add Meet File</strong>.'''
+pool_num_lanes        = "Number of Lanes"
+pool_lanes            = "Lanes"
+pool_length           = "Pool length"
+pool_length_hint      = "For expected splits."
+pool_touchpads        = "Touchpads"
+touchpads_both        = "Both ends"
+touchpads_one         = "One end only"
+touchpads_hint        = "One end: touch = 2 splits."
+lenex_pool_warning    = "⚠ Lenex says {lenex} m — using your {pool} m."
 
 # Account
 account_user_name          = "User Name"

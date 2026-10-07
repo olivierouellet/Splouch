@@ -228,6 +228,15 @@ MIGRATIONS = [
         ALTER TABLE organizers ADD COLUMN test boolean NOT NULL DEFAULT false;
         """,
     ),
+    (
+        11,
+        """
+        -- A meet whose dates are past stays on the picker until this, when its
+        -- operator held *Keep listing* on the Pi (docs/app.md `P-01`): at most
+        -- three days past its last session.
+        ALTER TABLE meets ADD COLUMN keep_listed_until timestamptz;
+        """,
+    ),
 ]
 
 # Tables holding data, in an order TRUNCATE accepts. Tests empty these between

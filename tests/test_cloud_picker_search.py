@@ -244,3 +244,23 @@ def test_meets_come_by_date_then_city_and_a_past_one_not_at_all():
         ids["later"],
         ids["undated"],
     ]
+
+
+def test_a_past_meet_its_operator_keeps_stays_listed_and_after_its_pi_leaves():
+    """`app.md` `P-01`: held *Keep listing* on the Pi — on the picker until the keep
+    runs out, still there when the Pi disconnects."""
+    import cloud_auth
+    import cloud_registry
+
+    yesterday = (datetime.date.today() - datetime.timedelta(days=1)).isoformat()
+    keep = datetime.datetime.now(datetime.UTC) + datetime.timedelta(hours=12)
+    key = cloud_auth.add_organizer("Club")
+    cloud_registry.heartbeat("ca1", 1, [], host="https://ca1.example")
+    meta = {"name": "Kept", "meet_date": yesterday, "utc_offset_minutes": 0}
+    kept = cloud_registry.register(
+        key, "kept", {**meta, "keep_listed_until": keep.isoformat()}, "ca1", 1
+    )["meet_id"]
+    cloud_registry.register(key, "gone", {**meta, "name": "Gone"}, "ca1", 1)
+    assert [m["id"] for m in cs._public_meet_list()] == [kept]
+    cloud_registry.retire(kept, "ca1", 1)
+    assert [m["id"] for m in cs._public_meet_list()] == [kept]

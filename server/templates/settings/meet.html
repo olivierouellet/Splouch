@@ -19,10 +19,7 @@
                         </div>
                     </div>
                 </div>
-                {# docs/app.md `P-01`: the cloud lists no meet whose dates are past. #}
-                {% if meet_ended %}
-                <div class="alert alert-danger py-2 px-3 small">{{ t.meet_date_past }}</div>
-                {% endif %}
+{% include "settings/_meet_past.html" %}
                 <div id="meet-test-warning" class="alert alert-warning py-2 px-3 small" style="display:none;">
                     {{ t.meet_test_warning }}
                 </div>

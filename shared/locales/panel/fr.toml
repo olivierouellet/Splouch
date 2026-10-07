@@ -317,28 +317,32 @@ hold_play       = "Maintenir pour lire…"
 hold_start      = "Maintenir pour démarrer…"
 
 # Compétition
-meet_howto_title     = "Comment gérer une compétition"
-meet_howto_1         = '''<strong>Splash Meet Manager</strong> : <em>Fichier → Exporter → Lenex</em> → <code>.lxf</code>.'''
-meet_howto_2         = '''<strong>Ajouter un fichier</strong> → téléverser le <code>.lxf</code> ; noms affichés aussitôt. <em>Ou</em> horaire Hytek <code>.csv</code> pour les noms d'épreuves.'''
-meet_howto_3         = '''Tableau sur la télé : <a href="http://splouch.local/" target="_blank" rel="noopener"><code>http://splouch.local/</code></a> (mDNS du Pi).'''
-meet_howto_4         = "Démarrer la console de chronométrage (ou la console manuelle) — temps affichés à chaque série."
-meet_test_warning    = "⚠ Test en cours — téléversement désactivé."
-meet_date_past       = "Les dates de cette compétition sont passées — le cloud ne l'affichera pas. Chargez le fichier d'une compétition à venir."
-meet_files           = "Fichiers de compétition"
-meet_no_file         = "— Aucun fichier —"
-meet_add_file        = "Ajouter un fichier"
-meet_update_file_btn = "Mettre à jour le fichier"
-meet_no_names_hint   = '''Pas de noms au tableau ? Re-téléverser le <code>.lxf</code> via <strong>Ajouter un fichier</strong>.'''
-meet_update_hint     = '''<strong>Mettre à jour le fichier</strong> : remplace le fichier, garde le lien cloud. Même compétition seulement (nom + dates). Autre compétition → <strong>Ajouter un fichier</strong>.'''
-pool_num_lanes       = "Nombre de couloirs"
-pool_lanes           = "couloirs"
-pool_length          = "Longueur du bassin"
-pool_length_hint     = "Pour les temps de passage attendus."
-pool_touchpads       = "Plaques de touche"
-touchpads_both       = "Aux deux extrémités"
-touchpads_one        = "À une seule extrémité"
-touchpads_hint       = "Un bout : 1 touche = 2 passages."
-lenex_pool_warning   = "⚠ Lenex indique {lenex} m — votre {pool} m sera utilisé."
+meet_howto_title      = "Comment gérer une compétition"
+meet_howto_1          = '''<strong>Splash Meet Manager</strong> : <em>Fichier → Exporter → Lenex</em> → <code>.lxf</code>.'''
+meet_howto_2          = '''<strong>Ajouter un fichier</strong> → téléverser le <code>.lxf</code> ; noms affichés aussitôt. <em>Ou</em> horaire Hytek <code>.csv</code> pour les noms d'épreuves.'''
+meet_howto_3          = '''Tableau sur la télé : <a href="http://splouch.local/" target="_blank" rel="noopener"><code>http://splouch.local/</code></a> (mDNS du Pi).'''
+meet_howto_4          = "Démarrer la console de chronométrage (ou la console manuelle) — temps affichés à chaque série."
+meet_test_warning     = "⚠ Test en cours — téléversement désactivé."
+meet_date_past        = "Les dates de cette compétition sont passées — le cloud ne l'affiche plus."
+meet_keep_listed_hint = "Maintenez Garder affichée pour l'afficher jusqu'au {until}."
+meet_keep_listed      = "Garder affichée"
+hold_keep_listed      = "Maintenez pour garder…"
+meet_kept_listed      = "Les dates de cette compétition sont passées ; le cloud l'affiche jusqu'au {until}."
+meet_files            = "Fichiers de compétition"
+meet_no_file          = "— Aucun fichier —"
+meet_add_file         = "Ajouter un fichier"
+meet_update_file_btn  = "Mettre à jour le fichier"
+meet_no_names_hint    = '''Pas de noms au tableau ? Re-téléverser le <code>.lxf</code> via <strong>Ajouter un fichier</strong>.'''
+meet_update_hint      = '''<strong>Mettre à jour le fichier</strong> : remplace le fichier, garde le lien cloud. Même compétition seulement (nom + dates). Autre compétition → <strong>Ajouter un fichier</strong>.'''
+pool_num_lanes        = "Nombre de couloirs"
+pool_lanes            = "couloirs"
+pool_length           = "Longueur du bassin"
+pool_length_hint      = "Pour les temps de passage attendus."
+pool_touchpads        = "Plaques de touche"
+touchpads_both        = "Aux deux extrémités"
+touchpads_one         = "À une seule extrémité"
+touchpads_hint        = "Un bout : 1 touche = 2 passages."
+lenex_pool_warning    = "⚠ Lenex indique {lenex} m — votre {pool} m sera utilisé."
 
 # Compte
 account_user_name          = "Nom d'utilisateur"

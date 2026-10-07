@@ -1,0 +1,13 @@
+{# docs/app.md `P-01`: the cloud lists no meet whose dates are past. Within three
+   days of its end the operator may keep it listed — held, never a stray tap. #}
+{% if keep_listed_until %}
+<div class="alert alert-warning py-2 px-3 small">{{ t.meet_kept_listed | replace('{until}', keep_listed_until) }}</div>
+{% elif meet_ended %}
+<div class="alert alert-danger py-2 px-3 small d-flex flex-wrap align-items-center gap-2">
+    <span class="flex-fill">{{ t.meet_date_past }}{% if can_keep_listed %} {{ t.meet_keep_listed_hint | replace('{until}', keep_listed_deadline) }}{% endif %}</span>
+    {% if can_keep_listed %}
+    <button type="button" class="btn btn-outline-danger btn-sm" data-hold data-hold-fn="keepListedHeld"
+            data-hold-label="{{ t.hold_keep_listed }}">{{ t.meet_keep_listed }}</button>
+    {% endif %}
+</div>
+{% endif %}

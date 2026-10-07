@@ -68,6 +68,7 @@
   "cloud_relay_key": "",
   "cloud_country": "",
   "cloud_province": "",
+  "cloud_keep_listed": "",
   "meet_location": "",
   "meet_sport": "",
   "app_window_title": "",

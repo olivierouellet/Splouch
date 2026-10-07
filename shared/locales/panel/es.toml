@@ -317,28 +317,32 @@ hold_play       = "Mantén para reproducir…"
 hold_start      = "Mantén para iniciar…"
 
 # Competición
-meet_howto_title     = "Cómo gestionar una competición"
-meet_howto_1         = '''<strong>Splash Meet Manager</strong>: <em>Archivo → Exportar → Lenex</em> → <code>.lxf</code>.'''
-meet_howto_2         = '''<strong>Añadir archivo</strong> → subir el <code>.lxf</code>; nombres al instante en el marcador. <em>O</em> horario Hytek <code>.csv</code> para nombres de pruebas.'''
-meet_howto_3         = '''Marcador en la TV: <a href="http://splouch.local/" target="_blank" rel="noopener"><code>http://splouch.local/</code></a> (mDNS del Pi).'''
-meet_howto_4         = "Iniciar la consola de cronometraje (o la consola manual) — tiempos en cada serie."
-meet_test_warning    = "⚠ Prueba en curso — subida desactivada."
-meet_date_past       = "Las fechas de esta competición ya pasaron — el cloud no la mostrará. Cargue el archivo de una competición próxima."
-meet_files           = "Archivos de competición"
-meet_no_file         = "— Sin archivo —"
-meet_add_file        = "Añadir archivo"
-meet_update_file_btn = "Actualizar archivo"
-meet_no_names_hint   = '''¿Sin nombres en el marcador? Volver a subir el <code>.lxf</code> con <strong>Añadir archivo</strong>.'''
-meet_update_hint     = '''<strong>Actualizar archivo</strong>: reemplaza el archivo, mantiene el enlace cloud. Solo misma competición (nombre + fechas). Otra → <strong>Añadir archivo</strong>.'''
-pool_num_lanes       = "Número de calles"
-pool_lanes           = "calles"
-pool_length          = "Longitud de la piscina"
-pool_length_hint     = "Para los parciales esperados."
-pool_touchpads       = "Placas de toque"
-touchpads_both       = "Ambos extremos"
-touchpads_one        = "Solo un extremo"
-touchpads_hint       = "Un extremo: 1 toque = 2 parciales."
-lenex_pool_warning   = "⚠ Lenex indica {lenex} m — se usa su {pool} m."
+meet_howto_title      = "Cómo gestionar una competición"
+meet_howto_1          = '''<strong>Splash Meet Manager</strong>: <em>Archivo → Exportar → Lenex</em> → <code>.lxf</code>.'''
+meet_howto_2          = '''<strong>Añadir archivo</strong> → subir el <code>.lxf</code>; nombres al instante en el marcador. <em>O</em> horario Hytek <code>.csv</code> para nombres de pruebas.'''
+meet_howto_3          = '''Marcador en la TV: <a href="http://splouch.local/" target="_blank" rel="noopener"><code>http://splouch.local/</code></a> (mDNS del Pi).'''
+meet_howto_4          = "Iniciar la consola de cronometraje (o la consola manual) — tiempos en cada serie."
+meet_test_warning     = "⚠ Prueba en curso — subida desactivada."
+meet_date_past        = "Las fechas de esta competición ya pasaron — el cloud ya no la muestra."
+meet_keep_listed_hint = "Mantenga Seguir mostrando para mostrarla hasta el {until}."
+meet_keep_listed      = "Seguir mostrando"
+hold_keep_listed      = "Mantenga para seguir…"
+meet_kept_listed      = "Las fechas de esta competición ya pasaron; el cloud la muestra hasta el {until}."
+meet_files            = "Archivos de competición"
+meet_no_file          = "— Sin archivo —"
+meet_add_file         = "Añadir archivo"
+meet_update_file_btn  = "Actualizar archivo"
+meet_no_names_hint    = '''¿Sin nombres en el marcador? Volver a subir el <code>.lxf</code> con <strong>Añadir archivo</strong>.'''
+meet_update_hint      = '''<strong>Actualizar archivo</strong>: reemplaza el archivo, mantiene el enlace cloud. Solo misma competición (nombre + fechas). Otra → <strong>Añadir archivo</strong>.'''
+pool_num_lanes        = "Número de calles"
+pool_lanes            = "calles"
+pool_length           = "Longitud de la piscina"
+pool_length_hint      = "Para los parciales esperados."
+pool_touchpads        = "Placas de toque"
+touchpads_both        = "Ambos extremos"
+touchpads_one         = "Solo un extremo"
+touchpads_hint        = "Un extremo: 1 toque = 2 parciales."
+lenex_pool_warning    = "⚠ Lenex indica {lenex} m — se usa su {pool} m."
 
 # Cuenta
 account_user_name          = "Nombre de usuario"

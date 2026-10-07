@@ -3,6 +3,7 @@ import os
 import time
 
 from fastapi import APIRouter, Depends, Request
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 import state
@@ -169,6 +170,20 @@ def route_meet_delete(request: Request):
 
                 _relay.update_metadata()
     return redirect("/settings#tab-meet")
+
+
+@router.post("/meet_keep_listed", dependencies=[Depends(require_login)])
+def route_meet_keep_listed():
+    """Keep a meet past its dates on the cloud's picker, up to three days past its
+    end (docs/app.md `P-01`): held, so it is never done by a stray tap."""
+    import relay as _relay
+
+    if not _relay.can_keep_listed():
+        return JSONResponse({"ok": False}, status_code=409)
+    state.settings["cloud_keep_listed"] = state.meet_uid()
+    state.save_settings()
+    _relay.update_metadata()
+    return {"ok": True}
 
 
 @router.get("/meet_clear", dependencies=[Depends(require_login)])

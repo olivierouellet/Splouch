@@ -1,4 +1,3 @@
-import datetime
 import glob
 import json
 import os
@@ -94,11 +93,9 @@ def _load_meet_file(path):
     return None
 
 
-def _meet_ended():
-    """Whether the loaded meet's last session day is behind it (`app.md` `P-01`):
-    the cloud does not list it, and the Meet and Cloud tabs say so."""
-    last = relay.last_session_date()
-    return bool(last) and last < datetime.date.today().isoformat()
+def _local_time(when):
+    """`2026-10-09 17:00` — a deadline as the panel shows it; '' for none."""
+    return when.strftime("%Y-%m-%d %H:%M") if when else ""
 
 
 def _reload_same_meet(path):
@@ -867,7 +864,12 @@ def _settings_view(request, form):
         ),
         countries=COUNTRIES,
         provinces=province_choices(ui_lang),
-        meet_ended=_meet_ended(),
+        # docs/app.md `P-01`: a meet past its dates is off the cloud's picker,
+        # unless its operator keeps it a while (`/meet_keep_listed`).
+        meet_ended=relay.meet_over(),
+        can_keep_listed=relay.can_keep_listed(),
+        keep_listed_until=_local_time(relay.keep_listed_until()),
+        keep_listed_deadline=_local_time(relay.keep_listed_deadline()),
         meet_location=state.settings.get("meet_location", ""),
         meet_sport=state.settings.get("meet_sport", ""),
         cloud_label_style=state.settings.get("cloud_label_style", "short"),

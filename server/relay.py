@@ -15,6 +15,7 @@ changes, when a worker refuses the ticket, or after repeated failed connects.
 
 import base64
 import contextlib
+import datetime
 import json
 import os
 import threading
@@ -150,6 +151,9 @@ def _get_metadata():
         "sport": state.settings.get("meet_sport", ""),
         "app_window_title": state.settings.get("app_window_title", ""),
         "meet_date": last_session_date(),
+        # docs/app.md `P-01`: a meet past its dates, kept on the picker a while by
+        # its operator. The cloud holds it to three days past the last session.
+        "keep_listed_until": _keep_listed_iso(),
         # Every session day, and this Pi's UTC offset: how the cloud tells a meet
         # in progress from a Pi plugged in ahead of it, which an update may not
         # wait for (docs/architecture/scaling.md).
@@ -208,10 +212,74 @@ def _session_dates():
 
 def _utc_offset_minutes():
     """This Pi's offset from UTC right now, in minutes (DST included)."""
-    import datetime
-
     offset = datetime.datetime.now().astimezone().utcoffset()
     return int(offset.total_seconds() // 60) if offset is not None else None
+
+
+# How long past the meet's end its operator may keep it on the cloud's picker
+# (`keep_listed_until`); the cloud holds it to the same.
+KEEP_LISTED_HOURS = 72
+
+
+def meet_end():
+    """When the loaded meet ends, local time: its last session's `endtime`, else
+    the end of that day. None without session dates (a Hytek CSV)."""
+    last = last_session_date()
+    try:
+        day = datetime.date.fromisoformat(last)
+    except ValueError:
+        return None
+    ends = []
+    for s in state.meet.meet_info.get("sessions", []):
+        if s.get("date") == last:
+            with contextlib.suppress(ValueError):
+                ends.append(datetime.time.fromisoformat(s.get("endtime") or ""))
+    if ends:
+        return datetime.datetime.combine(day, max(ends))
+    return datetime.datetime.combine(
+        day + datetime.timedelta(days=1), datetime.time.min
+    )
+
+
+def meet_over(today=None):
+    """Whether the loaded meet's last session day is behind it: the cloud no
+    longer lists it (docs/app.md `P-01`). A meet is never over on its last day."""
+    last = last_session_date()
+    today = today or datetime.date.today()
+    return bool(last) and last < today.isoformat()
+
+
+def keep_listed_deadline():
+    """The latest the operator may keep the meet listed: `KEEP_LISTED_HOURS` past
+    its end. None without dates."""
+    end = meet_end()
+    return end + datetime.timedelta(hours=KEEP_LISTED_HOURS) if end else None
+
+
+def can_keep_listed(now=None):
+    """Whether *Keep listing* is offered: the meet is over, not yet kept, and still
+    within `KEEP_LISTED_HOURS` of its end."""
+    deadline = keep_listed_deadline()
+    now = now or datetime.datetime.now()
+    return meet_over() and not keep_listed_until() and bool(deadline) and now < deadline
+
+
+def keep_listed_until(now=None):
+    """Until when the operator keeps this past meet listed (local, naive), or None.
+    Held for this meet only: loading another one drops it."""
+    if (
+        not state.meet_uid()
+        or state.settings.get("cloud_keep_listed") != state.meet_uid()
+    ):
+        return None
+    deadline = keep_listed_deadline()
+    now = now or datetime.datetime.now()
+    return deadline if deadline and now < deadline else None
+
+
+def _keep_listed_iso():
+    until = keep_listed_until()
+    return until.astimezone(datetime.UTC).isoformat() if until else None
 
 
 def last_session_date():

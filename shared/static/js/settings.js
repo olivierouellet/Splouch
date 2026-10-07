@@ -159,6 +159,20 @@ document.querySelectorAll('form[action="/settings"]').forEach(function (form) {
         );
     });
 });
+// docs/app.md `P-01`: keep a meet past its dates on the cloud's picker a while.
+// Held (hold.js), then the page comes back on the tab it was held on.
+function keepListedHeld() {
+    var activeLink = document.querySelector('.app-nav .nav-link.active');
+    try {
+        localStorage.setItem(
+            'cts_tab_restore',
+            JSON.stringify({ tab: activeLink ? activeLink.getAttribute('data-target') : null }),
+        );
+    } catch (_e) {}
+    fetch('/meet_keep_listed', { method: 'POST' }).finally(function () {
+        location.reload();
+    });
+}
 function _fsubmit(f) {
     if (f.requestSubmit) f.requestSubmit();
     else f.submit();
