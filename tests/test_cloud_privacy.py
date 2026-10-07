@@ -167,3 +167,13 @@ def test_the_cloud_keeps_no_access_log():
     dockerfile = Path(os.path.join(REPO, "cloud", "Dockerfile")).read_text()
     (cmd,) = [line for line in dockerfile.splitlines() if line.startswith("CMD ")]
     assert "--no-access-log" in cmd
+
+
+@pytest.mark.parametrize("name", ["PRIVACY_OPERATOR", "PRIVACY_CONTACT"])
+def test_the_deployment_passes_the_operator_and_contact_in(name):
+    """The values live in `cloud/.env`; compose is what carries them to the app."""
+    import yaml
+
+    compose = Path(REPO, "cloud", "docker-compose.yml").read_text(encoding="utf-8")
+    env = yaml.safe_load(compose)["services"]["control"]["environment"]
+    assert env[name].startswith("${" + name)
