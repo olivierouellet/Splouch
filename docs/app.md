@@ -173,7 +173,7 @@ Entry screen. Web: site root. App: launch screen, and `A-02`'s return target.
 | [`P-17`](#p-17) | Search meet list from **3** meets, narrows as typed, own empty state; field where platform puts search | local over `GET /meets` → `name`, `meet_date`, `location`, `sport`, `organizer`, `province`, `country` (code and reader's-language name); `strings.meet_search`, `no_meets_match` | all | should |
 | `P-18` | More than **10** meets → compact rows, still under their day: name on one line, city · state/province · country codes, live dot; **no picker image**, none fetched. 10 or fewer → `P-01` cards | count of `GET /meets` → `meets` | all | should |
 | [`P-19`](#p-19) | **Settings** — one container in place of picker menu, sections in this order: Display (language `T-08`, Appearance `P-15`), Privacy (`P-07`), Server (`P-11`–`P-13`, native), About (`P-06` full text, policy link, `P-20` replay). Platform's own form: web side sheet (full height under 600px), iOS sheet with `Form`, Android full-screen settings destination | section names native in apps (`T-05`); web reads `strings.settings`, `settings_display`, `settings_privacy`, `settings_about` | all | should |
-| [`P-20`](#p-20) | **Introduction** on first launch, once per install, replayable from settings About: unofficial results (`P-06`), three tabs, following a swimmer or club, attendance counting with its toggle (`C-10`) | pages 1 and 4 server text (`results_disclaimer`, `privacy_note`), rest native words (`T-05`); page 4 only while `analytics_enabled` | native | should |
+| [`P-20`](#p-20) | **Introduction** on first launch, once per install, replayable from settings About: unofficial results (`P-06`), finding a meet, three tabs, the schedule's times, following a swimmer or club, attendance counting with its toggle (`C-10`) | first and last pages server text (`results_disclaimer`, `privacy_note`), rest native words (`T-05`); last page only while `analytics_enabled` | native | should |
 | [`P-21`](#p-21) | **Filter** the meet list by club (organizer), country and state/province, in that order, several values each; **remembered** by the app across launches and servers. Each facet lists the values the list holds; OR within a facet, AND across. Active filter → a line at the end of the list says meets are hidden, with *Clear*; filter hides every meet → own empty state with *Clear*, not `P-04`/`P-17`'s | local over `GET /meets` → `country`, `province`, `organizer`; stored pref, one per app; words native (`T-05`) | native | should |
 
 ### <a id="p-01"></a>P-01 — a day, then its meets
@@ -255,26 +255,32 @@ Android top app bar action. Closing returns to picker with list and query intact
 
 ### <a id="p-20"></a>P-20 — introduction
 
-Four short pages — icon, title, one or two sentences — paged, skippable from the
-first, ending on the picker. iOS: full-screen cover, `TabView` `.page` style; Android:
-full-screen `HorizontalPager` with dots. Not on web: a visitor arriving mid-meet from a
+Up to six short pages — icon, title, each sentence on its own line where it reads
+alone — paged, skippable from the first, ending on the picker. Each says what is on
+screen today, never what changed. iOS: full-screen cover, `TabView` `.page` style;
+Android: full-screen `HorizontalPager` with dots. Not on web: a visitor arriving mid-meet from a
 QR code needs the board, not a carousel; `P-06`'s line does the job there.
 
 1. **Unofficial results** — server's `results_disclaimer`, in full.
-2. **Three tabs** — Scoreboard (heat in the water), Results (finished heats), Schedule
+2. **Find your meet** — meets listed by day (`P-01`); the picker's filter (`P-21`)
+   by club, country or province, kept until cleared; the gear opens settings (`P-19`).
+3. **Three tabs** — Scoreboard (heat in the water), Results (finished heats), Schedule
    (start lists); swipe between them where `A-03` swipes.
-3. **Follow a swimmer or club** — Schedule's filter (`S-08`) and *All heats* (`S-16`);
+4. **Times in the schedule** — seed, then console, then official time, each its own
+   colour (`S-22`); a heat marked `±` taps to the gap to the seed (`S-23`).
+5. **Follow a swimmer or club** — Schedule's filter (`S-08`) and *All heats* (`S-16`);
    where the meet can notify, the bell (`N-01`) to be told when their heat is near.
-4. **Attendance counting** — server's `privacy_note` with `C-10`'s toggle on the page,
-   and where to find it again (settings, `P-19`). Only while `analytics_enabled`.
+6. **Attendance counting** — server's `privacy_note` with `C-10`'s toggle on the page,
+   and that it can be turned off there or in settings (`P-19`). Only while
+   `analytics_enabled`.
 
 - **Waits for the server.** Shown once `GET /picker/config` has answered, so pages 1
-  and 4 carry the server's words; no answer (offline first launch) → postponed to the
+  and 6 carry the server's words; no answer (offline first launch) → postponed to the
   next launch that gets one, never shown without them.
 - **Once per install.** Seen = stored on finish or skip. A new server's disclaimer is
   `P-06`'s line, not a second run. Replay: settings About → *Show introduction*.
 - **Not consent.** Skipping leaves counting as it was (`C-10` default); the toggle on
-  page 4 is the same setting as in `P-19`.
+  page 6 is the same setting as in `P-19`.
 
 ### <a id="p-21"></a>P-21 — the picker's own filter, remembered
 
@@ -1023,6 +1029,14 @@ list until `A-09` says the meet is gone, then deletes it.
 ---
 
 ## Changelog
+
+- **v3, amended** (2026-10-06, no bump) — introduction covers what the picker and
+  schedule now show. Native words only: no server change.
+
+  - **Changed**: `P-20` six pages: *Find your meet* (`P-01`, `P-21`, `P-19`'s gear) after
+    the disclaimer, *Times in the schedule* (`S-22`, `S-23`) after the tabs; the bell
+    placed in Schedule; the counting page says it can be turned off; a sentence per
+    line.
 
 - **v3, amended** (2026-10-06, no bump) — picker cards tidied. A client still showing
   date and sport on each card keeps working: the server only reorders and adds.
