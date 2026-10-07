@@ -264,7 +264,9 @@ def register(key, meet_uid, meta, node, worker, location=None):
             (
                 Jsonb(_dates(meta.get("session_dates"))),
                 offset,
-                _within_last_day(meta.get("meet_end"), meta.get("meet_date"), offset, 0),
+                _within_last_day(
+                    meta.get("meet_end"), meta.get("meet_date"), offset, 0
+                ),
                 _within_last_day(
                     meta.get("keep_listed_until"),
                     meta.get("meet_date"),
