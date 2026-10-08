@@ -26,7 +26,8 @@
                 {% if rollout %}
                 {% set r_text = {'scheduled': t.rollout_scheduled, 'running': t.rollout_running, 'waiting': t.rollout_waiting, 'done': t.rollout_done, 'failed': t.rollout_failed, 'stopped': t.rollout_stopped}[rollout.state] %}
                 {# The time is UTC on the server; the script below shows it in the reader's own. #}
-                <p id="rollout-state" class="small fw-semibold {{ 'text-danger' if rollout.state == 'failed' else '' }}">{{ (r_text | replace('{v}', rollout.version) | replace('{node}', rollout.note)) | e | replace('{time}', '<time class="local-time" datetime="' ~ (rollout.not_before or '') | e ~ '">' ~ (rollout.not_before or '') | e ~ '</time>') | safe }}</p>
+                {% set not_before %}<time class="local-time" datetime="{{ rollout.not_before or '' }}">{{ rollout.not_before or '' }}</time>{% endset %}
+                <p id="rollout-state" class="small fw-semibold {{ 'text-danger' if rollout.state == 'failed' else '' }}">{{ (r_text | replace('{v}', rollout.version) | replace('{node}', rollout.note)) | e | replace('{time}', not_before) | safe }}</p>
                 {% endif %}
                 <div class="d-flex flex-wrap gap-2 align-items-center">
                     <form method="post" id="rollout-form" class="d-flex flex-wrap gap-2 align-items-center m-0">
@@ -62,7 +63,8 @@
                     {% if not backup %}
                     <div class="small">{{ t.backup_none }}</div>
                     {% else %}
-                    {% set when = '<time class="local-time" datetime="' ~ backup.at | e ~ '">' ~ backup.at | e ~ '</time>' %}
+                    {# A block, not `'<time…' ~ backup.at | e`: `~` onto escaped text escapes the tag too. #}
+                    {% set when %}<time class="local-time" datetime="{{ backup.at }}">{{ backup.at }}</time>{% endset %}
                     {% if not backup.ok %}
                     <div class="small text-danger fw-semibold">{{ t.backup_failed | e | replace('{time}', when) | replace('{error}', backup.error | e) | safe }}</div>
                     {% elif backup.stale %}
