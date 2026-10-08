@@ -229,6 +229,11 @@ def deploy(version, build=False, runner=subprocess.run):
     set_env("SPLOUCH_VERSION", version)
     print(f"{count} relay worker(s), version {version}", flush=True)
 
+    # The files and parts this deploy runs, kept in .env too: a hand-typed
+    # `docker compose up -d` in cloud/ then means what it means here, instead of
+    # skipping every service behind a profile and leaving its old environment.
+    set_env("COMPOSE_FILE", cloud_workers.COMPOSE_FILES)
+    set_env("COMPOSE_PROFILES", profiles(cloud_workers.read_env()))
     env = cloud_workers.read_env()
     parts = cloud_workers.roles(env)
     ours = [

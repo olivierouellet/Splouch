@@ -1549,7 +1549,7 @@ PYEOF
     echo -e "  Logs         : ${BOLD}cd $CLOUD_DIR && docker compose logs -f${NC}"
     _final_domain=$(sed -n 's/^SPLOUCH_DOMAIN=//p' "$CLOUD_DIR/.env" | tail -1)
     echo -e "  Admin UI     : ${BOLD}https://${_final_domain}/admin${NC}"
-    echo -e "  Update       : ${BOLD}Update button in /admin${NC}  (or: cd $INSTALL_DIR && git pull && cd cloud && docker compose up -d --build)"
+    echo -e "  Update       : ${BOLD}Update button in /admin${NC}  (or: cd $INSTALL_DIR && git pull && cd cloud && python3 cloud_deploy.py master)"
     echo
     echo
 fi

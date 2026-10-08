@@ -141,6 +141,15 @@ def test_the_worker_set_is_sized_on_every_deploy(box):
     assert sorted(services) == ["app", "app2"]
 
 
+def test_a_bare_compose_command_gets_the_deploys_files_and_parts(box):
+    box.write_text(box.read_text() + "ROLES=workers\n")
+    run, _ = runner()
+    cloud_deploy.deploy("master", runner=run)
+    lines = box.read_text().splitlines()
+    assert f"COMPOSE_FILE={cloud_workers.COMPOSE_FILES}" in lines
+    assert "COMPOSE_PROFILES=workers" in lines
+
+
 def test_the_version_replaces_the_old_line(box):
     cloud_deploy.set_env("SPLOUCH_VERSION", "a")
     cloud_deploy.set_env("SPLOUCH_VERSION", "b")
