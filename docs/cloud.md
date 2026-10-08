@@ -237,7 +237,9 @@ On **every node**, put the two key files in the data volume, add the settings to
 
 Each key file is created by pasting its content: run the command from `cloud/`, paste,
 then press Enter and Ctrl-D. It runs as the app's user, so the app can read the file
-straight away; the app looks for the files each time it sends.
+straight away; the app looks for the files each time it sends. Running it again replaces
+the file. Each block's second command checks the file without printing the key (`cat`
+would put it in your terminal's scrollback).
 
 **iOS (APNs).** Apple Developer → Certificates, Identifiers & Profiles → Keys → a key with
 Apple Push Notifications service. The `.p8` downloads only once; the Key ID is shown with
@@ -245,6 +247,8 @@ the key, the Team ID under Membership details. One key serves the sandbox and pr
 
 ```bash
 docker compose exec -u 10001 app sh -c 'umask 077 && cat > /data/apns.p8'
+# Check: its BEGIN and END PRIVATE KEY lines
+docker compose exec -u 10001 app sh -c 'head -1 /data/apns.p8; tail -1 /data/apns.p8'
 ```
 
 ```ini
@@ -259,6 +263,8 @@ private key.
 
 ```bash
 docker compose exec -u 10001 app sh -c 'umask 077 && cat > /data/fcm.json'
+# Check: its Firebase project and service account
+docker compose exec -u 10001 app python -c "import json; d=json.load(open('/data/fcm.json')); print(d['project_id'], d['client_email'])"
 ```
 
 ```ini
@@ -269,6 +275,7 @@ Then, for the settings to take effect (or **Update** in /admin):
 
 ```bash
 docker compose up -d
+docker compose exec app ls -l /data/apns.p8 /data/fcm.json   # owner and permissions
 ```
 
 Check in **/admin → Nodes**: the **Push** column shows `APNs ✓` and `FCM ✓` once the node
@@ -785,7 +792,9 @@ cloche à ses téléphones.
 
 Chaque fichier de clé se crée en collant son contenu : lancez la commande depuis `cloud/`,
 collez, puis Entrée et Ctrl-D. Elle s'exécute sous l'utilisateur de l'application, qui peut
-donc lire le fichier tout de suite ; l'application cherche les fichiers à chaque envoi.
+donc lire le fichier tout de suite ; l'application cherche les fichiers à chaque envoi. La
+relancer remplace le fichier. La seconde commande de chaque bloc vérifie le fichier sans
+afficher la clé (`cat` la laisserait dans l'historique du terminal).
 
 **iOS (APNs).** Apple Developer → Certificates, Identifiers & Profiles → Keys → une clé avec
 Apple Push Notifications service. Le `.p8` ne se télécharge qu'une fois ; le Key ID est
@@ -794,6 +803,8 @@ et la production.
 
 ```bash
 docker compose exec -u 10001 app sh -c 'umask 077 && cat > /data/apns.p8'
+# Vérification : ses lignes BEGIN et END PRIVATE KEY
+docker compose exec -u 10001 app sh -c 'head -1 /data/apns.p8; tail -1 /data/apns.p8'
 ```
 
 ```ini
@@ -808,6 +819,8 @@ une clé privée.
 
 ```bash
 docker compose exec -u 10001 app sh -c 'umask 077 && cat > /data/fcm.json'
+# Vérification : son projet Firebase et son compte de service
+docker compose exec -u 10001 app python -c "import json; d=json.load(open('/data/fcm.json')); print(d['project_id'], d['client_email'])"
 ```
 
 ```ini
@@ -818,6 +831,7 @@ Puis, pour que les réglages s'appliquent (ou **Mettre à jour** dans /admin) :
 
 ```bash
 docker compose up -d
+docker compose exec app ls -l /data/apns.p8 /data/fcm.json   # propriétaire et droits
 ```
 
 Vérifiez dans **/admin → Nœuds** : la colonne **Notifications** affiche `APNs ✓` et
