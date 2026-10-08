@@ -208,7 +208,7 @@ def register_meta(meet, key, ticket):
             "show_delta": True,
             "show_position": True,
             "show_laps": True,
-            "lap_direction": "up",
+            "lap_direction": "down",
             "theme_colors": dict(DEFAULT_THEME_COLORS),
             "theme_fonts": dict(DEFAULT_THEME_FONTS),
             "locale": lang,
