@@ -232,24 +232,43 @@ when it is on the console ([`app.md`](app.md) §10). Each node sends for the mee
 carries, straight to Apple (APNs) and Google (Firebase Cloud Messaging); nothing goes
 through the control plane. A node with neither configured simply shows no bell in the apps.
 
-Add to `cloud/.env` on **every node**, put the two key files in the data volume, then
-**Update**:
+On **every node**, put the two key files in the data volume, add the settings to
+`cloud/.env`, then restart. A platform left unconfigured offers its phones no bell.
+
+Each key file is created by pasting its content: run the command from `cloud/`, paste,
+then press Enter and Ctrl-D. It runs as the app's user, so the app can read the file
+straight away; the app looks for the files each time it sends.
+
+**iOS (APNs).** Apple Developer → Certificates, Identifiers & Profiles → Keys → a key with
+Apple Push Notifications service. The `.p8` downloads only once; the Key ID is shown with
+the key, the Team ID under Membership details. One key serves the sandbox and production.
+
+```bash
+docker compose exec -u 10001 app sh -c 'umask 077 && cat > /data/apns.p8'
+```
 
 ```ini
-# Apple: Certificates, Identifiers & Profiles → Keys → a key with Apple Push
-# Notifications service. One key serves the sandbox and production.
 APNS_KEY_ID=ABC123DEFG
 APNS_TEAM_ID=TEAM123456
 APNS_TOPIC=app.splouch.ios        # the iOS app's bundle id (the default)
-# Firebase console → Project settings → Service accounts → Generate new private key.
-# The paths are inside the container; these are the defaults.
-APNS_KEY_FILE=/data/apns.p8
-FCM_SERVICE_ACCOUNT_FILE=/data/fcm.json
+APNS_KEY_FILE=/data/apns.p8       # inside the container (the default)
 ```
 
+**Android (FCM).** Firebase console → Project settings → Service accounts → Generate new
+private key.
+
 ```bash
-docker compose cp AuthKey_ABC123DEFG.p8 app:/data/apns.p8
-docker compose cp splouch-firebase.json app:/data/fcm.json
+docker compose exec -u 10001 app sh -c 'umask 077 && cat > /data/fcm.json'
+```
+
+```ini
+FCM_SERVICE_ACCOUNT_FILE=/data/fcm.json   # inside the container (the default)
+```
+
+Then, for the settings to take effect (or **Update** in /admin):
+
+```bash
+docker compose up -d
 ```
 
 Check in **/admin → Nodes**: the **Push** column shows `APNs ✓` and `FCM ✓` once the node
@@ -760,24 +779,45 @@ pour les compétitions qu'il porte, directement à Apple (APNs) et à Google (Fi
 Messaging) ; rien ne passe par le plan de contrôle. Un nœud sans ni l'un ni l'autre
 n'affiche simplement pas de cloche dans les applications.
 
-Ajoutez à `cloud/.env` sur **chaque nœud**, déposez les deux fichiers de clé dans le volume
-de données, puis **Mettre à jour** :
+Sur **chaque nœud**, déposez les deux fichiers de clé dans le volume de données, ajoutez
+les réglages à `cloud/.env`, puis redémarrez. Une plateforme non configurée n'offre pas de
+cloche à ses téléphones.
+
+Chaque fichier de clé se crée en collant son contenu : lancez la commande depuis `cloud/`,
+collez, puis Entrée et Ctrl-D. Elle s'exécute sous l'utilisateur de l'application, qui peut
+donc lire le fichier tout de suite ; l'application cherche les fichiers à chaque envoi.
+
+**iOS (APNs).** Apple Developer → Certificates, Identifiers & Profiles → Keys → une clé avec
+Apple Push Notifications service. Le `.p8` ne se télécharge qu'une fois ; le Key ID est
+affiché avec la clé, le Team ID sous Membership details. Une seule clé sert le bac à sable
+et la production.
+
+```bash
+docker compose exec -u 10001 app sh -c 'umask 077 && cat > /data/apns.p8'
+```
 
 ```ini
-# Apple : Certificates, Identifiers & Profiles → Keys → une clé avec Apple Push
-# Notifications service. Une seule clé sert le bac à sable et la production.
 APNS_KEY_ID=ABC123DEFG
 APNS_TEAM_ID=TEAM123456
 APNS_TOPIC=app.splouch.ios        # l'identifiant de l'app iOS (par défaut)
-# Console Firebase → Paramètres du projet → Comptes de service → Générer une clé privée.
-# Chemins dans le conteneur ; ce sont les valeurs par défaut.
-APNS_KEY_FILE=/data/apns.p8
-FCM_SERVICE_ACCOUNT_FILE=/data/fcm.json
+APNS_KEY_FILE=/data/apns.p8       # dans le conteneur (par défaut)
 ```
 
+**Android (FCM).** Console Firebase → Paramètres du projet → Comptes de service → Générer
+une clé privée.
+
 ```bash
-docker compose cp AuthKey_ABC123DEFG.p8 app:/data/apns.p8
-docker compose cp splouch-firebase.json app:/data/fcm.json
+docker compose exec -u 10001 app sh -c 'umask 077 && cat > /data/fcm.json'
+```
+
+```ini
+FCM_SERVICE_ACCOUNT_FILE=/data/fcm.json   # dans le conteneur (par défaut)
+```
+
+Puis, pour que les réglages s'appliquent (ou **Mettre à jour** dans /admin) :
+
+```bash
+docker compose up -d
 ```
 
 Vérifiez dans **/admin → Nœuds** : la colonne **Notifications** affiche `APNs ✓` et
