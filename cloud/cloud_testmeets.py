@@ -49,6 +49,9 @@ CONSOLE_ONLY = (1, 2)
 # One validated lane in this many is a disqualification instead of a time.
 DSQ_ONE_IN = 25
 PING_SECS = 20
+# The days the meets are spread over, from today: meet 1 today, 2 tomorrow, 3 the
+# day after, 4 today again… so the picker lists two or three days of them.
+DAYS = 3
 
 # (distance, stroke, heats, the fastest seed in seconds). Named by distance and
 # stroke alone — "50 m libre" — with no gender or age group.
@@ -102,8 +105,10 @@ def _delta(final, seed):
 
 
 def build_meet(index, today=None):
-    """Test meet `index` (1-based): the same swimmers and seeds every time."""
+    """Test meet `index` (1-based): the same swimmers and seeds every time, on
+    today or one of the next `DAYS - 1` days."""
     today = today or datetime.date.today()
+    day = today + datetime.timedelta(days=(index - 1) % DAYS)
     rng = random.Random(index)
     lang = _LANGS[(index - 1) % len(_LANGS)]
     team = _TEAMS[(index - 1) % len(_TEAMS)]
@@ -153,10 +158,10 @@ def build_meet(index, today=None):
         "team": team,
         "location": _PLACES[(index - 1) % len(_PLACES)],
         "lang": lang,
-        "date": today.isoformat(),
+        "date": day.isoformat(),
         "events": events,
     }
-    retime(meet, datetime.datetime.combine(today, datetime.time(9, 0)))
+    retime(meet, datetime.datetime.combine(day, datetime.time(9, 0)))
     return meet
 
 

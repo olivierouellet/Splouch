@@ -138,8 +138,10 @@ about every 17 minutes. Validated results follow one or two heats behind, so the
 always shows official times (the odd DSQ among them), then one or two heats of console
 times, then seed times. Each is named after a team in its own language — *Dolphins*,
 *Requins*, *Pulpos* — with that team's logo on its card (`static/img/test_meet/`). They
-are listed on the picker like any meet, with a **TEST** badge (`"test": true` in
-`GET /meets`), under an organizer of their own that the Organizers tab does not show.
+are dated over today and the next two days (meet 1 today, 2 tomorrow, 3 the day after, 4
+today again…) and listed on the picker like any meet, with a **TEST** badge
+(`"test": true` in `GET /meets`), under an organizer of their own that the Organizers tab
+does not show.
 
 - They are run by the control plane as relay clients, through `/api/assign` and
   `/ws/relay` like a Pi, so they land on whichever node and worker the registry picks.

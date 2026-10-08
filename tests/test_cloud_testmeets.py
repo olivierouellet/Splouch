@@ -52,6 +52,18 @@ def test_a_meet_is_the_same_every_time():
     assert tm.build_meet(3, day)["uid"] != tm.build_meet(4, day)["uid"]
 
 
+def test_meets_are_spread_over_three_days():
+    day = datetime.date(2026, 10, 6)
+    dates = [tm.build_meet(i, day)["date"] for i in range(1, 6)]
+    assert dates == [
+        "2026-10-06",
+        "2026-10-07",
+        "2026-10-08",
+        "2026-10-06",
+        "2026-10-07",
+    ]
+
+
 @pytest.mark.parametrize("index", range(1, tm.MAX_MEETS + 1))
 def test_every_board_frame_is_one_a_pi_could_send(index):
     meet = tm.build_meet(index)
