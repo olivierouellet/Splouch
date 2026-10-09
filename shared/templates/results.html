@@ -43,11 +43,13 @@ var SHOW_PODIUM = {{ show_podium | default(true, true) | tojson }};
 function showWaiting() { document.body.classList.remove('has-results'); }
 
 /* Empty one row. `lane` is what its number cell should read — its own lane in lane
-   mode, an em dash when the list is a ranking and this position was never filled.
+   mode, nothing when the list is a ranking and this position was never filled: that
+   row is no lane at all, and its still water (`L-25`) says so without a dash.
    The place cell stays empty rather than taking a dash: an unplaced swimmer has no
    rank to stand in for, and the `#` would come with it (`R-07`). */
 function blankRow(i, lane) {
     var tr = document.getElementById('row' + i);
+    unfilled_rank[i] = lane === '';
     if (tr) tr.classList.remove('podium-gold', 'podium-silver', 'podium-bronze');
     document.getElementById('lane_num'     + i).textContent = lane;
     document.getElementById('lane_name'    + i).textContent = '';
@@ -93,6 +95,7 @@ function renderResults(d) {
         var r  = byRow[i];
         var tr = document.getElementById('row' + i);
         if (r) {
+            unfilled_rank[i] = false;
             /* Toggle only the podium classes — the row keeps its base striping
                class, which also carries its font size. */
             if (tr) tr.classList.remove('podium-gold', 'podium-silver', 'podium-bronze');
@@ -112,7 +115,7 @@ function renderResults(d) {
             document.getElementById('lane_delta'   + i).innerHTML   = safeDeltaHtml(r.delta);
             setLanePlace(i, r.place || '');
         } else {
-            blankRow(i, laneMode ? i : '—');
+            blankRow(i, laneMode ? i : '');
         }
     }
     document.body.classList.add('has-results');

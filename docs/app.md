@@ -493,7 +493,8 @@ Live lane state during a heat. Busiest screen, most worth getting right.
 | `L-06` | Relay members on dimmed second line under name | `lane_name_alt<i>` | all | must |
 | `L-07` | Column visibility per config: `show_name`, `show_club`, `show_delta`, `show_position` | meet `settings` | all | must |
 | `L-08` | Column *headers* hide independently: `show_*_header` | meet `settings` | all | should |
-| `L-09` | Empty lanes blank in place — rows never collapse/shift | — | all | must |
+| `L-09` | Empty lanes keep their row in place — rows never collapse/shift; drawn per `L-25` | — | all | must |
+| `L-25` | Empty lane = **still water**: lane number, then one faint wave across the rest of the row, fading at both ends, drifting a wavelength every **10 s** on the wall clock (empty lanes move as one). Reduced motion → still. Never on the lane number (`L-12` pulses there). Empty = no name, alt, club, time, delta, place, not running; and only when another lane in the heat has a name — a feed with no names claims nothing | `lane_*<i>`, `lane_running<i>`; Results: no result for the row | all | should |
 | `L-10` | Frames partial: merge changed keys, never replace | `update_scoreboard` (§5.1) | all | must |
 | `L-11` | Running lane time styled distinctly; on stop, one-shot "locked" transition, cancelled if runs again — tells a live clock from a frozen split | `lane_running<i>` false-edge | all | **must** |
 | [`L-12`](#l-12) | Every running lane shows **race clock**: one value per heat, server re-based, device ticked | `running_time` + `lane_running<i>` + `meet_live` | all | **must** |
@@ -637,9 +638,9 @@ Absent for meet without timing console (`A-11`); below applies where it exists.
 | `R-02` | Disconnect or `meet_live` false **wipes board** back to that state | `disconnect`, `meet_live` | all | must |
 | `R-03` | Header shows snapshot's own event, heat, event name | `results_snapshot` | all | must |
 | `R-04` | Same six columns + visibility flags as Scoreboard | shared config | all | must |
-| `R-05` | **Lane sort**: row index = `channel`; lane w/o final time → blank row | `sort == "lane"`, or `sort` absent | all | must |
-| `R-06` | **Place sort**: rows fill top-down as ranking | `sort == "place"` | all | must |
-| `R-07` | Missing time → `—`, not blank; missing **place** → empty, no dash, no `#` | — | all | should |
+| `R-05` | **Lane sort**: row index = `channel`; lane w/o final time → its number and still water (`L-25`) | `sort == "lane"`, or `sort` absent | all | must |
+| `R-06` | **Place sort**: rows fill top-down as ranking; unfilled ranks → no lane number, no dash, still water (`L-25`) | `sort == "place"` | all | must |
+| `R-07` | A result missing its time → `—`, not blank; missing **place** → empty, no dash, no `#`. A row with no result is `L-25`, not `—` | — | all | should |
 | [`R-08`](#l-17) | Long names shrink, don't clip — as `L-17` | — | all | should |
 | `R-09` | Final times get "locked" styling | `r.time` non-empty | all | should |
 | `R-10` | Tab return re-joins meet, reconnecting first if needed | web: `on_tab_shown` | all | must |
@@ -912,7 +913,7 @@ including its known shortfall.
 
 | ID | Feature | Driven by | Scope | Level |
 | --- | --- | --- | --- | --- |
-| `X-01` | Board lane = **one** a11y element, whole lane in server's column words; empty lane says only number. Lap count (`L-23`, no column word) spoken *Laps 4*, never a bare number heard as a second time | `labels` (`T-04`); laps: `[mobile] spoken_laps` (`T-05`) | all | must |
+| `X-01` | Board lane = **one** a11y element, whole lane in server's column words; empty lane (`L-25`) says only number, unfilled rank (`R-06`) nothing. Lap count (`L-23`, no column word) spoken *Laps 4*, never a bare number heard as a second time | `labels` (`T-04`); laps: `[mobile] spoken_laps` (`T-05`) | all | must |
 | `X-02` | EVENT, HEAT words + numbers read as one each; silent before number arrives | — | all | must |
 | `X-03` | Start-list lane = one utterance, same words, seed time incl.; heat heading = one utterance in **long** words (`S-01`) | `labels` | all | should |
 | `X-04` | Heat headings, picker title, every empty-state title are headings → jump heat to heat | — | all | should |
@@ -1054,6 +1055,14 @@ environment, since a sandbox token is dead against production.
 ---
 
 ## Changelog
+
+- **v3, amended** (2026-10-09, no bump) — empty lanes. Drawing only: no server or
+  string change, and a client without it keeps its blank row.
+
+  - **Added**: `L-25` (empty lane as still water).
+  - **Changed**: `L-09` (drawn per `L-25`), `R-05`/`R-07` (a lane with no result is
+    still water, not `—`), `R-06` (unfilled rank: no lane number, no dash), `X-01`
+    (unfilled rank says nothing).
 
 - **v3, amended** (2026-10-07, no bump) — support token. Native only; a client without
   it simply has no long press, and the admin's test send has nothing to paste.

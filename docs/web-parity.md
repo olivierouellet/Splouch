@@ -71,6 +71,7 @@ from; the `diverges` rows are where v2 moved past them.
 | `L-17` | `done` | `scrollWidth`/`clientWidth` ratio, gated on `lane_name` frames |
 | `L-18`–`L-22` | `n/a` | not on a phone (`app.md`) |
 | `L-23` | `done` | `SHOW_LAPS`, `lane_splits_n` in `scoreboard_base.html` |
+| `L-25` | `done` | `markStillWater` in `scoreboard_base.html`, from the cells after every change (called by `speakBoard`); the wave is a CSS mask on the lane cell's `::after`, not the row's — Chrome makes a `<tr>` pseudo-element one more table column. `prefers-reduced-motion` stills it. `tests/test_still_water.py` |
 | `L-24` | `done` | steps 2–4 in `fitCompactBoard` (`scoreboard_base.html`): the relay line goes, then the rows shrink to 0.72× at most, then the board scrolls. Step 1 is n/a — no top bar to take the header |
 
 ## 4. Results tab
@@ -78,7 +79,7 @@ from; the `diverges` rows are where v2 moved past them.
 | ID | Status | Notes |
 | --- | --- | --- |
 | `R-01` | `done` | the line replaces the table until a snapshot (`body.has-results`), in both orientations; `R-02`'s wipe brings it back |
-| `R-02`–`R-10` | `done` | |
+| `R-02`–`R-10` | `done` | `R-06`: `blankRow(i, '')` for an unfilled rank; `R-05`/`R-07`: the `—` stays in the cell under the water, its text transparent (`L-25`) |
 
 ## 5. Schedule tab
 

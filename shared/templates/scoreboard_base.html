@@ -118,6 +118,50 @@
     50%       { color: var(--color-time); }
 }
 .lane-pulsing { animation: lane-pulse 1s ease-in-out infinite; }
+/* ── An empty lane (docs/app.md `L-25`) ──
+   The surface of water nobody is swimming in: one faint wave across the row after
+   the lane number, fading out at both ends, drifting a wavelength every ten
+   seconds — slow enough to sit under the eye rather than catch it. The wave is a
+   mask over a gradient, so the colour and the fade stay theme tokens and the tile
+   stays one shape. `--still-delay` is set off the wall clock when a row empties,
+   so lanes that emptied at different moments still move as one surface. Not the
+   lane number: that already pulses for a lane waiting on its clock (`L-12`).
+   `markStillWater` decides which rows.
+
+   The wave hangs off the lane number's cell, not the row: Chrome lays a
+   pseudo-element on a `<tr>` out as one more table column, which took a fifth of
+   the board's width from every row of the full table. The other cells stay, with
+   their stripes, and only their text goes, so the Results tab's `—` never shows
+   through. The row is the whole board's width, so the wave runs to the window's
+   edge less the lane column (`--still-left`) and an end margin. */
+@keyframes still-water {
+    from { -webkit-mask-position: 0 50%;      mask-position: 0 50%; }
+    to   { -webkit-mask-position: 2.6em 50%;  mask-position: 2.6em 50%; }
+}
+tr.still-water { --still-left: 6vw; --still-right: 0.8vw; }
+tr.still-water > td:not(:first-child),
+tr.still-water > td:not(:first-child) * { color: transparent; }
+tr.still-water > td:first-child { position: relative; overflow: visible; }
+tr.still-water > td:first-child::after {
+    content: '';
+    position: absolute;
+    top: 0; bottom: 0; left: 100%;
+    width: calc(100vw - var(--still-left) - var(--still-right));
+    opacity: 0.35;
+    background: linear-gradient(to right, transparent, var(--color-th-text) 15%,
+                                var(--color-th-text) 85%, transparent);
+    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 8'%3E%3Cpath d='M0 4Q10 -1 20 4T40 4' fill='none' stroke='black' stroke-width='1.2'/%3E%3C/svg%3E") 0 50% / 2.6em 0.52em repeat-x;
+            mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 8'%3E%3Cpath d='M0 4Q10 -1 20 4T40 4' fill='none' stroke='black' stroke-width='1.2'/%3E%3C/svg%3E") 0 50% / 2.6em 0.52em repeat-x;
+    animation: still-water 10s linear infinite;
+    animation-delay: var(--still-delay, 0s);
+    pointer-events: none;
+}
+@media (max-width: 599px) {
+    tr.still-water { --still-left: 9vw; --still-right: 1.5vw; }
+}
+@media (prefers-reduced-motion: reduce) {
+    tr.still-water > td:first-child::after { animation: none; }
+}
 /* The lap count's own colour lives in `timing_display.css`, beside the delta rules
    it shares a cell with — the kiosk renders the same thing and the two must not
    drift. */
@@ -215,6 +259,9 @@ var SPOKEN = {{ {
     'laps': (t | default({})).spoken_laps or 'Laps',
 } | tojson }};
 var _spoken_at = 0;
+/* Rows of a place-ordered Results list that no result reached (`R-06`): the
+   Results tab sets it, the live board never does. */
+var unfilled_rank = {};
 function cellText(id) {
     var e = document.getElementById(id);
     return e ? String(e.textContent || '').trim() : '';
@@ -222,7 +269,9 @@ function cellText(id) {
 function speakLane(i) {
     var li = document.getElementById('spoken_lane' + i);
     if (!li) return;
-    var parts = [SPOKEN.lane + ' ' + (cellText('lane_num' + i) || i)];
+    /* An unfilled rank in place order has no lane, and says nothing (`R-06`). */
+    var num = cellText('lane_num' + i) || (unfilled_rank[i] ? '' : String(i));
+    var parts = num ? [SPOKEN.lane + ' ' + num] : [];
     var name = cellText('lane_name' + i), alt = cellText('lane_name_alt' + i);
     var club = cellText('lane_club' + i), time = cellText('lane_time' + i);
     var delta = cellText('lane_delta' + i), place = cellText('lane_place' + i);
@@ -240,7 +289,33 @@ function speakLane(i) {
     var text = parts.join(', ');
     if (li.textContent !== text) li.textContent = text;
 }
+/* `L-25`: which rows are still water, rebuilt from the cells after every change
+   like the spoken board below. A lane is empty with nothing in any cell and not
+   running — a running lane with no name yet is a swimmer. And a lane only reads
+   as empty against lanes that are not: a console that sends no names leaves every
+   lane bare, and still water there would be a claim the board cannot make. */
+var STILL_WATER_PERIOD_MS = 10000;
+function markStillWater() {
+    var named = false, i;
+    for (i = 1; i <= NUM_LANES; i++) if (cellText('lane_name' + i)) { named = true; break; }
+    for (i = 1; i <= NUM_LANES; i++) {
+        var row = document.getElementById('row' + i);
+        if (!row) continue;
+        var time = cellText('lane_time' + i);
+        var vacant = named && !lane_running[i] &&
+            !cellText('lane_name' + i) && !cellText('lane_name_alt' + i) &&
+            !cellText('lane_club' + i) && (!time || time === '—') &&
+            !cellText('lane_delta' + i) && !cellText('lane_place' + i);
+        if (vacant === row.classList.contains('still-water')) continue;
+        if (vacant) {
+            row.style.setProperty('--still-delay',
+                -(Date.now() % STILL_WATER_PERIOD_MS) / 1000 + 's');
+        }
+        row.classList.toggle('still-water', vacant);
+    }
+}
 function speakBoard() {
+    markStillWater();
     _spoken_at = performance.now();
     for (var i = 1; i <= NUM_LANES; i++) speakLane(i);
     var ev = cellText('current_event'), ht = cellText('current_heat');
