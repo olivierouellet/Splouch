@@ -918,6 +918,11 @@
         function renderTestMeets(d) {
             const rows = document.getElementById('test-rows');
             if (!rows) return;
+            if (d.options) {
+                document.getElementById('test-full-lanes').checked = d.options.full_lanes;
+                document.getElementById('test-lap-direction').value = d.options.lap_direction;
+                document.getElementById('test-results-sort').value = d.options.results_sort;
+            }
             rows.replaceChildren();
             if (!d.running.length) {
                 const td = rows.insertRow().insertCell();
@@ -938,8 +943,14 @@
         }
 
         function loadTestMeets() {
-            fetch('/admin/test').then(r => r.json()).then(renderTestMeets).catch(() => {});
+            fetch('/admin/test').then(r => r.json()).then(d => {
+                // The poll keeps the rows fresh; the options are the admin's to edit.
+                if (_testOptionsLoaded) delete d.options;
+                _testOptionsLoaded = true;
+                renderTestMeets(d);
+            }).catch(() => {});
         }
+        let _testOptionsLoaded = false;
 
         function testMeets(action) {
             const status = document.getElementById('test-status');
@@ -947,7 +958,12 @@
             fetch('/admin/test/' + action, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ count }),
+                body: JSON.stringify({
+                    count,
+                    full_lanes: document.getElementById('test-full-lanes').checked,
+                    lap_direction: document.getElementById('test-lap-direction').value,
+                    results_sort: document.getElementById('test-results-sort').value,
+                }),
             })
                 .then(r => r.json().then(d => ({ ok: r.ok, d })))
                 .then(({ ok, d }) => {

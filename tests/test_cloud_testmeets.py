@@ -119,6 +119,41 @@ def test_the_last_results_snapshot_has_every_lane_by_place():
         assert r["delta_better"] == (r["delta_seconds"] < 0)
 
 
+def test_results_by_lane_keep_lane_order():
+    frames = list(tm.heat_frames(tm.build_meet(1), 0, random.Random(1), sort="lane"))
+    snaps = [d for _, e, d in frames if e == "results_snapshot"]
+    assert all(s["sort"] == "lane" for s in snaps)
+    for s in snaps:
+        lanes = [r["channel"] for r in s["lanes"]]
+        assert lanes == sorted(lanes)
+
+
+def test_a_short_first_heat_unless_every_lane_is_filled():
+    day = datetime.date(2026, 10, 6)
+    short = tm.build_meet(1, day)["events"][0]["heats"][1]
+    full = tm.build_meet(1, day, full_lanes=True)
+    assert 1 not in short and tm.LANES not in short
+    for e in full["events"]:
+        for lanes in e["heats"].values():
+            assert sorted(lanes) == list(range(1, tm.LANES + 1))
+
+
+def test_register_carries_the_lap_direction():
+    meet = tm.build_meet(1)
+    assert tm.register_meta(meet, "k", "t")["settings"]["lap_direction"] == "down"
+    up = tm.register_meta(meet, "k", "t", "up")
+    assert up["settings"]["lap_direction"] == "up"
+
+
+def test_options_fall_back_to_their_defaults():
+    assert tm.options() == tm.OPTIONS
+    assert tm.options({"lap_direction": "sideways", "full_lanes": 1, "x": 2}) == (
+        tm.OPTIONS
+    )
+    picked = {"full_lanes": True, "lap_direction": "up", "results_sort": "lane"}
+    assert tm.options(picked) == picked
+
+
 def test_next_heats_are_the_heats_after_this_one():
     meet = tm.build_meet(1)
     data = _frames(meet, at=0)[0][2]
@@ -298,6 +333,12 @@ def test_start_caps_the_count_and_stop_ends_every_meet():
         assert len(runner.status()) == tm.MAX_MEETS
         runner.start(2)
         assert [m["index"] for m in runner.status()] == [1, 2]
+        before = dict(runner.tasks)
+        runner.start(2)
+        assert runner.tasks == before  # same options: left running
+        runner.start(2, {"results_sort": "lane"})
+        assert runner.options["results_sort"] == "lane"
+        assert all(runner.tasks[i] is not before[i] for i in before)
         await runner.stop()
         return runner.status()
 
@@ -387,3 +428,12 @@ def test_the_wanted_count_survives(test_key):
     assert reg.test_meets_wanted() == 0
     reg.set_test_meets_wanted(5)
     assert reg.test_meets_wanted() == 5
+    assert reg.test_meets_options() == {}
+    reg.set_test_meets_options({"full_lanes": True})
+    assert reg.test_meets_options() == {"full_lanes": True}
+
+
+def test_the_admin_form_defaults_are_the_options():
+    import cloud_control
+
+    assert cloud_control.TestMeetsIn().model_dump(exclude={"count"}) == tm.OPTIONS

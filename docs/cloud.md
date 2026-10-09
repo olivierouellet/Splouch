@@ -148,6 +148,11 @@ does not show.
 - Following a swimmer sends real pushes when push is configured; each pass starts clean,
   so the next one notifies again.
 - They keep running across a restart of the control plane. A rollout never waits for them.
+- Three options apply on **Start** and restart the meets already running: **Fill every
+  lane** (otherwise each event's first heat leaves the outside lanes empty), **Laps**
+  counted up or down (`settings.lap_direction`, down by default), and **Results** by lane
+  or by position (the `results_snapshot`'s `sort`, by position by default). They are kept
+  with the count, so a restart resumes them.
 - **Stop** ends them and removes their cards.
 
 A Pi's own Test tab never reaches the cloud: a replay is always local
@@ -704,6 +709,12 @@ l'onglet Organisateurs n'affiche pas.
   repart à zéro, si bien que le suivant notifie de nouveau.
 - Elles reprennent après un redémarrage du plan de contrôle. Une mise à jour progressive ne
   les attend jamais.
+- Trois options s'appliquent au **Démarrage** et redémarrent les compétitions déjà en
+  cours : **Remplir tous les couloirs** (sinon la première série de chaque épreuve laisse
+  les couloirs extérieurs vides), **Longueurs** en ordre croissant ou décroissant
+  (`settings.lap_direction`, décroissant par défaut) et **Résultats** par couloir ou par
+  position (le `sort` du `results_snapshot`, par position par défaut). Elles sont gardées
+  avec le nombre, si bien qu'un redémarrage les reprend.
 - **Arrêter** les termine et retire leurs cartes.
 
 L'onglet Test d'un Pi n'atteint jamais le cloud : une lecture reste toujours locale

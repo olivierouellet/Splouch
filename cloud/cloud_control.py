@@ -30,7 +30,7 @@ import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
 from contextlib import asynccontextmanager, suppress
-from typing import Any
+from typing import Any, Literal
 
 import resvg_py
 from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request
@@ -209,7 +209,8 @@ async def lifespan(app):
     try:
         wanted = await run_in_threadpool(cloud_registry.test_meets_wanted)
         if wanted:
-            (await _test_runner()).start(wanted)
+            opts = await run_in_threadpool(cloud_registry.test_meets_options)
+            (await _test_runner()).start(wanted, opts)
     except Exception as e:
         print(f"[control] test meets not resumed: {e!r}", flush=True)
     try:
@@ -2245,11 +2246,16 @@ async def _test_runner():
 
 class TestMeetsIn(BaseModel):
     count: int = cloud_testmeets.DEFAULT_MEETS
+    # cloud_testmeets.OPTIONS
+    full_lanes: bool = False
+    lap_direction: Literal["up", "down"] = "down"
+    results_sort: Literal["lane", "place"] = "place"
 
 
 def _test_status():
     return {
         "running": _test_meets.status() if _test_meets else [],
+        "options": _test_meets.options if _test_meets else cloud_testmeets.options(),
         "max": cloud_testmeets.MAX_MEETS,
         "default": cloud_testmeets.DEFAULT_MEETS,
     }
@@ -2257,7 +2263,12 @@ def _test_status():
 
 @app.get("/admin/test", tags=["Admin"], dependencies=[Depends(require_admin)])
 def route_test_meets():
-    return _test_status()
+    status = _test_status()
+    if _test_meets is None:
+        # Not started since the restart: what the next Start keeps.
+        stored = cloud_registry.test_meets_options()
+        status["options"] = cloud_testmeets.options(stored)
+    return status
 
 
 @app.post("/admin/test/start", tags=["Admin"], dependencies=[Depends(require_admin)])
@@ -2266,8 +2277,10 @@ async def route_test_meets_start(body: TestMeetsIn):
         return JSONResponse(
             {"ok": False, "error": "NODE_SECRET is not set"}, status_code=503
         )
-    count = (await _test_runner()).start(body.count)
+    runner = await _test_runner()
+    count = runner.start(body.count, body.model_dump(exclude={"count"}))
     await run_in_threadpool(cloud_registry.set_test_meets_wanted, count)
+    await run_in_threadpool(cloud_registry.set_test_meets_options, runner.options)
     return _test_status()
 
 

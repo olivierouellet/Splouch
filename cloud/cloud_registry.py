@@ -729,6 +729,18 @@ def set_test_meets_wanted(count):
         _settings_put(c, "test_meets", int(count))
 
 
+def test_meets_options():
+    """The admin's test-meet options as stored (cloud_testmeets.OPTIONS_SETTING),
+    {} when never set."""
+    with cloud_db.conn() as c:
+        return _settings_get(c, "test_meets_options") or {}
+
+
+def set_test_meets_options(opts):
+    with cloud_db.conn() as c:
+        _settings_put(c, "test_meets_options", dict(opts))
+
+
 def node_meet_ids(node):
     """Every meet the registry places on `node`, live or not — what the node keeps
     in its store; it drops the rest (`cloud_meetstore.keep_only`)."""

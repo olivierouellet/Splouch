@@ -17,6 +17,9 @@ for the heats still to swim. Then it starts over: the schedule's results are cle
 to forget the loop's console times and which heat notifications were sent, so a
 follower is notified again on the next pass.
 
+The admin picks a few options (`OPTIONS`): every lane filled, laps counted up or
+down, results by lane or by place. Changing them restarts the running meets.
+
 `build_meet` and `heat_frames` are pure — what a test drives without a socket;
 `Runner` owns the tasks.
 """
@@ -38,6 +41,9 @@ MAX_MEETS = 15
 DEFAULT_MEETS = 5
 # The `settings` row that remembers how many run, so a restart resumes them.
 SETTING = "test_meets"
+# The admin's choices, with their defaults; the `settings` row `OPTIONS_SETTING`.
+OPTIONS = {"full_lanes": False, "lap_direction": "down", "results_sort": "place"}
+OPTIONS_SETTING = "test_meets_options"
 
 LANES = 8
 POOL_LENGTH = 25
@@ -90,6 +96,19 @@ def clock(hundredths):
     return f"{m}:{s:02d}.{c:02d}" if m else f"{s}.{c:02d}"
 
 
+def options(raw=None):
+    """`raw` held to `OPTIONS`: unknown keys dropped, bad values defaulted."""
+    raw = raw or {}
+    out = dict(OPTIONS)
+    if isinstance(raw.get("full_lanes"), bool):
+        out["full_lanes"] = raw["full_lanes"]
+    if raw.get("lap_direction") in ("up", "down"):
+        out["lap_direction"] = raw["lap_direction"]
+    if raw.get("results_sort") in ("lane", "place"):
+        out["results_sort"] = raw["results_sort"]
+    return out
+
+
 def _lenex(hundredths):
     h = int(round(hundredths))
     return f"{h // 360000:02d}:{h // 6000 % 60:02d}:{h // 100 % 60:02d}.{h % 100:02d}"
@@ -104,9 +123,10 @@ def _delta(final, seed):
     return f'<span class="{cls}">{text}</span>', d / 100, d < 0
 
 
-def build_meet(index, today=None):
+def build_meet(index, today=None, full_lanes=False):
     """Test meet `index` (1-based): the same swimmers and seeds every time, on
-    today or one of the next `DAYS - 1` days."""
+    today or one of the next `DAYS - 1` days. `full_lanes` swims every lane of
+    every heat."""
     today = today or datetime.date.today()
     day = today + datetime.timedelta(days=(index - 1) % DAYS)
     rng = random.Random(index)
@@ -131,7 +151,7 @@ def build_meet(index, today=None):
             # The last heat is the fastest, as a seeded meet swims them.
             slow = (heats - h) * 3.0
             for lane in range(1, LANES + 1):
-                if h == 1 and heats > 1 and lane in (1, LANES):
+                if not full_lanes and h == 1 and heats > 1 and lane in (1, LANES):
                     continue  # a short first heat leaves the outside lanes empty
                 seed = (best + slow + abs(lane - 4.5) * 0.6 + rng.uniform(0, 1.5)) * 100
                 last, first = rng.choice(_LAST), rng.choice(_FIRST)
@@ -184,7 +204,7 @@ def picker_image_b64(team):
         return base64.b64encode(f.read()).decode()
 
 
-def register_meta(meet, key, ticket):
+def register_meta(meet, key, ticket, lap_direction="down"):
     """The `register` payload (docs/api.md §5.4)."""
     lang = meet["lang"]
     labels = cloud_i18n.resolve_labels(cloud_i18n.strings(lang, "labels"), "short")
@@ -213,7 +233,7 @@ def register_meta(meet, key, ticket):
             "show_delta": True,
             "show_position": True,
             "show_laps": True,
-            "lap_direction": "down",
+            "lap_direction": lap_direction,
             "theme_colors": dict(DEFAULT_THEME_COLORS),
             "theme_fonts": dict(DEFAULT_THEME_FONTS),
             "locale": lang,
@@ -309,10 +329,12 @@ def _next_heats(meet, at):
     }
 
 
-def _results(event, heat, finals):
-    """`results_snapshot` for the lanes finished so far (docs/api.md §5.2)."""
+def _results(event, heat, finals, sort="place"):
+    """`results_snapshot` for the lanes finished so far (docs/api.md §5.2), by
+    place or by lane as a Pi's `results_sort` orders them."""
     lanes = []
-    for lane, (place, final) in sorted(finals.items(), key=lambda kv: kv[1][0]):
+    order = (lambda kv: kv[1][0]) if sort == "place" else (lambda kv: kv[0])
+    for lane, (place, final) in sorted(finals.items(), key=order):
         s = event["heats"][heat][lane]
         html, secs, better = _delta(final, s["seed"])
         lanes.append(
@@ -334,15 +356,16 @@ def _results(event, heat, finals):
         "heat": str(heat),
         "event_name": event["name"],
         "event_name_parts": event["parts"],
-        "sort": "place",
+        "sort": sort,
         "lanes": lanes,
     }
 
 
-def heat_frames(meet, at, rng, finals=None):
+def heat_frames(meet, at, rng, finals=None, sort="place"):
     """One heat, as `(seconds to wait first, event, data)`: the heat's frames, from
     the board filling to the results held. `at` indexes `heats(meet)`. `finals`,
-    when given, is filled with each lane's `(place, hundredths)` as it touches."""
+    when given, is filled with each lane's `(place, hundredths)` as it touches.
+    `sort` orders the results, `"place"` or `"lane"`."""
     event, heat = heats(meet)[at]
     entries = event["heats"][heat]
     n = event["lengths"]
@@ -415,7 +438,7 @@ def heat_frames(meet, at, rng, finals=None):
             }
         yield wait, "update_scoreboard", frame
         if k == n:
-            yield 0, "results_snapshot", _results(event, heat, finals)
+            yield 0, "results_snapshot", _results(event, heat, finals, sort)
     yield RESULTS_HOLD, None, None
 
 
@@ -441,15 +464,19 @@ class Runner:
         self.speed = speed
         self.tasks = {}
         self.state = {}
+        self.options = options()
 
     def status(self):
         return [{"index": i, **self.state.get(i, {})} for i in sorted(self.tasks)]
 
-    def start(self, count):
-        """Run meets 1…`count` (at most MAX_MEETS); stop any above it."""
+    def start(self, count, opts=None):
+        """Run meets 1…`count` (at most MAX_MEETS) with `opts` (`options`); stop
+        any above it. New options restart the meets already running."""
         count = max(0, min(int(count), MAX_MEETS))
+        opts = options(opts)
+        changed, self.options = opts != self.options, opts
         for i in sorted(self.tasks):
-            if i > count:
+            if i > count or changed:
                 self.tasks.pop(i).cancel()
                 self.state.pop(i, None)
         for i in range(1, count + 1):
@@ -484,12 +511,14 @@ class Runner:
             backoff = min(backoff * 2, 60)
 
     async def _session(self, i):
-        meet = build_meet(i)
+        opts = self.options
+        meet = build_meet(i, full_lanes=opts["full_lanes"])
         found = await asyncio.to_thread(self.assign, self.key, meet["uid"])
         if not found:
             raise RuntimeError("not assigned")
         async with self.connect(found["relay_url"]) as ws:
-            await _send(ws, "register", register_meta(meet, self.key, found["ticket"]))
+            meta = register_meta(meet, self.key, found["ticket"], opts["lap_direction"])
+            await _send(ws, "register", meta)
             self.state[i] |= {"connected": True, "meet_id": found["meet_id"]}
             reader = asyncio.create_task(self._read(ws))
             try:
@@ -523,7 +552,8 @@ class Runner:
                 self.state[i] |= {"event": event["num"], "heat": heat}
                 finals = {}
                 swum.append((event, heat, finals))
-                for wait, name, data in heat_frames(meet, at, rng, finals):
+                sort = self.options["results_sort"]
+                for wait, name, data in heat_frames(meet, at, rng, finals, sort):
                     # Sleep in slices so an idle hold still pings the worker.
                     remaining = wait / self.speed
                     while remaining > 0:
