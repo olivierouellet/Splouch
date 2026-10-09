@@ -961,16 +961,17 @@ sequenceDiagram
 
 | ID | Feature | Driven by | Scope | Level |
 | --- | --- | --- | --- | --- |
-| [`N-01`](#n-01) | **Bell** in the Schedule tab's top bar, beside the filter (`S-08`), opening the Notifications sheet (`N-02`). Marked while the meet has followed swimmers. Shown only when the meet's node can notify this platform | `GET /meet/{id}/config` → `push` contains `apns` (iOS) / `fcm` (Android); absent (Pi, older cloud, node not set up) → no bell | native | should |
+| [`N-01`](#n-01) | **Bell** in the Schedule tab's top bar, beside the filter (`S-08`), opening the Notifications sheet (`N-02`). Marked while the meet has followed swimmers and notifications on; struck through while they are paused (`N-11`). Shown only when the meet's node can notify this platform | `GET /meet/{id}/config` → `push` contains `apns` (iOS) / `fcm` (Android); absent (Pi, older cloud, node not set up) → no bell | native | should |
 | [`N-02`](#n-02) | **Notifications sheet**, per meet: followed swimmers as removable chips, added through `S-09`'s search (swimmers and relay teams, no clubs); **Upcoming** — about 5 / 10 / 15 min, or 1 / 2 / 3 heats before; **Heat on the console** on/off (on by default); one status line when it cannot work; one privacy line with the policy link | stored per meet on the device; words native (`T-05`) | native | should |
 | `N-03` | Filter sheet (`S-08`), with swimmer filters active: **Notify me for these swimmers** adds them to `N-02`'s list (clubs are not copied) and opens the sheet. Filters stay session-only (`S-20`) | — | native | could |
 | [`N-04`](#n-04) | **Permission at the first follow**, never at launch or on opening the sheet. Refused → follows kept on the device, nothing registered, status line says so and links to the system's settings for the app | platform permission | native | should |
 | [`N-05`](#n-05) | **Upcoming**: once per followed heat, when its estimated start is within the chosen minutes, or it is within the chosen heats (heats with swimmers, `1` = next) | server, from the start list, the heat on the console and race starts | native | should |
 | [`N-06`](#n-06) | **Heat on the console**: once per followed heat, when the console moves *forward* onto it. CTS consoles: held **5 s** first | `update_scoreboard.current_event` / `current_heat` via the relay; `settings.console.key` | native | should |
-| [`N-07`](#n-07) | **Registration**: one `PUT` per device and meet with every followed swimmer; re-sent on any change, a new token, a language change, and each time the meet opens. Empty list = stop | [`api.md`](api.md) §5.13, at the meet's `base` (`C-11`); `409` → re-fetch config, `PUT` at the new `base` | native | should |
+| [`N-07`](#n-07) | **Registration**: one `PUT` per device and meet with every followed swimmer; re-sent on any change, a new token, a language change, and each time the meet opens. Empty list = stop, also sent while paused (`N-11`) | [`api.md`](api.md) §5.13, at the meet's `base` (`C-11`); `409` → re-fetch config, `PUT` at the new `base` | native | should |
 | `N-08` | Tapping a notification opens that meet on the Schedule tab, scrolled to the heat | payload `meet_id`, `event`, `heat` | native | could |
 | [`N-09`](#n-09) | **Privacy binding**: the node keeps token, platform, language, followed names and clubs — nothing else — until the meet leaves it; carried with a meet moved to another node; a token the platform reports dead is dropped. The device forgets a meet's follows when the meet is gone (`A-09`) | `/privacy` → *Heat notifications* | native | must |
 | [`N-10`](#n-10) | **Support token**: long press on the app version (settings About, `P-19`) shows this install's push token as one line with Copy, the platform's way; a notification with an empty `meet_id` is a test — tapping it opens the app, nothing else | iOS `apns:production:<hex>` or `apns:sandbox:<hex>` (the environment the build registers with); Android `fcm:<token>`; no token yet → says so. Pasted by an admin in `/admin` → Debug → *Send a test notification* | native | should |
+| [`N-11`](#n-11) | **Pause**: a *Notify me* switch heads `N-02`, on by default. Off → the swimmers stay on the device, still editable; *Upcoming* and *Heat on the console* are disabled; the node is sent an empty list (`N-07`). On → the whole list is sent again | stored per meet on the device with the follows | native | should |
 
 ### <a id="n-01"></a>N-01 — where the bell lives
 
@@ -1052,9 +1053,27 @@ deliberate long press, never in plain view, and the app sends it nowhere on its 
 The prefix is part of the line: the admin side needs the platform, and for iOS the APNs
 environment, since a sandbox token is dead against production.
 
+### <a id="n-11"></a>N-11 — pause, keep the list
+
+A spectator who follows a dozen swimmers and wants a quiet hour should not have to
+remove them all and find them again. The pause lives with the follows, per meet: a
+meet is one weekend, and a global switch would outlive the reason for it. Not the
+system's own setting: that leaves the node sending to a phone that drops them, and the
+sheet's status line would read as a refusal (`N-04`). Paused, the node keeps nothing
+for this device at this meet (`N-09`); the device keeps the list. Adding a swimmer while
+paused stays paused. iOS: a `Toggle` in the sheet's first section, the bell
+`bell.slash`. Android: a `Switch` row above the chips, the bell `NotificationsOff`.
+
 ---
 
 ## Changelog
+
+- **v3, amended** (2026-10-09, no bump) — pause heat notifications. Native only: the
+  node already reads an empty list as stop, so no server change.
+
+  - **Added**: `N-11` (*Notify me* switch, follows kept while paused).
+  - **Changed**: `N-01` (bell struck through while paused), `N-07` (empty list while
+    paused).
 
 - **v3, amended** (2026-10-09, no bump) — empty lanes. Drawing only: no server or
   string change, and a client without it keeps its blank row.
