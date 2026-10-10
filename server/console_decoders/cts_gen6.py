@@ -92,6 +92,32 @@ class CTSGen6Decoder(ConsoleDecoder):
         self.lane_seed_times = dict(times)
 
     def get_lane_time(self, lane: int) -> str:
+        return self._lane_time(lane)
+
+    def _shows_time_of_day(self, lane: int) -> bool:
+        """True when a lane's module is showing the time of day, not a swim.
+
+        In Scoreboard Blank mode the console keeps the board's clock going on a lane
+        module — lane 3 in the capture in tests/fixtures/cts_gen6_blank.raw — and the
+        packet for that lane is digit for digit the Time channel's (22). Read as a
+        lane, it is a 0:39.00 over an empty pool that ticks once a second.
+
+        Two conditions, because neither alone is safe: no lane number and no place
+        (a real result always has a place, but some consoles send no lane number —
+        real_console6.raw drops it for lanes 1-4), and the time digits matching
+        channel 22's exactly.
+        """
+        slots = self._slots[lane]
+        if _digit(slots[0]) != " " or _digit(slots[1]) != " ":
+            return False
+        tod = [_digit(b) for b in self._t22_buf[2:8]]
+        if all(c == " " for c in tod):
+            return False
+        return [_digit(b) for b in slots[2:8]] == tod
+
+    def _lane_time(self, lane: int) -> str:
+        if self._shows_time_of_day(lane):
+            return ""
         return _time_str(self._slots[lane][2:8])
 
     def get_lane_place(self, lane: int) -> str:
@@ -122,7 +148,7 @@ class CTSGen6Decoder(ConsoleDecoder):
         for ln in range(1, self._num_lanes + 1):
             if self._lane_active[ln - 1]:
                 return False
-            t = _time_str(self._slots[ln][2:8])
+            t = self._lane_time(ln)
             if t:
                 if _digit(self._slots[ln][1]) == " ":
                     return False
@@ -165,7 +191,7 @@ class CTSGen6Decoder(ConsoleDecoder):
                     updates["dismiss_overlay"] = True
 
                 if not running:
-                    updates[f"lane_time{ln}"] = _time_str(self._slots[ln][2:8])
+                    updates[f"lane_time{ln}"] = self._lane_time(ln)
 
                 # Split counting: count each stop after an active run.
                 if prev and not running:
@@ -245,6 +271,11 @@ class CTSGen6Decoder(ConsoleDecoder):
                 for byte in data:
                     self._t22_buf[(byte >> 4) & 0x0F] = byte
                 updates["channel_22_time"] = _time_str(self._t22_buf[2:8])
+                # A lane that arrived first, mirroring this clock, was read as a time
+                # — take it back now that the clock shows what it was.
+                for ln in _LANE_MAP.values():
+                    if not self._lane_active[ln - 1] and self._shows_time_of_day(ln):
+                        updates[f"lane_time{ln}"] = ""
 
         except IndexError:
             traceback.print_exc()

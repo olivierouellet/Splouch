@@ -110,6 +110,17 @@ Bit 6 of the first byte = running/finish flag. Bit 0 = format-display flag.
 | Lane 12 | 18 | 24 | 206 | 207 | CE | 142 | 143 | 8E |
 
 The two columns labelled "running" carry bit 6 set (0x40); the two "stopped" columns have bit 6 clear.
+
+### Scoreboard Blank mode
+
+In **Scoreboard → Scoreboard Blank** the console keeps the clock on the board: a real
+capture (`tests/fixtures/cts_gen6_blank.raw`) carries the same digits on lane 3,
+Scroll (15) and Time (22), with lane 3's lane number and place blank. Read naively
+that is a `0:39.00` in lane 3. The decoder treats a lane with no lane number, no place
+and a time equal to channel 22's as showing the time of day, and reports no time for
+it (`_shows_time_of_day`). A place is required to be a result, so a real finish that
+happens to match the clock is unaffected. **Total Blank** (pressed twice) sends every
+channel empty and needs nothing special.
 The "Format" variant has bit 0 set (format-display flag) and is ignored by the parser.
 
 ---

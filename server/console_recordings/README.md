@@ -71,6 +71,7 @@ way, if it is ever needed, is `xxd -r -p session.raw > session.cap`.
 | `100m_freestyle.serial` | 2 · 100m Freestyle | 1 | 6 | 50m | **11s** | authored |
 | `200m_medley_2heats.serial` | 3 · 200m Medley | 2 | 8 | 50m, 100m, 150m | 8s | authored |
 | `real_console6.raw` | 1 · 50m Freestyle | 1 | 8 | — | — | captured, no finish |
+| `real_race_25y_breast.raw` | 28 · 25m Breaststroke (swum in yards) | 1 | 6 | — | — | captured, whole race |
 | `omnisport_2000.raw` | 5 · 100m Butterfly | 1 | 6 (2–7) | — | — | captured (Omnisport 2000), no finish |
 
 **Course.** All four authored races are long course, and the splits are what say
@@ -107,6 +108,40 @@ times; it is kept for the wire format rather than the race. Its companion `.lxf`
 named the event `Event 1` — the string `lenex_parser` falls back to when an event has
 neither a name nor a `SWIMSTYLE`, written into the file and then read back as though
 it were a title. Its own seed times are 24.87–25.89, so it is a 50m.
+
+### `real_race_25y_breast.raw`
+
+The only real CTS capture that reaches a finish: a whole 25-yard breaststroke heat
+(young swimmers, six lanes, event 28 heat 1) recorded from a legacy-protocol CTS at
+a local meet, about seventy seconds of wire. The start is around byte 2 500, the
+winner touches at 27.25 in lane 3, and the last swimmer (lane 1, 57.58) finishes near
+byte 56 000. A CTS sends no names, so nothing in it identifies anyone; the companion
+`.lxf` supplies fictional swimmers in lanes 1–6. It lists the event as a 25m, not 25 yards: the wire
+carries no unit, and Splouch renders distances in metres only (a `25y` name would
+lose its distance on the board). `tests/test_console_decoders.py`
+holds the decoder to every time and place in it.
+
+It is `samples/meet.bin` from fabriziobertocci/coloradoScoreboard, converted to hex
+unchanged. The same repo's two Scoreboard Blank captures are in `tests/fixtures/`
+(`cts_gen6_blank.raw`, `cts_gen6_total_blank.raw`) rather than here — they are not a
+race anyone would replay. They are why `CTSGen6Decoder._shows_time_of_day` exists:
+in Blank mode the console keeps the clock on lane 3's module, which used to read as a
+0:39.00 swim.
+
+> Copyright (c) 2018 fabriziobertocci/coloradoScoreboard contributors. Permission is
+> hereby granted, free of charge, to any person obtaining a copy of this software and
+> associated documentation files (the "Software"), to deal in the Software without
+> restriction, including without limitation the rights to use, copy, modify, merge,
+> publish, distribute, sublicense, and/or sell copies of the Software, and to permit
+> persons to whom the Software is furnished to do so, subject to the following
+> conditions: The above copyright notice and this permission notice shall be included
+> in all copies or substantial portions of the Software. THE SOFTWARE IS PROVIDED "AS
+> IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO
+> THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+> NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+> CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
+> OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+> OTHER DEALINGS IN THE SOFTWARE.
 
 ### `omnisport_2000.raw`
 

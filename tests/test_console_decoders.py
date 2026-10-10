@@ -8,6 +8,9 @@ layout in `hakostra/swimming-scoreboard`, the Omnisport 2000 to Daktronics'
 get wrong.
 """
 
+import os
+import re
+
 import pytest
 
 from console_decoders.cts_gen7 import _MAPPINGS, CTSGen7Decoder, _rot_l, _rot_r
@@ -331,9 +334,6 @@ def test_heat_lanes_survive_a_reswim_reset():
 
 def _gen6_updates(heat_lanes) -> list[dict]:
     """Every update a CTS Gen6 makes replaying a real race, packet by packet."""
-    import os
-    import re
-
     from console_decoders.cts_gen6 import CTSGen6Decoder
 
     path = os.path.join(
@@ -364,3 +364,73 @@ def test_the_cts_never_reads_the_heat_lanes():
     """A CTS reports each lane's running state off the wire. Telling it which lanes
     are in the heat — even wrongly — must change nothing it decodes."""
     assert _gen6_updates({4}) == _gen6_updates(())
+
+
+# ── CTS Gen6, real captures ───────────────────────────────────────────────────
+# From fabriziobertocci/coloradoScoreboard's samples (MIT): a whole race, and the
+# console's two Scoreboard Blank modes. See console_recordings/README.md.
+
+_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+
+def _gen6_replay(path: str):
+    """Feed a hex `.raw` through a CTS Gen6; return (decoder, updates)."""
+    from console_decoders.cts_gen6 import CTSGen6Decoder
+
+    d = CTSGen6Decoder({"num_lanes": 8})
+    with open(path, encoding="utf-8") as f:
+        data = [int(h, 16) for h in re.findall(r"[0-9a-f]{2}", f.read())]
+    out, buf = [], []
+    for b in data:
+        if d.is_packet_start(b, buf) and buf:
+            out.append(d.feed(buf))
+            buf = []
+        buf.append(b)
+    out.append(d.feed(buf))
+    return d, out
+
+
+def test_gen6_captured_race_finishes_with_every_place():
+    d, updates = _gen6_replay(
+        os.path.join(_ROOT, "server", "console_recordings", "real_race_25y_breast.raw")
+    )
+    assert any(u.get("event_changed") == (28, 1) for u in updates)
+    results = {ln: (d.get_lane_time(ln), d.get_lane_place(ln)) for ln in range(1, 7)}
+    assert results == {
+        1: ("0:57.58", "6"),
+        2: ("0:30.69", "2"),
+        3: ("0:27.25", "1"),
+        4: ("0:41.27", "4"),
+        5: ("0:32.32", "3"),
+        6: ("0:56.32", "5"),
+    }
+    assert d.race_finished()
+
+
+def test_gen6_scoreboard_blank_puts_no_time_in_a_lane():
+    """Blank mode keeps the clock on lane 3's module; it is not a 0:39.00 swim."""
+    d, updates = _gen6_replay(
+        os.path.join(_ROOT, "tests", "fixtures", "cts_gen6_blank.raw")
+    )
+    assert all(d.get_lane_time(ln) == "" for ln in range(1, 9))
+    last = [u["lane_time3"] for u in updates if "lane_time3" in u]
+    assert last and last[-1] == "", "the clock was left in lane 3"
+    assert not d.race_finished()
+
+
+def test_gen6_total_blank_is_quiet():
+    d, _ = _gen6_replay(
+        os.path.join(_ROOT, "tests", "fixtures", "cts_gen6_total_blank.raw")
+    )
+    assert all(d.get_lane_time(ln) == "" for ln in range(1, 9))
+
+
+def test_gen6_a_placed_time_equal_to_the_clock_is_still_a_result():
+    """The time-of-day rule needs a blank place: a finish always has one."""
+    from console_decoders.cts_gen6 import CTSGen6Decoder
+
+    d = CTSGen6Decoder({"num_lanes": 8})
+    tod = [0x00, 0x10, 0x20, 0x30, 0x4C, 0x56, 0x60, 0x70]  # "    39  "
+    d.feed([0x92, *tod])  # channel 22, the clock
+    d.feed([0xB8, 0x00, 0x1E, *tod[2:]])  # lane 3, place 1, same digits
+    assert d.get_lane_time(3) == "0:39.00"
