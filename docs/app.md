@@ -160,7 +160,7 @@ Entry screen. Web: site root. App: launch screen, and `A-02`'s return target.
 | `P-04` | Empty state, no active meets | `strings.no_meets` | all | must |
 | `P-05` | Branding: title + logo above/below, sized by aspect ratio within list width under height cap. Picker chrome in **device's** language, not a meet's (list spans meets in many languages; per-meet from `T-06`) | `GET /picker/config?lang=` or `Accept-Language` → `title`, `has_logo`, `logo_above`; `GET /picker_logo` (PNG/JPEG/GIF/WebP; an SVG logo comes as SVG only to an `Accept` naming `image/svg+xml`, else as a PNG copy — read `Content-Type`) | all | should |
 | [`P-06`](#p-06) | Unofficial-results disclaimer **above** meets as one quiet line — hourglass + short text, always shown, no fold; tap → full server text, platform's way. Full text also in onboarding (`P-20`) and settings About (`P-19`) | `GET /picker/config` → `strings.results_disclaimer`, `results_disclaimer_short` | all | **must** |
-| [`P-07`](#p-07) | Whenever attendance counting is on for the server: **Privacy** section in settings (`P-19`) — counting toggle (`C-10`), server's privacy note under it, link to server's policy. **Not on picker** | `strings.privacy_note`, gated on `analytics_enabled`; policy at server's `GET /privacy`; toggle words native in apps (`T-05`), web reads `strings.privacy_count`, `privacy_policy` | all | must |
+| [`P-07`](#p-07) | Whenever attendance counting is on for the server: counting toggle (`C-10`) with the server's privacy note under it, in settings' **Privacy** section (`P-19`), above its policy link. **Not on picker** | `strings.privacy_note`, gated on `analytics_enabled`; policy at server's `GET /privacy`; toggle words native in apps (`T-05`), web reads `strings.privacy_count`, `privacy_policy` | all | must |
 | `P-08` | Select meet → app shell | `GET /meet/{id}/config` | all | must |
 | `P-09` | Pull-to-refresh re-fetches list | — | all | should |
 | `P-10` | Install hand-off: store links once apps ship, Add-to-Home-Screen until then. In an app the slot renders nothing | `stores` ([`api.md`](api.md) §5.7), per platform, present once listed → no deploy on move, absent hides button; `P-16`'s `GET /add` uses same dict | web | should |
@@ -172,7 +172,7 @@ Entry screen. Web: site root. App: launch screen, and `A-02`'s return target.
 | [`P-16`](#p-11) | QR scan adds server: app asks; yes → adds, selects, lands on **meet list**. No app → page offers store | `https://<default host>/add?server=<origin>`; host's two `/.well-known/` files, `GET /add` ([`api.md`](api.md) §4) | native | should |
 | [`P-17`](#p-17) | Search meet list from **3** meets, narrows as typed, own empty state; field where platform puts search | local over `GET /meets` → `name`, `meet_date`, `location`, `sport`, `organizer`, `province`, `country` (code and reader's-language name); `strings.meet_search`, `no_meets_match` | all | should |
 | `P-18` | More than **10** meets → compact rows, still under their day: name on one line, city · state/province · country codes, live dot, `N-13`'s bell; **no picker image**, none fetched. 10 or fewer → `P-01` cards | count of `GET /meets` → `meets` | all | should |
-| [`P-19`](#p-19) | **Settings** — one container in place of picker menu, sections in this order: Display (language `T-08`, Appearance `P-15`), Notifications (`N-12`, native), Privacy (`P-07`), Server (`P-11`–`P-13`, native), About (`P-06` full text, policy link, `P-20` replay). Platform's own form: web side sheet (full height under 600px), iOS sheet with `Form`, Android full-screen settings destination | section names native in apps (`T-05`); web reads `strings.settings`, `settings_display`, `settings_privacy`, `settings_about` | all | should |
+| [`P-19`](#p-19) | **Settings** — one container in place of picker menu, sections in this order: Display (language `T-08`, Appearance `P-15`), Notifications (`N-12`, native), Server (`P-11`–`P-13`, native), About (`P-06` full text, `P-20` replay, version), Privacy (`P-07` while counting, policy link) — the policy linked once. Platform's own form: web side sheet (full height under 600px), iOS sheet with `Form`, Android full-screen settings destination | section names native in apps (`T-05`); web reads `strings.settings`, `settings_display`, `settings_privacy`, `settings_about` | all | should |
 | [`P-20`](#p-20) | **Introduction** on first launch, once per install, replayable from settings About: unofficial results (`P-06`), finding a meet, three tabs and how to read a lane, the schedule's times, following a swimmer or club, attendance counting with its toggle (`C-10`) | first and last pages server text (`results_disclaimer`, `privacy_note`), rest native words (`T-05`); last page only while `analytics_enabled` | native | should |
 | [`P-21`](#p-21) | **Filter** the meet list by country, state/province and club (organizer), in that order, several values each; **remembered** by the app across launches and servers. Country and state/province list every one the app knows (`shared/regions/subdivisions.json`), plus any other the list holds; club lists the clubs the list holds, plus any the spectator adds by its official letters; a province narrows its own country only, clubs narrow the places (OR within a facet). Active filter → a line at the end of the list says meets are hidden, with *Clear*; filter hides every meet → own empty state with *Clear*, not `P-04`/`P-17`'s | local over `GET /meets` → `country`, `province`, `organizer`; stored pref, one per app; words native (`T-05`) | native | should |
 | `P-22` | A test meet carries a **TEST** badge after its name, on its card and its compact row (`P-18`): small, bold, uppercase as served, outlined in the accent colour. The name is a team's and does not say it is a test; the badge does. Not searched (`P-17`) | `GET /meets` → `test`; `strings.test_meet` | all | should |
@@ -245,15 +245,17 @@ Menu held three choices; settings now hold a toggle, explanatory text and links,
 which a popover or `DropdownMenu` renders badly. One container, sections in this
 order, each platform's own form. Display first: it is what most spectators open
 settings for; Notifications next, only while something is followed; Server is for the
-few who follow a pool's own server, so it sits below:
+few who follow a pool's own server, so it sits below; Privacy last, the one place the
+policy is linked — once counting was on, About's link and Privacy's read as the same
+section twice:
 
 | Section | Holds | Web | iOS | Android |
 | --- | --- | --- | --- | --- |
 | Display | language (`T-08`), Appearance (`P-15`) | radio groups | language row → list, Appearance `Picker` | language row → dialog, Appearance radio rows |
 | Notifications | `N-12`, only while a meet has follows | — (no notifications) | a `Toggle` row per meet, then *Pause all* | a `Switch` row per meet, then *Pause all* |
-| Privacy | `P-07` | toggle + note + link | `Toggle`, footer note + `Link` | `Switch` row, supporting text, link |
 | Server | `P-11`–`P-13`, `P-14` notice | — (no server choice) | row with current server → server list | row → server sheet |
-| About | `P-06` full text, policy link, *Show introduction* (`P-20`, native), app version | text | `Section` text | text |
+| About | `P-06` full text, *Show introduction* (`P-20`, native), app version | text | `Section` text | text |
+| Privacy | `P-07` while counting, then the policy link; a Pi, with no policy, has no section | toggle + note, link | `Toggle`, footer note, `Link` row | `Switch` row, supporting text, link |
 
 Opened from a **gear**, not ☰ or ⋮: web fixed button where ☰ was, iOS toolbar item,
 Android top app bar action. Closing returns to picker with list and query intact.
@@ -1098,6 +1100,13 @@ paused stays paused. iOS: a `Toggle` in the sheet's first section, the bell
 ---
 
 ## Changelog
+
+- **v3, amended** (2026-10-10, no bump) — one Privacy section. Placement only: no
+  server or string change.
+
+  - **Changed**: `P-19` (Privacy last, after About, on every cloud; About no longer
+    links the policy, so it is linked once), `P-07` (the toggle and note sit in that
+    section, above the link).
 
 - **v3, amended** (2026-10-10, no bump) — every followed meet in one place. Native
   only: no server change.

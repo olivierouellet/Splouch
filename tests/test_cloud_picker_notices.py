@@ -104,6 +104,17 @@ def test_settings_carry_the_disclaimer_and_the_policy():
     assert DISCLAIMER in dialog and 'href="/privacy"' in dialog
 
 
+def test_one_privacy_section_after_about_with_one_policy_link():
+    """`P-19`: the policy once, in Privacy, last — counting on or off."""
+    for counting in (True, False):
+        dialog = _dialog(_render(analytics_enabled=counting))
+        assert dialog.count('href="/privacy"') == 1
+        assert dialog.count('id="settings-privacy"') == 1
+        assert dialog.index('id="settings-about"') < dialog.index(
+            'id="settings-privacy"'
+        )
+
+
 def test_the_page_runs():
     run_page(_render(analytics_enabled=True))
     run_page(_render(analytics_enabled=False, meets=0))

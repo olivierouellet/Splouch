@@ -322,22 +322,22 @@
                 <button type="button" class="prefs-opt" data-pref="theme" data-value="{{ theme }}">{{ t['appearance_' ~ theme] or theme_floor[theme] }}</button>
                 {% endfor %}
             </section>
-            {# `P-07`: only while the server counts; the spectator's choice is kept
+            <section aria-labelledby="settings-about">
+                <h3 class="prefs-group" id="settings-about">{{ t.settings_about or 'About' }}</h3>
+                <p class="sheet-note">{{ disclaimer }}</p>
+            </section>
+            {# `P-19`: one Privacy section, last. The counting toggle and its note
+               (`P-07`) only while the server counts; the spectator's choice is kept
                in the browser for when it counts again (`C-10`, count.js). #}
-            {% if analytics_enabled %}
             <section aria-labelledby="settings-privacy">
                 <h3 class="prefs-group" id="settings-privacy">{{ t.settings_privacy or 'Privacy' }}</h3>
+                {% if analytics_enabled %}
                 <label class="switch-row">
                     <span>{{ t.privacy_count or 'Count my visit' }}</span>
                     <input type="checkbox" role="switch" id="count-toggle" aria-describedby="privacy-note">
                 </label>
                 <p class="sheet-note" id="privacy-note">{{ t.get('privacy_note', 'This site counts visitors to estimate attendance, using a random identifier kept on your device — never your name, email or IP address.') }}</p>
-                <a class="sheet-link" href="/privacy">{{ t.privacy_policy or 'Privacy policy' }}</a>
-            </section>
-            {% endif %}
-            <section aria-labelledby="settings-about">
-                <h3 class="prefs-group" id="settings-about">{{ t.settings_about or 'About' }}</h3>
-                <p class="sheet-note">{{ disclaimer }}</p>
+                {% endif %}
                 <a class="sheet-link" href="/privacy">{{ t.privacy_policy or 'Privacy policy' }}</a>
             </section>
         </div>
