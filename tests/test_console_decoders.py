@@ -3,11 +3,13 @@
 The CTS Gen6 is covered by real captures in `test_console_recordings.py`. The others
 have never been near a deck here, so these pin them to their upstream references
 instead: the Gen7 to `fabriziobertocci/coloradoScoreboard`, the Quantum to the OSM6
-layout in `hakostra/swimming-scoreboard`. Each test is one thing the decoder used to
+layout in `hakostra/swimming-scoreboard`, the Omnisport 2000 to Daktronics'
+`OS2-Swimming.itf` and the packets in xy-kao.com's published RTD dump. Each test is one thing the decoder used to
 get wrong.
 """
 
 from console_decoders.cts_gen7 import _MAPPINGS, CTSGen7Decoder, _rot_l, _rot_r
+from console_decoders.omnisport_2000 import Omnisport2000Decoder
 from console_decoders.quantum import QuantumDecoder
 from console_decoders.swiss_timing_ares21 import Ares21Decoder
 
@@ -194,3 +196,84 @@ def test_ares_single_digit_seconds_parse():
     d = Ares21Decoder({"num_lanes": 8})
     updates = d.feed(_ares("0040100220", "1 5.23"))
     assert (updates["lane_place1"], updates["lane_time1"]) == ("1", "5.23")
+
+
+# ── Omnisport 2000 ────────────────────────────────────────────────────────────
+
+
+def _rtd(offset: int, data: str, checksum: str | None = None) -> list[int]:
+    """One RTD packet writing `data` at `offset` of the console's buffer."""
+    body = [*b"00000000", 0x01, *f"004210{offset:04d}".encode(), 0x02]
+    body += [*data.encode(), 0x04]
+    ck = checksum if checksum is not None else f"{sum(body) & 0xFF:02X}"
+    return [0x16, *body, *ck.encode(), 0x17]
+
+
+def _line(lane: int, place: str = "", time: str = "", lengths: str = "") -> str:
+    """One 36-character result line: name, team, lane, place, time, lengths."""
+    return f"{'':15}{'':5}{lane:>2}{place:>3}{time:<9}{lengths:>2}"
+
+
+def _line_offset(n: int) -> int:
+    return 222 + 36 * (n - 1)
+
+
+def _dak() -> Omnisport2000Decoder:
+    d = Omnisport2000Decoder({"num_lanes": 8})
+    # Event 5, heat 1, 4 lengths — the field run from the published capture.
+    d.feed(_rtd(99, f"  5 {' 1':2}{'':20}F 4"))
+    return d
+
+
+def test_omnisport_checksum_matches_the_published_capture():
+    """Packets copied byte for byte from xy-kao.com's RTD dump, checksums included."""
+    d = Omnisport2000Decoder({"num_lanes": 8})
+    assert d.feed(_rtd(0, "    0.1  ", "BD")) == {
+        "running_time": "0.1",
+        "dismiss_overlay": True,
+        **{f"lane_running{i}": True for i in range(1, 9)},
+    }
+    assert d.feed(_rtd(0, "    4.0  ", "C0"))["running_time"] == "4.0"
+    assert d.feed(_rtd(0, "    4.1  ", "C0")) == {}, "a bad checksum is dropped"
+
+
+def test_omnisport_event_and_heat_come_from_the_buffer():
+    d = Omnisport2000Decoder({"num_lanes": 8})
+    updates = d.feed(_rtd(99, f"  5 {' 1':2}{'':20}F 4"))
+    assert updates["event_changed"] == (5, 1)
+
+
+def test_omnisport_split_then_finish_by_lane_number_not_line():
+    d = _dak()
+    d.feed(_rtd(0, "    1.0  "))
+    # Line 1 carries lane 3: lines can be sorted by place.
+    split = d.feed(_rtd(_line_offset(1), _line(3, "1", "28.41", "2")))
+    assert split["lane_time3"] == "28.41"
+    assert split["lane_splits3"] == 2
+    assert "lane_running3" not in split, "a split does not stop the lane"
+    finish = d.feed(_rtd(_line_offset(1), _line(3, "1", "1:01.237", "4")))
+    assert finish["lane_time3"] == "1:01.23"
+    assert finish["lane_running3"] is False
+
+
+def test_omnisport_partial_field_write_lands_in_place():
+    """A packet can carry just one field of a line; the rest of it stays put."""
+    d = _dak()
+    d.feed(_rtd(_line_offset(2), _line(2)))
+    d.feed(_rtd(_line_offset(2) + 22, "  2"))  # place only — no time yet
+    updates = d.feed(_rtd(_line_offset(2) + 25, "59.80     4"[:9]))
+    assert updates["lane_time2"] == "59.80"
+    assert updates["lane_place2"] == "2"
+
+
+def test_omnisport_clock_back_at_zero_rearms_the_start():
+    d = _dak()
+    assert d.feed(_rtd(0, "    0.3  ")).get("dismiss_overlay")
+    d.feed(_rtd(0, "    0.0  "))
+    assert d.feed(_rtd(0, "    0.1  ")).get("dismiss_overlay"), "a restart is seen"
+
+
+def test_omnisport_other_header_prefix_is_ignored():
+    d = Omnisport2000Decoder({"num_lanes": 8})
+    body = [*b"00000000", 0x01, *b"0021100000", 0x02, *b"    0.1  ", 0x04]
+    assert d.feed([0x16, *body, *f"{sum(body) & 0xFF:02X}".encode(), 0x17]) == {}

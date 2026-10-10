@@ -71,9 +71,8 @@ the page shows is always what the boards show.
 ## Using it with a real console
 
 `/manual` works whatever console is selected, and stays in the Settings sidebar for
-that reason. It is genuinely useful on a **Daktronics Omnisport 2000**, which times
-races but transmits no event or heat number at all — the console supplies the times
-and you supply the heat.
+that reason, but every supported console announces its own event and heat, so with
+one connected you will rarely need it.
 
 With a console selected, the page shows a warning: the console re-announces its own
 event and heat, and will overwrite anything you set here, usually within a second.

@@ -58,7 +58,7 @@ CONSOLE_INFO: dict[str, dict] = {
     },
     "dak_2000": {
         "adapter": "USB-to-RS232 (DB9)",
-        "wiring": "DB9 to the J6 Results Port (or J5 RTD Port)",
+        "wiring": "DB9 to the J5 RTD Port (J6 Results is for Meet Manager)",
         "protocol": "RS-232 · 19200 baud · 8-N-1",
         "tested": False,
         "doc": "omnisport-2000.md",

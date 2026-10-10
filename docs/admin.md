@@ -54,9 +54,6 @@ tap a heat to preview its swimmers and commit it with **▸**. The boards then s
 event, the heat, the event name, the heat time and every swimmer — everything but the
 times, which need a console. Full guide: [manual.md](consoles/manual.md).
 
-Worth knowing even with a console: a Daktronics Omnisport 2000 times races but sends
-no event or heat number at all, so `/manual` is how you supply it.
-
 ---
 
 ## Settings tabs
@@ -385,9 +382,6 @@ pour parcourir les séries, ou touchez une série pour prévisualiser ses nageur
 avec **▸**. Les tableaux affichent alors l'épreuve, la série, le nom de l'épreuve, l'heure de
 la série et chaque nageur — tout sauf les temps, qui exigent une console. Guide complet :
 [manual.md](consoles/manual.md).
-
-Bon à savoir même avec une console : une Daktronics Omnisport 2000 chronomètre les courses
-mais n'envoie aucun numéro d'épreuve ni de série ; c'est donc `/manual` qui les fournit.
 
 ---
 
