@@ -141,7 +141,8 @@ times, then seed times. Each is named after a team in its own language — *Dolp
 are dated over today and the next two days (meet 1 today, 2 tomorrow, 3 the day after, 4
 today again…) and listed on the picker like any meet, with a **TEST** badge
 (`"test": true` in `GET /meets`), under an organizer of their own that the Organizers tab
-does not show.
+does not show. That organizer is in Québec, Canada, where the meets' cities are, so the
+picker's country and state/province filter finds them.
 
 - They are run by the control plane as relay clients, through `/api/assign` and
   `/ws/relay` like a Pi, so they land on whichever node and worker the registry picks.

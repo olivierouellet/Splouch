@@ -411,6 +411,15 @@ def test_a_test_meet_is_badged_and_holds_no_rollout(test_key):
     assert next(n for n in reg.nodes() if n["name"] == "ca1")["target_version"] == "v2"
 
 
+def test_a_test_meet_is_listed_in_quebec_canada(test_key):
+    """QA M-01: with no location, the picker's country filter hid them (`P-21`)."""
+    import cloud_registry as reg
+
+    reg.register(test_key, "test-1", {"name": "Test meet 1"}, "ca1", 1)
+    (row,) = reg.list_meets()
+    assert (row["country"], row["province"]) == ("CA", "QC")
+
+
 def test_stopping_leaves_no_card_behind(test_key):
     import cloud_auth
     import cloud_registry as reg

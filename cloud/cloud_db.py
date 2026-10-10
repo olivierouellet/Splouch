@@ -247,6 +247,16 @@ MIGRATIONS = [
         ALTER TABLE nodes ADD COLUMN push text[] NOT NULL DEFAULT '{}';
         """,
     ),
+    (
+        13,
+        """
+        -- The test organizer was made without a location, so the picker's country
+        -- filter (docs/app.md `P-21`) hid every test meet. Its cities are in Québec
+        -- (cloud_auth.TEST_COUNTRY / TEST_PROVINCE).
+        UPDATE organizers SET country = 'CA', province = 'QC'
+            WHERE test AND country = '';
+        """,
+    ),
 ]
 
 # Tables holding data, in an order TRUNCATE accepts. Tests empty these between

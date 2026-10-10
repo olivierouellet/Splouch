@@ -73,6 +73,9 @@ def load_keys():
 
 
 TEST_ORGANIZER = "Splouch Test"
+# Where the test meets' cities are (cloud_testmeets `_PLACES`), so the picker's
+# country and province filter (docs/app.md `P-21`) finds them like any meet.
+TEST_COUNTRY, TEST_PROVINCE = "CA", "QC"
 
 
 def test_organizer_key():
@@ -84,8 +87,9 @@ def test_organizer_key():
             return row["key"]
         key = secrets.token_urlsafe(32)
         c.execute(
-            "INSERT INTO organizers (key, name, test) VALUES (%s, %s, true)",
-            (key, TEST_ORGANIZER),
+            "INSERT INTO organizers (key, name, country, province, test) "
+            "VALUES (%s, %s, %s, %s, true)",
+            (key, TEST_ORGANIZER, TEST_COUNTRY, TEST_PROVINCE),
         )
     return key
 
