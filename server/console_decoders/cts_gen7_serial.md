@@ -123,6 +123,10 @@ the payload (starting at buffer[3]) undergoes a second independent remap pass.
 ## Layer 3 — ParseEnhancedByte: module/digit stream
 
 After both remap passes, bytes describe a scoreboard as **modules** of **digits**.
+The stream starts at the packet's own header byte (`buffer[0]`): it is the module
+header for the digits that follow. Data bytes never carry bit 7 after the remap, so
+one packet is one module. A `0x9F` multi-pool packet is the exception — its
+second-pass output carries its own module header, and the outer one is not parsed.
 
 ### Module header byte (bit 7 = 1)
 
@@ -169,7 +173,7 @@ Bits 6-0: digit value; 0 is stored as 32 (space)
 ### Module 12 — Event / Heat
 
 ```text
-Event number: digits 1, 2, 3  (3 digits → integer)
+Event number: digits 1, 3, 4  (3 digits → integer; GetDigits steps over digit 2)
 Heat  number: digits 7, 8, 9  (3 digits → integer)
 ```
 
@@ -179,8 +183,9 @@ Changes trigger `EventChange` / `HeatChange` events.
 
 | Digit offset (from 0) | Content |
 |-----------------------|---------|
-| 1 | Place |
-| 3 | Decimal point = reset indicator |
+| 0–1 | Lane number |
+| 1 | Decimal point = reset indicator |
+| 2–3 | Place (two-character field) |
 | 4–9 | Time: `M M : S S . H H` (6 digits) |
 
 Time format produced by `GetTime(pool, module, startDigit=4, count=6)`:

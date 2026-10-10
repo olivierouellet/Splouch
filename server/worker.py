@@ -641,9 +641,11 @@ def _record_raw_byte(c):
 
 
 def _ingest_byte(c, buf):
-    """Append byte to packet buffer, flushing at packet boundaries. Returns updated buffer."""
-    if not c:
-        return buf
+    """Append byte to packet buffer, flushing at packet boundaries. Returns updated buffer.
+
+    0x00 is a byte like any other: the CTS Gen7 cipher puts it on the wire, and
+    dropping one desynchronises the remap and fails every checksum after it.
+    """
     if state._decoder.is_packet_start(c, buf) or (
         len(buf) >= state._decoder.max_packet_bytes
     ):

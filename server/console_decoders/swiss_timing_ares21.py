@@ -1,6 +1,7 @@
 import re
 
 from .base import ConsoleDecoder, SerialConfig
+from .utils import parse_time_hundredths
 
 _SOH = 0x01
 _STX = 0x02
@@ -14,8 +15,8 @@ _HEADER_EVENT = "0040100069"
 _NAME_CODES = {f"0040100{200 + 36 * (i - 1):03d}": i for i in range(1, 11)}
 _RESULT_CODES = {f"0040100{220 + 36 * (i - 1):03d}": i for i in range(1, 11)}
 
-_TIME_RE = re.compile(r"\d{1,2}:\d{2}\.\d{1,2}|\d{2}\.\d{1,2}")
-_NORM_RE = re.compile(r"^(\d+):(\d{2})\.(\d{1,2})$|^(\d{2})\.(\d{1,2})$")
+_TIME_RE = re.compile(r"\d{1,2}:\d{2}\.\d{1,2}|\d{1,2}\.\d{1,2}")
+_NORM_RE = re.compile(r"^(\d+):(\d{2})\.(\d{1,2})$|^(\d{1,2})\.(\d{1,2})$")
 
 
 def _parse_time(s: str) -> str:
@@ -158,7 +159,9 @@ class Ares21Decoder(ConsoleDecoder):
             if t != self.running_time:
                 self.running_time = t
                 updates["running_time"] = t
-            if not self._race_active and t:
+            # A clock idling at zero between heats is not a start: only a time
+            # that has actually moved off 0 marks the race as under way.
+            if not self._race_active and parse_time_hundredths(t):
                 self._race_active = True
                 for i in range(1, self.num_lanes + 1):
                     if not self.lane_times.get(i):

@@ -233,14 +233,24 @@ class CTSGen7Decoder(ConsoleDecoder):
         payload = packet[2 : expected_len + 2]
 
         # Special multi-pool header: 0x9F + 0x11 or 0x13
-        # Payload (from byte index 1 onward) undergoes a second independent remap.
+        # Payload (from byte index 1 onward) undergoes a second independent remap,
+        # and the result starts with its own module header byte.
         if packet[0] == 0x9F and len(payload) >= 2 and payload[0] in (0x11, 0x13):
-            payload = self._secondary_remap(payload)
-            if payload is None:
+            # payload[1] is the pool, 1-based. Only the first pool is decoded: the
+            # others would otherwise overwrite pool 1's modules with their own.
+            if payload[1] != 1:
                 return {}
+            data = self._secondary_remap(payload)
+            if data is None:
+                return {}
+        else:
+            # The packet's header byte is the module header — bits 4-0 name the
+            # module every digit that follows belongs to. Data bytes never carry the
+            # high bit after the remap, so without it every digit lands in module 0.
+            data = [packet[0], *payload]
 
         self._dirty.clear()
-        for b in payload:
+        for b in data:
             self._parse_byte(b)
 
         return self._collect_updates()
@@ -355,10 +365,14 @@ class CTSGen7Decoder(ConsoleDecoder):
                 out += ch + "."
             else:
                 out += ch
+        if mod_idx == 0:
+            # Module 0 gets its ':' and '.' whether or not there are digits around
+            # them, so a clock under a minute would read ":12.3" and a blank one ":."
+            return out.strip(" :.")
         return out.strip()
 
-    def _get_digits_int(self, mod_idx: int, start: int, count: int) -> int:
-        s = "".join(self._char(mod_idx, start + i) for i in range(count)).strip()
+    def _get_digits_int(self, mod_idx: int, digits: tuple[int, ...]) -> int:
+        s = "".join(self._char(mod_idx, d) for d in digits).strip()
         return int(s) if s.isdigit() else 0
 
     # ── Update collection ─────────────────────────────────────────────────────
@@ -384,7 +398,9 @@ class CTSGen7Decoder(ConsoleDecoder):
                 continue
             m = self._mod[lane]
             t = self._get_time(lane, start=4, count=6)
-            place = self._char(lane, 3)
+            # Place is a two-character field, digits 2-3 (GetDigits reads 0-1 and
+            # 2-3 as pairs), so a 10th place keeps its leading 1.
+            place = (self._char(lane, 2) + self._char(lane, 3)).strip() or " "
             # Univ flag = True means the lane is actively racing (showing running time)
             running = m.univ
 
@@ -403,8 +419,10 @@ class CTSGen7Decoder(ConsoleDecoder):
 
         # Event / heat — module 12
         if 12 in self._dirty:
-            ev = self._get_digits_int(12, 1, 3)
-            ht = self._get_digits_int(12, 7, 3)
+            # Digits 1, 3, 4 — not 1, 2, 3. Upstream GetDigits(12, 1, 3) steps over
+            # digit 2 whenever it starts at digit 1.
+            ev = self._get_digits_int(12, (1, 3, 4))
+            ht = self._get_digits_int(12, (7, 8, 9))
             if ev > 0 and ht > 0:
                 updates["current_event"] = str(ev)
                 updates["current_heat"] = str(ht)

@@ -128,6 +128,10 @@ class QuantumDecoder(ConsoleDecoder):
         if packet == _ALIVE:
             return {}
 
+        # A frame ends at its EOT, not at the next SOH the worker splits on: cut
+        # anything after it rather than dropping the frame over trailing bytes.
+        if _EOT in packet:
+            packet = packet[: packet.index(_EOT) + 1]
         if len(packet) < 5 or packet[:3] != _PREFIX or packet[-1] != _EOT:
             return {}
 
@@ -174,6 +178,13 @@ class QuantumDecoder(ConsoleDecoder):
                     updates["current_heat"] = str(ht)
                     updates.update(self.reset_lanes())
                     updates["event_changed"] = tup
+                elif self._race_active or any(self.lane_times.values()):
+                    # The same heat readied again: a re-swim. Clear the lanes so the
+                    # next start is seen, but keep the seeds — no event_changed
+                    # follows to load them a second time.
+                    seeds = dict(self.lane_seed_times)
+                    updates.update(self.reset_lanes())
+                    self.lane_seed_times = seeds
 
         elif A == "2" and B == "S":
             # Start signal — mark all unfished lanes as running
@@ -185,17 +196,24 @@ class QuantumDecoder(ConsoleDecoder):
                         updates[f"lane_running{i}"] = True
                 updates["dismiss_overlay"] = True
 
-        elif A == "2" and B in ("I", "A"):
-            # Intermediate split (I) or finish (A)
+        elif A == "2" and B in ("I", "A", "B"):
+            # Intermediate split (I), finish (A), or finish on the backup buttons
+            # alone (B) — a finish all the same, or the lane would run forever.
             try:
                 lane = int(J)
-                lap = int(KK)
+                lap = int(KK) if KK.strip() else 0
                 rank = int(HH.strip()) if HH.strip() else 0
             except ValueError:
                 return {}
-            t = _parse_time(time_str)
-            if not t or lane < 1 or lane > self.num_lanes:
+            if lane < 1 or lane > self.num_lanes:
                 return {}
+            t = _parse_time(time_str)
+            if not t:
+                if B != "I" and self.lane_running.get(lane):
+                    # A finish with no time (DNF, DQ): the lane has still stopped.
+                    self.lane_running[lane] = False
+                    updates[f"lane_running{lane}"] = False
+                return updates
 
             self.lane_times[lane] = t
             updates[f"lane_time{lane}"] = t

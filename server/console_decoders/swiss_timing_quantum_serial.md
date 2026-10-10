@@ -202,7 +202,7 @@ Note: `··` = space character 0x20; `??` = lane bitmask bytes, content not rele
 | `'0'` | any | New heat: emit `event_changed`, reset lanes |
 | `'2'` | `'S'` | Race started: mark all empty lanes `running=True`, dismiss overlay |
 | `'2'` | `'I'` | Split: emit `lane_time`, `lane_place` (if ranked), `lane_splits` |
-| `'2'` | `'A'` | Finish: emit `lane_time`, `lane_place`, `lane_running=False` |
+| `'2'` | `'A'`, `'B'` | Finish (B = backup buttons only): emit `lane_time`, `lane_place`, `lane_running=False`; a blank time still stops the lane |
 | `'1'` | any | Heat officially ended |
 
 ---
