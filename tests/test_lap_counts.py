@@ -1,9 +1,10 @@
 """Lap counts: from the wire, through the relay, onto both boards.
 
-A lap count is the one number on the board that no console is obliged to send. Two
-of the five report it natively (Quantum, Omnisport), the CTS Gen6 *infers* it from
-touchpad stops, and the Gen7 and ARES 21 have nothing to say about it at all. That
-spread is the whole reason these tests exist:
+A lap count is the one number on the board that no console is obliged to send. Three
+of the five report it natively (Quantum, Omnisport, and the ARES 21 through the
+Daktronics RTD line it shares with the Omnisport), the CTS Gen6 *infers* it from
+touchpad stops, and the Gen7 has nothing to say about it at all. That spread is the
+whole reason these tests exist:
 
 * Every decoder has to answer `adjust_splits`, because
   `worker._worker_adjust_splits` calls it blind. It used to exist on two decoders out
@@ -60,7 +61,9 @@ def test_reset_lanes_blanks_the_lap_count(key):
         assert updates.get(f"lane_splits{lane}") == 0, f"lane {lane} keeps its laps"
 
 
-@pytest.mark.parametrize("key", ["omega_quantum", "dak_2000", "cts_gen6"])
+@pytest.mark.parametrize(
+    "key", ["omega_quantum", "dak_2000", "omega_ares21", "cts_gen6"]
+)
 def test_counting_decoders_really_move_the_count(key):
     """Where there is a count to move, ± has to move it — and never below zero.
 

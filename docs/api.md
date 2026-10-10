@@ -340,7 +340,7 @@ Lane keys are 1-indexed (`<i>` = 1…12).
 | `lane_delta<i>` | string | **HTML** `<span class="delta-better\|delta-worse">±s.hh</span>` vs seed (for the browser) |
 | `lane_delta_seconds<i>` | float\|null | **structured** signed delta vs seed in seconds (negative = faster); `null` when no seed/time |
 | `lane_delta_better<i>` | bool\|null | `true` when faster than seed; `null` when no delta |
-| `lane_splits<i>` | int | lengths this lane has completed; `0` at the top of every heat. Native from a Quantum or an Omnisport 2000, inferred from touchpad stops on a CTS Gen6, and never raised at all by a Gen7 or an ARES 21. Also the reply to `adjust_splits` |
+| `lane_splits<i>` | int | lengths this lane has completed; `0` at the top of every heat. Native from a Quantum, an Omnisport 2000 or an ARES 21 (whose RTD line layout is inferred), inferred from touchpad stops on a CTS Gen6, and never raised at all by a Gen7. Also the reply to `adjust_splits` |
 
 > Native clients should use `lane_delta_seconds<i>` / `lane_delta_better<i>` and
 > ignore the HTML `lane_delta<i>`. On a heat change all three reset (`""` / `null`).

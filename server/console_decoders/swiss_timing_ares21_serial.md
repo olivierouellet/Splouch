@@ -1,8 +1,13 @@
 # Swiss Timing Omega Ares 21 — Serial Protocol Reference
 
-> **Status: Documented** from community reverse-engineering of
-> `fvishram/SRAYSScoreboard` (`AresDataHandler.cs`, MIT).
-> Protocol name: **Venus ERTD** (Extended Real-Time Data).
+> **Status: Partly documented, partly inferred.** Offsets from community
+> reverse-engineering of `fvishram/SRAYSScoreboard` (`AresDataHandler.cs`, MIT);
+> the result-line layout inferred from the Daktronics swimming template. Not yet
+> run against a live console.
+>
+> Protocol name: **Venus ERTD**. Venus is Daktronics' display-control software, so
+> this is **Daktronics RTD** — the same wire format as the Omnisport 2000
+> (`rtd.py`, `omnisport_2000_serial.md`).
 
 ---
 
@@ -33,168 +38,90 @@ Standard USB-to-RS-232 adapters will not work — use a USB-to-RS-485 adapter.
 
 ## Message Structure
 
-```text
-SOH (0x01) | Header (10 ASCII digits) | STX (0x02) | Data (ASCII) | EOT (0x04)
-```
-
-Control characters:
-
-- **SOH** `0x01` — start of header (packet boundary marker)
-- **STX** `0x02` — start of data payload
-- **EOT** `0x04` — end of message
-
-The header is always exactly 10 ASCII digit characters.
-
----
-
-## Header Codes
-
-### Running time
-
-| Header | Content |
-| ------ | ------- |
-| `0040100000` | Current running time |
-
-Data format: `MM:SS.cc` (e.g. `01:23.45`).
-
-### Event information
-
-| Header | Content |
-| ------ | ------- |
-| `0040100069` | Event name and heat |
-
-Data format: free text containing `Event N` and `Heat N` substrings
-(e.g. `Event 12 Heat 3` or `Event 1: Men's 100m Freestyle Heat 2`).
-
-### Lane swimmer names
-
-| Header | Lane |
-| ------ | ---- |
-| `0040100200` | Lane 1 |
-| `0040100236` | Lane 2 |
-| `0040100272` | Lane 3 |
-| `0040100308` | Lane 4 |
-| `0040100344` | Lane 5 |
-| `0040100380` | Lane 6 |
-| `0040100416` | Lane 7 |
-| `0040100452` | Lane 8 |
-| `0040100488` | Lane 9 |
-| `0040100524` | Lane 10 |
-
-Stride between lanes: **36**. Formula: `0040100` + `(200 + 36 × (lane − 1))`.
-
-Data format: swimmer name string (trimmed).
-
-### Lane results (place + time)
-
-| Header | Lane |
-| ------ | ---- |
-| `0040100220` | Lane 1 |
-| `0040100256` | Lane 2 |
-| `0040100292` | Lane 3 |
-| `0040100328` | Lane 4 |
-| `0040100364` | Lane 5 |
-| `0040100400` | Lane 6 |
-| `0040100436` | Lane 7 |
-| `0040100472` | Lane 8 |
-| `0040100508` | Lane 9 |
-| `0040100544` | Lane 10 |
-
-Stride between lanes: **36**. Formula: `0040100` + `(220 + 36 × (lane − 1))`.
-
-Data format: place number followed by time (e.g. `1 00:54.32`).
-The time is always the last `MM:SS.cc`-shaped token; the place is the integer token immediately before it.
-
----
-
-## Data Examples
+Daktronics RTD (see `omnisport_2000_serial.md` for the framing, checksum and how the
+buffer works):
 
 ```text
-SOH + 0040100000 + STX + 01:23.45            + EOT   running time
-SOH + 0040100069 + STX + Event 1 Heat 2      + EOT   event / heat
-SOH + 0040100200 + STX + John Smith          + EOT   lane 1 name
-SOH + 0040100220 + STX + 1 00:54.32          + EOT   lane 1 result
+SYN 00000000 SOH 004010oooo STX <data> EOT <checksum: 2 hex> ETB
 ```
 
----
-
-## Running State Detection
-
-The Ares 21 has no explicit "race started" or "lane running" message. The decoder infers state as follows:
-
-- **Race started**: first running-time packet after a reset/event-change. Lanes without a result are marked `lane_running=True` — only lanes with a swimmer in the start lists (`set_heat_lanes`; every lane when no meet is loaded) — and the overlay is dismissed.
-- **Lane finished**: a result packet arrives for that lane → `lane_running=False`.
-- **Race reset**: new event/heat detected via the event header → all lanes cleared.
+`004010` is the Ares's header prefix; `oooo` is the offset into a 4096-byte buffer
+where `<data>` is written. SRAYS shows frames starting at SOH with no SYN or
+checksum; the decoder accepts both, and verifies the checksum only when the SYN is
+there.
 
 ---
 
-## Swimmer Names
+## Buffer Layout
 
-The Ares 21 transmits swimmer names natively via the lane name header codes. In this application the names are **not used** — they are already supplied by the Lenex/HyTek meet-management file. The Ares names would only be needed for a standalone deployment with no Lenex integration.
+| Offset | Len | Field | Source |
+| -----: | --: | ----- | ------ |
+| 0 | 9 | Running time | SRAYS (`0040100000`) |
+| 69 | 30 | Event title — free text with `Event N` / `Heat N` | SRAYS (`0040100069`) |
+| 99 | 3 | Event number | inferred (template) |
+| 103 | 2 | Heat number | inferred (template) |
+| 126 | 2 | Maximum lengths | inferred (template) |
+| 200 + 36·(n−1) | 36 | Result line n, n = 1…10 | SRAYS (names at +0, results at +20) |
+
+### Result line (inferred)
+
+SRAYS gives only where a line starts and that its result half starts 20 characters
+in. That matches the Daktronics swimming template's line exactly — same 36-character
+stride, name and team in the first 20 — so the decoder reads it with that layout:
+
+| Offset in line | Len | Field |
+| -------------: | --: | ----- |
+| 0 | 15 | Swimmer name (ignored — Lenex supplies names) |
+| 15 | 5 | Team |
+| 20 | 2 | Lane number |
+| 22 | 3 | Place |
+| 25 | 9 | Split / finish time |
+| 34 | 2 | Lengths completed |
+
+Every other known Ares offset matches the template too: running time at 0, event
+title at 69. Only the start of line 1 differs (200 here, 222 on the Omnisport) —
+presumably fewer record fields ahead of the lanes.
+
+**Fallbacks**, for while this is unconfirmed:
+
+- No lane number in the line → line n is lane n, as SRAYS assumes.
+- Place or time not where the template puts them → the first time anywhere in the
+  line's result half, and the number just before it as the place. This reads
+  SRAYS's own example, `1 00:54.32` at `0040100220`, as lane 1 place 1.
+- Event/heat: the number fields (99, 103) when both hold digits, else `Event N` and
+  `Heat N` in the title text.
 
 ---
 
-## Split Times
+## Decoder Behaviour
 
-Not transmitted in the Venus ERTD scoreboard format. The Ares 21 stores split data internally and transmits it to meet-management software via a separate interface.
+Shared with the Omnisport (`RtdSwimmingDecoder`):
+
+| Field change | Emitted |
+| ------------ | ------- |
+| Event / heat | `current_event`, `current_heat`; on a new pair, `event_changed` and a lane reset |
+| Running time | `running_time`. Leaving zero is the start: untimed lanes go `lane_running=True` — only lanes with a swimmer in the start lists (`set_heat_lanes`) — and `dismiss_overlay`. Returning to zero re-arms the start |
+| Result line with place + time | `lane_time`, `lane_place`, `lane_splits` (lengths, when the line has them) |
+| …and lengths ≥ maximum lengths (or either unknown) | `lane_running=False` — the finish |
+| Result line blank in place and time | lane cleared |
 
 ---
 
 ## Known Uncertainties (needs hardware validation)
 
-The framing and header dispatch are derived directly from a working open-source
-implementation and should be reliable. The three areas below are inferred and will
-likely need tuning once tested against a real Ares 21 or a serial capture.
-
-### Result data format
-
-The documented example is `1 00:54.32` (place space time). The reference C#
-implementation has a likely bug where it extracts both place and time from the
-second token, discarding the first. The actual wire format may have extra leading
-tokens (e.g. a lane-confirmation prefix), which would shift the token positions.
-If places are not showing correctly, capture a raw result packet and compare.
-
-### Event / heat text format
-
-The event header payload is free text. The decoder searches for `Event N` and
-`Heat N` substrings (case-insensitive). If the Ares formats the string differently
-(e.g. `Ev. 1 Ht. 2`, or just an event number without the word "Heat"), the
-`event_changed` signal will never fire, lanes will not reset between heats, and
-seed times will not reload. A capture of the event header payload from real
-hardware is needed to confirm the exact format.
-
-### Running state inference
-
-The Ares 21 has no explicit "race started" message. The decoder marks lanes
-`running=True` — only lanes with a swimmer in the start lists (`set_heat_lanes`; every lane when no meet is loaded) — on the first running-time packet that has left zero. Two known
-edge cases:
-
-- **Pre-start clock**: if the console runs the clock before the starter's gun (e.g.
-  during a false-start hold), the overlay will be dismissed prematurely.
-- **Intra-event restart**: if a heat is abandoned and restarted without the Ares
-  sending a new event-header packet, `_race_active` is never cleared and the
-  running-state transition is missed for the restart.
-
----
-
-## Implementation Status
-
-Implemented in `console_decoders/ares21.py` (`Ares21Decoder`).
-
-| Feature | Status |
-| ------- | ------ |
-| Packet framing (SOH / STX / EOT) | Done |
-| Running time | Done |
-| Event / heat detection and lane reset | Done |
-| Lane finish times and places | Done |
-| Lane running state inference | Done |
-| Swimmer names (Ares native) | Not implemented — Lenex integration covers this |
-| Split times | Not available in Venus ERTD |
+- **Result-line layout.** Inferred, as above. A capture of one split and one finish
+  settles it; if the fallback is what decodes it, the template guess was wrong.
+- **Event / heat.** If the Ares fills neither the number fields nor an `Event N …
+  Heat N` title, `event_changed` never fires, lanes are not reset between heats and
+  seed times do not reload.
+- **Pre-start clock.** A clock running before the start (a false-start hold) is
+  taken as the start.
 
 ---
 
 ## Sources
 
 - `fvishram/SRAYSScoreboard` — `AresDataHandler.cs` and `docs/PROTOCOL.md`: [github.com/fvishram/SRAYSScoreboard](https://github.com/fvishram/SRAYSScoreboard)
-- Hy-Tek OSM 6 interface reference: [hytek.active.com](https://hytek.active.com/user_guides_html/swmm8/omegaosm6.htm)
+- Daktronics Input Template File `OS2-Swimming.itf` (the line layout): <http://dakfiles.daktronics.com/downloads/Data/ITF/OS2-Swimming.itf>
+- Daktronics RTD framing as decoded by the AllSport 5000 projects, e.g. `scorebox-consoles`: <https://pypi.org/project/scorebox-consoles/>
 - Ares 21 User Manual: [hertsssa.org.uk](http://www.hertsssa.org.uk/uploads/5/2/5/3/5253152/ares_swimming_user_manual.pdf)

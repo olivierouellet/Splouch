@@ -53,7 +53,7 @@ SYN 00000000 SOH 0042100000 STX "    0.1  " EOT "BD" ETB
 sum('00000000' + SOH + '0042100000' + STX + '    0.1  ' + EOT) & 0xFF = 0xBD
 ```
 
-The decoder keeps a copy of the buffer, writes each packet's data at its offset,
+The decoder (`rtd.py`, shared with the ARES 21) keeps a copy of the buffer, writes each packet's data at its offset,
 then reads the fields it needs from the copy. This handles partial and multi-field
 writes without caring how the console chooses to chunk them.
 

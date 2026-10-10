@@ -434,3 +434,73 @@ def test_gen6_a_placed_time_equal_to_the_clock_is_still_a_result():
     d.feed([0x92, *tod])  # channel 22, the clock
     d.feed([0xB8, 0x00, 0x1E, *tod[2:]])  # lane 3, place 1, same digits
     assert d.get_lane_time(3) == "0:39.00"
+
+
+# ── ARES 21 on the RTD core ───────────────────────────────────────────────────
+# The Ares speaks Daktronics RTD to Venus controllers: header prefix 004010, result
+# lines from offset 200. The line layout is the Daktronics swimming template's,
+# inferred; SRAYS's `place time` text is the fallback.
+
+
+def _ares_rtd(offset: int, data: str, checksum: str | None = None) -> list[int]:
+    """A full RTD packet (SYN, zeros, checksum, ETB) with the Ares prefix."""
+    body = [*b"00000000", 0x01, *f"004010{offset:04d}".encode(), 0x02]
+    body += [*data.encode(), 0x04]
+    ck = checksum if checksum is not None else f"{sum(body) & 0xFF:02X}"
+    return [0x16, *body, *ck.encode(), 0x17]
+
+
+def _ares_line(n: int) -> int:
+    return 200 + 36 * (n - 1)
+
+
+def test_ares_template_line_gives_lane_place_time_and_lengths():
+    d = Ares21Decoder({"num_lanes": 8})
+    d.feed(_ares_rtd(99, f"  7 {' 2':2}{'':20}F 4"))  # event 7 heat 2, 4 lengths
+    d.feed(_ares_rtd(0, "    0.1  "))
+    split = d.feed(_ares_rtd(_ares_line(1), _line(5, "2", "31.07", "2")))
+    assert (split["lane_time5"], split["lane_place5"], split["lane_splits5"]) == (
+        "31.07",
+        "2",
+        2,
+    )
+    assert "lane_running5" not in split, "a split does not stop the lane"
+    finish = d.feed(_ares_rtd(_ares_line(1), _line(5, "1", "1:04.882", "4")))
+    assert finish["lane_time5"] == "1:04.88"
+    assert finish["lane_running5"] is False
+
+
+def test_ares_partial_write_lands_in_place():
+    d = Ares21Decoder({"num_lanes": 8})
+    d.feed(_ares_rtd(_ares_line(4), _line(4)))
+    d.feed(_ares_rtd(_ares_line(4) + 22, "  3"))
+    updates = d.feed(_ares_rtd(_ares_line(4) + 25, "58.40    "))
+    assert (updates["lane_time4"], updates["lane_place4"]) == ("58.40", "3")
+
+
+def test_ares_srays_style_result_is_read_by_line():
+    """`1 00:54.32` at line 3's result offset: place 1 in lane 3, not lane 1."""
+    d = Ares21Decoder({"num_lanes": 8})
+    updates = d.feed(_ares("0040100292", "1 00:54.32"))
+    assert (updates["lane_time3"], updates["lane_place3"]) == ("54.32", "1")
+    assert "lane_time1" not in updates
+
+
+def test_ares_event_from_number_fields_or_title():
+    d = Ares21Decoder({"num_lanes": 8})
+    assert d.feed(_ares_rtd(99, "  7 2"))["event_changed"] == (7, 2)
+    d2 = Ares21Decoder({"num_lanes": 8})
+    assert d2.feed(_ares("0040100069", "Event 12 Heat 3"))["event_changed"] == (12, 3)
+
+
+def test_ares_bad_checksum_is_dropped():
+    d = Ares21Decoder({"num_lanes": 8})
+    assert d.feed(_ares_rtd(0, "    0.1  ", checksum="00")) == {}
+    assert d.feed(_ares_rtd(0, "    0.1  "))["running_time"] == "0.1"
+
+
+def test_ares_and_omnisport_prefixes_do_not_cross():
+    d = Ares21Decoder({"num_lanes": 8})
+    assert d.feed(_rtd(0, "    0.1  ")) == {}, "an Omnisport packet read as Ares"
+    o = Omnisport2000Decoder({"num_lanes": 8})
+    assert o.feed(_ares_rtd(0, "    0.1  ")) == {}, "an Ares packet read as Omnisport"

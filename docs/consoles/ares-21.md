@@ -1,6 +1,6 @@
 # Swiss Timing Omega — Ares 21
 
-> **Not tested on real hardware.** Implemented from published protocol documentation. Adjustments may be needed once validated against a live console.
+> **Not tested on real hardware.** The Ares sends Daktronics RTD ("Venus ERTD"), decoded with the same core as the Omnisport 2000. Its offsets come from an open-source implementation; the layout of a result line is inferred from Daktronics' swimming template, with a fallback. A recording of one heat (Settings → Test → Record, `.raw`) would confirm it.
 
 ## Hardware
 
@@ -23,7 +23,7 @@ PC side (DB9 female)          Ares 21 side (DB9 male)
 
 ## Protocol
 
-RS-485 — 9600 baud, 8-N-1 (Venus ERTD scoreboard format)
+RS-485 — 9600 baud, 8-N-1 (Venus ERTD scoreboard format, i.e. Daktronics RTD)
 
 Full protocol reference: [`console_decoders/swiss_timing_ares21_serial.md`](../../server/console_decoders/swiss_timing_ares21_serial.md)
 
