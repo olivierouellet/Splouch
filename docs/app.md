@@ -270,15 +270,16 @@ QR code needs the board, not a carousel; `P-06`'s line does the job there.
 2. **Find your meet** — meets listed by day (`P-01`); the picker's filter (`P-21`)
    by club, country or province, kept until cleared; the gear opens settings (`P-19`).
 3. **Three tabs** — Scoreboard (heat in the water), Results (finished heats), Schedule
-   (start lists); swipe between them where `A-03` swipes. Under it, **how to read a
-   lane**: two sample lanes drawn as the narrow board draws them (`L-15`), in the server's
-   default palette (`api.md` §6.1) for the reader's Appearance (`P-15`) — one faster than
-   its seed, one slower — then a key pairing each part, styled as on the board, with its
-   meaning: lane, club, time, gap to the seed time (`delta_better` green when faster,
-   `delta_worse` grey when slower), place. The narrow board has no header row, so this
+   (start lists). Under it, **how to read a lane**: one sample lane drawn as the narrow
+   board draws it (`L-15`), in the server's default palette (`api.md` §6.1) for the
+   reader's Appearance (`P-15`), then a key pairing each part, styled as on the board,
+   with its meaning: lane, club, time, gap to the seed time (a faster and a slower one:
+   `delta_better` green when faster, `delta_worse` grey when slower), lengths during the race (`L-23`'s lap count, in the
+   delta's place, drawn in its own colour rather than named, as `header_label` is blue
+   only in Dark), place. The narrow board has no header row, so this
    is where the columns are named. Sample values and key words are the app's (`T-05`);
    the screen reader reads the key, each line as value then meaning, and skips the
-   sample lanes.
+   sample lane. No second paragraph: the page has to fit with its key.
 4. **Times in the schedule** — seed, then console, then official time, each its own
    colour (`S-22`); a heat marked `±` taps to the gap to the seed (`S-23`).
 5. **Follow a swimmer or club** — Schedule's filter (`S-08`) and *All heats* (`S-16`);
@@ -1079,8 +1080,9 @@ paused stays paused. iOS: a `Toggle` in the sheet's first section, the bell
 - **v3, amended** (2026-10-10, no bump) — the introduction explains a lane. Native
   words only: no server change.
 
-  - **Changed**: `P-20` page 3 adds two sample lanes and a key (lane, club, time, gap
-    to the seed time, place), since the narrow board (`L-15`) has no header row.
+  - **Changed**: `P-20` page 3 adds a sample lane and a key (lane, club, time, gap to
+    the seed time, lengths during the race, place), since the narrow board (`L-15`) has
+    no header row; its sentence about swiping between the tabs goes, to make room.
 
 - **v3, amended** (2026-10-09, no bump) — pause heat notifications. Native only: the
   node already reads an empty list as stop, so no server change.
