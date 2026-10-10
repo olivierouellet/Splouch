@@ -154,7 +154,7 @@ Entry screen. Web: site root. App: launch screen, and `A-02`'s return target.
 
 | ID | Feature | Driven by | Scope | Level |
 | --- | --- | --- | --- | --- |
-| [`P-01`](#p-01) | Meets as cards **under their day**, the day named once above them in the reader's language (undated meets last, under `date_unknown`). Card: name (two lines at most, then an ellipsis; may shrink a little first), then one line — city, state/province **code**, country **code** — cut with an ellipsis. Every card one height. No date, no sport on the card. A country or state/province the picker filter (`P-21`) narrows to exactly one is not repeated on the card | `GET /meets` ([`api.md`](api.md) §5.6) → `meet_date`, `location`, `country` (ISO code), `province` (ISO 3166-2 code without the country, or as sent when not a known one); `strings.date_unknown` | all | must |
+| [`P-01`](#p-01) | Meets as cards **under their day**, the day named once above them in the reader's language (undated meets last, under `date_unknown`). Card: name (two lines at most, then an ellipsis; may shrink a little first), then one line — city, state/province **code**, country **code** — cut with an ellipsis. Every card one height. No date, no sport on the card. A country or state/province the picker filter (`P-21`) narrows to exactly one is not repeated on the card. Apps: a bell after the name while the meet has follows (`N-13`) | `GET /meets` ([`api.md`](api.md) §5.6) → `meet_date`, `location`, `country` (ISO code), `province` (ISO 3166-2 code without the country, or as sent when not a known one); `strings.date_unknown` | all | must |
 | `P-02` | Per-meet picker image on card, if supplied — only while the list is short (`P-18`) | `settings.picker_image_b64` → `GET /picker_image/{meet_id}` | all | should |
 | `P-03` | Offline meets stay listed, dimmed dot; opened → last scoreboard frame, empty Results (`R-02`) | `offline`: retained, no relay connected | all | must |
 | `P-04` | Empty state, no active meets | `strings.no_meets` | all | must |
@@ -171,8 +171,8 @@ Entry screen. Web: site root. App: launch screen, and `A-02`'s return target.
 | [`P-15`](#p-15) | Spectator's Appearance — Dark (default), Light, Automatic — in settings (`P-19`), applies on every screen of every meet | stored pref; server's two palettes ([`api.md`](api.md) §6.1), never `settings.theme_colors`; words native in apps (`T-05`); web reads `strings.appearance`, `appearance_dark` / `_light` / `_auto` | all | should |
 | [`P-16`](#p-11) | QR scan adds server: app asks; yes → adds, selects, lands on **meet list**. No app → page offers store | `https://<default host>/add?server=<origin>`; host's two `/.well-known/` files, `GET /add` ([`api.md`](api.md) §4) | native | should |
 | [`P-17`](#p-17) | Search meet list from **3** meets, narrows as typed, own empty state; field where platform puts search | local over `GET /meets` → `name`, `meet_date`, `location`, `sport`, `organizer`, `province`, `country` (code and reader's-language name); `strings.meet_search`, `no_meets_match` | all | should |
-| `P-18` | More than **10** meets → compact rows, still under their day: name on one line, city · state/province · country codes, live dot; **no picker image**, none fetched. 10 or fewer → `P-01` cards | count of `GET /meets` → `meets` | all | should |
-| [`P-19`](#p-19) | **Settings** — one container in place of picker menu, sections in this order: Display (language `T-08`, Appearance `P-15`), Privacy (`P-07`), Server (`P-11`–`P-13`, native), About (`P-06` full text, policy link, `P-20` replay). Platform's own form: web side sheet (full height under 600px), iOS sheet with `Form`, Android full-screen settings destination | section names native in apps (`T-05`); web reads `strings.settings`, `settings_display`, `settings_privacy`, `settings_about` | all | should |
+| `P-18` | More than **10** meets → compact rows, still under their day: name on one line, city · state/province · country codes, live dot, `N-13`'s bell; **no picker image**, none fetched. 10 or fewer → `P-01` cards | count of `GET /meets` → `meets` | all | should |
+| [`P-19`](#p-19) | **Settings** — one container in place of picker menu, sections in this order: Display (language `T-08`, Appearance `P-15`), Notifications (`N-12`, native), Privacy (`P-07`), Server (`P-11`–`P-13`, native), About (`P-06` full text, policy link, `P-20` replay). Platform's own form: web side sheet (full height under 600px), iOS sheet with `Form`, Android full-screen settings destination | section names native in apps (`T-05`); web reads `strings.settings`, `settings_display`, `settings_privacy`, `settings_about` | all | should |
 | [`P-20`](#p-20) | **Introduction** on first launch, once per install, replayable from settings About: unofficial results (`P-06`), finding a meet, three tabs and how to read a lane, the schedule's times, following a swimmer or club, attendance counting with its toggle (`C-10`) | first and last pages server text (`results_disclaimer`, `privacy_note`), rest native words (`T-05`); last page only while `analytics_enabled` | native | should |
 | [`P-21`](#p-21) | **Filter** the meet list by country, state/province and club (organizer), in that order, several values each; **remembered** by the app across launches and servers. Country and state/province list every one the app knows (`shared/regions/subdivisions.json`), plus any other the list holds; club lists the clubs the list holds, plus any the spectator adds by its official letters; a province narrows its own country only, clubs narrow the places (OR within a facet). Active filter → a line at the end of the list says meets are hidden, with *Clear*; filter hides every meet → own empty state with *Clear*, not `P-04`/`P-17`'s | local over `GET /meets` → `country`, `province`, `organizer`; stored pref, one per app; words native (`T-05`) | native | should |
 | `P-22` | A test meet carries a **TEST** badge after its name, on its card and its compact row (`P-18`): small, bold, uppercase as served, outlined in the accent colour. The name is a team's and does not say it is a test; the badge does. Not searched (`P-17`) | `GET /meets` → `test`; `strings.test_meet` | all | should |
@@ -244,11 +244,13 @@ under it as the toggle's explanation, then the server's policy link.
 Menu held three choices; settings now hold a toggle, explanatory text and links,
 which a popover or `DropdownMenu` renders badly. One container, sections in this
 order, each platform's own form. Display first: it is what most spectators open
-settings for; Server is for the few who follow a pool's own server, so it sits below:
+settings for; Notifications next, only while something is followed; Server is for the
+few who follow a pool's own server, so it sits below:
 
 | Section | Holds | Web | iOS | Android |
 | --- | --- | --- | --- | --- |
 | Display | language (`T-08`), Appearance (`P-15`) | radio groups | language row → list, Appearance `Picker` | language row → dialog, Appearance radio rows |
+| Notifications | `N-12`, only while a meet has follows | — (no notifications) | a `Toggle` row per meet, then *Pause all* | a `Switch` row per meet, then *Pause all* |
 | Privacy | `P-07` | toggle + note + link | `Toggle`, footer note + `Link` | `Switch` row, supporting text, link |
 | Server | `P-11`–`P-13`, `P-14` notice | — (no server choice) | row with current server → server list | row → server sheet |
 | About | `P-06` full text, policy link, *Show introduction* (`P-20`, native), app version | text | `Section` text | text |
@@ -981,6 +983,8 @@ sequenceDiagram
 | [`N-09`](#n-09) | **Privacy binding**: the node keeps token, platform, language, followed names and clubs — nothing else — until the meet leaves it; carried with a meet moved to another node; a token the platform reports dead is dropped. The device forgets a meet's follows when the meet is gone (`A-09`) | `/privacy` → *Heat notifications* | native | must |
 | [`N-10`](#n-10) | **Support token**: long press on the app version (settings About, `P-19`) shows this install's push token as one line with Copy, the platform's way; a notification with an empty `meet_id` is a test — tapping it opens the app, nothing else | iOS `apns:production:<hex>` or `apns:sandbox:<hex>` (the environment the build registers with); Android `fcm:<token>`; no token yet → says so. Pasted by an admin in `/admin` → Debug → *Send a test notification* | native | should |
 | [`N-11`](#n-11) | **Pause**: a *Notify me* switch heads `N-02`, on by default. Off → the swimmers stay on the device, still editable; *Upcoming* and *Heat on the console* are disabled; the node is sent an empty list (`N-07`). On → the whole list is sent again | stored per meet on the device with the follows | native | should |
+| [`N-12`](#n-12) | **Every followed meet in settings** (`P-19`), after Display, only while a meet on the device has follows: one row per meet, from every server — its name, its server when not the default (`P-11`), the swimmer count or *Paused*, and its `N-11` switch. Then **Pause all**: every meet's switch off, each sending its empty list (`N-07`); disabled while all are paused | the device's follows, each kept with the meet's name and `base` (`C-11`); words native (`T-05`) | native | should |
+| [`N-13`](#n-12) | **Picker bell**: a meet with follows carries a small bell after its name (and its `P-22` badge), on its card and its compact row (`P-18`); struck through while paused (`N-11`) | the device's follows for this server | native | should |
 
 ### <a id="n-01"></a>N-01 — where the bell lives
 
@@ -1062,6 +1066,24 @@ deliberate long press, never in plain view, and the app sends it nowhere on its 
 The prefix is part of the line: the admin side needs the platform, and for iOS the APNs
 environment, since a sandbox token is dead against production.
 
+### <a id="n-12"></a>N-12, N-13 — finding what is followed
+
+A spectator who followed swimmers at several meets, maybe on several servers, could
+only stop them meet by meet, through each meet's bell (`N-01`), and the picker did not
+say which meets those were. Settings list them all, since the follows are the device's
+and not one server's; the picker marks the ones on its own list. *Pause all* is an
+action, not a mode: it sets each meet's `N-11` switch, and a meet followed afterwards
+starts on as usual, so nothing outlives the weekend (`N-11`'s reason against a global
+switch). No *Remove all*: pausing keeps the lists, which is what someone muting a
+noisy weekend wants; a list is still edited in its meet's sheet (`N-02`). The row
+needs the meet's name without its server's list, so the device keeps it with the
+follows, as it keeps the `base` (`N-07`); a list saved before that shows the meet's
+id until the meet is opened again. iOS: a `Section` of `Toggle` rows, the server and
+count as a second line, then a button row. Android: a category of `Switch` rows with
+supporting text, then a text button. The picker's bell is `bell` / `bell.slash` on iOS,
+`Notifications` / `NotificationsOff` on Android, in the secondary colour, after the
+`P-22` badge; it reads as the meet's notifications to a screen reader.
+
 ### <a id="n-11"></a>N-11 — pause, keep the list
 
 A spectator who follows a dozen swimmers and wants a quiet hour should not have to
@@ -1076,6 +1098,13 @@ paused stays paused. iOS: a `Toggle` in the sheet's first section, the bell
 ---
 
 ## Changelog
+
+- **v3, amended** (2026-10-10, no bump) — every followed meet in one place. Native
+  only: no server change.
+
+  - **Added**: `N-12` (followed meets in settings, *Pause all*), `N-13` (picker bell).
+  - **Changed**: `P-19` (Notifications section after Display), `P-01`/`P-18` (the
+    bell).
 
 - **v3, amended** (2026-10-10, no bump) — the introduction explains a lane. Native
   words only: no server change.
