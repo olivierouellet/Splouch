@@ -377,6 +377,7 @@ def _settings_view(request, form):
                     prev, "last_event_sent", (0, 0)
                 )
                 state._decoder.set_seed_times(getattr(prev, "lane_seed_times", {}))
+                state._decoder.set_heat_lanes(getattr(prev, "_heat_lanes", ()))
                 _restart_worker()
 
         if "timing_tuning_submit" in form:

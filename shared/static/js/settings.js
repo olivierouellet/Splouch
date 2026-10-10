@@ -435,13 +435,25 @@ function _loadTestStatus() {
             var aside = document.getElementById('test-meet-aside-note');
             aside.style.display = d.has_meet || d.meet_set_aside ? '' : 'none';
 
-            // A console with no wire decodes a recording to nothing, so the replay runs
-            // under a CTS instead. Shown before Play as well as during, so the operator
-            // knows in advance that the board will not be their own console's.
+            // A recording from another console — or any recording under a console
+            // with no wire — replays under the decoder that can read it. Shown before
+            // Play as well as during, so the operator knows in advance that the board
+            // will not be their own console's; once playing, it names the one that is.
             var replayNote = document.getElementById('test-replay-console-note');
-            if (replayNote)
-                replayNote.style.display =
-                    d.replay_console || d.replay_console_needed ? '' : 'none';
+            if (replayNote) {
+                if (replayNote.dataset.idle === undefined)
+                    replayNote.dataset.idle = replayNote.innerHTML;
+                if (d.replay_console) {
+                    replayNote.textContent = T.test_replay_console_as.replace(
+                        '{console}',
+                        d.replay_console_label || d.replay_console,
+                    );
+                    replayNote.style.display = '';
+                } else {
+                    replayNote.innerHTML = replayNote.dataset.idle;
+                    replayNote.style.display = d.replay_console_needed ? '' : 'none';
+                }
+            }
 
             _renderSessions(d.sessions, d.playing);
 
@@ -531,9 +543,13 @@ function _renderSessions(sessions, anyPlaying) {
                   ' visibility:hidden;" tabindex="-1" aria-hidden="true">' +
                   T.btn_delete +
                   '</button>';
+        // A built-in names the console it was made on: it replays as that one.
         var badge =
             s.source === 'builtin'
-                ? '<span class="small text-body-secondary ms-1">' + T.js_builtin + '</span>'
+                ? '<span class="small text-body-secondary ms-1">' +
+                  T.js_builtin +
+                  (s.console_label ? ' · ' + _escAttr(s.console_label) : '') +
+                  '</span>'
                 : '';
         html +=
             '<div class="d-flex align-items-center border-bottom py-1 gap-1">' +

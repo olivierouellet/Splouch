@@ -1,26 +1,33 @@
 # Console recordings
 
 What the Test tab replays (Settings → Test). Each one is a capture or a
-reconstruction of a CTS Gen6 console's serial output, with a companion `.lxf`
-beside it holding the start lists its event and heat numbers refer to — that
-pairing is the whole reason a test session loads one.
+reconstruction of a console's serial output — CTS Gen6 unless a `.console` file
+beside it says otherwise — with a companion `.lxf` beside it holding the start
+lists its event and heat numbers refer to. That pairing is the whole reason a test
+session loads one.
 
 ## Which console decodes them
 
-A recording is a capture of a wire, so the player feeds its bytes to whatever
-decoder the *configured* console has — a replay is the one path where the console
-setting and the file have to agree. Two consequences:
+A recording is a capture of a wire, and only the decoder for the console that made
+it can read it — a CTS decoder finds no packet in an Omnisport capture at all. So a
+test session replays each recording under **the console it was made on**, borrowing
+that decoder for the duration and putting the configured one back at the end
+(`worker.use_replay_decoder`). The Test tab names the console beside each built-in
+and, while one plays under a stand-in, says which console is driving the board.
 
-- **A console with no wire cannot read one.** The manual console's decoder answers
-  nothing by design, so a replay under it once produced the test badge and eight
-  empty lanes for the whole recording. A test session now borrows `cts_gen6` for the
-  duration whenever the configured decoder reports `requires_serial = False`, puts
-  the console's own decoder back at the end, and the Test tab says which one is
-  driving the board (`worker.use_replay_decoder`).
-- **A console with a wire keeps its own.** These files are CTS Gen6, so replaying
-  one under a Quantum decodes to nothing — but substituting there would be the wrong
-  call, because a Quantum operator's own capture is the thing they are trying to
-  play. Record your own console's output (Test → Record) rather than replaying these.
+How the console is known (`worker.recording_console`):
+
+- **A `<name>.console` file** beside the recording holds its console key, e.g.
+  `dak_2000`. Only `omnisport_2000.raw` has one.
+- **A built-in without one** is CTS Gen6 — every recording shipped before the
+  Omnisport one.
+- **An uploaded recording** is the operator's own console's output, so it plays under
+  the configured decoder. One exception: a console with no wire (the manual console,
+  or a portless plugin, `requires_serial = False`) reads nothing by design, so there
+  it falls back to `cts_gen6` rather than the test badge over eight empty lanes.
+
+Decoders are compared by class, not key: a System 5 or Gen7 Legacy pool shares the
+Gen6 decoder and replays the CTS files without a stand-in.
 
 ## The two formats
 
@@ -64,6 +71,7 @@ way, if it is ever needed, is `xxd -r -p session.raw > session.cap`.
 | `100m_freestyle.serial` | 2 · 100m Freestyle | 1 | 6 | 50m | **11s** | authored |
 | `200m_medley_2heats.serial` | 3 · 200m Medley | 2 | 8 | 50m, 100m, 150m | 8s | authored |
 | `real_console6.raw` | 1 · 50m Freestyle | 1 | 8 | — | — | captured, no finish |
+| `omnisport_2000.raw` | 5 · 100m Butterfly | 1 | 6 (2–7) | — | — | captured (Omnisport 2000), no finish |
 
 **Course.** All four authored races are long course, and the splits are what say
 so: the 100m touches once and the 200m three times, so each length is 50m. The
@@ -99,6 +107,25 @@ times; it is kept for the wire format rather than the race. Its companion `.lxf`
 named the event `Event 1` — the string `lenex_parser` falls back to when an event has
 neither a name nor a `SWIMSTYLE`, written into the file and then read back as though
 it were a title. Its own seed times are 24.87–25.89, so it is a 50m.
+
+### `omnisport_2000.raw`
+
+The only non-CTS recording: three seconds of a Daktronics Omnisport 2000's RTD port
+(J5), reconstructed byte for byte from the raw dump published by XY Kao
+(<https://xy-kao.com/projects/decoding-daktronics-omnisport-2000/>). The dump shows
+control characters as dots, but every one of its 89 packets carries a checksum, and
+all 89 come out right — so the bytes here are the console's, not a guess. The clock
+runs 0.1 → 3.0, the result lines carry lanes 1–10 with swimmers in 2–7, and event 5
+heat 1 (a 100 fly, 4 lengths) arrives at 1.2 s. No touch is made.
+
+One change from the wire: the six swimmers were real children, so their names and
+club codes are swapped for the fictional ones the other recordings use, at the same
+field widths, with those six packets' checksums recomputed. The companion `.lxf`
+holds the same six. Field map and framing: `console_decoders/omnisport_2000_serial.md`.
+
+It also shows the empty-lane rule: the start is one signal for the whole pool, and
+only lanes 2–7 — the ones with a swimmer in the start lists — go running
+(`ConsoleDecoder.set_heat_lanes`).
 
 ## How a split is written
 

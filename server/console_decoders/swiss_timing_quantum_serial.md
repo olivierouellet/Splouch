@@ -200,7 +200,7 @@ Note: `··` = space character 0x20; `??` = lane bitmask bytes, content not rele
 | A | B | Action |
 | --- | --- | --- |
 | `'0'` | any | New heat: emit `event_changed`, reset lanes |
-| `'2'` | `'S'` | Race started: mark all empty lanes `running=True`, dismiss overlay |
+| `'2'` | `'S'` | Race started: mark untimed lanes `running=True` — only lanes with a swimmer in the start lists (`set_heat_lanes`; every lane when no meet is loaded) — dismiss overlay |
 | `'2'` | `'I'` | Split: emit `lane_time`, `lane_place` (if ranked), `lane_splits` |
 | `'2'` | `'A'`, `'B'` | Finish (B = backup buttons only): emit `lane_time`, `lane_place`, `lane_running=False`; a blank time still stops the lane |
 | `'1'` | any | Heat officially ended |
@@ -277,7 +277,7 @@ The official spec does not state whether HH is populated during split messages
 
 ### Running-state inference
 
-The start signal triggers `lane_running=True` for all lanes that have not yet
+The start signal triggers `lane_running=True` — only lanes with a swimmer in the start lists (`set_heat_lanes`; every lane when no meet is loaded) — for lanes that have not yet
 received a finish time. There is no per-lane confirmation from the console.
 Pre-start clock runs or intra-heat restarts will not be handled correctly.
 

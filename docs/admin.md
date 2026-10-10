@@ -161,6 +161,12 @@ reloaded the moment the session ends — whether you press **Stop** or the recor
 simply runs out. Deleting the meet first and re-uploading it afterwards is no longer
 part of the job.
 
+**Each recording plays as its own console.** The built-ins are CTS captures, plus one
+from a Daktronics Omnisport 2000 — the list names the console beside each. One made on
+another console than yours is decoded as that console for the duration (a note says
+so), and yours comes back when the session ends. A recording you uploaded plays as
+your own console.
+
 **A test stays local.** The replay reaches the TV display and phones on the pool's own
 network, and nothing else: the cloud link is closed for the duration, so spectators
 watching remotely see the meet as offline rather than a recording dressed up as the race
@@ -491,6 +497,12 @@ s'appuie. Votre propre compétition est mise de côté pendant ce temps : les fi
 rechargée dès la fin de la session — que vous appuyiez sur **Arrêter** ou que
 l'enregistrement arrive simplement à son terme. Supprimer la compétition puis la téléverser à
 nouveau ne fait plus partie du travail.
+
+**Chaque enregistrement rejoue comme sa propre console.** Les enregistrements intégrés sont
+des captures CTS, plus une d'une Daktronics Omnisport 2000 — la liste indique la console à
+côté de chacun. Un enregistrement produit par une autre console que la vôtre est décodé comme
+cette console le temps de la session (une note le signale), et la vôtre revient à la fin. Un
+enregistrement que vous avez téléversé rejoue comme votre propre console.
 
 **Un test reste local.** La lecture atteint le téléviseur et les téléphones du réseau de la
 piscine, et rien d'autre : le lien cloud est fermé pour la durée de la session, de sorte que

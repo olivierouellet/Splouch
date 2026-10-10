@@ -23,6 +23,7 @@ from starlette.datastructures import UploadFile  # what request.form() yields
 
 import bus
 import state
+from console_decoders import CONSOLE_OPTIONS
 from meet_data import announce_schedule, send_event_info
 from meet_parsers.lenex_parser import load_lenex
 from web import (
@@ -70,6 +71,10 @@ class Session(BaseModel):
     name: str
     source: str
     path: str
+    # The console the recording was made on ('' for an operator's own capture,
+    # which is their console's), and its Settings label for the session list.
+    console: str = ""
+    console_label: str = ""
 
 
 class TestStatus(BaseModel):
@@ -86,6 +91,7 @@ class TestStatus(BaseModel):
     # one — the board is not being driven by the operator's console and they should
     # not have to infer that. '' whenever the two agree, which is the usual case.
     replay_console: str
+    replay_console_label: str
     # Would a session started now need the stand-in? Lets the Test tab say so before
     # the operator presses Play, not only once a replay is already running.
     replay_console_needed: bool
@@ -155,21 +161,28 @@ def route_test_status():
         "playing": state._test_session is not None,
         "session": os.path.basename(state._test_session) if state._test_session else "",
         "recording": state._record_handle is not None,
-        "sessions": _list_sessions(),
+        "sessions": [
+            {**s, "console_label": _console_label(s["console"])}
+            for s in _list_sessions()
+        ],
         "speed": state.in_speed,
         "has_meet": bool(state._active_meet_file) and not state._test_meet_active,
         "test_meet": state._test_meet_active,
         "test_meet_name": state._test_meet_name,
         "meet_set_aside": state._active_meet_file if state._test_meet_active else "",
-        "replay_console": (
-            state.REPLAY_CONSOLE_TYPE if state._test_saved_decoder is not None else ""
-        ),
+        "replay_console": state._test_replay_console,
+        "replay_console_label": _console_label(state._test_replay_console),
         # Read off the decoder that would be asked to play it, which is the console's
         # own one whenever no session is running and the stand-in while one is.
         "replay_console_needed": not (
             state._test_saved_decoder or state._decoder
         ).requires_serial,
     }
+
+
+def _console_label(key):
+    """The Settings → Timing label for a console key, '' for none or an unknown one."""
+    return next((label for k, label, _ in CONSOLE_OPTIONS if k == key), "")
 
 
 @router.post(
@@ -199,8 +212,8 @@ def _test_play(name):
         bus.emit("/scoreboard", "test_mode", {"active": True})
         # Before the worker starts, and before `forget_current_heat` below: both of
         # those touch `state._decoder`, and the replay needs one that can read the
-        # recording. A console with a wire keeps its own — see use_replay_decoder.
-        use_replay_decoder()
+        # recording: the one it was made on — see use_replay_decoder.
+        use_replay_decoder(s["console"])
         bus.run_bg(_restart_worker, s["path"])
 
         companion = os.path.splitext(s["path"])[0] + ".lxf"

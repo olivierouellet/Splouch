@@ -716,7 +716,8 @@ cloud_att_all           = "All time"
 # Test
 common_download        = "Download"
 test_meet_set_aside    = '''Meet stays loaded. Test uses recording's start lists; meet returns after.'''
-test_replay_console    = '''No console wired — recording replays as CTS. Board follows recording; console returns after test.'''
+test_replay_console    = '''No console wired — a recording replays as the console it came from, CTS if unknown. Board follows recording; console returns after test.'''
+test_replay_console_as = '''Replaying as {console}, the console this recording came from. Board follows recording; console returns after test.'''
 test_local_only_hint   = "Tests stay on this network: TV + phones here only. Nothing to cloud."
 test_recorded_sessions = "Recorded Sessions"
 test_upload            = "Upload"

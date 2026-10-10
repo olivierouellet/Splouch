@@ -122,7 +122,7 @@ SOH + 0040100220 + STX + 1 00:54.32          + EOT   lane 1 result
 
 The Ares 21 has no explicit "race started" or "lane running" message. The decoder infers state as follows:
 
-- **Race started**: first running-time packet after a reset/event-change. All lanes without a result are marked `lane_running=True` and the overlay is dismissed.
+- **Race started**: first running-time packet after a reset/event-change. Lanes without a result are marked `lane_running=True` — only lanes with a swimmer in the start lists (`set_heat_lanes`; every lane when no meet is loaded) — and the overlay is dismissed.
 - **Lane finished**: a result packet arrives for that lane → `lane_running=False`.
 - **Race reset**: new event/heat detected via the event header → all lanes cleared.
 
@@ -165,8 +165,8 @@ hardware is needed to confirm the exact format.
 
 ### Running state inference
 
-The Ares 21 has no explicit "race started" message. The decoder marks all lanes
-`running=True` on the first running-time packet received after a reset. Two known
+The Ares 21 has no explicit "race started" message. The decoder marks lanes
+`running=True` — only lanes with a swimmer in the start lists (`set_heat_lanes`; every lane when no meet is loaded) — on the first running-time packet that has left zero. Two known
 edge cases:
 
 - **Pre-start clock**: if the console runs the clock before the starter's gun (e.g.

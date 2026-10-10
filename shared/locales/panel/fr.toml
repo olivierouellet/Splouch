@@ -706,7 +706,8 @@ cloud_att_all           = "Depuis le début"
 # Test
 common_download        = "Télécharger"
 test_meet_set_aside    = '''Compétition conservée. Le test utilise les listes de l'enregistrement ; retour à la fin.'''
-test_replay_console    = '''Aucune console branchée — l'enregistrement rejoue en CTS. Tableau piloté par l'enregistrement ; console rétablie à la fin.'''
+test_replay_console    = '''Aucune console branchée — l'enregistrement rejoue comme la console qui l'a produit, CTS si inconnue. Tableau piloté par l'enregistrement ; console rétablie à la fin.'''
+test_replay_console_as = '''Rejoué comme {console}, la console qui a produit cet enregistrement. Tableau piloté par l'enregistrement ; console rétablie à la fin.'''
 test_local_only_hint   = "Les tests restent sur ce réseau : télé + téléphones d'ici seulement. Rien vers le cloud."
 test_recorded_sessions = "Sessions enregistrées"
 test_upload            = "Téléverser"

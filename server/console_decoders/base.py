@@ -156,6 +156,32 @@ class ConsoleDecoder(ABC):
         """
         return 0
 
+    def set_heat_lanes(self, lanes) -> None:
+        """Supply the lanes that have a swimmer in the current heat.
+
+        Called by the app layer beside set_seed_times(), from the same start lists.
+        Empty means "not known" — a heat missing from the meet file, or no meet at all.
+
+        Only a console that cannot say per lane who is racing needs it. The Quantum,
+        ARES 21 and Omnisport 2000 send one start for the whole pool, so they used to
+        mark every lane running — and an empty lane, which never touches, kept
+        `race_finished()` False for good. A CTS reports each lane's running state
+        off the wire and never reads this. Concrete, and not cleared by
+        reset_lanes(): a re-swim resets lanes without a new heat to reload it from.
+        """
+        self._heat_lanes = frozenset(int(n) for n in lanes)
+
+    def lanes_to_start(self) -> list[int]:
+        """The lanes a whole-pool start puts in the water.
+
+        The heat's own lanes when the start lists say which they are, every lane up to
+        `num_lanes` when they do not — the old behaviour, and the only safe guess.
+        """
+        num_lanes = int(getattr(self, "num_lanes", 0) or 0)
+        known = getattr(self, "_heat_lanes", frozenset())
+        lanes = range(1, num_lanes + 1)
+        return [n for n in lanes if n in known] if known else list(lanes)
+
     @abstractmethod
     def set_seed_times(self, times: dict) -> None:
         """Supply seed times for the current heat.

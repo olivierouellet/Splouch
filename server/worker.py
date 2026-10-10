@@ -88,34 +88,67 @@ def forget_current_heat():
     state._decoder.reset_lanes()  # for the side effect; the caller repaints
 
 
-def use_replay_decoder():
+def recording_console(path, source):
+    """The console key a recording was made on, or '' when nobody can say.
+
+    A `<name>.console` file beside the recording names it. A bundled one without is
+    a CTS capture — every recording shipped before the Omnisport one was. An
+    operator's own upload has no sidecar and is their own console's output, which
+    is exactly what '' means.
+    """
+    sidecar = os.path.splitext(path)[0] + ".console"
+    try:
+        with open(sidecar, encoding="utf-8") as f:
+            key = f.read().strip()
+        if key:
+            return key
+    except OSError:
+        pass
+    return state.REPLAY_CONSOLE_TYPE if source == "builtin" else ""
+
+
+def use_replay_decoder(console=""):
     """Lend the replay a decoder that can actually read it. Returns the key, or ''.
 
     A recording is a capture of a wire, and `_play_recording` feeds its bytes to
-    whatever `state._decoder` happens to be. A console with no wire has a decoder to
-    match — `ManualDecoder.feed` returns `{}` and `is_packet_start` is always False —
-    so every byte of the recording decoded to nothing: no `event_changed`, no names,
-    no times, and a test badge (emitted by `_test_play`, never through the decoder)
-    sitting over eight empty lanes with nothing to say why.
+    whatever `state._decoder` happens to be. Two cases read it as nothing:
 
-    Asks the decoder rather than `settings['console_type'] == 'manual'`, so a
-    portless plugin in ~/SplouchData/console_decoders/ is covered for free. A console
-    that *does* read a wire keeps its own decoder: a Quantum operator replaying a
-    Quantum capture must not be handed a CTS.
+    * **It came from another console.** A bundled Omnisport capture under a CTS
+      decoder finds no packet in it at all. `console` is the recording's own key
+      (`recording_console`), and when its decoder is not the configured one, the
+      replay runs under it. Compared by decoder class, not key: a System 5 and a
+      Gen7 Legacy share the Gen6 decoder and need nothing lent.
+    * **The console has no wire.** `ManualDecoder.feed` returns `{}` and
+      `is_packet_start` is always False, so every byte decoded to nothing: no
+      `event_changed`, no names, no times, and a test badge (emitted by
+      `_test_play`, never through the decoder) over eight empty lanes. Asked of the
+      decoder rather than `settings['console_type'] == 'manual'`, so a portless
+      plugin in ~/SplouchData/console_decoders/ is covered for free.
+
+    A recording with no known console under a console with a wire keeps that
+    console's decoder: it is the operator's own capture, and a Quantum operator
+    replaying a Quantum capture must not be handed a CTS.
 
     The whole object is set aside rather than its fields, so the console's own state
     comes back untouched — see `state._test_saved_decoder`.
     """
-    if state._decoder.requires_serial:
+    want = console or (
+        "" if state._decoder.requires_serial else state.REPLAY_CONSOLE_TYPE
+    )
+    if not want:
+        return ""
+    stand_in = make_decoder(want, state.settings)
+    if type(stand_in) is type(state._decoder):
         return ""
     state._test_saved_decoder = state._decoder
-    state._decoder = make_decoder(state.REPLAY_CONSOLE_TYPE, state.settings)
+    state._decoder = stand_in
+    state._test_replay_console = want
     print(
-        f"[test] replaying under {state.REPLAY_CONSOLE_TYPE} — "
-        f"{state.settings.get('console_type')} reads no recording",
+        f"[test] replaying under {want} — "
+        f"{state.settings.get('console_type')} cannot read this recording",
         flush=True,
     )
-    return state.REPLAY_CONSOLE_TYPE
+    return want
 
 
 def restore_current_heat():
@@ -143,6 +176,7 @@ def restore_current_heat():
         # alone. Dropping the stand-in drops the replay's lanes with it.
         state._decoder = state._test_saved_decoder
         state._test_saved_decoder = None
+        state._test_replay_console = ""
         state._test_saved_heat = None
         return
     state._decoder.last_event_sent = state._test_saved_heat or (0, 0)
@@ -231,7 +265,12 @@ def _list_sessions():
     ]:
         for ext in ("*.serial", "*.raw"):
             result.extend(
-                {"name": os.path.basename(path), "source": source, "path": path}
+                {
+                    "name": os.path.basename(path),
+                    "source": source,
+                    "path": path,
+                    "console": recording_console(path, source),
+                }
                 for path in sorted(glob.glob(os.path.join(folder, ext)))
             )
     return result
@@ -254,8 +293,11 @@ def _on_event_changed(updates, ev, ht):
     # expected_splits` — not `splits + 1` where only one end has touchpads.
     updates["split_step"] = split_step(state.settings.get("touchpad_sides", 1))
     seed_times = {}
+    heat_lanes = []
     for i in range(1, 13):
         name, club = get_lane_parts(ev, ht, i)
+        if name:
+            heat_lanes.append(i)
         updates[f"lane_name{i}"] = name
         updates[f"lane_club{i}"] = club
         updates[f"lane_name_alt{i}"] = get_lane_alt(ev, ht, i)
@@ -263,6 +305,7 @@ def _on_event_changed(updates, ev, ht):
         if st:
             seed_times[i] = st
     state._decoder.set_seed_times(seed_times)
+    state._decoder.set_heat_lanes(heat_lanes)
     print(f"[seed_times] event={(ev, ht)} loaded: {seed_times}", flush=True)
     next_heats_data = {
         "heats": _get_next_heats(
@@ -495,6 +538,7 @@ def _worker_clear_heat():
     """
     state._decoder.last_event_sent = (0, 0)
     state._decoder.set_seed_times({})
+    state._decoder.set_heat_lanes(())
     updates = state._decoder.reset_lanes()
 
     state._finish_timer_gen += 1

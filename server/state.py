@@ -521,19 +521,25 @@ _test_saved_results: dict | None = None
 # worker.restore_current_heat.
 _test_saved_heat: tuple[int, int] | None = None
 # The console's own decoder, set aside whole while a replay runs under a stand-in.
-# Only ever set for a console that cannot read a wire at all (`requires_serial` is
-# False — the manual console, or a portless plugin): those decode a recording to
-# nothing, so the board showed the test badge over eight empty lanes. The stand-in
-# is REPLAY_CONSOLE_TYPE; `worker.restore_current_heat` puts the real one back.
+# Set when the recording was made on another console (a bundled Omnisport capture
+# on a CTS pool), or when the configured console cannot read a wire at all
+# (`requires_serial` is False — the manual console, or a portless plugin): either
+# way the console's own decoder would read the recording as nothing, and the board
+# showed the test badge over eight empty lanes. `worker.restore_current_heat` puts
+# the real one back.
 #
 # The object carries its own `last_event_sent`, so setting it aside *is* the save —
 # which matters under the manual console, where that field is not a console's last
 # word but the heat the operator put on the boards by hand.
 _test_saved_decoder: ConsoleDecoder | None = None
-# What a recording is replayed under when the configured console cannot read one.
-# The bundled sessions in `console_recordings/` are CTS captures, and this is the
-# same fallback `console_decoders.make_decoder` already applies to an unknown key.
+# What a recording is replayed under when nothing says which console made it. A
+# bundled session in `console_recordings/` names its console in a `<name>.console`
+# file beside it; one without is a CTS capture, and this is the same fallback
+# `console_decoders.make_decoder` already applies to an unknown key.
 REPLAY_CONSOLE_TYPE = "cts_gen6"
+# The console key the stand-in decoder was built from while one is installed, ''
+# otherwise. Read by the Test tab to say which console is driving the board.
+_test_replay_console: str = ""
 _overlay_active: bool = False
 _cols_hidden: bool = False
 # Is the timing console actually feeding this display? Published to clients as the

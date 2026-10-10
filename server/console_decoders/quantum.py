@@ -190,7 +190,9 @@ class QuantumDecoder(ConsoleDecoder):
             # Start signal — mark all unfished lanes as running
             if not self._race_active:
                 self._race_active = True
-                for i in range(1, self.num_lanes + 1):
+                # Only lanes with a swimmer: an empty one never touches, and would
+                # hold race_finished() False for good — see set_heat_lanes.
+                for i in self.lanes_to_start():
                     if not self.lane_times.get(i):
                         self.lane_running[i] = True
                         updates[f"lane_running{i}"] = True

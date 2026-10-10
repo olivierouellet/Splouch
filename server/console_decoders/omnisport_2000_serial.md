@@ -121,7 +121,7 @@ the decoder always uses the line's own lane number.
 | Field change | Emitted |
 | ------------ | ------- |
 | Event / heat | `current_event`, `current_heat`; on a new pair, `event_changed` and a lane reset |
-| Running time | `running_time` (as sent, stripped). Leaving zero is the start: lanes without a place go `lane_running=True`, `dismiss_overlay`. Returning to zero re-arms the start for a restart |
+| Running time | `running_time` (as sent, stripped). Leaving zero is the start: lanes without a place go `lane_running=True`, only lanes with a swimmer in the start lists (`set_heat_lanes`; every lane when no meet is loaded), `dismiss_overlay`. Returning to zero re-arms the start for a restart |
 | Result line with place + time | `lane_time`, `lane_place`, `lane_splits` (= lengths completed) |
 | …and lengths ≥ maximum lengths (or either is blank) | `lane_running=False` — the finish |
 | Result line blank in place and time | lane time and place cleared |

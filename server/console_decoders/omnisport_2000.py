@@ -224,7 +224,9 @@ class Omnisport2000Decoder(ConsoleDecoder):
             elif not self._race_active:
                 # No start message on this wire: the clock leaving zero is the start.
                 self._race_active = True
-                for i in range(1, self.num_lanes + 1):
+                # Only lanes with a swimmer: an empty one never touches, and would
+                # hold race_finished() False for good — see set_heat_lanes.
+                for i in self.lanes_to_start():
                     if not self.lane_places.get(i, " ").strip():
                         self.lane_running[i] = True
                         updates[f"lane_running{i}"] = True

@@ -8,6 +8,8 @@ layout in `hakostra/swimming-scoreboard`, the Omnisport 2000 to Daktronics'
 get wrong.
 """
 
+import pytest
+
 from console_decoders.cts_gen7 import _MAPPINGS, CTSGen7Decoder, _rot_l, _rot_r
 from console_decoders.omnisport_2000 import Omnisport2000Decoder
 from console_decoders.quantum import QuantumDecoder
@@ -277,3 +279,88 @@ def test_omnisport_other_header_prefix_is_ignored():
     d = Omnisport2000Decoder({"num_lanes": 8})
     body = [*b"00000000", 0x01, *b"0021100000", 0x02, *b"    0.1  ", 0x04]
     assert d.feed([0x16, *body, *f"{sum(body) & 0xFF:02X}".encode(), 0x17]) == {}
+
+
+# ── Whole-pool starts and empty lanes ─────────────────────────────────────────
+# The Quantum, ARES 21 and Omnisport 2000 send one start for the pool. They used to
+# put every lane in the water, and an empty lane never touches — so the heat never
+# finished. The start lists now say which lanes to start (`set_heat_lanes`).
+
+
+def _start_and_finish(key: str, heat_lanes) -> bool:
+    """Start a heat on lanes 3 and 4 only, finish both, ask whether it is over."""
+    if key == "omega_quantum":
+        q = QuantumDecoder({"num_lanes": 8})
+        q.set_heat_lanes(heat_lanes)
+        _quantum_feed(q, _osm6("2", "S", "1", "0", "0", "14:17:55.26"))
+        _quantum_feed(q, _osm6("2", "A", "3", "4", "1", "58.21"))
+        _quantum_feed(q, _osm6("2", "A", "4", "4", "2", "58.90"))
+        return q.race_finished()
+    if key == "omega_ares21":
+        a = Ares21Decoder({"num_lanes": 8})
+        a.set_heat_lanes(heat_lanes)
+        a.feed(_ares("0040100000", "00:00.1"))
+        a.feed(_ares(f"0040100{220 + 36 * 2:03d}", "1 00:58.21"))
+        a.feed(_ares(f"0040100{220 + 36 * 3:03d}", "2 00:58.90"))
+        return a.race_finished()
+    d = Omnisport2000Decoder({"num_lanes": 8})
+    d.set_heat_lanes(heat_lanes)
+    d.feed(_rtd(0, "    0.1  "))
+    d.feed(_rtd(_line_offset(1), _line(3, "1", "58.21")))
+    d.feed(_rtd(_line_offset(2), _line(4, "2", "58.90")))
+    return d.race_finished()
+
+
+@pytest.mark.parametrize("key", ["omega_quantum", "omega_ares21", "dak_2000"])
+def test_empty_lanes_no_longer_hold_the_heat_open(key):
+    assert _start_and_finish(key, {3, 4}), "an empty lane kept the race running"
+
+
+@pytest.mark.parametrize("key", ["omega_quantum", "omega_ares21", "dak_2000"])
+def test_without_start_lists_every_lane_still_starts(key):
+    """No meet loaded: the only safe guess is the old one, all lanes."""
+    assert not _start_and_finish(key, ())
+
+
+def test_heat_lanes_survive_a_reswim_reset():
+    d = QuantumDecoder({"num_lanes": 8})
+    d.set_heat_lanes({3, 4})
+    d.reset_lanes()
+    assert d.lanes_to_start() == [3, 4]
+
+
+def _gen6_updates(heat_lanes) -> list[dict]:
+    """Every update a CTS Gen6 makes replaying a real race, packet by packet."""
+    import os
+    import re
+
+    from console_decoders.cts_gen6 import CTSGen6Decoder
+
+    path = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        "server",
+        "console_recordings",
+        "200m_medley_2heats.serial",
+    )
+    d = CTSGen6Decoder({"num_lanes": 8})
+    d.set_heat_lanes(heat_lanes)
+    out, buf = [], []
+    with open(path, encoding="utf-8") as f:
+        text = f.read()
+    for m in re.finditer(r"\[[0-9.]+\]\s*|([0-9a-fA-F]{2})", text):
+        if not m.group(1):
+            continue
+        b = int(m.group(1), 16)
+        if d.is_packet_start(b, buf) and buf:
+            out.append(d.feed(buf))
+            buf = []
+        buf.append(b)
+    out.append(d.feed(buf))
+    out.append({"finished": d.race_finished()})
+    return out
+
+
+def test_the_cts_never_reads_the_heat_lanes():
+    """A CTS reports each lane's running state off the wire. Telling it which lanes
+    are in the heat — even wrongly — must change nothing it decodes."""
+    assert _gen6_updates({4}) == _gen6_updates(())

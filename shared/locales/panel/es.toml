@@ -706,7 +706,8 @@ cloud_att_all           = "Desde el inicio"
 # Prueba
 common_download        = "Descargar"
 test_meet_set_aside    = '''La competición se mantiene. La prueba usa las listas de la grabación; vuelve al terminar.'''
-test_replay_console    = '''Sin consola conectada — la grabación se reproduce como CTS. Marcador según la grabación; consola restaurada al terminar.'''
+test_replay_console    = '''Sin consola conectada — la grabación se reproduce como la consola que la produjo, CTS si se desconoce. Marcador según la grabación; consola restaurada al terminar.'''
+test_replay_console_as = '''Reproducida como {console}, la consola que produjo esta grabación. Marcador según la grabación; consola restaurada al terminar.'''
 test_local_only_hint   = "Las pruebas se quedan en esta red: solo TV + móviles de aquí. Nada al cloud."
 test_recorded_sessions = "Sesiones grabadas"
 test_upload            = "Subir"

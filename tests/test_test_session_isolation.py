@@ -90,6 +90,7 @@ def rig(monkeypatch, tmp_path):
     monkeypatch.setattr(state, "_test_relay_was_running", False, raising=False)
     monkeypatch.setattr(state, "_test_saved_results", None, raising=False)
     monkeypatch.setattr(state, "_test_saved_decoder", None, raising=False)
+    monkeypatch.setattr(state, "_test_replay_console", "", raising=False)
     # Restored by monkeypatch at teardown, so a test may swap the console freely.
     monkeypatch.setattr(state, "_decoder", state._decoder, raising=False)
     monkeypatch.setattr(state, "_active_meet_file", "", raising=False)
@@ -709,3 +710,84 @@ def test_the_recording_really_decodes_under_a_manual_console(rig, monkeypatch):
     }
     assert names, "the whole recording decoded to nothing"
     assert "Alice Tremblay" in names, names
+
+
+# ── A recording made on another console ────────────────────────────────────────
+# The bundled Omnisport capture names its console in `omnisport_2000.console`. On a
+# CTS pool — the usual case for the Test tab — the CTS decoder finds no packet in
+# it at all, so the replay borrows the Omnisport decoder for the duration.
+
+OMNI_SESSION = "omnisport_2000.raw"
+
+
+def test_a_recording_from_another_console_replays_as_that_console(rig, monkeypatch):
+    from console_decoders.omnisport_2000 import Omnisport2000Decoder
+
+    mine = state._decoder
+    debug._test_play(OMNI_SESSION)
+
+    assert isinstance(state._decoder, Omnisport2000Decoder)
+    assert state._test_saved_decoder is mine
+    assert state._test_replay_console == "dak_2000"
+
+    worker.end_test_session()
+    assert state._decoder is mine, "the CTS was not given back"
+    assert state._test_replay_console == ""
+
+
+def test_a_cts_recording_on_a_cts_console_needs_no_stand_in(rig, monkeypatch):
+    """System 5 / Gen7 Legacy share the Gen6 decoder: compared by class, not key."""
+    from console_decoders import make_decoder
+
+    monkeypatch.setitem(state.settings, "console_type", "cts_gen5")
+    monkeypatch.setattr(state, "_decoder", make_decoder("cts_gen5", state.settings))
+    mine = state._decoder
+    debug._test_play(SESSION)
+    assert state._decoder is mine
+    assert state._test_replay_console == ""
+
+
+def test_the_session_list_names_each_recordings_console(rig, monkeypatch):
+    sessions = {s["name"]: s for s in debug.route_test_status()["sessions"]}
+    assert sessions[OMNI_SESSION]["console"] == "dak_2000"
+    assert sessions[OMNI_SESSION]["console_label"] == "Omnisport 2000 (Daktronics)"
+    assert sessions[SESSION]["console"] == "cts_gen6", "an untagged built-in is CTS"
+
+
+def test_an_uploaded_recording_is_the_operators_own_console(tmp_path):
+    path = tmp_path / "mine.raw"
+    path.write_text("b4 0a\n", encoding="utf-8")
+    assert worker.recording_console(str(path), "custom") == ""
+
+
+def test_the_omnisport_capture_decodes_on_a_cts_pi(rig, monkeypatch):
+    """End to end: the capture's bytes, through the worker, onto the board — and
+    only the lanes with a swimmer go running, which is what lets the heat finish."""
+    import re
+
+    monkeypatch.setattr(worker.bus, "run_bg", lambda fn, *a, **k: None)
+    monkeypatch.setattr(worker.relay, "relay_emit", lambda *a, **k: None)
+    debug._test_play(OMNI_SESSION)
+
+    text = Path(os.path.join(RECORDINGS, OMNI_SESSION)).read_text(encoding="utf-8")
+    buf = []
+    for m in re.finditer(r"[0-9a-f]{2}", text):
+        buf = worker._ingest_byte(int(m.group(), 16), buf)
+    if buf:
+        worker._handle_packet(buf)
+
+    updates = [d for _, ev, d in rig.events if ev == "update_scoreboard" and d]
+    assert state._decoder.last_event_sent == (5, 1)
+    names = {
+        v
+        for d in updates
+        for k, v in d.items()
+        if k.startswith("lane_name") and not k.startswith("lane_name_alt") and v
+    }
+    assert "Alice Tremblay" in names, names
+    from console_decoders.omnisport_2000 import Omnisport2000Decoder
+
+    decoder = state._decoder
+    assert isinstance(decoder, Omnisport2000Decoder)
+    running = {n for n, r in decoder.lane_running.items() if r}
+    assert running == {2, 3, 4, 5, 6, 7}, running
