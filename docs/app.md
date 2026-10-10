@@ -173,7 +173,7 @@ Entry screen. Web: site root. App: launch screen, and `A-02`'s return target.
 | [`P-17`](#p-17) | Search meet list from **3** meets, narrows as typed, own empty state; field where platform puts search | local over `GET /meets` → `name`, `meet_date`, `location`, `sport`, `organizer`, `province`, `country` (code and reader's-language name); `strings.meet_search`, `no_meets_match` | all | should |
 | `P-18` | More than **10** meets → compact rows, still under their day: name on one line, city · state/province · country codes, live dot; **no picker image**, none fetched. 10 or fewer → `P-01` cards | count of `GET /meets` → `meets` | all | should |
 | [`P-19`](#p-19) | **Settings** — one container in place of picker menu, sections in this order: Display (language `T-08`, Appearance `P-15`), Privacy (`P-07`), Server (`P-11`–`P-13`, native), About (`P-06` full text, policy link, `P-20` replay). Platform's own form: web side sheet (full height under 600px), iOS sheet with `Form`, Android full-screen settings destination | section names native in apps (`T-05`); web reads `strings.settings`, `settings_display`, `settings_privacy`, `settings_about` | all | should |
-| [`P-20`](#p-20) | **Introduction** on first launch, once per install, replayable from settings About: unofficial results (`P-06`), finding a meet, three tabs, the schedule's times, following a swimmer or club, attendance counting with its toggle (`C-10`) | first and last pages server text (`results_disclaimer`, `privacy_note`), rest native words (`T-05`); last page only while `analytics_enabled` | native | should |
+| [`P-20`](#p-20) | **Introduction** on first launch, once per install, replayable from settings About: unofficial results (`P-06`), finding a meet, three tabs and how to read a lane, the schedule's times, following a swimmer or club, attendance counting with its toggle (`C-10`) | first and last pages server text (`results_disclaimer`, `privacy_note`), rest native words (`T-05`); last page only while `analytics_enabled` | native | should |
 | [`P-21`](#p-21) | **Filter** the meet list by country, state/province and club (organizer), in that order, several values each; **remembered** by the app across launches and servers. Country and state/province list every one the app knows (`shared/regions/subdivisions.json`), plus any other the list holds; club lists the clubs the list holds, plus any the spectator adds by its official letters; a province narrows its own country only, clubs narrow the places (OR within a facet). Active filter → a line at the end of the list says meets are hidden, with *Clear*; filter hides every meet → own empty state with *Clear*, not `P-04`/`P-17`'s | local over `GET /meets` → `country`, `province`, `organizer`; stored pref, one per app; words native (`T-05`) | native | should |
 | `P-22` | A test meet carries a **TEST** badge after its name, on its card and its compact row (`P-18`): small, bold, uppercase as served, outlined in the accent colour. The name is a team's and does not say it is a test; the badge does. Not searched (`P-17`) | `GET /meets` → `test`; `strings.test_meet` | all | should |
 
@@ -270,7 +270,15 @@ QR code needs the board, not a carousel; `P-06`'s line does the job there.
 2. **Find your meet** — meets listed by day (`P-01`); the picker's filter (`P-21`)
    by club, country or province, kept until cleared; the gear opens settings (`P-19`).
 3. **Three tabs** — Scoreboard (heat in the water), Results (finished heats), Schedule
-   (start lists); swipe between them where `A-03` swipes.
+   (start lists); swipe between them where `A-03` swipes. Under it, **how to read a
+   lane**: two sample lanes drawn as the narrow board draws them (`L-15`), in the server's
+   default palette (`api.md` §6.1) for the reader's Appearance (`P-15`) — one faster than
+   its seed, one slower — then a key pairing each part, styled as on the board, with its
+   meaning: lane, club, time, gap to the seed time (`delta_better` green when faster,
+   `delta_worse` grey when slower), place. The narrow board has no header row, so this
+   is where the columns are named. Sample values and key words are the app's (`T-05`);
+   the screen reader reads the key, each line as value then meaning, and skips the
+   sample lanes.
 4. **Times in the schedule** — seed, then console, then official time, each its own
    colour (`S-22`); a heat marked `±` taps to the gap to the seed (`S-23`).
 5. **Follow a swimmer or club** — Schedule's filter (`S-08`) and *All heats* (`S-16`);
@@ -1067,6 +1075,12 @@ paused stays paused. iOS: a `Toggle` in the sheet's first section, the bell
 ---
 
 ## Changelog
+
+- **v3, amended** (2026-10-10, no bump) — the introduction explains a lane. Native
+  words only: no server change.
+
+  - **Changed**: `P-20` page 3 adds two sample lanes and a key (lane, club, time, gap
+    to the seed time, place), since the narrow board (`L-15`) has no header row.
 
 - **v3, amended** (2026-10-09, no bump) — pause heat notifications. Native only: the
   node already reads an empty list as stop, so no server change.
