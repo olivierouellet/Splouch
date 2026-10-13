@@ -33,3 +33,13 @@ In the admin UI (**Settings → Timing**), set:
 
 - **Timing Equipment:** `System 5 (Colorado Timing System)`, `System 6 (Colorado Timing System)`, or `Gen7 (Colorado Timing System)` with **Console output** `Legacy scoreboard output`
 - **Serial port:** `/dev/ttyUSB0` (or whichever device the adapter appears as)
+
+## Capturing at the pool
+
+Follow the [general procedure](../admin.md#capturing-at-the-pool). For System 5, System 6, and a Gen7's legacy output:
+
+1. **Console:** nothing to set — the legacy scoreboard output always sends.
+2. **Wire:** the 1/4" scoreboard Y-cable to a USB-to-RS232 adapter (tip → DB9 pin 2, sleeve → pin 5).
+3. **Splouch:** Timing Equipment `System 5`, `System 6`, or `Gen7` → `Legacy scoreboard output`; the serial port of the adapter.
+4. **Check:** *Connected: /dev/ttyUSB0*. The Serial Monitor scrolls constantly, even between races: short packets, each a byte from `80` to `FF` followed by a few bytes below `80`.
+5. **Record:** `.serial` (this decoder is tested). For a pool with more than 9 lanes, make sure 10th, 11th and 12th places happen in the heat.

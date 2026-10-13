@@ -34,3 +34,13 @@ Options:
 
 - **Serial format** — 8-N-1 (default) or 7-E-1. If no data decodes, try the other.
 - **Lane digit 0** — lane 10 (default) or ignored. The lane is one character; other Swiss Timing outputs send lane 10 as `0`.
+
+## Capturing at the pool
+
+Follow the [general procedure](../admin.md#capturing-at-the-pool).
+
+1. **Console:** the Quantum's OSM6 data output enabled on the serial port you wire.
+2. **Wire:** pins 3 / 4 to a USB-to-RS485 adapter (the meet-management cable works).
+3. **Splouch:** `Quantum` → serial port; **Serial format** 8-N-1 first.
+4. **Check:** pairs of packets `01 02 08 …04` and `01 02 08 0a …04`, only when something happens (ready, start, touches). Garbage → **Serial format** 7-E-1.
+5. **Record:** `.raw`, then `.serial`. In a 10-lane pool, make sure lane 10 swims; note which **Lane digit 0** setting gives the right lane.

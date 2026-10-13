@@ -244,6 +244,38 @@ or a pull request, copy it out of `~/SplouchData/recorded/` and attach it.
 
 ---
 
+### Capturing at the pool
+
+What to do at a venue to bring back a recording that confirms or fixes a decoder. Each
+console guide in `docs/consoles/` has a checklist per output with the console-side
+settings and what the data should look like; the steps below are the same for all.
+
+1. **Before you go.** Load the meet file the venue will use (Settings → Meet Setup):
+   with names, a replay is a full check of the board, not just of times.
+2. **Wire and select.** Follow the console guide's checklist for the output you are
+   using: console menu, cable or network, then **Settings → Timing → Timing Equipment**
+   and **Console output**, plus any options it lists.
+3. **Check the link.** The **Connection** badge in Settings → Timing should read
+   *Connected: /dev/ttyUSB0* (serial), *Connected: host:port* (TCP) or
+   *Listening: UDP port N* (UDP). Press **Enable** on the **Serial Monitor**: packets
+   should scroll, shaped as the checklist describes. If nothing arrives, or only
+   noise, try the checklist's options (baud rate, serial format, parity) before
+   recording.
+4. **Record.** Settings → Test → **Record Live Session**: a name like
+   `omnisport-ethernet-2026-10-20`, the format the checklist gives, **Start**. Then run
+   at least one full heat: the console moves to a new event/heat, the start, a split
+   in as many lanes as possible, every lane finishing, and the reset or next heat.
+   Two heats are better; a false start or a restart is a bonus. **Stop**.
+5. **Note the settings.** Photograph the console's setup menus (ports, protocols,
+   offsets) and write down Splouch's console, output and options. A recording is only
+   as useful as what is known about how it was made.
+6. **Send** the recording (`~/SplouchData/recorded/`), the meet file and the notes.
+
+Which format: a **`.raw`** whenever the decoder is not yet confirmed — it keeps the
+wire exactly, whatever the decoder makes of it; a **`.serial`** for a tested decoder,
+or as a second recording once the Serial Monitor shows the decoder splitting packets
+sensibly.
+
 ## Localisation
 
 One file in `shared/locales/` is one language, and it is what a spectator reads:

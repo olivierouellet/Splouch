@@ -47,3 +47,39 @@ Options shown for the RTD outputs:
 
 - **RTD offset** — must match the console's *RTD Offset* menu (0K, 5K, 10K, 15K). Leave at 0K unless the venue changed it.
 - Ethernet only: **RTD network port** (the console's *RTD Port #*, 21000 by default) and **RTD layout** (lines at 222 for Results set to OMNI2000, at 200 for OMNI6000).
+
+## Capturing at the pool
+
+Follow the [general procedure](../admin.md#capturing-at-the-pool). Photograph the console's *Setup Comm Ports*, *Setup RTD/Matrix Scoreboard* (RTD Offset) and *Setup Network* menus.
+
+### J5 RTD — Results set to OMNI2000 / OMNI6000
+
+1. **Console:** RTD Port → RTD; Results Port → OMNI 2000 (or OMNI 6000 for the other entry); Swimming loaded.
+2. **Wire:** DB9 to J5 RTD Port, USB-to-RS232 adapter.
+3. **Splouch:** `OmniSport 2000` → the matching `J5 RTD — Results set to …`; **RTD offset** as on the console.
+4. **Check:** *Connected*. Packets start `16 30 30 30 30 30 30 30 30 01 30 30 34 32 31` (SYN, `00000000`, SOH, `00421`); during a race the running time packet repeats several times a second. Running time but no lane times → check the Results setting matches the entry.
+5. **Record:** `.raw`, then `.serial` once lane times show.
+
+### Ethernet — RTD over the network
+
+1. **Console:** Setup Network → Network Enable ON; note the IP address and **RTD Port #**.
+2. **Network:** the Pi on the same subnet. With the console's standard address (192.168.0.55–58) the Pi needs a 192.168.0.x address; broadcasts do not cross a router.
+3. **Splouch:** `OmniSport 2000` → `Ethernet — RTD over the network`; **RTD network port** = the console's RTD Port #; **RTD layout** to match the Results setting.
+4. **Check:** *Listening: UDP port 21000*; the Serial Monitor shows the same `16 30 30 … 30 30 34 32 31` packets as J5.
+5. **Record:** `.raw` (each datagram ends with a blank line). As a backup, on the Pi: `sudo tcpdump -i eth0 -w omnisport.pcap udp port 21000`.
+
+### J5 RTD port set to CTS / J6 Results port set to CTS
+
+1. **Console:** RTD Port → CTS (J5) or Results Port → CTS (J6).
+2. **Wire:** DB9 to that port, USB-to-RS232 adapter. On J6, Meet Manager loses that link unless it reads CTS too.
+3. **Splouch:** the matching `… set to CTS` entry; **Serial parity** even by default.
+4. **Check:** short packets, each a byte `80`–`FF` followed by a few below `80`, scrolling constantly. Garbage → **Serial parity** None.
+5. **Record:** `.raw`.
+
+### Scoreboard port set to OMEGA
+
+1. **Console:** Scbrd Port → OMEGA.
+2. **Wire:** the scoreboard output to an adapter matching its signal (RS-485 or RS-232).
+3. **Splouch:** `OmniSport 2000` → `Scoreboard port set to OMEGA`.
+4. **Check:** packets start `01 14 53 30 32 02 08` and end `04`. Garbage → **Baud rate** / **Serial format**; lanes and places swapped → **Scoreboard line order**.
+5. **Record:** `.raw`.

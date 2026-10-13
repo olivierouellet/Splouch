@@ -43,3 +43,39 @@ Options, per output:
 - RS-485 set to Omega — **Scoreboard line order** (rank mode by default), **Baud rate**, **Serial format**
 
 On the Gen7, set **Two Digit Lane and Place Display** to **A,B,C** or **Letters** for pools of more than 9 lanes; both are decoded.
+
+## Capturing at the pool
+
+Follow the [general procedure](../admin.md#capturing-at-the-pool). The output's protocol is chosen in the Gen7 software (*Settings → Scoreboard → Input / Output Course Mappings*); write down which connector (Blue Square, Black Diamond) and protocol you used.
+
+### Gen7 serial output (Gen7 Standard)
+
+1. **Console:** the RS-485 output left at Gen7 Standard (the default).
+2. **Wire:** USB-to-RS485 adapter on that output (Data+ / Data− / GND).
+3. **Splouch:** `Gen7` → `Gen7 serial output`.
+4. **Check:** *Connected*. Splouch sends the 4-byte start request on opening; the Serial Monitor then shows packets that start with a byte from `80` to `FF`. The payload is scrambled, so it is unreadable by eye — that is expected.
+5. **Record:** `.raw` (untested), then a `.serial` if the board shows times.
+
+### RS-485 output set to CTS Legacy
+
+1. **Console:** that output's protocol → CTS Legacy.
+2. **Wire:** USB-to-RS485 adapter on that output.
+3. **Splouch:** `Gen7` → `RS-485 output set to CTS Legacy`; **Serial parity** even by default.
+4. **Check:** the same short packets as the legacy output (a byte `80`–`FF`, then a few below `80`). Garbage → try **Serial parity** None.
+5. **Record:** `.raw`.
+
+### RS-485 output set to Daktronics RTD
+
+1. **Console:** that output's protocol → Daktronics RTD.
+2. **Wire:** USB-to-RS485 adapter on that output.
+3. **Splouch:** `Gen7` → `RS-485 output set to Daktronics RTD`; **Baud rate** 19200 first.
+4. **Check:** packets start `16 30 30 30 30 30 30 30 30 01 30 30 34` (SYN, `00000000`, SOH, `004…`). Garbage → try another **Baud rate**, then **Serial format**. Running time but no lane times → switch **RTD layout**.
+5. **Record:** `.raw`. Note the baud rate and layout that worked.
+
+### RS-485 output set to Omega
+
+1. **Console:** that output's protocol → Omega.
+2. **Wire:** USB-to-RS485 adapter on that output.
+3. **Splouch:** `Gen7` → `RS-485 output set to Omega`; **Scoreboard line order** rank mode by default.
+4. **Check:** packets start `01 14 52 30 32 02 08` (running time) or `01 14 53 30 32 02 08` (a line) and end with `04`. Garbage → try **Baud rate** / **Serial format**. Lanes and places swapped → switch **Scoreboard line order**.
+5. **Record:** `.raw`.

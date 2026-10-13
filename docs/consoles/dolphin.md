@@ -39,3 +39,13 @@ Options:
 - **Results hold before the next heat** — Dolphin can move to the next heat as soon as a race is saved; the race's times stay on the board this long first (10 s by default).
 
 Full protocol reference: [`console_decoders/dolphin_tcp.md`](../../server/console_decoders/dolphin_tcp.md)
+
+## Capturing at the pool
+
+Follow the [general procedure](../admin.md#capturing-at-the-pool).
+
+1. **Dolphin:** TCP/IP Streaming on; note the port and the PC's IP address. Allow it through the PC's firewall.
+2. **Network:** the Pi and the Dolphin PC on the same network.
+3. **Splouch:** `Dolphin` → **Console host** = the PC's IP; **Dolphin TCP/IP port** = Dolphin's port.
+4. **Check:** *Connected: host:port*; Dolphin's *Connections* count goes to 1. The Serial Monitor shows a `CurrentEventAndHeat,…` line right away, then nothing until a race is reset.
+5. **Record:** `.serial` or `.raw` — the stream is text either way. Run a heat with the watches, reset, and let Dolphin move to the next heat. As a backup, on the Pi: `sudo tcpdump -i eth0 -w dolphin.pcap tcp port 13382`.
