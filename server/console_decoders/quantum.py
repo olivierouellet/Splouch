@@ -1,4 +1,5 @@
 from .base import ConsoleDecoder, DecoderOption, SerialConfig, serial_from
+from .utils import first_lane_of, lane_digit_row
 
 # OSM6 control bytes (all < 0x80, compatible with 7-bit framing)
 _SOH = 0x01  # Start of Heading — every frame begins here
@@ -96,6 +97,7 @@ class QuantumDecoder(ConsoleDecoder):
         self.num_lanes = int(cfg.get("num_lanes", 10))
         self._serial_config = serial_from(9600, str(cfg.get("serial_format", "8N1")))
         self._lane_zero = str(cfg.get("lane_zero", "10"))
+        self.first_lane = first_lane_of(cfg)
 
     def set_seed_times(self, times: dict) -> None:
         self.lane_seed_times = dict(times)
@@ -225,7 +227,7 @@ class QuantumDecoder(ConsoleDecoder):
             # Intermediate split (I), finish (A), or finish on the backup buttons
             # alone (B) — a finish all the same, or the lane would run forever.
             try:
-                lane = 10 if J == "0" and self._lane_zero == "10" else int(J)
+                lane = lane_digit_row(J, self.first_lane, self._lane_zero == "10")
                 lap = int(KK) if KK.strip() else 0
                 rank = int(HH.strip()) if HH.strip() else 0
             except ValueError:

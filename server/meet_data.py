@@ -170,7 +170,8 @@ def _get_next_heats(after_event=0, after_heat=0, n=3, num_lanes=8):
     result = []
     for ev, ht in ordered[start : start + n]:
         swimmers = []
-        for ln in range(1, num_lanes + 1):
+        first = state.first_lane()
+        for ln in range(first, first + num_lanes):
             # Via the accessors rather than `start_list[ev][ht]` directly: they fall
             # back to `event_info`, which is what makes this list appear at all on a
             # Hytek CSV meet. It never used to — the function returned [] for one.
@@ -209,8 +210,11 @@ def _build_results_snapshot():
             continue
         place_str = state._decoder.get_lane_place(ch)
         place_int = int(place_str) if place_str.strip().isdigit() else 99
-        name, club = get_lane_parts(ev, ht, ch) if ev else ("", "")
-        alt = get_lane_alt(ev, ht, ch) if ev else ""
+        # `ch` is the board row the decoder reports; the meet file and `channel`
+        # carry the pool's lane number (row - 1 in a pool numbered from lane 0).
+        lane = state.lane_of(ch)
+        name, club = get_lane_parts(ev, ht, lane) if ev else ("", "")
+        alt = get_lane_alt(ev, ht, lane) if ev else ""
         delta, delta_seconds, delta_better = "", None, None
         if time_str and ch in state._decoder.lane_seed_times:
             delta, delta_seconds, delta_better = delta_fields(
@@ -218,7 +222,7 @@ def _build_results_snapshot():
             )
         lanes.append(
             {
-                "channel": ch,
+                "channel": lane,
                 "place": place_str,
                 "place_int": place_int,
                 "time": time_str,
@@ -443,13 +447,13 @@ def send_event_info():
     # Stopping at 10 left lanes 11 and 12 un-named on a reconnect or a `next_heat`,
     # still showing the previous heat's swimmers while the rest of the board moved on.
     for i in range(1, 13):
-        name, club = get_lane_parts(ev, ht, i)
+        name, club = get_lane_parts(ev, ht, state.lane_of(i))
         u[f"lane_name{i}"] = name
         u[f"lane_club{i}"] = club
         u[f"lane_delta{i}"] = ""
         u[f"lane_delta_seconds{i}"] = None
         u[f"lane_delta_better{i}"] = None
-        u[f"lane_name_alt{i}"] = get_lane_alt(ev, ht, i)
+        u[f"lane_name_alt{i}"] = get_lane_alt(ev, ht, state.lane_of(i))
     state.record_board(u)
     bus.emit("/scoreboard", "update_scoreboard", u)
     relay.relay_emit("update_scoreboard", u)

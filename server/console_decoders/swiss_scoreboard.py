@@ -26,7 +26,7 @@ See swiss_scoreboard_serial.md.
 import re
 
 from .base import ConsoleDecoder, DecoderOption, SerialConfig, serial_from
-from .utils import split_step
+from .utils import first_lane_of, lane_digit_row, split_step
 
 SOH = 0x01
 STX = "\x02"
@@ -59,7 +59,8 @@ def _is_zero(t: str) -> bool:
     return not any(c in "123456789" for c in t)
 
 
-def _lane_digit(c: str) -> int:
+def _rank_digit(c: str) -> int:
+    """A one-character rank: `0` is 10th."""
     c = c.strip()
     if c == "0":
         return 10
@@ -126,6 +127,7 @@ class SwissScoreboardDecoder(ConsoleDecoder):
         self.num_lanes = int(cfg.get("num_lanes", 10))
         self.rank_mode = str(cfg.get("scb_line_mode", "lane")) == "rank"
         self._pad_sides = int(cfg.get("touchpad_sides", 1) or 1)
+        self.first_lane = first_lane_of(cfg)
         self._serial_config = serial_from(
             cfg.get("serial_baud", 9600), str(cfg.get("serial_format", "8N1"))
         )
@@ -220,10 +222,17 @@ class SwissScoreboardDecoder(ConsoleDecoder):
             self.running_time = ""
             return {**self.reset_lanes(), "running_time": ""}
 
+        # BB is two characters, so a lane there is its full number; A is one.
         if self.rank_mode:
-            rank, lane = _lane_digit(a), _lane_digit(b)
+            rank = _rank_digit(a)
+            lane = int(b) - self.first_lane + 1 if b.strip().isdigit() else 0
         else:
-            lane, rank = _lane_digit(a), _lane_digit(b)
+            lane = lane_digit_row(a, self.first_lane)
+            rank = (
+                _rank_digit(b)
+                if len(b.strip()) == 1
+                else (int(b) if b.strip().isdigit() else 0)
+            )
         if not lane:
             lane = self._line_lane.get(n, 0)
         if not 1 <= lane <= self.num_lanes:

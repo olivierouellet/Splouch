@@ -127,7 +127,7 @@ Using this latitude = `done`, not `diverges`. Rows needing placement/format say 
 | `≠` | is not |
 | `⇒` | implies |
 | `w/o` | without |
-| `<i>` | lane number, 1 to `num_lanes` — `lane_time<i>` is lane *i*'s time |
+| `<i>` | board row, 1 to `num_lanes` — `lane_time<i>` is row *i*'s time. The row's lane number is `i + first_lane - 1` (`settings.first_lane`, 1 by default, 0 for a pool numbered from lane 0) |
 | `settings.*` | meet config (§0.2) |
 | `strings.*` | `GET /picker/config` → `strings` |
 | `mobile.*` | `GET /i18n/{lang}` → `mobile`, the `[mobile]` table of the locale files |
@@ -501,7 +501,7 @@ Live lane state during a heat. Busiest screen, most worth getting right.
 
 | ID | Feature | Driven by | Scope | Level |
 | --- | --- | --- | --- | --- |
-| `L-04` | One row per lane, always `num_lanes` rows | `settings.num_lanes` | all | must |
+| `L-04` | One row per lane, always `num_lanes` rows; row *i* is labelled lane `i + first_lane - 1` | `settings.num_lanes`, `settings.first_lane` (absent → 1) | all | must |
 | `L-05` | Columns: lane · name (+ alt sub-line) · club · time · delta · place | `lane_*<i>` | all | must |
 | `L-06` | Relay members on dimmed second line under name | `lane_name_alt<i>` | all | must |
 | `L-07` | Column visibility per config: `show_name`, `show_club`, `show_delta`, `show_position` | meet `settings` | all | must |

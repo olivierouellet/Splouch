@@ -254,7 +254,7 @@ class LaneRow(QFrame):
         row.setContentsMargins(0, 0, 0, 0)
         row.setSpacing(0)
 
-        self.lane_label = FitLabel(str(lane))
+        self.lane_label = FitLabel(str(lane + cfg.first_lane - 1))
         self.lane_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         # Name and relay members share one cell, stacked — matching the browser's

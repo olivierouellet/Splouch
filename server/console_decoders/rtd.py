@@ -28,6 +28,7 @@ when its Results port is set to OMNI2000 and at 200 when set to OMNI6000 — the
 import re
 
 from .base import ConsoleDecoder, DecoderOption
+from .utils import first_lane_of
 
 SYN = 0x16
 SOH = 0x01
@@ -161,6 +162,7 @@ class RtdSwimmingDecoder(ConsoleDecoder):
         sub = str(cfg.get("rtd_sub_code", "") or "")
         self.sub_codes = None if sub == "any" else ((sub,) if sub else self.SUB_CODES)
         self.offset_shift = int(cfg.get("rtd_offset", 0) or 0)
+        self.first_lane = first_lane_of(cfg)
 
     def set_seed_times(self, times: dict) -> None:
         self.lane_seed_times = dict(times)
@@ -316,7 +318,9 @@ class RtdSwimmingDecoder(ConsoleDecoder):
 
         place = sub(LINE_PLACE).strip()
         raw_time = sub(LINE_TIME).strip()
-        lane = to_int(sub(LINE_LANE))
+        # The line carries the pool's lane number; the board works in rows.
+        lane_text = sub(LINE_LANE).strip()
+        lane = int(lane_text) - self.first_lane + 1 if lane_text.isdigit() else 0
         fixed_ok = (not place or place.isdigit()) and (
             not raw_time or bool(_TIME_RE.match(raw_time))
         )

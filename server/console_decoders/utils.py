@@ -18,6 +18,32 @@ def split_step(touchpad_sides) -> int:
     return 2 if int(touchpad_sides or 1) == 1 else 1
 
 
+def first_lane_of(cfg: dict) -> int:
+    """The pool's first lane number (Settings → Meet → Pool): 0 or 1."""
+    try:
+        return 0 if int(cfg.get("first_lane", 1)) == 0 else 1
+    except (TypeError, ValueError):
+        return 1
+
+
+def lane_digit_row(c: str, first_lane: int, zero_is_ten: bool = True) -> int:
+    """Board row for a one-character lane on the wire, 0 when it is not a lane.
+
+    In a pool numbered from lane 0, `0` is lane 0. Otherwise `0` is lane 10 — the
+    usual way a one-character field shows the tenth lane — unless *zero_is_ten* is
+    off. A pool numbered 0-10 cannot be told apart in one character.
+    """
+    c = c.strip()
+    if not c.isdigit():
+        return 0
+    lane = int(c)
+    if lane == 0 and first_lane == 1:
+        if not zero_is_ten:
+            return 0
+        lane = 10
+    return lane - first_lane + 1
+
+
 def parse_time_hundredths(s: str):
     """Parse a time string to integer hundredths of a second.
 

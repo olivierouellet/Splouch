@@ -133,6 +133,8 @@ def _globals():
         "show_laps": state.settings.get("show_laps", False),
         "lap_direction": state.settings.get("lap_direction", "up"),
         "num_lanes": int(state.settings.get("num_lanes", 6)),
+        # Row i of a board is lane i + first_lane - 1 (0 for a pool from lane 0).
+        "first_lane": state.first_lane(),
         "finish_debounce": float(state.settings.get("finish_debounce", 3.0)),
         # The Timing pane warns when the delay is off the default and offers it
         # back, so the default has to reach the template rather than be retyped.

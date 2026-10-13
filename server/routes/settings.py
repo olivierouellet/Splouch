@@ -404,18 +404,32 @@ def _settings_view(request, form):
                 modified = True
 
         if "pool_setup_submit" in form:
+            first_before = state.first_lane()
             for key, default in (
                 ("num_lanes", 8),
+                ("first_lane", 1),
                 ("pool_length", 25),
                 ("touchpad_sides", 1),
             ):
                 try:
                     val = int(form.get(key, default))
+                    if key == "first_lane":
+                        val = 0 if val == 0 else 1
                     if val != int(state.settings.get(key, default)):
                         state.settings[key] = val
                         modified = True
                 except (ValueError, TypeError):
                     pass
+            if state.first_lane() != first_before:
+                # Every row now stands for another lane: the decoders read lane
+                # numbers off the wire, and the names come from the meet file.
+                state._decoder.configure(
+                    decoder_config(
+                        state.settings.get("console_type", DEFAULT_CONSOLE),
+                        state.settings,
+                    )
+                )
+                send_event_info()
 
         if "timing_settings_submit" in form:
             changed = False

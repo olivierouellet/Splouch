@@ -6,6 +6,7 @@
   "splash_url": "",
   "locale": "en",
   "label_style": "short",
+  "first_lane": 1,
   "num_lanes": 6,
   "show_lane_header": true,
   "show_name_header": true,

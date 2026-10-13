@@ -146,6 +146,8 @@ class Config:
         self.raw = raw
         self.meet_title = raw.get("meet_title", "") or ""
         self.num_lanes = max(1, min(12, int(raw.get("num_lanes", 8) or 8)))
+        # Row i shows lane i + first_lane - 1: 0 for a pool numbered from lane 0.
+        self.first_lane = 0 if raw.get("first_lane", 1) == 0 else 1
         self.locale = raw.get("locale") or "en"
         self.colors = {**DEFAULT_COLORS, **(raw.get("theme_colors") or {})}
         self.fonts = {**DEFAULT_FONTS, **(raw.get("theme_fonts") or {})}

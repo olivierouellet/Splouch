@@ -280,7 +280,7 @@ JSON/asset endpoints (everything else the servers expose is HTML for the browser
 
 | method · path | returns |
 | --- | --- |
-| `GET /config` | **display config JSON** — `num_lanes`, `theme_colors`, `theme_fonts`, `show_*` flags, `labels`, `meet_title`, `locale`, `display_strings`, `carousel_images`, `carousel_interval`, `server_version`, `console` (§6). Lets the Qt display theme *and translate* itself without a rendered page |
+| `GET /config` | **display config JSON** — `num_lanes`, `first_lane`, `theme_colors`, `theme_fonts`, `show_*` flags, `labels`, `meet_title`, `locale`, `display_strings`, `carousel_images`, `carousel_interval`, `server_version`, `console` (§6). Lets the Qt display theme *and translate* itself without a rendered page |
 | `GET /server` | **who this server is** (§5.10) — `kind: "pi"`, its name, and the contract versions this build implements |
 | `GET /schedule.json` | **start list JSON** — `{ "heats": [ … ] }`, the same shape as the cloud's `GET /meet/{id}/schedule` (§5.8) and what the Pi's `/schedule` page embeds. No id in the path: one meet. Empty `heats` when no meet file is loaded |
 | `GET /i18n/{lang}` | **client strings for one language** (§5.9). The same body the cloud serves for that language |
@@ -406,8 +406,10 @@ entirely.
               "delta": "<span …>", "delta_seconds": -0.46, "delta_better": true } ] }
 ```
 
-Lanes without a final time are omitted. `sort` tells the client whether to place each
-row by lane (blank gaps) or by finishing place. `delta` is browser HTML;
+Lanes without a final time are omitted. `channel` is the pool's lane number (0 is a
+lane in a pool with `first_lane` 0); in lane order its row is `channel - first_lane + 1`.
+`sort` tells the client whether to place each row by lane (blank gaps) or by finishing
+place. `delta` is browser HTML;
 `delta_seconds`/`delta_better` are the structured equivalents (`null` when no seed).
 
 ### 5.3 `next_heats`
@@ -425,7 +427,7 @@ row by lane (blank gaps) or by finishing place. `delta` is browser HTML;
   "session_dates": ["2026-10-11", "2026-10-12"], "utc_offset_minutes": -240,
   "name": "…", "location": "…", "sport": "…", "app_window_title": "…", "meet_date": "YYYY-MM-DD",
   "meet_end": "2026-10-12T22:00:00+00:00", "keep_listed_until": "2026-10-15T22:00:00+00:00",
-  "settings": { "num_lanes": 8, "show_name": true, "show_club": true, "show_delta": true,
+  "settings": { "num_lanes": 8, "first_lane": 1, "show_name": true, "show_club": true, "show_delta": true,
                 "show_position": true, "show_podium": true, "show_*_header": true,
                 "show_laps": false, "lap_direction": "up",
                 "theme_colors": { … }, "theme_fonts": { … }, "locale": "fr",

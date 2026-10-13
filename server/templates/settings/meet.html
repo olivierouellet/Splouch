@@ -76,6 +76,14 @@
                         </select>
                     </div>
                     <div class="mb-3">
+                        <label for="first_lane" class="form-label mb-1">{{ t.pool_first_lane }}</label>
+                        <select id="first_lane" name="first_lane" class="form-select form-select-sm" style="width:auto;" onchange="_fsubmit(this.form)">
+                            <option value="1" {% if (first_lane | default(1)) == 1 %}selected{% endif %}>{{ t.pool_first_lane_1 }}</option>
+                            <option value="0" {% if (first_lane | default(1)) == 0 %}selected{% endif %}>{{ t.pool_first_lane_0 }}</option>
+                        </select>
+                        <div class="form-text">{{ t.pool_first_lane_hint }}</div>
+                    </div>
+                    <div class="mb-3">
                         <label class="form-label mb-1">{{ t.pool_length }}</label>
                         <select name="pool_length" class="form-select form-select-sm" style="width:auto;" onchange="_fsubmit(this.form)">
                             <option value="25" {% if pool_length == 25 %}selected{% endif %}>25 m</option>

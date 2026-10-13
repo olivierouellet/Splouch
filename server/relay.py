@@ -163,6 +163,7 @@ def _get_metadata():
         "meet_uid": state.meet_uid(),
         "settings": {
             "num_lanes": int(state.settings.get("num_lanes", 8)),
+            "first_lane": state.first_lane(),
             "show_podium": state.settings.get("show_podium", True),
             "show_name": state.settings.get("show_name", True),
             "show_club": state.settings.get("show_club", True),

@@ -60,7 +60,7 @@ times, which need a console. Full guide: [manual.md](consoles/manual.md).
 
 | Tab | Description |
 | --- | --- |
-| **Meet Setup** | Upload Lenex `.lxf` / Hytek `.csv` meet files; pool length, touchpads, lane count |
+| **Meet Setup** | Upload Lenex `.lxf` / Hytek `.csv` meet files; pool length, touchpads, lane count, first lane (1, or 0 for a pool numbered from lane 0) |
 | **Timing** | Console model, then which of its outputs is wired, its decoder options (shown only for that console), serial port, connection status, serial monitor (raw hex packets), finish debounce. Choosing **Manual — no timing console** drops the port, badge and monitor and links to `/manual` |
 | **Clock** | Sync with NTP; set date and time manually when offline; install/remove Adafruit PiRTC (DS3231) hardware clock |
 | **Display** | Show/hide column headers and columns (Name, Club, Delta, Position); podium highlighting; which Lenex rounds (Final, Prelims, …) follow the event name, once for the scoreboard and once for phones |

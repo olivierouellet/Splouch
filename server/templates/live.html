@@ -559,7 +559,7 @@ function mode_to_results() {
             <tbody>
                 {% for i in range(1, num_lanes + 1) %}
                 <tr class="{{ 'timing-row-odd' if i % 2 == 1 else 'timing-row-even' }}">
-                    <td style="text-align:center;">{{ i }}</td>
+                    <td style="text-align:center;">{{ i + (first_lane | default(1)) - 1 }}</td>
                     <td class="lane-name-cell"><span id="lane_name{{ i }}" class="name-primary"></span><span id="lane_name_alt{{ i }}" class="name-sub"></span></td>
                     <td id="lane_club{{ i }}" style="text-align:left;"></td>
                     <td class="td_time" style="text-align:center;"><span id="lane_time{{ i }}"></span></td>

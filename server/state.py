@@ -112,6 +112,10 @@ settings: dict[str, Any] = {
     "locale": "en",
     "label_style": "long",
     "num_lanes": 8,
+    # The pool's first lane number: 1, or 0 for a pool numbered from lane 0. Rows on
+    # every board stay 1..num_lanes (`lane_time<i>` is row i); a row's lane number is
+    # i + first_lane - 1. See lane_of / row_of.
+    "first_lane": 1,
     "show_lane_header": True,
     "show_name_header": True,
     "show_club_header": True,
@@ -1066,6 +1070,24 @@ def save_settings():
 
 _decoder_console_type = settings.get("console_type", DEFAULT_CONSOLE)
 _decoder = make_decoder(_decoder_console_type, settings)
+
+
+def first_lane() -> int:
+    """The pool's first lane number: 0 or 1 (Settings → Meet → Pool)."""
+    try:
+        return 0 if int(settings.get("first_lane", 1)) == 0 else 1
+    except (TypeError, ValueError):
+        return 1
+
+
+def lane_of(row: int) -> int:
+    """The pool lane shown on board row *row* (1-based)."""
+    return row + first_lane() - 1
+
+
+def row_of(lane: int) -> int:
+    """The board row of pool lane *lane*."""
+    return lane - first_lane() + 1
 
 
 def console_state():

@@ -189,7 +189,7 @@ td.td-splits { text-align: center; white-space: nowrap; }
 <tbody id="tbody">
 {% for i in range(1, num_lanes + 1) %}
 <tr id="row{{ i }}" class="empty">
-    <td class="td-ch">{{ i }}</td>
+    <td class="td-ch">{{ i + (first_lane | default(1)) - 1 }}</td>
     <td class="td-status" id="status{{ i }}">—</td>
     <td class="td-time"   id="time{{ i }}">—</td>
     <td class="td-splits" id="splits{{ i }}">—</td>

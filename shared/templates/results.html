@@ -68,7 +68,7 @@ function clearResults() {
     document.getElementById('current_heat').innerHTML  = '';
     document.getElementById('event_name').innerHTML    = '';
     reset_times();
-    for (var i = 1; i <= NUM_LANES; i++) blankRow(i, i);
+    for (var i = 1; i <= NUM_LANES; i++) blankRow(i, laneOfRow(i));
     speakBoard();
 }
 
@@ -86,7 +86,8 @@ function renderResults(d) {
        fills rows top-down. A relay predating the field omits `sort` → lane mode. */
     var byRow = {}, laneMode = !d.sort || d.sort === 'lane';
     lanes.forEach(function(r, idx) {
-        var row = laneMode ? parseInt(r.channel, 10) : idx + 1;
+        /* `channel` is the pool's lane number; rows start at 1 (FIRST_LANE). */
+        var row = laneMode ? parseInt(r.channel, 10) - FIRST_LANE + 1 : idx + 1;
         if (row >= 1 && row <= NUM_LANES) byRow[row] = r;
     });
 
@@ -105,7 +106,8 @@ function renderResults(d) {
                 else if (placeNum === 2) tr.classList.add('podium-silver');
                 else if (placeNum === 3) tr.classList.add('podium-bronze');
             }
-            document.getElementById('lane_num'     + i).textContent = r.channel || i;
+            document.getElementById('lane_num'     + i).textContent =
+                (r.channel === undefined || r.channel === null || r.channel === '') ? laneOfRow(i) : r.channel;
             document.getElementById('lane_name'    + i).innerHTML   = escHtml(r.name || '');
             document.getElementById('lane_name_alt'+ i).innerHTML   = escHtml(r.alt  || '');
             document.getElementById('lane_club'    + i).textContent = r.club  || '';
@@ -115,7 +117,7 @@ function renderResults(d) {
             document.getElementById('lane_delta'   + i).innerHTML   = safeDeltaHtml(r.delta);
             setLanePlace(i, r.place || '');
         } else {
-            blankRow(i, laneMode ? i : '');
+            blankRow(i, laneMode ? laneOfRow(i) : '');
         }
     }
     document.body.classList.add('has-results');

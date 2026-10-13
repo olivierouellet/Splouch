@@ -120,6 +120,9 @@ Offsets are the running total of the template's field lengths.
 | 25 | 9 | **Split / finish time** (left-justified) |
 | 34 | 2 | **Lengths completed** (right-justified) |
 
+The lane field is the pool's lane number; in a pool whose first lane is 0
+(Settings → Meet → Pool) lane `0` is the first row.
+
 A *line* is a row on the board, not a lane: the console may sort lines by place, so
 the decoder always uses the line's own lane number.
 

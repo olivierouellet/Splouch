@@ -34,7 +34,10 @@ Every message is `SOH <text> EOT`. `<LF>*n` selects the board line (no LF = line
 | Event / heat | `ACK BS '8'` + 11 × LF; if char 14 is not LF: event 20–22, heat 23–25 | `event_changed` — undocumented, unconfirmed |
 
 **A and BB.** *Lane mode*: A = lane (1 char, `0` = 10), BB = rank. *Rank mode*: A =
-rank, BB = lane. GALACTICA is rank mode. Nothing on the wire tells them apart.
+rank, BB = lane. GALACTICA is rank mode. Nothing on the wire tells them apart. In a pool whose
+first lane is 0 (Settings → Meet → Pool), a one-character `0` is lane 0 instead; BB,
+two characters, is the lane's full number either way. A pool numbered 0–10 cannot be
+told apart in one character.
 
 **Splits.** The ARES erases an intermediate time after a configurable delay (manual
 §5); the decoder takes an erase during the race as "still swimming". A time that stays

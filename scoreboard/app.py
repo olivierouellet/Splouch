@@ -211,7 +211,10 @@ class ScoreboardApp:
         save_cached_config(raw)
         new_config = Config(raw)
 
-        if new_config.num_lanes != self.config.num_lanes:
+        if (new_config.num_lanes, new_config.first_lane) != (
+            self.config.num_lanes,
+            self.config.first_lane,
+        ):
             was_full = self.window.isFullScreen()
             snapshot = dict(self.window.snapshot)
             status = self.window.status_text()

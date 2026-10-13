@@ -313,7 +313,7 @@ Implemented in `console_decoders/quantum.py` (`QuantumDecoder`).
 | Option | Values | Default |
 | --- | --- | --- |
 | `serial_format` | `8N1`, `7E1` | `8N1` (Quantum), `7E1` (ARES GP) |
-| `lane_zero` | `10`, `ignore` | `10` |
+| `lane_zero` | `10`, `ignore` | `10` — not used when the pool's first lane is 0: `0` is then lane 0 |
 
 ## ARES 21 GP output (doc 0100.064 §2)
 

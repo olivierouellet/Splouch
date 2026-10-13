@@ -298,14 +298,17 @@ def _on_event_changed(updates, ev, ht):
     updates["split_step"] = split_step(state.settings.get("touchpad_sides", 1))
     seed_times = {}
     heat_lanes = []
+    # Rows 1-12 on the board; the meet file is looked up by the pool's own lane
+    # number, which is the row minus one in a pool numbered from lane 0.
     for i in range(1, 13):
-        name, club = get_lane_parts(ev, ht, i)
+        lane = state.lane_of(i)
+        name, club = get_lane_parts(ev, ht, lane)
         if name:
             heat_lanes.append(i)
         updates[f"lane_name{i}"] = name
         updates[f"lane_club{i}"] = club
-        updates[f"lane_name_alt{i}"] = get_lane_alt(ev, ht, i)
-        st = get_lane_seed_time(ev, ht, i)
+        updates[f"lane_name_alt{i}"] = get_lane_alt(ev, ht, lane)
+        st = get_lane_seed_time(ev, ht, lane)
         if st:
             seed_times[i] = st
     state._decoder.set_seed_times(seed_times)

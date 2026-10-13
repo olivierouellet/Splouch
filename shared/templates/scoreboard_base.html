@@ -218,6 +218,9 @@ tr.still-water > td:first-child::after {
 <script src="/static/js/count.js"></script>
 <script>
 var NUM_LANES = {{ num_lanes }};
+/* Row i shows lane i + FIRST_LANE - 1: 0 for a pool numbered from lane 0. */
+var FIRST_LANE = {{ first_lane | default(1) }};
+function laneOfRow(i) { return i + FIRST_LANE - 1; }
 // Lap counts in the delta column while a lane swims (Settings → Display).
 var SHOW_LAPS = {{ show_laps | default(false) | tojson }};
 // Which way the count runs: 'up' = lengths done, 'down' = lengths left.
@@ -270,7 +273,7 @@ function speakLane(i) {
     var li = document.getElementById('spoken_lane' + i);
     if (!li) return;
     /* An unfilled rank in place order has no lane, and says nothing (`R-06`). */
-    var num = cellText('lane_num' + i) || (unfilled_rank[i] ? '' : String(i));
+    var num = cellText('lane_num' + i) || (unfilled_rank[i] ? '' : String(laneOfRow(i)));
     var parts = num ? [SPOKEN.lane + ' ' + num] : [];
     var name = cellText('lane_name' + i), alt = cellText('lane_name_alt' + i);
     var club = cellText('lane_club' + i), time = cellText('lane_time' + i);
@@ -995,7 +998,7 @@ function init() {
             <tbody>
                 {% for i in range(1, num_lanes + 1) %}
                 <tr id="row{{ i }}" class="{{ 'timing-row-odd' if i % 2 == 1 else 'timing-row-even' }}">
-                    <td id="lane_num{{ i }}" style="text-align:center;">{{ i }}</td>
+                    <td id="lane_num{{ i }}" style="text-align:center;">{{ i + (first_lane | default(1)) - 1 }}</td>
                     {# `name-primary` is a hook, not a style: the Results tab measures
                        it to shrink an over-long name, and leaves it unstyled here. #}
                     <td class="lane-name-cell"><span id="lane_name{{ i }}" class="name-primary"></span><span id="lane_name_alt{{ i }}" class="name-sub"></span></td>
@@ -1011,7 +1014,7 @@ function init() {
            server's own column words, not six cells read as unrelated fragments
            (docs/app.md `X-01`). Kept in step by `speakBoard`. #}
         <ul class="sr-only" id="spoken_lanes" role="list">
-            {% for i in range(1, num_lanes + 1) %}<li id="spoken_lane{{ i }}">{{ labels.lane or 'Lane' }} {{ i }}</li>{% endfor %}
+            {% for i in range(1, num_lanes + 1) %}<li id="spoken_lane{{ i }}">{{ labels.lane or 'Lane' }} {{ i + (first_lane | default(1)) - 1 }}</li>{% endfor %}
         </ul>
     </div>
     {% block body_extra %}{% endblock %}
