@@ -4,9 +4,12 @@ RTD is Daktronics' scoreboard feed, and the same wire format the AllSport 5000
 open-source projects decode. Each packet writes a run of ASCII into a 4096-byte
 buffer at the offset its header names:
 
-    SYN 00000000 SOH <prefix><offset:4> STX <data> EOT <checksum: 2 hex> ETB
+    SYN 00000000 SOH <type:3><sub:2><offset:5> STX <data> EOT <checksum: 2 hex> ETB
 
-The checksum is every byte after SYN up to and including EOT, summed mod 256. What
+Type 004 is a buffer write — the only one decoded. An OmniSport 2000 also sends
+001, 003, 008 and 900 control messages, and an ARES "Venus ERTD" output raw ON/OFF
+commands; all are dropped. The sub-code
+is "21" from an OmniSport and "01" (or "00") from an ARES. The checksum is every byte after SYN up to and including EOT, summed mod 256. What
 each offset *means* comes from a per-sport Input Template File (ITF). The decoder
 keeps its own copy of the buffer and reads fields out of it, so a packet covering
 several fields — or one character of one — lands where the console meant it.
@@ -16,13 +19,15 @@ The Omnisport 2000 speaks it natively; the ARES 21 speaks it to feed Daktronics
 
     +0 name (15) | +15 team (5) | +20 lane (2) | +22 place (3) | +25 time (9) | +34 lengths (2)
 
-Each console subclass names its header prefix and where its lines start. See
-omnisport_2000_serial.md for the template and the capture it was checked against.
+Each console subclass names its sub-codes and where its lines start. The line base
+is a preset of the console entry, not a constant: an OmniSport writes lines at 222
+when its Results port is set to OMNI2000 and at 200 when set to OMNI6000 — the same
+200 the ARES uses. See omnisport_2000_serial.md and swiss_timing_ares21_serial.md.
 """
 
 import re
 
-from .base import ConsoleDecoder
+from .base import ConsoleDecoder, DecoderOption
 
 SYN = 0x16
 SOH = 0x01
@@ -69,20 +74,31 @@ def to_int(s: str) -> int:
     return int(s) if s.isdigit() else 0
 
 
+# The OmniSport's "RTD Offset" menu: every offset it sends is shifted by 5000·k.
+RTD_OFFSET_OPTION = DecoderOption(
+    key="rtd_offset",
+    label="RTD offset (console setting)",
+    choices=(("0", "0K"), ("5000", "5K"), ("10000", "10K"), ("15000", "15K")),
+    default="0",
+    help="Must match the console's RTD Offset menu. 0K unless the venue changed it.",
+)
+
+
 class RtdSwimmingDecoder(ConsoleDecoder):
     """A console that sends Daktronics RTD in the swimming template's line layout.
 
     Subclasses set:
-      HEADER_PREFIX — the six header digits before the offset. Any other prefix is
-                      another sport mode, whose offsets mean different fields.
-      LINE_BASE     — offset of result line 1.
+      SUB_CODES     — the two header digits after the type that this console sends.
+      LINE_BASE     — offset of result line 1, unless the console entry presets
+                      `rtd_line_base`.
       LINE_IS_LANE  — when a line's own lane field is blank, take line n as lane n.
       RESULT_FALLBACK — when place/time are not at their template offsets, look for
                       a time anywhere in the line's result half (and the number
                       just before it as the place).
     """
 
-    HEADER_PREFIX = ""
+    MESSAGE_TYPE = "004"
+    SUB_CODES: tuple[str, ...] = ()
     LINE_BASE = 0
     LINE_IS_LANE = False
     RESULT_FALLBACK = False
@@ -120,6 +136,8 @@ class RtdSwimmingDecoder(ConsoleDecoder):
 
     def configure(self, cfg: dict) -> None:
         self.num_lanes = int(cfg.get("num_lanes", 10))
+        self.line_base = int(cfg.get("rtd_line_base", self.LINE_BASE))
+        self.offset_shift = int(cfg.get("rtd_offset", 0) or 0)
 
     def set_seed_times(self, times: dict) -> None:
         self.lane_seed_times = dict(times)
@@ -182,9 +200,9 @@ class RtdSwimmingDecoder(ConsoleDecoder):
             return {}
 
         header = bytes(packet[soh + 1 : stx]).decode("ascii", errors="ignore")
-        if len(header) != 10 or not header.startswith(self.HEADER_PREFIX):
+        if len(header) != 10 or header[:3] != self.MESSAGE_TYPE:
             return {}
-        if not header[6:].isdigit():
+        if header[3:5] not in self.SUB_CODES or not header[5:].isdigit():
             return {}
 
         # Checksum: every byte after SYN up to and including EOT, summed mod 256,
@@ -199,7 +217,9 @@ class RtdSwimmingDecoder(ConsoleDecoder):
                 if sum(packet[1 : eot + 1]) & 0xFF != expected:
                     return {}
 
-        offset = int(header[6:])
+        offset = int(header[5:]) - self.offset_shift
+        if offset < 0:
+            return {}
         data = bytes(packet[stx + 1 : eot])
         end = min(offset + len(data), BUFFER_SIZE)
         if offset >= end:
@@ -257,7 +277,7 @@ class RtdSwimmingDecoder(ConsoleDecoder):
 
         max_lengths = to_int(self._field(*self.MAX_LENGTHS))
         for n in range(1, LINES + 1):
-            base = self.LINE_BASE + (n - 1) * LINE_STRIDE
+            base = self.line_base + (n - 1) * LINE_STRIDE
             if touched(base, LINE_STRIDE):
                 self._read_line(n, base, max_lengths, updates)
 

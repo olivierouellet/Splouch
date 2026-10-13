@@ -7,7 +7,7 @@ Serial: 9 600 baud, 8 data bits, even parity, 1 stop bit.
 import time
 import traceback
 
-from .base import ConsoleDecoder, SerialConfig
+from .base import ConsoleDecoder, DecoderOption, SerialConfig
 from .utils import split_step
 
 # Decoded channel address → 1-based lane index.
@@ -15,10 +15,31 @@ from .utils import split_step
 _LANE_MAP: dict[int, int] = {**{ch: ch for ch in range(1, 11)}, 23: 11, 24: 12}
 
 
+# What each wire nibble shows: 0 is blank, 1-5 are E D C B A, and 6-15 count down
+# from 9 to 0. The alternate character set a format packet selects is not decoded;
+# see cts_gen6_serial.md.
+_CHARS = " EDCBA9876543210"
+
+# A lane or place digit: 'A' (or '0') is 10, 'B' 11, 'C' 12. Without this a 10th
+# place arrived blank, and a lane with a time but no place held the heat open.
+_PLACE_DIGITS = {"0": "10", "A": "10", "B": "11", "C": "12"}
+
+
 def _digit(nibble: int) -> str:
-    """Decode one wire nibble to a display character ('0'-'9' or ' ')."""
-    v = (nibble & 0x0F) ^ 0x0F
-    return " " if v > 9 else str(v)
+    """Decode one wire nibble to its display character ('0'-'9', 'A'-'E' or ' ')."""
+    return _CHARS[nibble & 0x0F]
+
+
+def _num(nibble: int) -> str:
+    """A digit in a number field — time, event, heat: letters read as blank."""
+    c = _digit(nibble)
+    return c if c.isdigit() else " "
+
+
+def _place(nibble: int) -> str:
+    """A place digit as the board shows it: '1'-'9', '10'-'12', or ' '."""
+    c = _digit(nibble)
+    return _PLACE_DIGITS.get(c, c)
 
 
 def _time_str(raw: list[int]) -> str:
@@ -27,9 +48,9 @@ def _time_str(raw: list[int]) -> str:
     Returns an empty string when seconds and hundredths are all blank,
     which means no time has been received yet.
     """
-    m0, m1 = _digit(raw[0]), _digit(raw[1])
-    s0, s1 = _digit(raw[2]), _digit(raw[3])
-    h0, h1 = _digit(raw[4]), _digit(raw[5])
+    m0, m1 = _num(raw[0]), _num(raw[1])
+    s0, s1 = _num(raw[2]), _num(raw[3])
+    h0, h1 = _num(raw[4]), _num(raw[5])
     if s0 == s1 == h0 == h1 == " ":
         return ""
     mins = ("" if m0 == " " else m0) + ("0" if m1 == " " else m1)
@@ -43,6 +64,16 @@ class CTSGen6Decoder(ConsoleDecoder):
 
     Protocol reference: console_decoders/cts_gen6_serial.md
     """
+
+    OPTIONS = (
+        DecoderOption(
+            key="serial_parity",
+            label="Serial parity",
+            choices=(("E", "Even (8-E-1)"), ("N", "None (8-N-1)")),
+            default="E",
+            help="A CTS console sends 8-E-1. Another console emulating it may not.",
+        ),
+    )
 
     def __init__(self, cfg: dict) -> None:
         self._serial_cfg = SerialConfig(baud=9600, bytesize=8, parity="E", stopbits=1)
@@ -84,6 +115,13 @@ class CTSGen6Decoder(ConsoleDecoder):
         return 9
 
     def configure(self, cfg: dict) -> None:
+        parity = cfg.get("serial_parity", "E")
+        self._serial_cfg = SerialConfig(
+            baud=9600,
+            bytesize=8,
+            parity=parity if parity in ("E", "N") else "E",
+            stopbits=1,
+        )
         self._num_lanes = int(cfg.get("num_lanes", 10))
         self._split_min = float(cfg.get("split_min_duration", 1.0))
         self._pad_sides = int(cfg.get("touchpad_sides", 1))
@@ -121,7 +159,7 @@ class CTSGen6Decoder(ConsoleDecoder):
         return _time_str(self._slots[lane][2:8])
 
     def get_lane_place(self, lane: int) -> str:
-        return _digit(self._slots[lane][1])
+        return _place(self._slots[lane][1])
 
     def adjust_splits(self, lane: int, delta: int) -> int:
         val = max(0, self._splits.get(lane, 0) + delta)
@@ -184,7 +222,7 @@ class CTSGen6Decoder(ConsoleDecoder):
                 for byte in data:
                     self._slots[ln][(byte >> 4) & 0x0F] = byte
 
-                updates[f"lane_place{ln}"] = _digit(self._slots[ln][1])
+                updates[f"lane_place{ln}"] = _place(self._slots[ln][1])
                 updates[f"lane_running{ln}"] = running
 
                 if running and not prev:
@@ -231,7 +269,7 @@ class CTSGen6Decoder(ConsoleDecoder):
                 # event number shrinks (e.g. event 31 → event 1 never blanks slot 1).
                 self._eh_buf = [" "] * 8
                 for byte in data:
-                    self._eh_buf[(byte >> 4) & 0x0F] = _digit(byte)
+                    self._eh_buf[(byte >> 4) & 0x0F] = _num(byte)
 
                 event_str = "".join(self._eh_buf[:3])
                 heat_str = "".join(self._eh_buf[-3:])

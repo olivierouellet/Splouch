@@ -1,6 +1,6 @@
 # Swiss Timing Omega — Quantum
 
-> **Not tested on real hardware.** Implemented from published protocol documentation. Adjustments may be needed once validated against a live console.
+> **Not tested on real hardware.** Implemented from published protocol documentation; the message format is the one Swiss Timing documents for the ARES 21 GP output (OSM6). Adjustments may be needed once validated against a live console.
 
 ## Hardware
 
@@ -19,15 +19,18 @@ If you already have a cable that works with your meet-management software, it wi
 
 ## Protocol
 
-RS-485 — 9600 baud, 8-N-1 (OSM6 format)
-
-> If no data is received, try switching to 7 data bits in the Timing settings — the official spec says 8, but some hardware variants use 7.
+RS-485 — 9600 baud, OSM6 format. 8-N-1 by default; the ARES 21 sends the same format at 7-E-1, and some Quantum set-ups may too.
 
 Full protocol reference: [`console_decoders/swiss_timing_quantum_serial.md`](../../server/console_decoders/swiss_timing_quantum_serial.md)
 
 ## Settings
 
-In the admin UI (**Settings → Timing**), set:
+In **Settings → Timing**:
 
-- **Console type:** `Swiss Timing Quantum`
+- **Timing Equipment:** `Quantum (Swiss Timing Omega)`
 - **Serial port:** `/dev/ttyUSB0` (or whichever device the adapter appears as)
+
+Options:
+
+- **Serial format** — 8-N-1 (default) or 7-E-1. If no data decodes, try the other.
+- **Lane digit 0** — lane 10 (default) or ignored. The lane is one character; other Swiss Timing outputs send lane 10 as `0`.

@@ -117,7 +117,7 @@ def test_only_the_manual_console_declares_itself_portless():
 def test_the_manual_console_is_offered_and_described():
     assert "manual" in {key for key, _, _ in CONSOLE_OPTIONS}
     info = console_info_for("manual")
-    cts = console_info_for("cts_gen6")
+    cts = console_info_for("cts_sys6")
     assert info and cts, "both consoles are built in — None means unregistered"
     assert info["requires_serial"] is False
     assert cts["requires_serial"] is True
@@ -148,15 +148,15 @@ def test_the_manual_console_reads_in_the_panel_language(lang, label, wiring):
     t = state.settings_strings(lang)
     info = _console_info_in(t, "manual")
     assert info and info["label"] == label and info["wiring"] == wiring
-    cts = _console_info_in(t, "cts_gen6")
+    cts = _console_info_in(t, "cts_sys6")
     assert cts and cts["label"] == "System 6 (Colorado Timing System)"
-    assert t.get("console_label_cts_gen6") is None
+    assert t.get("console_label_cts_sys6") is None
 
 
 def test_a_wired_decoder_leaves_liveness_to_the_packet_clock():
     """None, not False. False would declare every console dead."""
     assert ConsoleDecoder.is_live.fget(cast(ConsoleDecoder, object())) is None
-    assert make_decoder("cts_gen6", state.settings).is_live is None
+    assert make_decoder("cts_sys6", state.settings).is_live is None
 
 
 # ── The decoder itself ─────────────────────────────────────────────────────────
@@ -393,9 +393,9 @@ def test_the_saved_console_is_the_one_that_gets_built(monkeypatch):
     all consoles were serial ones — the Settings form rebuilds on save — and fatal for
     a console whose whole point is having no port."""
     monkeypatch.setitem(state.settings, "console_type", "manual")
-    monkeypatch.setattr(state, "_decoder_console_type", "cts_gen6", raising=False)
+    monkeypatch.setattr(state, "_decoder_console_type", "cts_sys6", raising=False)
     monkeypatch.setattr(
-        state, "_decoder", make_decoder("cts_gen6", state.settings), raising=False
+        state, "_decoder", make_decoder("cts_sys6", state.settings), raising=False
     )
 
     state._apply_console_type()
@@ -426,7 +426,7 @@ def _timing_pane(requires_serial):
         ),
     )
     stub_url_for(env)
-    console = "cts_gen6" if requires_serial else "manual"
+    console = "cts_sys6" if requires_serial else "manual"
     return env.get_template("settings.html").render(
         t=state.settings_strings("en"),
         serial_port="COM1",

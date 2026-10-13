@@ -11,7 +11,7 @@ import serial
 import bus
 import relay
 import state
-from console_decoders import make_decoder
+from console_decoders import make_decoder, same_decoding
 from console_decoders.utils import split_step
 from meet_data import (
     _build_results_snapshot,
@@ -116,8 +116,9 @@ def use_replay_decoder(console=""):
     * **It came from another console.** A bundled Omnisport capture under a CTS
       decoder finds no packet in it at all. `console` is the recording's own key
       (`recording_console`), and when its decoder is not the configured one, the
-      replay runs under it. Compared by decoder class, not key: a System 5 and a
-      Gen7 Legacy share the Gen6 decoder and need nothing lent.
+      replay runs under it. Compared by how they decode (`same_decoding`: class,
+      preset, options), not key: a System 5 and a Gen7 Legacy share the CTS legacy
+      decoder and need nothing lent, while an OmniSport set to OMNI6000 does.
     * **The console has no wire.** `ManualDecoder.feed` returns `{}` and
       `is_packet_start` is always False, so every byte decoded to nothing: no
       `event_changed`, no names, no times, and a test badge (emitted by
@@ -138,7 +139,9 @@ def use_replay_decoder(console=""):
     if not want:
         return ""
     stand_in = make_decoder(want, state.settings)
-    if type(stand_in) is type(state._decoder):
+    if type(stand_in) is type(state._decoder) and same_decoding(
+        want, state._decoder_console_type, state.settings
+    ):
         return ""
     state._test_saved_decoder = state._decoder
     state._decoder = stand_in

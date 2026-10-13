@@ -61,7 +61,8 @@
     "digits": "DSEG7Classic"
   },
   "finish_debounce": 3.0,
-  "console_type": "cts_gen6",
+  "console_options": {},
+  "console_type": "cts_sys6",
   "active_home_icon": "",
   "last_meet_file": "",
   "cloud_relay_url": "",

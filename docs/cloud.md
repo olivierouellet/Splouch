@@ -81,7 +81,7 @@ menu → **Change password**) lets you, under **Organizers** and **Active Meets*
 - **Delete a key** — removes it from the list entirely.
 - **View active meets** — shows every Pi currently connected with its meet name, location, sport, organizer, console, and connection time.
 
-The **Console** column is the console key the Pi reports (`cts_gen6`, `manual`, a plugin's
+The **Console** column is the console key the Pi reports (`cts_sys6`, `manual`, a plugin's
 own key), so a support question — *which console was that meet running on?* — is answered
 without phoning the operator. A meet whose console produces no times at all is marked
 *no times* underneath: its spectators get no Results tab, by design
@@ -638,7 +638,7 @@ changer depuis le menu utilisateur → **Changer le mot de passe**) permet, dans
 - **Voir les compétitions actives** — montre chaque Pi connecté avec le nom de sa
   compétition, le lieu, le sport, l'organisateur, la console et l'heure de connexion.
 
-La colonne **Console** indique la clé de console que rapporte le Pi (`cts_gen6`, `manual`,
+La colonne **Console** indique la clé de console que rapporte le Pi (`cts_sys6`, `manual`,
 la clé propre d'un plugin) ; une question de support — *sur quelle console tournait cette
 compétition ?* — trouve donc sa réponse sans appeler l'opérateur. Une compétition dont la
 console ne produit aucun temps est marquée *no times* en dessous : ses spectateurs n'ont pas

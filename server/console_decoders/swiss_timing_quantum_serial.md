@@ -1,7 +1,9 @@
 # Swiss Timing Omega Quantum — Serial Protocol Reference (OSM6)
 
-> **Status: Documented** from the official Swiss Timing OSM6 specification
+> **Status: Documented** from the official Swiss Timing OSM6 specification,
+> Swiss Timing doc 0100.064 §2 (the ARES 21 "GP output", same fields exactly)
 > and community implementation `hakostra/swimming-scoreboard` (`scoreboard/comms.py`, GPL-3.0).
+> Decoder key `swiss_osm6`; console entries `quantum_osm6` and `ares21_gp_osm6`.
 > Protocol name: **OSM6** (the same wire format used by the Quantum's
 > meet-management data output).
 
@@ -257,6 +259,11 @@ lane 10 the encoding is **not confirmed** — it may be `'0'` (wrap-around),
 
 ### Serial parameters (7 vs 8 data bits)
 
+**ARES 21: 7-E-1.** The ARES Swimming manual (§9.1.2) and the HyTek note both say
+*"OSM6 types: 9600 7 even 1"* (8-N-1 only for the bi-directional Meet Manager mode).
+That matches the community 7-bit default. The Quantum is still unconfirmed: the
+`serial_format` option defaults to 8-N-1 there and 7-E-1 on the ARES entry.
+
 The official Swiss Timing spec says **8 data bits**. The community implementation
 `hakostra/swimming-scoreboard` defaults to **7 data bits**. Both sources agree on
 9600 baud, no parity, 1 stop bit. The decoder is configured for 8 data bits
@@ -265,9 +272,10 @@ Settings and try again.**
 
 ### Lane 10 encoding in J field
 
-As described in Note 3, the byte value for lane 10 is unknown. If `int(J)`
-raises ValueError the message is silently dropped. A capture from a 10-lane
-pool is the only way to confirm.
+As described in Note 3, the byte value for lane 10 is unknown. Every other Swiss
+Timing output (UNT4 lines, "++" lists) sends lane 10 as `0`,
+so the `lane_zero` option reads `0` as lane 10 by default; *Ignore* drops it. Any
+other non-digit is still dropped. A capture from a 10-lane pool would confirm.
 
 ### Rank at split time
 
@@ -297,8 +305,26 @@ Implemented in `console_decoders/quantum.py` (`QuantumDecoder`).
 | Split times with lap count | Done |
 | Finish times with rank/place | Done |
 | Running time (clock) | Not available in OSM6 |
-| Lane 10 | Unverified — see Note 3 |
-| 7 vs 8 data bits | Configured for 8 (official spec); try 7 if no data |
+| Lane 10 | `0` = lane 10 by default (`lane_zero` option) |
+| 7 vs 8 data bits | `serial_format` option: 7-E-1 on the ARES, 8-N-1 on the Quantum by default |
+
+## Options
+
+| Option | Values | Default |
+| --- | --- | --- |
+| `serial_format` | `8N1`, `7E1` | `8N1` (Quantum), `7E1` (ARES GP) |
+| `lane_zero` | `10`, `ignore` | `10` |
+
+## ARES 21 GP output (doc 0100.064 §2)
+
+Connector: IF-ARES GP, Sub-D 9 F — pin 3 TxD+, pin 7 TxD−, pin 8 GND (pins 2/6 RxD±,
+not needed). Same two-message format. The document adds:
+
+| Field | Values not handled by the decoder |
+| --- | --- |
+| A | `4` current results with backup times, `6` previous results with backup times |
+| B | `D` take-over (relay), `R` reaction time. It lists no `B` (button finish) — that kind may be Quantum-only |
+| C (time type) | `C` corrected, `E` deleted, `F` relay false start, `I` inserted, `M` manual, `N` missing, `T` 1–2 pushbuttons missing, `+`/`-` platform vs touchpad |
 
 ---
 

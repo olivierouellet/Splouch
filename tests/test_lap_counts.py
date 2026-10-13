@@ -62,7 +62,7 @@ def test_reset_lanes_blanks_the_lap_count(key):
 
 
 @pytest.mark.parametrize(
-    "key", ["omega_quantum", "dak_2000", "omega_ares21", "cts_gen6"]
+    "key", ["quantum_osm6", "dak_os2000_rtd", "ares21_ertd", "cts_sys6"]
 )
 def test_counting_decoders_really_move_the_count(key):
     """Where there is a count to move, ± has to move it — and never below zero.
@@ -114,7 +114,7 @@ def test_a_missing_or_odd_setting_reads_as_one_sided():
 def test_the_gen6_counts_in_the_same_step_it_publishes():
     """The inference and the published value are one function, so the count the
     board receives and the test it applies to it cannot disagree."""
-    dec = make_decoder("cts_gen6", {"num_lanes": 8, "touchpad_sides": 1})
+    dec = make_decoder("cts_sys6", {"num_lanes": 8, "touchpad_sides": 1})
     dec.reset_lanes()
     assert dec.adjust_splits(1, split_step(1)) == 2
 

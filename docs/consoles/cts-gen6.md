@@ -31,5 +31,5 @@ Full protocol reference: [`console_decoders/cts_gen6_serial.md`](../../server/co
 
 In the admin UI (**Settings → Timing**), set:
 
-- **Console type:** `CTS Gen6`
+- **Timing Equipment:** `System 5 (Colorado Timing System)`, `System 6 (Colorado Timing System)`, or `Gen7 (Colorado Timing System)` with **Console output** `Legacy scoreboard output`
 - **Serial port:** `/dev/ttyUSB0` (or whichever device the adapter appears as)

@@ -292,14 +292,14 @@ def test_omnisport_other_header_prefix_is_ignored():
 
 def _start_and_finish(key: str, heat_lanes) -> bool:
     """Start a heat on lanes 3 and 4 only, finish both, ask whether it is over."""
-    if key == "omega_quantum":
+    if key == "quantum_osm6":
         q = QuantumDecoder({"num_lanes": 8})
         q.set_heat_lanes(heat_lanes)
         _quantum_feed(q, _osm6("2", "S", "1", "0", "0", "14:17:55.26"))
         _quantum_feed(q, _osm6("2", "A", "3", "4", "1", "58.21"))
         _quantum_feed(q, _osm6("2", "A", "4", "4", "2", "58.90"))
         return q.race_finished()
-    if key == "omega_ares21":
+    if key == "ares21_ertd":
         a = Ares21Decoder({"num_lanes": 8})
         a.set_heat_lanes(heat_lanes)
         a.feed(_ares("0040100000", "00:00.1"))
@@ -314,12 +314,12 @@ def _start_and_finish(key: str, heat_lanes) -> bool:
     return d.race_finished()
 
 
-@pytest.mark.parametrize("key", ["omega_quantum", "omega_ares21", "dak_2000"])
+@pytest.mark.parametrize("key", ["quantum_osm6", "ares21_ertd", "dak_os2000_rtd"])
 def test_empty_lanes_no_longer_hold_the_heat_open(key):
     assert _start_and_finish(key, {3, 4}), "an empty lane kept the race running"
 
 
-@pytest.mark.parametrize("key", ["omega_quantum", "omega_ares21", "dak_2000"])
+@pytest.mark.parametrize("key", ["quantum_osm6", "ares21_ertd", "dak_os2000_rtd"])
 def test_without_start_lists_every_lane_still_starts(key):
     """No meet loaded: the only safe guess is the old one, all lanes."""
     assert not _start_and_finish(key, ())

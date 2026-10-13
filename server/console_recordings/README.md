@@ -18,16 +18,17 @@ and, while one plays under a stand-in, says which console is driving the board.
 How the console is known (`worker.recording_console`):
 
 - **A `<name>.console` file** beside the recording holds its console key, e.g.
-  `dak_2000`. Only `omnisport_2000.raw` has one.
+  `dak_os2000_rtd`. Only `omnisport_2000.raw` has one.
 - **A built-in without one** is CTS Gen6 — every recording shipped before the
   Omnisport one.
 - **An uploaded recording** is the operator's own console's output, so it plays under
   the configured decoder. One exception: a console with no wire (the manual console,
   or a portless plugin, `requires_serial = False`) reads nothing by design, so there
-  it falls back to `cts_gen6` rather than the test badge over eight empty lanes.
+  it falls back to `cts_sys6` rather than the test badge over eight empty lanes.
 
-Decoders are compared by class, not key: a System 5 or Gen7 Legacy pool shares the
-Gen6 decoder and replays the CTS files without a stand-in.
+Decoders are compared by how they decode, not by key (`same_decoding`: class, preset
+and options): a System 5 or Gen7 Legacy pool shares the CTS legacy decoder and
+replays the CTS files without a stand-in.
 
 ## The two formats
 

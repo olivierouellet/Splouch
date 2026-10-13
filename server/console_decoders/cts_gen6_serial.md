@@ -1,7 +1,8 @@
 # CTS Gen6 (System 5 / System 6 / Gen7 Legacy) — Serial Protocol Reference
 
 > **Status: Fully documented** from direct observation and community sources.
-> This decoder also covers System 5 and Gen7 Legacy, which share the same wire protocol.
+> This decoder (`cts_legacy`) also covers System 5, Gen7 Legacy and — unconfirmed —
+> an OmniSport 2000 with its RTD port set to CTS.
 > Implemented in `console_decoders/cts_gen6.py` (`CTSGen6Decoder`).
 
 ---
@@ -53,11 +54,13 @@ value = byte & 0x0F  # raw nibble value
 
 Converting a nibble to a display character:
 
-```python
-def hex_to_digit(c):
-    c = (c & 0x0F) ^ 0x0F
-    return " " if c > 9 else str(c)
-```
+| Nibble | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Char | ` ` | E | D | C | B | **A** | 9 | 8 | 7 | 6 | 5 | 4 | 3 | 2 | 1 | 0 |
+
+A lane or place digit `A` (or `0`) is **10**, `B` is **11**, `C` is **12**. Number
+fields (time, event, heat) keep digits only. A format packet can select an alternate
+character set per digit (`8 | - _ P L * o N U J H | F o R`); not decoded.
 
 ### Time formatting (6 digits → string)
 
@@ -65,9 +68,9 @@ Digits at slots 2–7 encode a time in `MM:SS.HH` format:
 
 ```python
 def format_time(a, b, c, d, e, f):  # slots 2,3,4,5,6,7
-    m1, m2 = hex_to_digit(a), hex_to_digit(b)  # minutes
-    s1, s2 = hex_to_digit(c), hex_to_digit(d)  # seconds
-    h1, h2 = hex_to_digit(e), hex_to_digit(f)  # hundredths
+    m1, m2 = digit(a), digit(b)  # minutes
+    s1, s2 = digit(c), digit(d)  # seconds
+    h1, h2 = digit(e), digit(f)  # hundredths
     if s1 == s2 == h1 == h2 == " ":
         return ""  # blank = no time
     ...
@@ -122,6 +125,16 @@ it (`_shows_time_of_day`). A place is required to be a result, so a real finish 
 happens to match the clock is unaffected. **Total Blank** (pressed twice) sends every
 channel empty and needs nothing special.
 The "Format" variant has bit 0 set (format-display flag) and is ignored by the parser.
+A format packet's data byte sets, per slot, the alternate character set (bit 4 =
+NOT bit 0) and a decimal point (NOT bit 1): on slot 0 that point is the **reset
+indicator** (any lane 1–10), on slot 4 it adds the `:` and on slot 5 the `.` of a
+time, and on the event/heat channel slot 5's point is the `.` of a diving heat. Not decoded here; the Scoreboard Blank heuristic covers the reset case.
+
+### Options
+
+| Option | Values | Default | Shown for |
+| --- | --- | --- | --- |
+| `serial_parity` | `E` (8-E-1), `N` (8-N-1) | `E` | OmniSport 2000 "J5 RTD port set to CTS" only |
 
 ---
 

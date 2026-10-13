@@ -10,6 +10,46 @@ class SerialConfig:
     stopbits: int = 1
 
 
+# "8N1" → 8 data bits, no parity, 1 stop bit: the spelling the option menus use.
+SERIAL_FORMATS: dict[str, tuple[int, str, int]] = {
+    "8N1": (8, "N", 1),
+    "8E1": (8, "E", 1),
+    "7E1": (7, "E", 1),
+}
+
+
+def serial_from(baud, fmt: str, fallback: str = "8N1") -> SerialConfig:
+    """A SerialConfig from an option's baud and "8N1"-style format strings."""
+    bytesize, parity, stopbits = SERIAL_FORMATS.get(fmt, SERIAL_FORMATS[fallback])
+    try:
+        baud = int(baud)
+    except (TypeError, ValueError):
+        baud = 9600
+    return SerialConfig(baud=baud, bytesize=bytesize, parity=parity, stopbits=stopbits)
+
+
+@dataclass(frozen=True)
+class DecoderOption:
+    """One part of the decoding the evidence does not settle, left to the operator.
+
+    A decoder lists them in `OPTIONS`; a console entry in `CONSOLES` says which ones
+    its menu shows and may change the default (the same OSM6 decoder starts at 7-E-1
+    on an ARES and 8-N-1 on a Quantum). Settings → Timing shows the exposed ones
+    only while that console is selected, and stores each console's choices apart, so
+    switching consoles never carries a value across.
+
+    The value reaches the decoder as `cfg[key]` — always a string, one of `choices`.
+    `label`, `help` and each choice's label are English; the panel file can replace
+    them (`console_opt_<key>`, `console_opt_<key>_help`, `console_opt_<key>_<value>`).
+    """
+
+    key: str
+    label: str
+    choices: tuple[tuple[str, str], ...]
+    default: str
+    help: str = ""
+
+
 class ConsoleDecoder(ABC):
     """Abstract base for timing-console serial decoders.
 
@@ -27,6 +67,10 @@ class ConsoleDecoder(ABC):
     #: A plain attribute rather than a property for exactly that reason: it has to be
     #: answerable before any decoder for the console has been built.
     requires_serial: bool = True
+
+    #: Decoding choices this decoder cannot make from the wire alone — see
+    #: `DecoderOption`. Read off the class, like `requires_serial`.
+    OPTIONS: tuple[DecoderOption, ...] = ()
 
     #: The (event, heat) this decoder last announced, and the seed times it holds
     #: for that heat.

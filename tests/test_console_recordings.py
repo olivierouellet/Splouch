@@ -560,7 +560,7 @@ def test_the_converted_file_actually_replays(tmp_path):
     from console_decoders import make_decoder
 
     state.settings["num_lanes"] = 8
-    state._decoder = make_decoder("cts_gen6", state.settings)
+    state._decoder = make_decoder("cts_sys6", state.settings)
     clock, packet = [], []
 
     def collect(updates):
@@ -667,7 +667,7 @@ def played(monkeypatch):
         monkeypatch.setattr(state, "update", {}, raising=False)
         monkeypatch.setattr(state, "_running_lanes", set(), raising=False)
         monkeypatch.setattr(
-            state, "_decoder", make_decoder("cts_gen6", state.settings), raising=False
+            state, "_decoder", make_decoder("cts_sys6", state.settings), raising=False
         )
         state.set_lenex(load_lenex(os.path.join(RECORDINGS, name + ".lxf")))
 

@@ -50,7 +50,7 @@ def test_the_registry_keeps_the_card_and_never_the_meet_s_content(key):
         "settings": {
             **META["settings"],
             "labels": {"lane": "Couloir"},
-            "console": {"key": "cts_gen6", "timed": True},
+            "console": {"key": "cts_sys6", "timed": True},
         },
         "schedule_data": {"start_list": {"1": {"1": {"1": {"name": "Ledecky"}}}}},
     }
@@ -58,7 +58,7 @@ def test_the_registry_keeps_the_card_and_never_the_meet_s_content(key):
     rec = reg.get(mid)
     assert rec["settings"] == {
         "locale": "fr",
-        "console": {"key": "cts_gen6", "timed": True},
+        "console": {"key": "cts_sys6", "timed": True},
     }
     assert "schedule_data" not in rec and "Ledecky" not in repr(rec)
     import cloud_db

@@ -457,7 +457,7 @@ and `keep_listed_until` to 72 hours past it, and drops a keep when the Pi discon
 | --- | --- |
 | `labels` | as now — resolved for the meet's `locale` and the operator's style. The default a client renders before any user preference, and the whole story for a client that wants no more than that |
 | `label_style` | `"short"` or `"long"` — *which* of the two the operator picked, so a client offering the choice knows where to start. The Pi's phone style is `cloud_label_style`, separate from the kiosk's `label_style` |
-| `console` | which console is driving this meet: `key` is the operator's choice (`"cts_gen6"`, `"manual"`, a plugin's own key), `timed` is whether it produces times at all |
+| `console` | which console is driving this meet: `key` is the operator's choice (`"cts_sys6"`, `"manual"`, a plugin's own key), `timed` is whether it produces times at all |
 
 **`console.timed` is the half a client acts on.** False means *no time and no place
 will ever arrive for this meet* — the operator is driving it by hand from `/manual`

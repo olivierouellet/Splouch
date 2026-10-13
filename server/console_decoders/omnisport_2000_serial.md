@@ -26,23 +26,33 @@ From the OmniSport 2000 manual (ED-13312), appendix D, *RTD Output Specification
 **J6 is the wrong port.** It is the Results Port, which talks to Meet Manager in its
 own protocol. The scoreboard feed is J5.
 
-Console settings: **RTD Port → RTD** (not CTS), the **Swimming** sport mode, and RTD
-output in Omni 2000 item numbers (selecting *Omni 6000* changes every address).
+Console settings, in the console's *PORT CONFIGURATIONS* menu:
+
+| Menu | Values | Effect on J5 |
+| --- | --- | --- |
+| 1. Scbrd Port | M-DROP, M-LINE, **OMEGA**, M-CAST | OMEGA sends Swiss Timing scoreboard lines on the scoreboard port — see `swiss_scoreboard_serial.md` |
+| 2. RTD Port | **RTD**, CTS | RTD packets are sent only in RTD mode. CTS runs at half the speed (9600) — presumably the Colorado legacy stream, unconfirmed |
+| 3. Results | OMNI6000, **OMNI2000**, CTS | Moves the swimming layout: result lines at **222** (OMNI2000) or **200** (OMNI6000) |
+| RTD Offset | 0K, 5K, 10K, 15K | Adds 5000·k to every offset sent |
+
+Settings → Timing offers one entry per combination: *J5 RTD — Results set to OMNI2000*,
+*… OMNI6000*, *J5 RTD port set to CTS*, *Scoreboard port set to OMEGA*.
 
 ---
 
 ## Packet Framing
 
 ```text
-SYN  00000000  SOH  004210oooo  STX  <data>  EOT  cc  ETB
-0x16 8 × '0'   0x01 10 digits   0x02 ASCII   0x04 2 hex 0x17
+SYN  00000000  SOH  004 21 ooooo  STX  <data>  EOT  cc  ETB
+0x16 8 × '0'   0x01 type sub offset 0x02 ASCII  0x04 2 hex 0x17
 ```
 
 | Part | Meaning |
 | ---- | ------- |
 | `00000000` | Always zeros in the capture; counted in the checksum |
-| `004210` | Fixed prefix for this sport mode |
-| `oooo` | Offset, in characters, into the 4096-byte RTD buffer |
+| `004` | Message type: 4 = buffer write. The console also sends 001 (`01` + 2 digits), 003 (`01` + 4 digits), 008 (`21<data>`, no offset) and 900 (2 digits); all dropped |
+| `21` | Sub-code; an ARES sends `01` (or `00`) |
+| `ooooo` | Offset (5 digits), in characters, into the 4096-byte RTD buffer, plus 5000 × the RTD Offset setting |
 | `<data>` | ASCII written at that offset — may cover part of one field or run across several |
 | `cc` | Checksum: sum of every byte after SYN up to and including EOT, mod 256, as two uppercase hex digits |
 
@@ -58,6 +68,18 @@ then reads the fields it needs from the copy. This handles partial and multi-fie
 writes without caring how the console chooses to chunk them.
 
 **Packet start detection:** `byte == 0x16` (SYN).
+
+### Swimming layout by Results setting
+
+| Offset | Format | Condition |
+| ---: | --- | --- |
+| 99 | event, alpha, heat, heat alpha, round, max lengths | Results = OMNI2000 |
+| 99 | event and heat only (no round / max lengths) | Results = OMNI6000 |
+| 222 + 36·(n−1) | result line | Results = OMNI2000 |
+| 200 + 36·(n−1) | result line | Results = OMNI6000 |
+| 1100 + 9·(n−1) | subtractive line time | — |
+| 1484 | "Official Results" or blank (16) | — |
+| 117 / 240 / 218 | as above, +18 | a variant whose trigger is unknown |
 
 ---
 
@@ -139,8 +161,18 @@ Names, team scores and records are ignored — Lenex supplies the names.
   before a touch is not known; the decoder only accepts a time that has a place.
 - **The `00000000` field** was zeros throughout the capture. If it ever carries
   something else, it is still covered by the checksum as implemented.
-- **Header prefix.** Only `004210` is accepted. Other sport modes or Omni 6000
-  item numbers are dropped on purpose — their offsets mean different fields.
+- **Header.** Type `004` with sub-code `21` is accepted; other types are control
+  messages. The RTD Offset option must match the console, or every offset is wrong.
+- **OMNI6000 layout.** Lines at 200 are untested on a console.
+- **The +18 variant** (event at 117, lines at 240/218) is not handled.
+
+## Options
+
+| Option | Values | Default |
+| --- | --- | --- |
+| `rtd_offset` | 0, 5000, 10000, 15000 | 0 |
+
+Preset per console entry: `rtd_line_base` = 222 (OMNI2000) or 200 (OMNI6000).
 
 ---
 

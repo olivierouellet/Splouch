@@ -40,7 +40,7 @@ def _replay(name, monkeypatch):
     frames = []
     monkeypatch.setitem(state.settings, "num_lanes", 8)
     monkeypatch.setattr(
-        state, "_decoder", make_decoder("cts_gen6", state.settings), raising=False
+        state, "_decoder", make_decoder("cts_sys6", state.settings), raising=False
     )
     monkeypatch.setattr(state, "update", {}, raising=False)
     monkeypatch.setattr(state, "_running_lanes", set(), raising=False)

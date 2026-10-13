@@ -71,7 +71,16 @@ Pi #1 /dev/ttyUSB0
 
 1. Create `server/console_decoders/<name>.py` implementing the `ConsoleDecoder` interface from `server/console_decoders/base.py`.
 2. Add a `<name>_serial.md` protocol reference alongside it.
-3. Register the decoder in `server/console_decoders/__init__.py` by adding entries to `CONSOLE_OPTIONS` and `DECODERS`.
+3. Register the decoder in `server/console_decoders/__init__.py`: add the class to `DECODERS` (one key per wire protocol) and one `ConsoleEntry` to `CONSOLES` per console **output** that speaks it.
+
+Settings → Timing is two menus: the console model, then which of its outputs is wired. Entries with the same `model` string share the first menu; `output` is the second (`""` for a console with one way out). Several entries can point at one decoder — an OmniSport's J5 RTD output and an ARES's Venus ERTD output are both Daktronics RTD — and differ by:
+
+| field | meaning |
+| --- | --- |
+| `preset` | Fixed configuration this output implies, merged into the decoder's `cfg` (e.g. `{"rtd_line_base": 200}` for an OmniSport with Results set to OMNI6000). |
+| `options` | The decoder's `DecoderOption`s this console's menu shows, `{key: default}` (`None` keeps the decoder's default). |
+
+**Decoder options.** When the evidence does not settle part of a protocol — a field's position, a serial format, line order — the decoder declares a `DecoderOption` in its class attribute `OPTIONS` and reads the value from `cfg[key]` in `configure()`. Settings → Timing shows a console's exposed options only while it is selected, and saves each console's choices apart in `settings["console_options"][console_key]`, so switching consoles carries nothing across. `make_decoder` and `decoder_config` merge settings, preset and option values.
 
 ### Local-only decoder (not committed — e.g. for proprietary protocols)
 
@@ -141,7 +150,7 @@ Two optional members change how the app treats the decoder:
 | `requires_serial` | `True` | A **plain class attribute**, not a property — Settings → Timing reads it off the class before any decoder has been built. Set it `False` and no port is opened: the worker runs `_run_manual` instead, which only drains the command queue, and the Timing pane drops its port picker, Connection badge and Serial Monitor. See `console_decoders/manual.py`. |
 | `is_live` | `None` | Whether the link is up, when packet arrival is the wrong measure. `None` means "ask the packet clock" (`docs/api.md` §2.1) and is right for any console on a wire. |
 
-The decoder appears in **Settings → Timing → Console type** immediately after saving or reopening the page. Keys already registered by the built-in decoders are silently skipped, so naming collisions are harmless.
+A plugin entry becomes a console model with a single output. The decoder appears in **Settings → Timing → Timing Equipment** immediately after saving or reopening the page. Keys already registered by the built-in decoders are silently skipped, so naming collisions are harmless.
 
 ---
 

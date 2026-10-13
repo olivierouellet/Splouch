@@ -461,7 +461,7 @@ def _decoder(monkeypatch, at=(0, 0)):
     import state
     from console_decoders import make_decoder
 
-    decoder = make_decoder("cts_gen6", {**state.settings, "num_lanes": 8})
+    decoder = make_decoder("cts_sys6", {**state.settings, "num_lanes": 8})
     decoder.last_event_sent = at
     monkeypatch.setattr(state, "_decoder", decoder, raising=False)
     return decoder
@@ -728,7 +728,7 @@ def test_a_recording_from_another_console_replays_as_that_console(rig, monkeypat
 
     assert isinstance(state._decoder, Omnisport2000Decoder)
     assert state._test_saved_decoder is mine
-    assert state._test_replay_console == "dak_2000"
+    assert state._test_replay_console == "dak_os2000_rtd"
 
     worker.end_test_session()
     assert state._decoder is mine, "the CTS was not given back"
@@ -739,8 +739,8 @@ def test_a_cts_recording_on_a_cts_console_needs_no_stand_in(rig, monkeypatch):
     """System 5 / Gen7 Legacy share the Gen6 decoder: compared by class, not key."""
     from console_decoders import make_decoder
 
-    monkeypatch.setitem(state.settings, "console_type", "cts_gen5")
-    monkeypatch.setattr(state, "_decoder", make_decoder("cts_gen5", state.settings))
+    monkeypatch.setitem(state.settings, "console_type", "cts_sys5")
+    monkeypatch.setattr(state, "_decoder", make_decoder("cts_sys5", state.settings))
     mine = state._decoder
     debug._test_play(SESSION)
     assert state._decoder is mine
@@ -749,9 +749,12 @@ def test_a_cts_recording_on_a_cts_console_needs_no_stand_in(rig, monkeypatch):
 
 def test_the_session_list_names_each_recordings_console(rig, monkeypatch):
     sessions = {s["name"]: s for s in debug.route_test_status()["sessions"]}
-    assert sessions[OMNI_SESSION]["console"] == "dak_2000"
-    assert sessions[OMNI_SESSION]["console_label"] == "Omnisport 2000 (Daktronics)"
-    assert sessions[SESSION]["console"] == "cts_gen6", "an untagged built-in is CTS"
+    assert sessions[OMNI_SESSION]["console"] == "dak_os2000_rtd"
+    assert (
+        sessions[OMNI_SESSION]["console_label"]
+        == "OmniSport 2000 (Daktronics) — J5 RTD — Results set to OMNI2000"
+    )
+    assert sessions[SESSION]["console"] == "cts_sys6", "an untagged built-in is CTS"
 
 
 def test_an_uploaded_recording_is_the_operators_own_console(tmp_path):

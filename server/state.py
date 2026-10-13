@@ -14,7 +14,7 @@ import sys
 from typing import Any, TextIO
 
 import i18n
-from console_decoders import make_decoder
+from console_decoders import DEFAULT_CONSOLE, decoder_config, make_decoder
 from console_decoders.base import ConsoleDecoder
 
 # Re-export only — see Re-exports below.
@@ -165,7 +165,9 @@ settings: dict[str, Any] = {
     "pool_length": 25,
     "touchpad_sides": 1,
     "carousel_interval": 10,
-    "console_type": "cts_gen6",
+    "console_type": DEFAULT_CONSOLE,
+    # Per console: {console_type: {option key: value}} — see DecoderOption.
+    "console_options": {},
     # Per-meet cloud appearance overrides, keyed by meet_uid(). See
     # CLOUD_PROFILE_FIELDS / apply_meet_profile().
     "meet_profiles": {},
@@ -536,7 +538,7 @@ _test_saved_decoder: ConsoleDecoder | None = None
 # bundled session in `console_recordings/` names its console in a `<name>.console`
 # file beside it; one without is a CTS capture, and this is the same fallback
 # `console_decoders.make_decoder` already applies to an unknown key.
-REPLAY_CONSOLE_TYPE = "cts_gen6"
+REPLAY_CONSOLE_TYPE = DEFAULT_CONSOLE
 # The console key the stand-in decoder was built from while one is installed, ''
 # otherwise. Read by the Test tab to say which console is driving the board.
 _test_replay_console: str = ""
@@ -1025,17 +1027,17 @@ def _apply_console_type():
     appeared the moment anyone touched the page and survived until the next restart.
 
     A manual console is where that stops being survivable: the saved choice decides
-    whether a serial port is opened at all, so a Pi rebooting into `cts_gen6` would
+    whether a serial port is opened at all, so a Pi rebooting into a CTS would
     sit retrying a port that is not there while /manual's buttons did nothing —
     `_run_live_serial` only drains the command queue once a port is actually open.
     """
     global _decoder, _decoder_console_type
-    want = settings.get("console_type", "cts_gen6")
+    want = settings.get("console_type", DEFAULT_CONSOLE)
     if want != _decoder_console_type:
         _decoder = make_decoder(want, settings)
         _decoder_console_type = want
     else:
-        _decoder.configure(settings)
+        _decoder.configure(decoder_config(want, settings))
 
 
 def save_settings():
@@ -1060,7 +1062,7 @@ def save_settings():
 
 # ── Decoder (initialized after settings dict is defined) ──────────────────────
 
-_decoder_console_type = settings.get("console_type", "cts_gen6")
+_decoder_console_type = settings.get("console_type", DEFAULT_CONSOLE)
 _decoder = make_decoder(_decoder_console_type, settings)
 
 
@@ -1084,6 +1086,6 @@ def console_state():
     `CONSOLE_OPTIONS` carries it in English only, and no spectator reads it.
     """
     return {
-        "key": settings.get("console_type", "cts_gen6"),
+        "key": settings.get("console_type", DEFAULT_CONSOLE),
         "timed": bool(getattr(_decoder, "requires_serial", True)),
     }

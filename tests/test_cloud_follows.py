@@ -250,7 +250,7 @@ SCHED = schedule(
 
 def test_a_cts_operator_scrolling_past_a_heat_does_not_select_it():
     w = watch_on(SCHED, current=(1, 1))
-    hold = cf.hold_for({"console": {"key": "cts_gen6"}})
+    hold = cf.hold_for({"console": {"key": "cts_sys6"}})
     assert hold == 5.0
     w.frame({"current_event": "1", "current_heat": "3"}, 100.0)
     w.frame({"current_event": "1", "current_heat": "2"}, 102.0)  # one too far

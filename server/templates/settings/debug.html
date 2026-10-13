@@ -3,14 +3,45 @@
                 <div class="card mb-3"><div class="card-body">
                     <form id="timing_form" action="/settings" method="POST">
                         <input type="hidden" name="timing_settings_submit" value="1">
+                        {# Two menus: the console model, then which of its outputs is wired.
+                           A model with one way out has no second menu; its key rides in a
+                           hidden field. Changing the model posts the old output with it,
+                           and the server takes the new model's first output. #}
+                        {% set ns = namespace(outputs=[], model="") %}
+                        {% for model, outputs in console_menu %}{% for key, _ in outputs %}{% if key == console_type %}{% set ns.outputs = outputs %}{% set ns.model = model %}{% endif %}{% endfor %}{% endfor %}
                         <div class="mb-3">
-                            <label for="console_type" class="form-label">{{ t.timing_equipment }}</label>
+                            <label for="console_model" class="form-label">{{ t.timing_equipment }}</label>
+                            <select id="console_model" name="console_model" class="form-select form-select-sm" style="max-width:360px;" onchange="_fsubmit(this.form)">
+                            {% for model, outputs in console_menu %}
+                                <option value="{{model}}" {% if model == ns.model %}selected{% endif %}>{{model}}</option>
+                            {% endfor %}
+                            </select>
+                        </div>
+                        {% if ns.outputs | length > 1 %}
+                        <div class="mb-3">
+                            <label for="console_type" class="form-label">{{ t.timing_console_output }}</label>
                             <select id="console_type" name="console_type" class="form-select form-select-sm" style="max-width:360px;" onchange="_fsubmit(this.form)">
-                            {% for key, label in console_options %}
+                            {% for key, label in ns.outputs %}
                                 <option value="{{key}}" {% if key == console_type %}selected{% endif %}>{{label}}</option>
                             {% endfor %}
                             </select>
                         </div>
+                        {% else %}
+                        <input type="hidden" name="console_type" value="{{ console_type }}">
+                        {% endif %}
+                        {# What this console's decoder cannot settle from the wire alone.
+                           Shown for the selected console only; each console keeps its own. #}
+                        {% for opt in console_option_fields %}
+                        <div class="mb-3">
+                            <label for="console_opt_{{ opt.key }}" class="form-label">{{ opt.label }}</label>
+                            <select id="console_opt_{{ opt.key }}" name="console_opt_{{ opt.key }}" class="form-select form-select-sm" style="max-width:360px;" onchange="_fsubmit(this.form)">
+                            {% for value, label in opt.choices %}
+                                <option value="{{value}}" {% if value == opt.value %}selected{% endif %}>{{label}}{% if value == opt.default %} ({{ t.timing_option_default }}){% endif %}</option>
+                            {% endfor %}
+                            </select>
+                            {% if opt.help %}<div class="form-text">{{ opt.help }}</div>{% endif %}
+                        </div>
+                        {% endfor %}
                         {# A console with no wire has no port to pick and nothing to
                            connect to, so the picker, the Connection badge and the
                            Serial Monitor below are all hidden rather than sitting

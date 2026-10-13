@@ -1,36 +1,30 @@
-# Swiss Timing Omega Ares 21 — Serial Protocol Reference
+# Swiss Timing Omega ARES 21 — "Venus ERTD" Serial Protocol Reference
 
-> **Status: Partly documented, partly inferred.** Offsets from community
-> reverse-engineering of `fvishram/SRAYSScoreboard` (`AresDataHandler.cs`, MIT);
-> the result-line layout inferred from the Daktronics swimming template. Not yet
-> run against a live console.
+> **Status: Documented** from the ARES Swimming 2.24e scoreboard set-up and
+> `fvishram/SRAYSScoreboard`. Not yet run against a live console.
 >
-> Protocol name: **Venus ERTD**. Venus is Daktronics' display-control software, so
-> this is **Daktronics RTD** — the same wire format as the Omnisport 2000
-> (`rtd.py`, `omnisport_2000_serial.md`).
+> ERTD is Daktronics RTD — the same wire format as the OmniSport 2000 (`rtd.py`,
+> `omnisport_2000_serial.md`). Implemented in `swiss_timing_ares21.py`
+> (`Ares21Decoder`, decoder key `ares_ertd`, console entry `ares21_ertd`).
+>
+> The ARES has two other outputs, decoded elsewhere: the SCB connector in
+> UNT4/GALACTICA mode (`swiss_scoreboard_serial.md`) and the GP connector in OSM6
+> mode (`swiss_timing_quantum_serial.md`).
 
 ---
 
 ## Hardware Interface
 
+ARES Swimming manual 3330.560.02 §11: *"The ERTD type is designed to drive DAKTRONICS
+scoreboards running with the VENUS software."* Selected in *Configuration →
+Scoreboard → Kind of scoreboard*; output on the IF-ARES **SCB** connector.
+
 | Parameter | Value |
 | --------- | ----- |
-| Interface | **RS-485** (not RS-232) |
-| Baud rate | **9 600** |
-| Data bits | 8 |
-| Parity | **None** |
-| Stop bits | 1 |
-
-> Note: the Ares 21 also supports older OSM 6 mode (RS-232, 9600, 7-E-1) but Venus ERTD over RS-485 is the scoreboard format to use.
-
-### Wiring (DB9 cable — custom pinout)
-
-```text
-PC side (DB9 female)         ARES side (DB9 male)
-  Pin 1 → T(+) / RS-485 B+    Pin 4 → T(+) / RS-485 B+
-  Pin 2 → T(-) / RS-485 A-    Pin 3 → T(-) / RS-485 A-
-  Pin 5 → Ground               Pin 7 → Ground
-```
+| Connector | IF-ARES SCB, Sub-D 9 female: pin 4 LD+, pin 3 LD−, pin 7 GND (also 20 mA loop on 9/8) |
+| Interface | **RS-485** (when *RS485* is checked in the scoreboard set-up) |
+| Baud rate | 9 600 (set in the IF-ARES) |
+| Format | 8-N-1 |
 
 Standard USB-to-RS-232 adapters will not work — use a USB-to-RS-485 adapter.
 
@@ -38,90 +32,84 @@ Standard USB-to-RS-232 adapters will not work — use a USB-to-RS-485 adapter.
 
 ## Message Structure
 
-Daktronics RTD (see `omnisport_2000_serial.md` for the framing, checksum and how the
-buffer works):
-
 ```text
-SYN 00000000 SOH 004010oooo STX <data> EOT <checksum: 2 hex> ETB
+SYN 00000000 SOH 004 01 ooooo STX <data> EOT <checksum: 2 hex> ETB
 ```
 
-`004010` is the Ares's header prefix; `oooo` is the offset into a 4096-byte buffer
-where `<data>` is written. SRAYS shows frames starting at SOH with no SYN or
-checksum; the decoder accepts both, and verifies the checksum only when the SYN is
-there.
+| Part | Meaning |
+| ---- | ------- |
+| `SYN 00000000 SOH` | as on the OmniSport |
+| `004` | message type: buffer write |
+| `01` / `00` | sub-code (`01` usual) |
+| `ooooo` | 5-digit offset: `VOFFSET[k] + HOFFSET[k] × line` |
+| checksum | Σ bytes after SYN through EOT, mod 256, 2 uppercase hex, then ETB |
+
+Test packet: `SYN 00000000 SOH 0040100000 STX "    x.y  " EOT`. Raw ON/OFF commands
+(`SYN 70000000 SOH 003010002 EOT`, …) carry no checksum and another type; they are
+dropped.
 
 ---
 
 ## Buffer Layout
 
-| Offset | Len | Field | Source |
-| -----: | --: | ----- | ------ |
-| 0 | 9 | Running time | SRAYS (`0040100000`) |
-| 69 | 30 | Event title — free text with `Event N` / `Heat N` | SRAYS (`0040100069`) |
-| 99 | 3 | Event number | inferred (template) |
-| 103 | 2 | Heat number | inferred (template) |
-| 126 | 2 | Maximum lengths | inferred (template) |
-| 200 + 36·(n−1) | 36 | Result line n, n = 1…10 | SRAYS (names at +0, results at +20) |
+ARES Swimming ERTD set-up:
 
-### Result line (inferred)
+```text
+VOFFSET=200;225;225;108;200;69     HOFFSET=36;36;36;23;36;30     NAMELEN=20F14n5
+```
 
-SRAYS gives only where a line starts and that its result half starts 20 characters
-in. That matches the Daktronics swimming template's line exactly — same 36-character
-stride, name and team in the first 20 — so the decoder reads it with that layout:
+plus a 7th table, `VOFFSET 100`, `HOFFSET 5`.
 
-| Offset in line | Len | Field |
-| -------------: | --: | ----- |
-| 0 | 15 | Swimmer name (ignored — Lenex supplies names) |
-| 15 | 5 | Team |
-| 20 | 2 | Lane number |
-| 22 | 3 | Place |
-| 25 | 9 | Split / finish time |
-| 34 | 2 | Lengths completed |
+| k | Offset | Content |
+| - | ------ | ------- |
+| — | 0 | Running time, 9 chars |
+| 5 | 69 | Title (≤30, left) · **event (3) at 99** · 2-char field at 102 |
+| 6 | 100 (+5·line) | event (3) + heat (2) — **event at 100–102, heat at 103–104** |
+| 3 | 108 + 23·n | Record line: name 12, code 2, time |
+| 4 | **200 + 36·n** | Result / start-list line |
+| 1, 2 | 225 + 36·(lane − 1) | 8-char time into a line's time field (reaction / running time per lane) |
 
-Every other known Ares offset matches the template too: running time at 0, event
-title at 69. Only the start of line 1 differs (200 here, 222 on the Omnisport) —
-presumably fewer record fields ahead of the lanes.
+This is the OmniSport OMNI2000 template shifted by −22 from offset 105 on — the
+OmniSport's own **OMNI6000** layout.
 
-**Fallbacks**, for while this is unconfirmed:
+### Result line (36 characters)
 
-- No lane number in the line → line n is lane n, as SRAYS assumes.
-- Place or time not where the template puts them → the first time anywhere in the
-  line's result half, and the number just before it as the place. This reads
-  SRAYS's own example, `1 00:54.32` at `0040100220`, as lane 1 place 1.
-- Event/heat: the number fields (99, 103) when both hold digits, else `Event N` and
-  `Heat N` in the title text.
+| Line | Layout |
+| ---- | ------ |
+| Result | name block 20 · lane (2) at +20 · rank (3) at +22 · space · time from **+26** |
+| Start list | name 15 · club 5 · 5 chars · time (9) right-aligned at +25 |
+
+No lengths are sent. The decoder reads lane (20, 2), place (22, 3) and time (25, 9)
+stripped — the time starting at +26 reads the same.
 
 ---
 
 ## Decoder Behaviour
 
-Shared with the Omnisport (`RtdSwimmingDecoder`):
+Shared with the OmniSport (`RtdSwimmingDecoder`): event/heat → `event_changed`;
+running time leaving zero → start; a line with place + time → `lane_time`,
+`lane_place`; a placed time is a finish (no lengths, so no `max_lengths` test).
 
-| Field change | Emitted |
-| ------------ | ------- |
-| Event / heat | `current_event`, `current_heat`; on a new pair, `event_changed` and a lane reset |
-| Running time | `running_time`. Leaving zero is the start: untimed lanes go `lane_running=True` — only lanes with a swimmer in the start lists (`set_heat_lanes`) — and `dismiss_overlay`. Returning to zero re-arms the start |
-| Result line with place + time | `lane_time`, `lane_place`, `lane_splits` (lengths, when the line has them) |
-| …and lengths ≥ maximum lengths (or either unknown) | `lane_running=False` — the finish |
-| Result line blank in place and time | lane cleared |
+Fallbacks: a line with no lane number is lane
+n; a line whose place/time are not at the template offsets is searched for a time.
 
----
+## Options
 
-## Known Uncertainties (needs hardware validation)
+| Option | Values | Default | Why |
+| --- | --- | --- | --- |
+| `ertd_event_field` | `99` (after the title), `100` (event/heat block), `title` (text only) | `99` | The event can be written at 99 or at 100; which one a scoreboard set-up uses is unknown. A blank number falls back to `Event N … Heat N` in the title |
 
-- **Result-line layout.** Inferred, as above. A capture of one split and one finish
-  settles it; if the fallback is what decodes it, the template guess was wrong.
-- **Event / heat.** If the Ares fills neither the number fields nor an `Event N …
-  Heat N` title, `event_changed` never fires, lanes are not reset between heats and
-  seed times do not reload.
-- **Pre-start clock.** A clock running before the start (a false-start hold) is
-  taken as the start.
+## Known Uncertainties
+
+- When the sub-code is `00` instead of `01`.
+- Whether table 6 (100 + 5·line) is always written at line 0.
+- The SCB baud rate is an IF-ARES setting.
 
 ---
 
 ## Sources
 
+- Swiss Timing, *Transmission protocols — ARES 21 Swimming* (doc 0100.064 v1.10, Nov 2009) and *ARES Swimming* user manual 3330.560.02, on the ARES 21 software CD
+- ARES Swimming 2.24e scoreboard set-up (Venus ERTD)
 - `fvishram/SRAYSScoreboard` — `AresDataHandler.cs` and `docs/PROTOCOL.md`: [github.com/fvishram/SRAYSScoreboard](https://github.com/fvishram/SRAYSScoreboard)
-- Daktronics Input Template File `OS2-Swimming.itf` (the line layout): <http://dakfiles.daktronics.com/downloads/Data/ITF/OS2-Swimming.itf>
-- Daktronics RTD framing as decoded by the AllSport 5000 projects, e.g. `scorebox-consoles`: <https://pypi.org/project/scorebox-consoles/>
-- Ares 21 User Manual: [hertsssa.org.uk](http://www.hertsssa.org.uk/uploads/5/2/5/3/5253152/ares_swimming_user_manual.pdf)
+- Daktronics Input Template File `OS2-Swimming.itf`: <http://dakfiles.daktronics.com/downloads/Data/ITF/OS2-Swimming.itf>

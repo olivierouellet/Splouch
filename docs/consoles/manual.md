@@ -34,7 +34,7 @@ anything. (`docs/api.md` §5.4, `docs/app.md` `A-11`.)
 ## Setting it up
 
 1. **Settings → Meet Setup** — load your `.lxf` or `.csv` meet file as usual.
-2. **Settings → Timing → Console type** — choose **Manual — no timing console**.
+2. **Settings → Timing → Timing Equipment** — choose **Manual — no timing console**.
    The serial-port picker, the Connection badge and the Serial Monitor disappear:
    there is no wire for any of them to describe.
 3. Click **Open the manual console**, or open `/manual` directly on a phone. It is

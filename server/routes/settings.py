@@ -14,10 +14,15 @@ import bus
 import relay
 import state
 from console_decoders import (
-    CONSOLE_OPTIONS,
+    DEFAULT_CONSOLE,
+    console_entry,
     console_info_for,
+    console_models,
+    decoder_config,
     load_custom_decoders,
     make_decoder,
+    option_specs,
+    option_values,
 )
 from meet_data import (
     announce_schedule,
@@ -247,21 +252,83 @@ def _coerce_like(current, raw):
 def _console_info_in(t, console_type):
     """`console_info_for`, with the words the panel file translates swapped in.
 
-    `CONSOLE_OPTIONS` and `CONSOLE_INFO` stay English: most entries are product
-    names or wiring that reads the same in any language, and a local plugin has no
-    panel file to put its own words in. Only a key the panel file carries —
-    `console_<field>_<console key>` — is replaced, so everything else falls through.
+    `CONSOLES` stays English: most entries are product names or wiring that reads
+    the same in any language, and a local plugin has no panel file to put its own
+    words in. Only a key the panel file carries — `console_<field>_<console key>` —
+    is replaced, so everything else falls through. The label is rebuilt from the
+    translated model and output.
     """
     info = console_info_for(console_type)
     if info is None:
         return None
+    model, output = _console_names(t, console_type)
     return {
         **info,
         **{
             field: t.get(f"console_{field}_{console_type}", info[field])
-            for field in ("label", "adapter", "wiring", "protocol")
+            for field in ("adapter", "wiring", "protocol")
         },
+        "label": f"{model} — {output}" if output else model,
     }
+
+
+def _console_names(t, console_type):
+    """(model, output) for a console key, in the panel language where it has one."""
+    e = console_entry(console_type)
+    if e is None:
+        return console_type, ""
+    model = t.get(f"console_label_{console_type}", e.model) if not e.output else e.model
+    return model, t.get(f"console_output_{console_type}", e.output)
+
+
+def _console_menu(t):
+    """The two-level menu, translated: [(model, [(key, output label), ...]), ...]."""
+    return [
+        (
+            _console_names(t, outputs[0][0])[0],
+            [(key, _console_names(t, key)[1]) for key, _ in outputs],
+        )
+        for _, outputs in console_models()
+    ]
+
+
+def _console_option_fields(t, console_type):
+    """The decoder options Settings → Timing shows for this console, translated."""
+    values = option_values(console_type, state.settings)
+    fields = []
+    for opt, default in option_specs(console_type):
+        fields.append(
+            {
+                "key": opt.key,
+                "label": t.get(f"console_opt_{opt.key}", opt.label),
+                "help": t.get(f"console_opt_{opt.key}_help", opt.help),
+                "value": values[opt.key],
+                "default": default,
+                "choices": [
+                    (value, t.get(f"console_opt_{opt.key}_{value}", label))
+                    for value, label in opt.choices
+                ],
+            }
+        )
+    return fields
+
+
+def _console_from_form(form):
+    """The console key the Timing form asks for, or '' when it does not say.
+
+    The first menu picks a model; when the second still holds an output of the
+    previous model (it is only re-rendered after the post), take the new model's
+    first output.
+    """
+    want = form.get("console_type", "").strip()
+    model = form.get("console_model", "").strip()
+    if not model:
+        return want
+    for key, _ in dict(console_models()).get(model, []):
+        if key == want:
+            return want
+    outputs = dict(console_models()).get(model)
+    return outputs[0][0] if outputs else want
 
 
 def _users_action(form):
@@ -352,17 +419,35 @@ def _settings_view(request, form):
 
         if "timing_settings_submit" in form:
             changed = False
-            for key in ("serial_port", "console_type"):
-                val = form.get(key, "").strip()
+            wanted = {
+                "serial_port": form.get("serial_port", "").strip(),
+                "console_type": _console_from_form(form),
+            }
+            for key, val in wanted.items():
                 if val and val != state.settings.get(key):
                     state.settings[key] = val
                     changed = True
                     modified = True
                     console_changed = console_changed or key == "console_type"
+            if not console_changed:
+                # The option fields on the page belong to the console it showed; after
+                # a console change they are the previous console's, and ignored.
+                ct = state.settings.get("console_type", DEFAULT_CONSOLE)
+                current = option_values(ct, state.settings)
+                saved = dict(state.settings.get("console_options") or {})
+                mine = dict(saved.get(ct) or {})
+                for opt, _ in option_specs(ct):
+                    val = form.get(f"console_opt_{opt.key}", "")
+                    if val in {c for c, _ in opt.choices} and val != current[opt.key]:
+                        mine[opt.key] = val
+                        changed = modified = True
+                if mine != (saved.get(ct) or {}):
+                    saved[ct] = mine
+                    state.settings["console_options"] = saved
             if changed:
                 prev = state._decoder
                 state._decoder_console_type = state.settings.get(
-                    "console_type", "cts_gen6"
+                    "console_type", DEFAULT_CONSOLE
                 )
                 state._decoder = make_decoder(
                     state._decoder_console_type, state.settings
@@ -405,7 +490,12 @@ def _settings_view(request, form):
                 # The decoder reads this in configure(), which otherwise runs only at
                 # startup — so until now a changed value sat in settings.json and did
                 # nothing until the server was restarted.
-                state._decoder.configure(state.settings)
+                state._decoder.configure(
+                    decoder_config(
+                        state.settings.get("console_type", DEFAULT_CONSOLE),
+                        state.settings,
+                    )
+                )
 
         if "display_settings_submit" in form:
             for key in (
@@ -795,13 +885,13 @@ def _settings_view(request, form):
         meet_title=state.settings["meet_title"],
         serial_port=state.settings["serial_port"],
         serial_port_list=comm_port_list,
-        console_type=state.settings.get("console_type", "cts_gen6"),
-        console_options=[
-            (key, t.get(f"console_label_{key}", label))
-            for key, label, _ in CONSOLE_OPTIONS
-        ],
+        console_type=state.settings.get("console_type", DEFAULT_CONSOLE),
+        console_menu=_console_menu(t),
+        console_option_fields=_console_option_fields(
+            t, state.settings.get("console_type", DEFAULT_CONSOLE)
+        ),
         console_info=_console_info_in(
-            t, state.settings.get("console_type", "cts_gen6")
+            t, state.settings.get("console_type", DEFAULT_CONSOLE)
         ),
         # Whether this console has a wire at all. Gates the serial-port picker, the
         # Connection badge and the Serial Monitor: a manually driven console has

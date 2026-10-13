@@ -1,4 +1,4 @@
-from .base import ConsoleDecoder, SerialConfig
+from .base import ConsoleDecoder, DecoderOption, SerialConfig, serial_from
 
 # OSM6 control bytes (all < 0x80, compatible with 7-bit framing)
 _SOH = 0x01  # Start of Heading — every frame begins here
@@ -34,21 +34,42 @@ def _parse_time(s: str) -> str:
 
 
 class QuantumDecoder(ConsoleDecoder):
-    """Decoder for Swiss Timing Quantum timing consoles (OSM6 serial protocol).
+    """Decoder for the Swiss Timing OSM6 data output (Quantum, and the ARES 21 GP port).
 
-    Serial protocol: 9600 baud, 7-N-1, RS-422.
-    Messages arrive as paired frames (pt1 + pt2), each framed by
-    SOH+STX+HOME … EOT. pt2 is identified by LF as the 4th byte.
+    Serial protocol: 9600 baud, RS-422/485. 7-E-1 on an ARES 21 ("OSM6 types: 9600
+    7 even 1", ARES Swimming manual §9.1.2); unconfirmed on a Quantum, hence the
+    option. Messages arrive as paired frames (pt1 + pt2), each framed by
+    SOH+STX+HOME … EOT. pt2 is identified by LF as the 4th byte. The field layout
+    is the ARES "GP output" of Swiss Timing doc 0100.064 §2, exactly.
 
     See console_decoders/swiss_timing_quantum_serial.md for the full
     protocol reference.
     Source: hakostra/swimming-scoreboard (comms.py, GPL-3.0).
     """
 
+    OPTIONS = (
+        DecoderOption(
+            key="serial_format",
+            label="Serial format",
+            choices=(("8N1", "8-N-1"), ("7E1", "7-E-1")),
+            default="8N1",
+            help="The ARES 21 sends OSM6 at 7-E-1. If nothing decodes, try the other.",
+        ),
+        DecoderOption(
+            key="lane_zero",
+            label="Lane digit 0",
+            choices=(("10", "Lane 10"), ("ignore", "Ignore")),
+            default="10",
+            help="The lane is one character. Other Swiss Timing outputs send lane 10 "
+            "as 0; unconfirmed for this one.",
+        ),
+    )
+
     def __init__(self, cfg: dict) -> None:
         self._serial_config = SerialConfig(
             baud=9600, bytesize=8, parity="N", stopbits=1
         )
+        self._lane_zero = "10"
         self._pending_pt1: list[int] | None = None
 
         self.lane_times: dict[int, str] = {}
@@ -73,6 +94,8 @@ class QuantumDecoder(ConsoleDecoder):
 
     def configure(self, cfg: dict) -> None:
         self.num_lanes = int(cfg.get("num_lanes", 10))
+        self._serial_config = serial_from(9600, str(cfg.get("serial_format", "8N1")))
+        self._lane_zero = str(cfg.get("lane_zero", "10"))
 
     def set_seed_times(self, times: dict) -> None:
         self.lane_seed_times = dict(times)
@@ -202,7 +225,7 @@ class QuantumDecoder(ConsoleDecoder):
             # Intermediate split (I), finish (A), or finish on the backup buttons
             # alone (B) — a finish all the same, or the lane would run forever.
             try:
-                lane = int(J)
+                lane = 10 if J == "0" and self._lane_zero == "10" else int(J)
                 lap = int(KK) if KK.strip() else 0
                 rank = int(HH.strip()) if HH.strip() else 0
             except ValueError:

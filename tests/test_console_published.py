@@ -56,8 +56,8 @@ def console(monkeypatch):
 
 
 def test_a_wired_console_is_published_as_timed(console):
-    console("cts_gen6")
-    assert state.console_state() == {"key": "cts_gen6", "timed": True}
+    console("cts_sys6")
+    assert state.console_state() == {"key": "cts_sys6", "timed": True}
 
 
 def test_the_manual_console_is_published_as_untimed(console):
@@ -114,7 +114,7 @@ def test_the_relay_metadata_carries_it(console):
 
 def test_the_two_servers_publish_the_same_block(console):
     """One fact, two transports. They must not be allowed to drift apart."""
-    for key in ("cts_gen6", "manual"):
+    for key in ("cts_sys6", "manual"):
         console(key)
         assert (
             web.display_config()["console"]
@@ -146,7 +146,7 @@ def _switch_console(monkeypatch, to, **also):
     monkeypatch.setattr(bus, "emit", lambda ch, ev, data=None: sent.append((ch, ev)))
     monkeypatch.setattr(settings_route, "_restart_worker", lambda: None)
     monkeypatch.setattr(state, "save_settings", lambda: None)
-    monkeypatch.setitem(state.settings, "console_type", "cts_gen6")
+    monkeypatch.setitem(state.settings, "console_type", "cts_sys6")
     monkeypatch.setitem(state.settings, "serial_port", "/dev/ttyUSB0")
 
     form = {"timing_settings_submit": "1", **also}
@@ -369,7 +369,7 @@ def test_the_cloud_passes_the_block_through_untouched(cloud):
     "settings,expected",
     [
         ({"console": {"key": "manual", "timed": False}}, False),
-        ({"console": {"key": "cts_gen6", "timed": True}}, True),
+        ({"console": {"key": "cts_sys6", "timed": True}}, True),
         ({}, True),  # a relay before this
     ],
 )
@@ -417,8 +417,8 @@ def _admin_row(control, settings, live=True):
 
 
 def test_the_admin_table_names_the_console(control):
-    row = _admin_row(control, {"console": {"key": "cts_gen6", "timed": True}})
-    assert row["console"] == "cts_gen6"
+    row = _admin_row(control, {"console": {"key": "cts_sys6", "timed": True}})
+    assert row["console"] == "cts_sys6"
     assert row["console_timed"] is True
 
 
@@ -496,7 +496,7 @@ def _row(**over):
         "organizer": "Club",
         "connected_at": "10:00",
         "language": "English",
-        "console": "cts_gen6",
+        "console": "cts_sys6",
         "console_timed": True,
         "live": True,
         "expires_at": None,
@@ -507,7 +507,7 @@ def _row(**over):
 
 
 def test_the_column_renders_the_key(cloud):
-    assert "cts_gen6" in _admin_html([_row()])
+    assert "cts_sys6" in _admin_html([_row()])
 
 
 def test_an_untimed_console_is_marked_as_such(cloud):

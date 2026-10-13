@@ -1,9 +1,14 @@
 import re
 
-from .base import SerialConfig
+from .base import DecoderOption, SerialConfig
 from .rtd import RtdSwimmingDecoder
 
 _EVENT_TITLE = (69, 30)
+
+# Where the ARES writes the event number: 3 wide at 99, right after the 30-char
+# title, or at 100 in a 5-char event+heat block with the heat at 103. Which one a
+# given scoreboard set-up uses is not known, hence the option.
+_EVENT_FIELDS = {"99": (99, 3), "100": (100, 3)}
 
 
 def _parse_event_heat(data: str) -> tuple[int, int]:
@@ -15,33 +20,53 @@ def _parse_event_heat(data: str) -> tuple[int, int]:
 
 
 class Ares21Decoder(RtdSwimmingDecoder):
-    """Decoder for Swiss Timing Omega Ares 21 timing consoles.
+    """Decoder for the Swiss Timing Omega ARES 21 "Venus ERTD" scoreboard output.
 
-    Serial protocol: 9600 baud, 8-N-1, RS-485. The Ares feeds Daktronics "Venus"
-    display controllers ("Venus ERTD"), i.e. Daktronics RTD — see rtd.py.
+    Serial protocol: 9600 baud, 8-N-1, RS-485, IF-ARES SCB connector. ERTD is the
+    ARES scoreboard kind "designed to drive DAKTRONICS scoreboards running with the
+    VENUS software" (ARES Swimming manual 3330.560.02 §11), i.e. Daktronics RTD —
+    see rtd.py.
 
-    What is known, from fvishram/SRAYSScoreboard (AresDataHandler.cs, MIT): header
-    prefix "004010"; running time at 0; event title at 69; swimmer names at
-    200 + 36·(n−1) and results 20 characters further on. Every one of those matches
-    the Daktronics swimming template's shape (OS2-Swimming.itf), so the result line
-    is read with the template's layout, starting at 200. That part is **inferred**,
-    hence the two fallbacks:
+    Layout of the ARES Swimming ERTD scoreboard set-up (vertical offsets
+    200;225;225;108;200;69, line strides 36;36;36;23;36;30): running time at 0,
+    title at 69, event at 99, records at 108 + 23·n, result lines at 200 + 36·n —
+    the OmniSport template shifted by −22 from offset 105 on, which is the
+    OmniSport's own OMNI6000 layout. Header "004" + "01" (or "00").
 
-    * a line with no lane number is lane n, as SRAYS assumes;
+    Inside a line the ARES puts the name block (20), lane (2) at +20, rank (3) at
+    +22, a space, then the time from +26 — read by the template's (25, 9) field
+    after stripping. It sends no lengths, so the line never moves a lap count. Two
+    fallbacks stay:
+
+    * a line with no lane number is lane n;
     * a line whose place/time are not at the template offsets is searched for a time
-      and the number before it, as this decoder did before (`1 00:54.32`).
+      and the number before it (`1 00:54.32`).
 
-    Event/heat: the template's number fields (99, 103) when they hold digits, else
-    "Event N … Heat N" in the title text, which is what SRAYS parses. Swimmer names
-    are ignored — Lenex supplies them.
+    Event/heat: see `ertd_event_field`; a blank number falls back to "Event N …
+    Heat N" in the title text. Swimmer names are ignored — Lenex supplies them.
 
     See console_decoders/swiss_timing_ares21_serial.md.
     """
 
-    HEADER_PREFIX = "004010"
+    SUB_CODES = ("01", "00")
     LINE_BASE = 200
     LINE_IS_LANE = True
     RESULT_FALLBACK = True
+
+    OPTIONS = (
+        DecoderOption(
+            key="ertd_event_field",
+            label="Event number position",
+            choices=(
+                ("99", "After the title (99–101)"),
+                ("100", "Event/heat block (100–102)"),
+                ("title", "Only from the title text"),
+            ),
+            default="99",
+            help="Where this ARES writes the event number. Change it if the event "
+            "shown is wrong (e.g. 1 instead of 12).",
+        ),
+    )
 
     def __init__(self, cfg: dict) -> None:
         self._serial_config = SerialConfig(
@@ -49,14 +74,25 @@ class Ares21Decoder(RtdSwimmingDecoder):
         )
         super().__init__(cfg)
 
+    def configure(self, cfg: dict) -> None:
+        super().configure(cfg)
+        self.event_field = str(cfg.get("ertd_event_field", "99"))
+
     @property
     def serial_config(self) -> SerialConfig:
         return self._serial_config
 
     def _event_heat(self, touched) -> tuple[int, int] | None:
-        numbers = super()._event_heat(touched)
-        if numbers and numbers[0] > 0 and numbers[1] > 0:
-            return numbers
+        field = _EVENT_FIELDS.get(self.event_field)
+        if field is not None and (touched(*field) or touched(*self.HEAT_NUMBER)):
+            numbers = (
+                int(d) if (d := self._field(*field).strip()).isdigit() else 0,
+                int(h)
+                if (h := self._field(*self.HEAT_NUMBER).strip()).isdigit()
+                else 0,
+            )
+            if numbers[0] > 0 and numbers[1] > 0:
+                return numbers
         if touched(*_EVENT_TITLE):
             return _parse_event_heat(self._field(*_EVENT_TITLE))
-        return numbers
+        return None

@@ -3,7 +3,7 @@ import os
 from fastapi import APIRouter, Depends, Request
 
 import state
-from console_decoders import console_info_for
+from console_decoders import DEFAULT_CONSOLE, console_info_for
 from console_decoders.utils import split_step
 from meet_data import build_heats
 from web import (
@@ -154,7 +154,9 @@ def route_manual(request: Request):
     heats = build_heats()
     ev, ht = state._decoder.last_event_sent
     started = (ev, ht) != (0, 0)
-    console = console_info_for(state.settings.get("console_type", "cts_gen6")) or {}
+    console = (
+        console_info_for(state.settings.get("console_type", DEFAULT_CONSOLE)) or {}
+    )
     return render(
         request,
         "manual.html",

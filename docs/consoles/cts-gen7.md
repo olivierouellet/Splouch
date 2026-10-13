@@ -22,5 +22,6 @@ Full protocol reference: [`console_decoders/cts_gen7_serial.md`](../../server/co
 
 In the admin UI (**Settings → Timing**), set:
 
-- **Console type:** `CTS Gen7`
+- **Timing Equipment:** `Gen7 (Colorado Timing System)`
+- **Console output:** `Gen7 serial output`
 - **Serial port:** `/dev/ttyUSB0` (or whichever device the adapter appears as)
