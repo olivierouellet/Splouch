@@ -251,7 +251,9 @@ console guide in `docs/consoles/` has a checklist per output with the console-si
 settings and what the data should look like; the steps below are the same for all.
 
 1. **Before you go.** Load the meet file the venue will use (Settings → Meet Setup):
-   with names, a replay is a full check of the board, not just of times.
+   with names, a replay is a full check of the board, not just of times. Pack the
+   adapters and taps for the console — see the
+   [capture kit](consoles/capture-kit.md).
 2. **Wire and select.** Follow the console guide's checklist for the output you are
    using: console menu, cable or network, then **Settings → Timing → Timing Equipment**
    and **Console output**, plus any options it lists.
