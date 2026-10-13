@@ -35,8 +35,24 @@ Console settings, in the console's *PORT CONFIGURATIONS* menu:
 | 3. Results | OMNI6000, **OMNI2000**, CTS | Moves the swimming layout: result lines at **222** (OMNI2000) or **200** (OMNI6000) |
 | RTD Offset | 0K, 5K, 10K, 15K | Adds 5000·k to every offset sent |
 
+The manual (ED-13312, *Setup Comm Ports Menu*): RTD Port is "either Real-Time Data
+(RTD) or Colorado Timing System (CTS)", CTS "to send to a numeric CTS scoreboard".
+Results Port: "OMNI 2000 (default) and OMNI 6000 are bi-directional protocols. CTS is
+a unidirectional protocol, utilizing the standard CTS scoreboard information." And:
+"Selecting Omni 6000 transmits Omni 6000 RTD item numbers on the RTD output."
+
 Settings → Timing offers one entry per combination: *J5 RTD — Results set to OMNI2000*,
-*… OMNI6000*, *J5 RTD port set to CTS*, *Scoreboard port set to OMEGA*.
+*… OMNI6000*, *J5 RTD port set to CTS*, *Ethernet — RTD over the network*, *J6 Results
+port set to CTS*, *Scoreboard port set to OMEGA*. The OMNI 2000 / OMNI 6000 results
+protocols on J6 are not documented and not decoded.
+
+### Ethernet
+
+Consoles from June 2013 have an ETHERNET jack (*Setup Network*, off by default). "Data
+is sent using UDP protocol as a broadcast packet." Standard IP 192.168.0.55–58
+(OMNI1–4); RTD port 21000–21003 (OMNI1–4, Daktronics DVX/DVN video), 3002 (Galaxy
+message center), or custom. Each datagram is decoded as RTD frames, the same as J5
+(`transport = "udp"`, `udp_port` option) — assumed, not yet confirmed by a capture.
 
 ---
 
@@ -174,6 +190,8 @@ Names, team scores and records are ignored — Lenex supplies the names.
 | Option | Values | Default |
 | --- | --- | --- |
 | `rtd_offset` | 0, 5000, 10000, 15000 | 0 |
+| `udp_port` (Ethernet entry) | 21000–21003, 3002 | 21000 |
+| `rtd_line_base` (Ethernet and Gen7 entries) | 222, 200 | 222 |
 
 Preset per console entry: `rtd_line_base` = 222 (OMNI2000) or 200 (OMNI6000).
 

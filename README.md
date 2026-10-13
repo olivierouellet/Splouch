@@ -62,7 +62,7 @@ Swimmers, clubs and times are fictional (a bundled test recording).
 | Colorado Time Systems — System 5 / System 6 / Gen7 Legacy | ✅ Tested | [cts-gen6.md](docs/consoles/cts-gen6.md) |
 | Colorado Time Systems — Gen7 Serial, and Gen7 RS-485 outputs set to CTS Legacy / Daktronics RTD / Omega | ⚠️ Untested | [cts-gen7.md](docs/consoles/cts-gen7.md) |
 | Colorado Time Systems — Dolphin (via the Dolphin software, TCP/IP) | ⚠️ Untested | [dolphin.md](docs/consoles/dolphin.md) |
-| Daktronics Omnisport 2000 | ⚠️ Untested | [omnisport-2000.md](docs/consoles/omnisport-2000.md) |
+| Daktronics Omnisport 2000 (J5 RTD, Ethernet, CTS modes, OMEGA) | ⚠️ Untested | [omnisport-2000.md](docs/consoles/omnisport-2000.md) |
 | Swiss Timing Omega — Ares 21 | ⚠️ Untested | [ares-21.md](docs/consoles/ares-21.md) |
 | Swiss Timing Omega — Quantum | ⚠️ Untested | [quantum.md](docs/consoles/quantum.md) |
 | Manual — no timing console | ✅ Tested | [manual.md](docs/consoles/manual.md) |
@@ -191,7 +191,7 @@ Les trois derniers documents n'existent qu'en anglais.
 | Colorado Time Systems — System 5 / System 6 / Gen7 Legacy | ✅ Testée | [cts-gen6.md](docs/consoles/cts-gen6.md) |
 | Colorado Time Systems — Gen7 Serial, et sorties RS-485 Gen7 réglées sur CTS Legacy / Daktronics RTD / Omega | ⚠️ Non testée | [cts-gen7.md](docs/consoles/cts-gen7.md) |
 | Colorado Time Systems — Dolphin (via le logiciel Dolphin, TCP/IP) | ⚠️ Non testée | [dolphin.md](docs/consoles/dolphin.md) |
-| Daktronics Omnisport 2000 | ⚠️ Non testée | [omnisport-2000.md](docs/consoles/omnisport-2000.md) |
+| Daktronics Omnisport 2000 (J5 RTD, Ethernet, modes CTS, OMEGA) | ⚠️ Non testée | [omnisport-2000.md](docs/consoles/omnisport-2000.md) |
 | Swiss Timing Omega — Ares 21 | ⚠️ Non testée | [ares-21.md](docs/consoles/ares-21.md) |
 | Swiss Timing Omega — Quantum | ⚠️ Non testée | [quantum.md](docs/consoles/quantum.md) |
 | Manuel — sans console de chronométrage | ✅ Testé | [manual.md](docs/consoles/manual.md) |

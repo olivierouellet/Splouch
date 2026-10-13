@@ -187,6 +187,31 @@ CONSOLES: list[ConsoleEntry] = [
         options={"serial_parity": None},
     ),
     ConsoleEntry(
+        "dak_os2000_udp",
+        _DAK,
+        "Ethernet — RTD over the network",
+        "dak_rtd",
+        adapter="Network — the console's ETHERNET jack",
+        wiring="Console on the same network, Setup Network → Network Enable ON",
+        protocol="UDP broadcast · Daktronics RTD (consoles from June 2013)",
+        tested=False,
+        doc="omnisport-2000.md",
+        preset={"transport": "udp"},
+        options={"udp_port": None, "rtd_line_base": None, "rtd_offset": None},
+    ),
+    ConsoleEntry(
+        "dak_os2000_j6_cts",
+        _DAK,
+        "J6 Results port set to CTS",
+        "cts_legacy",
+        adapter="USB-to-RS232 (DB9)",
+        wiring="DB9 to the J6 Results Port, console menu Results Port → CTS",
+        protocol="RS-232 · Colorado legacy (serial settings unconfirmed)",
+        tested=False,
+        doc="omnisport-2000.md",
+        options={"serial_parity": None},
+    ),
+    ConsoleEntry(
         "dak_os2000_omega",
         _DAK,
         "Scoreboard port set to OMEGA",
@@ -372,7 +397,7 @@ def console_info_for(console_type: str) -> dict | None:
         "label": e.label,
         "doc_url": DOCS_BASE_URL + e.doc,
         "requires_serial": getattr(cls, "requires_serial", True),
-        "transport": getattr(cls, "transport", "serial"),
+        "transport": e.preset.get("transport", getattr(cls, "transport", "serial")),
     }
 
 

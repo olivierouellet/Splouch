@@ -69,10 +69,17 @@ class ConsoleDecoder(ABC):
     requires_serial: bool = True
 
     #: Where the bytes come from when `requires_serial` is True: "serial" (a port the
-    #: worker opens with `serial_config`) or "tcp" (a socket to `tcp_endpoint`, for a
-    #: console whose PC software serves its data over the network). Same packet
-    #: pipeline either way. Read off the class, like `requires_serial`.
+    #: worker opens with `serial_config`), "tcp" (a socket to `tcp_endpoint`, for a
+    #: console whose PC software serves its data over the network) or "udp"
+    #: (datagrams received on `udp_port`, for a console that broadcasts). Same packet
+    #: pipeline every time. A console entry may preset it (`preset["transport"]`)
+    #: when one decoder serves both a serial and a network output.
     transport: str = "serial"
+
+    @property
+    def udp_port(self) -> int:
+        """Port to listen on when `transport` is "udp"."""
+        return 0
 
     @property
     def tcp_endpoint(self) -> tuple[str, int]:

@@ -924,6 +924,52 @@ def _run_live_tcp(my_gen):
     _set_serial_status("idle", "")
 
 
+def _run_live_udp(my_gen):
+    """Listen for a console that broadcasts its data as UDP datagrams.
+
+    Each datagram goes through the same byte pipeline as a serial port and is
+    flushed at its end — a datagram carries whole frames. Retries every 5 s when
+    the port cannot be bound.
+    """
+    while state._worker_gen == my_gen:
+        port = state._decoder.udp_port
+        _set_serial_status("opening", f"Listening on UDP port {port}…")
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+                sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                with contextlib.suppress(AttributeError, OSError):
+                    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+                sock.bind(("", port))
+                sock.settimeout(0.01)
+                _set_serial_status("open", f"Listening: UDP port {port}")
+                while state._worker_gen == my_gen:
+                    try:
+                        data, _ = sock.recvfrom(65535)
+                    except TimeoutError:
+                        data = b""
+                    if data:
+                        buf = []
+                        for c in data:
+                            _record_raw_byte(c)
+                            buf = _ingest_byte(c, buf)
+                        if buf:
+                            _handle_packet(buf)
+                    else:
+                        _drain_cmds()
+                        _tick()
+        except OSError as e:
+            err = str(e) or type(e).__name__
+            print(f"Console UDP error: {err}")
+            _set_serial_status("error", err)
+            for _ in range(50):
+                if state._worker_gen != my_gen:
+                    break
+                time.sleep(0.1)
+            continue
+
+    _set_serial_status("idle", "")
+
+
 # ── Worker lifecycle ───────────────────────────────────────────────────────────
 
 
@@ -947,6 +993,8 @@ def main_thread_worker():
             _run_manual(my_gen)
         elif getattr(state._decoder, "transport", "serial") == "tcp":
             _run_live_tcp(my_gen)
+        elif getattr(state._decoder, "transport", "serial") == "udp":
+            _run_live_udp(my_gen)
         else:
             _run_live_serial(my_gen)
     finally:

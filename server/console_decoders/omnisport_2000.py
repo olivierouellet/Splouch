@@ -29,6 +29,19 @@ class Omnisport2000Decoder(RtdSwimmingDecoder):
         RTD_LINE_BASE_OPTION,
         RTD_SUB_CODE_OPTION,
         DecoderOption(
+            key="udp_port",
+            label="RTD network port",
+            choices=(
+                ("21000", "21000 (OMNI1)"),
+                ("21001", "21001 (OMNI2)"),
+                ("21002", "21002 (OMNI3)"),
+                ("21003", "21003 (OMNI4)"),
+                ("3002", "3002 (Galaxy)"),
+            ),
+            default="21000",
+            help="The console's Setup Network → RTD Port # setting.",
+        ),
+        DecoderOption(
             key="serial_baud",
             label="Baud rate",
             choices=(("9600", "9600"), ("19200", "19200"), ("38400", "38400")),
@@ -52,9 +65,17 @@ class Omnisport2000Decoder(RtdSwimmingDecoder):
 
     def configure(self, cfg: dict) -> None:
         super().configure(cfg)
+        # The Ethernet entry presets "udp": the console broadcasts RTD datagrams.
+        self.transport = str(cfg.get("transport", "serial"))
+        port = str(cfg.get("udp_port", "21000"))
+        self._udp_port = int(port) if port.isdigit() else 21000
         self._serial_config = serial_from(
             cfg.get("serial_baud", 19200), str(cfg.get("serial_format", "8N1"))
         )
+
+    @property
+    def udp_port(self) -> int:
+        return self._udp_port
 
     @property
     def serial_config(self) -> SerialConfig:

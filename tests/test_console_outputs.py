@@ -41,6 +41,8 @@ def test_menu_groups_outputs_under_their_console():
         "dak_os2000_rtd",
         "dak_os2000_rtd_omni6000",
         "dak_os2000_cts",
+        "dak_os2000_udp",
+        "dak_os2000_j6_cts",
         "dak_os2000_omega",
     ]
     assert [k for k, _ in menu["ARES 21 (Swiss Timing Omega)"]] == [

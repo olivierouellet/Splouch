@@ -52,6 +52,8 @@
                             <input id="console_host" name="console_host" type="text" class="form-control form-control-sm" style="max-width:360px;" value="{{ console_host }}" placeholder="192.168.1.20" onchange="_fsubmit(this.form)">
                             <div class="form-text">{{ t.timing_console_host_help }}</div>
                         </div>
+                        {% elif console_requires_serial and console_transport == "udp" %}
+                        <p class="small text-body-secondary mb-0">{{ t.timing_udp_hint }}</p>
                         {% elif console_requires_serial %}
                         <div>
                             <label for="serial_port" class="form-label">{{ t.timing_serial_port }}</label>
