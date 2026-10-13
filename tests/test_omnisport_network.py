@@ -79,3 +79,58 @@ def test_the_worker_listens_for_rtd_datagrams(monkeypatch):
     state._worker_gen = 2
     t.join(2)
     assert packets[:2] == [frame, frame], "two frames in one datagram, split on SYN"
+
+
+# ── Recording datagram boundaries in a .raw ────────────────────────────────────
+
+
+def test_raw_recording_marks_each_datagram(monkeypatch, tmp_path):
+    import io
+
+    out = io.StringIO()
+    monkeypatch.setattr(state, "_record_handle", out)
+    monkeypatch.setattr(state, "_record_raw", True)
+    monkeypatch.setattr(state, "_record_raw_count", 0)
+    worker._record_raw_boundary()  # nothing recorded yet: no blank line
+    for c in b"\x16\x01":
+        worker._record_raw_byte(c)
+    worker._record_raw_boundary()
+    worker._record_raw_boundary()  # twice in a row: still one
+    for c in b"\x16":
+        worker._record_raw_byte(c)
+    assert out.getvalue() == "16 01\n\n16"
+
+
+def test_replay_flushes_at_a_datagram_boundary(monkeypatch, tmp_path):
+    """Two datagrams with no SYN in the second: the blank line still splits them."""
+    path = tmp_path / "udp.raw"
+    path.write_text("16 01 02\n\n41 42\n")
+    packets: list[bytes] = []
+
+    def handle(buf):
+        packets.append(bytes(buf))
+        if len(packets) == 2:
+            state._worker_gen += 1  # a .raw loops: stop after one pass
+
+    monkeypatch.setattr(worker, "_handle_packet", handle)
+    monkeypatch.setattr(state, "_decoder", Omnisport2000Decoder({}))
+    monkeypatch.setattr(state, "_worker_gen", 1)
+    worker._play_recording(str(path), 1)
+    assert packets == [b"\x16\x01\x02", b"AB"]
+
+
+def test_old_raw_files_play_as_before(monkeypatch, tmp_path):
+    path = tmp_path / "old.raw"
+    path.write_text("16 01 02 16\n03 04\n")
+    packets: list[bytes] = []
+
+    def handle(buf):
+        packets.append(bytes(buf))
+        if len(packets) == 2:
+            state._worker_gen += 1
+
+    monkeypatch.setattr(worker, "_handle_packet", handle)
+    monkeypatch.setattr(state, "_decoder", Omnisport2000Decoder({}))
+    monkeypatch.setattr(state, "_worker_gen", 1)
+    worker._play_recording(str(path), 1)
+    assert packets == [b"\x16\x01\x02", b"\x16\x03\x04"]

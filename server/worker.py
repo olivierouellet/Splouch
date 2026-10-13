@@ -705,6 +705,21 @@ def _record_raw_byte(c):
     state._record_raw_count = n + 1
 
 
+def _record_raw_boundary():
+    """End a datagram in a `.raw` recording with a blank line.
+
+    For a console that broadcasts (`transport = "udp"`), where a datagram is a unit
+    the bytes alone do not show. Nothing for a stream, nor before the first byte
+    or twice in a row. Older `.raw` files have no blank lines, and the player
+    treats one as "flush the packet here" — see `_play_recording`.
+    """
+    handle = state._record_handle
+    if handle is None or not state._record_raw or not state._record_raw_count:
+        return
+    handle.write("\n\n")
+    state._record_raw_count = 0
+
+
 def _ingest_byte(c, buf):
     """Append byte to packet buffer, flushing at packet boundaries. Returns updated buffer.
 
@@ -731,7 +746,8 @@ def _play_recording(session_file, my_gen):
 
     while state._worker_gen == my_gen:
         buf = []
-        for d in re.finditer(r"\[([0-9.]+)\]\s*|([0-9a-fA-F]{2})", text):
+        # A blank line in a `.raw` is the end of a datagram (`_record_raw_boundary`).
+        for d in re.finditer(r"\[([0-9.]+)\]\s*|(\n[ \t]*\n)|([0-9a-fA-F]{2})", text):
             if state._worker_gen != my_gen:
                 break
             if d.group(1):
@@ -759,7 +775,13 @@ def _play_recording(session_file, my_gen):
                         _drain_cmds()  # process queued commands between events
                         time.sleep(delay)
                 continue
-            buf = _ingest_byte(int(d.group(2), 16), buf)
+            if d.group(2):
+                # End of a recorded datagram: its packet is complete.
+                if buf:
+                    _handle_packet(buf)
+                    buf = []
+                continue
+            buf = _ingest_byte(int(d.group(3), 16), buf)
             if delay > 0.1:
                 delay = 0
                 time.sleep(0.1)
@@ -954,6 +976,7 @@ def _run_live_udp(my_gen):
                             buf = _ingest_byte(c, buf)
                         if buf:
                             _handle_packet(buf)
+                        _record_raw_boundary()
                     else:
                         _drain_cmds()
                         _tick()

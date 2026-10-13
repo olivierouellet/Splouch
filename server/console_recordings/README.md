@@ -35,14 +35,18 @@ replays the CTS files without a stand-in.
 | | Contents | Timestamps | Playback |
 | --- | --- | --- | --- |
 | `.serial` | hex text, one packet per line, each prefixed `[unix_time]` | **yes** | real time, **once** |
-| `.raw` | hex text, no line structure and no timestamps | no | ~720 bytes/s, **looped** |
+| `.raw` | hex text, no timestamps; a blank line ends a datagram (network consoles only) | no | ~720 bytes/s, **looped** |
 
 A `.serial` carries the console's own timing and plays through once, which is what
 makes it usable as a fixture. A `.raw` carries none, so `worker._play_recording`
 paces it artificially and loops it until stopped.
 
 Test → Record writes either one: `.serial` from the packets the decoder splits,
-`.raw` from the bytes ahead of it (`worker._record_raw_byte`). How to make one, with
+`.raw` from the bytes ahead of it (`worker._record_raw_byte`). Recording a console
+that broadcasts over UDP (OmniSport Ethernet), each datagram ends with a blank line
+(`worker._record_raw_boundary`), so a `.raw` keeps what the bytes alone do not show;
+the player flushes the packet there. A serial or TCP console is a byte stream and
+writes no blank lines, so older `.raw` files are unchanged. How to make one, with
 Splouch or with PuTTY, is in [docs/admin.md](../../docs/admin.md#recording-a-session).
 
 ### What happened to `.cap`

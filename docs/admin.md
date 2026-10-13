@@ -213,6 +213,12 @@ in `~/SplouchData/recorded/` and appears in the Recorded Sessions list straight 
 If your console is not in the list yet, pick one whose serial settings (shown as
 "RS-232 · 9600 baud · 8-E-1" and so on) match yours, and record a `.raw`.
 
+**A console on the network** (OmniSport Ethernet, Dolphin) records the same way: select
+it in Settings → Timing, check the Connection badge and the Serial Monitor, then
+record. For a console that broadcasts over UDP, a `.raw` also marks the end of each
+datagram with a blank line. For a first capture, also record the wire on the Pi
+(`sudo tcpdump -i eth0 -w capture.pcap udp port 21000`) as a backup.
+
 **With PuTTY, or any other capture tool.** Useful when the console is wired to a
 laptop rather than the Pi. In PuTTY, open the serial port at the console's settings,
 then under Session → Logging choose **All session output** and a file name. Two
