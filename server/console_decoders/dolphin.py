@@ -30,7 +30,9 @@ LF = 0x0A
 PORTS = ("13382", "13441", "14559", "14917", "15828")
 
 _RACE = re.compile(r"^Event\s+(\d+)\s+Heat\s+(\d+)\s+Race\s+(\d+)")
-_LANE = re.compile(r"^(\d+),([^,]*),(True|False),(True|False)(?:,(.*))?$", re.IGNORECASE)
+_LANE = re.compile(
+    r"^(\d+),([^,]*),(True|False),(True|False)(?:,(.*))?$", re.IGNORECASE
+)
 
 
 def _clean_time(raw: str) -> str:
@@ -79,14 +81,6 @@ class DolphinDecoder(ConsoleDecoder):
             help="Dolphin can move to the next heat as soon as a race is saved. "
             "Keep the race's times on the board this long first.",
         ),
-        DecoderOption(
-            key="dolphin_lane_base",
-            label="Dolphin lane numbering",
-            choices=(("1", "Lanes start at 1"), ("0", "Lanes start at 0")),
-            default="1",
-            help="Must match Dolphin's General setting. Lanes starting at 0 are "
-            "shown one higher (lane 0 is lane 1).",
-        ),
     )
 
     def __init__(self, cfg: dict) -> None:
@@ -130,7 +124,6 @@ class DolphinDecoder(ConsoleDecoder):
         port = str(cfg.get("tcp_port", "13382"))
         self._port = int(port) if port.isdigit() else 13382
         self._hold = float(cfg.get("dolphin_results_hold", "10") or 0)
-        self._lane_shift = 1 if str(cfg.get("dolphin_lane_base", "1")) == "0" else 0
 
     def set_seed_times(self, times: dict) -> None:
         self.lane_seed_times = dict(times)
@@ -212,7 +205,9 @@ class DolphinDecoder(ConsoleDecoder):
         return updates
 
     def _lane(self, m: re.Match) -> dict:
-        lane = int(m.group(1)) + self._lane_shift
+        # Always the lane's position from 1: Dolphin's "Start With Lane Zero" setting
+        # only relabels its own screen and files, never this stream.
+        lane = int(m.group(1))
         if not 1 <= lane <= self.num_lanes:
             return {}
         raw, dq, empty = m.group(2), m.group(3).lower(), m.group(4).lower()

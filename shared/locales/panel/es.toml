@@ -543,10 +543,6 @@ console_opt_tcp_port_help              = "El puerto que muestra Dolphin en Setti
 console_opt_dolphin_results_hold       = "Mantener resultados antes de la serie siguiente"
 console_opt_dolphin_results_hold_help  = "Dolphin puede pasar a la serie siguiente en cuanto se guarda una carrera. Mantener antes los tiempos en el marcador durante este tiempo."
 console_opt_dolphin_results_hold_0     = "Ninguno"
-console_opt_dolphin_lane_base          = "Numeración de calles de Dolphin"
-console_opt_dolphin_lane_base_help     = "Debe coincidir con el ajuste General de Dolphin. Las calles que empiezan en 0 se muestran una más alta (calle 0 = calle 1)."
-console_opt_dolphin_lane_base_1        = "Calles desde 1"
-console_opt_dolphin_lane_base_0        = "Calles desde 0"
 # Opciones del decodificador: partes de un protocolo que la documentación no resuelve.
 console_opt_serial_parity          = "Paridad serie"
 console_opt_serial_parity_help     = "Una consola CTS envía 8-E-1. Otra consola que la imite puede no hacerlo."

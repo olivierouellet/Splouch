@@ -37,6 +37,5 @@ Options:
 
 - **Dolphin TCP/IP port** — the port shown in Dolphin's TCP/IP Streaming box.
 - **Results hold before the next heat** — Dolphin can move to the next heat as soon as a race is saved; the race's times stay on the board this long first (10 s by default).
-- **Dolphin lane numbering** — match Dolphin's General setting; lanes numbered from 0 are shown one higher.
 
 Full protocol reference: [`console_decoders/dolphin_tcp.md`](../../server/console_decoders/dolphin_tcp.md)

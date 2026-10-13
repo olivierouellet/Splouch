@@ -146,7 +146,6 @@ CONSOLES: list[ConsoleEntry] = [
         options={
             "tcp_port": None,
             "dolphin_results_hold": None,
-            "dolphin_lane_base": None,
         },
     ),
     ConsoleEntry(

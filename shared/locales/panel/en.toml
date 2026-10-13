@@ -552,10 +552,6 @@ console_opt_tcp_port_help              = "The port shown in Dolphin's Settings â
 console_opt_dolphin_results_hold       = "Results hold before the next heat"
 console_opt_dolphin_results_hold_help  = "Dolphin can move to the next heat as soon as a race is saved. Keep the race's times on the board this long first."
 console_opt_dolphin_results_hold_0     = "None"
-console_opt_dolphin_lane_base          = "Dolphin lane numbering"
-console_opt_dolphin_lane_base_help     = "Must match Dolphin's General setting. Lanes starting at 0 are shown one higher (lane 0 is lane 1)."
-console_opt_dolphin_lane_base_1        = "Lanes start at 1"
-console_opt_dolphin_lane_base_0        = "Lanes start at 0"
 # Decoder options: parts of a protocol the evidence does not settle.
 console_opt_serial_parity          = "Serial parity"
 console_opt_serial_parity_help     = "A CTS console sends 8-E-1. Another console emulating it may not."

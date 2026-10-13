@@ -51,6 +51,8 @@ On connect the decoder sends `autoSendUpdates,ON`, `includeSplitData,ON` and
 
 - `<dq>` and `<empty>` are `True` / `False`. A DQ lane shows `DQ` and no place; an
   empty lane shows nothing.
+- `<lane>` is the lane's position counted from 1, even when Dolphin is set to *Start
+  With Lane Zero* — that setting only relabels Dolphin's own screen and files.
 - Times are `[H:][MM:]SS.hh`, blank for no time; `A`, `B`, `C` are the three watches.
 - A race block is sent **once, after the race is reset** on the watches or starter.
   There is no start signal and no running clock.
@@ -73,7 +75,6 @@ On connect the decoder sends `autoSendUpdates,ON`, `includeSplitData,ON` and
 | --- | --- | --- |
 | `tcp_port` | 13382, 13441, 14559, 14917, 15828 | 13382 |
 | `dolphin_results_hold` | 0, 5, 10, 20, 30 s | 10 |
-| `dolphin_lane_base` | `1`, `0` (lanes from 0 shown one higher) | `1` |
 
 ---
 

@@ -543,10 +543,6 @@ console_opt_tcp_port_help              = "Le port affiché dans Dolphin, Setting
 console_opt_dolphin_results_hold       = "Maintien des résultats avant la série suivante"
 console_opt_dolphin_results_hold_help  = "Dolphin peut passer à la série suivante dès qu'une course est enregistrée. Garder d'abord les temps au tableau pendant ce délai."
 console_opt_dolphin_results_hold_0     = "Aucun"
-console_opt_dolphin_lane_base          = "Numérotation des couloirs Dolphin"
-console_opt_dolphin_lane_base_help     = "Doit correspondre au réglage General de Dolphin. Des couloirs commençant à 0 sont affichés un plus haut (couloir 0 = couloir 1)."
-console_opt_dolphin_lane_base_1        = "Couloirs à partir de 1"
-console_opt_dolphin_lane_base_0        = "Couloirs à partir de 0"
 # Options du décodeur : parties d'un protocole que la documentation ne tranche pas.
 console_opt_serial_parity          = "Parité série"
 console_opt_serial_parity_help     = "Une console CTS envoie en 8-E-1. Une autre console qui l'imite peut différer."

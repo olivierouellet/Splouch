@@ -68,10 +68,12 @@ def test_a_race_block_gives_times_places_and_splits():
     assert d.race_finished()
 
 
-def test_lanes_numbered_from_zero_are_shifted():
-    d = _dolphin(dolphin_lane_base="0")
-    updates = _feed(d, "Event 1  Heat 1  Race 1", "0,58.21,False,False")
+def test_lane_zero_setting_does_not_shift_the_stream():
+    """Dolphin's lane field counts from 1 whatever its Start With Lane Zero setting."""
+    d = _dolphin()
+    updates = _feed(d, "Event 1  Heat 1  Race 1", "1,58.21,False,False")
     assert updates["lane_time1"] == "58.21"
+    assert _feed(d, "0,58.30,False,False") == {}, "no lane 0 on this stream"
 
 
 def test_other_lines_are_ignored():
