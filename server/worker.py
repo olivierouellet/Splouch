@@ -3,6 +3,7 @@ import glob
 import os
 import queue
 import re
+import socket
 import time
 import traceback
 
@@ -628,31 +629,7 @@ def _handle_packet(buf):
         _drain_cmds()
 
         updates = state._decoder.feed(list(buf))
-
-        # Track which lanes are currently running (consoles only send the flag on
-        # transitions), so the debounced board-wipe never clears a live heat.
-        for ln in range(1, 13):
-            key = f"lane_running{ln}"
-            if key in updates:
-                (
-                    state._running_lanes.add
-                    if updates[key]
-                    else state._running_lanes.discard
-                )(ln)
-
-        if updates.pop("dismiss_overlay", False):
-            _auto_dismiss_overlay()
-
-        if "event_changed" in updates:
-            ev, ht = updates.pop("event_changed")
-            print(f"[event] Event {ev} Heat {ht}", flush=True)
-            _on_event_changed(updates, ev, ht)
-
-        _add_lane_deltas(updates)
-        state.update.update(updates)
-
-        _emit_scoreboard_update()
-        _on_race_state_changed(state._decoder.race_finished(), updates)
+        _apply_updates(updates)
 
         if state._debug_serial and hex_str:
             bus.emit(
@@ -665,6 +642,44 @@ def _handle_packet(buf):
         traceback.print_exc()
     finally:
         time.sleep(0)  # cheap yield after every packet
+
+
+def _apply_updates(updates):
+    """Publish one decoder update dict — from a packet, or from `tick()`."""
+    # Track which lanes are currently running (consoles only send the flag on
+    # transitions), so the debounced board-wipe never clears a live heat.
+    for ln in range(1, 13):
+        key = f"lane_running{ln}"
+        if key in updates:
+            (
+                state._running_lanes.add
+                if updates[key]
+                else state._running_lanes.discard
+            )(ln)
+
+    if updates.pop("dismiss_overlay", False):
+        _auto_dismiss_overlay()
+
+    if "event_changed" in updates:
+        ev, ht = updates.pop("event_changed")
+        print(f"[event] Event {ev} Heat {ht}", flush=True)
+        _on_event_changed(updates, ev, ht)
+
+    _add_lane_deltas(updates)
+    state.update.update(updates)
+
+    _emit_scoreboard_update()
+    _on_race_state_changed(state._decoder.race_finished(), updates)
+
+
+def _tick():
+    """Give the decoder its idle turn (`ConsoleDecoder.tick`), on its own thread."""
+    try:
+        updates = state._decoder.tick()
+        if updates:
+            _apply_updates(updates)
+    except Exception:
+        traceback.print_exc()
 
 
 # ── Session playback ───────────────────────────────────────────────────────────
@@ -832,6 +847,7 @@ def _run_live_serial(my_gen):
                             _handle_packet(buf)
                             buf = []
                         _drain_cmds()  # process queued commands while idle
+                        _tick()
                         time.sleep(0.01)
 
         except (serial.SerialException, OSError) as e:
@@ -846,6 +862,62 @@ def _run_live_serial(my_gen):
             continue  # retry the outer while loop (re-open the port)
 
     # ── Worker stopped cleanly ─────────────────────────────────────────────────
+    _set_serial_status("idle", "")
+
+
+def _run_live_tcp(my_gen):
+    """Read a console that serves its data over TCP (see `ConsoleDecoder.transport`).
+
+    The same byte pipeline as a serial port — `_ingest_byte`, `post_open_bytes`,
+    `_tick` — over a socket to `state._decoder.tcp_endpoint`, retrying every 5 s.
+    """
+    while state._worker_gen == my_gen:
+        host, port = state._decoder.tcp_endpoint
+        if not host:
+            _set_serial_status("error", "No host set for this console")
+            for _ in range(10):
+                if state._worker_gen != my_gen:
+                    break
+                time.sleep(0.1)
+            continue
+        _set_serial_status("opening", f"Connecting to {host}:{port}…")
+        try:
+            with socket.create_connection((host, port), timeout=5) as sock:
+                sock.settimeout(0.01)
+                init = state._decoder.post_open_bytes
+                if init:
+                    sock.sendall(init)
+                _set_serial_status("open", f"Connected: {host}:{port}")
+                buf = []
+                last_byte_time = time.time()
+                while state._worker_gen == my_gen:
+                    try:
+                        chunk = sock.recv(4096)
+                    except TimeoutError:
+                        chunk = None
+                    if chunk == b"":
+                        raise OSError("connection closed by the console")
+                    if chunk:
+                        for c in chunk:
+                            _record_raw_byte(c)
+                            buf = _ingest_byte(c, buf)
+                        last_byte_time = time.time()
+                    else:
+                        if buf and (time.time() - last_byte_time) >= 0.05:
+                            _handle_packet(buf)
+                            buf = []
+                        _drain_cmds()
+                        _tick()
+        except OSError as e:
+            err = str(e) or type(e).__name__
+            print(f"Console connection error: {err}")
+            _set_serial_status("error", err)
+            for _ in range(50):
+                if state._worker_gen != my_gen:
+                    break
+                time.sleep(0.1)
+            continue
+
     _set_serial_status("idle", "")
 
 
@@ -870,6 +942,8 @@ def main_thread_worker():
             # local-only plugin in ~/SplouchData/console_decoders/ can declare itself
             # portless and get the same treatment for free.
             _run_manual(my_gen)
+        elif getattr(state._decoder, "transport", "serial") == "tcp":
+            _run_live_tcp(my_gen)
         else:
             _run_live_serial(my_gen)
     finally:

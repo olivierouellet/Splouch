@@ -46,7 +46,13 @@
                            connect to, so the picker, the Connection badge and the
                            Serial Monitor below are all hidden rather than sitting
                            there reporting "—" forever. What it has instead is a page. #}
-                        {% if console_requires_serial %}
+                        {% if console_requires_serial and console_transport == "tcp" %}
+                        <div>
+                            <label for="console_host" class="form-label">{{ t.timing_console_host }}</label>
+                            <input id="console_host" name="console_host" type="text" class="form-control form-control-sm" style="max-width:360px;" value="{{ console_host }}" placeholder="192.168.1.20" onchange="_fsubmit(this.form)">
+                            <div class="form-text">{{ t.timing_console_host_help }}</div>
+                        </div>
+                        {% elif console_requires_serial %}
                         <div>
                             <label for="serial_port" class="form-label">{{ t.timing_serial_port }}</label>
                             <select id="serial_port" name="serial_port" class="form-select form-select-sm" style="max-width:360px;" onchange="_fsubmit(this.form)">

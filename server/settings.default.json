@@ -61,6 +61,7 @@
     "digits": "DSEG7Classic"
   },
   "finish_debounce": 3.0,
+  "console_host": "",
   "console_options": {},
   "console_type": "cts_sys6",
   "active_home_icon": "",

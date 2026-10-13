@@ -1,8 +1,32 @@
 # CTS Gen7 Serial (WA-2) — Protocol Reference
 
-> **Status: Fully documented** from community reverse-engineering of
+> **Status: Fully documented** from the open-source implementation
 > `fabriziobertocci/coloradoScoreboard` (`src/ctsScoreboardasync.js`).
-> Official documentation: Colorado Time Systems F1034 manual (Rev 202405, not publicly accessible).
+> Official documentation: Colorado Time Systems Gen7 Serial Timer user guide F1034
+> (outputs and settings; the stream format itself is not described there).
+
+---
+
+## Gen7 Scoreboard Outputs
+
+From the Gen7 user guides (F1034 Serial, F1058 Legacy):
+
+| Timer | Outputs |
+| ----- | ------- |
+| Gen7 Legacy | one RS-232 legacy scoreboard output, two RS-485 outputs (Black Diamond, Blue Square) |
+| Gen7 Serial | three RS-485 outputs |
+
+Each RS-485 output's protocol is chosen in the Gen7 software: **Gen7 Standard** (the
+default — this document), **CTS Legacy**, **CTS Real-Time**, **Delayed Real-Time**,
+**Daktronics RTD** and **Omega** (licensed features). The RTD, Omega and CTS Legacy
+choices are offered in Settings → Timing as *Gen7 → RS-485 output set to …*, decoded by
+`rtd.py`, `swiss_scoreboard.py` and `cts_gen6.py` with options for what is unconfirmed.
+CTS Real-Time and Delayed Real-Time are not decoded.
+
+Lanes above 9: the *Two Digit Lane and Place Display* setting sends letters (A, B, C)
+or numbers; both are decoded by the legacy decoder. Swimmer names and start lists are
+embedded in the RS-485 stream (command 18 below), and a UDP scoreboard feed exists for
+DisplayLink.
 
 ---
 
@@ -280,4 +304,4 @@ Implemented in `console_decoders/cts_gen7.py` (`CTSGen7Decoder`).
 
 - `fabriziobertocci/coloradoScoreboard` — `ctsScoreboardasync.js`: <https://github.com/fabriziobertocci/coloradoScoreboard>
 - Colorado Time Systems Gen7 product page: <https://coloradotime.com/products/gen7-swim-timing-serial>
-- F1034 manual (Rev 202405) — not publicly accessible in text form
+- Colorado Time Systems, Gen7 Serial Timer user guide F1034 and Gen7 Legacy Timer user guide F1058 (shipped with the Gen7 Swimming software)

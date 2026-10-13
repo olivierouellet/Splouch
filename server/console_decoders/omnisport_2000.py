@@ -1,5 +1,10 @@
-from .base import SerialConfig
-from .rtd import RTD_OFFSET_OPTION, RtdSwimmingDecoder
+from .base import DecoderOption, SerialConfig, serial_from
+from .rtd import (
+    RTD_LINE_BASE_OPTION,
+    RTD_OFFSET_OPTION,
+    RTD_SUB_CODE_OPTION,
+    RtdSwimmingDecoder,
+)
 
 
 class Omnisport2000Decoder(RtdSwimmingDecoder):
@@ -19,13 +24,37 @@ class Omnisport2000Decoder(RtdSwimmingDecoder):
 
     SUB_CODES = ("21",)
     LINE_BASE = 222
-    OPTIONS = (RTD_OFFSET_OPTION,)
+    OPTIONS = (
+        RTD_OFFSET_OPTION,
+        RTD_LINE_BASE_OPTION,
+        RTD_SUB_CODE_OPTION,
+        DecoderOption(
+            key="serial_baud",
+            label="Baud rate",
+            choices=(("9600", "9600"), ("19200", "19200"), ("38400", "38400")),
+            default="19200",
+            help="19200 on an OmniSport. Undocumented for other consoles sending RTD.",
+        ),
+        DecoderOption(
+            key="serial_format",
+            label="Serial format",
+            choices=(("8N1", "8-N-1"), ("7E1", "7-E-1")),
+            default="8N1",
+            help="If nothing decodes, try the other format.",
+        ),
+    )
 
     def __init__(self, cfg: dict):
         self._serial_config = SerialConfig(
             baud=19200, bytesize=8, parity="N", stopbits=1
         )
         super().__init__(cfg)
+
+    def configure(self, cfg: dict) -> None:
+        super().configure(cfg)
+        self._serial_config = serial_from(
+            cfg.get("serial_baud", 19200), str(cfg.get("serial_format", "8N1"))
+        )
 
     @property
     def serial_config(self) -> SerialConfig:

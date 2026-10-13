@@ -84,6 +84,27 @@ RTD_OFFSET_OPTION = DecoderOption(
 )
 
 
+# For a console whose RTD output is not documented (a Gen7 set to Daktronics RTD):
+# which swimming layout, which header sub-code, which serial settings.
+RTD_LINE_BASE_OPTION = DecoderOption(
+    key="rtd_line_base",
+    label="RTD layout",
+    choices=(
+        ("222", "Result lines at 222 (OMNI2000)"),
+        ("200", "Result lines at 200 (OMNI6000)"),
+    ),
+    default="222",
+    help="Where this console writes the result lines. Change it if no lane times appear.",
+)
+RTD_SUB_CODE_OPTION = DecoderOption(
+    key="rtd_sub_code",
+    label="RTD header sub-code",
+    choices=(("any", "Any"), ("21", "21 (OmniSport)"), ("01", "01 (ARES)")),
+    default="any",
+    help="The two digits after 004 in each packet header.",
+)
+
+
 class RtdSwimmingDecoder(ConsoleDecoder):
     """A console that sends Daktronics RTD in the swimming template's line layout.
 
@@ -137,6 +158,8 @@ class RtdSwimmingDecoder(ConsoleDecoder):
     def configure(self, cfg: dict) -> None:
         self.num_lanes = int(cfg.get("num_lanes", 10))
         self.line_base = int(cfg.get("rtd_line_base", self.LINE_BASE))
+        sub = str(cfg.get("rtd_sub_code", "") or "")
+        self.sub_codes = None if sub == "any" else ((sub,) if sub else self.SUB_CODES)
         self.offset_shift = int(cfg.get("rtd_offset", 0) or 0)
 
     def set_seed_times(self, times: dict) -> None:
@@ -202,7 +225,9 @@ class RtdSwimmingDecoder(ConsoleDecoder):
         header = bytes(packet[soh + 1 : stx]).decode("ascii", errors="ignore")
         if len(header) != 10 or header[:3] != self.MESSAGE_TYPE:
             return {}
-        if header[3:5] not in self.SUB_CODES or not header[5:].isdigit():
+        if not header[5:].isdigit() or not header[3:5].isdigit():
+            return {}
+        if self.sub_codes is not None and header[3:5] not in self.sub_codes:
             return {}
 
         # Checksum: every byte after SYN up to and including EOT, summed mod 256,

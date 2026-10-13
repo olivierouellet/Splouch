@@ -429,6 +429,11 @@ def _settings_view(request, form):
                     changed = True
                     modified = True
                     console_changed = console_changed or key == "console_type"
+            if "console_host" in form:
+                host = form.get("console_host", "").strip()
+                if host != state.settings.get("console_host", ""):
+                    state.settings["console_host"] = host
+                    changed = modified = True
             if not console_changed:
                 # The option fields on the page belong to the console it showed; after
                 # a console change they are the previous console's, and ignored.
@@ -898,6 +903,9 @@ def _settings_view(request, form):
         # nothing to open, nothing to connect to and no packets to watch. Read off
         # the live decoder so a portless local-only plugin gets the same treatment.
         console_requires_serial=state._decoder.requires_serial,
+        # A console served over the network (Dolphin) takes a host, not a port.
+        console_transport=getattr(state._decoder, "transport", "serial"),
+        console_host=state.settings.get("console_host", ""),
         user_name=request.session.get("user") or state.settings["username"],
         owner_name=state.settings["username"],
         users=[

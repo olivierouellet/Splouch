@@ -58,7 +58,7 @@ class ConsoleDecoder(ABC):
     No web-framework, transport, or app-layer dependencies belong here.
     """
 
-    #: Does this decoder need a serial port opened for it?
+    #: Does this decoder read a wire — a serial port, or a socket (see `transport`)?
     #:
     #: False for a decoder the operator drives by hand rather than off a wire (see
     #: manual.py). The worker reads it to decide whether to open a port at all, and
@@ -67,6 +67,26 @@ class ConsoleDecoder(ABC):
     #: A plain attribute rather than a property for exactly that reason: it has to be
     #: answerable before any decoder for the console has been built.
     requires_serial: bool = True
+
+    #: Where the bytes come from when `requires_serial` is True: "serial" (a port the
+    #: worker opens with `serial_config`) or "tcp" (a socket to `tcp_endpoint`, for a
+    #: console whose PC software serves its data over the network). Same packet
+    #: pipeline either way. Read off the class, like `requires_serial`.
+    transport: str = "serial"
+
+    @property
+    def tcp_endpoint(self) -> tuple[str, int]:
+        """(host, port) to connect to when `transport` is "tcp"."""
+        return ("", 0)
+
+    def tick(self) -> dict:
+        """Idle turn, on the worker thread, whenever no byte is waiting (~100 Hz).
+
+        For a decoder whose state changes with time rather than with packets — the
+        Dolphin decoder holds a finished race on the board before following the
+        software to the next heat. Returns an update dict like `feed`; default none.
+        """
+        return {}
 
     #: Decoding choices this decoder cannot make from the wire alone — see
     #: `DecoderOption`. Read off the class, like `requires_serial`.

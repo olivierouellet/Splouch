@@ -168,6 +168,8 @@ settings: dict[str, Any] = {
     "console_type": DEFAULT_CONSOLE,
     # Per console: {console_type: {option key: value}} — see DecoderOption.
     "console_options": {},
+    # Host of a console served over TCP (Dolphin PC); unused by serial consoles.
+    "console_host": "",
     # Per-meet cloud appearance overrides, keyed by meet_uid(). See
     # CLOUD_PROFILE_FIELDS / apply_meet_profile().
     "meet_profiles": {},

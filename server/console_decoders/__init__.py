@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 from .base import ConsoleDecoder, DecoderOption
 from .cts_gen6 import CTSGen6Decoder
 from .cts_gen7 import CTSGen7Decoder
+from .dolphin import DolphinDecoder
 from .manual import ManualDecoder
 from .omnisport_2000 import Omnisport2000Decoder
 from .quantum import QuantumDecoder
@@ -18,6 +19,7 @@ from .swiss_timing_ares21 import Ares21Decoder
 DECODERS: dict[str, type[ConsoleDecoder]] = {
     "cts_legacy": CTSGen6Decoder,
     "cts_gen7": CTSGen7Decoder,
+    "cts_dolphin": DolphinDecoder,
     "dak_rtd": Omnisport2000Decoder,
     "ares_ertd": Ares21Decoder,
     "swiss_scb": SwissScoreboardDecoder,
@@ -88,6 +90,64 @@ CONSOLES: list[ConsoleEntry] = [
         protocol="RS-485 · 115200 baud · 8-N-1",
         tested=False,
         doc="cts-gen7.md",
+    ),
+    ConsoleEntry(
+        "cts_gen7_rs485_legacy",
+        f"Gen7 ({_CTS})",
+        "RS-485 output set to CTS Legacy",
+        "cts_legacy",
+        adapter="USB-to-RS485",
+        wiring="Blue Square or Black Diamond scoreboard output (RS-485)",
+        protocol="RS-485 · 9600 baud · Colorado legacy (unconfirmed)",
+        tested=False,
+        doc="cts-gen7.md",
+        options={"serial_parity": None},
+    ),
+    ConsoleEntry(
+        "cts_gen7_rs485_rtd",
+        f"Gen7 ({_CTS})",
+        "RS-485 output set to Daktronics RTD",
+        "dak_rtd",
+        adapter="USB-to-RS485",
+        wiring="Blue Square or Black Diamond scoreboard output (RS-485)",
+        protocol="RS-485 · Daktronics RTD (layout and serial settings unconfirmed)",
+        tested=False,
+        doc="cts-gen7.md",
+        options={
+            "rtd_line_base": None,
+            "rtd_sub_code": None,
+            "serial_baud": None,
+            "serial_format": None,
+            "rtd_offset": None,
+        },
+    ),
+    ConsoleEntry(
+        "cts_gen7_rs485_omega",
+        f"Gen7 ({_CTS})",
+        "RS-485 output set to Omega",
+        "swiss_scb",
+        adapter="USB-to-RS485",
+        wiring="Blue Square or Black Diamond scoreboard output (RS-485)",
+        protocol="RS-485 · Swiss Timing scoreboard lines (unconfirmed)",
+        tested=False,
+        doc="cts-gen7.md",
+        options={"scb_line_mode": "rank", "serial_baud": None, "serial_format": None},
+    ),
+    ConsoleEntry(
+        "cts_dolphin",
+        f"Dolphin ({_CTS})",
+        "",
+        "cts_dolphin",
+        adapter="Network — the PC running the Dolphin software",
+        wiring="Dolphin software, Settings → TCP/IP Streaming turned on",
+        protocol="TCP/IP · Dolphin streaming API",
+        tested=False,
+        doc="dolphin.md",
+        options={
+            "tcp_port": None,
+            "dolphin_results_hold": None,
+            "dolphin_lane_base": None,
+        },
     ),
     ConsoleEntry(
         "dak_os2000_rtd",
@@ -313,6 +373,7 @@ def console_info_for(console_type: str) -> dict | None:
         "label": e.label,
         "doc_url": DOCS_BASE_URL + e.doc,
         "requires_serial": getattr(cls, "requires_serial", True),
+        "transport": getattr(cls, "transport", "serial"),
     }
 
 

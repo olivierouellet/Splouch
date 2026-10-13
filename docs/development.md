@@ -143,11 +143,13 @@ DECODERS = {
 }
 ```
 
-Two optional members change how the app treats the decoder:
+Optional members change how the app treats the decoder:
 
 | member | default | meaning |
 | --- | --- | --- |
 | `requires_serial` | `True` | A **plain class attribute**, not a property — Settings → Timing reads it off the class before any decoder has been built. Set it `False` and no port is opened: the worker runs `_run_manual` instead, which only drains the command queue, and the Timing pane drops its port picker, Connection badge and Serial Monitor. See `console_decoders/manual.py`. |
+| `transport` | `"serial"` | `"tcp"` for a console served over the network: the worker connects to `tcp_endpoint` (host, port) instead of opening a serial port, and the Timing pane shows a host field (`console_host`). Same packet pipeline, `post_open_bytes` included. See `console_decoders/dolphin.py`. |
+| `tick()` | `{}` | Called on the worker thread whenever no byte is waiting; returns an update dict like `feed`. For state that changes with time rather than packets. |
 | `is_live` | `None` | Whether the link is up, when packet arrival is the wrong measure. `None` means "ask the packet clock" (`docs/api.md` §2.1) and is right for any console on a wire. |
 
 A plugin entry becomes a console model with a single output. The decoder appears in **Settings → Timing → Timing Equipment** immediately after saving or reopening the page. Keys already registered by the built-in decoders are silently skipped, so naming collisions are harmless.
