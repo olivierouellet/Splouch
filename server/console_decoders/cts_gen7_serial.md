@@ -189,6 +189,7 @@ Bits 6-0: digit value; 0 is stored as 32 (space)
 |--------|---------|
 | 0      | Universal / fallback display (used when Univ flag is set on another module) |
 | 1–10   | Lane timing displays (lanes 1–10) |
+| 23, 24 | Lanes 11 and 12 (`0x17`, `0x18`, default Scoreboard Definitions, F1034 p.47) |
 | 12     | Event and heat numbers |
 | 15     | State detection (reset-dots sentinel) |
 | 22     | Time-of-day display |
@@ -203,7 +204,7 @@ Heat  number: digits 7, 8, 9  (3 digits → integer)
 
 Changes trigger `EventChange` / `HeatChange` events.
 
-### Modules 1–10 — Lane data
+### Modules 1–10, 23, 24 — Lane data
 
 | Digit offset (from 0) | Content |
 |-----------------------|---------|
@@ -276,7 +277,7 @@ Not yet implemented — a live multi-length capture is needed to verify the exac
 | Structure | 32 channels × 8 positions | 31 modules × 31 digits |
 | Swimmer names | Not present | Native (via command packets) |
 | Meet / event title | Not present | Native |
-| Max lanes | 12 (channels 17, 18) | 10+ (modules 1–10+) |
+| Max lanes | 12 (lanes 11–12 on channels 0x17, 0x18 = 23, 24) | 12 (lanes 11–12 on modules 0x17, 0x18 = 23, 24) |
 | Pool support | 1 | Up to 4 |
 
 ---
@@ -292,7 +293,7 @@ Implemented in `console_decoders/cts_gen7.py` (`CTSGen7Decoder`).
 | Secondary remap for multi-pool 0x9F packets | Done |
 | Module/digit parsing | Done |
 | Running time (module 0) | Done |
-| Lane times, places, running flag (modules 1–10) | Done |
+| Lane times, places, running flag (modules 1–10, 23, 24) | Done |
 | Event / heat detection (module 12) | Done |
 | Swimmer names / meet title (command 18) | Not implemented — Lenex integration covers this |
 | Split times (digits 10+ per lane module) | Not implemented — needs a live multi-length capture |

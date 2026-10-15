@@ -42,6 +42,8 @@ Options, per output:
 - RS-485 set to Daktronics RTD — **RTD layout** (lines at 222 or 200), **RTD header sub-code** (any by default), **Baud rate**, **Serial format**, **RTD offset**
 - RS-485 set to Omega — **Scoreboard line order** (rank mode by default), **Baud rate**, **Serial format**
 
+Leave the Gen7's **Scoreboard Definitions** at their defaults (*Settings → Scoreboard*): Splouch reads each lane from its default module (lanes 11 and 12 included).
+
 On the Gen7, set **Two Digit Lane and Place Display** to **A,B,C** or **Letters** for pools of more than 9 lanes; both are decoded.
 
 ## Capturing at the pool

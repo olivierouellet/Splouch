@@ -74,6 +74,29 @@ def test_gen7_digits_land_in_the_module_the_header_names():
     assert "running_time" not in updates
 
 
+def test_gen7_lanes_11_and_12_read_modules_0x17_and_0x18():
+    """Lanes 11-12 sit on modules 0x17/0x18 (F1034 p.47); the decoder stopped at 10."""
+    d = CTSGen7Decoder({"num_lanes": 12})
+    lane = _gen7_digits(
+        [(3, "2"), (5, "1"), (6 | 0x40, "0"), (7 | 0x40, "2"), (8, "3"), (9, "4")]
+    )
+    eleven = _gen7_feed(d, _gen7_encode(0x80 | 0x17, lane))
+    assert eleven["lane_time11"] == "1:02.34"
+    assert eleven["lane_place11"] == "2"
+    twelve = _gen7_feed(d, _gen7_encode(0x80 | 0x18, lane))
+    assert twelve["lane_time12"] == "1:02.34"
+    assert "lane_time11" not in twelve
+
+
+def test_gen7_lanes_past_the_pool_ignore_their_modules():
+    d = CTSGen7Decoder({"num_lanes": 10})
+    lane = _gen7_digits(
+        [(3, "1"), (5, "1"), (6 | 0x40, "0"), (7 | 0x40, "2"), (8, "3"), (9, "4")]
+    )
+    updates = _gen7_feed(d, _gen7_encode(0x80 | 0x17, lane))
+    assert not any(k.endswith(("11", "12")) for k in updates)
+
+
 def test_gen7_place_keeps_both_digits():
     d = CTSGen7Decoder({"num_lanes": 10})
     updates = _gen7_feed(d, _gen7_encode(0x8A, _gen7_digits([(2, "1"), (3, "0")])))

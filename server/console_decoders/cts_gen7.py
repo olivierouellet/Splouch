@@ -69,6 +69,11 @@ def _remap(raw: int, st: _RS) -> int:
 
 _BLANK_VALS = frozenset((15, 32))
 
+# Lane → module. Lanes 1-10 sit on modules 1-10; lanes 11 and 12 on 0x17 and 0x18,
+# as the Gen7 software's default Scoreboard Definitions (F1034 p.47) list them —
+# the same addresses Gen6 uses for its lanes 11-12.
+_LANE_MODULE: dict[int, int] = {**{ln: ln for ln in range(1, 11)}, 11: 0x17, 12: 0x18}
+
 
 class _Digit:
     __slots__ = ("value", "dec_point")
@@ -377,6 +382,10 @@ class CTSGen7Decoder(ConsoleDecoder):
 
     # ── Update collection ─────────────────────────────────────────────────────
 
+    def _lanes(self) -> range:
+        """The lanes the pool uses that have a module (12 at most)."""
+        return range(1, min(self.num_lanes, len(_LANE_MODULE)) + 1)
+
     def _collect_updates(self) -> dict:
         updates: dict = {}
 
@@ -388,19 +397,21 @@ class CTSGen7Decoder(ConsoleDecoder):
                 updates["running_time"] = t
             # Lanes with univ=True show module 0's time; mark them dirty too
             # so their displayed time is always in sync with the running clock.
-            for lane in range(1, min(self.num_lanes + 1, 11)):
-                if self._mod[lane].univ:
-                    self._dirty.add(lane)
+            for lane in self._lanes():
+                mod = _LANE_MODULE[lane]
+                if self._mod[mod].univ:
+                    self._dirty.add(mod)
 
-        # Lanes 1-10 — modules 1-10
-        for lane in range(1, min(self.num_lanes + 1, 11)):
-            if lane not in self._dirty:
+        # Lanes 1-10 — modules 1-10; lanes 11-12 — modules 0x17, 0x18
+        for lane in self._lanes():
+            mod = _LANE_MODULE[lane]
+            if mod not in self._dirty:
                 continue
-            m = self._mod[lane]
-            t = self._get_time(lane, start=4, count=6)
+            m = self._mod[mod]
+            t = self._get_time(mod, start=4, count=6)
             # Place is a two-character field, digits 2-3 (GetDigits reads 0-1 and
             # 2-3 as pairs), so a 10th place keeps its leading 1.
-            place = (self._char(lane, 2) + self._char(lane, 3)).strip() or " "
+            place = (self._char(mod, 2) + self._char(mod, 3)).strip() or " "
             # Univ flag = True means the lane is actively racing (showing running time)
             running = m.univ
 
