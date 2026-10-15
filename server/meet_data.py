@@ -204,7 +204,9 @@ def _build_results_snapshot():
         else (0, 0)
     )
     lanes: list[dict[str, Any]] = []
-    for ch in range(1, 11):
+    # Every row of the pool, 11 and 12 included: a fixed 1-10 left them out.
+    rows = min(int(state.settings.get("num_lanes", 8) or 8), 12)
+    for ch in range(1, rows + 1):
         time_str = state._decoder.get_lane_time(ch)
         if not time_str:
             continue

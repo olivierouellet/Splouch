@@ -55,6 +55,17 @@ def test_results_channel_is_the_lane(lane_zero, monkeypatch):
     assert [r["channel"] for r in snap["lanes"]] == [0]
 
 
+def test_results_reach_lanes_11_and_12(monkeypatch):
+    monkeypatch.setitem(state.settings, "num_lanes", 12)
+    monkeypatch.setitem(state.settings, "first_lane", 1)
+    d = make_decoder("manual", {**state.settings})
+    monkeypatch.setattr(d, "get_lane_time", lambda row: "58.21" if row > 10 else "")
+    monkeypatch.setattr(d, "get_lane_place", lambda row: str(row - 10))
+    monkeypatch.setattr(state, "_decoder", d)
+    snap = meet_data._build_results_snapshot()
+    assert [r["channel"] for r in snap["lanes"]] == [11, 12]
+
+
 # ── Decoders that read a lane number ───────────────────────────────────────────
 
 
