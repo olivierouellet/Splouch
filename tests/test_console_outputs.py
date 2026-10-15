@@ -25,6 +25,7 @@ from console_decoders.omnisport_2000 import Omnisport2000Decoder
 from console_decoders.quantum import QuantumDecoder
 from console_decoders.swiss_scoreboard import SwissScoreboardDecoder
 from console_decoders.swiss_timing_ares21 import Ares21Decoder
+from console_decoders.utils import line_row
 
 # ── Registry ───────────────────────────────────────────────────────────────────
 
@@ -479,3 +480,50 @@ def test_the_evt_ht_swap_shows_on_system_6_and_gen7_only():
         "cts_gen7_serial",
         "cts_gen7_rs485_legacy",
     }
+
+
+# ── CTS posted by place: a line holds a place, its lane digit says whose ──────
+
+
+@pytest.mark.parametrize(
+    ("text", "own", "first", "rows", "row"),
+    [
+        ("", 3, 1, 8, 3),  # no lane digit: the line's own lane
+        ("3", 3, 1, 8, 3),
+        ("5", 1, 1, 8, 5),  # place order: line 1 holds lane 5
+        ("0", 10, 1, 10, 10),  # lane 10 as 0 on its own line
+        ("A", 1, 1, 10, 10),
+        ("0", 1, 1, 10, 10),  # lane 10 winning, one-digit board
+        ("1", 11, 1, 12, 11),  # emulated ten-lane board: lane 11 shows 1
+        ("B", 1, 1, 12, 11),
+        ("0", 1, 0, 10, 1),  # pool from lane 0: 0 is lane 0, row 1
+        ("9", 1, 0, 10, 10),
+        ("9", 1, 1, 8, 1),  # no such lane in this pool: keep the line's
+        ("E", 2, 1, 8, 2),
+    ],
+)
+def test_line_row(text, own, first, rows, row):
+    assert line_row(text, own, first, rows) == row
+
+
+def _cts_line(channel: int, lane_digit: int, place: int, digits: str) -> list[int]:
+    """A lane line with its lane digit in slot 0 (nibble as on the wire)."""
+    pkt = _cts_lane(channel, 0x0F ^ place, digits)
+    return [pkt[0], (0 << 4) | lane_digit, *pkt[1:]]
+
+
+def test_cts_posted_by_place_lands_on_each_swimmers_lane():
+    d = CTSGen6Decoder({"num_lanes": 4})
+    finish = {3: " 10111", 1: " 10222", 4: " 10333", 2: " 10444"}  # lane → time
+    for line, (lane, digits) in enumerate(finish.items(), start=1):
+        d.feed(_cts_line(line, 0x0F ^ lane, line, digits))
+    assert d.get_lane_time(3) == "1:01.11" and d.get_lane_place(3) == "1"
+    assert d.get_lane_time(2) == "1:04.44" and d.get_lane_place(2) == "4"
+    assert d.race_finished()
+
+
+def test_cts_lane_order_with_or_without_lane_digits_is_unchanged():
+    d = CTSGen6Decoder({"num_lanes": 3})
+    d.feed(_cts_lane(1, 0x0F ^ 2, " 10500"))  # no lane digit
+    d.feed(_cts_line(2, 0x0F ^ 2, 1, " 10400"))
+    assert d.get_lane_time(1) == "1:05.00" and d.get_lane_time(2) == "1:04.00"

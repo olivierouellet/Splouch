@@ -43,6 +43,8 @@ Options, per output:
 - RS-485 set to Daktronics RTD — **RTD layout** (lines at 222 or 200), **RTD header sub-code** (any by default), **Baud rate**, **Serial format**, **RTD offset**
 - RS-485 set to Omega — **Scoreboard line order** (rank mode by default), **Baud rate**, **Serial format**
 
+Results posted by place (*Lane Module Order* set to Place, or a result posted by place) land on each swimmer's lane: Splouch reads the lane number each scoreboard line shows. In a pool of 11 or 12 lanes, keep **Two Digit Lane and Place Display** on A,B,C or Letters — a `1` could be lane 1 or 11, and reads as lane 1.
+
 Leave the Gen7's **Scoreboard Definitions** at their defaults (*Settings → Scoreboard*): Splouch reads each lane from its default module (lanes 11 and 12 included).
 
 On the Gen7, set **Two Digit Lane and Place Display** to **A,B,C** or **Letters** for pools of more than 9 lanes; both are decoded.
@@ -60,6 +62,7 @@ Follow the [general procedure](../admin.md#capturing-at-the-pool). The output's 
 5. **Record:** `.raw` (untested), then a `.serial` if the board shows times.
 6. **Also record:** 30 s with *Quick Options → Scoreboard State → Blank (with Time of Day)*. Splouch reads the clock it puts on lane 3's module as no time; the capture confirms the two modules match.
 7. **Also record:** 30 s with *Quick Options → EVT/HT* swapped and team scores entered, with **Event / heat on scoreboard** set to Swapped. Set both back after.
+8. **Also record:** a finished heat with *Lane Module Order* set to Place. Splouch should show the same times on the same lanes as in lane order.
 
 ### RS-485 output set to CTS Legacy
 

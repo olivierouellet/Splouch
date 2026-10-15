@@ -151,6 +151,25 @@ def test_cts_gen7_reads_event_heat_from_module_0d_when_swapped():
     assert _gen7_feed(normal, _gen7_encode(0x8C, digits))["event_changed"] == (3, 2)
 
 
+def test_gen7_posted_by_place_lands_on_each_swimmers_lane():
+    """Lane Module Order = Place: module 1 holds the winner, lane in digits 0-1."""
+    d = CTSGen7Decoder({"num_lanes": 4})
+    line1 = _gen7_digits(
+        [
+            (1, "3"),
+            (3, "1"),
+            (5, "1"),
+            (6 | 0x40, "0"),
+            (7 | 0x40, "1"),
+            (8, "1"),
+            (9, "1"),
+        ]
+    )
+    updates = _gen7_feed(d, _gen7_encode(0x81, line1))
+    assert updates["lane_time3"] == "1:01.11" and updates["lane_place3"] == "1"
+    assert "lane_time1" not in updates
+
+
 def test_gen7_place_keeps_both_digits():
     d = CTSGen7Decoder({"num_lanes": 10})
     updates = _gen7_feed(d, _gen7_encode(0x8A, _gen7_digits([(2, "1"), (3, "0")])))

@@ -210,7 +210,7 @@ With *Quick Options → EVT/HT* swapped (F1034 p.23), event/heat move to module 
 
 | Digit offset (from 0) | Content |
 |-----------------------|---------|
-| 0–1 | Lane number |
+| 0–1 | Lane number — decides whose line it is; posted by place, module 1 holds the winner's lane (`utils.line_row`) |
 | 1 | Decimal point = reset indicator |
 | 2–3 | Place (two-character field) |
 | 4–9 | Time: `M M : S S . H H` (6 digits) |

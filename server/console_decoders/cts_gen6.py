@@ -14,7 +14,7 @@ from .base import (
     SerialConfig,
     cts_event_module,
 )
-from .utils import split_step
+from .utils import first_lane_of, line_row, split_step
 
 # Decoded channel address → 1-based lane index.
 # Channels 1-10 map directly; channels 23 and 24 extend to lanes 11-12.
@@ -87,6 +87,9 @@ class CTSGen6Decoder(ConsoleDecoder):
 
         # Digit-slot buffers, one 8-slot array per lane (index 0 unused).
         self._slots: list[list[int]] = [[]] + [[0] * 8 for _ in range(12)]
+        # The same, per scoreboard line as it arrives. A line is its own lane's in
+        # lane order and a place's when posted by place; see `line_row`.
+        self._line_slots: list[list[int]] = [[]] + [[0] * 8 for _ in range(12)]
 
         # Auxiliary channel buffers.
         self._rt_buf: list[int] = [0] * 8  # ch 0  — running time
@@ -130,6 +133,7 @@ class CTSGen6Decoder(ConsoleDecoder):
             stopbits=1,
         )
         self._num_lanes = int(cfg.get("num_lanes", 10))
+        self._first_lane = first_lane_of(cfg)
         self._event_channel = cts_event_module(cfg)
         self._split_min = float(cfg.get("split_min_duration", 1.0))
         self._pad_sides = int(cfg.get("touchpad_sides", 1))
@@ -178,6 +182,7 @@ class CTSGen6Decoder(ConsoleDecoder):
         updates: dict = {}
         for ln in range(1, 13):
             self._slots[ln] = [0] * 8
+            self._line_slots[ln] = [0] * 8
             self._lane_active[ln - 1] = False
             updates[f"lane_time{ln}"] = ""
             updates[f"lane_place{ln}"] = " "
@@ -223,12 +228,20 @@ class CTSGen6Decoder(ConsoleDecoder):
 
             # ── Lanes 1-12 ────────────────────────────────────────────────────
             if channel in _LANE_MAP:
-                ln = _LANE_MAP[channel]
+                line = _LANE_MAP[channel]
+                for byte in data:
+                    self._line_slots[line][(byte >> 4) & 0x0F] = byte
+                # The lane digit (slot 0) says whose line this is: its own lane in
+                # lane order, the swimmer's when the timer posts by place.
+                ln = line_row(
+                    _digit(self._line_slots[line][0]),
+                    line,
+                    self._first_lane,
+                    min(self._num_lanes, 12),
+                )
+                self._slots[ln] = list(self._line_slots[line])
                 prev = self._lane_active[ln - 1]
                 self._lane_active[ln - 1] = running
-
-                for byte in data:
-                    self._slots[ln][(byte >> 4) & 0x0F] = byte
 
                 updates[f"lane_place{ln}"] = _place(self._slots[ln][1])
                 updates[f"lane_running{ln}"] = running

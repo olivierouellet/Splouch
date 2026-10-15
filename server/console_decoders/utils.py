@@ -44,6 +44,44 @@ def lane_digit_row(c: str, first_lane: int, zero_is_ten: bool = True) -> int:
     return lane - first_lane + 1
 
 
+_LANE_LETTERS = "ABC"  # lanes 10, 11, 12 on a board without two-digit lanes
+
+
+def line_row(text: str, own_row: int, first_lane: int, rows: int) -> int:
+    """The row a CTS scoreboard line belongs to, from the lane number it shows.
+
+    A CTS line is a lane's in lane order, but a place's when the timer posts by
+    place (Post Race by Place, Display Results in Place Order, Lane Module Order):
+    line 1 then holds the winner, with the winner's lane in its lane digits. The
+    digits decide; a blank or unreadable lane keeps the line's own row, as some
+    consoles send no lane digit at all.
+
+    A digit that can be the line's own lane keeps it there: a System 6 emulating a
+    ten-lane board shows lane 11 as `1` and lane 10 as `0`, as `B` and `A` without
+    it. So only a pool of 11-12 lanes posting by place with that emulation stays
+    ambiguous — `1` reads as lane 1.
+    """
+    t = text.strip().upper()
+    if not t:
+        return own_row
+    own_lane = own_row + first_lane - 1
+    own = {str(own_lane), str(own_lane % 10)}
+    if 10 <= own_lane <= 12:
+        own.add(_LANE_LETTERS[own_lane - 10])
+    if t in own:
+        return own_row
+    if t in _LANE_LETTERS:
+        lane = 10 + _LANE_LETTERS.index(t)
+    elif t.isdigit():
+        lane = int(t)
+        if lane == 0 and first_lane == 1:
+            lane = 10
+    else:
+        return own_row
+    row = lane - first_lane + 1
+    return row if 1 <= row <= rows else own_row
+
+
 def parse_time_hundredths(s: str):
     """Parse a time string to integer hundredths of a second.
 

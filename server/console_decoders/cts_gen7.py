@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 
 from .base import CTS_EVENT_MODULE, ConsoleDecoder, SerialConfig, cts_event_module
+from .utils import first_lane_of, line_row
 
 # ── Cipher ────────────────────────────────────────────────────────────────────
 #
@@ -178,6 +179,7 @@ class CTSGen7Decoder(ConsoleDecoder):
     def configure(self, cfg: dict) -> None:
         self.num_lanes = int(cfg.get("num_lanes", 10))
         self._event_module = cts_event_module(cfg)
+        self.first_lane = first_lane_of(cfg)
 
     def set_seed_times(self, times: dict) -> None:
         self.lane_seed_times = dict(times)
@@ -436,10 +438,18 @@ class CTSGen7Decoder(ConsoleDecoder):
             self._dirty.update(_LANE_MODULE[lane] for lane in self._lanes())
 
         # Lanes 1-10 — modules 1-10; lanes 11-12 — modules 0x17, 0x18
-        for lane in self._lanes():
-            mod = _LANE_MODULE[lane]
+        for line in self._lanes():
+            mod = _LANE_MODULE[line]
             if mod not in self._dirty:
                 continue
+            # Digits 0-1 name the line's lane: its own in lane order, the swimmer's
+            # when the timer posts by place (Lane Module Order, F1034 p.44).
+            lane = line_row(
+                self._char(mod, 0) + self._char(mod, 1),
+                line,
+                self.first_lane,
+                len(self._lanes()),
+            )
             m = self._mod[mod]
             t = "" if self._shows_time_of_day(mod) else self._get_time(mod, 4, 6)
             # Place is a two-character field, digits 2-3 (GetDigits reads 0-1 and
