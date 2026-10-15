@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 
 from .base import CTS_EVENT_MODULE, ConsoleDecoder, SerialConfig, cts_event_module
-from .utils import first_lane_of, line_row
+from .utils import first_lane_of, is_swim_line, line_row
 
 # ── Cipher ────────────────────────────────────────────────────────────────────
 #
@@ -385,6 +385,10 @@ class CTSGen7Decoder(ConsoleDecoder):
             return out.strip(" :.")
         return out.strip()
 
+    def _digits(self, mod_idx: int, start: int, end: int) -> str:
+        """Digits *start* to *end* (exclusive) of a module, one character each."""
+        return "".join(self._char(mod_idx, d)[:1] or " " for d in range(start, end))
+
     def _get_digits_int(self, mod_idx: int, digits: tuple[int, ...]) -> int:
         s = "".join(self._char(mod_idx, d) for d in digits).strip()
         return int(s) if s.isdigit() else 0
@@ -421,7 +425,7 @@ class CTSGen7Decoder(ConsoleDecoder):
         updates: dict = {}
 
         # Running time — module 0
-        if 0 in self._dirty:
+        if 0 in self._dirty and is_swim_line(self._digits(0, 4, 10), "", True):
             t = self._get_time(0, start=4, count=6)
             if t != self._running_time:
                 self._running_time = t
@@ -451,6 +455,14 @@ class CTSGen7Decoder(ConsoleDecoder):
                 len(self._lanes()),
             )
             m = self._mod[mod]
+            # Self Test, diagnostics, Show Definitions: a pattern, not a swim —
+            # leave the lanes as they are, before its digits name one.
+            if not is_swim_line(
+                self._digits(0 if m.univ else mod, 4, 10),
+                self._char(mod, 2) + self._char(mod, 3),
+                m.univ,
+            ):
+                continue
             t = "" if self._shows_time_of_day(mod) else self._get_time(mod, 4, 6)
             # Place is a two-character field, digits 2-3 (GetDigits reads 0-1 and
             # 2-3 as pairs), so a 10th place keeps its leading 1.

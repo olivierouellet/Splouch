@@ -207,3 +207,9 @@ Keys not received from the console but computed by the server from other data so
 - Protocol interpretation: [hwbrill/vsCTS](https://github.com/hwbrill/vsCTS/blob/master/README.md)
 - Protocol interpretation: [Marco's Corner](https://marcoscorner.walther-family.org/2015/07/colorado-timing-console-scoreboard-protocol/)
 - Colorado Time Systems product page: [coloradotime.com](https://coloradotime.com)
+
+## Test patterns
+
+Self Test (every segment lit, `88:88.88`), Show Definitions (each module's address in its hundredths, `01`…`18`) and Gen7 diagnostics (letters in the place and time) are not swims. A lane line is skipped — the lane keeps what it had, and the line is not filed under the lane it names — unless its time has no letter, seconds under 60, a place a pool can have, and, stopped, at least one second (`utils.is_swim_line`). A running time of `88:88` is skipped the same way.
+
+Number fields read letters as blank here: the console pads them with nibble 5 (`A`), so a letter is no sign of a test.

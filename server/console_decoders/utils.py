@@ -82,6 +82,31 @@ def line_row(text: str, own_row: int, first_lane: int, rows: int) -> int:
     return row if 1 <= row <= rows else own_row
 
 
+_PLACES = {"", *map(str, range(1, 13)), "0", "A", "B", "C"}
+
+
+def is_swim_line(mmsshh: str, place: str, running: bool) -> bool:
+    """Can a CTS lane line be a swim, or is it a test the timer put on the board?
+
+    *mmsshh* is the line's six time digits as shown (`' '` blank), *place* its place
+    digit(s). The timer fills the board with patterns no swim can make: Self Test
+    lights every segment (`88:88.88`, place 8), Show Definitions puts each module's
+    own address in its hundredths (`01`, `17`), and Gen7 diagnostics write letters
+    (`P`, `A`, `n`, `F`, `E`) in the place and time. Read as results they hold a
+    heat open, or move to the lane their `8` names.
+
+    So: no letter in the time, seconds under 60, a place a pool can have, and a
+    stopped lane at least a second — a racing lane ticks through its first second.
+    """
+    if len(mmsshh) != 6 or any(c not in "0123456789 " for c in mmsshh):
+        return False
+    if int(mmsshh[2:4].replace(" ", "0")) >= 60:
+        return False
+    if place.strip().upper() not in _PLACES:
+        return False
+    return running or not (mmsshh[4:].strip() and not mmsshh[:4].strip())
+
+
 def parse_time_hundredths(s: str):
     """Parse a time string to integer hundredths of a second.
 

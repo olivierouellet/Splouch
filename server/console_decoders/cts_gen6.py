@@ -14,7 +14,7 @@ from .base import (
     SerialConfig,
     cts_event_module,
 )
-from .utils import first_lane_of, line_row, split_step
+from .utils import first_lane_of, is_swim_line, line_row, split_step
 
 # Decoded channel address → 1-based lane index.
 # Channels 1-10 map directly; channels 23 and 24 extend to lanes 11-12.
@@ -231,6 +231,15 @@ class CTSGen6Decoder(ConsoleDecoder):
                 line = _LANE_MAP[channel]
                 for byte in data:
                     self._line_slots[line][(byte >> 4) & 0x0F] = byte
+                slots = self._line_slots[line]
+                # Self Test, Show Definitions: a pattern, not a swim — leave the
+                # lanes as they are, and never file it under the lane its 8 names.
+                # Number fields read letters as blank (`_num`): the console pads
+                # with nibble 5, an `A`, so a letter here is no sign of a test.
+                if not is_swim_line(
+                    "".join(_num(b) for b in slots[2:8]), _place(slots[1]), running
+                ):
+                    return updates
                 # The lane digit (slot 0) says whose line this is: its own lane in
                 # lane order, the swimmer's when the timer posts by place.
                 ln = line_row(
@@ -271,6 +280,10 @@ class CTSGen6Decoder(ConsoleDecoder):
             elif channel == 0:
                 for byte in data:
                     self._rt_buf[(byte >> 4) & 0x0F] = byte
+                if not is_swim_line(
+                    "".join(_num(b) for b in self._rt_buf[2:8]), "", True
+                ):
+                    return updates  # the Self Test's 88:88
                 self._running_time = _time_str(self._rt_buf[2:8])
                 updates["running_time"] = self._running_time
 

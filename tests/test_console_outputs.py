@@ -25,7 +25,7 @@ from console_decoders.omnisport_2000 import Omnisport2000Decoder
 from console_decoders.quantum import QuantumDecoder
 from console_decoders.swiss_scoreboard import SwissScoreboardDecoder
 from console_decoders.swiss_timing_ares21 import Ares21Decoder
-from console_decoders.utils import line_row
+from console_decoders.utils import is_swim_line, line_row
 
 # ── Registry ───────────────────────────────────────────────────────────────────
 
@@ -527,3 +527,41 @@ def test_cts_lane_order_with_or_without_lane_digits_is_unchanged():
     d.feed(_cts_lane(1, 0x0F ^ 2, " 10500"))  # no lane digit
     d.feed(_cts_line(2, 0x0F ^ 2, 1, " 10400"))
     assert d.get_lane_time(1) == "1:05.00" and d.get_lane_time(2) == "1:04.00"
+
+
+# ── CTS test patterns: Self Test, Show Definitions, Gen7 diagnostics ──────────
+
+
+@pytest.mark.parametrize(
+    ("mmsshh", "place", "running", "ok"),
+    [
+        (" 10234", "1", False, True),
+        ("  5999", "12", False, True),  # 59.99 is a swim
+        ("      ", "", False, True),  # a blank line is no pattern
+        ("888888", "8", False, False),  # Self Test
+        ("888888", "8", True, False),
+        ("    01", "1", False, False),  # Show Definitions: the module's address
+        ("    17", "", False, False),
+        ("    03", "", True, True),  # a racing lane's first ticks
+        (" PA BC", "n", False, False),  # Gen7 diagnostics
+        (" 10234", "E", False, False),
+    ],
+)
+def test_is_swim_line(mmsshh, place, running, ok):
+    assert is_swim_line(mmsshh, place, running) is ok
+
+
+def test_cts_self_test_changes_no_lane_and_holds_no_heat():
+    d = CTSGen6Decoder({"num_lanes": 4})
+    d.feed(_cts_line(2, 0x0F ^ 2, 1, " 10400"))
+    for line in range(1, 5):  # every segment lit: lane 8, place 8, 88:88.88
+        assert d.feed(_cts_line(line, 0x0F ^ 8, 8, "888888")) == {}
+    assert d.get_lane_time(2) == "1:04.00" and d.get_lane_place(2) == "1"
+    assert d.race_finished()
+
+
+def test_cts_show_definitions_changes_no_lane():
+    d = CTSGen6Decoder({"num_lanes": 4})
+    for line in range(1, 5):  # lane 0, place = line, its address in the hundredths
+        assert d.feed(_cts_line(line, 0x0F ^ 0, line, f"    0{line}")) == {}
+    assert all(d.get_lane_time(ln) == "" for ln in range(1, 5))

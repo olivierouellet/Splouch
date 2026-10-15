@@ -51,3 +51,4 @@ Follow the [general procedure](../admin.md#capturing-at-the-pool). For System 5,
 5. **Record:** `.serial` (this decoder is tested). For a pool with more than 9 lanes, make sure 10th, 11th and 12th places happen in the heat.
 6. **Also record** (System 6, Gen7): 30 s with *Quick Options → EVT/HT* swapped and team scores entered, then set it back. Splouch, set to **Swapped**, reads event and heat from 0D; the capture confirms 0D carries them digit for digit like 0C.
 7. **Also record:** a finished heat reposted by place (System 6: *Quick Options → Post Race by Place*; System 5: Scoreboard setup 0). Splouch should show the same times on the same lanes.
+8. **Also record:** 10 s each of *Scoreboard Setup → Self Test* and *Show definitions on scoreboard*. Splouch should show neither: no `88:88.88`, no lane moved.

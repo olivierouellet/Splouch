@@ -170,6 +170,27 @@ def test_gen7_posted_by_place_lands_on_each_swimmers_lane():
     assert "lane_time1" not in updates
 
 
+def test_gen7_diagnostics_letters_change_no_lane():
+    d = CTSGen7Decoder({"num_lanes": 4})
+    real = _gen7_digits(
+        [(3, "1"), (5, "1"), (6 | 0x40, "0"), (7 | 0x40, "2"), (8, "3"), (9, "4")]
+    )
+    _gen7_feed(d, _gen7_encode(0x82, real))
+    diag = _gen7_digits([(3, "n"), (5, "P"), (6, "A"), (8, "F"), (9, "E")])
+    updates = _gen7_feed(d, _gen7_encode(0x82, diag))
+    assert not any(k.startswith("lane_") for k in updates)
+    assert d.get_lane_time(2) == "1:02.34"
+
+
+def test_gen7_self_test_changes_no_lane():
+    d = CTSGen7Decoder({"num_lanes": 4})
+    lit = _gen7_digits([(d_, "8") for d_ in range(10)])
+    for mod in range(1, 5):
+        updates = _gen7_feed(d, _gen7_encode(0x80 | mod, lit))
+        assert not any(k.startswith("lane_") for k in updates), mod
+    assert "running_time" not in _gen7_feed(d, _gen7_encode(0x80, lit))
+
+
 def test_gen7_place_keeps_both_digits():
     d = CTSGen7Decoder({"num_lanes": 10})
     updates = _gen7_feed(d, _gen7_encode(0x8A, _gen7_digits([(2, "1"), (3, "0")])))

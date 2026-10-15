@@ -63,6 +63,7 @@ Follow the [general procedure](../admin.md#capturing-at-the-pool). The output's 
 6. **Also record:** 30 s with *Quick Options → Scoreboard State → Blank (with Time of Day)*. Splouch reads the clock it puts on lane 3's module as no time; the capture confirms the two modules match.
 7. **Also record:** 30 s with *Quick Options → EVT/HT* swapped and team scores entered, with **Event / heat on scoreboard** set to Swapped. Set both back after.
 8. **Also record:** a finished heat with *Lane Module Order* set to Place. Splouch should show the same times on the same lanes as in lane order.
+9. **Also record:** 10 s each of the scoreboard self test and diagnostics. Splouch should show neither: no `88:88.88`, no letters in a time, no lane moved.
 
 ### RS-485 output set to CTS Legacy
 
