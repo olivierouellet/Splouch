@@ -257,7 +257,7 @@ Command `id=18` carries swimmer metadata transmitted natively by the Gen7:
 
 **UTF-8 escape:** byte `0x7F` in string payloads means the next byte should be OR'd with `0x80` to recover the original value.
 
-**Implementation note:** Command 18 is intentionally not implemented. The application already receives swimmer names, event titles, and seed times from the Lenex/HyTek file via the meet-management integration. Command 18 exists for standalone scoreboards that have no such integration.
+**Implementation note:** Command 18 is not implemented, and waits for a capture (cts-gen7.md, capture step 12). The layout above comes from reverse-engineered notes no recording has confirmed. Splouch already takes swimmer names, event titles and seed times from the Lenex/HyTek file the operator loads; command 18 would cover a pool that loads no file into Splouch but sends its start lists to the Gen7. Once confirmed: names from command 18 fill only lanes the meet file leaves empty, never replace it. The Hy-Tek → Gen7 link (UDP port 60287, F1034 Appendix C) carries the same start lists and is the other source; it needs no decoder change, only a capture of it.
 
 ---
 
@@ -301,7 +301,7 @@ Implemented in `console_decoders/cts_gen7.py` (`CTSGen7Decoder`).
 | Event / heat detection (module 12) | Done |
 | Lengths per lane (`lane_splits#`) | Done — inferred: each stop of a lane's univ flag is a touch, undone if it resumes within `split_min_duration`; `split_step` per touch |
 | Lengths / record (module 11, 0x0B) | Done — `length_record`, the operator page's |
-| Swimmer names / meet title (command 18) | Not implemented — Lenex integration covers this |
+| Swimmer names / meet title (command 18) | Not implemented — waits for a capture (cts-gen7.md, capture step 12); the meet file covers names meanwhile |
 | Split times (digits 10+ per lane module) | Not implemented — waits for a capture (cts-gen7.md, capture step 10): the layout above cannot be exact, as four groups would run past digit 30. Once confirmed, the count of groups filled can replace the inferred lane lengths |
 | Multi-pool | Done — the **Pool** option (1–4) picks which `0x9F` pool packets are decoded, command 18 too; plain packets are decoded whatever the pool. Unconfirmed: whether a two-pool Gen7 sends pool 1 plain |
 
