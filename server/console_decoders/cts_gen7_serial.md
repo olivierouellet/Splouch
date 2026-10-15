@@ -302,7 +302,7 @@ Implemented in `console_decoders/cts_gen7.py` (`CTSGen7Decoder`).
 | Lengths per lane (`lane_splits#`) | Done — inferred: each stop of a lane's univ flag is a touch, undone if it resumes within `split_min_duration`; `split_step` per touch |
 | Lengths / record (module 11, 0x0B) | Done — `length_record`, the operator page's |
 | Swimmer names / meet title (command 18) | Not implemented — Lenex integration covers this |
-| Split times (digits 10+ per lane module) | Not implemented — needs a live multi-length capture |
+| Split times (digits 10+ per lane module) | Not implemented — waits for a capture (cts-gen7.md, capture step 10): the layout above cannot be exact, as four groups would run past digit 30. Once confirmed, the count of groups filled can replace the inferred lane lengths |
 | Multi-pool (pools 1–3) | Not implemented |
 
 ---
