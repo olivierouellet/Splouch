@@ -73,6 +73,7 @@ from; the `diverges` rows are where v2 moved past them.
 | `L-18`–`L-22` | `n/a` | not on a phone (`app.md`) |
 | `L-23` | `done` | `SHOW_LAPS`, `lane_splits_n` in `scoreboard_base.html` |
 | `L-25` | `done` | `markStillWater` in `scoreboard_base.html`, from the cells after every change (called by `speakBoard`); the wave is a CSS mask on the lane cell's `::after`, not the row's — Chrome makes a `<tr>` pseudo-element one more table column. `prefers-reduced-motion` stills it. `tests/test_still_water.py` |
+| `L-26` | `deferred` | the apps first; the web would need a control on the board pages, which have no top bar |
 | `L-24` | `done` | steps 2–4 in `fitCompactBoard` (`scoreboard_base.html`): the relay line goes, then the rows shrink to 0.72× at most, then the board scrolls. Step 1 is n/a — no top bar to take the header |
 
 ## 4. Results tab

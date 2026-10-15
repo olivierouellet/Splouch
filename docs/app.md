@@ -509,6 +509,7 @@ Live lane state during a heat. Busiest screen, most worth getting right.
 | `L-08` | Column *headers* hide independently: `show_*_header` | meet `settings` | all | should |
 | `L-09` | Empty lanes keep their row in place — rows never collapse/shift; drawn per `L-25` | — | all | must |
 | `L-25` | Empty lane = **still water**: lane number, then one faint wave across the rest of the row, fading at both ends, drifting a wavelength every **10 s** on the wall clock (empty lanes move as one). Reduced motion → still. Never on the lane number (`L-12` pulses there). Empty = no name, alt, club, time, delta, place, not running; and only when another lane in the heat has a name — a feed with no names claims nothing | `lane_*<i>`, `lane_running<i>`; Results: no result for the row | all | should |
+| [`L-26`](#l-26) | Reader's **lane direction**, per meet: lanes top to bottom ascending (default) or descending, for a spectator on the side of the pool where the numbers run the other way. A toolbar action on Scoreboard, and on Results while it is in lane order (`R-05`); rows slide to their new places. Remembered per meet across launches | stored pref, keyed by `meet_id`; `L-04` rows, reversed; words native (`T-05`) | all | should |
 | `L-10` | Frames partial: merge changed keys, never replace | `update_scoreboard` (§5.1) | all | must |
 | `L-11` | Running lane time styled distinctly; on stop, one-shot "locked" transition, cancelled if runs again — tells a live clock from a frozen split | `lane_running<i>` false-edge | all | **must** |
 | [`L-12`](#l-12) | Every running lane shows **race clock**: one value per heat, server re-based, device ticked | `running_time` + `lane_running<i>` + `meet_live` | all | **must** |
@@ -602,6 +603,30 @@ signal: colour changes, header doesn't.
 to `up`. Count may step by `split_step`, and its accuracy depends on the console — both
 in [`api.md`](api.md) §5.1. Operator fixes drift via `adjust_splits` → setting ships off.
 
+#### <a id="l-26"></a>L-26 — the pool's far side
+
+(Out of sequence: `L-25` was the last.) Where the spectator sits, not what they prefer:
+so not in settings (`P-19`), and per meet, not per device — the next meet may be a
+different pool, or the same pool from the other stand. A meet not yet flipped is
+ascending, `L-04` as drawn.
+
+- **Where**: one action in the meet's top bar, on Scoreboard and on
+  Results in lane order. Results in place order is a ranking with no lane to turn
+  around (`R-06`): the action goes, the choice is kept for the next lane-ordered heat.
+  Schedule has its own actions (`S-08`, `N-01`) and its lanes are a list, not a pool.
+  iOS: toolbar item `arrow.up.arrow.down`; Android: top app bar action, Material
+  *Swap vert*; web: deferred.
+- **What turns**: the order of the rows, nothing else. Each row keeps its lane number,
+  stripes stay with the screen position (odd/even from the top), the header row
+  (`L-16`) stays on top.
+- **Motion**: each row slides to its new place, with the platform's own move —
+  iOS `withAnimation` over rows identified by lane; Android `animateBounds` in a
+  `LookaheadScope`. Reduced motion → instant (iOS `accessibilityReduceMotion`; Android
+  follows the system animator scale). A frame arriving during the slide is not held
+  back (`L-21`).
+- **Spoken**: the action is labelled *Lane order*, its value the order now
+  shown, e.g. *1 to 8* / *8 to 1*.
+
 ### 3.3 Layout
 
 | ID | Feature | Driven by | Scope | Level |
@@ -652,7 +677,7 @@ Absent for meet without timing console (`A-11`); below applies where it exists.
 | `R-02` | Disconnect or `meet_live` false **wipes board** back to that state | `disconnect`, `meet_live` | all | must |
 | `R-03` | Header shows snapshot's own event, heat, event name | `results_snapshot` | all | must |
 | `R-04` | Same six columns + visibility flags as Scoreboard | shared config | all | must |
-| `R-05` | **Lane sort**: row index = `channel`; lane w/o final time → its number and still water (`L-25`) | reader's `P-23` order, else `sort == "lane"`, or `sort` absent | all | must |
+| `R-05` | **Lane sort**: row index = `channel`, turned around by the reader's `L-26`; lane w/o final time → its number and still water (`L-25`) | reader's `P-23` order, else `sort == "lane"`, or `sort` absent | all | must |
 | `R-06` | **Place sort**: rows fill top-down as ranking (by `place_int`, the client ranks them when the server sorted by lane); unfilled ranks → no lane number, no dash, still water (`L-25`) | reader's `P-23` order, else `sort == "place"` | all | must |
 | `R-07` | A result missing its time → `—`, not blank; missing **place** → empty, no dash, no `#`. A row with no result is `L-25`, not `—` | — | all | should |
 | [`R-08`](#l-17) | Long names shrink, don't clip — as `L-17` | — | all | should |
@@ -1101,6 +1126,13 @@ paused stays paused. iOS: a `Toggle` in the sheet's first section, the bell
 ---
 
 ## Changelog
+
+- **v3, amended** (2026-10-15, no bump) — a reader on the far side of the pool turns the
+  lanes around. Client only: no server change.
+
+  - **Added**: `L-26` (lane direction per meet, top bar action on Scoreboard and on
+    lane-ordered Results).
+  - **Changed**: `R-05` (lane order follows `L-26`).
 
 - **v3, amended** (2026-10-15, no bump) — the console's test race (event 0) is named
   in the reader's language. Additive: `event_name_parts` gains `kind`, and a client
