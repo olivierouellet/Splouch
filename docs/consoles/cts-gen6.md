@@ -34,6 +34,10 @@ In the admin UI (**Settings → Timing**), set:
 - **Timing Equipment:** `System 5 (Colorado Timing System)`, `System 6 (Colorado Timing System)`, or `Gen7 (Colorado Timing System)` with **Console output** `Legacy scoreboard output`
 - **Serial port:** `/dev/ttyUSB0` (or whichever device the adapter appears as)
 
+Options:
+
+- **Event / heat on scoreboard** (System 6 and Gen7 only) — match the timer's *Quick Options → EVT/HT*. Swapped puts event and heat on module 0D and the team scores on 0C. A System 5 has no such toggle.
+
 ## Capturing at the pool
 
 Follow the [general procedure](../admin.md#capturing-at-the-pool). For System 5, System 6, and a Gen7's legacy output:
@@ -43,3 +47,4 @@ Follow the [general procedure](../admin.md#capturing-at-the-pool). For System 5,
 3. **Splouch:** Timing Equipment `System 5`, `System 6`, or `Gen7` → `Legacy scoreboard output`; the serial port of the adapter.
 4. **Check:** *Connected: /dev/ttyUSB0*. The Serial Monitor scrolls constantly, even between races: short packets, each a byte from `80` to `FF` followed by a few bytes below `80`.
 5. **Record:** `.serial` (this decoder is tested). For a pool with more than 9 lanes, make sure 10th, 11th and 12th places happen in the heat.
+6. **Also record** (System 6, Gen7): 30 s with *Quick Options → EVT/HT* swapped and team scores entered, then set it back. Splouch, set to **Swapped**, reads event and heat from 0D; the capture confirms 0D carries them digit for digit like 0C.

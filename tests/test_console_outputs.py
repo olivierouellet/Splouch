@@ -92,6 +92,8 @@ def test_presets_and_options_reach_the_decoder():
 def test_two_outputs_of_one_decoder_do_not_decode_alike():
     assert not same_decoding("dak_os2000_rtd", "dak_os2000_rtd_omni6000", {})
     assert same_decoding("cts_sys5", "cts_gen7_legacy", {})
+    swapped = {"console_options": {"cts_gen7_legacy": {"cts_event_module": "0D"}}}
+    assert not same_decoding("cts_sys5", "cts_gen7_legacy", swapped)
 
 
 # ── Settings → Timing ──────────────────────────────────────────────────────────
@@ -216,9 +218,10 @@ def test_the_timing_tab_shows_only_the_selected_consoles_options():
     unt4 = render("ares21_unt4")
     assert 'name="console_opt_scb_line_mode"' in unt4
     assert 'name="console_type"' in unt4 and "SCB — Venus ERTD" in unt4
-    cts = render("cts_sys6")
+    cts = render("cts_sys5")
     assert "console_opt_" not in cts
-    assert '<input type="hidden" name="console_type" value="cts_sys6">' in cts
+    assert '<input type="hidden" name="console_type" value="cts_sys5">' in cts
+    assert 'name="console_opt_cts_event_module"' in render("cts_sys6")
 
 
 # ── CTS legacy: the character table ────────────────────────────────────────────
@@ -443,3 +446,36 @@ def test_scb_serial_options():
     }
     sc = make_decoder("ares21_unt4", cfg).serial_config
     assert (sc.baud, sc.bytesize, sc.parity) == (19200, 7, "E")
+
+
+# ── CTS EVT/HT swap (System 6 F870 p.40, Gen7 F1034 p.23) ─────────────────────
+
+
+def _cts_packet(channel: int, digits: str) -> list[int]:
+    """A CTS channel's packet, one digit per slot, ' ' left out."""
+    data = [(slot << 4) | (0x0F ^ int(c)) for slot, c in enumerate(digits) if c != " "]
+    return [_cts_header(channel), *data]
+
+
+@pytest.mark.parametrize("swap", ["0C", "0D"])
+def test_cts_legacy_reads_event_heat_where_the_timer_puts_it(swap):
+    d = make_decoder(
+        "cts_sys6", {"console_options": {"cts_sys6": {"cts_event_module": swap}}}
+    )
+    event_ch, scores_ch = (12, 13) if swap == "0C" else (13, 12)
+    scores = d.feed(_cts_packet(scores_ch, "54   61 "))
+    assert "event_changed" not in scores and "current_event" not in scores
+    got = d.feed(_cts_packet(event_ch, "  3   2 "))
+    assert got["event_changed"] == (3, 2)
+    # A new score on the other module changes no heat.
+    assert "event_changed" not in d.feed(_cts_packet(scores_ch, "55   61 "))
+
+
+def test_the_evt_ht_swap_shows_on_system_6_and_gen7_only():
+    shown = {e.key for e in CONSOLES if "cts_event_module" in e.options}
+    assert shown == {
+        "cts_sys6",
+        "cts_gen7_legacy",
+        "cts_gen7_serial",
+        "cts_gen7_rs485_legacy",
+    }

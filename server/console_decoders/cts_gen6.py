@@ -7,7 +7,13 @@ Serial: 9 600 baud, 8 data bits, even parity, 1 stop bit.
 import time
 import traceback
 
-from .base import ConsoleDecoder, DecoderOption, SerialConfig
+from .base import (
+    CTS_EVENT_MODULE,
+    ConsoleDecoder,
+    DecoderOption,
+    SerialConfig,
+    cts_event_module,
+)
 from .utils import split_step
 
 # Decoded channel address → 1-based lane index.
@@ -73,6 +79,7 @@ class CTSGen6Decoder(ConsoleDecoder):
             default="E",
             help="A CTS console sends 8-E-1. Another console emulating it may not.",
         ),
+        CTS_EVENT_MODULE,
     )
 
     def __init__(self, cfg: dict) -> None:
@@ -123,6 +130,7 @@ class CTSGen6Decoder(ConsoleDecoder):
             stopbits=1,
         )
         self._num_lanes = int(cfg.get("num_lanes", 10))
+        self._event_channel = cts_event_module(cfg)
         self._split_min = float(cfg.get("split_min_duration", 1.0))
         self._pad_sides = int(cfg.get("touchpad_sides", 1))
 
@@ -262,8 +270,8 @@ class CTSGen6Decoder(ConsoleDecoder):
                     _digit(self._rec_buf[i]) for i in range(8)
                 ).strip()
 
-            # ── Ch 12 — Event / heat ──────────────────────────────────────────
-            elif channel == 12:
+            # ── Ch 12 — Event / heat (ch 13 when the timer swaps EVT/HT) ─────────
+            elif channel == self._event_channel:
                 # Reset before each packet: the console omits blank slots, so
                 # accumulating across packets would leave stale digits when the
                 # event number shrinks (e.g. event 31 → event 1 never blanks slot 1).

@@ -576,6 +576,10 @@ console_opt_lane_zero              = "Dígito de calle 0"
 console_opt_lane_zero_help         = "La calle es un solo carácter. Otras salidas de Swiss Timing envían la calle 10 como 0; sin confirmar para esta."
 console_opt_lane_zero_10           = "Calle 10"
 console_opt_lane_zero_ignore       = "Ignorar"
+console_opt_cts_event_module       = "Prueba / serie en el marcador"
+console_opt_cts_event_module_help  = "Debe coincidir con Quick Options → EVT/HT del cronómetro (System 6, Gen7). Invertido pone la prueba y la serie en el módulo 0D y las puntuaciones de equipo en el 0C."
+console_opt_cts_event_module_0C    = "Normal (módulo 0C)"
+console_opt_cts_event_module_0D    = "Invertido (módulo 0D)"
 
 # Flujo
 seconds = "segundos"

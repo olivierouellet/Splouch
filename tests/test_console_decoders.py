@@ -13,6 +13,7 @@ import re
 
 import pytest
 
+from console_decoders import decoder_config
 from console_decoders.cts_gen7 import _MAPPINGS, CTSGen7Decoder, _rot_l, _rot_r
 from console_decoders.omnisport_2000 import Omnisport2000Decoder
 from console_decoders.quantum import QuantumDecoder
@@ -138,6 +139,16 @@ def test_gen7_lane_time_without_a_time_of_day_is_kept():
     d = CTSGen7Decoder({"num_lanes": 8})
     updates = _gen7_feed(d, _gen7_encode(0x83, _gen7_digits(_GEN7_CLOCK)))
     assert updates["lane_time3"] == "9:42.15"
+
+
+def test_cts_gen7_reads_event_heat_from_module_0d_when_swapped():
+    swapped = {"console_options": {"cts_gen7_serial": {"cts_event_module": "0D"}}}
+    d = CTSGen7Decoder(decoder_config("cts_gen7_serial", swapped))
+    digits = _gen7_digits([(1, "3"), (7, "2")])
+    assert "event_changed" not in _gen7_feed(d, _gen7_encode(0x8C, digits))
+    assert _gen7_feed(d, _gen7_encode(0x8D, digits))["event_changed"] == (3, 2)
+    normal = CTSGen7Decoder(decoder_config("cts_gen7_serial", {}))
+    assert _gen7_feed(normal, _gen7_encode(0x8C, digits))["event_changed"] == (3, 2)
 
 
 def test_gen7_place_keeps_both_digits():

@@ -50,6 +50,24 @@ class DecoderOption:
     help: str = ""
 
 
+# A CTS timer's Quick Options → EVT/HT swap (System 6 F870 p.40, Gen7 F1034 p.23):
+# Swapped puts event / heat on module 0D and the team scores on 0C. Nothing in the
+# digits tells the two apart, so the operator says which way the timer is set.
+CTS_EVENT_MODULE = DecoderOption(
+    key="cts_event_module",
+    label="Event / heat on scoreboard",
+    choices=(("0C", "Normal (module 0C)"), ("0D", "Swapped (module 0D)")),
+    default="0C",
+    help="Match the timer's Quick Options → EVT/HT (System 6, Gen7). Swapped puts "
+    "event and heat on module 0D and the team scores on 0C.",
+)
+
+
+def cts_event_module(cfg: dict) -> int:
+    """The module the event / heat is read from: 0x0C, or 0x0D when swapped."""
+    return 0x0D if cfg.get(CTS_EVENT_MODULE.key) == "0D" else 0x0C
+
+
 class ConsoleDecoder(ABC):
     """Abstract base for timing-console serial decoders.
 

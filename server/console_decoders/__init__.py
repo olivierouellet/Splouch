@@ -61,7 +61,9 @@ _DAK = "OmniSport 2000 (Daktronics)"
 _ARES = "ARES 21 (Swiss Timing Omega)"
 
 
-def _cts_legacy(key: str, model: str, output: str = "") -> ConsoleEntry:
+def _cts_legacy(
+    key: str, model: str, output: str = "", options: dict | None = None
+) -> ConsoleEntry:
     """A CTS console's legacy scoreboard output: one wiring, one protocol."""
     return ConsoleEntry(
         key,
@@ -73,13 +75,20 @@ def _cts_legacy(key: str, model: str, output: str = "") -> ConsoleEntry:
         protocol="RS-232 · 9600 baud · 8-E-1",
         tested=True,
         doc="cts-gen6.md",
+        options=options or {},
     )
 
 
 CONSOLES: list[ConsoleEntry] = [
     _cts_legacy("cts_sys5", f"System 5 ({_CTS})"),
-    _cts_legacy("cts_sys6", f"System 6 ({_CTS})"),
-    _cts_legacy("cts_gen7_legacy", f"Gen7 ({_CTS})", "Legacy scoreboard output"),
+    # System 5 has no EVT/HT swap (F506); System 6 and Gen7 do.
+    _cts_legacy("cts_sys6", f"System 6 ({_CTS})", options={"cts_event_module": None}),
+    _cts_legacy(
+        "cts_gen7_legacy",
+        f"Gen7 ({_CTS})",
+        "Legacy scoreboard output",
+        options={"cts_event_module": None},
+    ),
     ConsoleEntry(
         "cts_gen7_serial",
         f"Gen7 ({_CTS})",
@@ -90,6 +99,7 @@ CONSOLES: list[ConsoleEntry] = [
         protocol="RS-485 · 115200 baud · 8-N-1",
         tested=False,
         doc="cts-gen7.md",
+        options={"cts_event_module": None},
     ),
     ConsoleEntry(
         "cts_gen7_rs485_legacy",
@@ -101,7 +111,7 @@ CONSOLES: list[ConsoleEntry] = [
         protocol="RS-485 · 9600 baud · Colorado legacy (unconfirmed)",
         tested=False,
         doc="cts-gen7.md",
-        options={"serial_parity": None},
+        options={"serial_parity": None, "cts_event_module": None},
     ),
     ConsoleEntry(
         "cts_gen7_rs485_rtd",
@@ -366,11 +376,16 @@ def same_decoding(a: str, b: str, settings: dict) -> bool:
     ea, eb = console_entry(a), console_entry(b)
     if ea is None or eb is None:
         return a == b
-    return (
-        DECODERS.get(ea.decoder) is DECODERS.get(eb.decoder)
-        and ea.preset == eb.preset
-        and option_values(a, settings) == option_values(b, settings)
-    )
+    cls = DECODERS.get(ea.decoder)
+    if cls is None or cls is not DECODERS.get(eb.decoder):
+        return False
+    # An option one console does not show still decodes at the decoder's default:
+    # a System 5 and a Gen7 legacy output left at Normal decode alike.
+    defaults = {o.key: o.default for o in cls.OPTIONS}
+    return ea.preset == eb.preset and {
+        **defaults,
+        **option_values(a, settings),
+    } == {**defaults, **option_values(b, settings)}
 
 
 def console_info_for(console_type: str) -> dict | None:

@@ -204,6 +204,8 @@ Heat  number: digits 7, 8, 9  (3 digits → integer)
 
 Changes trigger `EventChange` / `HeatChange` events.
 
+With *Quick Options → EVT/HT* swapped (F1034 p.23), event/heat move to module 13 (0D) and the team scores to 12. The decoder reads module 13 when the console option **Event / heat on scoreboard** is set to Swapped; the digit layout on 0D is assumed the same until a capture confirms it.
+
 ### Modules 1–10, 23, 24 — Lane data
 
 | Digit offset (from 0) | Content |

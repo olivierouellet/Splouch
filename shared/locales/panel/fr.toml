@@ -576,6 +576,10 @@ console_opt_lane_zero              = "Chiffre de couloir 0"
 console_opt_lane_zero_help         = "Le couloir tient en un caractère. Les autres sorties Swiss Timing envoient le couloir 10 comme 0 ; non confirmé pour celle-ci."
 console_opt_lane_zero_10           = "Couloir 10"
 console_opt_lane_zero_ignore       = "Ignorer"
+console_opt_cts_event_module       = "Épreuve / série au tableau"
+console_opt_cts_event_module_help  = "Doit correspondre à Quick Options → EVT/HT de la console (System 6, Gen7). Inversé met l'épreuve et la série sur le module 0D et les pointages d'équipe sur 0C."
+console_opt_cts_event_module_0C    = "Normal (module 0C)"
+console_opt_cts_event_module_0D    = "Inversé (module 0D)"
 
 # Déroulement
 seconds = "secondes"

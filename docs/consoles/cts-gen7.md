@@ -38,6 +38,7 @@ In **Settings → Timing**:
 
 Options, per output:
 
+- Gen7 serial output, Legacy scoreboard output, RS-485 set to CTS Legacy — **Event / heat on scoreboard**: match *Quick Options → EVT/HT*. Swapped puts event and heat on module 0D and the team scores on 0C.
 - RS-485 set to CTS Legacy — **Serial parity**
 - RS-485 set to Daktronics RTD — **RTD layout** (lines at 222 or 200), **RTD header sub-code** (any by default), **Baud rate**, **Serial format**, **RTD offset**
 - RS-485 set to Omega — **Scoreboard line order** (rank mode by default), **Baud rate**, **Serial format**
@@ -58,6 +59,7 @@ Follow the [general procedure](../admin.md#capturing-at-the-pool). The output's 
 4. **Check:** *Connected*. Splouch sends the 4-byte start request on opening; the Serial Monitor then shows packets that start with a byte from `80` to `FF`. The payload is scrambled, so it is unreadable by eye — that is expected.
 5. **Record:** `.raw` (untested), then a `.serial` if the board shows times.
 6. **Also record:** 30 s with *Quick Options → Scoreboard State → Blank (with Time of Day)*. Splouch reads the clock it puts on lane 3's module as no time; the capture confirms the two modules match.
+7. **Also record:** 30 s with *Quick Options → EVT/HT* swapped and team scores entered, with **Event / heat on scoreboard** set to Swapped. Set both back after.
 
 ### RS-485 output set to CTS Legacy
 

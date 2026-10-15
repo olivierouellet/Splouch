@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from .base import ConsoleDecoder, SerialConfig
+from .base import CTS_EVENT_MODULE, ConsoleDecoder, SerialConfig, cts_event_module
 
 # ── Cipher ────────────────────────────────────────────────────────────────────
 #
@@ -110,6 +110,8 @@ class CTSGen7Decoder(ConsoleDecoder):
     Sources: fabriziobertocci/coloradoScoreboard (ctsScoreboardasync.js, MIT).
     """
 
+    OPTIONS = (CTS_EVENT_MODULE,)
+
     def __init__(self, cfg: dict) -> None:
         self._serial_config = SerialConfig(
             baud=115200, bytesize=8, parity="N", stopbits=1
@@ -175,6 +177,7 @@ class CTSGen7Decoder(ConsoleDecoder):
 
     def configure(self, cfg: dict) -> None:
         self.num_lanes = int(cfg.get("num_lanes", 10))
+        self._event_module = cts_event_module(cfg)
 
     def set_seed_times(self, times: dict) -> None:
         self.lane_seed_times = dict(times)
@@ -458,12 +461,12 @@ class CTSGen7Decoder(ConsoleDecoder):
                 if running and not prev:
                     updates["dismiss_overlay"] = True
 
-        # Event / heat — module 12
-        if 12 in self._dirty:
+        # Event / heat — module 12 (13 when the timer swaps EVT/HT)
+        if self._event_module in self._dirty:
             # Digits 1, 3, 4 — not 1, 2, 3. Upstream GetDigits(12, 1, 3) steps over
             # digit 2 whenever it starts at digit 1.
-            ev = self._get_digits_int(12, (1, 3, 4))
-            ht = self._get_digits_int(12, (7, 8, 9))
+            ev = self._get_digits_int(self._event_module, (1, 3, 4))
+            ht = self._get_digits_int(self._event_module, (7, 8, 9))
             if ev > 0 and ht > 0:
                 updates["current_event"] = str(ev)
                 updates["current_heat"] = str(ht)

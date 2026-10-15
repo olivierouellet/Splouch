@@ -149,7 +149,7 @@ Keys derived directly from bytes received on the serial port.
 | 0 | Running Time | `running_time` | Implemented |
 | 1–10 | Lane 1–10 | `lane_running#`, `lane_place#`, `lane_time#` | Implemented |
 | 11 | Length/Record | `length_record` | Implemented |
-| 12 | Event/Heat | `current_event`, `current_heat` | Implemented |
+| 12 | Event/Heat | `current_event`, `current_heat` | Implemented (read from 13 when **Event / heat on scoreboard** is Swapped: the System 6 / Gen7 *EVT/HT* toggle moves event/heat to 0D and the team scores to 0C) |
 | 13 | Home/Guest/Guest* | — | Not parsed |
 | 14 | Place | `global_place` | Implemented |
 | 15 | Scroll | — | Not parsed |

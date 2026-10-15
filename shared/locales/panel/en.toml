@@ -585,6 +585,10 @@ console_opt_lane_zero              = "Lane digit 0"
 console_opt_lane_zero_help         = "The lane is one character. Other Swiss Timing outputs send lane 10 as 0; unconfirmed for this one."
 console_opt_lane_zero_10           = "Lane 10"
 console_opt_lane_zero_ignore       = "Ignore"
+console_opt_cts_event_module       = "Event / heat on scoreboard"
+console_opt_cts_event_module_help  = "Match the timer's Quick Options → EVT/HT (System 6, Gen7). Swapped puts event and heat on module 0D and the team scores on 0C."
+console_opt_cts_event_module_0C    = "Normal (module 0C)"
+console_opt_cts_event_module_0D    = "Swapped (module 0D)"
 
 # Units
 seconds = "seconds"
