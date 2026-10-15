@@ -174,6 +174,7 @@
         .filter-chip.type-swimmer { background: #1a3a5c; color: #7ec8f5; }
         .filter-chip.type-club    { background: #3a2800; color: #f5c040; }
         .filter-chip:active { opacity: 0.7; }
+        .chip-club { opacity: 0.7; }
         .chip-remove { opacity: 0.65; font-size: 1.1em; line-height: 1; }
 
         /* ── Upcoming toggle ── */
@@ -666,7 +667,12 @@ var _suggestIndex = null;
 
 function buildSuggestIndex() {
     // Maps, not objects: a numeric-looking club name would jump the key order.
+    // Swimmers key on name *and* club: two Olivia Gagnés in two clubs are two people,
+    // and keeping one of them would filter both under the other's label.
     var swimmers = new Map(), clubs = new Map();
+    function addSwimmer(name, club) {
+        swimmers.set(JSON.stringify([name, club]), { name: name, club: club });
+    }
     for (var i = 0; i < HEATS.length; i++) {
         var lanes = HEATS[i].lanes || [];
         for (var j = 0; j < lanes.length; j++) {
@@ -674,16 +680,19 @@ function buildSuggestIndex() {
             if (club) clubs.set(club, true);
             // Relay teams index under their team name too — a spectator who knows only
             // the team should still find the heat. Members are indexed below (S-14).
-            if (lane.name) swimmers.set(lane.name, club);
+            if (lane.name) addSwimmer(lane.name, club);
             var members = lane.swimmers || [];
             for (var k = 0; k < members.length; k++) {
-                if (members[k].name) swimmers.set(members[k].name, club);
+                if (members[k].name) addSwimmer(members[k].name, club);
             }
         }
     }
     var out = [];
-    Array.from(swimmers.keys()).sort().forEach(function(name) {
-        out.push({ type: 'swimmer', name: name, club: swimmers.get(name), key: foldName(name) });
+    Array.from(swimmers.values()).sort(function(a, b) {
+        return a.name < b.name ? -1 : a.name > b.name ? 1 :
+               a.club < b.club ? -1 : a.club > b.club ? 1 : 0;
+    }).forEach(function(sw) {
+        out.push({ type: 'swimmer', name: sw.name, club: sw.club, key: foldName(sw.name) });
     });
     Array.from(clubs.keys()).sort().forEach(function(name) {
         out.push({ type: 'club', name: name, key: foldName(name) });
@@ -707,7 +716,7 @@ function laneMatches(lane) {
     for (var i = 0; i < activeFilters.length; i++) {
         var f = activeFilters[i];
         if (f.type === 'club' && lane.club === f.name) return true;
-        if (f.type === 'swimmer') {
+        if (f.type === 'swimmer' && (lane.club || '') === f.club) {
             if (lane.name === f.name) return true;
             if (lane.swimmers) {
                 for (var j = 0; j < lane.swimmers.length; j++) {
@@ -719,8 +728,11 @@ function laneMatches(lane) {
     return false;
 }
 
-function filterExists(type, name) {
-    return activeFilters.some(function(f) { return f.type === type && f.name === name; });
+// A swimmer filter is a name and the club it was found with (`S-11`); a club's is ''.
+function filterExists(type, name, club) {
+    return activeFilters.some(function(f) {
+        return f.type === type && f.name === name && f.club === club;
+    });
 }
 
 function renderSchedule() {
@@ -795,8 +807,10 @@ function renderChips() {
     for (var i = 0; i < activeFilters.length; i++) {
         var f = activeFilters[i];
         html += '<button class="filter-chip type-' + esc(f.type) + '"' +
-                ' data-type="' + esc(f.type) + '" data-name="' + esc(f.name) + '">' +
-                esc(f.name) + ' <span class="chip-remove" aria-hidden="true">×</span></button>';
+                ' data-type="' + esc(f.type) + '" data-name="' + esc(f.name) + '"' +
+                ' data-club="' + esc(f.club) + '">' +
+                esc(f.name) + (f.club ? ' <span class="chip-club">' + esc(f.club) + '</span>' : '') +
+                ' <span class="chip-remove" aria-hidden="true">×</span></button>';
     }
     document.getElementById('chips-section').innerHTML = html;
     var count = activeFilters.length;
@@ -809,15 +823,17 @@ document.getElementById('chips-section').addEventListener('click', function(e) {
     var chip = e.target.closest('.filter-chip');
     if (!chip) return;
     activeFilters = activeFilters.filter(function(f) {
-        return !(f.type === chip.dataset.type && f.name === chip.dataset.name);
+        return !(f.type === chip.dataset.type && f.name === chip.dataset.name &&
+                 f.club === chip.dataset.club);
     });
     renderChips();
     renderSchedule();
 });
 
-function addFilter(type, name) {
-    if (!filterExists(type, name)) {
-        activeFilters.push({ type: type, name: name });
+function addFilter(type, name, club) {
+    if (type !== 'swimmer') club = '';
+    if (!filterExists(type, name, club)) {
+        activeFilters.push({ type: type, name: name, club: club });
         renderChips();
         renderSchedule();
     }
@@ -885,14 +901,15 @@ function renderSuggestions(items) {
     var html = '';
     for (var i = 0; i < items.length; i++) {
         var it = items[i];
-        var already = filterExists(it.type, it.name);
+        var already = filterExists(it.type, it.name, it.club || '');
         var typeLabel = TYPE_LABELS[it.type] || it.type;
         /* A button to a screen reader and a keyboard, and an inert one once added
            (docs/app.md `S-10`, `X-06`). */
         html += '<div class="suggestion-item' + (already ? ' already-added' : '') + '"' +
                 ' role="button" tabindex="' + (already ? '-1' : '0') + '"' +
                 (already ? ' aria-disabled="true"' : '') +
-                ' data-type="' + esc(it.type) + '" data-name="' + esc(it.name) + '">';
+                ' data-type="' + esc(it.type) + '" data-name="' + esc(it.name) + '"' +
+                ' data-club="' + esc(it.club || '') + '">';
         html += '<span class="sug-type ' + esc(it.type) + '">' + typeLabel + '</span>';
         html += '<span class="sug-name">' + esc(it.name) + '</span>';
         if (it.club) html += '<span class="sug-club">' + esc(it.club) + '</span>';
@@ -912,7 +929,7 @@ document.getElementById('suggestions').addEventListener('keydown', function(e) {
 document.getElementById('suggestions').addEventListener('click', function(e) {
     var item = e.target.closest('.suggestion-item');
     if (!item || item.getAttribute('aria-disabled') === 'true') return;
-    addFilter(item.dataset.type, item.dataset.name);
+    addFilter(item.dataset.type, item.dataset.name, item.dataset.club);
     refreshSuggestions();
 });
 

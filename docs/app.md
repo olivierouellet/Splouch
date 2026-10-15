@@ -722,9 +722,9 @@ says it can be tapped, is itself a tap target, and is the screen reader's action
 | `S-08` | Full-screen filter sheet, from top-bar button | closed by `[mobile] filter_done` (`T-05`) | all | must |
 | [`S-09`](#s-09) | Typeahead over swimmers + clubs, local, no delay | index from `S-01` `heats[]` — `lane.name`, `lane.club`, `lane.swimmers[].name` | all | must |
 | `S-10` | Suggestions show type (swimmer/club), name, club; already-added marked + inert | — | all | should |
-| `S-11` | Active filters as chips; × removes | — | all | must |
+| `S-11` | Active filters as chips; × removes. A swimmer chip is the name **and** the club it was found with | — | all | must |
 | `S-12` | Count badge on filter button | — | all | should |
-| `S-13` | Filters OR-ed: lane matches *any* club/swimmer filter | `laneMatches()` | all | must |
+| `S-13` | Filters OR-ed: lane matches *any* club/swimmer filter. Swimmer filter: name **and** `lane.club` both equal — same name, other club, no match | `laneMatches()` | all | must |
 | `S-14` | Swimmer filter matches relay members, not just display name | `lane.swimmers[]` | all | must |
 | `S-15` | Filters on: non-matching lanes hidden, heats with no match gone | — | all | must |
 | `S-16` | **All heats** toggle: every heat visible, lanes still filtered — answers "when does my kid swim next?" | — | all | should |
@@ -739,10 +739,10 @@ says it can be tapped, is itself a tap target, and is the screen reader's action
 `S-01` payload; server list could offer names this one lacks. Build from what's
 rendered; rebuild on `S-21`.
 
-**Index.** One entry per distinct `lane.name` (relay team names incl.) and
-`lane.swimmers[].name`, with lane's club (name in two clubs keeps later), then one per
-distinct club. Match: folded name contains folded query. Swimmers before clubs, each by
-name, cap 20.
+**Index.** One entry per distinct (name, club): `lane.name` (relay team names incl.) and
+`lane.swimmers[].name`, each with the lane's club — a name in two clubs is two entries,
+two swimmers — then one per distinct club. Match: folded name contains folded query.
+Swimmers before clubs, each by name (swimmers then by club), cap 20.
 
 **Fold, four steps:** lowercase; NFD; expand the 17 letters below (no canonical
 decomposition, else deleted next step); drop codepoints > `U+007F`.
@@ -760,7 +760,7 @@ skip step 3 → `Île-des-Sœurs` indexes as `ile-des-surs`. All clients fold id
 
 | ID | Feature | Driven by | Scope | Level |
 | --- | --- | --- | --- | --- |
-| `S-21` | New schedule from Pi refreshes list; active filters whose names still exist survive. Empty `heats` = loaded, no schedule yet → `S-07`, not error | `schedule_update` (no payload) on `/ws/schedule` → re-fetch `GET /meet/{id}/schedule` | all | must |
+| `S-21` | New schedule from Pi refreshes list; active filters still in it survive (a swimmer by name and club). Empty `heats` = loaded, no schedule yet → `S-07`, not error | `schedule_update` (no payload) on `/ws/schedule` → re-fetch `GET /meet/{id}/schedule` | all | must |
 
 ---
 
@@ -1100,6 +1100,13 @@ paused stays paused. iOS: a `Toggle` in the sheet's first section, the bell
 ---
 
 ## Changelog
+
+- **v3, amended** (2026-10-15, no bump) — same-name swimmers in two clubs stay two in
+  the schedule filter, as they already did in `N-02`. Client only: no server change.
+
+  - **Changed**: `S-09` (one entry per name and club, not per name), `S-11` (a swimmer
+    chip carries its club), `S-13` (a swimmer filter matches name and club),
+    `S-21` (a swimmer filter survives by name and club).
 
 - **v3, amended** (2026-10-10, no bump) — one Privacy section. Placement only: no
   server or string change.

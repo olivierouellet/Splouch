@@ -24,7 +24,7 @@ import pytest
 
 import cloud_server as cs
 import state
-from jsc import HAS_JS_ENGINE, js_argv
+from jsc import HAS_JS_ENGINE, js_argv, run_page
 from routes import meet as meet_routes
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -256,3 +256,66 @@ def test_an_accented_form_of_an_expanded_letter_still_reduces():
     got = _run_fold(["Ǿyvind", "oyvind", "Ǽsa", "aesa"])
     assert got["Ǿyvind"] == got["oyvind"] == "oyvind"
     assert got["Ǽsa"] == got["aesa"] == "aesa"
+
+
+# ── Same name, two clubs ──────────────────────────────────────────────────────
+# Two Olivia Gagnés in two clubs are two swimmers (`S-09`, `S-13`). The index used to
+# keep one entry per name, labelled with the later club, and the filter matched on the
+# name alone — so following the CNQ one also showed the PPO one's heat.
+
+_TWINS = [
+    {
+        "event": 2,
+        "heat": 1,
+        "event_name": "50 Libre",
+        "time": "10:00",
+        "lanes": [
+            {"lane": 3, "name": "Olivia Gagné", "club": "PPO", "swimmers": []},
+            {
+                "lane": 4,
+                "name": "Relais PPO",
+                "club": "PPO",
+                "swimmers": [{"pos": 1, "name": "Olivia Gagné", "first": "Olivia"}],
+            },
+        ],
+    },
+    {
+        "event": 3,
+        "heat": 1,
+        "event_name": "100 Dos",
+        "time": "10:20",
+        "lanes": [{"lane": 5, "name": "Olivia Gagné", "club": "CNQ", "swimmers": []}],
+    },
+]
+
+_TWINS_DRIVE = r"""
+function assert(ok, msg) { if (!ok) throw new Error(msg); }
+var hits = searchSuggestions('olivia gagne').filter(function (s) { return s.type === 'swimmer'; });
+assert(hits.length === 2, 'one entry per club: ' + JSON.stringify(hits));
+assert(hits[0].club === 'CNQ' && hits[1].club === 'PPO', 'by name, then club: ' + JSON.stringify(hits));
+addFilter('swimmer', 'Olivia Gagné', 'CNQ');
+var lanes = TWINS.map(function (h) { return h.lanes.filter(laneMatches).map(function (l) { return l.lane; }); });
+assert(JSON.stringify(lanes) === '[[],[5]]', 'only the CNQ swimmer: ' + JSON.stringify(lanes));
+assert(filterExists('swimmer', 'Olivia Gagné', 'CNQ'), 'CNQ added');
+assert(!filterExists('swimmer', 'Olivia Gagné', 'PPO'), 'PPO still offered');
+addFilter('swimmer', 'Olivia Gagné', 'PPO');
+lanes = TWINS.map(function (h) { return h.lanes.filter(laneMatches).map(function (l) { return l.lane; }); });
+assert(JSON.stringify(lanes) === '[[3,4],[5]]', 'both, relay member too: ' + JSON.stringify(lanes));
+"""
+
+
+@pytest.mark.skipif(not HAS_JS_ENGINE, reason="needs osascript or node")
+def test_a_name_in_two_clubs_is_two_swimmers():
+    from test_page_scripts_run import _SCHED_T, _render
+
+    html = _render(
+        "server/templates",
+        "schedule.html",
+        heats=_TWINS,
+        has_meet=True,
+        meet_name="Seahorses",
+        t=_SCHED_T,
+    )
+    # The page's `const HEATS` is scoped to its own script; the drive gets its own copy.
+    drive = f"var TWINS = {json.dumps(_TWINS)};\n{_TWINS_DRIVE}"
+    run_page(html.replace("</body>", f"<script>{drive}</script></body>"))
