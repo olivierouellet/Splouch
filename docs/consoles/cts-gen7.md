@@ -57,6 +57,7 @@ Follow the [general procedure](../admin.md#capturing-at-the-pool). The output's 
 3. **Splouch:** `Gen7` → `Gen7 serial output`.
 4. **Check:** *Connected*. Splouch sends the 4-byte start request on opening; the Serial Monitor then shows packets that start with a byte from `80` to `FF`. The payload is scrambled, so it is unreadable by eye — that is expected.
 5. **Record:** `.raw` (untested), then a `.serial` if the board shows times.
+6. **Also record:** 30 s with *Quick Options → Scoreboard State → Blank (with Time of Day)*. Splouch reads the clock it puts on lane 3's module as no time; the capture confirms the two modules match.
 
 ### RS-485 output set to CTS Legacy
 

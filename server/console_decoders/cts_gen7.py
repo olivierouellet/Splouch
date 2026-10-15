@@ -74,6 +74,10 @@ _BLANK_VALS = frozenset((15, 32))
 # the same addresses Gen6 uses for its lanes 11-12.
 _LANE_MODULE: dict[int, int] = {**{ln: ln for ln in range(1, 11)}, 11: 0x17, 12: 0x18}
 
+# Time of day. In "Blank (with Time of Day)" the Gen7 also puts it on modules 03 and
+# 0F (F1034 p.22) — 03 is lane 3's module.
+_TOD_MODULE = 0x16
+
 
 class _Digit:
     __slots__ = ("value", "dec_point")
@@ -386,6 +390,28 @@ class CTSGen7Decoder(ConsoleDecoder):
         """The lanes the pool uses that have a module (12 at most)."""
         return range(1, min(self.num_lanes, len(_LANE_MODULE)) + 1)
 
+    def _shows_time_of_day(self, mod: int) -> bool:
+        """True when a lane's module is showing the time of day, not a swim.
+
+        "Blank (with Time of Day)" puts the clock on module 03 as well as 0x16 (F1034
+        p.22); read as lane 3 it is a time that ticks once a second over an empty
+        pool, and with no place it holds the heat open. The Gen6 does the same, see
+        CTSGen6Decoder._shows_time_of_day.
+
+        Every condition is needed: a finish always has a place, a racing lane follows
+        the running clock (univ), and the digits must be the time of day's exactly.
+        If module 03 lays the clock out differently this never fires — no worse than
+        reading it as a time.
+        """
+        if self._mod[mod].univ:
+            return False
+        if any(self._char(mod, d) != " " for d in range(4)):
+            return False
+        tod = [self._char(_TOD_MODULE, d) for d in range(4, 10)]
+        if all(c == " " for c in tod):
+            return False
+        return [self._char(mod, d) for d in range(4, 10)] == tod
+
     def _collect_updates(self) -> dict:
         updates: dict = {}
 
@@ -402,13 +428,17 @@ class CTSGen7Decoder(ConsoleDecoder):
                 if self._mod[mod].univ:
                     self._dirty.add(mod)
 
+        # A new time of day can turn a lane's digits into the clock, or back.
+        if _TOD_MODULE in self._dirty:
+            self._dirty.update(_LANE_MODULE[lane] for lane in self._lanes())
+
         # Lanes 1-10 — modules 1-10; lanes 11-12 — modules 0x17, 0x18
         for lane in self._lanes():
             mod = _LANE_MODULE[lane]
             if mod not in self._dirty:
                 continue
             m = self._mod[mod]
-            t = self._get_time(mod, start=4, count=6)
+            t = "" if self._shows_time_of_day(mod) else self._get_time(mod, 4, 6)
             # Place is a two-character field, digits 2-3 (GetDigits reads 0-1 and
             # 2-3 as pairs), so a 10th place keeps its leading 1.
             place = (self._char(mod, 2) + self._char(mod, 3)).strip() or " "

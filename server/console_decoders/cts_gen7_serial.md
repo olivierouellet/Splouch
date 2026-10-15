@@ -236,6 +236,8 @@ digits 4–9 as `MM:SS.d` (tenths).
 | Reset | Any of modules 1–9 has `digit[1].decPoint == True`, or module 15 `digit[1].decPoint == True` |
 | Running | Sport is swimming and previous state was not None |
 | BlankWithTime | All lanes blank AND module 22 digits 5–6 are non-blank |
+
+In **Blank (with Time of Day)** the clock also goes on modules 03 and 0F (F1034 p.22). Module 03 is lane 3: the decoder reads a lane module as no time when its lane and place digits are blank, it is not following the running clock, and its digits 4–9 match module 22's.
 | TotalBlank | All lanes blank AND no time-of-day showing |
 
 ---

@@ -97,6 +97,49 @@ def test_gen7_lanes_past_the_pool_ignore_their_modules():
     assert not any(k.endswith(("11", "12")) for k in updates)
 
 
+_GEN7_CLOCK = [(4, " "), (5, "9"), (6 | 0x40, "4"), (7 | 0x40, "2"), (8, "1"), (9, "5")]
+
+
+def test_gen7_blank_with_time_of_day_puts_no_time_in_lane_3():
+    """Blank (with Time of Day) puts the clock on module 03 too (F1034 p.22)."""
+    d = CTSGen7Decoder({"num_lanes": 8})
+    _gen7_feed(d, _gen7_encode(0x80 | 0x16, _gen7_digits(_GEN7_CLOCK)))
+    updates = _gen7_feed(d, _gen7_encode(0x83, _gen7_digits(_GEN7_CLOCK)))
+    assert updates.get("lane_time3", "") == ""
+    assert d.get_lane_time(3) == ""
+
+
+def test_gen7_time_of_day_arriving_after_lane_3_clears_it():
+    d = CTSGen7Decoder({"num_lanes": 8})
+    first = _gen7_feed(d, _gen7_encode(0x83, _gen7_digits(_GEN7_CLOCK)))
+    assert first["lane_time3"]
+    updates = _gen7_feed(d, _gen7_encode(0x80 | 0x16, _gen7_digits(_GEN7_CLOCK)))
+    assert updates["lane_time3"] == ""
+
+
+def test_gen7_a_placed_time_equal_to_the_clock_is_kept():
+    d = CTSGen7Decoder({"num_lanes": 8})
+    _gen7_feed(d, _gen7_encode(0x80 | 0x16, _gen7_digits(_GEN7_CLOCK)))
+    placed = _gen7_digits([(3, "1"), *_GEN7_CLOCK])
+    updates = _gen7_feed(d, _gen7_encode(0x83, placed))
+    assert updates["lane_time3"] == "9:42.15"
+
+
+def test_gen7_a_racing_lane_equal_to_the_clock_is_kept():
+    d = CTSGen7Decoder({"num_lanes": 8})
+    _gen7_feed(d, _gen7_encode(0x80 | 0x16, _gen7_digits(_GEN7_CLOCK)))
+    _gen7_feed(d, _gen7_encode(0x80, _gen7_digits(_GEN7_CLOCK)))  # running time
+    updates = _gen7_feed(d, _gen7_encode(0x83 | 0x40, _gen7_digits(_GEN7_CLOCK)))
+    assert updates["lane_time3"] == "9:42.15"
+    assert updates["lane_running3"] is True
+
+
+def test_gen7_lane_time_without_a_time_of_day_is_kept():
+    d = CTSGen7Decoder({"num_lanes": 8})
+    updates = _gen7_feed(d, _gen7_encode(0x83, _gen7_digits(_GEN7_CLOCK)))
+    assert updates["lane_time3"] == "9:42.15"
+
+
 def test_gen7_place_keeps_both_digits():
     d = CTSGen7Decoder({"num_lanes": 10})
     updates = _gen7_feed(d, _gen7_encode(0x8A, _gen7_digits([(2, "1"), (3, "0")])))
