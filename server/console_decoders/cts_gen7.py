@@ -1,4 +1,5 @@
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
 
 from .base import (
@@ -175,7 +176,7 @@ class CTSGen7Decoder(ConsoleDecoder):
         # A stop that lasts `split_min_duration` is a touch; see `_count_lengths`.
         self._splits: dict[int, int] = {}
         self._stopped_at: dict[int, float] = {}
-        self._clock = time.monotonic
+        self._clock: Callable[[], float] = time.monotonic
 
         self.configure(cfg)
 

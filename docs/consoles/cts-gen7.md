@@ -70,6 +70,7 @@ Follow the [general procedure](../admin.md#capturing-at-the-pool). The output's 
 10. **Also record:** a 200 with every lane swimming, through to its results, as `.raw`. The lap count on the board should reach 8 (4 in a 50 m pool) on every lane, one touch at a time. Write down each lane's split times from the Gen7 screen: this capture is what decodes the split times the RS-485 stream carries after each lane's time (not decoded yet).
 11. **Also record** (a facility with two pools on one Gen7): 30 s with both pools racing, **Pool** set to 2. Splouch should show pool 2 only; write down which pool each output was mapped to.
 12. **Also record** (a meet whose start lists the meet software sends to the Gen7): 30 s around an event change, as `.raw`, with no meet file loaded in Splouch. Write down the event title and each lane's name and team as the Gen7 shows them: this capture is what decodes the swimmer names the RS-485 stream carries (command 18, not decoded yet). If you can, capture the meet PC's UDP traffic to the Gen7 (port 60287) as well.
+13. **Also copy** the `.gen` files the Gen7 wrote during the session (*Meet Management File Export*, written at each Save and Reset — F1034 pp.35, 88), with a photo of the Gen7's results screen for one heat. Splouch does not read them yet: a real file is what decides its format, and whether Splouch takes it by upload (like the Lenex file on `/mm`) or from a shared folder.
 
 ### RS-485 output set to CTS Legacy
 

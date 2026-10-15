@@ -195,7 +195,7 @@ class _Clock:
     def __init__(self):
         self.t = 0.0
 
-    def __call__(self):
+    def __call__(self) -> float:
         return self.t
 
 

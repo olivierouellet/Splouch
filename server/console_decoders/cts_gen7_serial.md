@@ -316,3 +316,9 @@ Implemented in `console_decoders/cts_gen7.py` (`CTSGen7Decoder`).
 ## Test patterns
 
 Self Test (every segment lit, `88:88.88`), Show Definitions (each module's address in its hundredths, `01`…`18`) and Gen7 diagnostics (letters in the place and time) are not swims. A lane line is skipped — the lane keeps what it had, and the line is not filed under the lane it names — unless its time has no letter, seconds under 60, a place a pool can have, and, stopped, at least one second (`utils.is_swim_line`). A running time of `88:88` is skipped the same way.
+
+## Results file (`.gen`)
+
+The Gen7 software's *Meet Management File Export* writes a `.gen` file after each Save and Reset (F1034 pp.35, 88): the times after the officials' corrections, splits, backup buttons, relay exchanges, DQ / NS. It would sit between the console's provisional times and the official ones a Lenex re-upload brings (`app.md` `S-22`, `S-23`), and be the only live source of splits and DQs.
+
+Not read: no file and no spec has been seen. It waits for a sample (cts-gen7.md, capture step 13), which settles the format and how it reaches the Pi — an upload on `/mm`, or a folder shared from the Gen7 PC. Hy-Tek reads `.gen` itself; Splash pools already get official times from the Lenex re-upload.
