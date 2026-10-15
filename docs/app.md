@@ -172,10 +172,11 @@ Entry screen. Web: site root. App: launch screen, and `A-02`'s return target.
 | [`P-16`](#p-11) | QR scan adds server: app asks; yes → adds, selects, lands on **meet list**. No app → page offers store | `https://<default host>/add?server=<origin>`; host's two `/.well-known/` files, `GET /add` ([`api.md`](api.md) §4) | native | should |
 | [`P-17`](#p-17) | Search meet list from **3** meets, narrows as typed, own empty state; field where platform puts search | local over `GET /meets` → `name`, `meet_date`, `location`, `sport`, `organizer`, `province`, `country` (code and reader's-language name); `strings.meet_search`, `no_meets_match` | all | should |
 | `P-18` | More than **10** meets → compact rows, still under their day: name on one line, city · state/province · country codes, live dot, `N-13`'s bell; **no picker image**, none fetched. 10 or fewer → `P-01` cards | count of `GET /meets` → `meets` | all | should |
-| [`P-19`](#p-19) | **Settings** — one container in place of picker menu, sections in this order: Display (language `T-08`, Appearance `P-15`), Notifications (`N-12`, native), Server (`P-11`–`P-13`, native), About (`P-06` full text, `P-20` replay, version), Privacy (`P-07` while counting, policy link) — the policy linked once. Platform's own form: web side sheet (full height under 600px), iOS sheet with `Form`, Android full-screen settings destination | section names native in apps (`T-05`); web reads `strings.settings`, `settings_display`, `settings_privacy`, `settings_about` | all | should |
+| [`P-19`](#p-19) | **Settings** — one container in place of picker menu, sections in this order: Display (language `T-08`, Appearance `P-15`, results order `P-23`), Notifications (`N-12`, native), Server (`P-11`–`P-13`, native), About (`P-06` full text, `P-20` replay, version), Privacy (`P-07` while counting, policy link) — the policy linked once. Platform's own form: web side sheet (full height under 600px), iOS sheet with `Form`, Android full-screen settings destination | section names native in apps (`T-05`); web reads `strings.settings`, `settings_display`, `settings_privacy`, `settings_about` | all | should |
 | [`P-20`](#p-20) | **Introduction** on first launch, once per install, replayable from settings About: unofficial results (`P-06`), finding a meet, three tabs and how to read a lane, the schedule's times, following a swimmer or club, attendance counting with its toggle (`C-10`) | first and last pages server text (`results_disclaimer`, `privacy_note`), rest native words (`T-05`); last page only while `analytics_enabled` | native | should |
 | [`P-21`](#p-21) | **Filter** the meet list by country, state/province and club (organizer), in that order, several values each; **remembered** by the app across launches and servers. Country and state/province list every one the app knows (`shared/regions/subdivisions.json`), plus any other the list holds; club lists the clubs the list holds, plus any the spectator adds by its official letters; a province narrows its own country only, clubs narrow the places (OR within a facet). Active filter → a line at the end of the list says meets are hidden, with *Clear*; filter hides every meet → own empty state with *Clear*, not `P-04`/`P-17`'s | local over `GET /meets` → `country`, `province`, `organizer`; stored pref, one per app; words native (`T-05`) | native | should |
 | `P-22` | A test meet carries a **TEST** badge after its name, on its card and its compact row (`P-18`): small, bold, uppercase as served, outlined in the accent colour. The name is a team's and does not say it is a test; the badge does. Not searched (`P-17`) | `GET /meets` → `test`; `strings.test_meet` | all | should |
+| `P-23` | Spectator's **results order** — *As the pool sets it* (default), *By lane*, *By place* — in settings Display (`P-19`), after Appearance; applies to every meet's Results tab (`R-05`, `R-06`). The pool's order is only the default: a reader's choice outranks it, and the client ranks by place itself when the pool sorted by lane | stored pref; `results_snapshot` → `sort`, `lanes[].channel`, `place_int`; web: cookie `splouch_results` (`lane` / `place`, absent = pool's); web reads `strings.results_order`, `results_order_pool` / `_lane` / `_place` | all | should |
 
 ### <a id="p-01"></a>P-01 — a day, then its meets
 
@@ -251,7 +252,7 @@ section twice:
 
 | Section | Holds | Web | iOS | Android |
 | --- | --- | --- | --- | --- |
-| Display | language (`T-08`), Appearance (`P-15`) | radio groups | language row → list, Appearance `Picker` | language row → dialog, Appearance radio rows |
+| Display | language (`T-08`), Appearance (`P-15`), results order (`P-23`) | radio groups | language row → list, Appearance and results order `Picker`s | language row → dialog, Appearance and results order radio rows |
 | Notifications | `N-12`, only while a meet has follows | — (no notifications) | a `Toggle` row per meet, then *Pause all* | a `Switch` row per meet, then *Pause all* |
 | Server | `P-11`–`P-13`, `P-14` notice | — (no server choice) | row with current server → server list | row → server sheet |
 | About | `P-06` full text, *Show introduction* (`P-20`, native), app version | text | `Section` text | text |
@@ -651,8 +652,8 @@ Absent for meet without timing console (`A-11`); below applies where it exists.
 | `R-02` | Disconnect or `meet_live` false **wipes board** back to that state | `disconnect`, `meet_live` | all | must |
 | `R-03` | Header shows snapshot's own event, heat, event name | `results_snapshot` | all | must |
 | `R-04` | Same six columns + visibility flags as Scoreboard | shared config | all | must |
-| `R-05` | **Lane sort**: row index = `channel`; lane w/o final time → its number and still water (`L-25`) | `sort == "lane"`, or `sort` absent | all | must |
-| `R-06` | **Place sort**: rows fill top-down as ranking; unfilled ranks → no lane number, no dash, still water (`L-25`) | `sort == "place"` | all | must |
+| `R-05` | **Lane sort**: row index = `channel`; lane w/o final time → its number and still water (`L-25`) | reader's `P-23` order, else `sort == "lane"`, or `sort` absent | all | must |
+| `R-06` | **Place sort**: rows fill top-down as ranking (by `place_int`, the client ranks them when the server sorted by lane); unfilled ranks → no lane number, no dash, still water (`L-25`) | reader's `P-23` order, else `sort == "place"` | all | must |
 | `R-07` | A result missing its time → `—`, not blank; missing **place** → empty, no dash, no `#`. A row with no result is `L-25`, not `—` | — | all | should |
 | [`R-08`](#l-17) | Long names shrink, don't clip — as `L-17` | — | all | should |
 | `R-09` | Final times get "locked" styling | `r.time` non-empty | all | should |
@@ -1100,6 +1101,13 @@ paused stays paused. iOS: a `Toggle` in the sheet's first section, the bell
 ---
 
 ## Changelog
+
+- **v3, amended** (2026-10-15, no bump) — each reader picks the results order. Additive:
+  the server still sends `sort`, now the pool's default; a client without `P-23`
+  keeps following it.
+
+  - **Added**: `P-23` (results order in settings Display).
+  - **Changed**: `P-19` (Display holds it), `R-05`, `R-06` (the reader's order first).
 
 - **v3, amended** (2026-10-15, no bump) — same-name swimmers in two clubs stay two in
   the schedule filter, as they already did in `N-02`. Client only: no server change.

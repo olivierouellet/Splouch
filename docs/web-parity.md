@@ -40,6 +40,7 @@ from; the `diverges` rows are where v2 moved past them.
 | `P-20` | `n/a` | native-only — the `P-06` line does the job on the web |
 | `P-21` | `n/a` | native-only |
 | `P-22` | `done` | `.test-badge` after `.card-name` in `picker.html`, on cards and compact rows alike, from `t.test_meet` |
+| `P-23` | `done` | Display section of `picker.html`'s sheet, cookie `splouch_results`; `results.html` reads it and ranks by `place_int` itself. A Pi serves no picker, so its pages follow the pool's order. `test_results_order.py` |
 
 ## 2. App shell
 

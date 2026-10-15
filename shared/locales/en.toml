@@ -115,10 +115,14 @@ prefs_long   = "Long"
 # The reader's light or dark, for the picker and every meet page (docs/app.md P-15).
 # The web picker's words: the apps carry their own, since they show it before any
 # server answers (T-05).
-appearance       = "Appearance"
-appearance_dark  = "Dark"
-appearance_light = "Light"
-appearance_auto  = "Automatic"
+appearance          = "Appearance"
+appearance_dark     = "Dark"
+appearance_light    = "Light"
+appearance_auto     = "Automatic"
+results_order       = "Results order"
+results_order_pool  = "As the pool sets it"
+results_order_lane  = "By lane"
+results_order_place = "By place"
 
 # Filter sheet.
 filter            = "Filter"

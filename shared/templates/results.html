@@ -72,6 +72,19 @@ function clearResults() {
     speakBoard();
 }
 
+/* The reader's own order (`P-23`), set in the picker's settings: a cookie on this
+   server, since the picker and the meet pages share an origin. Empty = the pool's
+   order, the snapshot's `sort`. A Pi has no picker, so there it is always empty. */
+function readerResultsOrder() {
+    var m = document.cookie.match(/(?:^|; )splouch_results=(lane|place)(?:;|$)/);
+    return m ? m[1] : '';
+}
+
+function placeRank(r) {
+    var p = parseInt(r.place_int !== undefined ? r.place_int : (r.place || '').trim(), 10);
+    return isNaN(p) ? 99 : p;
+}
+
 function renderResults(d) {
     on_timer();
     var lanes = (d && d.lanes) ? d.lanes : [];
@@ -83,8 +96,16 @@ function renderResults(d) {
     /* Map each result to a display row. In lane mode (the default) a row equals its
        lane number, so a lane with no final time leaves that row blank instead of
        shifting the lanes below it up. In place mode the list is a ranking, so it
-       fills rows top-down. A relay predating the field omits `sort` → lane mode. */
-    var byRow = {}, laneMode = !d.sort || d.sort === 'lane';
+       fills rows top-down. A relay predating the field omits `sort` → lane mode.
+       The reader's own choice outranks the pool's (`P-23`); the server sorted for
+       the pool's, so a reader who wants places ranks them here. */
+    var order = readerResultsOrder() || d.sort || 'lane';
+    var byRow = {}, laneMode = order !== 'place';
+    if (!laneMode) {
+        lanes = lanes.slice().sort(function(a, b) {
+            return placeRank(a) - placeRank(b) || a.channel - b.channel;
+        });
+    }
     lanes.forEach(function(r, idx) {
         /* `channel` is the pool's lane number; rows start at 1 (FIRST_LANE). */
         var row = laneMode ? parseInt(r.channel, 10) - FIRST_LANE + 1 : idx + 1;

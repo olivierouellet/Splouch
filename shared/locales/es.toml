@@ -120,10 +120,14 @@ prefs_short  = "Cortas"
 prefs_long   = "Largas"
 # Claro u oscuro, a elección del lector, para el selector y cada competición
 # (docs/app.md P-15).
-appearance       = "Apariencia"
-appearance_dark  = "Oscuro"
-appearance_light = "Claro"
-appearance_auto  = "Automático"
+appearance          = "Apariencia"
+appearance_dark     = "Oscuro"
+appearance_light    = "Claro"
+appearance_auto     = "Automático"
+results_order       = "Orden de resultados"
+results_order_pool  = "Como lo fija la piscina"
+results_order_lane  = "Por calle"
+results_order_place = "Por posición"
 
 # Hoja de filtros.
 filter            = "Filtrar"
