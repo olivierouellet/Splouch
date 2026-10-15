@@ -191,6 +191,61 @@ def test_gen7_self_test_changes_no_lane():
     assert "running_time" not in _gen7_feed(d, _gen7_encode(0x80, lit))
 
 
+class _Clock:
+    def __init__(self):
+        self.t = 0.0
+
+    def __call__(self):
+        return self.t
+
+
+def _gen7_lap_race(cfg, stops):
+    """Lane 1 swims; each (stop, go) pair is seconds stopped, None = the finish."""
+    d = CTSGen7Decoder({"num_lanes": 2, **cfg})
+    clock = _Clock()
+    d._clock = clock
+    split = _gen7_digits(
+        [(5, "3"), (6 | 0x40, "0"), (7 | 0x40, "1"), (8, "2"), (9, "3")]
+    )
+    counts = []
+    _gen7_feed(d, _gen7_encode(0x80 | 0x40 | 1, split))  # start: lane 1 racing
+    for held in stops:
+        clock.t += 30
+        u = _gen7_feed(d, _gen7_encode(0x81, split))  # touch: univ off, split shown
+        counts.append(u.get("lane_splits1"))
+        if held is None:
+            break
+        clock.t += held
+        u = _gen7_feed(d, _gen7_encode(0x80 | 0x40 | 1, split))  # goes on
+        counts.append(u.get("lane_splits1"))
+    return d, counts
+
+
+def test_gen7_counts_a_length_at_each_touch_and_the_finish():
+    d, counts = _gen7_lap_race({"touchpad_sides": 2}, [5, 5, 5, None])
+    assert counts == [1, None, 2, None, 3, None, 4]
+    assert d.reset_lanes()["lane_splits1"] == 0
+    assert d.adjust_splits(1, 1) == 1
+
+
+def test_gen7_one_end_pads_count_in_twos():
+    _, counts = _gen7_lap_race({"touchpad_sides": 1}, [5, None])
+    assert counts == [2, None, 4]
+
+
+def test_gen7_a_flicker_is_no_touch():
+    _, counts = _gen7_lap_race(
+        {"touchpad_sides": 2, "split_min_duration": 1.0}, [0.3, None]
+    )
+    assert counts == [1, 0, 1]
+
+
+def test_gen7_reads_lengths_record_from_module_0b():
+    d = CTSGen7Decoder({"num_lanes": 2})
+    u = _gen7_feed(d, _gen7_encode(0x8B, _gen7_digits([(0, "1"), (1, "2")])))
+    assert u["length_record"] == "12"
+
+
 def test_gen7_place_keeps_both_digits():
     d = CTSGen7Decoder({"num_lanes": 10})
     updates = _gen7_feed(d, _gen7_encode(0x8A, _gen7_digits([(2, "1"), (3, "0")])))

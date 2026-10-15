@@ -299,6 +299,8 @@ Implemented in `console_decoders/cts_gen7.py` (`CTSGen7Decoder`).
 | Running time (module 0) | Done |
 | Lane times, places, running flag (modules 1–10, 23, 24) | Done |
 | Event / heat detection (module 12) | Done |
+| Lengths per lane (`lane_splits#`) | Done — inferred: each stop of a lane's univ flag is a touch, undone if it resumes within `split_min_duration`; `split_step` per touch |
+| Lengths / record (module 11, 0x0B) | Done — `length_record`, the operator page's |
 | Swimmer names / meet title (command 18) | Not implemented — Lenex integration covers this |
 | Split times (digits 10+ per lane module) | Not implemented — needs a live multi-length capture |
 | Multi-pool (pools 1–3) | Not implemented |

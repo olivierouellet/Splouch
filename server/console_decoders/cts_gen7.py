@@ -1,7 +1,8 @@
+import time
 from dataclasses import dataclass
 
 from .base import CTS_EVENT_MODULE, ConsoleDecoder, SerialConfig, cts_event_module
-from .utils import first_lane_of, is_swim_line, line_row
+from .utils import first_lane_of, is_swim_line, line_row, split_step
 
 # ── Cipher ────────────────────────────────────────────────────────────────────
 #
@@ -148,6 +149,13 @@ class CTSGen7Decoder(ConsoleDecoder):
         self.last_event_sent: tuple[int, int] = (0, 0)
         self.lane_seed_times: dict[int, str] = {}
 
+        # Lap counting. The Gen7 sends no lap number, but a lane stops at each touch
+        # — its module drops the univ flag and shows the split — and goes on after.
+        # A stop that lasts `split_min_duration` is a touch; see `_count_lengths`.
+        self._splits: dict[int, int] = {}
+        self._stopped_at: dict[int, float] = {}
+        self._clock = time.monotonic
+
         self.configure(cfg)
 
     # ── ConsoleDecoder interface ───────────────────────────────────────────────
@@ -180,6 +188,8 @@ class CTSGen7Decoder(ConsoleDecoder):
         self.num_lanes = int(cfg.get("num_lanes", 10))
         self._event_module = cts_event_module(cfg)
         self.first_lane = first_lane_of(cfg)
+        self._split_min = float(cfg.get("split_min_duration", 1.0))
+        self._pad_sides = int(cfg.get("touchpad_sides", 1) or 1)
 
     def set_seed_times(self, times: dict) -> None:
         self.lane_seed_times = dict(times)
@@ -200,13 +210,40 @@ class CTSGen7Decoder(ConsoleDecoder):
             updates[f"lane_place{i}"] = " "
             updates[f"lane_running{i}"] = False
             updates[f"lane_delta{i}"] = ""
-            # This console reports no lap number, so nothing here ever raises the
-            # count — but the key is part of the reset contract every other decoder
-            # honours, and a board that carries a lap from a previous console (or a
-            # custom decoder swapped in at runtime) must not keep it across a heat.
             updates[f"lane_splits{i}"] = 0
+        self._splits.clear()
+        self._stopped_at.clear()
         self.lane_seed_times.clear()
         return updates
+
+    def adjust_splits(self, lane: int, delta: int) -> int:
+        val = max(0, self._splits.get(lane, 0) + delta)
+        self._splits[lane] = val
+        return val
+
+    def _count_lengths(
+        self, lane: int, prev: bool, running: bool, updates: dict
+    ) -> None:
+        """Count the touch a lane's running flag tells of.
+
+        Every touch stops the lane — a split mid-race, the finish at the end — so a
+        stop counts at once, worth `split_step` lengths (touchpads at one end or
+        both). A lane that goes on within `split_min_duration` did not touch: that
+        was a flicker, and the count goes back. Neither the place (a split can post
+        an intermediate one) nor a later packet (the Gen7 sends only on change) can
+        say which stop was the finish, and neither needs to.
+        """
+        now = self._clock()
+        step = split_step(self._pad_sides)
+        if prev and not running:
+            self._stopped_at[lane] = now
+            self._splits[lane] = self._splits.get(lane, 0) + step
+            updates[f"lane_splits{lane}"] = self._splits[lane]
+        elif running and not prev:
+            stopped = self._stopped_at.pop(lane, None)
+            if stopped is not None and now - stopped < self._split_min:
+                self._splits[lane] = max(0, self._splits.get(lane, 0) - step)
+                updates[f"lane_splits{lane}"] = self._splits[lane]
 
     def race_finished(self) -> bool:
         any_placed = False
@@ -476,12 +513,18 @@ class CTSGen7Decoder(ConsoleDecoder):
             if place != self._lane_places.get(lane, " "):
                 self._lane_places[lane] = place
                 updates[f"lane_place{lane}"] = place
-            if running != self._lane_running.get(lane, False):
-                prev = self._lane_running.get(lane, False)
+            prev = self._lane_running.get(lane, False)
+            if running != prev:
                 self._lane_running[lane] = running
                 updates[f"lane_running{lane}"] = running
                 if running and not prev:
                     updates["dismiss_overlay"] = True
+            self._count_lengths(lane, prev, running, updates)
+
+        # Lengths / record — module 11 (0x0B), the race-wide count as the board shows
+        # it (up or down, the console's choice): the operator page's, like Gen6's.
+        if 11 in self._dirty:
+            updates["length_record"] = self._digits(11, 0, 10).strip()
 
         # Event / heat — module 12 (13 when the timer swaps EVT/HT)
         if self._event_module in self._dirty:

@@ -64,6 +64,7 @@ Follow the [general procedure](../admin.md#capturing-at-the-pool). The output's 
 7. **Also record:** 30 s with *Quick Options → EVT/HT* swapped and team scores entered, with **Event / heat on scoreboard** set to Swapped. Set both back after.
 8. **Also record:** a finished heat with *Lane Module Order* set to Place. Splouch should show the same times on the same lanes as in lane order.
 9. **Also record:** 10 s each of the scoreboard self test and diagnostics. Splouch should show neither: no `88:88.88`, no letters in a time, no lane moved.
+10. **Also record:** a 200 with every lane swimming. The lap count on the board should reach 8 (4 in a 50 m pool) on every lane, one touch at a time.
 
 ### RS-485 output set to CTS Legacy
 
