@@ -243,6 +243,9 @@ function splouchSocket(path) {
    hand-entered title that parses into no parts still reaches the header. */
 function composeEventName(parts, vocab) {
     if (!parts || !vocab) return '';
+    /* A name that is a kind (the console's test race), not parsed parts: the
+       vocabulary's word, or the meet's own when this one lacks it. */
+    if (parts.kind) return vocab[parts.kind] || parts.raw || '';
     var word = function (k) {
         return k ? vocab[k] || k : '';
     };

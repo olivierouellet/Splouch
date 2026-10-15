@@ -90,11 +90,23 @@ def get_event_name_parts(event_num):
     that does not compose keeps rendering the string, which is already correct for
     anyone who has not chosen a language (docs/app.md `T-04`).
 
-    None for the test race: an app knows no key for it yet, and with no parts it
-    shows `event_name` as it is — in the meet's language.
+    The test race is a `kind`, not a name to parse: a client that knows the key
+    shows the vocabulary's word for it, in its reader's language. One that does not
+    finds nothing else to compose and shows `raw`, the meet's language — exactly
+    what it showed before the key existed (api.md §5.1).
     """
     if event_num == TEST_EVENT:
-        return None
+        return {
+            "raw": get_event_name_display(TEST_EVENT),
+            "dist": "",
+            "stroke": "",
+            "relay": False,
+            "gender": "",
+            "age": "",
+            "age_key": "",
+            "round": "",
+            "kind": "test_race",
+        }
     return state.parse_event_name(
         _raw_event_name(event_num), shown_round(event_num, "phone")
     )

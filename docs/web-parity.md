@@ -110,7 +110,7 @@ from; the `diverges` rows are where v2 moved past them.
 | `T-03`–`T-08` | `done` | |
 | `T-09` | `done` | long on the board on both servers (`_client_style`, `client_prefs`); the schedule route pins its cards short (`S-01`) |
 | `T-10` | `n/a` | the server renders the strings into the page; there is no build to snapshot into |
-| `T-11` | `done` | `composeEventName` |
+| `T-11` | `done` | `composeEventName`, `kind` included (`test_test_race.py`) |
 
 ## 8. Accessibility
 

@@ -852,7 +852,7 @@ client-produced.
 | [`T-08`](#t-08) | Per-device language control, for every meet opened after | `GET /locales` for list; control's words native in apps (`T-05`), web reads `strings.language`, `language_auto` | all | should |
 | [`T-09`](#t-09) | Board EVENT/HEAT **long** on every client; optional per-device control may switch those two only | stored pref; words from `GET /i18n/{lang}` → `labels` | all | should |
 | [`T-10`](#t-10) | Built-in strings snapshot = floor: compiled in, refreshed from server, cached to disk | — | all | must |
-| [`T-11`](#t-11) | Event name follows chosen language, composed from server parts | `update_scoreboard.event_name_parts` + `GET /i18n/{lang}` → `event_name`; else `event_name` | all | should |
+| [`T-11`](#t-11) | Event name follows chosen language, composed from server parts; a part with a `kind` (the console's test race, event 0) is that word alone, `raw` when the vocabulary lacks it | `update_scoreboard.event_name_parts` (`kind`: `test_race`) + `GET /i18n/{lang}` → `event_name`; else `event_name` | all | should |
 
 ### <a id="t-04"></a>T-04 — not a translation
 
@@ -1101,6 +1101,12 @@ paused stays paused. iOS: a `Toggle` in the sheet's first section, the bell
 ---
 
 ## Changelog
+
+- **v3, amended** (2026-10-15, no bump) — the console's test race (event 0) is named
+  in the reader's language. Additive: `event_name_parts` gains `kind`, and a client
+  that ignores it shows `raw`, the meet's language, as before.
+
+  - **Changed**: `T-11` (a part with a `kind` is that word alone).
 
 - **v3, amended** (2026-10-15, no bump) — each reader picks the results order. Additive:
   the server still sends `sort`, now the pool's default; a client without `P-23`

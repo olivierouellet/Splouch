@@ -396,7 +396,10 @@ field rides on `results_snapshot` (§5.2) and each heat of `GET /meet/{id}/sched
 **Event 0** is the console's test race (every Gen7 sequence has one; any CTS can be
 set to it). `current_event` is `"0"`, `current_heat` the console's, `event_name` is
 the `event_name` vocabulary's `test_race` in the meet's language, and
-`event_name_parts` is `null` — so every client shows that text. No `results_snapshot`
+`event_name_parts` is `{"kind": "test_race", "raw": <that name>, …}` with every other
+field empty. A client that knows `kind` shows the vocabulary's word for it in the
+reader's language (or `raw` when its vocabulary lacks the key); one that does not
+finds nothing to compose and shows `raw` — what it showed before `kind` existed. No `results_snapshot`
 follows it: Results keep the last real heat.
 
 It is **additive and optional**: `event_name` is still sent and is already right for

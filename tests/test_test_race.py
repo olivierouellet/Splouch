@@ -53,7 +53,12 @@ def test_the_test_race_is_named_in_the_meets_language(monkeypatch):
     assert meet_data.get_event_name_display(0) == "Course test"
     monkeypatch.setitem(state.settings, "locale", "en")
     assert meet_data.get_event_name_display(0) == "Test race"
-    assert meet_data.get_event_name_parts(0) is None
+    parts = meet_data.get_event_name_parts(0)
+    assert parts is not None
+    assert parts["kind"] == "test_race" and parts["raw"] == "Test race"
+    assert not any(
+        parts[k] for k in ("dist", "stroke", "gender", "age", "age_key", "round")
+    )
 
 
 def test_a_finished_test_race_is_not_published(monkeypatch):
@@ -76,3 +81,23 @@ def test_a_finished_test_race_is_not_published(monkeypatch):
     monkeypatch.setattr(state, "_results_prev_race_finished", False)
     worker._on_race_state_changed(True, {})
     assert any("results_snapshot" in a for a in emitted)
+
+
+def test_the_web_names_the_test_race_in_the_readers_language():
+    from jsc import HAS_JS_ENGINE, run_page
+    from test_lap_counts import _render
+
+    if not HAS_JS_ENGINE:
+        import pytest
+
+        pytest.skip("needs a JavaScript engine")
+    page = _render("server/templates", "results.html", t={})
+    script = """
+function assert(ok, msg) { if (!ok) throw new Error(msg); }
+var parts = {kind: 'test_race', raw: 'Test race', dist: '', stroke: ''};
+var got = composeEventName(parts, {test_race: 'Course test'});
+assert(got === 'Course test', 'the reader\\'s word: ' + got);
+got = composeEventName(parts, {freestyle: 'Libre'});
+assert(got === 'Test race', 'no key: the meet\\'s name: ' + got);
+"""
+    run_page(page.replace("</body>", f"<script>{script}</script></body>"))
