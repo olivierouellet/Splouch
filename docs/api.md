@@ -393,6 +393,12 @@ composes from the parts follows the phone choice. Compose as `dist + unit`, stro
 field rides on `results_snapshot` (§5.2) and each heat of `GET /meet/{id}/schedule`
 (§5.8), as `name_parts` in the relay's `schedule_snapshot` (§5.5).
 
+**Event 0** is the console's test race (every Gen7 sequence has one; any CTS can be
+set to it). `current_event` is `"0"`, `current_heat` the console's, `event_name` is
+the `event_name` vocabulary's `test_race` in the meet's language, and
+`event_name_parts` is `null` — so every client shows that text. No `results_snapshot`
+follows it: Results keep the last real heat.
+
 It is **additive and optional**: `event_name` is still sent and is already right for
 every viewer who has not chosen a language, so a client may ignore the parts
 entirely.

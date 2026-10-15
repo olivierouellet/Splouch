@@ -38,12 +38,15 @@ In **Settings → Timing**:
 
 Options, per output:
 
+- Gen7 serial output — **Pool** (1 by default): the pool this Splouch shows, as numbered in the Gen7's course setup. A Gen7 running several pools sends them all on this output. Until a two-pool capture confirms it, a second pool is safest on its own RS-485 or legacy output, mapped to that pool in *Input / Output Course Mappings*.
 - Gen7 serial output, Legacy scoreboard output, RS-485 set to CTS Legacy — **Event / heat on scoreboard**: match *Quick Options → EVT/HT*. Swapped puts event and heat on module 0D and the team scores on 0C.
 - RS-485 set to CTS Legacy — **Serial parity**
 - RS-485 set to Daktronics RTD — **RTD layout** (lines at 222 or 200), **RTD header sub-code** (any by default), **Baud rate**, **Serial format**, **RTD offset**
 - RS-485 set to Omega — **Scoreboard line order** (rank mode by default), **Baud rate**, **Serial format**
 
 Results posted by place (*Lane Module Order* set to Place, or a result posted by place) land on each swimmer's lane: Splouch reads the lane number each scoreboard line shows. In a pool of 11 or 12 lanes, keep **Two Digit Lane and Place Display** on A,B,C or Letters — a `1` could be lane 1 or 11, and reads as lane 1.
+
+Event 0, the test race in every Gen7 event sequence, shows live as `EV 0 · HT 1 · Test race` on every board and phone, and is never published as a result.
 
 Leave the Gen7's **Scoreboard Definitions** at their defaults (*Settings → Scoreboard*): Splouch reads each lane from its default module (lanes 11 and 12 included).
 
@@ -65,6 +68,7 @@ Follow the [general procedure](../admin.md#capturing-at-the-pool). The output's 
 8. **Also record:** a finished heat with *Lane Module Order* set to Place. Splouch should show the same times on the same lanes as in lane order.
 9. **Also record:** 10 s each of the scoreboard self test and diagnostics. Splouch should show neither: no `88:88.88`, no letters in a time, no lane moved.
 10. **Also record:** a 200 with every lane swimming, through to its results, as `.raw`. The lap count on the board should reach 8 (4 in a 50 m pool) on every lane, one touch at a time. Write down each lane's split times from the Gen7 screen: this capture is what decodes the split times the RS-485 stream carries after each lane's time (not decoded yet).
+11. **Also record** (a facility with two pools on one Gen7): 30 s with both pools racing, **Pool** set to 2. Splouch should show pool 2 only; write down which pool each output was mapped to.
 
 ### RS-485 output set to CTS Legacy
 

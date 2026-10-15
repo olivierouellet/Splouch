@@ -38,6 +38,7 @@ prelims      = "Preliminares"
 fastest_heat = "Serie más rápida"
 swimoff      = "Desempate"
 timed_final  = "Final directa"
+test_race    = "Carrera de prueba"
 
 [aliases]
 movil         = "/mobile"

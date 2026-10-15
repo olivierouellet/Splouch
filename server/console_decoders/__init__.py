@@ -99,7 +99,7 @@ CONSOLES: list[ConsoleEntry] = [
         protocol="RS-485 · 115200 baud · 8-N-1",
         tested=False,
         doc="cts-gen7.md",
-        options={"cts_event_module": None},
+        options={"cts_event_module": None, "gen7_pool": None},
     ),
     ConsoleEntry(
         "cts_gen7_rs485_legacy",

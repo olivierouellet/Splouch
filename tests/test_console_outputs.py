@@ -565,3 +565,7 @@ def test_cts_show_definitions_changes_no_lane():
     for line in range(1, 5):  # lane 0, place = line, its address in the hundredths
         assert d.feed(_cts_line(line, 0x0F ^ 0, line, f"    0{line}")) == {}
     assert all(d.get_lane_time(ln) == "" for ln in range(1, 5))
+
+
+def test_the_pool_option_shows_on_the_gen7_serial_output_only():
+    assert {e.key for e in CONSOLES if "gen7_pool" in e.options} == {"cts_gen7_serial"}

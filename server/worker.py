@@ -429,6 +429,13 @@ def _on_race_state_changed(now_finished, updates=None):
             flush=True,
         )
 
+    ev, ht = state._decoder.last_event_sent
+    if now_finished and not prev and ev == 0 and ht:
+        # The console's test race (event 0): live on every board, but it is not a
+        # heat — Results keep the last real one, the Schedule saves nothing.
+        print("[race-state] test race finished — not published", flush=True)
+        state._results_prev_race_finished = now_finished
+        return
     if now_finished and not prev:
         state._last_results_snapshot = _build_results_snapshot()
         state._finish_timer_gen += 1

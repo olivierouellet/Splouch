@@ -1,7 +1,13 @@
 import time
 from dataclasses import dataclass
 
-from .base import CTS_EVENT_MODULE, ConsoleDecoder, SerialConfig, cts_event_module
+from .base import (
+    CTS_EVENT_MODULE,
+    ConsoleDecoder,
+    DecoderOption,
+    SerialConfig,
+    cts_event_module,
+)
 from .utils import first_lane_of, is_swim_line, line_row, split_step
 
 # ── Cipher ────────────────────────────────────────────────────────────────────
@@ -112,7 +118,22 @@ class CTSGen7Decoder(ConsoleDecoder):
     Sources: fabriziobertocci/coloradoScoreboard (ctsScoreboardasync.js, MIT).
     """
 
-    OPTIONS = (CTS_EVENT_MODULE,)
+    OPTIONS = (
+        CTS_EVENT_MODULE,
+        DecoderOption(
+            key="gen7_pool",
+            label="Pool",
+            choices=(
+                ("1", "Pool 1"),
+                ("2", "Pool 2"),
+                ("3", "Pool 3"),
+                ("4", "Pool 4"),
+            ),
+            default="1",
+            help="The pool this Splouch shows, as numbered in the Gen7's course setup. "
+            "A Gen7 running several pools sends them all on this output.",
+        ),
+    )
 
     def __init__(self, cfg: dict) -> None:
         self._serial_config = SerialConfig(
@@ -188,6 +209,10 @@ class CTSGen7Decoder(ConsoleDecoder):
         self.num_lanes = int(cfg.get("num_lanes", 10))
         self._event_module = cts_event_module(cfg)
         self.first_lane = first_lane_of(cfg)
+        try:
+            self._pool = min(max(int(cfg.get("gen7_pool", 1)), 1), 4)
+        except (TypeError, ValueError):
+            self._pool = 1
         self._split_min = float(cfg.get("split_min_duration", 1.0))
         self._pad_sides = int(cfg.get("touchpad_sides", 1) or 1)
 
@@ -287,9 +312,9 @@ class CTSGen7Decoder(ConsoleDecoder):
         # Payload (from byte index 1 onward) undergoes a second independent remap,
         # and the result starts with its own module header byte.
         if packet[0] == 0x9F and len(payload) >= 2 and payload[0] in (0x11, 0x13):
-            # payload[1] is the pool, 1-based. Only the first pool is decoded: the
-            # others would otherwise overwrite pool 1's modules with their own.
-            if payload[1] != 1:
+            # payload[1] is the pool, 1-based. Only this Splouch's pool is decoded:
+            # the others would overwrite its modules with their own.
+            if payload[1] != self._pool:
                 return {}
             data = self._secondary_remap(payload)
             if data is None:
@@ -378,9 +403,9 @@ class CTSGen7Decoder(ConsoleDecoder):
 
     def _parse_command(self, cmd: list[int]) -> None:
         """Command 18 carries meet/event/swimmer metadata sent natively by Gen7."""
-        if len(cmd) < 3 or cmd[0] != 18:
+        if len(cmd) < 3 or cmd[0] != 18 or cmd[1] != self._pool:
             return
-        # cmd[1] is the pool, 1-based; only the first pool is supported for now.
+        # cmd[1] is the pool, 1-based; another pool's metadata is not this one's.
         # sub-case dispatch left as a future extension (swimmer names, meet title)
 
     # ── Scoreboard readout helpers ────────────────────────────────────────────
@@ -530,9 +555,14 @@ class CTSGen7Decoder(ConsoleDecoder):
         if self._event_module in self._dirty:
             # Digits 1, 3, 4 — not 1, 2, 3. Upstream GetDigits(12, 1, 3) steps over
             # digit 2 whenever it starts at digit 1.
-            ev = self._get_digits_int(self._event_module, (1, 3, 4))
+            # Event 0 is the console's test race, a heat of its own; a blank event
+            # is no event at all.
+            ev_text = "".join(
+                self._char(self._event_module, d) for d in (1, 3, 4)
+            ).strip()
+            ev = int(ev_text) if ev_text.isdigit() else None
             ht = self._get_digits_int(self._event_module, (7, 8, 9))
-            if ev > 0 and ht > 0:
+            if ev is not None and ht > 0:
                 updates["current_event"] = str(ev)
                 updates["current_heat"] = str(ht)
                 tup = (ev, ht)

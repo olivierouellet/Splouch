@@ -303,7 +303,7 @@ Implemented in `console_decoders/cts_gen7.py` (`CTSGen7Decoder`).
 | Lengths / record (module 11, 0x0B) | Done — `length_record`, the operator page's |
 | Swimmer names / meet title (command 18) | Not implemented — Lenex integration covers this |
 | Split times (digits 10+ per lane module) | Not implemented — waits for a capture (cts-gen7.md, capture step 10): the layout above cannot be exact, as four groups would run past digit 30. Once confirmed, the count of groups filled can replace the inferred lane lengths |
-| Multi-pool (pools 1–3) | Not implemented |
+| Multi-pool | Done — the **Pool** option (1–4) picks which `0x9F` pool packets are decoded, command 18 too; plain packets are decoded whatever the pool. Unconfirmed: whether a two-pool Gen7 sends pool 1 plain |
 
 ---
 

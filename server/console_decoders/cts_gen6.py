@@ -313,6 +313,10 @@ class CTSGen6Decoder(ConsoleDecoder):
                 # unpadded str(int) form the other decoders and send_event_info
                 # emit — otherwise "  3" vs "3" reads as a heat change and flips
                 # the board to intro every time send_event_info broadcasts.
+                # Show Definitions writes `0C` here: an event 0 with no heat. Event 0
+                # with a heat is the test race, a heat like any other.
+                if event_str.strip() == "0" and not heat_str.strip():
+                    return updates
                 if event_str.strip():
                     updates["current_event"] = event_str.strip()
                 if heat_str.strip():

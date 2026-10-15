@@ -580,6 +580,12 @@ console_opt_cts_event_module       = "Épreuve / série au tableau"
 console_opt_cts_event_module_help  = "Doit correspondre à Quick Options → EVT/HT de la console (System 6, Gen7). Inversé met l'épreuve et la série sur le module 0D et les pointages d'équipe sur 0C."
 console_opt_cts_event_module_0C    = "Normal (module 0C)"
 console_opt_cts_event_module_0D    = "Inversé (module 0D)"
+console_opt_gen7_pool              = "Bassin"
+console_opt_gen7_pool_help         = "Le bassin que ce Splouch affiche, numéroté comme dans la configuration des bassins de la Gen7. Une Gen7 qui gère plusieurs bassins les envoie tous sur cette sortie."
+console_opt_gen7_pool_1            = "Bassin 1"
+console_opt_gen7_pool_2            = "Bassin 2"
+console_opt_gen7_pool_3            = "Bassin 3"
+console_opt_gen7_pool_4            = "Bassin 4"
 
 # Déroulement
 seconds = "secondes"

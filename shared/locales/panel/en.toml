@@ -589,6 +589,12 @@ console_opt_cts_event_module       = "Event / heat on scoreboard"
 console_opt_cts_event_module_help  = "Match the timer's Quick Options → EVT/HT (System 6, Gen7). Swapped puts event and heat on module 0D and the team scores on 0C."
 console_opt_cts_event_module_0C    = "Normal (module 0C)"
 console_opt_cts_event_module_0D    = "Swapped (module 0D)"
+console_opt_gen7_pool              = "Pool"
+console_opt_gen7_pool_help         = "The pool this Splouch shows, as numbered in the Gen7's course setup. A Gen7 running several pools sends them all on this output."
+console_opt_gen7_pool_1            = "Pool 1"
+console_opt_gen7_pool_2            = "Pool 2"
+console_opt_gen7_pool_3            = "Pool 3"
+console_opt_gen7_pool_4            = "Pool 4"
 
 # Units
 seconds = "seconds"

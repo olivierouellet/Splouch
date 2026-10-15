@@ -246,6 +246,44 @@ def test_gen7_reads_lengths_record_from_module_0b():
     assert u["length_record"] == "12"
 
 
+def _gen7_pool_packet(pool: int, header: int, digits: list[int]) -> list[int]:
+    """A multi-pool packet: 0x9F, subtype 0x11, the pool, then a module packet
+    under its own remap — the module header without its high bit, which the
+    decoder restores."""
+    inner = _gen7_encode(header, digits)
+    return _gen7_encode(0x9F, [0x11, pool, header & 0x7F, *inner[1:]])
+
+
+_LANE3 = _gen7_digits(
+    [(3, "1"), (5, "1"), (6 | 0x40, "0"), (7 | 0x40, "2"), (8, "3"), (9, "4")]
+)
+
+
+@pytest.mark.parametrize(
+    ("setting", "pool", "decoded"),
+    [(None, 1, True), (None, 2, False), ("2", 2, True), ("2", 1, False)],
+)
+def test_gen7_decodes_only_its_pool(setting, pool, decoded):
+    cfg = (
+        {"console_options": {"cts_gen7_serial": {"gen7_pool": setting}}}
+        if setting
+        else {}
+    )
+    d = CTSGen7Decoder({"num_lanes": 4, **decoder_config("cts_gen7_serial", cfg)})
+    updates = _gen7_feed(d, _gen7_pool_packet(pool, 0x83, _LANE3))
+    assert (updates.get("lane_time3") == "1:02.34") is decoded
+
+
+def test_gen7_plain_packets_decode_whatever_the_pool():
+    d = CTSGen7Decoder(
+        decoder_config(
+            "cts_gen7_serial",
+            {"console_options": {"cts_gen7_serial": {"gen7_pool": "2"}}},
+        )
+    )
+    assert _gen7_feed(d, _gen7_encode(0x83, _LANE3))["lane_time3"] == "1:02.34"
+
+
 def test_gen7_place_keeps_both_digits():
     d = CTSGen7Decoder({"num_lanes": 10})
     updates = _gen7_feed(d, _gen7_encode(0x8A, _gen7_digits([(2, "1"), (3, "0")])))

@@ -38,6 +38,7 @@ prelims      = "Prelims"
 fastest_heat = "Fastest heat"
 swimoff      = "Swim-off"
 timed_final  = "Timed final"
+test_race    = "Test race"
 
 [aliases]
 phone    = "/mobile"

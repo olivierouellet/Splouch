@@ -580,6 +580,12 @@ console_opt_cts_event_module       = "Prueba / serie en el marcador"
 console_opt_cts_event_module_help  = "Debe coincidir con Quick Options → EVT/HT del cronómetro (System 6, Gen7). Invertido pone la prueba y la serie en el módulo 0D y las puntuaciones de equipo en el 0C."
 console_opt_cts_event_module_0C    = "Normal (módulo 0C)"
 console_opt_cts_event_module_0D    = "Invertido (módulo 0D)"
+console_opt_gen7_pool              = "Piscina"
+console_opt_gen7_pool_help         = "La piscina que muestra este Splouch, numerada como en la configuración de piscinas de la Gen7. Una Gen7 que maneja varias piscinas las envía todas por esta salida."
+console_opt_gen7_pool_1            = "Piscina 1"
+console_opt_gen7_pool_2            = "Piscina 2"
+console_opt_gen7_pool_3            = "Piscina 3"
+console_opt_gen7_pool_4            = "Piscina 4"
 
 # Flujo
 seconds = "segundos"

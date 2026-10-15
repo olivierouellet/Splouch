@@ -68,7 +68,14 @@ def shown_round(event_num, audience, m=None):
     return key if key in shown else ""
 
 
+# Event 0 is the console's test race (Gen7 F1034 p.24; any CTS can be set to it): in
+# no meet file, so it is named rather than looked up, in the meet's language.
+TEST_EVENT = 0
+
+
 def get_event_name_display(event_num):
+    if event_num == TEST_EVENT:
+        return state.load_event_translations().get("test_race", "Test race")
     return state.translate_event_name(
         _raw_event_name(event_num),
         state.load_event_translations(),
@@ -82,7 +89,12 @@ def get_event_name_parts(event_num):
     Travels beside `event_name` rather than replacing it (api.md §5.1): a client
     that does not compose keeps rendering the string, which is already correct for
     anyone who has not chosen a language (docs/app.md `T-04`).
+
+    None for the test race: an app knows no key for it yet, and with no parts it
+    shows `event_name` as it is — in the meet's language.
     """
+    if event_num == TEST_EVENT:
+        return None
     return state.parse_event_name(
         _raw_event_name(event_num), shown_round(event_num, "phone")
     )
