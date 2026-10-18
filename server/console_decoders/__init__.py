@@ -141,7 +141,7 @@ CONSOLES: list[ConsoleEntry] = [
         protocol="RS-485 · Swiss Timing scoreboard lines (unconfirmed)",
         tested=False,
         doc="cts-gen7.md",
-        options={"scb_line_mode": "rank", "serial_baud": None, "serial_format": None},
+        options={"scb_line_mode": None, "serial_baud": None, "serial_format": None},
     ),
     ConsoleEntry(
         "cts_dolphin",
@@ -267,7 +267,7 @@ CONSOLES: list[ConsoleEntry] = [
         protocol="RS-485 · 9600 baud · 7-E-1 · OSM6",
         tested=False,
         doc="ares-21.md",
-        options={"serial_format": "7E1", "lane_zero": None},
+        options={"serial_format": None, "lane_zero": None},
     ),
     ConsoleEntry(
         "quantum_osm6",
@@ -276,7 +276,7 @@ CONSOLES: list[ConsoleEntry] = [
         "swiss_osm6",
         adapter="USB-to-RS485",
         wiring="Quantum pin 3 → A- · pin 4 → B+",
-        protocol="RS-485 · 9600 baud · OSM6",
+        protocol="RS-485 · 9600 baud · 7-E-1 · OSM6",
         tested=False,
         doc="quantum.md",
         options={"serial_format": None, "lane_zero": None},

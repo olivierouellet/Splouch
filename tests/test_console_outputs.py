@@ -63,17 +63,17 @@ def test_exposed_options_exist_on_the_decoder():
 
 
 def test_each_console_keeps_its_own_option_values():
-    """The same OSM6 decoder: 7-E-1 on an ARES GP port, 8-N-1 on a Quantum."""
-    settings = {"console_options": {"quantum_osm6": {"serial_format": "7E1"}}}
+    """The same OSM6 decoder, 7-E-1 on both: a Quantum set to 8-N-1 leaves the ARES."""
+    settings = {"console_options": {"quantum_osm6": {"serial_format": "8N1"}}}
     assert option_values("ares21_gp_osm6", {})["serial_format"] == "7E1"
-    assert option_values("quantum_osm6", {})["serial_format"] == "8N1"
-    assert option_values("quantum_osm6", settings)["serial_format"] == "7E1"
+    assert option_values("quantum_osm6", {})["serial_format"] == "7E1"
+    assert option_values("quantum_osm6", settings)["serial_format"] == "8N1"
     assert option_values("ares21_gp_osm6", settings)["serial_format"] == "7E1"
 
 
 def test_a_value_outside_the_choices_falls_back_to_the_default():
     settings = {"console_options": {"ares21_unt4": {"scb_line_mode": "sideways"}}}
-    assert option_values("ares21_unt4", settings)["scb_line_mode"] == "lane"
+    assert option_values("ares21_unt4", settings)["scb_line_mode"] == "rank"
 
 
 def test_presets_and_options_reach_the_decoder():
@@ -167,14 +167,14 @@ def test_an_option_is_saved_for_its_console_and_rebuilds_the_decoder(monkeypatch
         {
             "console_model": "ARES 21 (Swiss Timing Omega)",
             "console_type": "ares21_unt4",
-            "console_opt_scb_line_mode": "rank",
+            "console_opt_scb_line_mode": "lane",
         },
         console="ares21_unt4",
     )
     assert state.settings["console_options"] == {
-        "ares21_unt4": {"scb_line_mode": "rank"}
+        "ares21_unt4": {"scb_line_mode": "lane"}
     }
-    assert cast(SwissScoreboardDecoder, state._decoder).rank_mode is True
+    assert cast(SwissScoreboardDecoder, state._decoder).rank_mode is False
 
 
 def test_option_fields_of_the_previous_console_are_ignored(monkeypatch):
@@ -183,7 +183,7 @@ def test_option_fields_of_the_previous_console_are_ignored(monkeypatch):
         {
             "console_model": "Quantum (Swiss Timing Omega)",
             "console_type": "ares21_unt4",
-            "console_opt_scb_line_mode": "rank",
+            "console_opt_scb_line_mode": "lane",
         },
         console="ares21_unt4",
     )
@@ -365,6 +365,36 @@ def test_osm6_lane_zero(option, lane_key):
         assert not any(k.startswith("lane_time") for k in updates)
 
 
+def _osm6_start(dd: bytes) -> list[list[int]]:
+    pt1 = [0x01, 0x02, 0x08, *b"2S ", *dd, *b" 4003 02   0", 0x04]
+    pt2 = [0x01, 0x02, 0x08, 0x0A, *b"1 0", 0x02, *b"14:17:55.26 ", 0x04]
+    return [pt1, pt2]
+
+
+@pytest.mark.parametrize(
+    ("first", "heat", "running"),
+    [(1, set(), {2, 4, 10}), (0, set(), {1, 3, 5}), (1, {3}, {3})],
+)
+def test_osm6_used_lanes_start_when_no_start_list(first, heat, running):
+    """DD, highest bit first: `*` is lanes 2 and 4, `!` the tenth lane ("0")."""
+    d = QuantumDecoder({"num_lanes": 10, "first_lane": first})
+    d.set_heat_lanes(heat)
+    updates: dict = {}
+    for p in _osm6_start(b"*!"):
+        updates.update(d.feed(p))
+    started = {n for n in range(1, 11) if updates.get(f"lane_running{n}")}
+    assert started == running
+
+
+def test_osm6_empty_or_bad_used_lanes_start_every_lane():
+    for dd in (b"  ", b"\x7f\x7f"):
+        d = QuantumDecoder({"num_lanes": 4})
+        updates: dict = {}
+        for p in _osm6_start(dd):
+            updates.update(d.feed(p))
+        assert all(updates[f"lane_running{n}"] for n in range(1, 5))
+
+
 # ── Swiss Timing scoreboard (UNT4 / GALACTICA / OmniSport OMEGA) ───────────────
 
 
@@ -395,7 +425,7 @@ def test_scb_running_time_starts_the_race():
 
 
 def test_scb_lane_mode_line():
-    d = SwissScoreboardDecoder({"num_lanes": 8})
+    d = SwissScoreboardDecoder({"num_lanes": 8, "scb_line_mode": "lane"})
     d.feed(_running("1.0"))
     updates = d.feed(_net(1, "3", " 2", "58.21"))
     assert (updates["lane_time3"], updates["lane_place3"]) == ("58.21", "2")
@@ -410,7 +440,8 @@ def test_scb_rank_mode_line_and_lane_zero_is_ten():
 
 
 def test_scb_an_erased_line_was_a_split():
-    d = SwissScoreboardDecoder({"num_lanes": 8, "touchpad_sides": 2})
+    cfg = {"num_lanes": 8, "touchpad_sides": 2, "scb_line_mode": "lane"}
+    d = SwissScoreboardDecoder(cfg)
     d.set_heat_lanes({3})
     d.feed(_running("1.0"))
     d.feed(_net(1, "3", " 1", "28.10"))
@@ -424,13 +455,33 @@ def test_scb_an_erased_line_was_a_split():
 
 
 def test_scb_new_race_and_zero_clock_reset():
-    d = SwissScoreboardDecoder({"num_lanes": 4})
+    d = SwissScoreboardDecoder({"num_lanes": 4, "scb_line_mode": "lane"})
     d.feed(_running("1.0"))
     d.feed(_net(1, "2", " 1", "58.21"))
     assert d.feed(_scb("\x14S02\x02\x081 \x02       0,0"))["lane_time2"] == ""
     d.feed(_running("1.0"))
     d.feed(_net(1, "2", " 1", "58.21"))
     assert d.feed(_running("0.0"))["lane_time2"] == ""
+
+
+def test_scb_zeroed_line_before_the_race_starts_it():
+    """A line ending ` 0.00` before the race is the start."""
+    d = SwissScoreboardDecoder({"num_lanes": 4})
+    updates = d.feed(_net(1, "1", " 3", "0.00"))
+    assert updates["dismiss_overlay"] is True
+    assert all(updates[f"lane_running{n}"] for n in range(1, 5))
+    updates = d.feed(_net(1, "1", " 3", "58.21"))
+    assert (updates["lane_time3"], updates["lane_place3"]) == ("58.21", "1")
+    # During the race a zeroed line is an erased split, not a new start.
+    updates = d.feed(_net(1, "1", " 3", "0.00"))
+    assert updates["lane_running3"] is True and "dismiss_overlay" not in updates
+
+
+def test_scb_clock_at_zero_undoes_a_zeroed_line_start():
+    d = SwissScoreboardDecoder({"num_lanes": 4})
+    d.feed(_net(1, "1", " 3", "0.00"))
+    assert d.feed(_running("0.0"))["lane_running3"] is False
+    assert d.feed(_running("0.1"))["lane_running3"] is True
 
 
 def test_scb_event_heat_message():

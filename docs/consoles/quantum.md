@@ -19,7 +19,7 @@ If you already have a cable that works with your meet-management software, it wi
 
 ## Protocol
 
-RS-485 — 9600 baud, OSM6 format. 8-N-1 by default; the ARES 21 sends the same format at 7-E-1, and some Quantum set-ups may too.
+RS-485 — 9600 baud, OSM6 format, 7-E-1 by default: what the ARES 21 sends. Unconfirmed on a Quantum, hence the option.
 
 Full protocol reference: [`console_decoders/swiss_timing_quantum_serial.md`](../../server/console_decoders/swiss_timing_quantum_serial.md)
 
@@ -32,7 +32,7 @@ In **Settings → Timing**:
 
 Options:
 
-- **Serial format** — 8-N-1 (default) or 7-E-1. If no data decodes, try the other.
+- **Serial format** — 7-E-1 (default) or 8-N-1. If no data decodes, try the other.
 - **Lane digit 0** — lane 10 (default) or ignored. The lane is one character; other Swiss Timing outputs send lane 10 as `0`.
 
 ## Capturing at the pool
@@ -41,6 +41,6 @@ Follow the [general procedure](../admin.md#capturing-at-the-pool).
 
 1. **Console:** the Quantum's OSM6 data output enabled on the serial port you wire.
 2. **Wire:** pins 3 / 4 to a USB-to-RS485 adapter (the meet-management cable works).
-3. **Splouch:** `Quantum` → serial port; **Serial format** 8-N-1 first.
-4. **Check:** pairs of packets `01 02 08 …04` and `01 02 08 0a …04`, only when something happens (ready, start, touches). Garbage → **Serial format** 7-E-1.
+3. **Splouch:** `Quantum` → serial port; **Serial format** 7-E-1 first.
+4. **Check:** pairs of packets `01 02 08 …04` and `01 02 08 0a …04`, only when something happens (ready, start, touches). Garbage → **Serial format** 8-N-1.
 5. **Record:** `.raw`, then `.serial`. In a 10-lane pool, make sure lane 10 swims; note which **Lane digit 0** setting gives the right lane.

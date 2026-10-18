@@ -10,6 +10,11 @@ _LF = 0x0A  # Line Feed — identifies pt2 (4th byte after prefix)
 _DC2 = 0x12  # Device Control 2 — alive message marker
 _DC4 = 0x14  # Device Control 4 — alive message marker
 
+# The used-lane mask DD: one bit per wire lane, highest bit first — lanes 1-5 in the
+# first byte, 6-9 and then 0 (the tenth) in the second. Swiss Timing doc 0100.064
+# gives only the byte range, 0x20-0x3F; the order is unconfirmed by a capture.
+_DD_LANES = ("12345", "67890")
+
 _ALIVE = [_SOH, _DC2, ord("9"), _DC4, ord("T"), ord("P"), _EOT]
 _PREFIX = [_SOH, _STX, _HOME]
 
@@ -37,9 +42,9 @@ def _parse_time(s: str) -> str:
 class QuantumDecoder(ConsoleDecoder):
     """Decoder for the Swiss Timing OSM6 data output (Quantum, and the ARES 21 GP port).
 
-    Serial protocol: 9600 baud, RS-422/485. 7-E-1 on an ARES 21 ("OSM6 types: 9600
-    7 even 1", ARES Swimming manual §9.1.2); unconfirmed on a Quantum, hence the
-    option. Messages arrive as paired frames (pt1 + pt2), each framed by
+    Serial protocol: 9600 baud, RS-422/485, 7-E-1: "OSM6 types: 9600 7 even 1" (ARES
+    Swimming manual §9.1.2). Unconfirmed on a Quantum, hence the option. Messages
+    arrive as paired frames (pt1 + pt2), each framed by
     SOH+STX+HOME … EOT. pt2 is identified by LF as the 4th byte. The field layout
     is the ARES "GP output" of Swiss Timing doc 0100.064 §2, exactly.
 
@@ -53,8 +58,8 @@ class QuantumDecoder(ConsoleDecoder):
             key="serial_format",
             label="Serial format",
             choices=(("8N1", "8-N-1"), ("7E1", "7-E-1")),
-            default="8N1",
-            help="The ARES 21 sends OSM6 at 7-E-1. If nothing decodes, try the other.",
+            default="7E1",
+            help="OSM6 is sent at 7-E-1. If nothing decodes, try the other.",
         ),
         DecoderOption(
             key="lane_zero",
@@ -68,10 +73,11 @@ class QuantumDecoder(ConsoleDecoder):
 
     def __init__(self, cfg: dict) -> None:
         self._serial_config = SerialConfig(
-            baud=9600, bytesize=8, parity="N", stopbits=1
+            baud=9600, bytesize=7, parity="E", stopbits=1
         )
         self._lane_zero = "10"
         self._pending_pt1: list[int] | None = None
+        self._dd_lanes: frozenset[int] = frozenset()
 
         self.lane_times: dict[int, str] = {}
         self.lane_places: dict[int, str] = {}
@@ -95,9 +101,30 @@ class QuantumDecoder(ConsoleDecoder):
 
     def configure(self, cfg: dict) -> None:
         self.num_lanes = int(cfg.get("num_lanes", 10))
-        self._serial_config = serial_from(9600, str(cfg.get("serial_format", "8N1")))
+        self._serial_config = serial_from(
+            9600, str(cfg.get("serial_format", "7E1")), "7E1"
+        )
         self._lane_zero = str(cfg.get("lane_zero", "10"))
         self.first_lane = first_lane_of(cfg)
+
+    def lanes_to_start(self) -> list[int]:
+        """The start lists' lanes; failing those, the lanes the console marks used."""
+        if getattr(self, "_heat_lanes", frozenset()) or not self._dd_lanes:
+            return super().lanes_to_start()
+        return [n for n in range(1, self.num_lanes + 1) if n in self._dd_lanes]
+
+    def _read_dd(self, dd: list[int]) -> None:
+        """Keep the lanes DD marks used. A mask out of range or empty is no news."""
+        if len(dd) != 2 or not all(0x20 <= b <= 0x3F for b in dd):
+            return
+        lanes = {
+            lane_digit_row(c, self.first_lane, self._lane_zero == "10")
+            for b, digits in zip(dd, _DD_LANES, strict=True)
+            for bit, c in zip(range(4, -1, -1), digits, strict=True)
+            if b >> bit & 1
+        } - {0}
+        if lanes:
+            self._dd_lanes = frozenset(lanes)
 
     def set_seed_times(self, times: dict) -> None:
         self.lane_seed_times = dict(times)
@@ -188,6 +215,8 @@ class QuantumDecoder(ConsoleDecoder):
             time_str = bytes(pt2[5:16]).decode("ascii")
         except (IndexError, ValueError, UnicodeDecodeError):
             return {}
+
+        self._read_dd(pt1[3:5])
 
         if A == "0":
             # Ready at start — new heat announced

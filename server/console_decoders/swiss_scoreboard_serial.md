@@ -16,7 +16,7 @@ Console entries: **ARES 21 — SCB — UNT4 / Calypso / Piccolo / GALACTICA**
 | Parameter | ARES 21 | OmniSport 2000 |
 | --------- | ------- | -------------- |
 | Connector | IF-ARES SCB, Sub-D 9 F: pin 4 LD+, 3 LD−, 7 GND (RS-485); 9/8 = 20 mA | Scoreboard port, *Scbrd Port → OMEGA* |
-| Baud / format | not documented — options, 9600 8-N-1 by default | not documented — options |
+| Baud / format | not documented — options, 9600 7-E-1 by default | not documented — options, 9600 7-E-1 by default |
 
 ---
 
@@ -27,14 +27,14 @@ Every message is `SOH <text> EOT`. `<LF>*n` selects the board line (no LF = line
 | Message | Text | Decoder |
 | --- | --- | --- |
 | Running time | `DC4 R02 STX BS '1 ' STX HH:MM:SS.D` (HH:MM:S may be blank) | `running_time`; leaving zero starts the race; back to zero resets the lanes |
-| New race | `DC4 S02 STX BS '1 ' STX '       0,0'` | lanes reset |
+| New race | `DC4 S02 STX BS '1 ' STX '       0,0'` | lanes reset, race started (as is any zeroed line before the race); a clock still at zero resets it until the gun |
 | Net time | `DC4 S02 STX BS <LF>*n A ' ' STX BB ' ' TIME` | lane time + place, lane stopped, `lane_splits` += split step |
 | Clear line | `DC4 S02 STX BS <LF>*n A ' ' STX <blank>` | lane time cleared; while the race runs, the lane runs again (the time was a split) |
 | GALACTICA reaction time | `DC1 97 STX RT\|LL\|+/-s.dcm` | ignored |
 | Event / heat | `ACK BS '8'` + 11 × LF; if char 14 is not LF: event 20–22, heat 23–25 | `event_changed` — undocumented, unconfirmed |
 
 **A and BB.** *Lane mode*: A = lane (1 char, `0` = 10), BB = rank. *Rank mode*: A =
-rank, BB = lane. GALACTICA is rank mode. Nothing on the wire tells them apart. In a pool whose
+rank, BB = lane. GALACTICA is rank mode, the default. Nothing on the wire tells them apart. In a pool whose
 first lane is 0 (Settings → Meet → Pool), a one-character `0` is lane 0 instead; BB,
 two characters, is the lane's full number either way. A pool numbered 0–10 cannot be
 told apart in one character.
@@ -53,9 +53,9 @@ seed times will not load from the meet file unless that message arrives.
 
 | Option | Values | Default |
 | --- | --- | --- |
-| `scb_line_mode` | `lane`, `rank` | `lane` |
+| `scb_line_mode` | `lane`, `rank` | `rank` |
 | `serial_baud` | `9600`, `19200` | `9600` |
-| `serial_format` | `8N1`, `7E1` | `8N1` |
+| `serial_format` | `8N1`, `7E1` | `7E1` |
 
 ---
 

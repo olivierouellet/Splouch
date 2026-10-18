@@ -41,7 +41,7 @@ Pin 8 → GND
 ## Protocol
 
 - ERTD: RS-485 — 9600 baud, 8-N-1.
-- UNT4 / GALACTICA: baud rate and format are options (9600, 8-N-1 by default).
+- UNT4 / GALACTICA: baud rate and format are options (9600, 7-E-1 by default).
 - GP / OSM6: 9600, **7-E-1** (ARES Swimming manual §9.1.2).
 
 Full protocol references: [`swiss_timing_ares21_serial.md`](../../server/console_decoders/swiss_timing_ares21_serial.md), [`swiss_scoreboard_serial.md`](../../server/console_decoders/swiss_scoreboard_serial.md), [`swiss_timing_quantum_serial.md`](../../server/console_decoders/swiss_timing_quantum_serial.md)
@@ -57,7 +57,7 @@ In **Settings → Timing**:
 Options shown, per output:
 
 - ERTD — **Event number position**: change it if the event shown is wrong (e.g. 1 instead of 12).
-- UNT4 / GALACTICA — **Scoreboard line order**: lane mode (default) or rank mode; must match the ARES scoreboard kind (`… La` = lane, `… Rk` and GALACTICA = rank). **Baud rate**, **Serial format**.
+- UNT4 / GALACTICA — **Scoreboard line order**: rank mode (default) or lane mode; must match the ARES scoreboard kind (`… La` = lane, `… Rk` and GALACTICA = rank). **Baud rate**, **Serial format**.
 - GP / OSM6 — **Serial format** (7-E-1 by default), **Lane digit 0**.
 
 ## Capturing at the pool

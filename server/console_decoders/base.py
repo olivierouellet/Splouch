@@ -33,8 +33,7 @@ class DecoderOption:
     """One part of the decoding the evidence does not settle, left to the operator.
 
     A decoder lists them in `OPTIONS`; a console entry in `CONSOLES` says which ones
-    its menu shows and may change the default (the same OSM6 decoder starts at 7-E-1
-    on an ARES and 8-N-1 on a Quantum). Settings → Timing shows the exposed ones
+    its menu shows and may change the default for that console alone. Settings → Timing shows the exposed ones
     only while that console is selected, and stores each console's choices apart, so
     switching consoles never carries a value across.
 

@@ -10,11 +10,15 @@ Calypso, Piccolo or GALACTICA (Swiss Timing doc 0100.064 §1), and what an OmniS
 
 In *lane mode* A is the lane (one character, 0 = 10) and BB the rank; in *rank mode*
 A is the rank and BB the lane. Nothing on the wire says which, hence the option.
-GALACTICA is rank mode, plus reaction times (`DC1 97 STX RT|LL|t`, ignored).
+Rank mode is the default: GALACTICA is rank mode, plus reaction times (`DC1 97 STX
+RT|LL|t`, ignored).
 
 What it does not carry: event and heat, and the lap. One undocumented message,
 `ACK BS '8'` + 11 LF, holds an event at 20–22 and a heat at 23–25 when the 14th
 character is not a LF; it is decoded here as a bonus, unconfirmed.
+
+Start: the clock leaving zero, or a zeroed line before the race — the doc's "new
+race", or any line ending ` 0.00`.
 
 Splits: a time on a line is a touch. The ARES erases an intermediate time after a
 few seconds; an erased line while the race runs means the swimmer is still going,
@@ -75,7 +79,7 @@ class SwissScoreboardDecoder(ConsoleDecoder):
             key="scb_line_mode",
             label="Scoreboard line order",
             choices=(("lane", "Lane mode"), ("rank", "Rank mode")),
-            default="lane",
+            default="rank",
             help="Must match the console's scoreboard kind: 'La' entries are lane "
             "mode, 'Rk' entries and GALACTICA are rank mode.",
         ),
@@ -90,14 +94,14 @@ class SwissScoreboardDecoder(ConsoleDecoder):
             key="serial_format",
             label="Serial format",
             choices=(("8N1", "8-N-1"), ("7E1", "7-E-1")),
-            default="8N1",
-            help="Not documented for this port. If nothing decodes, try the other.",
+            default="7E1",
+            help="7-E-1 is the usual format. If nothing decodes, try the other.",
         ),
     )
 
     def __init__(self, cfg: dict) -> None:
         self._serial_config = SerialConfig(
-            baud=9600, bytesize=8, parity="N", stopbits=1
+            baud=9600, bytesize=7, parity="E", stopbits=1
         )
         self.lane_times: dict[int, str] = {}
         self.lane_places: dict[int, str] = {}
@@ -125,11 +129,13 @@ class SwissScoreboardDecoder(ConsoleDecoder):
 
     def configure(self, cfg: dict) -> None:
         self.num_lanes = int(cfg.get("num_lanes", 10))
-        self.rank_mode = str(cfg.get("scb_line_mode", "lane")) == "rank"
+        self.rank_mode = str(cfg.get("scb_line_mode", "rank")) == "rank"
         self._pad_sides = int(cfg.get("touchpad_sides", 1) or 1)
         self.first_lane = first_lane_of(cfg)
         self._serial_config = serial_from(
-            cfg.get("serial_baud", 9600), str(cfg.get("serial_format", "8N1"))
+            cfg.get("serial_baud", 9600),
+            str(cfg.get("serial_format", "7E1")),
+            "7E1",
         )
 
     def set_seed_times(self, times: dict) -> None:
@@ -198,12 +204,16 @@ class SwissScoreboardDecoder(ConsoleDecoder):
                 # Clock back to zero: a new race.
                 updates.update(self.reset_lanes())
         elif not self._race_active:
-            self._race_active = True
-            for i in self.lanes_to_start():
-                if not self.lane_times.get(i):
-                    self.lane_running[i] = True
-                    updates[f"lane_running{i}"] = True
-            updates["dismiss_overlay"] = True
+            updates.update(self._start())
+        return updates
+
+    def _start(self) -> dict:
+        updates: dict = {"dismiss_overlay": True}
+        self._race_active = True
+        for i in self.lanes_to_start():
+            if not self.lane_times.get(i):
+                self.lane_running[i] = True
+                updates[f"lane_running{i}"] = True
         return updates
 
     def _line(self, body: str) -> dict:
@@ -217,10 +227,14 @@ class SwissScoreboardDecoder(ConsoleDecoder):
         b, raw_time = tail[:2], tail[2:]
         time = _clean_time(raw_time.strip()) if raw_time.strip() else ""
 
-        if n == 0 and not b.strip() and time and _is_zero(time):
-            # "New race" (doc 0100.064): line 1, no second field, a zero time.
+        new_race = n == 0 and not b.strip()
+        if time and _is_zero(time) and (new_race or not self._race_active):
+            # "New race" (doc 0100.064): line 1, no second field, a zero time. Any
+            # line ending ` 0.00` before the race is the start too; during a race
+            # such a line is an erased split instead, below. A console that also sends
+            # the clock puts it back at zero, which resets this start until the gun.
             self.running_time = ""
-            return {**self.reset_lanes(), "running_time": ""}
+            return {**self.reset_lanes(), "running_time": "", **self._start()}
 
         # BB is two characters, so a lane there is its full number; A is one.
         if self.rank_mode:

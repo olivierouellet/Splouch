@@ -22,11 +22,9 @@ Official Swiss Timing specification:
 | Stop bits | 1 |
 | Encoding | US-ASCII, no handshake, no XON/XOFF |
 
-> **Note — community implementation discrepancy:** `hakostra/swimming-scoreboard`
-> defaults to **7 data bits** and documents **RS-422** wiring. This may reflect
-> a specific hardware variant or misconfiguration. The official spec (8 data
-> bits, RS-485) is used here. If the decoder produces no output, try 7 data
-> bits as a fallback.
+> **Note — the spec is not what consoles send:** the ARES Swimming manual (§9.1.2)
+> and `hakostra/swimming-scoreboard` both use **7-E-1**. The decoder defaults to 7-E-1; 8-N-1 is the
+> option.
 
 ### Wiring (Quantum RS-422/RS-485 connector → USB adapter)
 
@@ -202,7 +200,7 @@ Note: `··` = space character 0x20; `??` = lane bitmask bytes, content not rele
 | A | B | Action |
 | --- | --- | --- |
 | `'0'` | any | New heat: emit `event_changed`, reset lanes |
-| `'2'` | `'S'` | Race started: mark untimed lanes `running=True` — only lanes with a swimmer in the start lists (`set_heat_lanes`; every lane when no meet is loaded) — dismiss overlay |
+| `'2'` | `'S'` | Race started: mark untimed lanes `running=True` — only lanes with a swimmer in the start lists (`set_heat_lanes`; with no meet loaded, the lanes DD marks used, or every lane) — dismiss overlay |
 | `'2'` | `'I'` | Split: emit `lane_time`, `lane_place` (if ranked), `lane_splits` |
 | `'2'` | `'A'`, `'B'` | Finish (B = backup buttons only): emit `lane_time`, `lane_place`, `lane_running=False`; a blank time still stops the lane |
 | `'1'` | any | Heat officially ended |
@@ -232,12 +230,16 @@ intermediate message.
 
 ### Note 1 — DD field: used-lane bitmask
 
-DD is two ASCII bytes. The first encodes lanes 1–5, the second encodes lanes 6–10.
-Each byte is a bitmask: bits 7/6/5 are fixed as `0/0/1` (so the byte is always
-in the range 0x20–0x3F), and bits 4–0 represent lane activity one bit per lane
-(LSB = lane 1 or lane 6).
+DD is two ASCII bytes. Bits 7/6/5 are fixed as `0/0/1` (so the byte is always in
+the range 0x20–0x3F), and bits 4–0 are one lane each, **highest bit first**: the
+first byte bit 4 … bit 0 = lanes 1 … 5, the second bit 4 … bit 0 = lanes 6 … 9 and
+`0` (the tenth: lane 10, or lane 0 in a pool numbered from 0 — read like `J`). A set
+bit is a lane in use. Doc 0100.064 gives only the byte range; the bit order is
+unconfirmed until a capture.
 
-The decoder does not use DD — lane identity is taken from the `J` field in pt2.
+The decoder keeps the last valid, non-empty DD as the lanes a start puts in the
+water when no start list says which (`lanes_to_start`). Lane identity in a time
+message is still the `J` field in pt2.
 
 ### Note 2 — EE field: lap count
 
@@ -259,16 +261,10 @@ lane 10 the encoding is **not confirmed** — it may be `'0'` (wrap-around),
 
 ### Serial parameters (7 vs 8 data bits)
 
-**ARES 21: 7-E-1.** The ARES Swimming manual (§9.1.2) and the HyTek note both say
-*"OSM6 types: 9600 7 even 1"* (8-N-1 only for the bi-directional Meet Manager mode).
-That matches the community 7-bit default. The Quantum is still unconfirmed: the
-`serial_format` option defaults to 8-N-1 there and 7-E-1 on the ARES entry.
-
-The official Swiss Timing spec says **8 data bits**. The community implementation
-`hakostra/swimming-scoreboard` defaults to **7 data bits**. Both sources agree on
-9600 baud, no parity, 1 stop bit. The decoder is configured for 8 data bits
-(trusting the official spec). **If no data is received, change to 7 in the
-Settings and try again.**
+**7-E-1.** The ARES Swimming manual (§9.1.2) and the HyTek note both say *"OSM6
+types: 9600 7 even 1"* (8-N-1 only for the bi-directional Meet Manager mode), and
+the community implementation defaults to 7 bits. The official spec says 8 data bits.
+The decoder defaults to 7-E-1 on every entry; a Quantum is still unconfirmed. **If no data is received, switch to 8-N-1.**
 
 ### Lane 10 encoding in J field
 
@@ -285,7 +281,7 @@ The official spec does not state whether HH is populated during split messages
 
 ### Running-state inference
 
-The start signal triggers `lane_running=True` — only lanes with a swimmer in the start lists (`set_heat_lanes`; every lane when no meet is loaded) — for lanes that have not yet
+The start signal triggers `lane_running=True` — only lanes with a swimmer in the start lists (`set_heat_lanes`; with no meet loaded, the lanes DD marks used, or every lane) — for lanes that have not yet
 received a finish time. There is no per-lane confirmation from the console.
 Pre-start clock runs or intra-heat restarts will not be handled correctly.
 
@@ -306,13 +302,14 @@ Implemented in `console_decoders/quantum.py` (`QuantumDecoder`).
 | Finish times with rank/place | Done |
 | Running time (clock) | Not available in OSM6 |
 | Lane 10 | `0` = lane 10 by default (`lane_zero` option) |
-| 7 vs 8 data bits | `serial_format` option: 7-E-1 on the ARES, 8-N-1 on the Quantum by default |
+| 7 vs 8 data bits | `serial_format` option, 7-E-1 by default |
+| Used lanes (DD) | Done — the lanes a start puts in the water when no start list is loaded |
 
 ## Options
 
 | Option | Values | Default |
 | --- | --- | --- |
-| `serial_format` | `8N1`, `7E1` | `8N1` (Quantum), `7E1` (ARES GP) |
+| `serial_format` | `8N1`, `7E1` | `7E1` |
 | `lane_zero` | `10`, `ignore` | `10` — not used when the pool's first lane is 0: `0` is then lane 0 |
 
 ## ARES 21 GP output (doc 0100.064 §2)

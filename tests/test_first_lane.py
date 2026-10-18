@@ -87,7 +87,9 @@ def test_rtd_lane_zero(first, row):
 
 @pytest.mark.parametrize(("first", "row"), [(0, 1), (1, 10)])
 def test_swiss_lines_lane_zero(first, row):
-    d = SwissScoreboardDecoder({"num_lanes": 10, "first_lane": first})
+    d = SwissScoreboardDecoder(
+        {"num_lanes": 10, "first_lane": first, "scb_line_mode": "lane"}
+    )
     d.feed([0x01, *b"\x14R02\x02\x081 \x02         1.0", 0x04])
     msg = "\x14S02\x02\x08" + "0 \x02" + " 2" + "     58.21"
     assert d.feed([0x01, *msg.encode(), 0x04])[f"lane_time{row}"] == "58.21"

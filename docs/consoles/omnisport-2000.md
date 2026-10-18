@@ -31,7 +31,7 @@ Consoles shipped from June 2013 have an ETHERNET jack. With *Setup Network → N
 - RTD: RS-232 — 19 200 baud, 8-N-1, "Enhanced" protocol, 4096-byte buffer (ED-13312 appendix D), with the **Swimming** sport mode loaded.
 - Ethernet: UDP broadcast on the console's RTD port number.
 - CTS mode (J5 or J6): "the standard CTS scoreboard information". Serial settings aren't given in the manual; 9600 with even parity by default, parity is an option.
-- OMEGA: serial settings undocumented — baud rate and format are options.
+- OMEGA: serial settings undocumented — baud rate and format are options (9600, 7-E-1 by default). Lines are read in rank mode by default.
 
 Full protocol reference: [`console_decoders/omnisport_2000_serial.md`](../../server/console_decoders/omnisport_2000_serial.md) and [`swiss_scoreboard_serial.md`](../../server/console_decoders/swiss_scoreboard_serial.md)
 
