@@ -3,6 +3,7 @@ import os
 import sys
 from dataclasses import dataclass, field
 
+from .alge_tmswim import TMSwimDecoder
 from .base import ConsoleDecoder, DecoderOption
 from .cts_gen6 import CTSGen6Decoder
 from .cts_gen7 import CTSGen7Decoder
@@ -26,6 +27,7 @@ DECODERS: dict[str, type[ConsoleDecoder]] = {
     "swiss_scb": SwissScoreboardDecoder,
     "swiss_osm6": QuantumDecoder,
     "seiko_pt": SeikoPT8000Decoder,
+    "alge_tmswim": TMSwimDecoder,
     "manual": ManualDecoder,
 }
 
@@ -294,6 +296,18 @@ CONSOLES: list[ConsoleEntry] = [
         tested=False,
         doc="seiko-pt8000.md",
         options={"serial_baud": None, "serial_format": None, "lane_zero": None},
+    ),
+    ConsoleEntry(
+        "alge_tmswim_video",
+        "TM-SWIM (ALGE)",
+        "Video (TV-Online) output",
+        "alge_tmswim",
+        adapter="USB-to-RS232",
+        wiring="TM-SWIM video port (8-pin DIN): pin 1 TX → adapter RX, pin 2 GND",
+        protocol="RS-232 · 19200 baud · 8-N-1 · ASCII lines",
+        tested=False,
+        doc="alge-tm-swim.md",
+        options={"serial_baud": None},
     ),
     # Last, after every real console: not a console at all, but the answer for a meet
     # that has none — the operator sets event and heat by hand from /manual.

@@ -66,6 +66,7 @@ Swimmers, clubs and times are fictional (a bundled test recording).
 | Swiss Timing Omega — Ares 21 | ⚠️ Untested | [ares-21.md](docs/consoles/ares-21.md) |
 | Swiss Timing Omega — Quantum | ⚠️ Untested | [quantum.md](docs/consoles/quantum.md) |
 | Seiko — PT-8000 | ⚠️ Untested | [seiko-pt8000.md](docs/consoles/seiko-pt8000.md) |
+| ALGE — TM-SWIM (video output) | ⚠️ Untested | [alge-tm-swim.md](docs/consoles/alge-tm-swim.md) |
 | Manual — no timing console | ✅ Tested | [manual.md](docs/consoles/manual.md) |
 
 ---
@@ -196,6 +197,7 @@ Les trois derniers documents n'existent qu'en anglais.
 | Swiss Timing Omega — Ares 21 | ⚠️ Non testée | [ares-21.md](docs/consoles/ares-21.md) |
 | Swiss Timing Omega — Quantum | ⚠️ Non testée | [quantum.md](docs/consoles/quantum.md) |
 | Seiko — PT-8000 | ⚠️ Non testée | [seiko-pt8000.md](docs/consoles/seiko-pt8000.md) |
+| ALGE — TM-SWIM (sortie vidéo) | ⚠️ Non testée | [alge-tm-swim.md](docs/consoles/alge-tm-swim.md) |
 | Manuel — sans console de chronométrage | ✅ Testé | [manual.md](docs/consoles/manual.md) |
 
 ---

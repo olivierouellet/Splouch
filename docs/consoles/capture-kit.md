@@ -43,6 +43,7 @@ Digi-Key or Mouser listing could be confirmed, the table says so.
 | ARES GP (OSM6) | RS-485 | DB9 female, pins 3 / 7 / 8 | USB-RS485 + male DB9 breakout | Parallel tap on 3 / 7 / 8, termination off |
 | Quantum (OSM6) | RS-422/485 | DB9, pins 3 / 4 | USB-RS485 + breakout | Parallel tap, termination off |
 | Seiko PT-8000 | RS-422 | not confirmed — check on site | USB-RS485 + breakout | Parallel tap, termination off |
+| ALGE TM-SWIM video port | RS-232 | 8-pin DIN, pins 1 / 2 | USB-RS232 + DIN plug | Dedicated output: nothing to share |
 | Dolphin | TCP | the Dolphin PC's network | none | Switch |
 
 ## Sharing a port that is in use
