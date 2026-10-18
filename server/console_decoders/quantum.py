@@ -66,8 +66,8 @@ class QuantumDecoder(ConsoleDecoder):
             label="Lane digit 0",
             choices=(("10", "Lane 10"), ("ignore", "Ignore")),
             default="10",
-            help="The lane is one character. Other Swiss Timing outputs send lane 10 "
-            "as 0; unconfirmed for this one.",
+            help="The lane is one character; 0 is usually lane 10. Unconfirmed "
+            "for this console.",
         ),
     )
 

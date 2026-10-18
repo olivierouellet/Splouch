@@ -51,6 +51,7 @@ body:
         - Omnisport 2000 (Daktronics)
         - Ares 21 (Swiss Timing Omega)
         - Quantum (Swiss Timing Omega)
+        - PT-8000 (Seiko)
         - Manual — no timing console
         - A local decoder of my own
         - Not relevant to this bug

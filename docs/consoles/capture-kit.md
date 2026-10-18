@@ -42,6 +42,7 @@ Digi-Key or Mouser listing could be confirmed, the table says so.
 | ARES SCB (ERTD, UNT4, GALACTICA) | RS-485 (or 20 mA) | DB9 female, pins 4 / 3 / 7 | USB-RS485 + male DB9 breakout | Parallel tap, termination off |
 | ARES GP (OSM6) | RS-485 | DB9 female, pins 3 / 7 / 8 | USB-RS485 + male DB9 breakout | Parallel tap on 3 / 7 / 8, termination off |
 | Quantum (OSM6) | RS-422/485 | DB9, pins 3 / 4 | USB-RS485 + breakout | Parallel tap, termination off |
+| Seiko PT-8000 | RS-422 | not confirmed — check on site | USB-RS485 + breakout | Parallel tap, termination off |
 | Dolphin | TCP | the Dolphin PC's network | none | Switch |
 
 ## Sharing a port that is in use
@@ -49,7 +50,7 @@ Digi-Key or Mouser listing could be confirmed, the table says so.
 - **RS-232** (CTS legacy, OmniSport J5 / J6): take only the console's transmit line and
   ground to your adapter (a DB9 → pin 2, pin 5 tap). Not an off-the-shelf DB9 Y that
   parallels every pin: on J6 your adapter's transmit would fight Meet Manager's.
-- **RS-485 / 422** (Gen7, ARES, Quantum): connect your adapter in parallel on the data
+- **RS-485 / 422** (Gen7, ARES, Quantum, Seiko PT-8000): connect your adapter in parallel on the data
   pair plus ground, as one more listener. **Termination off** when the line already
   runs to a scoreboard or a Meet Manager PC; on only when Splouch is alone at the end
   of a long cable.

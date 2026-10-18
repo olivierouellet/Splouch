@@ -10,6 +10,7 @@ from .dolphin import DolphinDecoder
 from .manual import ManualDecoder
 from .omnisport_2000 import Omnisport2000Decoder
 from .quantum import QuantumDecoder
+from .seiko_pt8000 import SeikoPT8000Decoder
 from .swiss_scoreboard import SwissScoreboardDecoder
 from .swiss_timing_ares21 import Ares21Decoder
 
@@ -24,6 +25,7 @@ DECODERS: dict[str, type[ConsoleDecoder]] = {
     "ares_ertd": Ares21Decoder,
     "swiss_scb": SwissScoreboardDecoder,
     "swiss_osm6": QuantumDecoder,
+    "seiko_pt": SeikoPT8000Decoder,
     "manual": ManualDecoder,
 }
 
@@ -280,6 +282,18 @@ CONSOLES: list[ConsoleEntry] = [
         tested=False,
         doc="quantum.md",
         options={"serial_format": None, "lane_zero": None},
+    ),
+    ConsoleEntry(
+        "seiko_pt8000",
+        "PT-8000 (Seiko)",
+        "RS-422 serial output",
+        "seiko_pt",
+        adapter="USB-to-RS485/422",
+        wiring="The PT-8000's RS-422 output: its transmit pair to the adapter's receive pair",
+        protocol="RS-422 · 9600 baud · 7-E-1 (unconfirmed) · fixed 16-byte records",
+        tested=False,
+        doc="seiko-pt8000.md",
+        options={"serial_baud": None, "serial_format": None, "lane_zero": None},
     ),
     # Last, after every real console: not a console at all, but the answer for a meet
     # that has none — the operator sets event and heat by hand from /manual.

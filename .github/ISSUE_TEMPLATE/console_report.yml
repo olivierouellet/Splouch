@@ -24,6 +24,7 @@ body:
         - Omnisport 2000 (Daktronics)
         - Ares 21 (Swiss Timing Omega)
         - Quantum (Swiss Timing Omega)
+        - PT-8000 (Seiko)
         - Not in the list — new console
     validations:
       required: true

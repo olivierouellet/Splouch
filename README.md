@@ -65,6 +65,7 @@ Swimmers, clubs and times are fictional (a bundled test recording).
 | Daktronics Omnisport 2000 (J5 RTD, Ethernet, CTS modes, OMEGA) | ⚠️ Untested | [omnisport-2000.md](docs/consoles/omnisport-2000.md) |
 | Swiss Timing Omega — Ares 21 | ⚠️ Untested | [ares-21.md](docs/consoles/ares-21.md) |
 | Swiss Timing Omega — Quantum | ⚠️ Untested | [quantum.md](docs/consoles/quantum.md) |
+| Seiko — PT-8000 | ⚠️ Untested | [seiko-pt8000.md](docs/consoles/seiko-pt8000.md) |
 | Manual — no timing console | ✅ Tested | [manual.md](docs/consoles/manual.md) |
 
 ---
@@ -194,6 +195,7 @@ Les trois derniers documents n'existent qu'en anglais.
 | Daktronics Omnisport 2000 (J5 RTD, Ethernet, modes CTS, OMEGA) | ⚠️ Non testée | [omnisport-2000.md](docs/consoles/omnisport-2000.md) |
 | Swiss Timing Omega — Ares 21 | ⚠️ Non testée | [ares-21.md](docs/consoles/ares-21.md) |
 | Swiss Timing Omega — Quantum | ⚠️ Non testée | [quantum.md](docs/consoles/quantum.md) |
+| Seiko — PT-8000 | ⚠️ Non testée | [seiko-pt8000.md](docs/consoles/seiko-pt8000.md) |
 | Manuel — sans console de chronométrage | ✅ Testé | [manual.md](docs/consoles/manual.md) |
 
 ---
