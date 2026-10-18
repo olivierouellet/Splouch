@@ -259,7 +259,7 @@ settings and what the data should look like; the steps below are the same for al
    and **Console output**, plus any options it lists.
 3. **Check the link.** The **Connection** badge in Settings → Timing should read
    *Connected: /dev/ttyUSB0* (serial), *Connected: host:port* (TCP) or
-   *Listening: UDP port N* (UDP). Press **Enable** on the **Serial Monitor**: packets
+   *Listening: UDP port N on eth0* (UDP). Press **Enable** on the **Serial Monitor**: packets
    should scroll, shaped as the checklist describes. If nothing arrives, or only
    noise, try the checklist's options (baud rate, serial format, parity) before
    recording.

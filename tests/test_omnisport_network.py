@@ -6,6 +6,7 @@ unidirectional protocol, utilizing the standard CTS scoreboard information".
 """
 
 import socket
+import subprocess
 import threading
 import time
 from typing import cast
@@ -63,6 +64,7 @@ def test_the_worker_listens_for_rtd_datagrams(monkeypatch):
     packets: list[bytes] = []
     monkeypatch.setattr(worker, "_handle_packet", lambda b: packets.append(bytes(b)))
     monkeypatch.setattr(worker, "_set_serial_status", lambda *a: None)
+    monkeypatch.setattr(worker, "_eth_listen_addresses", lambda: ["127.0.0.1"])
     decoder = Omnisport2000Decoder({"transport": "udp", "udp_port": str(port)})
     monkeypatch.setattr(state, "_decoder", decoder)
     monkeypatch.setattr(state, "_worker_gen", 1)
@@ -79,6 +81,49 @@ def test_the_worker_listens_for_rtd_datagrams(monkeypatch):
     state._worker_gen = 2
     t.join(2)
     assert packets[:2] == [frame, frame], "two frames in one datagram, split on SYN"
+
+
+def _ip_reports(monkeypatch, stdout):
+    def run(cmd, **_):
+        assert cmd[-2:] == ["dev", "eth0"]
+        return subprocess.CompletedProcess(cmd, 0, stdout, "")
+
+    monkeypatch.setattr(worker.subprocess, "run", run)
+
+
+def test_the_listener_binds_the_wired_port_not_every_interface(monkeypatch):
+    _ip_reports(
+        monkeypatch,
+        '[{"ifname":"eth0","addr_info":[{"family":"inet",'
+        '"local":"192.168.0.20","prefixlen":24}]}]',
+    )
+    assert worker._eth_listen_addresses() == [
+        "192.168.0.20",
+        "192.168.0.255",
+        "255.255.255.255",
+    ]
+
+
+def test_no_wired_address_means_nothing_to_bind(monkeypatch):
+    _ip_reports(monkeypatch, '[{"ifname":"eth0","addr_info":[]}]')
+    assert worker._eth_listen_addresses() == []
+    _ip_reports(monkeypatch, "")  # no eth0 at all: `ip` prints nothing
+    assert worker._eth_listen_addresses() == []
+
+
+def test_the_worker_reports_a_missing_wired_address(monkeypatch):
+    statuses: list[tuple] = []
+
+    def status(*a):
+        statuses.append(a)
+        state._worker_gen = 2  # one attempt is enough
+
+    monkeypatch.setattr(worker, "_set_serial_status", status)
+    monkeypatch.setattr(worker, "_eth_listen_addresses", list)
+    monkeypatch.setattr(state, "_decoder", Omnisport2000Decoder({"transport": "udp"}))
+    monkeypatch.setattr(state, "_worker_gen", 1)
+    worker._run_live_udp(1)
+    assert ("error", "no IPv4 address on eth0") in statuses
 
 
 # ── Recording datagram boundaries in a .raw ────────────────────────────────────

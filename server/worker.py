@@ -1,9 +1,13 @@
 import contextlib
 import glob
+import ipaddress
+import json
 import os
 import queue
 import re
+import select
 import socket
+import subprocess
 import time
 import traceback
 
@@ -953,30 +957,85 @@ def _run_live_tcp(my_gen):
     _set_serial_status("idle", "")
 
 
+# The Pi's wired port, as NetworkManager's `splouch-eth` profile names it.
+_UDP_IFACE = "eth0"
+
+
+def _eth_listen_addresses():
+    """The addresses a console on the wired network reaches this Pi at.
+
+    The Pi's own address on `_UDP_IFACE`, its subnet's broadcast and the limited
+    broadcast (255.255.255.255) — a socket bound to the Pi's address alone never
+    sees a broadcast, and one bound to all interfaces also hears Wi-Fi and the
+    Cloud relay. Empty when the port has no IPv4 address.
+    """
+    try:
+        r = subprocess.run(
+            ["ip", "-j", "-4", "addr", "show", "dev", _UDP_IFACE],
+            capture_output=True,
+            text=True,
+            timeout=3,
+            check=False,
+        )
+        info = json.loads(r.stdout or "[]")
+    except (OSError, ValueError, subprocess.TimeoutExpired):
+        return []
+    for link in info:
+        for a in link.get("addr_info", []):
+            if a.get("family") == "inet" and a.get("local"):
+                net = ipaddress.IPv4Interface(f"{a['local']}/{a.get('prefixlen', 32)}")
+                addrs = [str(net.ip), str(net.network.broadcast_address)]
+                return list(dict.fromkeys([*addrs, "255.255.255.255"]))
+    return []
+
+
+def _udp_socket(addr, port):
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        with contextlib.suppress(AttributeError, OSError):
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+        # Linux only, and only with CAP_NET_RAW: keeps the limited broadcast to
+        # the wired port. Without it the socket still binds, just less narrowly.
+        with contextlib.suppress(AttributeError, OSError):
+            sock.setsockopt(
+                socket.SOL_SOCKET, socket.SO_BINDTODEVICE, _UDP_IFACE.encode()
+            )
+        sock.bind((addr, port))
+    except OSError:
+        sock.close()
+        raise
+    return sock
+
+
 def _run_live_udp(my_gen):
     """Listen for a console that broadcasts its data as UDP datagrams.
 
-    Each datagram goes through the same byte pipeline as a serial port and is
-    flushed at its end — a datagram carries whole frames. Retries every 5 s when
-    the port cannot be bound.
+    One socket per address in `_eth_listen_addresses`, so only the wired network
+    reaches the board. Each datagram goes through the same byte pipeline as a
+    serial port and is flushed at its end — a datagram carries whole frames.
+    Rebinds when the wired address changes; retries every 5 s when it has none
+    or a port cannot be bound.
     """
     while state._worker_gen == my_gen:
         port = state._decoder.udp_port
         _set_serial_status("opening", f"Listening on UDP port {port}…")
         try:
-            with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
-                sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-                with contextlib.suppress(AttributeError, OSError):
-                    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
-                sock.bind(("", port))
-                sock.settimeout(0.01)
-                _set_serial_status("open", f"Listening: UDP port {port}")
+            addrs = _eth_listen_addresses()
+            if not addrs:
+                raise OSError(f"no IPv4 address on {_UDP_IFACE}")
+            with contextlib.ExitStack() as stack:
+                socks = [stack.enter_context(_udp_socket(a, port)) for a in addrs]
+                _set_serial_status(
+                    "open", f"Listening: UDP port {port} on {_UDP_IFACE} ({addrs[0]})"
+                )
+                next_check = time.time() + 5
                 while state._worker_gen == my_gen:
-                    try:
+                    ready, _, _ = select.select(socks, [], [], 0.01)
+                    for sock in ready:
                         data, _ = sock.recvfrom(65535)
-                    except TimeoutError:
-                        data = b""
-                    if data:
+                        if not data:
+                            continue
                         buf = []
                         for c in data:
                             _record_raw_byte(c)
@@ -984,9 +1043,13 @@ def _run_live_udp(my_gen):
                         if buf:
                             _handle_packet(buf)
                         _record_raw_boundary()
-                    else:
+                    if not ready:
                         _drain_cmds()
                         _tick()
+                    if time.time() >= next_check:
+                        next_check = time.time() + 5
+                        if _eth_listen_addresses() != addrs:
+                            break  # readdressed: rebind on the new subnet
         except OSError as e:
             err = str(e) or type(e).__name__
             print(f"Console UDP error: {err}")
