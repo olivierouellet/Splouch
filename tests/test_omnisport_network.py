@@ -65,6 +65,8 @@ def test_the_worker_listens_for_rtd_datagrams(monkeypatch):
     monkeypatch.setattr(worker, "_handle_packet", lambda b: packets.append(bytes(b)))
     monkeypatch.setattr(worker, "_set_serial_status", lambda *a: None)
     monkeypatch.setattr(worker, "_eth_listen_addresses", lambda: ["127.0.0.1"])
+    # As root (CI's container) SO_BINDTODEVICE holds, and eth0 never sees loopback.
+    monkeypatch.setattr(worker, "_UDP_IFACE", "lo")
     decoder = Omnisport2000Decoder({"transport": "udp", "udp_port": str(port)})
     monkeypatch.setattr(state, "_decoder", decoder)
     monkeypatch.setattr(state, "_worker_gen", 1)
