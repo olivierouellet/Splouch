@@ -20,7 +20,7 @@ import cloud_meetstore
 import cloud_node
 
 # _meets: meet_id -> a dict of relay_key, relay_sid, organizer, name, location,
-#   sport, app_window_title, meet_date, settings, connected_at, clock_at,
+#   app_window_title, meet_date, settings, connected_at, clock_at,
 #   last_scoreboard, last_results, last_next_heats, schedule_data and
 #   console_times.
 _meets = {}
@@ -32,7 +32,6 @@ _RECORD_FIELDS = (
     "organizer",
     "name",
     "location",
-    "sport",
     "app_window_title",
     "meet_date",
     "settings",

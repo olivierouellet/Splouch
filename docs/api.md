@@ -336,7 +336,7 @@ JSON/asset endpoints (everything else the servers expose is HTML for the browser
 | `GET /` | picker page (HTML) — meet cards |
 | `GET /meets` | **meet list JSON** — `{ "meets": [ … ] }`, the same records the picker cards render (§5.6) |
 | `GET /picker/config` | **picker chrome JSON** — branding, localised strings, analytics flag (§5.7) |
-| `GET /meet/{meet_id}/config` | **meet config JSON** — `name`, `location`, `sport`, `meet_date`, `live`, `base`, and the `settings` block (§5.4). Lets a phone render the board without scraping the HTML page. `base` is where the meet is reached now (§5.6): asked of a worker after a move, it names the new one. `push` lists the platforms the meet's node can notify — `"apns"`, `"fcm"` — `[]` when none (§5.13) |
+| `GET /meet/{meet_id}/config` | **meet config JSON** — `name`, `location`, `meet_date`, `live`, `base`, and the `settings` block (§5.4). Lets a phone render the board without scraping the HTML page. `base` is where the meet is reached now (§5.6): asked of a worker after a move, it names the new one. `push` lists the platforms the meet's node can notify — `"apns"`, `"fcm"` — `[]` when none (§5.13) |
 | `GET /meet/{meet_id}/schedule` | **start list JSON** — `{ "heats": [ … ] }` (§5.8); 404 for an unknown meet, empty `heats` when the meet has no schedule yet |
 | `PUT /meet/{meet_id}/follow` | **heat notifications** (§5.13) — the swimmers one device follows at the meet, at its `base`. `204`; `409 {base}` when the meet is held elsewhere |
 | `GET /server` | **who this server is** (§5.10) — `kind: "cloud"` |
@@ -476,7 +476,7 @@ changes (a new file, a re-export, a test's start lists in or out, or none).
 { "key": "<relay key>", "ticket": "<from /api/assign>", "meet_uid": "<stable per LENEX>",
   "organizer_location": { "country": "CA", "province": "QC" },
   "session_dates": ["2026-10-11", "2026-10-12"], "utc_offset_minutes": -240,
-  "name": "…", "location": "…", "sport": "…", "app_window_title": "…", "meet_date": "YYYY-MM-DD",
+  "name": "…", "location": "…", "app_window_title": "…", "meet_date": "YYYY-MM-DD",
   "meet_end": "2026-10-12T22:00:00+00:00", "keep_listed_until": "2026-10-15T22:00:00+00:00",
   "settings": { "num_lanes": 8, "first_lane": 1, "show_name": true, "show_club": true, "show_delta": true,
                 "show_position": true, "show_podium": true, "show_*_header": true,
@@ -554,7 +554,7 @@ its own from the `results_snapshot` frames it relays, and stores them with the m
 ### 5.6 `GET /meets`
 
 ```json
-{ "meets": [ { "id": "aBc123", "name": "…", "location": "…", "sport": "…",
+{ "meets": [ { "id": "aBc123", "name": "…", "location": "…",
                "organizer": "…", "meet_date": "YYYY-MM-DD",
                "offline": false, "has_picker_image": true,
                "country": "CA", "province": "QC",
@@ -875,7 +875,7 @@ have no template, so config is exposed as JSON — all three additions below are
    operator menu (F1) without a browser on the server. `''` from a server too old to
    send it, which a client must read as *cannot tell* rather than *no update*.
 2. **Cloud `GET /meet/{meet_id}/config`** — the meet's `settings` block (§5.4) plus
-   `name`/`location`/`sport`/`meet_date`/`live`, so a phone can theme and render the
+   `name`/`location`/`meet_date`/`live`, so a phone can theme and render the
    board without scraping the HTML page.
 3. **Structured delta** — `lane_delta_seconds<i>`/`lane_delta_better<i>` in
    `update_scoreboard` and `delta_seconds`/`delta_better` in `results_snapshot`,
@@ -942,6 +942,12 @@ can tell the console has stopped talking to it. Faces, both palettes: `family`
 ---
 
 ## Changelog
+
+- **Removed since v2, the version stands**: `sport` in `GET /meets` (§5.6) and
+  `GET /meet/{id}/config` (§4), and in the relay's `register` (§5.4). Splouch is a
+  swimming product, so it was always `Swimming` or blank; no card showed it and only
+  the picker search (`app.md` `P-17`) read it. A client that decoded it as optional
+  now decodes nothing there; a Pi that still sends it is ignored.
 
 - **Added since v2, additive**: `PUT /meet/{id}/follow` (§5.13) and `push` in
   `GET /meet/{id}/config` (§4) — heat notifications, `app.md` §10. Relay only: `dates`

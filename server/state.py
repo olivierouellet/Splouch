@@ -348,7 +348,6 @@ def discard_console_times():
 CLOUD_PROFILE_FIELDS = (
     "cloud_meet_title",
     "meet_location",
-    "meet_sport",
     "app_window_title",
     "cloud_label_style",
     "active_picker_image",

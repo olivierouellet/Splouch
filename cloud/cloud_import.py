@@ -125,7 +125,7 @@ def import_dir(data_dir):
         record = {
             k: rec.get(k)
             for k in (
-                "organizer", "name", "location", "sport", "app_window_title",
+                "organizer", "name", "location", "app_window_title",
                 "meet_date", "settings", "schedule_data",
             )
         }  # fmt: skip

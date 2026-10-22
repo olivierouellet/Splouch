@@ -506,7 +506,6 @@ def route_meet_config(meet_id: str):
     return {
         "name": meet.get("name", ""),
         "location": meet.get("location", ""),
-        "sport": meet.get("sport", ""),
         "app_window_title": meet.get("app_window_title", ""),
         "meet_date": meet.get("meet_date", ""),
         "live": live or bool(_elsewhere(meet)),
@@ -704,7 +703,7 @@ async def _on_relay_register(ws, sid, data):
     meet_uid = data.get("meet_uid", "")
     meta = {
         k: data.get(k, "")
-        for k in ("name", "location", "sport", "app_window_title", "meet_date")
+        for k in ("name", "location", "app_window_title", "meet_date")
     }
     # Which days the meet runs, and the pool's UTC offset: how the control plane
     # tells a running meet from a Pi plugged in ahead.

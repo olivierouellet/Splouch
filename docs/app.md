@@ -154,7 +154,7 @@ Entry screen. Web: site root. App: launch screen, and `A-02`'s return target.
 
 | ID | Feature | Driven by | Scope | Level |
 | --- | --- | --- | --- | --- |
-| [`P-01`](#p-01) | Meets as cards **under their day**, the day named once above them in the reader's language (undated meets last, under `date_unknown`). Card: name (two lines at most, then an ellipsis; may shrink a little first), then one line — city, state/province **code**, country **code** — cut with an ellipsis. Every card one height. No date, no sport on the card. A country or state/province the picker filter (`P-21`) narrows to exactly one is not repeated on the card. Apps: a bell after the name while the meet has follows (`N-13`) | `GET /meets` ([`api.md`](api.md) §5.6) → `meet_date`, `location`, `country` (ISO code), `province` (ISO 3166-2 code without the country, or as sent when not a known one); `strings.date_unknown` | all | must |
+| [`P-01`](#p-01) | Meets as cards **under their day**, the day named once above them in the reader's language (undated meets last, under `date_unknown`). Card: name (two lines at most, then an ellipsis; may shrink a little first), then one line — city, state/province **code**, country **code** — cut with an ellipsis. Every card one height. No date on the card. A country or state/province the picker filter (`P-21`) narrows to exactly one is not repeated on the card. Apps: a bell after the name while the meet has follows (`N-13`) | `GET /meets` ([`api.md`](api.md) §5.6) → `meet_date`, `location`, `country` (ISO code), `province` (ISO 3166-2 code without the country, or as sent when not a known one); `strings.date_unknown` | all | must |
 | `P-02` | Per-meet picker image on card, if supplied — only while the list is short (`P-18`) | `settings.picker_image_b64` → `GET /picker_image/{meet_id}` | all | should |
 | `P-03` | Offline meets stay listed, dimmed dot; opened → last scoreboard frame, empty Results (`R-02`) | `offline`: retained, no relay connected | all | must |
 | `P-04` | Empty state, no active meets | `strings.no_meets` | all | must |
@@ -170,7 +170,7 @@ Entry screen. Web: site root. App: launch screen, and `A-02`'s return target.
 | `P-14` | Server on other contract versions → one-line notice naming both, once per session, beside server name; **never blocks connect** (newer = additive, older degrades a feature, e.g. `L-12` clock vs v1 relay) | `GET /server` → `contract.api`, `contract.app` ([`api.md`](api.md) §5.10) | native | should |
 | [`P-15`](#p-15) | Spectator's Appearance — Dark (default), Light, Automatic — in settings (`P-19`), applies on every screen of every meet | stored pref; server's two palettes ([`api.md`](api.md) §6.1), never `settings.theme_colors`; words native in apps (`T-05`); web reads `strings.appearance`, `appearance_dark` / `_light` / `_auto` | all | should |
 | [`P-16`](#p-11) | QR scan adds server: app asks; yes → adds, selects, lands on **meet list**. No app → page offers store | `https://<default host>/add?server=<origin>`; host's two `/.well-known/` files, `GET /add` ([`api.md`](api.md) §4) | native | should |
-| [`P-17`](#p-17) | Search meet list from **3** meets, narrows as typed, own empty state; field where platform puts search | local over `GET /meets` → `name`, `meet_date`, `location`, `sport`, `organizer`, `province`, `country` (code and reader's-language name); `strings.meet_search`, `no_meets_match` | all | should |
+| [`P-17`](#p-17) | Search meet list from **3** meets, narrows as typed, own empty state; field where platform puts search | local over `GET /meets` → `name`, `meet_date`, `location`, `organizer`, `province`, `country` (code and reader's-language name); `strings.meet_search`, `no_meets_match` | all | should |
 | `P-18` | More than **10** meets → compact rows, still under their day: name on one line, city · state/province · country codes, live dot, `N-13`'s bell; **no picker image**, none fetched. 10 or fewer → `P-01` cards | count of `GET /meets` → `meets` | all | should |
 | [`P-19`](#p-19) | **Settings** — one container in place of picker menu, sections in this order: Display (language `T-08`, Appearance `P-15`, results order `P-23`), Notifications (`N-12`, native), Server (`P-11`–`P-13`, native), About (`P-06` full text, `P-20` replay, version), Privacy (`P-07` while counting, policy link) — the policy linked once. Platform's own form: web side sheet (full height under 600px), iOS sheet with `Form`, Android full-screen settings destination | section names native in apps (`T-05`); web reads `strings.settings`, `settings_display`, `settings_privacy`, `settings_about` | all | should |
 | [`P-20`](#p-20) | **Introduction** on first launch, once per install, replayable from settings About: unofficial results (`P-06`), finding a meet, three tabs and how to read a lane, the schedule's times, following a swimmer or club, attendance counting with its toggle (`C-10`) | first and last pages server text (`results_disclaimer`, `privacy_note`), rest native words (`T-05`); last page only while `analytics_enabled` | native | should |
@@ -426,7 +426,7 @@ cookie). App stores choice itself.
 - Every query word, any order, must be substring of meet's folded fields space-joined —
   `quebec 2026` matches location + date.
 - Fold both sides per `S-09`'s four steps; web: `foldName()` in `shared/static/js/fold.js`.
-- Organizer, day and sport searched, not shown. Country searched by code and by its
+- Organizer and day searched, not shown. Country searched by code and by its
   name in the reader's language (web: `Intl.DisplayNames`); state/province as sent and
   by its name from [`subdivisions.json`](../shared/regions/subdivisions.json) (web: every
   spelling listed there).
@@ -1135,6 +1135,12 @@ paused stays paused. iOS: a `Toggle` in the sheet's first section, the bell
 ---
 
 ## Changelog
+
+- **v3, amended** (2026-10-22, no bump) — no more `sport`. It was always swimming;
+  `GET /meets` and `GET /meet/{id}/config` stop sending it. A client that still
+  searches it searches an empty field.
+
+  - **Changed**: `P-01` (no sport to leave off the card), `P-17` (sport not searched).
 
 - **v3, amended** (2026-10-22, no bump) — the pool sets where `L-26` starts. Additive:
   `settings.lane_direction` (`"up"` / `"down"`) on the relay `register` and the Pi's

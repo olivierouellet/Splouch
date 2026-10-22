@@ -492,7 +492,6 @@ def _row(**over):
         "id": "m1",
         "name": "Coupe",
         "location": "Laval",
-        "sport": "Swimming",
         "organizer": "Club",
         "connected_at": "10:00",
         "language": "English",

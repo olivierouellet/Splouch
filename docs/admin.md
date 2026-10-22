@@ -73,7 +73,7 @@ times, which need a console. Full guide: [manual.md](consoles/manual.md).
 | **Terminal** | In-browser terminal — Shell, raspi-config, dmesg, serial ports; a **Commands** list (Reinstall, service status, checkout state) to copy or run in it |
 | **Logs** | The app's output: this run (from memory), since boot or the previous boot (from the journal — where a crash or power cut shows); follow live; save this run |
 | **Hardware** | SoC temperature with its last hour (min/max), under-voltage and throttling now and since boot, CPU frequency, memory, disk. Sampled in memory only, never written to the SD card |
-| **Cloud** | Cloud relay URL and key; per-meet picker appearance (title, image, home icon, location, sport) |
+| **Cloud** | Cloud relay URL and key; per-meet picker appearance (title, image, home icon, location) |
 | **Power** | Restart the app service, reboot, or shut down the Pi — press-and-hold to confirm |
 | **Users** | Add people with their own login, each allowed only some pages: **Settings** (this panel, and every page), **Console** (`/console`), **Manual** (`/manual`), **Meet Manager** (`/mm`). Changing someone's password or pages, or deleting them, signs them out |
 | **Account** | Change your own password, and the owner's username (via the sidebar account menu) |
@@ -448,7 +448,7 @@ la série et chaque nageur — tout sauf les temps, qui exigent une console. Gui
 | **Terminal** | Terminal dans le navigateur — Shell, raspi-config, dmesg, ports série ; une liste de **Commandes** (Réinstaller, état du service, état du code) à copier ou exécuter dedans |
 | **Journaux** | La sortie de l'application : cette exécution (en mémoire), depuis le démarrage ou le démarrage précédent (dans le journal — là où se voit un plantage ou une coupure) ; suivi en direct ; enregistrer cette exécution |
 | **Matériel** | Température du SoC et sa dernière heure (min/max), sous-tension et bridage maintenant et depuis le démarrage, fréquence CPU, mémoire, disque. Échantillonné en mémoire seulement, jamais écrit sur la carte SD |
-| **Nuage** | URL et clé du relais cloud ; apparence de la compétition dans le sélecteur (titre, image, icône, lieu, sport) |
+| **Nuage** | URL et clé du relais cloud ; apparence de la compétition dans le sélecteur (titre, image, icône, lieu) |
 | **Alimentation** | Redémarrer le service, redémarrer ou éteindre le Pi — maintenir appuyé pour confirmer |
 | **Utilisateurs** | Ajouter des personnes avec leur propre connexion, chacune limitée à certaines pages : **Paramètres** (ce panneau, et toutes les pages), **Console** (`/console`), **Manuel** (`/manual`), **Meet Manager** (`/mm`). Changer le mot de passe ou les pages de quelqu'un, ou le supprimer, le déconnecte |
 | **Compte** | Changer votre propre mot de passe, et l'identifiant du propriétaire (depuis le menu utilisateur de la barre latérale) |

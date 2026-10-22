@@ -745,7 +745,6 @@ def _settings_view(request, form):
             # each meet (e.g. each day of a split meet) keeps its own.
             for key in (
                 "meet_location",
-                "meet_sport",
                 "cloud_label_style",
                 "app_window_title",
                 "cloud_meet_title",
@@ -1025,7 +1024,6 @@ def _settings_view(request, form):
         keep_listed_until=_local_time(relay.keep_listed_until()),
         keep_listed_deadline=_local_time(relay.keep_listed_deadline()),
         meet_location=state.settings.get("meet_location", ""),
-        meet_sport=state.settings.get("meet_sport", ""),
         cloud_label_style=state.settings.get("cloud_label_style", "short"),
         app_window_title=state.settings.get("app_window_title", ""),
         cloud_meet_title=state.settings.get("cloud_meet_title", ""),

@@ -220,7 +220,6 @@ def register_meta(meet, key, ticket, lap_direction="down"):
         "meet_uid": meet["uid"],
         "name": meet["name"],
         "location": meet["location"],
-        "sport": "Swimming",
         "app_window_title": meet["name"],
         "meet_date": meet["date"],
         "session_dates": [meet["date"]],

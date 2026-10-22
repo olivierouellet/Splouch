@@ -148,7 +148,6 @@ def _get_metadata():
         or state.settings.get("meet_title")
         or meet_info.get("name", ""),
         "location": meet_info.get("city") or state.settings.get("meet_location", ""),
-        "sport": state.settings.get("meet_sport", ""),
         "app_window_title": state.settings.get("app_window_title", ""),
         "meet_date": last_session_date(),
         # docs/app.md `P-01`: when the meet ends, and how long its operator keeps it

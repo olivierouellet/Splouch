@@ -41,7 +41,7 @@ MOVE_NOTICE_SECS = 120
 
 # The picker's columns. Never the start list or the two images.
 _LIST_COLUMNS = (
-    "m.id, m.organizer, m.name, m.location, m.sport, m.meet_date, m.live, "
+    "m.id, m.organizer, m.name, m.location, m.meet_date, m.live, "
     "m.connected_at, m.expires_at, m.settings, m.node, m.worker, n.host AS node_url, "
     "(m.picker_image_b64 <> '') AS has_picker_image, "
     "m.last_frame_at, m.session_dates, m.utc_offset, m.meet_end, m.keep_listed_until, "
@@ -107,7 +107,6 @@ def _record(row):
         "relay_key": row["organizer_key"] or "",
         "name": row["name"],
         "location": row["location"],
-        "sport": row["sport"],
         "app_window_title": row["app_window_title"],
         "meet_date": row["meet_date"],
         "settings": settings,
@@ -224,13 +223,13 @@ def register(key, meet_uid, meta, node, worker, location=None):
             else now.strftime("%H:%M:%S")
         )
         c.execute(
-            "INSERT INTO meets (id, organizer_key, organizer, name, location, sport, "
+            "INSERT INTO meets (id, organizer_key, organizer, name, location, "
             "app_window_title, meet_date, settings, picker_image_b64, "
             "live, node, worker, connected_at, last_seen, expires_at) "
-            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, true, %s, %s, %s, %s, NULL) "
+            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, true, %s, %s, %s, %s, NULL) "
             "ON CONFLICT (id) DO UPDATE SET organizer_key = EXCLUDED.organizer_key, "
             "organizer = EXCLUDED.organizer, name = EXCLUDED.name, "
-            "location = EXCLUDED.location, sport = EXCLUDED.sport, "
+            "location = EXCLUDED.location, "
             "app_window_title = EXCLUDED.app_window_title, "
             "meet_date = EXCLUDED.meet_date, settings = EXCLUDED.settings, "
             "picker_image_b64 = EXCLUDED.picker_image_b64, live = true, "
@@ -244,7 +243,6 @@ def register(key, meet_uid, meta, node, worker, location=None):
                 org["name"],
                 str(meta.get("name", "")),
                 str(meta.get("location", "")),
-                str(meta.get("sport", "")),
                 str(meta.get("app_window_title", "")),
                 str(meta.get("meet_date", "")),
                 Jsonb(settings),
@@ -677,12 +675,12 @@ def restore(meets, node=None):
             key = rec.get("relay_key") or None
             c.execute(
                 "INSERT INTO meets (id, organizer_key, organizer, name, location, "
-                "sport, app_window_title, meet_date, settings, picker_image_b64, "
+                "app_window_title, meet_date, settings, picker_image_b64, "
                 "node, live, expires_at) VALUES "
-                "(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, false, %s) "
+                "(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, false, %s) "
                 "ON CONFLICT (id) DO UPDATE SET organizer_key = EXCLUDED.organizer_key, "
                 "organizer = EXCLUDED.organizer, name = EXCLUDED.name, "
-                "location = EXCLUDED.location, sport = EXCLUDED.sport, "
+                "location = EXCLUDED.location, "
                 "app_window_title = EXCLUDED.app_window_title, "
                 "meet_date = EXCLUDED.meet_date, settings = EXCLUDED.settings, "
                 "picker_image_b64 = EXCLUDED.picker_image_b64, "
@@ -694,7 +692,6 @@ def restore(meets, node=None):
                     str(rec.get("organizer", "")),
                     str(rec.get("name", "")),
                     str(rec.get("location", "")),
-                    str(rec.get("sport", "")),
                     str(rec.get("app_window_title", "")),
                     str(rec.get("meet_date", "")),
                     Jsonb(settings),

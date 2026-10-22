@@ -37,7 +37,6 @@ def _meet(i, **kw):
         "id": f"m{i}",
         "name": f"Meet {i}",
         "location": "",
-        "sport": "",
         "organizer": "",
         "meet_date": "",
         "country": "",
@@ -85,8 +84,8 @@ def test_three_meets_bring_the_search_box():
 
 
 def test_a_card_carries_what_it_shows_and_its_organizer():
-    """The organizer, day and sport are not on the card, but a spectator may know a
-    meet by them; and a province by any of its names."""
+    """The organizer and day are not on the card, but a spectator may know a meet
+    by them; and a province by any of its names."""
     html = _render(
         [
             _meet(
@@ -94,7 +93,6 @@ def test_a_card_carries_what_it_shows_and_its_organizer():
                 name="Coupe du Québec",
                 meet_date="2026-10-04",
                 location="Montréal",
-                sport="Swimming",
                 organizer="CAMO",
                 country="CA",
                 province="QC",
@@ -102,19 +100,17 @@ def test_a_card_carries_what_it_shows_and_its_organizer():
         ]
     )
     assert (
-        'data-search="Coupe du Québec 2026-10-04 Montréal Swimming CAMO QC Québec PQ CA"'
-        in html
+        'data-search="Coupe du Québec 2026-10-04 Montréal CAMO QC Québec PQ CA"' in html
     )
 
 
-def test_the_card_shows_the_city_and_the_codes_not_the_day_or_sport():
+def test_the_card_shows_the_city_and_the_codes_not_the_day():
     html = _render(
         [
             _meet(
                 1,
                 meet_date="2026-10-04",
                 location="Montréal",
-                sport="Swimming",
                 country="CA",
                 province="QC",
             )
@@ -127,7 +123,7 @@ def test_the_card_shows_the_city_and_the_codes_not_the_day_or_sport():
         "QC",
         "CA",
     ]
-    assert "Swimming" not in meta.group(1) and "2026-10-04" not in meta.group(1)
+    assert "2026-10-04" not in meta.group(1)
 
 
 def test_cards_sit_under_their_day():

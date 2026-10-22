@@ -19,7 +19,6 @@ pytestmark = pytest.mark.usefixtures("pg")
 META: dict = {
     "name": "Coupe",
     "location": "Montréal",
-    "sport": "Swimming",
     # Far ahead: a retired meet expires at midnight after its date, and a date
     # that has passed would be swept before a test could read it back.
     "meet_date": "2099-06-04",

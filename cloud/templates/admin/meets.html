@@ -111,14 +111,13 @@
 
             <div class="table-responsive d-none d-sm-block">
             <table class="table table-sm align-middle">
-                <thead><tr><th>{{ t.col_meet }}</th><th>{{ t.col_location }}</th><th>{{ t.col_sport }}</th><th>{{ t.col_organizer }}</th><th>{{ t.col_language }}</th><th>{{ t.get('col_console', 'Console') }}</th>{% if analytics_enabled %}<th>{{ t.get('col_attendees', 'Attendees') }}</th>{% endif %}<th>{{ t.col_status or 'Status' }}</th><th></th></tr></thead>
+                <thead><tr><th>{{ t.col_meet }}</th><th>{{ t.col_location }}</th><th>{{ t.col_organizer }}</th><th>{{ t.col_language }}</th><th>{{ t.get('col_console', 'Console') }}</th>{% if analytics_enabled %}<th>{{ t.get('col_attendees', 'Attendees') }}</th>{% endif %}<th>{{ t.col_status or 'Status' }}</th><th></th></tr></thead>
                 <tbody>
                 {% if active_meets %}
                     {% for m in active_meets %}
                     <tr>
                         <td>{{ m.name or '—' }}</td>
                         <td>{{ m.location or '—' }}</td>
-                        <td>{{ m.sport or '—' }}</td>
                         <td>{{ m.organizer }}</td>
                         <td>{{ m.language or '—' }}</td>
                         <td class="text-nowrap">{% if m.console %}{{ m.console }}{% if m.console_timed is sameas false %}<br><span class="small text-body-secondary">{{ t.get('console_untimed', 'no times') }}</span>{% endif %}{% else %}—{% endif %}</td>
@@ -150,7 +149,7 @@
                     </tr>
                     {% endfor %}
                 {% else %}
-                    <tr><td colspan="{{ 9 if analytics_enabled else 8 }}" class="text-body-secondary fst-italic">{{ t.no_meets_admin }}</td></tr>
+                    <tr><td colspan="{{ 8 if analytics_enabled else 7 }}" class="text-body-secondary fst-italic">{{ t.no_meets_admin }}</td></tr>
                 {% endif %}
                 </tbody>
             </table>
@@ -185,7 +184,6 @@
                         <div class="accordion-body">
                             <dl class="row mb-2 small">
                                 <dt class="col-5 text-body-secondary fw-normal">{{ t.col_organizer }}</dt><dd class="col-7 mb-1">{{ m.organizer }}</dd>
-                                <dt class="col-5 text-body-secondary fw-normal">{{ t.col_sport }}</dt><dd class="col-7 mb-1">{{ m.sport or '—' }}</dd>
                                 <dt class="col-5 text-body-secondary fw-normal">{{ t.col_language }}</dt><dd class="col-7 mb-1">{{ m.language or '—' }}</dd>
                                 <dt class="col-5 text-body-secondary fw-normal">{{ t.get('col_console', 'Console') }}</dt>
                                 <dd class="col-7 mb-1">{% if m.console %}{{ m.console }}{% if m.console_timed is sameas false %} <span class="text-body-secondary">({{ t.get('console_untimed', 'no times') }})</span>{% endif %}{% else %}—{% endif %}</dd>

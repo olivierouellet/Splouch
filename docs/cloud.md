@@ -79,7 +79,7 @@ menu → **Change password**) lets you, under **Organizers** and **Active Meets*
 - **Edit a location** — under the organizer's name. When the organizer's Pi reports a different country or state/province, the row shows *Their Pi says: …* with **Accept**; accepting copies it, and the region stays yours to change.
 - **Revoke a key** — the Pi with that key will be disconnected and refused on next connect.
 - **Delete a key** — removes it from the list entirely.
-- **View active meets** — shows every Pi currently connected with its meet name, location, sport, organizer, console, and connection time.
+- **View active meets** — shows every Pi currently connected with its meet name, location, organizer, console, and connection time.
 
 The **Console** column is the console key the Pi reports (`cts_sys6`, `manual`, a plugin's
 own key), so a support question — *which console was that meet running on?* — is answered
@@ -103,11 +103,10 @@ In the admin UI on Pi #1 (`/settings` → **Cloud** tab):
 | **Country**, **State / province** | Where the club is based, picked from lists (a state/province only for Canada, the US and Mexico); the cloud's administrator sees it |
 | **Region** | Read-only — the region the cloud put this organizer in, shown once connected |
 | **Location** | Venue or city (auto-filled from Lenex if blank) |
-| **Sport** | Optional — not shown on the meet picker, but a spectator can search by it (e.g. `Swimming`) |
 
 Click **Save**. The Pi asks the cloud which server carries its meet, connects there, and
 appears in the cloud's meet picker.
-Location, sport and the rest of the picker card (title, image, home icon) only show once a
+Location and the rest of the picker card (title, image, home icon) only show once a
 meet file is loaded. The picker lists a meet under the day of its last session, and stops
 listing it once that day is past and the Pi disconnects. While the Pi stays connected, it
 stays listed until 24 hours after its last session ends; past that, the Pi's **Meet** and
@@ -121,7 +120,7 @@ there keeps it on the picker as long as the Pi stays connected.
 Attendees go to `https://yourdomain` on any phone or browser:
 
 - If one meet is active, the scoreboard opens directly.
-- If multiple meets are active, a picker shows each meet's name, location, and sport.
+- If multiple meets are active, a picker shows each meet's name and location.
 
 The scoreboard (`/mobile`) has three tabs — **Scoreboard**, **Results**, and **Schedule** — and uses the same theme and display settings as the organizer's Pi.
 
@@ -645,7 +644,7 @@ changer depuis le menu utilisateur → **Changer le mot de passe**) permet, dans
   connexion.
 - **Supprimer une clé** — la retire complètement de la liste.
 - **Voir les compétitions actives** — montre chaque Pi connecté avec le nom de sa
-  compétition, le lieu, le sport, l'organisateur, la console et l'heure de connexion.
+  compétition, le lieu, l'organisateur, la console et l'heure de connexion.
 
 La colonne **Console** indique la clé de console que rapporte le Pi (`cts_sys6`, `manual`,
 la clé propre d'un plugin) ; une question de support — *sur quelle console tournait cette
@@ -671,10 +670,9 @@ Dans l'interface d'administration du Pi n° 1 (`/settings` → onglet **Nuage**)
 | **Pays**, **État / province** | Où le club est établi, choisis dans des listes (une province ou un État seulement pour le Canada, les États-Unis et le Mexique) ; l'administrateur du cloud le voit |
 | **Région** | Lecture seule — la région attribuée par le cloud, affichée une fois connecté |
 | **Lieu** | Lieu ou ville (rempli depuis le Lenex s'il est vide) |
-| **Sport** | Facultatif — non affiché dans le sélecteur de compétitions, mais un spectateur peut le chercher (p. ex. `Natation`) |
 
 Cliquez sur **Enregistrer**. Le Pi demande au cloud quel serveur diffuse sa compétition,
-s'y connecte et apparaît dans le sélecteur de compétitions du cloud. Le lieu, le sport et le reste de la fiche du sélecteur (titre, image,
+s'y connecte et apparaît dans le sélecteur de compétitions du cloud. Le lieu et le reste de la fiche du sélecteur (titre, image,
 icône) n'apparaissent qu'une fois un fichier de compétition chargé. Le sélecteur range une
 compétition sous le jour de sa dernière session et ne l'affiche plus, une fois ce jour passé,
 dès que le Pi se déconnecte. Tant que le Pi reste connecté, elle reste affichée jusqu'à 24
@@ -689,7 +687,7 @@ l'y garde tant que le Pi reste connecté.
 Les spectateurs vont à `https://votredomaine` sur n'importe quel téléphone ou navigateur :
 
 - Si une seule compétition est active, le tableau s'ouvre directement.
-- Si plusieurs sont actives, un sélecteur affiche le nom, le lieu et le sport de chacune.
+- Si plusieurs sont actives, un sélecteur affiche le nom et le lieu de chacune.
 
 Le tableau (`/mobile`) a trois onglets — **Tableau**, **Résultats** et **Programme** — et
 reprend le thème et les réglages d'affichage du Pi de l'organisateur.
