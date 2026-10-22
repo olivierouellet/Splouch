@@ -613,7 +613,7 @@ different pool, or the same pool from the other stand.
 
 - **Default**: a meet the reader has not flipped follows the pool's
   `settings.lane_direction` — `up` ascending, `down` descending — set on the Pi
-  (Settings → Phones → Display → *Lane order*) for a pool whose only stand sees the
+  (Settings → Phones → Appearance → *Lane order*) for a pool whose only stand sees the
   lanes the other way. Absent or unknown → ascending, `L-04` as drawn. The pool's value
   is read on every open, so an operator who changes it moves every reader who has not
   chosen. A reader's flip is stored as a choice, ascending or descending, never as a

@@ -340,10 +340,11 @@ makes up on first launch and keeps in `~/.config/splouch/display-id`
 (`identity.py`). Not the hostname: Pis flashed from one image all share one. The
 server keeps the operator's name for each ID, so it survives reboots and meets.
 
-**Identify** (press and hold) turns that TV's wall clock bright green for 10 s;
-Cancel stops it early. The wall clock because it is always there — the race clock
-blanks between heats. The colour is fixed rather than a theme key, since it has to
-stand out on any theme. The splash covers the whole window, so the header bar is
+**Identify** (press and hold) fills that TV's wall clock cell bright green, digits
+black, for 10 s; Cancel stops it early. The wall clock because it is always there —
+the race clock blanks between heats. The colours are fixed rather than theme keys,
+and it is the cell that changes, not just the digits: a theme may already draw the
+clock green. On a theme whose bar is itself green they swap — green digits on black. The splash covers the whole window, so the header bar is
 lifted above it while identifying. The TV times the 10 s itself, so a link that
 drops mid-identify still leaves it back to normal.
 

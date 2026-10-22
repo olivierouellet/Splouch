@@ -396,8 +396,8 @@ only one of `age`/`age_key` is ever set. `round` comes from the Lenex EVENT `rou
 never from the name: `FIN` → `final`, `SEM` → `semifinal`, `QUA` → `quarterfinal`,
 `PRE` → `prelims`, `FHT` → `fastest_heat`, `TIM` → `timed_final`, and `SOP` / `SOQ`
 / `SOS` → `swimoff`; no `round`, or an unknown code, is `""`. The operator picks
-which rounds show, separately for boards and phones (Settings → Scoreboard →
-Display and Settings → Phones → Display): the **board** choice decides whether `event_name` ends with the round, the **phone**
+which rounds show, separately for boards and phones (Settings → Displays →
+Appearance and Settings → Phones → Appearance): the **board** choice decides whether `event_name` ends with the round, the **phone**
 choice whether `round` is set here — so one frame serves both, and a phone that
 composes from the parts follows the phone choice. Compose as `dist + unit`, stroke,
 `relay` — then `separator`, then gender and age; fall back to `raw` when nothing parsed; then, when `round` is set,
