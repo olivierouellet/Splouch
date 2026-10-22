@@ -134,6 +134,8 @@ icon.
 | `splash.py` | the carousel overlay — title, sponsor images, background |
 | `format.py` | value formatting (deltas); Qt-free so CI can test it |
 | `fonts.py` | registers the bundled TTFs, resolves family names, falls back to monospace |
+| `schedule.py` | which heats the Schedule view shows, and as which lines; Qt-free |
+| `schedule_view.py` | paints those lines |
 | `version.py` | what git ref this checkout is, reported on `register` |
 | `identity.py` | this TV's own ID, made on first launch, reported on `register` |
 | `updater.py` | self-update on the server's command, then exit for a relaunch |
@@ -165,8 +167,8 @@ The three fonts are three distinct settings and land in three places:
 | Timing Font | `timing` | lane times and deltas |
 | Digit Font | `digits` | the running clock — usually a seven-segment face |
 
-Only the `schedule_*` colours are unused, and correctly so: they belong to the
-schedule and next-heats pages, which this display does not render.
+The `schedule_*` colours are used only by the Schedule view (see *Which TV is
+which*), which draws the heats as the schedule page does.
 
 `tests/test_scoreboard_startup.py` paints a distinct sentinel colour into every
 key and asserts each one reaches a widget. That test exists because two settings
@@ -365,7 +367,15 @@ the live board a heat early, so the race clock's cell — empty with no race —
 NEXT HEAT in the timing colour, and the timing columns stay closed. With no heat
 left it shows the waiting line ("No upcoming heats"). A board `reset` or a test
 starting does not wipe it: the start lists that change bring their own
-`next_heats`. **Not ready.** With no timing console (Results) or no meet file (Next heat) the
+`next_heats`. **Schedule** is the fourth: `GET /schedule.json` from the next heat on (the first of
+`next_heats`, re-fetched on each one), painted by `schedule_view.py`. A fixed 20
+lines — a heat's title and one per swimmer — so the text is one size whatever is on
+screen; each following heat is added only if the whole of it fits, in order, and
+nothing scrolls (`schedule.py`, Qt-free). It is the one place the `schedule_*`
+colours reach the TV. The race clock's cell says SCHEDULE; like NEXT HEAT it is set
+in the text face, since the digit font is usually seven-segment.
+
+**Not ready.** With no timing console (Results) or no meet file (Next heat) the
 server keeps the TV on its view with `ready` false: the line says which is missing
 and the wall clock cell turns red — Identify's mechanism, in red, and Identify wins
 while both are on. A snapshot or `next_heats` arriving meanwhile is kept and painted

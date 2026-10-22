@@ -273,7 +273,7 @@ def test_the_views_are_translated(code):
 def test_next_heat_needs_a_meet(server, monkeypatch):
     assert "next" not in displays.available_views()
     monkeypatch.setattr(meet_data, "heat_order", lambda: [(1, 1), (1, 2)])
-    assert displays.available_views() == ["live", "results", "next"]
+    assert displays.available_views() == ["live", "results", "next", "schedule"]
     _connect()
     assert _set_view("next") == {"ok": True}
 

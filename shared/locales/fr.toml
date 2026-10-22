@@ -162,6 +162,7 @@ waiting_results = "En attente des résultats…"
 # The TV's Next heat view: what the race clock's cell says, and the line when
 # the meet has no heat left.
 next_heat   = "SÉRIE SUIVANTE"
+schedule    = "HORAIRE"
 no_upcoming = "Aucune série à venir"
 # Results with no timing console: the line, with the clock red.
 no_console = "Aucune console de chronométrage"

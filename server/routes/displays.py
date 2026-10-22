@@ -28,7 +28,7 @@ _ID = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}
 # What a TV can show, in Settings order. A view the meet cannot feed is not offered
 # (available_views), but a TV already on one keeps it and says why it is empty
 # (view_ready).
-VIEWS = ("live", "results", "next")
+VIEWS = ("live", "results", "next", "schedule")
 # Each TV's own choices beside its view, with what they may be. A new TV takes the
 # pool's value for each once, when it first registers (`_pool_default`).
 OPTIONS = {
@@ -41,7 +41,7 @@ NAME_MAX = 40
 
 
 def available_views() -> list[str]:
-    """The views this meet can feed. Next heat needs a meet file. Results needs a console that times
+    """The views this meet can feed. Next heat and Schedule need a meet file. Results needs a console that times
     (`console_state()['timed']`, the phones' `A-11`): with none, no result ever
     arrives. Read off the operator's console, not a test replay standing in for
     it, so a replay cannot offer Results on a manual meet for its duration."""
@@ -49,9 +49,9 @@ def available_views() -> list[str]:
     views = ["live"]
     if getattr(decoder, "requires_serial", True):
         views.append("results")
-    # Next heat needs start lists to name the heat after this one.
+    # Next heat and Schedule need start lists to show what comes.
     if meet_data.heat_order():
-        views.append("next")
+        views += ["next", "schedule"]
     return views
 
 

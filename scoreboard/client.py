@@ -53,7 +53,7 @@ def _ws_url(base: str, path: str = "/ws/scoreboard") -> str:
     return base + path
 
 
-def fetch_config(base: str, timeout: float = 10.0) -> dict:
+def fetch_config(base: str, timeout: float = 10.0, path: str = "/config") -> dict:
     """GET /config — display config for native clients (docs/api.md §6).
 
     Raises on failure; the caller decides whether to retry or fall back to
@@ -61,7 +61,7 @@ def fetch_config(base: str, timeout: float = 10.0) -> dict:
     handling.
     """
     base = base.strip().rstrip("/")
-    with urllib.request.urlopen(base + "/config", timeout=timeout) as resp:
+    with urllib.request.urlopen(base + path, timeout=timeout) as resp:
         return json.loads(resp.read().decode("utf-8"))
 
 
@@ -102,6 +102,48 @@ class ConfigLoader(QObject):
             self.loaded.emit(data)
         finally:
             self._busy.release()
+
+
+class ScheduleLoader(QObject):
+    """Fetches ``GET /schedule.json`` off the GUI thread, for the Schedule view.
+
+    Like :class:`ConfigLoader`, except that a request made while one is in flight
+    is not dropped but run once more after it: the request comes from a heat
+    change, and the reply already on its way may predate it.
+    """
+
+    loaded = Signal(object)  # the `heats` list
+
+    def __init__(self, base_url: str, parent=None):
+        super().__init__(parent)
+        self._base = base_url
+        self._lock = threading.Lock()
+        self._busy = False
+        self._again = False
+
+    def request(self):
+        with self._lock:
+            if self._busy:
+                self._again = True
+                return
+            self._busy = True
+        threading.Thread(target=self._run, daemon=True).start()
+
+    def _run(self):
+        while True:
+            try:
+                data = fetch_config(self._base, path="/schedule.json")
+            except Exception as e:
+                print(f"[scoreboard] schedule fetch failed: {e}", flush=True)
+            else:
+                heats = data.get("heats") if isinstance(data, dict) else None
+                if isinstance(heats, list):
+                    self.loaded.emit(heats)
+            with self._lock:
+                if not self._again:
+                    self._busy = False
+                    return
+                self._again = False
 
 
 class ServerLink(QObject):

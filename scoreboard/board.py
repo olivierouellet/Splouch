@@ -49,6 +49,7 @@ from PySide6.QtWidgets import (
 
 from .format import fmt_clock, fmt_delta, parse_clock
 from .menu import OperatorMenu
+from .schedule_view import ScheduleView
 from .splash import SplashOverlay
 from .theme import Config
 from .version import cached_version
@@ -1229,6 +1230,13 @@ class BoardWindow(QWidget):
         )
         self.waiting.hide()
         root.addWidget(self.waiting, 1)
+        # The Schedule view's heats, in place of the table — see show_schedule.
+        self.schedule = ScheduleView(cfg)
+        self.schedule.setSizePolicy(
+            QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Ignored
+        )
+        self.schedule.hide()
+        root.addWidget(self.schedule, 1)
         self.header.scale_children = self._scale_header
 
         # ── Status overlay ─────────────────────────────────────────────────────
@@ -1312,7 +1320,7 @@ class BoardWindow(QWidget):
             f"color: {cfg.color('time')}; background: transparent;"
             f" border: none; {divider}"
         )
-        self.chrono_label.setFont(QFont(cfg.digits_family))
+        self._style_chrono_font()
         # The accent blue, like the EV/HT words — the two ends of the bar then frame
         # the race clock, which is the one element up here meant to stand out and
         # keeps the gold `time` to itself. The wall clock is the header's least
@@ -1641,6 +1649,8 @@ class BoardWindow(QWidget):
         self.header_row.cfg = cfg
         for row in self.rows:
             row.cfg = cfg
+        self.schedule.cfg = cfg
+        self.schedule.update()
         self.setWindowTitle(cfg.meet_title or "Splouch")
         self.apply_theme()
         self.refresh()
@@ -2191,6 +2201,7 @@ class BoardWindow(QWidget):
             layout.removeWidget(row)
         for row in reversed(self.rows) if direction == "down" else self.rows:
             layout.addWidget(row, 2)
+        self.schedule.set_lane_direction(direction)
 
     def rows_top_down(self) -> list:
         """The rows in the order they are on screen."""
@@ -2202,6 +2213,20 @@ class BoardWindow(QWidget):
     # the board's own rows. The app stops feeding `update_scoreboard` in; the server
     # sends the live board again when the TV goes back to Live.
 
+    def _set_chrono_word(self, text: str):
+        """A word in the race clock's cell — NEXT HEAT, SCHEDULE — set in the
+        board's text face: the digit font is usually seven-segment, which has no
+        letters worth the name."""
+        self._chrono_word = bool(text)
+        self._style_chrono_font()
+        self.chrono_label.setText(text)
+
+    def _style_chrono_font(self):
+        word = getattr(self, "_chrono_word", False)
+        self.chrono_label.setFont(
+            QFont(self.cfg.family if word else self.cfg.digits_family)
+        )
+
     @property
     def results_mode(self) -> bool:
         return self.view_mode == "results"
@@ -2210,7 +2235,8 @@ class BoardWindow(QWidget):
         """Switch to the live board, the results view or the next heat, starting
         empty: the two others show their waiting line until data arrives."""
         self.reset()
-        self.view_mode = mode if mode in ("results", "next") else "live"
+        self._set_chrono_word("")
+        self.view_mode = mode if mode in ("results", "next", "schedule") else "live"
         for row in self.rows:
             row.set_lane_text(None)
         self.waiting.setText(self._waiting_text())
@@ -2220,13 +2246,15 @@ class BoardWindow(QWidget):
         self.set_view_mode("results" if on else "live")
 
     def _waiting_text(self) -> str:
-        if self.view_mode == "next":
+        if self.view_mode in ("next", "schedule"):
             return self.cfg.strings.get("no_upcoming", "No upcoming heats")
         return self.cfg.strings.get("waiting_results", "Waiting for results…")
 
     def show_waiting(self, waiting: bool):
         """The waiting line *is* the screen until there are results (`R-01`)."""
-        self.content.setVisible(not waiting)
+        on_schedule = self.view_mode == "schedule"
+        self.content.setVisible(not waiting and not on_schedule)
+        self.schedule.setVisible(not waiting and on_schedule)
         self.waiting.setVisible(waiting)
 
     def clear_results(self):
@@ -2234,6 +2262,24 @@ class BoardWindow(QWidget):
         no heat left to come."""
         if self.view_mode != "live":
             self.set_view_mode(self.view_mode)
+
+    # ── Schedule view ──────────────────────────────────────────────────────────
+    # The heats still to swim from the next one on, as many as fit whole — see
+    # scoreboard/schedule.py. The header bar keeps only its clocks and says
+    # SCHEDULE in the race clock's cell, as Next heat says NEXT HEAT.
+
+    def show_schedule(self, heats: list):
+        """Show *heats*, the first being the next to swim; none is the end of the
+        meet, and the waiting line."""
+        if self.view_mode != "schedule":
+            return
+        if not heats:
+            self.clear_results()
+            return
+        self.set_header_mode(False)
+        self._set_chrono_word(self.cfg.strings.get("schedule", "SCHEDULE"))
+        self.schedule.set_heats(heats)
+        self.show_waiting(False)
 
     # ── Next heat view ─────────────────────────────────────────────────────────
     # The heat after the one on the console, from `next_heats` on `/ws/results`
@@ -2259,7 +2305,7 @@ class BoardWindow(QWidget):
         )
         self._sync_header_cells()
         self.name_label.setText(str(heat.get("event_name", "")))
-        self.chrono_label.setText(self.cfg.strings.get("next_heat", "NEXT HEAT"))
+        self._set_chrono_word(self.cfg.strings.get("next_heat", "NEXT HEAT"))
         by_row = {}
         for swimmer in heat.get("swimmers") or []:
             if isinstance(swimmer, dict):
@@ -2365,3 +2411,4 @@ class BoardWindow(QWidget):
         self.chrono_label.setText("")
         for row in self.rows:
             row.clear()
+        self.schedule.set_heats([])

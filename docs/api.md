@@ -83,7 +83,7 @@ same reason.
 | `reset` | `{}` | what is on the board is stale — clear it (§2.2) |
 | `reload` | `{}` | settings/theme changed — client should re-fetch config and redraw |
 | `update` | `{ "target": "<ref>" }` | move to *ref* and restart (native clients only) |
-| `display_view` | `{ "view": "live"\|"results"\|"next", "ready": bool, "lane_direction": "up"\|"down", "results_sort": "lane"\|"place" }` | to one TV only: what to show and how; sent after `register` and on every change (native clients only) |
+| `display_view` | `{ "view": "live"\|"results"\|"next"\|"schedule", "ready": bool, "lane_direction": "up"\|"down", "results_sort": "lane"\|"place" }` | to one TV only: what to show and how; sent after `register` and on every change (native clients only) |
 | `identify` | `{ "active": bool, "seconds"?: int }` | to one TV only: turn the wall clock green for *seconds*, or stop early (native clients only) |
 
 #### 2.1 `meet_live`
@@ -161,10 +161,12 @@ burst), since a TV drops the board while on another view. **Results** is
 shows only the waiting line (`app.md` `R-01`), and a disconnect or `meet_live` false
 takes it back there (`R-02`). **Next** is the first of `next_heats` (§5.3), also on
 `/ws/results`: the start list of the heat after the one on the console, with the
-race clock's cell saying so, or the waiting line once no heat is left.
+race clock's cell saying so, or the waiting line once no heat is left. **Schedule**
+is `GET /schedule.json` (§5.8) from that same next heat on, as many whole heats as
+fit on screen; the TV fetches it again on every `next_heats`.
 
-Results is offered only when the console times (`console.timed`, §6), Next only
-with a meet file loaded. A TV already on one keeps it when that goes away — moved to
+Results is offered only when the console times (`console.timed`, §6), Next and
+Schedule only with a meet file loaded. A TV already on one keeps it when that goes away — moved to
 Live, every TV would need setting again after the next upload or console switch.
 `ready` is then false, and the TV says why (no timing console, no meet file) with
 its clock cell red, until it comes back. The server re-sends `display_view` to every

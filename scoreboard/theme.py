@@ -39,6 +39,7 @@ DEFAULT_COLORS = {
     "schedule_time": "#FFD700",
     "schedule_name": "#e0e0e0",
     "schedule_club": "#666666",
+    "schedule_seed": "#e0e0e0",
 }
 
 DEFAULT_FONTS = {
@@ -76,6 +77,7 @@ DEFAULT_STRINGS = {
     "waiting_results": "Waiting for results…",
     # The Next heat view: the race clock's cell, and the line with no heat left.
     "next_heat": "NEXT HEAT",
+    "schedule": "SCHEDULE",
     "no_upcoming": "No upcoming heats",
     # A view the meet cannot feed — said with the clock cell red: Results with no
     # timing console, Next heat with no meet file loaded.

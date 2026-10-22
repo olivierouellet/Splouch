@@ -25,8 +25,9 @@ from PySide6.QtWidgets import QApplication
 
 from .board import BoardWindow
 from .cache import load_cached_config, save_cached_config
-from .client import ConfigLoader, ServerLink
+from .client import ConfigLoader, ScheduleLoader, ServerLink
 from .fonts import load_app_fonts
+from .schedule import upcoming
 from .theme import Config
 from .updater import Updater
 from .version import registration, warm_cache
@@ -99,6 +100,11 @@ class ScoreboardApp:
         self.results_link: ServerLink | None = None
         self._last_results: dict | None = None
         self._last_next: dict | None = None
+        # The Schedule view's whole start list, fetched again on every
+        # `next_heats` — see _on_results_frame.
+        self._schedule_heats: list | None = None
+        self.schedule_loader = ScheduleLoader(server)
+        self.schedule_loader.loaded.connect(self._on_schedule_loaded)
 
         self._waiting_since = time.monotonic()
         self._waiting_key = "waiting_server"
@@ -270,6 +276,8 @@ class ScoreboardApp:
                     self.window.show_results(self._last_results, self.sort)
                 if self.view == "next" and self._last_next:
                     self.window.show_next(self._last_next)
+                if self.view == "schedule":
+                    self._paint_schedule()
             self.window.set_alert(not self.ready)
             if not self.ready:
                 self._show_not_ready()
@@ -495,8 +503,42 @@ class ScoreboardApp:
             self.window.show_results(self._last_results, self.sort)
         elif self.view == "next" and self._last_next:
             self.window.show_next(self._last_next)
+        elif self.view == "schedule" and self._last_next:
+            self._clear_view()
+            self._paint_schedule()
+            self.schedule_loader.request()  # the list may predate the meet
         else:
             self._clear_view()
+
+    # ── Schedule ───────────────────────────────────────────────────────────────
+
+    def _next_key(self):
+        """(event, heat) of the next heat to swim, ``None`` at the end of the meet."""
+        heats = (self._last_next or {}).get("heats") or []
+        first = heats[0] if heats and isinstance(heats[0], dict) else None
+        return (first.get("event"), first.get("heat")) if first else None
+
+    def _on_schedule_loaded(self, heats: list):
+        self._schedule_heats = heats
+        if self.view == "schedule" and self.ready:
+            self._paint_schedule()
+
+    def _paint_schedule(self):
+        """From the next heat on. Waits for both halves; an end-of-meet
+        `next_heats` is the waiting line whatever the list says. A list that
+        does not hold the next heat predates it — the fetch already asked for
+        will replace it — so nothing is repainted from it."""
+        if self._last_next is None:
+            return
+        key = self._next_key()
+        if key is None:
+            self.window.show_schedule([])
+            return
+        if self._schedule_heats is None:
+            return
+        heats = upcoming(self._schedule_heats, key)
+        if heats:
+            self.window.show_schedule(heats)
 
     def _clear_view(self):
         """Back to the view's waiting line — or its notice, while not ready."""
@@ -508,7 +550,7 @@ class ScoreboardApp:
         """Live, Results or Next heat. Each starts empty: the server follows
         `display_view` with the live board, and `/ws/results` — which carries
         both of the others — opens with its last snapshot and next heats."""
-        view = view if view in ("live", "results", "next") else "live"
+        view = view if view in ("live", "results", "next", "schedule") else "live"
         if view == self.view:
             return
         self.view = view
@@ -529,6 +571,7 @@ class ScoreboardApp:
         thread cannot paint over the view that replaced it."""
         link, self.results_link = self.results_link, None
         self._last_results = self._last_next = None
+        self._schedule_heats = None
         if link is None:
             return
         link.frame.disconnect(self._on_results_frame)
@@ -536,6 +579,16 @@ class ScoreboardApp:
         link.stop()
 
     def _on_results_frame(self, event: str, data):
+        if self.view == "schedule":
+            # Every heat change and every meet change sends one: the next heat
+            # moves, or the start list itself may have.
+            if event == "next_heats" and isinstance(data, dict):
+                self._last_next = data
+                if self._next_key() is not None:
+                    self.schedule_loader.request()
+                if self.ready:
+                    self._paint_schedule()
+            return
         if self.view == "next":
             if event == "next_heats" and isinstance(data, dict):
                 self._last_next = data
@@ -568,7 +621,7 @@ class ScoreboardApp:
             "columns_state",
         ):
             return  # the live board's; this TV is showing something else
-        if self.view == "next" and event in ("reset", "test_mode"):
+        if self.view in ("next", "schedule") and event in ("reset", "test_mode"):
             # The heat to come does not go stale with the board: a test's start
             # lists, in or out, bring a fresh `next_heats` of their own. Only the
             # badge follows.
