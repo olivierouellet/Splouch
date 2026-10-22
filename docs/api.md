@@ -83,6 +83,7 @@ same reason.
 | `reset` | `{}` | what is on the board is stale — clear it (§2.2) |
 | `reload` | `{}` | settings/theme changed — client should re-fetch config and redraw |
 | `update` | `{ "target": "<ref>" }` | move to *ref* and restart (native clients only) |
+| `display_view` | `{ "view": "live"\|"results" }` | to one TV only: which view to show; sent after `register` and on every change (native clients only) |
 | `identify` | `{ "active": bool, "seconds"?: int }` | to one TV only: turn the wall clock green for *seconds*, or stop early (native clients only) |
 
 #### 2.1 `meet_live`
@@ -151,6 +152,16 @@ treat the frame as untrusted LAN input.
 Displays → TVs — because hostnames repeat across Pis flashed from one image. One
 that is not a UUID is ignored, and the client is then listed under Network but not
 under TVs. Two connections with one ID are a cloned SD card, and flagged as such.
+
+**`display_view`** is the view Settings → Displays → TVs has this TV on, sent in
+reply to `register` and by `POST /display_view`. **Live** is this channel's board;
+the server follows it with the full board (`update_scoreboard`, as in the connect
+burst), since a TV drops the board while on another view. **Results** is
+`/ws/results`, which the TV opens beside this socket: until a snapshot arrives it
+shows only the waiting line (`app.md` `R-01`), and a disconnect or `meet_live` false
+takes it back there (`R-02`). The server offers Results only when the console times
+(`console.timed`, §6), and moves a TV on it back to Live when the console changes to
+one that does not. A TV that is not connected gets its view on connect.
 
 **`identify`** is sent by `POST /display_identify` to the sockets of one
 `device_id`. The display runs its own timer for `seconds`, so it goes back to normal

@@ -200,6 +200,13 @@ def _animate_color(owner, start, end, duration_ms, curve, paint):
     return anim
 
 
+def _int(value, default: int = 0) -> int:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
 def _restyle(label, font):
     """Give a plain ``QLabel`` a new face without losing its computed pixel size.
 
@@ -485,6 +492,13 @@ class LaneRow(QFrame):
             self._style_lap(final)
 
     # ── Podium tint ────────────────────────────────────────────────────────────
+
+    def set_lane_text(self, text: str | None):
+        """What the lane cell reads: its own lane for ``None``. The results view
+        ranks rows by place, so there a row's lane is whoever finished there."""
+        self.lane_label.setText(
+            str(self.lane + self.cfg.first_lane - 1) if text is None else text
+        )
 
     def podium_place(self):
         """1, 2 or 3 when this row belongs on the podium, else ``None``."""
@@ -1195,6 +1209,17 @@ class BoardWindow(QWidget):
         self._content_fade_done = None
         self._content_fade.finished.connect(self._on_content_fade_finished)
         root.addWidget(self.content, 1)
+
+        # The results view's "waiting for results" line, in place of the table
+        # until a heat has results (docs/app.md `R-01`) — see show_results.
+        self.results_mode = False
+        self.waiting = FitLabel()
+        self.waiting.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.waiting.setSizePolicy(
+            QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Ignored
+        )
+        self.waiting.hide()
+        root.addWidget(self.waiting, 1)
         self.header.scale_children = self._scale_header
 
         # ── Status overlay ─────────────────────────────────────────────────────
@@ -1284,6 +1309,11 @@ class BoardWindow(QWidget):
         self._style_wall_clock()
         self.wall_clock.setFont(QFont(cfg.digits_family))
         self.test_badge.apply_theme(cfg, cfg.color("row_text"))
+        self.waiting.setStyleSheet(
+            f"color: {cfg.color('th_text')}; background: transparent;"
+        )
+        self.waiting.setFont(QFont(cfg.family))
+        self.waiting.setText(cfg.strings.get("waiting_results", "Waiting for results…"))
         # The link badge is the one an operator may want to tune: its pill is a
         # warning colour rather than a board colour, so the text on it does not
         # necessarily read against the background the other pill borrows.
@@ -1563,6 +1593,7 @@ class BoardWindow(QWidget):
             if badge.isVisible():
                 badge.place(self.width(), self.height(), self.header.height())
         self.status_box.setGeometry(self.rect())
+        self.waiting.set_max_px(max(16, int(self.height() * 0.05)))
         font = self.status.font()
         font.setPixelSize(max(16, int(self.height() * 0.055)))
         self.status.setFont(font)
@@ -2111,8 +2142,103 @@ class BoardWindow(QWidget):
             self._tick_clock()  # paint now rather than up to 50ms from now
 
     def refresh(self):
+        if self.results_mode:
+            return  # the rows hold a results snapshot, not `self.snapshot`
         for row in self.rows:
             row.update_from(self.snapshot)
+
+    # ── Results view ───────────────────────────────────────────────────────────
+    # Settings → Displays → TVs can put this TV on Results: the last confirmed heat
+    # from `/ws/results`, held still — the phones' Results tab (docs/app.md §4) on
+    # the board's own rows. The app stops feeding `update_scoreboard` in; the server
+    # sends the live board again when the TV goes back to Live.
+
+    def set_results_mode(self, on: bool):
+        """Switch between the live board and the results view, starting empty."""
+        self.reset()
+        self.results_mode = bool(on)
+        for row in self.rows:
+            row.set_lane_text(None)
+        self.show_waiting(self.results_mode)
+
+    def show_waiting(self, waiting: bool):
+        """The waiting line *is* the screen until there are results (`R-01`)."""
+        self.content.setVisible(not waiting)
+        self.waiting.setVisible(waiting)
+
+    def clear_results(self):
+        """Back to the waiting line (`R-02`): disconnect or the console gone."""
+        if self.results_mode:
+            self.set_results_mode(True)
+
+    def show_results(self, data: dict, sort: str = ""):
+        """Paint a `results_snapshot` (docs/api.md §5.2).
+
+        By lane, a row is its lane and a lane with no final time keeps its row,
+        empty. By place, rows fill top-down as the ranking and an unfilled rank
+        shows no lane number (`R-05`, `R-06`). *sort* outranks the snapshot's own.
+        A snapshot with no lanes changes nothing, as on the phones.
+        """
+        if not self.results_mode or not isinstance(data, dict):
+            return
+        lanes = [r for r in data.get("lanes") or [] if isinstance(r, dict)]
+        if not lanes:
+            return
+        by_place = (sort or data.get("sort") or "lane") == "place"
+        if by_place:
+
+            def rank(r):
+                try:
+                    return int(r.get("place_int", r.get("place", "")))
+                except (TypeError, ValueError):
+                    return 99
+
+            lanes.sort(key=lambda r: (rank(r), _int(r.get("channel"))))
+        by_row = {}
+        for index, r in enumerate(lanes, 1):
+            row = (
+                _int(r.get("channel")) - self.cfg.first_lane + 1
+                if not by_place
+                else index
+            )
+            if 1 <= row <= len(self.rows):
+                by_row[row] = r
+
+        self.clear_podium()
+        self.set_header_mode(True)
+        self.event_cell.set_text(
+            self.cfg.labels.get("event", "EVENT"), str(data.get("event", ""))
+        )
+        self.heat_cell.set_text(
+            self.cfg.labels.get("heat", "HEAT"), str(data.get("heat", ""))
+        )
+        self._sync_header_cells()
+        self.name_label.setText(str(data.get("event_name", "")))
+        self.chrono_label.setText("")
+
+        for row in self.rows:
+            r = by_row.get(row.lane)
+            i = row.lane
+            if r is None:
+                row.clear()
+                row.set_lane_text(None if not by_place else "")
+                continue
+            row.set_lane_text(None if not by_place else str(r.get("channel", "")))
+            # A result missing its time shows a dash; a missing place stays empty
+            # (`R-07`).
+            row.update_from(
+                {
+                    f"lane_name{i}": r.get("name", ""),
+                    f"lane_name_alt{i}": r.get("alt", ""),
+                    f"lane_club{i}": r.get("club", ""),
+                    f"lane_time{i}": r.get("time") or "—",
+                    f"lane_place{i}": r.get("place", ""),
+                    f"lane_delta_seconds{i}": r.get("delta_seconds"),
+                    f"lane_delta_better{i}": r.get("delta_better"),
+                }
+            )
+        self.show_waiting(False)
+        self.highlight_podium()
 
     def reset(self):
         self.stop_clock()

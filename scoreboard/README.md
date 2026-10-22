@@ -348,6 +348,17 @@ clock green. On a theme whose bar is itself green they swap — green digits on 
 lifted above it while identifying. The TV times the 10 s itself, so a link that
 drops mid-identify still leaves it back to normal.
 
+**Views.** Each TV shows **Live** (this board) or **Results** — the phones' Results
+tab (`docs/app.md` §4) on the board's own rows, fed from a second socket on
+`/ws/results`. The server says which in `display_view` after every `register`; the
+TV does not remember it across a restart, since with no server there is nothing to
+show in either. While on Results the TV ignores the live board's frames, and the
+server sends the whole board again when it goes back to Live. Until a heat has
+results the waiting line replaces the table (`R-01`); a dropped link or `meet_live`
+false takes it back there (`R-02`). By lane, a lane with no result keeps its row
+empty; by place, rows rank top-down and an unfilled rank has no lane number. The
+empty rows are not still water (`L-25`) — neither view draws it yet.
+
 Cloning a configured SD card clones the ID. The server sees two connections on it
 and flags the row; delete `display-id` on one Pi and restart it.
 

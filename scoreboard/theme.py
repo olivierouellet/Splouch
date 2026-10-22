@@ -72,6 +72,8 @@ DEFAULT_STRINGS = {
     "connection_lost": "⚠ CONNECTION LOST",
     "retrying": "retrying",
     "test_session": "⚠ TEST SESSION",
+    # The results view before its first heat (docs/app.md `R-01`).
+    "waiting_results": "Waiting for results…",
     # The operator menu (F1 at the display). Reachable only with a keyboard at the
     # TV, which is exactly the case where the server's own UI is out of reach — so
     # these have to work off the cached config, with no server at all.

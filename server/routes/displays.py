@@ -24,33 +24,91 @@ from web import ActionResult, render, require_login
 router = APIRouter(tags=["Displays"])
 
 _ID = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
+# What a TV can show, in Settings order. A view the meet cannot feed is not offered,
+# and a TV on one goes back to Live — see available_views.
+VIEWS = ("live", "results")
 # How long Identify keeps the TV's clock green.
 IDENTIFY_SECONDS = 10
 NAME_MAX = 40
 
 
-def register_display(ws, client: dict, payload: dict) -> None:
+def available_views() -> list[str]:
+    """The views this meet can feed. Results needs a console that times
+    (`console_state()['timed']`, the phones' `A-11`): with none, no result ever
+    arrives. Read off the operator's console, not a test replay standing in for
+    it, so a replay cannot offer Results on a manual meet for its duration."""
+    decoder = state._test_saved_decoder or state._decoder
+    views = ["live"]
+    if getattr(decoder, "requires_serial", True):
+        views.append("results")
+    return views
+
+
+def view_of(device_id: str) -> str:
+    """The view this TV shows: its own, or Live when the meet cannot feed it."""
+    entry = state.settings.get("displays", {}).get(device_id) or {}
+    view = entry.get("view", "live")
+    return view if view in available_views() else "live"
+
+
+async def send_view(sockets, device_id: str) -> None:
+    """Tell a TV which view to show. Going to Live, the board follows — the
+    TV dropped it while on another view, and frames are partial (§5.1)."""
+    view = view_of(device_id)
+    for ws in list(sockets):
+        await bus.manager.send(ws, "display_view", {"view": view})
+        if view == "live" and state.board:
+            await bus.manager.send(ws, "update_scoreboard", dict(state.board))
+
+
+def fall_back_unavailable() -> None:
+    """Move every TV on a view the meet can no longer feed back to Live.
+
+    Called when the console changes. Saved as Live rather than left for
+    `view_of` to override, so Settings shows what the TV shows and a later
+    console change does not switch it back on its own. Any thread.
+    """
+    views = available_views()
+    moved = [
+        device_id
+        for device_id, entry in state.settings.get("displays", {}).items()
+        if entry.get("view", "live") not in views
+    ]
+    if not moved:
+        return
+    for device_id in moved:
+        state.settings["displays"][device_id]["view"] = "live"
+    state.save_settings()
+    for device_id in moved:
+        sockets = state._display_sockets.get(device_id)
+        if sockets:
+            bus.submit(send_view(set(sockets), device_id))
+
+
+def register_display(ws, client: dict, payload: dict) -> str | None:
     """Note a TV's ID on its connection, and remember the TV.
 
-    Called by `app.ws_scoreboard` on `register`. An ID that is not a UUID is
-    ignored — the frame is unauthenticated LAN input, and the ID becomes a key
-    in settings.json. Settings are written only for a new TV or a new hostname,
-    not on every reconnect.
+    Called by `app.ws_scoreboard` on `register`, which then sends the TV its
+    view. An ID that is not a UUID is ignored — the frame is unauthenticated LAN
+    input, and the ID becomes a key in settings.json. Settings are written only
+    for a new TV or a new hostname, not on every reconnect. Returns the ID, or
+    ``None`` when there is none.
     """
     device_id = str(payload.get("device_id", "")).strip().lower()
     if not _ID.match(device_id):
-        return
+        return None
     client["device_id"] = device_id
     state._display_sockets.setdefault(device_id, set()).add(ws)
     displays = state.settings.setdefault("displays", {})
     entry = displays.get(device_id)
     hostname = client.get("hostname", "")
     if entry is None:
-        displays[device_id] = {"name": "", "hostname": hostname}
+        displays[device_id] = {"name": "", "hostname": hostname, "view": "live"}
         state.save_settings()
     elif entry.get("hostname") != hostname:
         entry["hostname"] = hostname
         state.save_settings()
+    return device_id
 
 
 def unregister_display(ws, client: dict) -> None:
@@ -102,6 +160,7 @@ def display_rows() -> list[dict]:
                 "connected": bool(conns),
                 "copies": len(conns),
                 "identify_left": _identify_left(device_id) if conns else 0,
+                "view": view_of(device_id),
             }
         )
     rows.sort(
@@ -127,6 +186,7 @@ async def route_displays_fragment(request: Request):
         request,
         "settings/fetched/displays.html",
         displays=display_rows(),
+        views=available_views(),
         unlisted=_unlisted(),
         t=state.settings_strings(state.ui_locale(request)),
     )
@@ -142,6 +202,10 @@ class IdentifyBody(DisplayRef):
 
 class NameBody(DisplayRef):
     name: str = ""
+
+
+class ViewBody(DisplayRef):
+    view: str
 
 
 def _not_found():
@@ -172,6 +236,29 @@ async def route_display_identify(body: IdentifyBody):
         data = {"active": False}
     for ws in list(sockets):
         await bus.manager.send(ws, "identify", data)
+    return {"ok": True}
+
+
+@router.post(
+    "/display_view",
+    response_model=ActionResult,
+    dependencies=[Depends(require_login)],
+)
+async def route_display_view(body: ViewBody):
+    """Put a TV on Live or Results. Allowed mid-race, as Identify is; a TV not
+    connected takes it on its next connect."""
+    entry = state.settings.get("displays", {}).get(body.device_id)
+    if entry is None:
+        return _not_found()
+    if body.view not in available_views():
+        return JSONResponse(
+            {"error": "This meet cannot show that view."}, status_code=409
+        )
+    entry["view"] = body.view
+    state.save_settings()
+    sockets = state._display_sockets.get(body.device_id)
+    if sockets:
+        await send_view(set(sockets), body.device_id)
     return {"ok": True}
 
 

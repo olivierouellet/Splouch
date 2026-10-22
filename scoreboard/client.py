@@ -41,7 +41,7 @@ _STALE = 8
 _RETRY_EVERY = 3
 
 
-def _ws_url(base: str) -> str:
+def _ws_url(base: str, path: str = "/ws/scoreboard") -> str:
     """Turn ``http://splouch.local`` into ``ws://splouch.local/ws/scoreboard``."""
     base = base.strip().rstrip("/")
     if base.startswith("https://"):
@@ -50,7 +50,7 @@ def _ws_url(base: str) -> str:
         base = "ws://" + base[len("http://") :]
     elif not base.startswith(("ws://", "wss://")):
         base = "ws://" + base
-    return base + "/ws/scoreboard"
+    return base + path
 
 
 def fetch_config(base: str, timeout: float = 10.0) -> dict:
@@ -115,9 +115,14 @@ class ServerLink(QObject):
     frame = Signal(str, object)
     connected = Signal(bool)
 
-    def __init__(self, base_url: str, register=None, parent=None):
+    def __init__(
+        self, base_url: str, register=None, parent=None, path: str = "/ws/scoreboard"
+    ):
         super().__init__(parent)
         self._base = base_url
+        # `/ws/scoreboard` for the board and its control frames; the results view
+        # opens a second link on `/ws/results` (docs/api.md §2).
+        self._path = path
         self._stop = threading.Event()
         self._thread = None
         self._ws = None
@@ -175,7 +180,7 @@ class ServerLink(QObject):
     def _run(self):
         from websocket import WebSocketTimeoutException, create_connection
 
-        url = _ws_url(self._base)
+        url = _ws_url(self._base, self._path)
         while not self._stop.is_set():
             ws = None
             try:

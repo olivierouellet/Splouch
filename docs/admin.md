@@ -66,7 +66,7 @@ times, which need a console. Full guide: [manual.md](consoles/manual.md).
 | **Appearance** (Displays) | Show/hide column headers and columns (Name, Club, Delta, Position); podium highlighting; which Lenex rounds (Final, Prelims, …) follow the event name on the scoreboard |
 | **Appearance** (Phones) | What every phone shows, on the venue's wifi or through the cloud: which Lenex rounds follow the event name; the order the apps list the lanes in until a spectator turns them around (last lane on top for a stand that sees them that way) |
 | **Theme** | Built-in colour schemes; override individual colours and fonts; save as a custom theme |
-| **TVs** (Displays) | Every TV Pi that has connected, connected or not: name each one, **Identify** it (its clock cell turns bright green for 10 s — press and hold, tap Cancel to stop early), forget one that is gone |
+| **TVs** (Displays) | Every TV Pi that has connected, connected or not: name each one, choose what it shows — **Live** or **Results** (offered only with a timing console; press and hold to switch) — **Identify** it (its clock cell turns bright green for 10 s — press and hold, tap Cancel to stop early), forget one that is gone |
 | **Network** | WiFi management; Ethernet DHCP or static IP (address, router, DNS); **Discovery** check (is `_splouch._tcp` advertised, do `splouch.local` and the aliases point here) with the usual network causes to raise with the admin; view connected scoreboard clients |
 | **Update & Backup** | Pull latest version from GitHub, sync dependencies, restart; download or restore a backup of `~/SplouchData` |
 | **Test** | Play back pre-recorded sessions; adjust playback speed; record live serial sessions. Safe to run with a meet loaded — see [Test sessions](#test-sessions) |

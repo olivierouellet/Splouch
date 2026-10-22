@@ -1045,6 +1045,10 @@ function identifyDisplay(el, active) {
     _tvPost('/display_identify', { device_id: _tvId(el), active: active !== false });
 }
 
+function viewDisplay(el) {
+    _tvPost('/display_view', { device_id: _tvId(el), view: el.getAttribute('data-view') });
+}
+
 function renameDisplay(input) {
     _tvPost('/display_name', { device_id: _tvId(input), name: input.value });
 }

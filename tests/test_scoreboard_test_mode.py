@@ -286,6 +286,7 @@ class _FakeApp:
 
     def __init__(self, window):
         self.window = window
+        self.view = "live"
 
 
 def _finish_a_heat(board, qt_app, event="1", heat="1"):

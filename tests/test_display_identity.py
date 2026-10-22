@@ -91,7 +91,9 @@ def _disconnect(ws):
 
 def test_a_new_tv_is_remembered(server):
     _connect()
-    assert state.settings["displays"] == {ID_A: {"name": "", "hostname": "splouch-tv"}}
+    assert state.settings["displays"] == {
+        ID_A: {"name": "", "hostname": "splouch-tv", "view": "live"}
+    }
     assert server == [1]
 
 

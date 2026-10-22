@@ -20,6 +20,19 @@
             {% endif %}
         </div>
         <div class="d-flex flex-wrap align-items-center gap-2 mt-2">
+            {# What the TV shows. Press and hold to switch — it changes a screen
+               people are reading, mid-race included. Only the views this meet
+               can feed are offered (routes/displays.available_views). #}
+            <div class="btn-group btn-group-sm" role="group" aria-label="{{ t.tvs_view }}">
+                {% for v in views %}
+                {% if v == d.view %}
+                <button type="button" class="btn btn-primary" aria-pressed="true">{{ t['tvs_view_' ~ v] }}</button>
+                {% else %}
+                <button type="button" class="btn btn-outline-secondary" aria-pressed="false" data-hold
+                        data-hold-fn="viewDisplay" data-view="{{ v }}">{{ t['tvs_view_' ~ v] }}</button>
+                {% endif %}
+                {% endfor %}
+            </div>
             {% if d.connected %}
                 {% if d.identify_left %}
                 <button type="button" class="btn btn-success btn-sm" onclick="identifyDisplay(this, false)"

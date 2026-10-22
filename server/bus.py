@@ -85,6 +85,22 @@ def emit(channel, event, data=None):
         asyncio.run_coroutine_threadsafe(manager.broadcast(channel, event, data), loop)
 
 
+def submit(coro):
+    """Run a coroutine on the event loop from any thread, fire-and-forget.
+
+    For sends `emit` cannot express — to one socket rather than a channel. Closes
+    the coroutine unrun when there is no loop, so nothing warns about it later.
+    """
+    loop = _loop
+    if loop is None:
+        coro.close()
+        return
+    try:
+        asyncio.run_coroutine_threadsafe(coro, loop)
+    except RuntimeError:  # the loop has closed (shutdown)
+        coro.close()
+
+
 def run_bg(fn, *args):
     """Run ``fn(*args)`` in a daemon thread."""
     t = threading.Thread(target=fn, args=args, daemon=True)

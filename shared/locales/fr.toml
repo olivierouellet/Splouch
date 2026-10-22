@@ -157,6 +157,8 @@ waiting_server  = "En attente du serveur de chronométrage"
 connection_lost = "⚠ CONNEXION PERDUE"
 retrying        = "nouvelle tentative"
 test_session    = "⚠ SESSION DE TEST"
+# The TV's results view before its first heat (docs/app.md `R-01`).
+waiting_results = "En attente des résultats…"
 
 # Operator menu on the TV itself (F1). Only reachable with a keyboard at the
 # display, which is the situation where the server UI is out of reach.

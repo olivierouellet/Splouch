@@ -25,6 +25,7 @@ from routes.debug import router as debug_router
 from routes.displays import (
     register_display,
     router as displays_router,
+    send_view,
     unregister_display,
 )
 from routes.help import router as help_router
@@ -423,8 +424,11 @@ async def ws_scoreboard(ws: WebSocket):
                         "dirty": bool(d.get("dirty", False)),
                     }
                 )
-                # And which TV it is, for Settings → Displays → TVs.
-                register_display(ws, client, d)
+                # And which TV it is, for Settings → Displays → TVs — then
+                # which view that TV is on.
+                device_id = register_display(ws, client, d)
+                if device_id:
+                    await send_view({ws}, device_id)
             elif ev == "update_log":
                 # Progress from a display updating itself (docs/api.md §2). Kept
                 # per-client and capped: this is unauthenticated LAN input, and a

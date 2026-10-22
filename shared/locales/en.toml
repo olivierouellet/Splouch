@@ -153,6 +153,8 @@ waiting_server  = "Waiting for the timing server"
 connection_lost = "⚠ CONNECTION LOST"
 retrying        = "retrying"
 test_session    = "⚠ TEST SESSION"
+# The TV's results view before its first heat (docs/app.md `R-01`).
+waiting_results = "Waiting for results…"
 
 # Operator menu on the TV itself (F1). Only reachable with a keyboard at the
 # display, which is the situation where the server UI is out of reach.

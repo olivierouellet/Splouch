@@ -84,6 +84,15 @@ class ScoreboardApp:
         self.link.frame.connect(self._on_frame)
         self.link.connected.connect(self._on_connected)
 
+        # Which view Settings → Displays → TVs has this TV on. Live until the server
+        # says otherwise — it does on every connect — and not remembered across a
+        # restart: with no server there is nothing to show in any view.
+        self.view = "live"
+        # The second link the results view opens on `/ws/results`, and the last
+        # snapshot it brought, for a window rebuilt on a lane-count change.
+        self.results_link: ServerLink | None = None
+        self._last_results: dict | None = None
+
         self._waiting_since = time.monotonic()
         self._waiting_key = "waiting_server"
         # Never reached the server at all, as opposed to having lost it. The two
@@ -247,6 +256,10 @@ class ScoreboardApp:
             self.window.update_requested.connect(self._on_menu_update)
             self.window.snapshot.update(snapshot)
             self.window.refresh()
+            if self.view == "results":
+                self.window.set_results_mode(True)
+                if self._last_results:
+                    self.window.show_results(self._last_results)
             self.window.set_status(status, detail)
             self._show(self.window, was_full)
             old_window.close()
@@ -435,7 +448,64 @@ class ScoreboardApp:
         headline = self.config.strings.get("connection_lost", "⚠ CONNECTION LOST")
         return f"{headline} · {_elapsed(time.monotonic() - self._waiting_since)}"
 
+    # ── Views (Settings → Displays → TVs) ──────────────────────────────────────
+
+    def _set_view(self, view: str):
+        """Live or Results. Each starts empty: the server follows `display_view`
+        with the live board, and `/ws/results` opens with its last snapshot."""
+        view = view if view in ("live", "results") else "live"
+        if view == self.view:
+            return
+        self.view = view
+        self._stop_results_link()
+        self.window.set_results_mode(view == "results")
+        if view == "results":
+            self._start_results_link()
+
+    def _start_results_link(self):
+        link = ServerLink(self.server, path="/ws/results")
+        link.frame.connect(self._on_results_frame)
+        link.connected.connect(self._on_results_connected)
+        self.results_link = link
+        link.start()
+
+    def _stop_results_link(self):
+        """Stop the link and cut it off first, so a frame already queued from its
+        thread cannot paint over the view that replaced it."""
+        link, self.results_link = self.results_link, None
+        self._last_results = None
+        if link is None:
+            return
+        link.frame.disconnect(self._on_results_frame)
+        link.connected.disconnect(self._on_results_connected)
+        link.stop()
+
+    def _on_results_frame(self, event: str, data):
+        if event == "results_snapshot" and isinstance(data, dict):
+            if data.get("lanes"):
+                self._last_results = data
+            self.window.show_results(data)
+        elif event == "meet_live" and not (data or {}).get("live"):
+            # Nothing feeds the results any more: back to the waiting line rather
+            # than holding times that now read as current (docs/app.md `R-02`).
+            self._last_results = None
+            self.window.clear_results()
+
+    def _on_results_connected(self, ok: bool):
+        if not ok:
+            self._last_results = None
+            self.window.clear_results()
+
     def _on_frame(self, event: str, data):
+        if event == "display_view":
+            self._set_view(str((data or {}).get("view", "live")))
+            return
+        if self.view == "results" and event in (
+            "update_scoreboard",
+            "race_finished",
+            "columns_state",
+        ):
+            return  # the live board's; this TV is showing results
         if event == "update_scoreboard":
             self.window.apply_update(data or {})
             self._dismiss_splash_if_racing()
@@ -446,7 +516,10 @@ class ScoreboardApp:
             # The board is stale and the server knows it — a test session just
             # ended and the real meet is back. Separate from `test_mode`, which
             # only means the badge goes up or down.
-            self.window.reset()
+            if self.view == "results":
+                self.window.clear_results()
+            else:
+                self.window.reset()
         elif event == "test_mode":
             active = bool((data or {}).get("active"))
             # Wipe the board before the badge goes up, as `live.html` does
@@ -457,6 +530,7 @@ class ScoreboardApp:
             # top saying the whole thing is a test.
             if active:
                 self.window.reset()
+                self.window.clear_results()
             self.window.set_test_mode(active)
         elif event == "display_overlay":
             # The carousel button on /operator. Shows the splash over the board.
@@ -512,3 +586,4 @@ def main(argv=None) -> int:
         return qt_app.exec()
     finally:
         app.link.stop()
+        app._stop_results_link()
