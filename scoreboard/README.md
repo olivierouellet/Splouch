@@ -359,6 +359,14 @@ false takes it back there (`R-02`). By lane, a lane with no result keeps its row
 empty; by place, rows rank top-down and an unfilled rank has no lane number. The
 empty rows are not still water (`L-25`) — neither view draws it yet.
 
+**Next heat** is the third view, on the same second socket: the first of
+`next_heats`, the start list of the heat after the one on the console. It reads as
+the live board a heat early, so the race clock's cell — empty with no race — says
+NEXT HEAT in the timing colour, and the timing columns stay closed. With no heat
+left it shows the waiting line ("No upcoming heats"). A board `reset` or a test
+starting does not wipe it: the start lists that change bring their own
+`next_heats`.
+
 **Lane order and results order** are each TV's own, in the same `display_view`.
 A new TV copies the pool's (Displays → Appearance) when it first registers, and
 keeps its own after. Last lane on top moves the rows rather than renumbering them,

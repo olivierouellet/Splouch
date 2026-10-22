@@ -74,6 +74,9 @@ DEFAULT_STRINGS = {
     "test_session": "⚠ TEST SESSION",
     # The results view before its first heat (docs/app.md `R-01`).
     "waiting_results": "Waiting for results…",
+    # The Next heat view: the race clock's cell, and the line with no heat left.
+    "next_heat": "NEXT HEAT",
+    "no_upcoming": "No upcoming heats",
     # The operator menu (F1 at the display). Reachable only with a keyboard at the
     # TV, which is exactly the case where the server's own UI is out of reach — so
     # these have to work off the cached config, with no server at all.

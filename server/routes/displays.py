@@ -18,6 +18,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 import bus
+import meet_data
 import state
 from web import ActionResult, render, require_login
 
@@ -26,7 +27,7 @@ router = APIRouter(tags=["Displays"])
 _ID = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
 # What a TV can show, in Settings order. A view the meet cannot feed is not offered,
 # and a TV on one goes back to Live — see available_views.
-VIEWS = ("live", "results")
+VIEWS = ("live", "results", "next")
 # Each TV's own choices beside its view, with what they may be. A new TV takes the
 # pool's value for each once, when it first registers (`_pool_default`).
 OPTIONS = {
@@ -39,7 +40,7 @@ NAME_MAX = 40
 
 
 def available_views() -> list[str]:
-    """The views this meet can feed. Results needs a console that times
+    """The views this meet can feed. Next heat needs a meet file. Results needs a console that times
     (`console_state()['timed']`, the phones' `A-11`): with none, no result ever
     arrives. Read off the operator's console, not a test replay standing in for
     it, so a replay cannot offer Results on a manual meet for its duration."""
@@ -47,6 +48,9 @@ def available_views() -> list[str]:
     views = ["live"]
     if getattr(decoder, "requires_serial", True):
         views.append("results")
+    # Next heat needs start lists to name the heat after this one.
+    if meet_data.heat_order():
+        views.append("next")
     return views
 
 
@@ -84,7 +88,8 @@ async def send_view(sockets, device_id: str) -> None:
 def fall_back_unavailable() -> None:
     """Move every TV on a view the meet can no longer feed back to Live.
 
-    Called when the console changes. Saved as Live rather than left for
+    Called when the console changes, and once a meet load or unload has
+    settled (`meet_data.meet_changed`). Saved as Live rather than left for
     `view_of` to override, so Settings shows what the TV shows and a later
     console change does not switch it back on its own. Any thread.
     """
@@ -344,3 +349,6 @@ async def route_display_forget(body: DisplayRef):
     del displays[body.device_id]
     state.save_settings()
     return {"ok": True}
+
+
+meet_data.meet_change_hooks.append(fall_back_unavailable)

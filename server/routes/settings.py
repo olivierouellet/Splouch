@@ -27,6 +27,7 @@ from console_decoders import (
 from meet_data import (
     announce_schedule,
     build_heats,
+    meet_changed,
     results_summary,
     send_event_info,
 )
@@ -97,6 +98,7 @@ def _load_meet_file(path):
     bus.emit("/schedule", "schedule_update")
     relay.update_metadata()  # re-register under the new meet_uid before the schedule
     relay.send_schedule()
+    meet_changed()
     return None
 
 

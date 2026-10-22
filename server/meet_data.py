@@ -442,6 +442,34 @@ def results_summary(before, after):
     }
 
 
+# Called by `meet_changed`. Registered by modules `meet_data` must not import —
+# routes/displays moves TVs off a view the new meet cannot feed.
+meet_change_hooks: list = []
+
+
+def meet_changed():
+    """The loaded meet changed and has settled — a new file, a re-export, a test's
+    start lists in or out, or none at all.
+
+    Only once settled: loading clears the meet before reading the new one, and
+    a hook seeing that empty moment would move TVs off Next heat for good. Also
+    re-sends `next_heats`, which otherwise waits for the next heat change and
+    so showed the previous meet's heats until then.
+    """
+    ev, ht = state._decoder.last_event_sent
+    bus.emit(
+        "/results",
+        "next_heats",
+        {
+            "heats": _get_next_heats(
+                ev, ht, num_lanes=int(state.settings.get("num_lanes", 8))
+            )
+        },
+    )
+    for hook in meet_change_hooks:
+        hook()
+
+
 def announce_schedule():
     """The start list changed: local Schedule tabs re-fetch, and the cloud gets it.
 
@@ -454,6 +482,7 @@ def announce_schedule():
     """
     bus.emit("/schedule", "schedule_update")
     relay.send_schedule(clear=True)
+    meet_changed()
 
 
 def send_event_info():

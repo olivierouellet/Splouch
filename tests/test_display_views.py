@@ -15,6 +15,7 @@ import asyncio
 import pytest
 
 import bus
+import meet_data
 import state
 from routes import displays
 
@@ -33,6 +34,8 @@ class FakeSocket:
 
 
 class Decoder:
+    last_event_sent = (0, 0)
+
     def __init__(self, timed=True):
         self.requires_serial = timed
 
@@ -47,6 +50,7 @@ def server(monkeypatch):
     monkeypatch.setattr(state, "_test_saved_decoder", None)
     monkeypatch.setattr(state, "board", {"current_event": "3", "lane_name1": "Roy"})
     monkeypatch.setattr(state, "save_settings", lambda: None)
+    monkeypatch.setattr(meet_data, "heat_order", list)  # no meet file
     monkeypatch.setitem(state.settings, "board_lane_direction", "up")
     monkeypatch.setitem(state.settings, "results_sort", "lane")
     submitted = []
@@ -240,6 +244,52 @@ def test_the_views_are_translated(code):
     assert state.display_strings(code).get("waiting_results")
 
 
+# ── Next heat: needs a meet file ───────────────────────────────────────────────
+
+
+def test_next_heat_needs_a_meet(server, monkeypatch):
+    assert "next" not in displays.available_views()
+    monkeypatch.setattr(meet_data, "heat_order", lambda: [(1, 1), (1, 2)])
+    assert displays.available_views() == ["live", "results", "next"]
+    _connect()
+    assert _set_view("next") == {"ok": True}
+
+
+def test_unloading_the_meet_sends_tvs_back_live(server, monkeypatch):
+    monkeypatch.setattr(meet_data, "heat_order", lambda: [(1, 1)])
+    ws = _connect()
+    _set_view("next")
+    ws.sent.clear()
+    emitted = []
+    monkeypatch.setattr(bus, "emit", lambda ch, ev, data=None: emitted.append(ev))
+    monkeypatch.setattr(meet_data, "heat_order", list)
+    monkeypatch.setattr(meet_data, "_get_next_heats", lambda *a, **k: [])
+    meet_data.meet_changed()
+    assert state.settings["displays"][ID_A]["view"] == "live"
+    (coro,) = server
+    asyncio.run(coro)
+    server.clear()
+    assert ws.sent[0]["data"]["view"] == "live"
+    assert "next_heats" in emitted, "the list is re-sent, not left at the old meet"
+
+
+def test_a_meet_reload_keeps_next_heat(server, monkeypatch):
+    """Loading clears the meet before reading the new one; only the settled
+    state counts, so a TV on Next heat stays there."""
+    monkeypatch.setattr(meet_data, "heat_order", lambda: [(1, 1)])
+    _connect()
+    _set_view("next")
+    monkeypatch.setattr(bus, "emit", lambda *a, **k: None)
+    monkeypatch.setattr(meet_data, "_get_next_heats", lambda *a, **k: [])
+    meet_data.meet_changed()
+    assert state.settings["displays"][ID_A]["view"] == "next"
+    assert server == []
+
+
+def test_the_hook_is_registered():
+    assert displays.fall_back_unavailable in meet_data.meet_change_hooks
+
+
 # ── The TV ─────────────────────────────────────────────────────────────────────
 
 SNAPSHOT = {
@@ -394,6 +444,66 @@ def test_the_app_takes_the_tvs_own_order(qt_app, monkeypatch):
         assert app.window.rows[3].name_label.text() == "Roy"
         app._on_frame("display_view", {**frame, "results_sort": "place"})
         assert app.window.rows_top_down()[0].name_label.text() == "Roy", "re-ranked"
+    finally:
+        app.link.stop()
+        app._stop_results_link()
+
+
+NEXT = {
+    "heats": [
+        {
+            "event": 5,
+            "heat": 1,
+            "event_name": "200 Back",
+            "time": "10:42",
+            "swimmers": [
+                {"lane": 1, "name": "", "club": "", "alt": ""},
+                {"lane": 3, "name": "Roy", "club": "CNQ", "alt": ""},
+            ],
+        },
+        {"event": 5, "heat": 2, "event_name": "200 Back", "swimmers": []},
+    ]
+}
+
+
+def test_next_heat_says_so(board):
+    board.set_view_mode("next")
+    assert board.waiting.text() == "No upcoming heats"
+    board.show_next(NEXT)
+    assert board.content.isVisibleTo(board) and not board.waiting.isVisibleTo(board)
+    assert board.chrono_label.text() == "NEXT HEAT"
+    assert board.event_cell.value.text() == "5" and board.heat_cell.value.text() == "1"
+    assert board.rows[2].name_label.text() == "Roy"
+    assert board.rows[2].club_label.text() == "CNQ"
+    assert not board.columns_visible, "no times to come in a start list"
+
+
+def test_the_end_of_the_meet_is_the_waiting_line(board):
+    board.set_view_mode("next")
+    board.show_next(NEXT)
+    board.show_next({"heats": []})
+    assert board.waiting.isVisibleTo(board)
+
+
+def test_the_app_shows_the_next_heat(qt_app, monkeypatch):
+    from scoreboard.app import ScoreboardApp
+    from scoreboard.client import ServerLink
+
+    started = []
+    monkeypatch.setattr(ServerLink, "start", lambda self: started.append(self._path))
+    app = ScoreboardApp("http://127.0.0.1:1", fullscreen=False)
+    try:
+        started.clear()
+        app._on_frame("display_view", {"view": "next"})
+        assert started == ["/ws/results"]
+        app._on_results_frame("next_heats", NEXT)
+        app._on_results_frame("results_snapshot", SNAPSHOT)
+        app._on_results_frame("meet_live", {"live": False})
+        assert app.window.rows[2].name_label.text() == "Roy", "only next heats count"
+        app._on_frame("reset", {})
+        app._on_frame("test_mode", {"active": True})
+        assert app.window.rows[2].name_label.text() == "Roy", "not stale with the board"
+        assert app.window.test_badge.isVisible()
     finally:
         app.link.stop()
         app._stop_results_link()

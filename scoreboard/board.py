@@ -1216,7 +1216,8 @@ class BoardWindow(QWidget):
 
         # The results view's "waiting for results" line, in place of the table
         # until a heat has results (docs/app.md `R-01`) — see show_results.
-        self.results_mode = False
+        # 'live', 'results' or 'next' — see set_view_mode.
+        self.view_mode = "live"
         self.waiting = FitLabel()
         self.waiting.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.waiting.setSizePolicy(
@@ -1317,7 +1318,7 @@ class BoardWindow(QWidget):
             f"color: {cfg.color('th_text')}; background: transparent;"
         )
         self.waiting.setFont(QFont(cfg.family))
-        self.waiting.setText(cfg.strings.get("waiting_results", "Waiting for results…"))
+        self.waiting.setText(self._waiting_text())
         # The link badge is the one an operator may want to tune: its pill is a
         # warning colour rather than a board colour, so the text on it does not
         # necessarily read against the background the other pill borrows.
@@ -2146,8 +2147,8 @@ class BoardWindow(QWidget):
             self._tick_clock()  # paint now rather than up to 50ms from now
 
     def refresh(self):
-        if self.results_mode:
-            return  # the rows hold a results snapshot, not `self.snapshot`
+        if self.view_mode != "live":
+            return  # the rows hold results or a start list, not `self.snapshot`
         for row in self.rows:
             row.update_from(self.snapshot)
 
@@ -2178,13 +2179,27 @@ class BoardWindow(QWidget):
     # the board's own rows. The app stops feeding `update_scoreboard` in; the server
     # sends the live board again when the TV goes back to Live.
 
-    def set_results_mode(self, on: bool):
-        """Switch between the live board and the results view, starting empty."""
+    @property
+    def results_mode(self) -> bool:
+        return self.view_mode == "results"
+
+    def set_view_mode(self, mode: str):
+        """Switch to the live board, the results view or the next heat, starting
+        empty: the two others show their waiting line until data arrives."""
         self.reset()
-        self.results_mode = bool(on)
+        self.view_mode = mode if mode in ("results", "next") else "live"
         for row in self.rows:
             row.set_lane_text(None)
-        self.show_waiting(self.results_mode)
+        self.waiting.setText(self._waiting_text())
+        self.show_waiting(self.view_mode != "live")
+
+    def set_results_mode(self, on: bool):
+        self.set_view_mode("results" if on else "live")
+
+    def _waiting_text(self) -> str:
+        if self.view_mode == "next":
+            return self.cfg.strings.get("no_upcoming", "No upcoming heats")
+        return self.cfg.strings.get("waiting_results", "Waiting for results…")
 
     def show_waiting(self, waiting: bool):
         """The waiting line *is* the screen until there are results (`R-01`)."""
@@ -2192,9 +2207,53 @@ class BoardWindow(QWidget):
         self.waiting.setVisible(waiting)
 
     def clear_results(self):
-        """Back to the waiting line (`R-02`): disconnect or the console gone."""
-        if self.results_mode:
-            self.set_results_mode(True)
+        """Back to the waiting line (`R-02`): disconnect, the console gone, or
+        no heat left to come."""
+        if self.view_mode != "live":
+            self.set_view_mode(self.view_mode)
+
+    # ── Next heat view ─────────────────────────────────────────────────────────
+    # The heat after the one on the console, from `next_heats` on `/ws/results`
+    # (docs/api.md §5.3): the live board's start list, a heat early. The race
+    # clock's cell — empty with no race — says NEXT HEAT in the timing colour, so
+    # it cannot pass for the live board; the timing columns stay closed.
+
+    def show_next(self, data: dict):
+        """Paint the first of `next_heats`, or the waiting line when there is none."""
+        if self.view_mode != "next" or not isinstance(data, dict):
+            return
+        heats = [h for h in data.get("heats") or [] if isinstance(h, dict)]
+        if not heats:
+            self.clear_results()
+            return
+        heat = heats[0]
+        self.set_header_mode(True)
+        self.event_cell.set_text(
+            self.cfg.labels.get("event", "EVENT"), str(heat.get("event", ""))
+        )
+        self.heat_cell.set_text(
+            self.cfg.labels.get("heat", "HEAT"), str(heat.get("heat", ""))
+        )
+        self._sync_header_cells()
+        self.name_label.setText(str(heat.get("event_name", "")))
+        self.chrono_label.setText(self.cfg.strings.get("next_heat", "NEXT HEAT"))
+        by_row = {}
+        for swimmer in heat.get("swimmers") or []:
+            if isinstance(swimmer, dict):
+                by_row[_int(swimmer.get("lane")) - self.cfg.first_lane + 1] = swimmer
+        for row in self.rows:
+            i = row.lane
+            swimmer = by_row.get(i) or {}
+            row.clear()
+            row.update_from(
+                {
+                    f"lane_name{i}": swimmer.get("name", ""),
+                    f"lane_name_alt{i}": swimmer.get("alt", ""),
+                    f"lane_club{i}": swimmer.get("club", ""),
+                }
+            )
+        self.set_columns_visible(False, animate=False)
+        self.show_waiting(False)
 
     def show_results(self, data: dict, sort: str = ""):
         """Paint a `results_snapshot` (docs/api.md §5.2).

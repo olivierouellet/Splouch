@@ -83,7 +83,7 @@ same reason.
 | `reset` | `{}` | what is on the board is stale — clear it (§2.2) |
 | `reload` | `{}` | settings/theme changed — client should re-fetch config and redraw |
 | `update` | `{ "target": "<ref>" }` | move to *ref* and restart (native clients only) |
-| `display_view` | `{ "view": "live"\|"results", "lane_direction": "up"\|"down", "results_sort": "lane"\|"place" }` | to one TV only: what to show and how; sent after `register` and on every change (native clients only) |
+| `display_view` | `{ "view": "live"\|"results"\|"next", "lane_direction": "up"\|"down", "results_sort": "lane"\|"place" }` | to one TV only: what to show and how; sent after `register` and on every change (native clients only) |
 | `identify` | `{ "active": bool, "seconds"?: int }` | to one TV only: turn the wall clock green for *seconds*, or stop early (native clients only) |
 
 #### 2.1 `meet_live`
@@ -161,7 +161,12 @@ burst), since a TV drops the board while on another view. **Results** is
 shows only the waiting line (`app.md` `R-01`), and a disconnect or `meet_live` false
 takes it back there (`R-02`). The server offers Results only when the console times
 (`console.timed`, §6), and moves a TV on it back to Live when the console changes to
-one that does not. A TV that is not connected gets its view on connect.
+one that does not. **Next** is the first of `next_heats` (§5.3), also on
+`/ws/results`: the start list of the heat after the one on the console, with the
+race clock's cell saying so, or the waiting line once no heat is left. It is offered
+only with a meet file loaded, and a TV on it goes back to Live once a meet is
+unloaded; a reload of the same or another meet keeps it, since only the settled meet
+is checked. A TV that is not connected gets its view on connect.
 
 `lane_direction` (`down` = last lane on top, both views) and `results_sort` are the
 TV's own. A new TV copies them from the pool's (Displays → Appearance:
@@ -451,6 +456,9 @@ place. `delta` is browser HTML;
 `delta_seconds`/`delta_better` are the structured equivalents (`null` when no seed).
 
 ### 5.3 `next_heats`
+
+Sent on `/ws/results` on connect, on every heat change, and whenever the loaded meet
+changes (a new file, a re-export, a test's start lists in or out, or none).
 
 ```json
 { "heats": [ { "event": 3, "heat": 1, "event_name": "…", "time": "10:42",

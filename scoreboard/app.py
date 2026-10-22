@@ -95,6 +95,7 @@ class ScoreboardApp:
         # snapshot it brought, for a window rebuilt on a lane-count change.
         self.results_link: ServerLink | None = None
         self._last_results: dict | None = None
+        self._last_next: dict | None = None
 
         self._waiting_since = time.monotonic()
         self._waiting_key = "waiting_server"
@@ -260,10 +261,12 @@ class ScoreboardApp:
             self.window.snapshot.update(snapshot)
             self.window.refresh()
             self.window.set_lane_direction(old_window.lane_direction)
-            if self.view == "results":
-                self.window.set_results_mode(True)
-                if self._last_results:
+            if self.view != "live":
+                self.window.set_view_mode(self.view)
+                if self.view == "results" and self._last_results:
                     self.window.show_results(self._last_results, self.sort)
+                if self.view == "next" and self._last_next:
+                    self.window.show_next(self._last_next)
             self.window.set_status(status, detail)
             self._show(self.window, was_full)
             old_window.close()
@@ -465,15 +468,16 @@ class ScoreboardApp:
             self.window.show_results(self._last_results, self.sort)
 
     def _set_view(self, view: str):
-        """Live or Results. Each starts empty: the server follows `display_view`
-        with the live board, and `/ws/results` opens with its last snapshot."""
-        view = view if view in ("live", "results") else "live"
+        """Live, Results or Next heat. Each starts empty: the server follows
+        `display_view` with the live board, and `/ws/results` — which carries
+        both of the others — opens with its last snapshot and next heats."""
+        view = view if view in ("live", "results", "next") else "live"
         if view == self.view:
             return
         self.view = view
         self._stop_results_link()
-        self.window.set_results_mode(view == "results")
-        if view == "results":
+        self.window.set_view_mode(view)
+        if view != "live":
             self._start_results_link()
 
     def _start_results_link(self):
@@ -487,7 +491,7 @@ class ScoreboardApp:
         """Stop the link and cut it off first, so a frame already queued from its
         thread cannot paint over the view that replaced it."""
         link, self.results_link = self.results_link, None
-        self._last_results = None
+        self._last_results = self._last_next = None
         if link is None:
             return
         link.frame.disconnect(self._on_results_frame)
@@ -495,6 +499,11 @@ class ScoreboardApp:
         link.stop()
 
     def _on_results_frame(self, event: str, data):
+        if self.view == "next":
+            if event == "next_heats" and isinstance(data, dict):
+                self._last_next = data
+                self.window.show_next(data)
+            return
         if event == "results_snapshot" and isinstance(data, dict):
             if data.get("lanes"):
                 self._last_results = data
@@ -507,19 +516,26 @@ class ScoreboardApp:
 
     def _on_results_connected(self, ok: bool):
         if not ok:
-            self._last_results = None
+            self._last_results = self._last_next = None
             self.window.clear_results()
 
     def _on_frame(self, event: str, data):
         if event == "display_view":
             self._on_display_view(data or {})
             return
-        if self.view == "results" and event in (
+        if self.view != "live" and event in (
             "update_scoreboard",
             "race_finished",
             "columns_state",
         ):
-            return  # the live board's; this TV is showing results
+            return  # the live board's; this TV is showing something else
+        if self.view == "next" and event in ("reset", "test_mode"):
+            # The heat to come does not go stale with the board: a test's start
+            # lists, in or out, bring a fresh `next_heats` of their own. Only the
+            # badge follows.
+            if event == "test_mode":
+                self.window.set_test_mode(bool((data or {}).get("active")))
+            return
         if event == "update_scoreboard":
             self.window.apply_update(data or {})
             self._dismiss_splash_if_racing()

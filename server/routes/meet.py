@@ -7,7 +7,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 import state
-from meet_data import _build_meet_data, build_heats, send_event_info
+from meet_data import _build_meet_data, build_heats, meet_changed, send_event_info
 from web import client_strings, redirect, render, require_login, require_role
 
 router = APIRouter(tags=["Meet"])
@@ -166,6 +166,7 @@ def route_meet_delete(request: Request):
                 state.settings["last_meet_file"] = ""
                 state.save_settings()
                 send_event_info()
+                meet_changed()
                 import relay as _relay
 
                 _relay.update_metadata()
@@ -201,6 +202,7 @@ def route_meet_clear():
     state.settings["last_meet_file"] = ""
     state.save_settings()
     send_event_info()
+    meet_changed()
     import relay as _relay
 
     _relay.update_metadata()

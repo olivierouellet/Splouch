@@ -159,6 +159,10 @@ retrying        = "nouvelle tentative"
 test_session    = "⚠ SESSION DE TEST"
 # The TV's results view before its first heat (docs/app.md `R-01`).
 waiting_results = "En attente des résultats…"
+# The TV's Next heat view: what the race clock's cell says, and the line when
+# the meet has no heat left.
+next_heat   = "SÉRIE SUIVANTE"
+no_upcoming = "Aucune série à venir"
 
 # Operator menu on the TV itself (F1). Only reachable with a keyboard at the
 # display, which is the situation where the server UI is out of reach.
