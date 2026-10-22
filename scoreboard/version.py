@@ -16,6 +16,8 @@ import socket
 import subprocess
 import threading
 
+from .identity import device_id
+
 _REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # git on a cold page cache can be slow; short enough not to delay a reconnect,
@@ -92,4 +94,9 @@ def registration(role: str = "kiosk") -> dict:
         hostname = socket.gethostname()
     except OSError:
         hostname = ""
-    return {"role": role, "hostname": hostname, **describe()}
+    return {
+        "role": role,
+        "hostname": hostname,
+        "device_id": device_id(),
+        **describe(),
+    }

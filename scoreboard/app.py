@@ -49,6 +49,10 @@ _WAIT_TICK_MS = 1000
 # so the board stops inventing a race time whether or not the badge is up yet.
 _DROP_GRACE_MS = 4000
 
+# Longest an `identify` may keep the clock green. The server asks for 10 s; this
+# only stops a malformed frame from leaving a TV green for the rest of the meet.
+_IDENTIFY_MAX_S = 60
+
 
 def _host_of(url: str) -> str:
     """`http://splouch.local` -> `splouch.local` — the scheme is noise on a TV."""
@@ -101,6 +105,12 @@ class ScoreboardApp:
         self._wait_timer.setInterval(_WAIT_TICK_MS)
         self._wait_timer.timeout.connect(self._tick_waiting)
         self._start_waiting("waiting_server")
+
+        # Ends an `identify` on the TV's own clock, so a TV whose link drops
+        # mid-identify still goes back to normal on time.
+        self._identify_timer = QTimer()
+        self._identify_timer.setSingleShot(True)
+        self._identify_timer.timeout.connect(lambda: self.window.set_identify(False))
 
         # Self-update, triggered by the server (see scoreboard/updater.py).
         self.updater = Updater()
@@ -285,6 +295,19 @@ class ScoreboardApp:
             {"text": f"Updating to {target}…", "error": False, "done": None},
         )
 
+    def _on_identify(self, data: dict):
+        """Settings → Displays → TVs: turn the clock green for a while, or stop."""
+        try:
+            seconds = float(data.get("seconds", 0))
+        except (TypeError, ValueError):
+            seconds = 0
+        if data.get("active") and seconds > 0:
+            self._identify_timer.start(int(min(seconds, _IDENTIFY_MAX_S) * 1000))
+            self.window.set_identify(True)
+        else:
+            self._identify_timer.stop()
+            self.window.set_identify(False)
+
     def _on_menu_update(self, target: str):
         """The operator asked for an update from the menu on the display itself.
 
@@ -451,6 +474,8 @@ class ScoreboardApp:
             self.window.highlight_podium()
         elif event == "update":
             self._on_update(data)
+        elif event == "identify":
+            self._on_identify(data or {})
         elif event == "columns_state":
             # The operator's manual toggle on /operator, same mechanism as the
             # automatic reveal at race start.

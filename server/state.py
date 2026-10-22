@@ -142,6 +142,10 @@ settings: dict[str, Any] = {
     # For a pool whose only stand faces the lanes the other way round.
     "lane_direction": "up",
     "results_sort": "lane",
+    # Every TV that has registered, by the ID it made up on first launch
+    # (scoreboard/identity.py): {device_id: {"name", "hostname"}}. Kept after it
+    # disconnects, so a TV keeps its name across a reboot or a meet.
+    "displays": {},
     "active_theme": "default",
     "theme_colors": {
         "bg": "#0d0d0d",
@@ -509,6 +513,12 @@ _serial_status = {"state": "idle", "msg": ""}
 # irrelevant. No lock needed.
 _finish_timer_gen: int = 0
 _scoreboard_clients = {}
+# The sockets each registered TV is connected on, by device ID — a set, because a
+# cloned SD card puts two Pis on one ID, and Identify should light both. Touched
+# only on the event loop, like `_scoreboard_clients`.
+_display_sockets: dict[str, set] = {}
+# When each TV's Identify ends, on the monotonic clock — for the Cancel button.
+_identify_until: dict[str, float] = {}
 # Cap on update-log lines kept per display — see app.ws_scoreboard.
 UPDATE_LOG_MAX = 40
 # A recording's start lists are loaded into `meet` while this is set. The real

@@ -361,7 +361,9 @@ ui_lang_auto  = "Auto (browser)"
 # Sidebar navigation
 nav_meet       = "Meet Setup"
 nav_timing     = "Timing"
-nav_scoreboard = "Scoreboard"
+nav_displays   = "Displays"
+nav_appearance = "Appearance"
+nav_tvs        = "TVs"
 nav_display    = "Display"
 nav_theme      = "Theme"
 nav_cloud      = "Cloud"
@@ -680,6 +682,23 @@ th_bronze                = "Bronze"
 
 # Network
 net_status = "Status"
+
+# Settings → Displays → TVs: each Qt display, by the ID it keeps (scoreboard/identity.py).
+tvs_help          = "Each TV Pi showing the board. Name them to tell them apart."
+tvs_none          = "No TV has connected yet."
+tvs_unlisted      = "{n} display(s) connected without an ID — update them to list them here."
+tvs_name          = "Name"
+tvs_connected     = "Connected"
+tvs_offline       = "Not connected"
+tvs_identify      = "Identify"
+hold_identify     = "Hold to identify…"
+tvs_identify_hint = "Turns the TV's clock green for 10 s."
+tvs_cancel        = "Cancel"
+tvs_forget        = "Forget"
+hold_forget       = "Hold to forget…"
+tvs_copies        = "{n} Pis, one ID"
+tvs_copies_hint   = "Cloned SD card. On one Pi, delete ~/.config/splouch/display-id and restart it."
+
 # Connected-display badges (Network tab). A kiosk reports its git ref when it
 # registers; it must match the server's or the two can disagree about the API.
 clients_mismatch          = "different version"

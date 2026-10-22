@@ -1001,6 +1001,77 @@ function startDisplaysUpdate() {
         });
 }
 
+// ── Settings → Displays → TVs ───────────────────────────────────────────────
+// The list (fetched/displays.html) polls; these act on one row and re-poll.
+
+// The poll's filter: not while a name is being typed or a button held.
+function tvListIdle() {
+    var list = document.getElementById('tv-list');
+    if (!list) return false;
+    var focused = document.activeElement;
+    return (
+        !(focused && list.contains(focused) && focused.tagName === 'INPUT') &&
+        !list.querySelector('.btn-holding')
+    );
+}
+
+function _tvPost(url, body) {
+    var msg = document.getElementById('tv-status');
+    msg.textContent = '';
+    return fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+    })
+        .then(function (r) {
+            return r.json().then(function (d) {
+                if (!r.ok) msg.textContent = d.error || T.js_error;
+            });
+        })
+        .catch(function () {
+            msg.textContent = T.js_error;
+        })
+        .then(function () {
+            htmx.trigger('#tv-list', 'load');
+        });
+}
+
+function _tvId(el) {
+    return el.closest('[data-device]').getAttribute('data-device');
+}
+
+// A hold starts it (the hold passes only the element); Cancel is a plain click.
+function identifyDisplay(el, active) {
+    _tvPost('/display_identify', { device_id: _tvId(el), active: active !== false });
+}
+
+function renameDisplay(input) {
+    _tvPost('/display_name', { device_id: _tvId(input), name: input.value });
+}
+
+function forgetDisplay(el) {
+    _tvPost('/display_forget', { device_id: _tvId(el) });
+}
+
+// Put Identify back the moment the TV's clock goes back, not at the next poll.
+var _tvIdentifyTimer = null;
+document.addEventListener('htmx:afterSwap', function (e) {
+    var list = /** @type {Element} */ (e.target);
+    if (list.id !== 'tv-list') return;
+    clearTimeout(_tvIdentifyTimer);
+    var left = Infinity;
+    list.querySelectorAll('[data-left]').forEach(function (b) {
+        left = Math.min(left, parseInt(b.getAttribute('data-left'), 10));
+    });
+    if (left !== Infinity)
+        _tvIdentifyTimer = setTimeout(
+            function () {
+                htmx.trigger('#tv-list', 'load');
+            },
+            left * 1000 + 300,
+        );
+});
+
 function loadVersions() {
     _ensureUpdateSock();
     var sel = document.getElementById('version-select');

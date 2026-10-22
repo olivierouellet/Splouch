@@ -154,6 +154,16 @@ _TIME_LOCK_MS = 800
 # Theme → Status), like every other colour on the board — the stock value is a red
 # that stands clear of the gold `time` it replaces.
 
+# The wall clock while Settings → Displays → TVs is identifying this TV: the cell
+# filled bright green, the digits black. Not theme keys — it has to read as "this
+# one" on any theme. Green *text* alone would not: a theme may already draw the
+# clock green. Filling the cell changes it on any theme but one whose bar is itself
+# green, and there the colours swap (green digits on black) — see _identify_colors.
+_IDENTIFY = "#00ff00"
+_IDENTIFY_INK = "#000000"
+# Below this RGB distance the bar counts as green already.
+_IDENTIFY_NEAR = 160
+
 _LANE_SUFFIX = re.compile(r"(\d+)$")
 
 # Fractions of a row's height used as the font ceiling for each kind of cell.
@@ -1219,6 +1229,8 @@ class BoardWindow(QWidget):
         # True from the moment the link drops until it comes back. While set, the
         # clock is frozen rather than interpolating — see set_link_lost.
         self.link_lost = False
+        # True while the server has this TV identifying itself — see set_identify.
+        self.identifying = False
 
         # The carousel overlay, above the board and above the status message.
         self.splash = SplashOverlay(cfg, self)
@@ -1269,10 +1281,7 @@ class BoardWindow(QWidget):
         # the race clock, which is the one element up here meant to stand out and
         # keeps the gold `time` to itself. The wall clock is the header's least
         # urgent text; matching the labels is what stops it competing with the race.
-        self.wall_clock.setStyleSheet(
-            f"color: {cfg.color('header_label')}; background: transparent;"
-            f" border: none; {divider}"
-        )
+        self._style_wall_clock()
         self.wall_clock.setFont(QFont(cfg.digits_family))
         self.test_badge.apply_theme(cfg, cfg.color("row_text"))
         # The link badge is the one an operator may want to tune: its pill is a
@@ -1441,6 +1450,47 @@ class BoardWindow(QWidget):
             self.heat_cell.set_text("", "")
             self.name_label.setText("")
             self._sync_header_cells()
+
+    def _identify_colors(self) -> tuple[str, str]:
+        """(fill, digits) for the clock while identifying — whichever of green on
+        black or black on green the theme's own bar does not already look like."""
+        bar = QColor(self.cfg.color("header_bg"))
+        green = QColor(_IDENTIFY)
+        distance = (
+            (bar.red() - green.red()) ** 2
+            + (bar.green() - green.green()) ** 2
+            + (bar.blue() - green.blue()) ** 2
+        ) ** 0.5
+        if distance < _IDENTIFY_NEAR:
+            return _IDENTIFY_INK, _IDENTIFY
+        return _IDENTIFY, _IDENTIFY_INK
+
+    def _style_wall_clock(self):
+        cfg = self.cfg
+        if self.identifying:
+            fill, color = self._identify_colors()
+        else:
+            fill, color = "transparent", cfg.color("header_label")
+        self.wall_clock.setStyleSheet(
+            f"color: {color}; background: {fill};"
+            f" border: none; border-left: 1px solid {cfg.color('header_border')};"
+        )
+
+    def set_identify(self, active: bool):
+        """Fill the wall clock green, so the operator can tell which TV this is.
+
+        The wall clock because it is always there — the race clock is blank between
+        heats. The splash covers the whole window, header included, so the bar is
+        lifted above it for the duration and put back under the overlays after.
+        """
+        self.identifying = bool(active)
+        self._style_wall_clock()
+        if self.identifying:
+            self.header.raise_()
+            if self.menu.isVisible():
+                self.menu.raise_()
+        else:
+            self.header.stackUnder(self.status_box)
 
     def _tick_wall_clock(self):
         self.wall_clock.setText(time.strftime("%H:%M"))

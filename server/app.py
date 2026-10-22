@@ -22,6 +22,11 @@ import state
 from meet_data import _get_next_heats, send_event_info
 from routes.appearance import router as appearance_router
 from routes.debug import router as debug_router
+from routes.displays import (
+    register_display,
+    router as displays_router,
+    unregister_display,
+)
 from routes.help import router as help_router
 from routes.i18n import router as i18n_router
 from routes.meet import router as meet_router
@@ -163,6 +168,7 @@ app.include_router(system_router)
 app.include_router(update_router)
 app.include_router(network_router)
 app.include_router(appearance_router)
+app.include_router(displays_router)
 app.include_router(qr_router)
 
 
@@ -407,7 +413,8 @@ async def ws_scoreboard(ws: WebSocket):
                 # tabs never send this, so `role` is what tells the two apart in
                 # Settings → Network — and `version` is what makes a kiosk running
                 # a different git ref than the server visible at all.
-                state._scoreboard_clients.setdefault(id(ws), {}).update(
+                client = state._scoreboard_clients.setdefault(id(ws), {})
+                client.update(
                     {
                         "role": str(d.get("role", ""))[:20],
                         "hostname": str(d.get("hostname", ""))[:64],
@@ -416,6 +423,8 @@ async def ws_scoreboard(ws: WebSocket):
                         "dirty": bool(d.get("dirty", False)),
                     }
                 )
+                # And which TV it is, for Settings → Displays → TVs.
+                register_display(ws, client, d)
             elif ev == "update_log":
                 # Progress from a display updating itself (docs/api.md §2). Kept
                 # per-client and capped: this is unauthenticated LAN input, and a
@@ -471,7 +480,7 @@ async def ws_scoreboard(ws: WebSocket):
         pass
     finally:
         bus.manager.disconnect(ws, "/scoreboard")
-        state._scoreboard_clients.pop(id(ws), None)
+        unregister_display(ws, state._scoreboard_clients.pop(id(ws), {}))
 
 
 @app.websocket("/ws/results")

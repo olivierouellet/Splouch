@@ -135,6 +135,7 @@ icon.
 | `format.py` | value formatting (deltas); Qt-free so CI can test it |
 | `fonts.py` | registers the bundled TTFs, resolves family names, falls back to monospace |
 | `version.py` | what git ref this checkout is, reported on `register` |
+| `identity.py` | this TV's own ID, made on first launch, reported on `register` |
 | `updater.py` | self-update on the server's command, then exit for a relaunch |
 
 ### Theming
@@ -331,6 +332,23 @@ Four rules make it safe:
   reports why. Restarting into a broken checkout means a black TV and a walk to
   the kiosk — worse than being a version behind.
 - **Never touch a dirty checkout.** `git checkout` would discard someone's work.
+
+### Which TV is which
+
+Settings → Displays → TVs lists every display that has registered, by a UUID it
+makes up on first launch and keeps in `~/.config/splouch/display-id`
+(`identity.py`). Not the hostname: Pis flashed from one image all share one. The
+server keeps the operator's name for each ID, so it survives reboots and meets.
+
+**Identify** (press and hold) turns that TV's wall clock bright green for 10 s;
+Cancel stops it early. The wall clock because it is always there — the race clock
+blanks between heats. The colour is fixed rather than a theme key, since it has to
+stand out on any theme. The splash covers the whole window, so the header bar is
+lifted above it while identifying. The TV times the 10 s itself, so a link that
+drops mid-identify still leaves it back to normal.
+
+Cloning a configured SD card clones the ID. The server sees two connections on it
+and flags the row; delete `display-id` on one Pi and restart it.
 
 ### The header bar
 

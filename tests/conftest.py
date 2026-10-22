@@ -19,6 +19,9 @@ import pytest
 # next run silently picks up.
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 os.environ.setdefault("XDG_CACHE_HOME", tempfile.mkdtemp(prefix="splouch-test-"))
+# Same for ~/.config: `register` makes the display's ID there on first call
+# (scoreboard/identity.py), and a test run must not hand the developer's machine one.
+os.environ.setdefault("XDG_CONFIG_HOME", tempfile.mkdtemp(prefix="splouch-test-"))
 # The cloud modules derive every path from DATA_DIR at import time, and default it
 # to /data. Set here, before any test module imports one, so a test run cannot
 # touch a real store. The import roots themselves are `pythonpath` in pyproject.

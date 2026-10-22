@@ -63,9 +63,10 @@ times, which need a console. Full guide: [manual.md](consoles/manual.md).
 | **Meet Setup** | Upload Lenex `.lxf` / Hytek `.csv` meet files; pool length, touchpads, lane count, first lane (1, or 0 for a pool numbered from lane 0) |
 | **Timing** | Console model, then which of its outputs is wired, its decoder options (shown only for that console), serial port, connection status, serial monitor (raw hex packets), finish debounce. Choosing **Manual — no timing console** drops the port, badge and monitor and links to `/manual` |
 | **Clock** | Sync with NTP; set date and time manually when offline; install/remove Adafruit PiRTC (DS3231) hardware clock |
-| **Display** (Scoreboard) | Show/hide column headers and columns (Name, Club, Delta, Position); podium highlighting; which Lenex rounds (Final, Prelims, …) follow the event name on the scoreboard |
+| **Appearance** (Displays) | Show/hide column headers and columns (Name, Club, Delta, Position); podium highlighting; which Lenex rounds (Final, Prelims, …) follow the event name on the scoreboard |
 | **Display** (Phones) | What every phone shows, on the venue's wifi or through the cloud: which Lenex rounds follow the event name; the order the apps list the lanes in until a spectator turns them around (last lane on top for a stand that sees them that way) |
 | **Theme** | Built-in colour schemes; override individual colours and fonts; save as a custom theme |
+| **TVs** (Displays) | Every TV Pi that has connected, connected or not: name each one, **Identify** it (its clock turns green for 10 s — press and hold, tap Cancel to stop early), forget one that is gone |
 | **Network** | WiFi management; Ethernet DHCP or static IP (address, router, DNS); **Discovery** check (is `_splouch._tcp` advertised, do `splouch.local` and the aliases point here) with the usual network causes to raise with the admin; view connected scoreboard clients |
 | **Update & Backup** | Pull latest version from GitHub, sync dependencies, restart; download or restore a backup of `~/SplouchData` |
 | **Test** | Play back pre-recorded sessions; adjust playback speed; record live serial sessions. Safe to run with a meet loaded — see [Test sessions](#test-sessions) |
@@ -77,7 +78,7 @@ times, which need a console. Full guide: [manual.md](consoles/manual.md).
 | **Users** | Add people with their own login, each allowed only some pages: **Settings** (this panel, and every page), **Console** (`/console`), **Manual** (`/manual`), **Meet Manager** (`/mm`). Changing someone's password or pages, or deleting them, signs them out |
 | **Account** | Change your own password, and the owner's username (via the sidebar account menu) |
 
-> In the sidebar, **Display / Theme** live under the **Scoreboard** group, **Display /
+> In the sidebar, **Appearance / Theme / TVs** live under the **Displays** group, **Display /
 > Cloud** under **Phones**, and **Test / Terminal** under **Debug**; **Account** opens from the user menu at the bottom.
 
 The first login (`score` until changed) is the **owner**: it always has every page and

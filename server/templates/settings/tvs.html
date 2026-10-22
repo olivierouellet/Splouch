@@ -1,0 +1,14 @@
+                <div class="tab-pane" id="tab-tvs">
+                <div class="row"><div class="col-lg-8">
+                    {# Each Qt display, by the ID it keeps (routes/displays.py). The list
+                       polls, but not while a name is being typed or a button held —
+                       a swap would take the field or the hold from under the finger. #}
+                    <div class="card"><div class="card-body">
+                        <div class="panel-title">{{ t.nav_tvs }}</div>
+                        <div class="text-body-secondary small mb-2">{{ t.tvs_help }}</div>
+                        <div id="tv-list" hx-get="/displays_fragment" hx-trigger="load, every 5s [tvListIdle()]"
+                             hx-swap="innerHTML"></div>
+                        <span id="tv-status" class="small text-secondary" role="status" aria-live="polite"></span>
+                    </div></div>
+                </div></div>
+                </div>

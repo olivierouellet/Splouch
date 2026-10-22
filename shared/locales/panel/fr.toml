@@ -356,7 +356,9 @@ ui_lang_auto  = "Auto (navigateur)"
 # Navigation
 nav_meet       = "Compétition"
 nav_timing     = "Chronométrage"
-nav_scoreboard = "Tableau"
+nav_displays   = "Affichages"
+nav_appearance = "Apparence"
+nav_tvs        = "Téléviseurs"
 nav_display    = "Affichage"
 nav_theme      = "Thème"
 nav_cloud      = "Nuage"
@@ -671,6 +673,23 @@ th_bronze                = "Bronze"
 
 # Réseau
 net_status = "État"
+
+# Settings → Displays → TVs: each Qt display, by the ID it keeps (scoreboard/identity.py).
+tvs_help          = "Chaque Pi de téléviseur qui affiche le tableau. Nommez-les pour les distinguer."
+tvs_none          = "Aucun téléviseur ne s'est encore connecté."
+tvs_unlisted      = "{n} affichage(s) connecté(s) sans identifiant — mettez-les à jour pour les voir ici."
+tvs_name          = "Nom"
+tvs_connected     = "Connecté"
+tvs_offline       = "Non connecté"
+tvs_identify      = "Identifier"
+hold_identify     = "Maintenir pour identifier…"
+tvs_identify_hint = "Met l'horloge du téléviseur en vert pendant 10 s."
+tvs_cancel        = "Annuler"
+tvs_forget        = "Oublier"
+hold_forget       = "Maintenir pour oublier…"
+tvs_copies        = "{n} Pi, un seul identifiant"
+tvs_copies_hint   = "Carte SD clonée. Sur un des Pi, supprimez ~/.config/splouch/display-id et redémarrez-le."
+
 # Badges des afficheurs connectés (onglet Réseau).
 clients_mismatch          = "version différente"
 clients_mismatch_hint     = "Version de l'écran ≠ serveur"

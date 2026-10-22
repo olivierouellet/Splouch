@@ -1,0 +1,44 @@
+{# Settings → Displays → TVs, polled by tvs.html. One row per TV that has ever
+   registered with an ID; the ones not connected stay listed, dimmed, so a TV
+   keeps its name and can be forgotten once it is gone for good. #}
+{% if displays %}
+<div class="list-group list-group-flush">
+    {% for d in displays %}
+    <div class="list-group-item px-0 py-2 bg-transparent{% if not d.connected %} opacity-75{% endif %}" data-device="{{ d.device_id }}">
+        <div class="d-flex flex-wrap align-items-center gap-2">
+            <i class="bi bi-circle-fill small {% if d.connected %}text-success{% else %}text-secondary{% endif %}"
+               title="{{ t.tvs_connected if d.connected else t.tvs_offline }}"
+               aria-label="{{ t.tvs_connected if d.connected else t.tvs_offline }}"></i>
+            <input type="text" class="form-control form-control-sm" style="max-width:14rem;"
+                   value="{{ d.name }}" placeholder="{{ d.hostname or t.tvs_name }}" maxlength="40"
+                   aria-label="{{ t.tvs_name }}" onchange="renameDisplay(this)">
+            <span class="small text-body-secondary text-truncate flex-fill">
+                {{ d.hostname }}{% if d.ip %} · {{ d.ip }}{% endif %}{% if d.version %} · <span style="font-family:monospace;">{{ d.version }}</span>{% endif %}
+            </span>
+            {% if d.copies > 1 %}
+            <span class="badge text-bg-warning" title="{{ t.tvs_copies_hint }}">{{ t.tvs_copies | replace('{n}', d.copies|string) }}</span>
+            {% endif %}
+        </div>
+        <div class="d-flex flex-wrap align-items-center gap-2 mt-2">
+            {% if d.connected %}
+                {% if d.identify_left %}
+                <button type="button" class="btn btn-success btn-sm" onclick="identifyDisplay(this, false)"
+                        data-left="{{ d.identify_left }}">{{ t.tvs_cancel }}</button>
+                {% else %}
+                <button type="button" class="btn btn-secondary btn-sm" data-hold data-hold-fn="identifyDisplay"
+                        data-hold-label="{{ t.hold_identify }}" title="{{ t.tvs_identify_hint }}">{{ t.tvs_identify }}</button>
+                {% endif %}
+            {% else %}
+            <button type="button" class="btn btn-outline-danger btn-sm" data-hold data-hold-fn="forgetDisplay"
+                    data-hold-label="{{ t.hold_forget }}">{{ t.tvs_forget }}</button>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<span class="text-body-secondary">{{ t.tvs_none }}</span>
+{% endif %}
+{% if unlisted %}
+<div class="small text-body-secondary mt-2">{{ t.tvs_unlisted | replace('{n}', unlisted|string) }}</div>
+{% endif %}

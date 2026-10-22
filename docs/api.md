@@ -83,6 +83,7 @@ same reason.
 | `reset` | `{}` | what is on the board is stale — clear it (§2.2) |
 | `reload` | `{}` | settings/theme changed — client should re-fetch config and redraw |
 | `update` | `{ "target": "<ref>" }` | move to *ref* and restart (native clients only) |
+| `identify` | `{ "active": bool, "seconds"?: int }` | to one TV only: turn the wall clock green for *seconds*, or stop early (native clients only) |
 
 #### 2.1 `meet_live`
 
@@ -127,7 +128,7 @@ is allowed to reach it is a real session as far as the cloud is concerned.
 
 | event | data | effect |
 | --- | --- | --- |
-| `register` | `{ "role", "hostname", "version", "commit", "dirty" }` | identify a native client; sent on every (re)connect |
+| `register` | `{ "role", "hostname", "device_id", "version", "commit", "dirty" }` | identify a native client; sent on every (re)connect |
 | `update_log` | `{ "text", "error": bool, "done": bool\|null }` | progress while handling `update`; `done` null = still running |
 | `set_overlay` | `{ "active": bool }` | toggle overlay (rebroadcast as `display_overlay`) |
 | `set_columns` | `{ "hidden": bool }` | toggle columns (rebroadcast as `columns_state`) |
@@ -144,6 +145,17 @@ is true when that checkout has uncommitted changes. The server compares `version
 against its own and flags a mismatch: the display and the server must run the same
 ref, or they can disagree about this contract. Fields are truncated server-side —
 treat the frame as untrusted LAN input.
+
+`device_id` is a UUID the display makes up on first launch and keeps
+(`scoreboard/identity.py`). The server keys a TV's settings by it — Settings →
+Displays → TVs — because hostnames repeat across Pis flashed from one image. One
+that is not a UUID is ignored, and the client is then listed under Network but not
+under TVs. Two connections with one ID are a cloned SD card, and flagged as such.
+
+**`identify`** is sent by `POST /display_identify` to the sockets of one
+`device_id`. The display runs its own timer for `seconds`, so it goes back to normal
+even if the link drops first; `{ "active": false }` ends it early. Allowed mid-race:
+it changes only the colour of the clock.
 
 **`update`** is sent by `POST /displays_update` and always carries the server's own
 ref — a display follows the server, it does not choose. The server refuses to send

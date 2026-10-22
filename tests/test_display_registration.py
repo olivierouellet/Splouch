@@ -35,7 +35,14 @@ def test_describe_reports_this_checkout():
 def test_registration_carries_role_and_hostname():
     payload = registration()
     assert payload["role"] == "kiosk"
-    assert set(payload) == {"role", "hostname", "version", "commit", "dirty"}
+    assert set(payload) == {
+        "role",
+        "hostname",
+        "device_id",
+        "version",
+        "commit",
+        "dirty",
+    }
 
 
 def test_describe_survives_a_checkout_without_git(monkeypatch):
