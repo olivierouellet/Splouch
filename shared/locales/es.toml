@@ -126,7 +126,6 @@ appearance_dark     = "Oscuro"
 appearance_light    = "Claro"
 appearance_auto     = "Automático"
 results_order       = "Orden de resultados"
-results_order_pool  = "Como lo fija la piscina"
 results_order_lane  = "Por calle"
 results_order_place = "Por posición"
 

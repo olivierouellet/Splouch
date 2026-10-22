@@ -176,7 +176,7 @@ Entry screen. Web: site root. App: launch screen, and `A-02`'s return target.
 | [`P-20`](#p-20) | **Introduction** on first launch, once per install, replayable from settings About: unofficial results (`P-06`), finding a meet, three tabs and how to read a lane, the schedule's times, following a swimmer or club, attendance counting with its toggle (`C-10`) | first and last pages server text (`results_disclaimer`, `privacy_note`), rest native words (`T-05`); last page only while `analytics_enabled` | native | should |
 | [`P-21`](#p-21) | **Filter** the meet list by country, state/province and club (organizer), in that order, several values each; **remembered** by the app across launches and servers. Country and state/province list every one the app knows (`shared/regions/subdivisions.json`), plus any other the list holds; club lists the clubs the list holds, plus any the spectator adds by its official letters; a province narrows its own country only, clubs narrow the places (OR within a facet). Active filter → a line at the end of the list says meets are hidden, with *Clear*; filter hides every meet → own empty state with *Clear*, not `P-04`/`P-17`'s | local over `GET /meets` → `country`, `province`, `organizer`; stored pref, one per app; words native (`T-05`) | native | should |
 | `P-22` | A test meet carries a **TEST** badge after its name, on its card and its compact row (`P-18`): small, bold, uppercase as served, outlined in the accent colour. The name is a team's and does not say it is a test; the badge does. Not searched (`P-17`) | `GET /meets` → `test`; `strings.test_meet` | all | should |
-| `P-23` | Spectator's **results order** — *As the pool sets it* (default), *By lane*, *By place* — in settings Display (`P-19`), after Appearance; applies to every meet's Results tab (`R-05`, `R-06`). The pool's order is only the default: a reader's choice outranks it, and the client ranks by place itself when the pool sorted by lane | stored pref; `results_snapshot` → `sort`, `lanes[].channel`, `place_int`; web: cookie `splouch_results` (`lane` / `place`, absent = pool's); web reads `strings.results_order`, `results_order_pool` / `_lane` / `_place` | all | should |
+| `P-23` | Spectator's **results order** — *By lane*, *By place* (default) — in settings Display (`P-19`), after Appearance, and on the introduction (`P-20`); applies to every meet's Results tab (`R-05`, `R-06`), never the Scoreboard, which is always by lane. The reader's order outranks the pool's `sort`, and the client ranks by place itself when the pool sorted by lane. A Pi serves no picker, so its pages follow the pool's `sort` | stored pref; `results_snapshot` → `sort`, `lanes[].channel`, `place_int`; web: cookie `splouch_results` (`lane` / `place`; absent = `place` on the cloud, the pool's on a Pi); web reads `strings.results_order`, `results_order_lane` / `_place` | all | should |
 
 ### <a id="p-01"></a>P-01 — a day, then its meets
 
@@ -284,7 +284,9 @@ QR code needs the board, not a carousel; `P-06`'s line does the job there.
    only in Dark), place. The narrow board has no header row, so this
    is where the columns are named. Sample values and key words are the app's (`T-05`);
    the screen reader reads the key, each line as value then meaning, and skips the
-   sample lane. No second paragraph: the page has to fit with its key.
+   sample lane. No second paragraph: the page has to fit with its key. Under the key,
+   the results order (`P-23`) as a two-way control, *By lane* / *By place*, set as in
+   settings.
 4. **Times in the schedule** — seed, then console, then official time, each its own
    colour (`S-22`); a heat marked `±` taps to the gap to the seed (`S-23`).
 5. **Follow a swimmer or club** — Schedule's filter (`S-08`) and *All heats* (`S-16`);
@@ -677,8 +679,8 @@ Absent for meet without timing console (`A-11`); below applies where it exists.
 | `R-02` | Disconnect or `meet_live` false **wipes board** back to that state | `disconnect`, `meet_live` | all | must |
 | `R-03` | Header shows snapshot's own event, heat, event name | `results_snapshot` | all | must |
 | `R-04` | Same six columns + visibility flags as Scoreboard | shared config | all | must |
-| `R-05` | **Lane sort**: row index = `channel`, turned around by the reader's `L-26`; lane w/o final time → its number and still water (`L-25`) | reader's `P-23` order, else `sort == "lane"`, or `sort` absent | all | must |
-| `R-06` | **Place sort**: rows fill top-down as ranking (by `place_int`, the client ranks them when the server sorted by lane); unfilled ranks → no lane number, no dash, still water (`L-25`) | reader's `P-23` order, else `sort == "place"` | all | must |
+| `R-05` | **Lane sort**: row index = `channel`, turned around by the reader's `L-26`; lane w/o final time → its number and still water (`L-25`) | reader's `P-23` order; on a Pi's web pages `sort == "lane"`, or `sort` absent | all | must |
+| `R-06` | **Place sort**: rows fill top-down as ranking (by `place_int`, the client ranks them when the server sorted by lane); unfilled ranks → no lane number, no dash, still water (`L-25`) | reader's `P-23` order (by place until they pick); on a Pi's web pages `sort == "place"` | all | must |
 | `R-07` | A result missing its time → `—`, not blank; missing **place** → empty, no dash, no `#`. A row with no result is `L-25`, not `—` | — | all | should |
 | [`R-08`](#l-17) | Long names shrink, don't clip — as `L-17` | — | all | should |
 | `R-09` | Final times get "locked" styling | `r.time` non-empty | all | should |
@@ -1126,6 +1128,13 @@ paused stays paused. iOS: a `Toggle` in the sheet's first section, the bell
 ---
 
 ## Changelog
+
+- **v3, amended** (2026-10-22, no bump) — the results order is the reader's alone:
+  *As the pool sets it* goes, *By place* is the default, and the introduction offers
+  the choice. Client only: the server still sends `sort`, which a Pi's pages follow.
+
+  - **Changed**: `P-23` (two options, by place by default; `results_order_pool`
+    removed), `P-20` (page 3 holds the results order), `R-05`, `R-06`.
 
 - **v3, amended** (2026-10-15, no bump) — a reader on the far side of the pool turns the
   lanes around. Client only: no server change.

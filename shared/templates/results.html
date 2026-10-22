@@ -73,11 +73,13 @@ function clearResults() {
 }
 
 /* The reader's own order (`P-23`), set in the picker's settings: a cookie on this
-   server, since the picker and the meet pages share an origin. Empty = the pool's
-   order, the snapshot's `sort`. A Pi has no picker, so there it is always empty. */
+   server, since the picker and the meet pages share an origin. No cookie is By
+   place where there is a picker to change it (the cloud passes `reader_order`);
+   a Pi has none, so there it is empty and the pool's order, the snapshot's `sort`. */
+var READER_ORDER = {{ reader_order | default('', true) | tojson }};
 function readerResultsOrder() {
     var m = document.cookie.match(/(?:^|; )splouch_results=(lane|place)(?:;|$)/);
-    return m ? m[1] : '';
+    return m ? m[1] : READER_ORDER;
 }
 
 function placeRank(r) {

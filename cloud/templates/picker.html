@@ -321,11 +321,11 @@
                 {% for theme in reader_themes | default(['dark', 'light', 'auto'], true) %}
                 <button type="button" class="prefs-opt" data-pref="theme" data-value="{{ theme }}">{{ t['appearance_' ~ theme] or theme_floor[theme] }}</button>
                 {% endfor %}
-                {#- `P-23`: the reader's results order; empty follows the pool's. #}
+                {#- `P-23`: the reader's results order, by place until they pick. #}
                 <div class="prefs-sub">{{ t.results_order or 'Results order' }}</div>
-                {%- set order_floor = {'': 'As the pool sets it', 'lane': 'By lane', 'place': 'By place'} %}
-                {% for order in ['', 'lane', 'place'] %}
-                <button type="button" class="prefs-opt" data-pref="results" data-value="{{ order }}">{{ t['results_order_' ~ (order or 'pool')] or order_floor[order] }}</button>
+                {%- set order_floor = {'lane': 'By lane', 'place': 'By place'} %}
+                {% for order in ['lane', 'place'] %}
+                <button type="button" class="prefs-opt" data-pref="results" data-value="{{ order }}">{{ t['results_order_' ~ order] or order_floor[order] }}</button>
                 {% endfor %}
             </section>
             <section aria-labelledby="settings-about">
@@ -566,10 +566,10 @@ function meetMatches(key, query) {
 
    An empty language means "no choice": the picker keeps following the browser, and
    a meet page keeps following the meet. That is the default, and clearing is how
-   you get back to it. The appearance has no empty: no cookie is Dark. The results
-   order's empty is the pool's own (`P-23`). */
+   you get back to it. The appearance has no empty: no cookie is Dark. Nor has the
+   results order: no cookie is By place (`P-23`). */
 var PREFS = { lang: 'splouch_lang', theme: 'splouch_theme', results: 'splouch_results' };
-var PREF_DEFAULTS = { lang: '', theme: 'dark', results: '' };
+var PREF_DEFAULTS = { lang: '', theme: 'dark', results: 'place' };
 
 function readPref(name) {
     var m = document.cookie.match('(?:^|; )' + PREFS[name] + '=([^;]*)');

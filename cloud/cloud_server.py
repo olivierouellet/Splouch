@@ -371,6 +371,8 @@ def route_results(request: Request):
         show_delta=s.get("show_delta", True),
         show_position=s.get("show_position", True),
         show_podium=s.get("show_podium", True),
+        # The reader's order until they pick one in the picker (docs/app.md `P-23`).
+        reader_order="place",
         t=_strings(_client_lang(request, meet), "mobile"),
         **_client_palette(request),
         # Merged, not a wholesale fallback: a relay sending only one font would

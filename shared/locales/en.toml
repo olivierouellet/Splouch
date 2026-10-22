@@ -121,7 +121,6 @@ appearance_dark     = "Dark"
 appearance_light    = "Light"
 appearance_auto     = "Automatic"
 results_order       = "Results order"
-results_order_pool  = "As the pool sets it"
 results_order_lane  = "By lane"
 results_order_place = "By place"
 
