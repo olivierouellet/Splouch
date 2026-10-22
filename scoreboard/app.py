@@ -471,23 +471,38 @@ class ScoreboardApp:
         self.sort = sort
         was_ready, self.ready = self.ready, bool(data.get("ready", True))
         self._set_view(str(data.get("view", "live")))
-        if resort and self.view == "results" and self._last_results:
+        if resort and self.ready and self.view == "results" and self._last_results:
             self.window.show_results(self._last_results, self.sort)
         self.window.set_alert(not self.ready)
         if not self.ready:
             self._show_not_ready()
-        elif not was_ready and self.view == "next":
-            # The meet's `next_heats` goes out on the other socket and may well be
+        elif not was_ready:
+            # What feeds the view goes out on the other socket and may well be
             # here already — kept while the notice was up, painted now.
-            if self._last_next:
-                self.window.show_next(self._last_next)
-            else:
-                self.window.clear_results()
+            self._paint_kept()
 
     def _show_not_ready(self):
-        self.window.show_notice(
-            self.config.strings.get("no_meet", "No meet file loaded")
-        )
+        """Say why the view is empty: no timing console for Results, no meet
+        file for Next heat. The clock cell is already red (set_alert)."""
+        if self.view == "results":
+            text = self.config.strings.get("no_console", "No timing console")
+        else:
+            text = self.config.strings.get("no_meet", "No meet file loaded")
+        self.window.show_notice(text)
+
+    def _paint_kept(self):
+        if self.view == "results" and self._last_results:
+            self.window.show_results(self._last_results, self.sort)
+        elif self.view == "next" and self._last_next:
+            self.window.show_next(self._last_next)
+        else:
+            self._clear_view()
+
+    def _clear_view(self):
+        """Back to the view's waiting line — or its notice, while not ready."""
+        self.window.clear_results()
+        if not self.ready:
+            self._show_not_ready()
 
     def _set_view(self, view: str):
         """Live, Results or Next heat. Each starts empty: the server follows
@@ -530,19 +545,18 @@ class ScoreboardApp:
         if event == "results_snapshot" and isinstance(data, dict):
             if data.get("lanes"):
                 self._last_results = data
-            self.window.show_results(data, self.sort)
+            if self.ready:
+                self.window.show_results(data, self.sort)
         elif event == "meet_live" and not (data or {}).get("live"):
             # Nothing feeds the results any more: back to the waiting line rather
             # than holding times that now read as current (docs/app.md `R-02`).
             self._last_results = None
-            self.window.clear_results()
+            self._clear_view()
 
     def _on_results_connected(self, ok: bool):
         if not ok:
             self._last_results = self._last_next = None
-            self.window.clear_results()
-            if not self.ready:
-                self._show_not_ready()
+            self._clear_view()
 
     def _on_frame(self, event: str, data):
         if event == "display_view":
@@ -572,7 +586,7 @@ class ScoreboardApp:
             # ended and the real meet is back. Separate from `test_mode`, which
             # only means the badge goes up or down.
             if self.view == "results":
-                self.window.clear_results()
+                self._clear_view()
             else:
                 self.window.reset()
         elif event == "test_mode":
@@ -585,7 +599,8 @@ class ScoreboardApp:
             # top saying the whole thing is a test.
             if active:
                 self.window.reset()
-                self.window.clear_results()
+                if self.view != "live":
+                    self._clear_view()
             self.window.set_test_mode(active)
         elif event == "display_overlay":
             # The carousel button on /operator. Shows the splash over the board.

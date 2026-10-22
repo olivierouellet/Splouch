@@ -194,27 +194,44 @@ def test_a_test_replay_does_not_offer_results(server, monkeypatch):
     assert displays.available_views() == ["live"]
 
 
-def test_tvs_on_results_go_back_live(server, monkeypatch):
+def test_tvs_on_results_keep_it_without_a_console(server, monkeypatch):
+    """Switch to manual and back: moved to Live, every Results TV would need
+    setting again. It stays, and is told it has nothing to show."""
     ws = _connect()
     _set_view("results")
     ws.sent.clear()
     monkeypatch.setattr(state, "_decoder", Decoder(timed=False))
-    displays.fall_back_unavailable()
-    assert state.settings["displays"][ID_A]["view"] == "live", "saved, not overridden"
+    displays.tell_views()
+    assert state.settings["displays"][ID_A]["view"] == "results"
     (coro,) = server
     asyncio.run(coro)
     server.clear()
-    assert ws.events() == ["display_view", "update_scoreboard"]
-    assert ws.sent[0]["data"]["view"] == "live"
+    assert ws.events() == ["display_view"]
+    assert ws.sent[0]["data"]["view"] == "results"
+    assert ws.sent[0]["data"]["ready"] is False
 
 
-def test_a_tv_offline_through_the_change_comes_back_live(server, monkeypatch):
+def test_a_tv_offline_through_the_change_keeps_its_view(server, monkeypatch):
     _connect()
     _set_view("results")
     state._display_sockets.clear()
     monkeypatch.setattr(state, "_decoder", Decoder(timed=False))
     ws = _connect()
-    assert ws.sent[0]["data"]["view"] == "live"
+    assert ws.sent[0]["data"]["view"] == "results"
+    assert ws.sent[0]["data"]["ready"] is False
+
+
+def test_live_tvs_are_not_told(server, monkeypatch):
+    _connect()
+    monkeypatch.setattr(state, "_decoder", Decoder(timed=False))
+    displays.tell_views()
+    assert server == []
+
+
+def test_the_console_change_tells_the_tvs():
+    from routes import settings as settings_route
+
+    assert settings_route.tell_views is displays.tell_views
 
 
 def test_the_settings_list_offers_only_what_the_meet_feeds(server, monkeypatch):
@@ -333,18 +350,8 @@ def test_next_heat_is_not_offered_without_a_meet_but_stays_selected(
     assert "No meet file" in html
 
 
-def test_results_still_goes_live_without_a_console(server, monkeypatch):
-    """Next heat waits; Results does not (Settings → TVs, as asked)."""
-    monkeypatch.setattr(meet_data, "heat_order", lambda: [(1, 1)])
-    _connect()
-    _set_view("results")
-    monkeypatch.setattr(state, "_decoder", Decoder(timed=False))
-    displays.fall_back_unavailable()
-    assert state.settings["displays"][ID_A]["view"] == "live"
-
-
 def test_the_hook_is_registered():
-    assert displays.tell_waiting_views in meet_data.meet_change_hooks
+    assert displays.tell_views in meet_data.meet_change_hooks
 
 
 # ── The TV ─────────────────────────────────────────────────────────────────────
@@ -591,6 +598,31 @@ def test_no_meet_is_said_and_the_clock_turns_red(qt_app, monkeypatch):
         app._on_frame("identify", {"active": False})
         assert _ALERT in app.window.wall_clock.styleSheet()
         app._on_frame("display_view", {"view": "live", "ready": True})
+        assert _ALERT not in app.window.wall_clock.styleSheet()
+    finally:
+        app.link.stop()
+        app._stop_results_link()
+
+
+def test_no_console_is_said_on_results(qt_app, monkeypatch):
+    from scoreboard.app import ScoreboardApp
+    from scoreboard.board import _ALERT
+    from scoreboard.client import ServerLink
+
+    monkeypatch.setattr(ServerLink, "start", lambda self: None)
+    app = ScoreboardApp("http://127.0.0.1:1", fullscreen=False)
+    try:
+        app._on_frame("display_view", {"view": "results", "ready": False})
+        assert app.window.waiting.text() == "No timing console"
+        assert f"background: {_ALERT}" in app.window.wall_clock.styleSheet()
+        app._on_results_frame("results_snapshot", SNAPSHOT)  # a stale one
+        assert app.window.waiting.isVisibleTo(app.window), "not painted over"
+        app._on_results_frame("meet_live", {"live": False})
+        assert app.window.waiting.text() == "No timing console", "kept through a wipe"
+
+        app._on_results_frame("results_snapshot", SNAPSHOT)
+        app._on_frame("display_view", {"view": "results", "ready": True})
+        assert app.window.rows[3].name_label.text() == "Roy", "kept, then painted"
         assert _ALERT not in app.window.wall_clock.styleSheet()
     finally:
         app.link.stop()

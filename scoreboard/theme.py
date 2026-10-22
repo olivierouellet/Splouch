@@ -77,7 +77,9 @@ DEFAULT_STRINGS = {
     # The Next heat view: the race clock's cell, and the line with no heat left.
     "next_heat": "NEXT HEAT",
     "no_upcoming": "No upcoming heats",
-    # Next heat with no meet file loaded — said with the clock cell red.
+    # A view the meet cannot feed — said with the clock cell red: Results with no
+    # timing console, Next heat with no meet file loaded.
+    "no_console": "No timing console",
     "no_meet": "No meet file loaded",
     # The operator menu (F1 at the display). Reachable only with a keyboard at the
     # TV, which is exactly the case where the server's own UI is out of reach — so

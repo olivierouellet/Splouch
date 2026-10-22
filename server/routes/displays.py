@@ -26,12 +26,9 @@ router = APIRouter(tags=["Displays"])
 
 _ID = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
 # What a TV can show, in Settings order. A view the meet cannot feed is not offered
-# — see available_views. A TV already on one keeps it: on Results it goes back to
-# Live when the console stops timing (fall_back_unavailable); on Next heat it
-# waits for a meet file, saying so (view_ready).
+# (available_views), but a TV already on one keeps it and says why it is empty
+# (view_ready).
 VIEWS = ("live", "results", "next")
-# Views a TV keeps through the meet losing what feeds them.
-_WAITS = ("next",)
 # Each TV's own choices beside its view, with what they may be. A new TV takes the
 # pool's value for each once, when it first registers (`_pool_default`).
 OPTIONS = {
@@ -72,21 +69,18 @@ def option_of(device_id: str, key: str) -> str:
 
 
 def view_of(device_id: str) -> str:
-    """The view this TV shows: its own, or Live when the meet cannot feed it —
-    except a view that waits instead (`_WAITS`)."""
+    """The view this TV is on — kept even while the meet cannot feed it."""
     entry = state.settings.get("displays", {}).get(device_id) or {}
     view = entry.get("view", "live")
-    if view not in VIEWS:
-        return "live"
-    return view if view in _WAITS or view in available_views() else "live"
+    return view if view in VIEWS else "live"
 
 
 def view_ready(device_id: str) -> bool:
-    """False while the TV's view has nothing to feed it — Next heat with no meet
-    file. The TV then says so and turns its clock red, rather than being moved
-    off a view that will be wanted again once a meet is loaded."""
-    view = view_of(device_id)
-    return view not in _WAITS or view in available_views()
+    """False while the TV's view has nothing to feed it: Results with no timing
+    console, Next heat with no meet file. The TV then says which and turns its
+    clock red, rather than being moved off a view that will be wanted again —
+    moved to Live, every TV would need setting again after the next upload."""
+    return view_of(device_id) in available_views()
 
 
 async def send_view(sockets, device_id: str) -> None:
@@ -104,37 +98,13 @@ async def send_view(sockets, device_id: str) -> None:
             await bus.manager.send(ws, "update_scoreboard", dict(state.board))
 
 
-def fall_back_unavailable() -> None:
-    """Move every TV on a view the meet can no longer feed back to Live.
-
-    Called when the console changes. Not for a view that waits (`_WAITS`).
-    Saved as Live rather than left for
-    `view_of` to override, so Settings shows what the TV shows and a later
-    console change does not switch it back on its own. Any thread.
-    """
-    views = available_views()
-    moved = [
-        device_id
-        for device_id, entry in state.settings.get("displays", {}).items()
-        if entry.get("view", "live") not in views and entry.get("view") not in _WAITS
-    ]
-    if not moved:
-        return
-    for device_id in moved:
-        state.settings["displays"][device_id]["view"] = "live"
-    state.save_settings()
-    for device_id in moved:
-        sockets = state._display_sockets.get(device_id)
-        if sockets:
-            bus.submit(send_view(set(sockets), device_id))
-
-
-def tell_waiting_views() -> None:
-    """Once a meet load or unload has settled (`meet_data.meet_changed`): every
-    connected TV on a view that waits for a meet hears whether it has one now.
-    Any thread."""
+def tell_views() -> None:
+    """What feeds the views may have changed: every connected TV not on Live
+    hears whether its view is ready now. Called when the console changes, and
+    once a meet load or unload has settled (`meet_data.meet_changed`) — not
+    mid-load, when the meet is briefly empty. Any thread."""
     for device_id, sockets in list(state._display_sockets.items()):
-        if sockets and view_of(device_id) in _WAITS:
+        if sockets and view_of(device_id) != "live":
             bus.submit(send_view(set(sockets), device_id))
 
 
@@ -381,4 +351,4 @@ async def route_display_forget(body: DisplayRef):
     return {"ok": True}
 
 
-meet_data.meet_change_hooks.append(tell_waiting_views)
+meet_data.meet_change_hooks.append(tell_views)

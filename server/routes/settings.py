@@ -33,7 +33,7 @@ from meet_data import (
 )
 from meet_parsers.lenex_parser import ROUND_NAMES, load_lenex
 from routes.debug import terminal_commands
-from routes.displays import fall_back_unavailable
+from routes.displays import tell_views
 from routes.qr import invite as qr_invite
 from splouch_regions import COUNTRIES, clean_location, province_choices, province_code
 from web import credentials_stamp, render, require_login, require_role, save_upload
@@ -512,8 +512,8 @@ def _settings_view(request, form):
                 state._decoder.set_seed_times(getattr(prev, "lane_seed_times", {}))
                 state._decoder.set_heat_lanes(getattr(prev, "_heat_lanes", ()))
                 _restart_worker()
-                # A console that times nothing feeds no Results: TVs on it go Live.
-                fall_back_unavailable()
+                # A console that times nothing feeds no Results: TVs on it say so.
+                tell_views()
 
         if "timing_tuning_submit" in form:
             # Console behaviour, not display behaviour: `finish_debounce` gates when a

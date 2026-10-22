@@ -365,11 +365,12 @@ the live board a heat early, so the race clock's cell — empty with no race —
 NEXT HEAT in the timing colour, and the timing columns stay closed. With no heat
 left it shows the waiting line ("No upcoming heats"). A board `reset` or a test
 starting does not wipe it: the start lists that change bring their own
-`next_heats`. With no meet file loaded the server keeps the TV on Next heat with
-`ready` false: the line says no meet file is loaded and the wall clock cell turns
-red — Identify's mechanism, in red, and Identify wins while both are on. A
-`next_heats` arriving meanwhile is kept and painted once `ready` comes back, since
-the two travel on different sockets and either may land first.
+`next_heats`. **Not ready.** With no timing console (Results) or no meet file (Next heat) the
+server keeps the TV on its view with `ready` false: the line says which is missing
+and the wall clock cell turns red — Identify's mechanism, in red, and Identify wins
+while both are on. A snapshot or `next_heats` arriving meanwhile is kept and painted
+once `ready` comes back, since the two travel on different sockets and either may
+land first.
 
 **Lane order and results order** are each TV's own, in the same `display_view`.
 A new TV copies the pool's (Displays → Appearance) when it first registers, and

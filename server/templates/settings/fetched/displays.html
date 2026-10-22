@@ -15,7 +15,9 @@
             <span class="small text-body-secondary text-truncate flex-fill">
                 {{ d.hostname }}{% if d.ip %} · {{ d.ip }}{% endif %}{% if d.version %} · <span style="font-family:monospace;">{{ d.version }}</span>{% endif %}
             </span>
-            {% if not d.ready %}
+            {% if not d.ready and d.view == 'results' %}
+            <span class="badge text-bg-danger" title="{{ t.tvs_waiting_console_hint }}">{{ t.tvs_waiting_console }}</span>
+            {% elif not d.ready %}
             <span class="badge text-bg-danger" title="{{ t.tvs_waiting_meet_hint }}">{{ t.tvs_waiting_meet }}</span>
             {% endif %}
             {% if d.copies > 1 %}
