@@ -161,6 +161,10 @@ _TIME_LOCK_MS = 800
 # green, and there the colours swap (green digits on black) — see _identify_colors.
 _IDENTIFY = "#00ff00"
 _IDENTIFY_INK = "#000000"
+# The same cell red, white digits, while this TV's view has nothing to feed it —
+# Next heat with no meet file (set_alert). Identify wins while both are on.
+_ALERT = "#ff0000"
+_ALERT_INK = "#ffffff"
 # Below this RGB distance the bar counts as green already.
 _IDENTIFY_NEAR = 160
 
@@ -1261,6 +1265,8 @@ class BoardWindow(QWidget):
         self.link_lost = False
         # True while the server has this TV identifying itself — see set_identify.
         self.identifying = False
+        # True while this TV's view has nothing to feed it — see set_alert.
+        self.alert = False
 
         # The carousel overlay, above the board and above the status message.
         self.splash = SplashOverlay(cfg, self)
@@ -1486,30 +1492,47 @@ class BoardWindow(QWidget):
             self.name_label.setText("")
             self._sync_header_cells()
 
-    def _identify_colors(self) -> tuple[str, str]:
-        """(fill, digits) for the clock while identifying — whichever of green on
-        black or black on green the theme's own bar does not already look like."""
+    def _cell_colors(self, tint: str, ink: str) -> tuple[str, str]:
+        """(fill, digits) for a clock cell filled *tint* — swapped to *tint* on
+        *ink* when the theme's own bar is already close to *tint*."""
         bar = QColor(self.cfg.color("header_bg"))
-        green = QColor(_IDENTIFY)
+        target = QColor(tint)
         distance = (
-            (bar.red() - green.red()) ** 2
-            + (bar.green() - green.green()) ** 2
-            + (bar.blue() - green.blue()) ** 2
+            (bar.red() - target.red()) ** 2
+            + (bar.green() - target.green()) ** 2
+            + (bar.blue() - target.blue()) ** 2
         ) ** 0.5
         if distance < _IDENTIFY_NEAR:
-            return _IDENTIFY_INK, _IDENTIFY
-        return _IDENTIFY, _IDENTIFY_INK
+            return ink, tint
+        return tint, ink
+
+    def _identify_colors(self) -> tuple[str, str]:
+        return self._cell_colors(_IDENTIFY, _IDENTIFY_INK)
 
     def _style_wall_clock(self):
         cfg = self.cfg
         if self.identifying:
             fill, color = self._identify_colors()
+        elif self.alert:
+            fill, color = self._cell_colors(_ALERT, _ALERT_INK)
         else:
             fill, color = "transparent", cfg.color("header_label")
         self.wall_clock.setStyleSheet(
             f"color: {color}; background: {fill};"
             f" border: none; border-left: 1px solid {cfg.color('header_border')};"
         )
+
+    def set_alert(self, active: bool):
+        """Fill the wall clock red: this TV is on a view the meet cannot feed yet,
+        and the waiting line says why. Seen from across the deck before the line
+        is read, the way Identify's green is."""
+        self.alert = bool(active)
+        self._style_wall_clock()
+
+    def show_notice(self, text: str):
+        """The waiting line with *text*, in place of the table."""
+        self.waiting.setText(text)
+        self.show_waiting(True)
 
     def set_identify(self, active: bool):
         """Fill the wall clock green, so the operator can tell which TV this is.

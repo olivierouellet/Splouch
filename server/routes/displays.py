@@ -25,9 +25,13 @@ from web import ActionResult, render, require_login
 router = APIRouter(tags=["Displays"])
 
 _ID = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
-# What a TV can show, in Settings order. A view the meet cannot feed is not offered,
-# and a TV on one goes back to Live — see available_views.
+# What a TV can show, in Settings order. A view the meet cannot feed is not offered
+# — see available_views. A TV already on one keeps it: on Results it goes back to
+# Live when the console stops timing (fall_back_unavailable); on Next heat it
+# waits for a meet file, saying so (view_ready).
 VIEWS = ("live", "results", "next")
+# Views a TV keeps through the meet losing what feeds them.
+_WAITS = ("next",)
 # Each TV's own choices beside its view, with what they may be. A new TV takes the
 # pool's value for each once, when it first registers (`_pool_default`).
 OPTIONS = {
@@ -68,17 +72,32 @@ def option_of(device_id: str, key: str) -> str:
 
 
 def view_of(device_id: str) -> str:
-    """The view this TV shows: its own, or Live when the meet cannot feed it."""
+    """The view this TV shows: its own, or Live when the meet cannot feed it —
+    except a view that waits instead (`_WAITS`)."""
     entry = state.settings.get("displays", {}).get(device_id) or {}
     view = entry.get("view", "live")
-    return view if view in available_views() else "live"
+    if view not in VIEWS:
+        return "live"
+    return view if view in _WAITS or view in available_views() else "live"
+
+
+def view_ready(device_id: str) -> bool:
+    """False while the TV's view has nothing to feed it — Next heat with no meet
+    file. The TV then says so and turns its clock red, rather than being moved
+    off a view that will be wanted again once a meet is loaded."""
+    view = view_of(device_id)
+    return view not in _WAITS or view in available_views()
 
 
 async def send_view(sockets, device_id: str) -> None:
     """Tell a TV which view to show. Going to Live, the board follows — the
     TV dropped it while on another view, and frames are partial (§5.1)."""
     view = view_of(device_id)
-    frame = {"view": view, **{key: option_of(device_id, key) for key in OPTIONS}}
+    frame = {
+        "view": view,
+        "ready": view_ready(device_id),
+        **{key: option_of(device_id, key) for key in OPTIONS},
+    }
     for ws in list(sockets):
         await bus.manager.send(ws, "display_view", frame)
         if view == "live" and state.board:
@@ -88,8 +107,8 @@ async def send_view(sockets, device_id: str) -> None:
 def fall_back_unavailable() -> None:
     """Move every TV on a view the meet can no longer feed back to Live.
 
-    Called when the console changes, and once a meet load or unload has
-    settled (`meet_data.meet_changed`). Saved as Live rather than left for
+    Called when the console changes. Not for a view that waits (`_WAITS`).
+    Saved as Live rather than left for
     `view_of` to override, so Settings shows what the TV shows and a later
     console change does not switch it back on its own. Any thread.
     """
@@ -97,7 +116,7 @@ def fall_back_unavailable() -> None:
     moved = [
         device_id
         for device_id, entry in state.settings.get("displays", {}).items()
-        if entry.get("view", "live") not in views
+        if entry.get("view", "live") not in views and entry.get("view") not in _WAITS
     ]
     if not moved:
         return
@@ -107,6 +126,15 @@ def fall_back_unavailable() -> None:
     for device_id in moved:
         sockets = state._display_sockets.get(device_id)
         if sockets:
+            bus.submit(send_view(set(sockets), device_id))
+
+
+def tell_waiting_views() -> None:
+    """Once a meet load or unload has settled (`meet_data.meet_changed`): every
+    connected TV on a view that waits for a meet hears whether it has one now.
+    Any thread."""
+    for device_id, sockets in list(state._display_sockets.items()):
+        if sockets and view_of(device_id) in _WAITS:
             bus.submit(send_view(set(sockets), device_id))
 
 
@@ -193,6 +221,7 @@ def display_rows() -> list[dict]:
                 "copies": len(conns),
                 "identify_left": _identify_left(device_id) if conns else 0,
                 "view": view_of(device_id),
+                "ready": view_ready(device_id),
                 **{key: option_of(device_id, key) for key in OPTIONS},
             }
         )
@@ -220,6 +249,7 @@ async def route_displays_fragment(request: Request):
         "settings/fetched/displays.html",
         displays=display_rows(),
         views=available_views(),
+        VIEWS=VIEWS,
         unlisted=_unlisted(),
         t=state.settings_strings(state.ui_locale(request)),
     )
@@ -351,4 +381,4 @@ async def route_display_forget(body: DisplayRef):
     return {"ok": True}
 
 
-meet_data.meet_change_hooks.append(fall_back_unavailable)
+meet_data.meet_change_hooks.append(tell_waiting_views)

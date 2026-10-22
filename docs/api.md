@@ -83,7 +83,7 @@ same reason.
 | `reset` | `{}` | what is on the board is stale — clear it (§2.2) |
 | `reload` | `{}` | settings/theme changed — client should re-fetch config and redraw |
 | `update` | `{ "target": "<ref>" }` | move to *ref* and restart (native clients only) |
-| `display_view` | `{ "view": "live"\|"results"\|"next", "lane_direction": "up"\|"down", "results_sort": "lane"\|"place" }` | to one TV only: what to show and how; sent after `register` and on every change (native clients only) |
+| `display_view` | `{ "view": "live"\|"results"\|"next", "ready": bool, "lane_direction": "up"\|"down", "results_sort": "lane"\|"place" }` | to one TV only: what to show and how; sent after `register` and on every change (native clients only) |
 | `identify` | `{ "active": bool, "seconds"?: int }` | to one TV only: turn the wall clock green for *seconds*, or stop early (native clients only) |
 
 #### 2.1 `meet_live`
@@ -164,9 +164,11 @@ takes it back there (`R-02`). The server offers Results only when the console ti
 one that does not. **Next** is the first of `next_heats` (§5.3), also on
 `/ws/results`: the start list of the heat after the one on the console, with the
 race clock's cell saying so, or the waiting line once no heat is left. It is offered
-only with a meet file loaded, and a TV on it goes back to Live once a meet is
-unloaded; a reload of the same or another meet keeps it, since only the settled meet
-is checked. A TV that is not connected gets its view on connect.
+only with a meet file loaded, but a TV on it keeps it through the meet being
+unloaded: `ready` is then false, and the TV says no meet file is loaded with its
+clock cell red, until a meet is back — moved to Live, every TV would need setting
+again after the next upload. The server re-sends `display_view` to those TVs once a
+meet load or unload has settled. `ready` is true for every other view. A TV that is not connected gets its view on connect.
 
 `lane_direction` (`down` = last lane on top, both views) and `results_sort` are the
 TV's own. A new TV copies them from the pool's (Displays → Appearance:

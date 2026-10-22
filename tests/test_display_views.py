@@ -80,7 +80,12 @@ def test_a_new_tv_starts_live(server):
     assert state.settings["displays"][ID_A]["view"] == "live"
     assert ws.sent[0] == {
         "event": "display_view",
-        "data": {"view": "live", "lane_direction": "up", "results_sort": "lane"},
+        "data": {
+            "view": "live",
+            "ready": True,
+            "lane_direction": "up",
+            "results_sort": "lane",
+        },
     }
 
 
@@ -227,6 +232,7 @@ def test_the_settings_list_offers_only_what_the_meet_feeds(server, monkeypatch):
         return env.get_template("settings/fetched/displays.html").render(
             displays=displays.display_rows(),
             views=displays.available_views(),
+            VIEWS=displays.VIEWS,
             unlisted=0,
             t=state.settings_strings("en"),
         )
@@ -255,7 +261,9 @@ def test_next_heat_needs_a_meet(server, monkeypatch):
     assert _set_view("next") == {"ok": True}
 
 
-def test_unloading_the_meet_sends_tvs_back_live(server, monkeypatch):
+def test_unloading_the_meet_keeps_next_heat(server, monkeypatch):
+    """Moved to Live, every TV would need setting again after the next upload.
+    It stays on Next heat and is told it has no meet: it says so, clock red."""
     monkeypatch.setattr(meet_data, "heat_order", lambda: [(1, 1)])
     ws = _connect()
     _set_view("next")
@@ -265,29 +273,78 @@ def test_unloading_the_meet_sends_tvs_back_live(server, monkeypatch):
     monkeypatch.setattr(meet_data, "heat_order", list)
     monkeypatch.setattr(meet_data, "_get_next_heats", lambda *a, **k: [])
     meet_data.meet_changed()
-    assert state.settings["displays"][ID_A]["view"] == "live"
+    assert state.settings["displays"][ID_A]["view"] == "next"
     (coro,) = server
     asyncio.run(coro)
     server.clear()
-    assert ws.sent[0]["data"]["view"] == "live"
+    assert ws.sent[0]["data"]["view"] == "next"
+    assert ws.sent[0]["data"]["ready"] is False
     assert "next_heats" in emitted, "the list is re-sent, not left at the old meet"
+    (row,) = displays.display_rows()
+    assert row["ready"] is False
+
+    monkeypatch.setattr(meet_data, "heat_order", lambda: [(2, 1)])
+    meet_data.meet_changed()
+    (coro,) = server
+    asyncio.run(coro)
+    server.clear()
+    assert ws.sent[-1]["data"]["ready"] is True
 
 
-def test_a_meet_reload_keeps_next_heat(server, monkeypatch):
-    """Loading clears the meet before reading the new one; only the settled
-    state counts, so a TV on Next heat stays there."""
+def test_a_tv_connecting_with_no_meet_hears_it(server, monkeypatch):
     monkeypatch.setattr(meet_data, "heat_order", lambda: [(1, 1)])
     _connect()
     _set_view("next")
-    monkeypatch.setattr(bus, "emit", lambda *a, **k: None)
-    monkeypatch.setattr(meet_data, "_get_next_heats", lambda *a, **k: [])
-    meet_data.meet_changed()
-    assert state.settings["displays"][ID_A]["view"] == "next"
-    assert server == []
+    state._display_sockets.clear()
+    monkeypatch.setattr(meet_data, "heat_order", list)
+    ws = _connect()
+    assert ws.sent[0]["data"]["view"] == "next"
+    assert ws.sent[0]["data"]["ready"] is False
+
+
+def test_next_heat_is_not_offered_without_a_meet_but_stays_selected(
+    server, monkeypatch
+):
+    import os
+
+    from jinja2 import Environment, FileSystemLoader
+
+    repo = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    env = Environment(
+        loader=FileSystemLoader(os.path.join(repo, "server", "templates"))
+    )
+    monkeypatch.setattr(meet_data, "heat_order", lambda: [(1, 1)])
+    _connect()
+
+    def render():
+        return env.get_template("settings/fetched/displays.html").render(
+            displays=displays.display_rows(),
+            views=displays.available_views(),
+            VIEWS=displays.VIEWS,
+            unlisted=0,
+            t=state.settings_strings("en"),
+        )
+
+    assert 'data-view="next"' in render()
+    _set_view("next")
+    monkeypatch.setattr(meet_data, "heat_order", list)
+    html = render()
+    assert "Next heat" in html and 'data-view="next"' not in html
+    assert "No meet file" in html
+
+
+def test_results_still_goes_live_without_a_console(server, monkeypatch):
+    """Next heat waits; Results does not (Settings → TVs, as asked)."""
+    monkeypatch.setattr(meet_data, "heat_order", lambda: [(1, 1)])
+    _connect()
+    _set_view("results")
+    monkeypatch.setattr(state, "_decoder", Decoder(timed=False))
+    displays.fall_back_unavailable()
+    assert state.settings["displays"][ID_A]["view"] == "live"
 
 
 def test_the_hook_is_registered():
-    assert displays.fall_back_unavailable in meet_data.meet_change_hooks
+    assert displays.tell_waiting_views in meet_data.meet_change_hooks
 
 
 # ── The TV ─────────────────────────────────────────────────────────────────────
@@ -504,6 +561,37 @@ def test_the_app_shows_the_next_heat(qt_app, monkeypatch):
         app._on_frame("test_mode", {"active": True})
         assert app.window.rows[2].name_label.text() == "Roy", "not stale with the board"
         assert app.window.test_badge.isVisible()
+    finally:
+        app.link.stop()
+        app._stop_results_link()
+
+
+def test_no_meet_is_said_and_the_clock_turns_red(qt_app, monkeypatch):
+    from scoreboard.app import ScoreboardApp
+    from scoreboard.board import _ALERT
+    from scoreboard.client import ServerLink
+
+    monkeypatch.setattr(ServerLink, "start", lambda self: None)
+    app = ScoreboardApp("http://127.0.0.1:1", fullscreen=False)
+    try:
+        app._on_frame("display_view", {"view": "next", "ready": False})
+        assert app.window.waiting.isVisibleTo(app.window)
+        assert app.window.waiting.text() == "No meet file loaded"
+        assert f"background: {_ALERT}" in app.window.wall_clock.styleSheet()
+        app._on_results_frame("next_heats", NEXT)  # may beat the ready frame here
+        assert app.window.waiting.text() == "No meet file loaded"
+
+        app._on_frame("display_view", {"view": "next", "ready": True})
+        assert _ALERT not in app.window.wall_clock.styleSheet()
+        assert app.window.rows[2].name_label.text() == "Roy", "kept, then painted"
+
+        app._on_frame("display_view", {"view": "next", "ready": False})
+        app._on_frame("identify", {"active": True, "seconds": 10})
+        assert _ALERT not in app.window.wall_clock.styleSheet(), "identify wins"
+        app._on_frame("identify", {"active": False})
+        assert _ALERT in app.window.wall_clock.styleSheet()
+        app._on_frame("display_view", {"view": "live", "ready": True})
+        assert _ALERT not in app.window.wall_clock.styleSheet()
     finally:
         app.link.stop()
         app._stop_results_link()

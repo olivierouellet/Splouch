@@ -15,6 +15,9 @@
             <span class="small text-body-secondary text-truncate flex-fill">
                 {{ d.hostname }}{% if d.ip %} · {{ d.ip }}{% endif %}{% if d.version %} · <span style="font-family:monospace;">{{ d.version }}</span>{% endif %}
             </span>
+            {% if not d.ready %}
+            <span class="badge text-bg-danger" title="{{ t.tvs_waiting_meet_hint }}">{{ t.tvs_waiting_meet }}</span>
+            {% endif %}
             {% if d.copies > 1 %}
             <span class="badge text-bg-warning" title="{{ t.tvs_copies_hint }}">{{ t.tvs_copies | replace('{n}', d.copies|string) }}</span>
             {% endif %}
@@ -24,7 +27,7 @@
                people are reading, mid-race included. Only the views this meet
                can feed are offered (routes/displays.available_views). #}
             <div class="btn-group btn-group-sm" role="group" aria-label="{{ t.tvs_view }}">
-                {% for v in views %}
+                {% for v in VIEWS if v in views or v == d.view %}
                 {% if v == d.view %}
                 <button type="button" class="btn btn-primary" aria-pressed="true">{{ t['tvs_view_' ~ v] }}</button>
                 {% else %}

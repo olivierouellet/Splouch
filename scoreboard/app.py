@@ -91,6 +91,9 @@ class ScoreboardApp:
         # This TV's results order, from the same frame; the lane order lives on
         # the window.
         self.sort = "lane"
+        # False while the server says this TV's view has nothing to feed it (Next
+        # heat with no meet file): the TV shows why, clock red, until it does.
+        self.ready = True
         # The second link the results view opens on `/ws/results`, and the last
         # snapshot it brought, for a window rebuilt on a lane-count change.
         self.results_link: ServerLink | None = None
@@ -267,6 +270,9 @@ class ScoreboardApp:
                     self.window.show_results(self._last_results, self.sort)
                 if self.view == "next" and self._last_next:
                     self.window.show_next(self._last_next)
+            self.window.set_alert(not self.ready)
+            if not self.ready:
+                self._show_not_ready()
             self.window.set_status(status, detail)
             self._show(self.window, was_full)
             old_window.close()
@@ -463,9 +469,25 @@ class ScoreboardApp:
         sort = "place" if data.get("results_sort") == "place" else "lane"
         resort = sort != self.sort
         self.sort = sort
+        was_ready, self.ready = self.ready, bool(data.get("ready", True))
         self._set_view(str(data.get("view", "live")))
         if resort and self.view == "results" and self._last_results:
             self.window.show_results(self._last_results, self.sort)
+        self.window.set_alert(not self.ready)
+        if not self.ready:
+            self._show_not_ready()
+        elif not was_ready and self.view == "next":
+            # The meet's `next_heats` goes out on the other socket and may well be
+            # here already — kept while the notice was up, painted now.
+            if self._last_next:
+                self.window.show_next(self._last_next)
+            else:
+                self.window.clear_results()
+
+    def _show_not_ready(self):
+        self.window.show_notice(
+            self.config.strings.get("no_meet", "No meet file loaded")
+        )
 
     def _set_view(self, view: str):
         """Live, Results or Next heat. Each starts empty: the server follows
@@ -502,7 +524,8 @@ class ScoreboardApp:
         if self.view == "next":
             if event == "next_heats" and isinstance(data, dict):
                 self._last_next = data
-                self.window.show_next(data)
+                if self.ready:
+                    self.window.show_next(data)
             return
         if event == "results_snapshot" and isinstance(data, dict):
             if data.get("lanes"):
@@ -518,6 +541,8 @@ class ScoreboardApp:
         if not ok:
             self._last_results = self._last_next = None
             self.window.clear_results()
+            if not self.ready:
+                self._show_not_ready()
 
     def _on_frame(self, event: str, data):
         if event == "display_view":

@@ -159,6 +159,8 @@ waiting_results = "Waiting for results…"
 # the meet has no heat left.
 next_heat   = "NEXT HEAT"
 no_upcoming = "No upcoming heats"
+# Next heat with no meet file: the line, with the clock red.
+no_meet = "No meet file loaded"
 
 # Operator menu on the TV itself (F1). Only reachable with a keyboard at the
 # display, which is the situation where the server UI is out of reach.
