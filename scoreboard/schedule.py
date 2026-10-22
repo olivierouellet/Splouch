@@ -16,11 +16,27 @@ can test it without PySide6; the widget only paints those lines.
 """
 
 # Lines the view is divided into, a heat's title counting as one and each of its
-# swimmers as one. Fixed rather than fitted, so the text is the same size whatever
-# is on screen and a short heat does not suddenly read larger than a long one. 20
-# puts two full 8-lane heats on a screen with room to spare, at a size that still
-# reads across a pool deck.
+# swimmers as one. Fixed for a pool rather than fitted to what is on screen, so the
+# text is one size whatever is shown and a short heat does not suddenly read larger
+# than a long one — see lines_for.
 LINES = 20
+
+
+def lines_for(num_lanes: int) -> int:
+    """Lines for a pool of *num_lanes*: room for three full heats up to 6 lanes and
+    two above, never fewer than `LINES` — 21 for 6 lanes, 20 for 8 (two full heats
+    and a short third), 26 for 12.
+
+    Everything is a share of the screen's height, so what this costs is set by the
+    TV's size, not its resolution. On a 55" TV, 20 lines draw capitals about 14 mm
+    high and 26 lines about 11 mm; a hall reads those from roughly 4 m and 3 m.
+    """
+    try:
+        lanes = max(1, int(num_lanes))
+    except (TypeError, ValueError):
+        lanes = 8
+    heats = 3 if lanes <= 6 else 2
+    return max(LINES, heats * (lanes + 1))
 
 
 def display_time(text) -> str:

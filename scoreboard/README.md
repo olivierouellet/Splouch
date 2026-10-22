@@ -368,9 +368,10 @@ NEXT HEAT in the timing colour, and the timing columns stay closed. With no heat
 left it shows the waiting line ("No upcoming heats"). A board `reset` or a test
 starting does not wipe it: the start lists that change bring their own
 `next_heats`. **Schedule** is the fourth: `GET /schedule.json` from the next heat on (the first of
-`next_heats`, re-fetched on each one), painted by `schedule_view.py`. A fixed 20
-lines — a heat's title and one per swimmer — so the text is one size whatever is on
-screen; each following heat is added only if the whole of it fits, in order, and
+`next_heats`, re-fetched on each one), painted by `schedule_view.py`. A fixed number
+of lines for the pool — a heat's title and one per swimmer: room for three full heats
+up to 6 lanes and two above, never fewer than 20 (21 for 6 lanes, 26 for 12) — so
+the text is one size whatever is on screen; each following heat is added only if the whole of it fits, in order, and
 nothing scrolls (`schedule.py`, Qt-free). It is the one place the `schedule_*`
 colours reach the TV. The race clock's cell says SCHEDULE; like NEXT HEAT it is set
 in the text face, since the digit font is usually seven-segment.

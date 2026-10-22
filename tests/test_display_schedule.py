@@ -166,3 +166,24 @@ def test_words_in_the_clock_cell_use_the_text_face(board):
     assert board.chrono_label.font().family() != digits, "kept through a reload"
     board.set_view_mode("live")
     assert board.chrono_label.font().family() == digits
+
+
+@pytest.mark.parametrize(
+    ("lanes", "lines", "full_heats"),
+    [(4, 20, 4), (6, 21, 3), (8, 20, 2), (10, 22, 2), (12, 26, 2)],
+)
+def test_the_lines_follow_the_pool(lanes, lines, full_heats):
+    """Three full heats up to 6 lanes, two above, never fewer than 20 lines."""
+    assert schedule.lines_for(lanes) == lines
+    full = [_heat(1, h, range(1, lanes + 1)) for h in range(1, 6)]
+    assert len(schedule.fit(full, lines)) == full_heats
+
+
+def test_the_widget_divides_by_its_pool(qt_app):
+    from scoreboard.schedule_view import ScheduleView
+    from scoreboard.theme import Config
+
+    view = ScheduleView(Config({"num_lanes": 12}))
+    assert view.line_count() == 26
+    view.set_heats([_heat(1, h, range(1, 13)) for h in range(1, 4)])
+    assert len(view.heats) == 2

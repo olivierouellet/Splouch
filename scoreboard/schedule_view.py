@@ -1,7 +1,7 @@
 """The Schedule view's widget: paints the lines `schedule.layout` gives it.
 
 Painted rather than built from labels: the set of rows changes with every heat,
-and a fixed grid of `schedule.LINES` text lines is all there is to it. Each heat
+and a fixed grid of text lines (`schedule.lines_for` the pool) is all there is to it. Each heat
 sits on its own stripe, as the Schedule page's cards alternate; the title line
 reads like the page's card header — EVENT and HEAT words in `schedule_event`,
 their numbers and the swimmers in `schedule_name`, the start time in
@@ -18,7 +18,7 @@ from .theme import Config
 # Shares of a swimmer's line: lane, name, club, seed time.
 _W_LANE, _W_NAME, _W_CLUB, _W_SEED = 0.07, 0.48, 0.27, 0.18
 # Text height as a share of a line, and the side padding as a share of the width.
-_FONT = 0.58
+_FONT = 0.64
 _PAD = 0.012
 
 
@@ -32,12 +32,15 @@ class ScheduleView(QWidget):
     def set_heats(self, heats: list):
         """Show *heats*, the first being the next to swim; only the whole ones
         that fit are drawn (`schedule.fit`)."""
-        self.heats = schedule.fit(heats)
+        self.heats = schedule.fit(heats, self.line_count())
         self.update()
 
     def set_lane_direction(self, direction: str):
         self.lane_direction = "down" if direction == "down" else "up"
         self.update()
+
+    def line_count(self) -> int:
+        return schedule.lines_for(self.cfg.num_lanes)
 
     def lines(self) -> list:
         return schedule.layout(self.heats, self.lane_direction)
@@ -47,7 +50,7 @@ class ScheduleView(QWidget):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.TextAntialiasing)
         painter.fillRect(self.rect(), QColor(cfg.color("bg")))
-        line_h = self.height() / schedule.LINES
+        line_h = self.height() / self.line_count()
         pad = int(self.width() * _PAD)
         px = max(10, int(line_h * _FONT))
         text_font = QFont(cfg.family)
