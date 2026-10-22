@@ -211,8 +211,13 @@ async def route_settings(request: Request):
 # Never set by the generic sweep. The login has its own handler; the rest name a
 # file that routes join onto a folder and serve or delete (`/picker_image`,
 # `/splash_delete`, `/theme_delete`), so they are only ever set by a handler that
-# reduces the value to a bare filename first.
+# reduces the value to a bare filename first. The two-way choices are checked
+# against their pair by the Display handler, which the sweep would undo by storing
+# whatever text came in.
 _NOT_SWEPT = {
+    "lap_direction",
+    "lane_direction",
+    "results_sort",
     "username",
     "users",
     "password",
@@ -549,6 +554,13 @@ def _settings_view(request, form):
                 "lap_direction", "up"
             ):
                 state.settings["lap_direction"] = dir_val
+                modified = True
+            # Same reason: a phone reads it as the meet's starting lane order.
+            lanes_val = form.get("lane_direction", "up")
+            if lanes_val in ("up", "down") and lanes_val != state.settings.get(
+                "lane_direction", "up"
+            ):
+                state.settings["lane_direction"] = lanes_val
                 modified = True
             for key in ("locale", "label_style"):
                 if key in form and state.settings.get(key) != form.get(key):
@@ -948,6 +960,7 @@ def _settings_view(request, form):
         show_position=state.settings.get("show_position", True),
         show_laps=state.settings.get("show_laps", False),
         lap_direction=state.settings.get("lap_direction", "up"),
+        lane_direction=state.settings.get("lane_direction", "up"),
         round_names=ROUND_NAMES,
         round_words=state.i18n_bundle(ui_lang)["event_name"],
         round_names_board=state.settings.get("round_names_board", ROUND_NAMES),

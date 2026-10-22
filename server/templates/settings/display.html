@@ -79,6 +79,16 @@
                        it saves as you go like the card above. #}
                     <div class="card mt-3"><div class="card-body">
                         <div class="panel-title">{{ t.disp_phones }}</div>
+                        {# docs/app.md `L-26`: where the stands are, so the apps' own
+                           default until a reader turns the lanes around themselves. #}
+                        <div class="mb-3">
+                            <label for="lane_direction" class="form-label">{{ t.disp_lane_order }}</label>
+                            <select id="lane_direction" name="lane_direction" class="form-select form-select-sm" style="width:auto;">
+                                <option value="up"   {% if lane_direction != 'down' %}selected{% endif %}>{{ t.disp_lanes_up }}</option>
+                                <option value="down" {% if lane_direction == 'down' %}selected{% endif %}>{{ t.disp_lanes_down }}</option>
+                            </select>
+                            <div class="form-text">{{ t.disp_lane_order_help }}</div>
+                        </div>
                         {{ round_checks('phone', round_names_phone) }}
                     </div></div>
                 </form>

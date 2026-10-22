@@ -114,3 +114,25 @@ def test_both_sections_are_in_the_auto_saving_form():
     form = settings_source().split('id="display-settings-form"')[1].split("</form>")[0]
     assert "round_checks('board'" in form
     assert "round_checks('phone'" in form
+
+
+def test_the_lane_order_reaches_the_phones(monkeypatch):
+    """docs/app.md `L-26`: the pool's starting lane order, on both config paths."""
+    import relay
+    import web
+
+    monkeypatch.setitem(state.settings, "lane_direction", "up")
+    _post({"display_settings_submit": "1", "lane_direction": "down"}, monkeypatch)
+    assert state.settings["lane_direction"] == "down"
+    assert web._globals()["lane_direction"] == "down"
+    assert relay._get_metadata()["settings"]["lane_direction"] == "down"
+    _post({"display_settings_submit": "1", "lane_direction": "sideways"}, monkeypatch)
+    assert state.settings["lane_direction"] == "down"
+
+
+def test_the_lane_order_is_in_the_phones_card():
+    from conftest import settings_source
+
+    form = settings_source().split('id="display-settings-form"')[1].split("</form>")[0]
+    phones = form.split("t.disp_phones")[1]
+    assert 'name="lane_direction"' in phones

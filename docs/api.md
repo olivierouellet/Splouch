@@ -438,7 +438,7 @@ place. `delta` is browser HTML;
   "meet_end": "2026-10-12T22:00:00+00:00", "keep_listed_until": "2026-10-15T22:00:00+00:00",
   "settings": { "num_lanes": 8, "first_lane": 1, "show_name": true, "show_club": true, "show_delta": true,
                 "show_position": true, "show_podium": true, "show_*_header": true,
-                "show_laps": false, "lap_direction": "up",
+                "show_laps": false, "lap_direction": "up", "lane_direction": "up",
                 "theme_colors": { … }, "theme_fonts": { … }, "locale": "fr",
                 "labels": { … }, "label_style": "short",
                 "console": { "key": "manual", "timed": false },
@@ -468,6 +468,7 @@ and `keep_listed_until` to 72 hours past it, and drops a keep when the Pi discon
 | --- | --- |
 | `labels` | as now — resolved for the meet's `locale` and the operator's style. The default a client renders before any user preference, and the whole story for a client that wants no more than that |
 | `label_style` | `"short"` or `"long"` — *which* of the two the operator picked, so a client offering the choice knows where to start. The Pi's phone style is `cloud_label_style`, separate from the kiosk's `label_style` |
+| `lane_direction` | `"up"` or `"down"` — the order a phone lists the lanes in, top to bottom, until its reader turns them around (`app.md` `L-26`). `"down"` puts the last lane on top, for a pool whose stand sees them that way. Absent or unknown reads as `"up"`. The Pi's `GET /config` carries the same value (§6) |
 | `console` | which console is driving this meet: `key` is the operator's choice (`"cts_sys6"`, `"manual"`, a plugin's own key), `timed` is whether it produces times at all |
 
 **`console.timed` is the half a client acts on.** False means *no time and no place

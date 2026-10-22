@@ -511,7 +511,7 @@ Live lane state during a heat. Busiest screen, most worth getting right.
 | `L-08` | Column *headers* hide independently: `show_*_header` | meet `settings` | all | should |
 | `L-09` | Empty lanes keep their row in place — rows never collapse/shift; drawn per `L-25` | — | all | must |
 | `L-25` | Empty lane = **still water**: lane number, then one faint wave across the rest of the row, fading at both ends, drifting a wavelength every **10 s** on the wall clock (empty lanes move as one). Reduced motion → still. Never on the lane number (`L-12` pulses there). Empty = no name, alt, club, time, delta, place, not running; and only when another lane in the heat has a name — a feed with no names claims nothing | `lane_*<i>`, `lane_running<i>`; Results: no result for the row | all | should |
-| [`L-26`](#l-26) | Reader's **lane direction**, per meet: lanes top to bottom ascending (default) or descending, for a spectator on the side of the pool where the numbers run the other way. A toolbar action on Scoreboard, and on Results while it is in lane order (`R-05`); rows slide to their new places. Remembered per meet across launches | stored pref, keyed by `meet_id`; `L-04` rows, reversed; words native (`T-05`) | all | should |
+| [`L-26`](#l-26) | Reader's **lane direction**, per meet: lanes top to bottom ascending or descending, for a spectator on the side of the pool where the numbers run the other way. Starts as the pool's `lane_direction`, ascending when absent. A toolbar action on Scoreboard, and on Results while it is in lane order (`R-05`); rows slide to their new places. The reader's choice, either way, remembered per meet across launches | stored pref, keyed by `meet_id`; `settings.lane_direction` (§5.4; Pi `GET /config`); `L-04` rows, reversed; words native (`T-05`) | all | should |
 | `L-10` | Frames partial: merge changed keys, never replace | `update_scoreboard` (§5.1) | all | must |
 | `L-11` | Running lane time styled distinctly; on stop, one-shot "locked" transition, cancelled if runs again — tells a live clock from a frozen split | `lane_running<i>` false-edge | all | **must** |
 | [`L-12`](#l-12) | Every running lane shows **race clock**: one value per heat, server re-based, device ticked | `running_time` + `lane_running<i>` + `meet_live` | all | **must** |
@@ -609,9 +609,16 @@ in [`api.md`](api.md) §5.1. Operator fixes drift via `adjust_splits` → settin
 
 (Out of sequence: `L-25` was the last.) Where the spectator sits, not what they prefer:
 so not in settings (`P-19`), and per meet, not per device — the next meet may be a
-different pool, or the same pool from the other stand. A meet not yet flipped is
-ascending, `L-04` as drawn.
+different pool, or the same pool from the other stand.
 
+- **Default**: a meet the reader has not flipped follows the pool's
+  `settings.lane_direction` — `up` ascending, `down` descending — set on the Pi
+  (Settings → Display → Phones → *Lane order*) for a pool whose only stand sees the
+  lanes the other way. Absent or unknown → ascending, `L-04` as drawn. The pool's value
+  is read on every open, so an operator who changes it moves every reader who has not
+  chosen. A reader's flip is stored as a choice, ascending or descending, never as a
+  difference from the pool: a reader who turned a descending pool back to ascending
+  stays ascending.
 - **Where**: one action in the meet's top bar, on Scoreboard and on
   Results in lane order. Results in place order is a ranking with no lane to turn
   around (`R-06`): the action goes, the choice is kept for the next lane-ordered heat.
@@ -1128,6 +1135,13 @@ paused stays paused. iOS: a `Toggle` in the sheet's first section, the bell
 ---
 
 ## Changelog
+
+- **v3, amended** (2026-10-22, no bump) — the pool sets where `L-26` starts. Additive:
+  `settings.lane_direction` (`"up"` / `"down"`) on the relay `register` and the Pi's
+  `GET /config`; a client that ignores it starts ascending, as before.
+
+  - **Changed**: `L-26` (starts as the pool's `lane_direction`; the reader's choice is
+    stored either way, not only when descending).
 
 - **v3, amended** (2026-10-22, no bump) — the results order is the reader's alone:
   *As the pool sets it* goes, *By place* is the default, and the introduction offers

@@ -132,6 +132,8 @@ def _globals():
         "show_podium": state.settings.get("show_podium", True),
         "show_laps": state.settings.get("show_laps", False),
         "lap_direction": state.settings.get("lap_direction", "up"),
+        # A phone's starting lane order for this meet (docs/app.md `L-26`).
+        "lane_direction": state.settings.get("lane_direction", "up"),
         "num_lanes": int(state.settings.get("num_lanes", 6)),
         # Row i of a board is lane i + first_lane - 1 (0 for a pool from lane 0).
         "first_lane": state.first_lane(),

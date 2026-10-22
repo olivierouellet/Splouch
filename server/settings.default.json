@@ -20,6 +20,7 @@
   "show_position": true,
   "show_laps": false,
   "lap_direction": "up",
+  "lane_direction": "up",
   "round_names_board": [
     "timed_final",
     "fastest_heat",

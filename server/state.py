@@ -137,6 +137,10 @@ settings: dict[str, Any] = {
     # counting down needs `expected_splits`, which is 0 for any event whose meet
     # file carries no distance, and a countdown from an unknown total is a lie.
     "lap_direction": "up",
+    # Which way a phone lists the lanes on a meet its reader has not turned around
+    # yet (docs/app.md `L-26`): 'up' is lane 1 at the top, 'down' the last lane.
+    # For a pool whose only stand faces the lanes the other way round.
+    "lane_direction": "up",
     "results_sort": "lane",
     "active_theme": "default",
     "theme_colors": {
