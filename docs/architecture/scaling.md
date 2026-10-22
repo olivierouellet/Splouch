@@ -501,7 +501,8 @@ the `/privacy` page and the relay's no-access-log rule.
 | Disk | > 80 % |
 | Watchdog | Always firing → healthchecks.io; silence = monitoring down |
 
-Kuma pages separately on public checks, a TLS certificate under 14 days, and a
+Kuma pages separately on public checks, a TLS certificate under 7 days (set by hand
+in Kuma, off by default; see [cloud.md](../cloud.md#monitoring)), and a
 missed backup heartbeat (`pg_dump` pings a Kuma push monitor). Pushover emergency
 priority repeats until acknowledged.
 

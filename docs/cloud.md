@@ -440,6 +440,15 @@ ssh -L 3001:127.0.0.1:3001 you@your-vps     # then http://localhost:3001
 publishes it. Kuma on the same box cannot report the box itself being down — the
 healthchecks.io ping is what does.
 
+Splouch configures none of Kuma: its monitors, notifications and thresholds live in
+its own database, set in its UI. Certificate expiry alerts are off until you tick
+**Certificate Expiry Notification** on the `https://yourdomain` monitor. Kuma then
+warns at 21, 14 and 7 days left by default; under **Settings → Notifications → TLS
+Certificate Expiry** keep only **7**. Caddy renews a Let's Encrypt certificate once a
+third of its life is left — about 21 days for a 64-day certificate (from February
+2027), about 15 for a 45-day one — so the 21- and 14-day warnings would fire on every
+healthy renewal.
+
 ## Backing up the store
 
 The server running the control plane dumps its database every night, at
@@ -1035,6 +1044,16 @@ ssh -L 3001:127.0.0.1:3001 vous@votre-vps     # puis http://localhost:3001
 `STATUS_DOMAIN=status.votredomaine` dans `.env` (avec son enregistrement DNS) puis
 **Mettre à jour** la publie. Kuma sur le même serveur ne peut pas signaler la panne du
 serveur lui-même — c'est le ping healthchecks.io qui le fait.
+
+Splouch ne configure rien dans Kuma : ses sondes, notifications et seuils vivent dans
+sa propre base, réglés dans son interface. Les alertes d'expiration de certificat sont
+désactivées tant que vous ne cochez pas **Certificate Expiry Notification** sur la
+sonde `https://votredomaine`. Kuma avertit alors par défaut à 21, 14 et 7 jours ; dans
+**Settings → Notifications → TLS Certificate Expiry**, ne gardez que **7**. Caddy
+renouvelle un certificat Let's Encrypt quand il lui reste un tiers de sa durée —
+environ 21 jours pour un certificat de 64 jours (dès février 2027), environ 15 pour un
+de 45 jours — donc les avertissements à 21 et 14 jours se déclencheraient à chaque
+renouvellement normal.
 
 ### Sauvegarder les données
 
