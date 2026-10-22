@@ -1,0 +1,13 @@
+{# Which Lenex rounds follow the event name, once per audience: the board in
+   Scoreboard → Display, the phones in Phones → Display. #}
+{% macro round_checks(audience, shown) %}
+                        <div class="mb-3">
+                            <div class="panel-eyebrow">{{ t.disp_rounds_shown }}</div>
+                            <div class="row row-cols-2 row-cols-sm-3 g-1">
+                            {% for key in round_names %}
+                                <div class="col"><div class="form-check"><input class="form-check-input" type="checkbox" id="round_{{ audience }}_{{ key }}" name="round_{{ audience }}_{{ key }}" value="1" {% if key in shown %}checked{% endif %}><label class="form-check-label" for="round_{{ audience }}_{{ key }}">{{ round_words.get(key, key) }}</label></div></div>
+                            {% endfor %}
+                            </div>
+                            <div class="form-text">{{ t.disp_rounds_help }}</div>
+                        </div>
+{% endmacro %}

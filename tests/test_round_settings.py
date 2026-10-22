@@ -82,38 +82,57 @@ def _post(form, monkeypatch):
     return emitted
 
 
-def test_saving_stores_each_audience_and_re_announces(final_meet, monkeypatch):
-    """A board keeps the composed name until told; a Schedule tab caches the list."""
+@pytest.mark.parametrize(
+    "submit,audience,other",
+    [
+        ("display_settings_submit", "board", "phone"),
+        ("phones_settings_submit", "phone", "board"),
+    ],
+)
+def test_each_form_stores_its_audience_and_re_announces(
+    final_meet, monkeypatch, submit, audience, other
+):
+    """A board keeps the composed name until told; a Schedule tab caches the list.
+
+    Each audience has its own form now, so a save from one must leave the other's
+    rounds alone rather than reading its absent checkboxes as all unticked.
+    """
+    monkeypatch.setitem(state.settings, f"round_names_{other}", ["final"])
     emitted = _post(
         {
-            "display_settings_submit": "1",
-            "round_board_final": "1",
-            "round_board_bogus": "1",
-            "round_phone_semifinal": "1",
-            "round_phone_final": "1",
+            submit: "1",
+            f"round_{audience}_semifinal": "1",
+            f"round_{audience}_final": "1",
+            f"round_{audience}_bogus": "1",
         },
         monkeypatch,
     )
-    assert state.settings["round_names_board"] == ["final"]
-    assert state.settings["round_names_phone"] == ["semifinal", "final"]
+    assert state.settings[f"round_names_{audience}"] == ["semifinal", "final"]
+    assert state.settings[f"round_names_{other}"] == ["final"]
     assert ("/scoreboard", "update_scoreboard") in emitted
     assert ("/schedule", "schedule_update") in emitted
 
 
 def test_saving_unchanged_rounds_announces_nothing(final_meet, monkeypatch):
-    form = {"display_settings_submit": "1"}
+    form = {"display_settings_submit": "1", "phones_settings_submit": "1"}
     for audience in ("board", "phone"):
         form.update({f"round_{audience}_{k}": "1" for k in ROUND_NAMES})
     emitted = _post(form, monkeypatch)
     assert ("/schedule", "schedule_update") not in emitted
 
 
-def test_both_sections_are_in_the_auto_saving_form():
+@pytest.mark.parametrize(
+    "form_id,audience",
+    [("display-settings-form", "board"), ("phones-settings-form", "phone")],
+)
+def test_each_audience_is_in_its_own_auto_saving_form(form_id, audience):
+    """The board's rounds under Scoreboard → Display, the phones' under Phones."""
     from conftest import settings_source
 
-    form = settings_source().split('id="display-settings-form"')[1].split("</form>")[0]
-    assert "round_checks('board'" in form
-    assert "round_checks('phone'" in form
+    form = settings_source().split(f'id="{form_id}"')[1].split("</form>")[0]
+    assert f"round_checks('{audience}'" in form
+    other = "phone" if audience == "board" else "board"
+    assert f"round_checks('{other}'" not in form
 
 
 def test_the_lane_order_reaches_the_phones(monkeypatch):
@@ -122,17 +141,29 @@ def test_the_lane_order_reaches_the_phones(monkeypatch):
     import web
 
     monkeypatch.setitem(state.settings, "lane_direction", "up")
-    _post({"display_settings_submit": "1", "lane_direction": "down"}, monkeypatch)
+    _post({"phones_settings_submit": "1", "lane_direction": "down"}, monkeypatch)
     assert state.settings["lane_direction"] == "down"
     assert web._globals()["lane_direction"] == "down"
     assert relay._get_metadata()["settings"]["lane_direction"] == "down"
-    _post({"display_settings_submit": "1", "lane_direction": "sideways"}, monkeypatch)
+    _post({"phones_settings_submit": "1", "lane_direction": "sideways"}, monkeypatch)
     assert state.settings["lane_direction"] == "down"
 
 
-def test_the_lane_order_is_in_the_phones_card():
+def test_the_lane_order_is_in_the_phones_form():
     from conftest import settings_source
 
-    form = settings_source().split('id="display-settings-form"')[1].split("</form>")[0]
-    phones = form.split("t.disp_phones")[1]
-    assert 'name="lane_direction"' in phones
+    form = settings_source().split('id="phones-settings-form"')[1].split("</form>")[0]
+    assert 'name="lane_direction"' in form
+
+
+def test_the_phones_group_holds_display_and_cloud():
+    """Phones are not the pool's scoreboard: their card sits under its own group,
+    beside Cloud, not under Scoreboard."""
+    from conftest import settings_source
+
+    src = settings_source()
+    group = src.split('id="grp-phones"')[1].split("</div>")[0]
+    assert 'data-target="#tab-phones"' in group
+    assert 'data-target="#tab-cloud"' in group
+    scoreboard = src.split('id="grp-appearance"')[1].split("</div>")[0]
+    assert "#tab-phones" not in scoreboard

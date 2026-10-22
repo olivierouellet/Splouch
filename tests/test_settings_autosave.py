@@ -44,6 +44,7 @@ def src():
     [
         ("timing_tuning_form", "timing-tuning-note"),
         ("display-settings-form", "display-save-note"),
+        ("phones-settings-form", "phones-save-note"),
         ("theme_update_form", "theme-save-note"),
     ],
 )
@@ -71,7 +72,12 @@ def test_the_deliberate_buttons_stay(src, btn):
 def test_the_note_is_announced_to_assistive_tech(src):
     """The receipt replaced a button going green, which a screen reader never saw
     either — but a live region is the reason to do it properly now."""
-    for note in ("timing-tuning-note", "display-save-note", "theme-save-note"):
+    for note in (
+        "timing-tuning-note",
+        "display-save-note",
+        "phones-save-note",
+        "theme-save-note",
+    ):
         span = matched(rf'<span id="{note}"[^>]*>', src, group=0)
         assert 'role="status"' in span and 'aria-live="polite"' in span
 

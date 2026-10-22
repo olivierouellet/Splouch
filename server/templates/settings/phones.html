@@ -1,0 +1,25 @@
+                <div class="tab-pane" id="tab-phones">
+{% from 'settings/_round_checks.html' import round_checks with context %}
+                <div class="row"><div class="col-lg-8"><form id="phones-settings-form" action="/settings" method="POST" enctype="multipart/form-data">
+                    <input type="hidden" name="phones_settings_submit" value="1">
+                    {# What every phone shows, on the venue's wifi or through the cloud —
+                       so here rather than under Cloud, which a club without one never
+                       opens. Phones compose the event name themselves (docs/app.md
+                       `T-11`), so they get their own rounds rather than the board's. #}
+                    <div class="card"><div class="card-body">
+                        <div class="panel-title">{{ t.disp_phones }}</div>
+                        {# docs/app.md `L-26`: where the stands are, so the apps' own
+                           default until a reader turns the lanes around themselves. #}
+                        <div class="mb-3">
+                            <label for="lane_direction" class="form-label">{{ t.disp_lane_order }}</label>
+                            <select id="lane_direction" name="lane_direction" class="form-select form-select-sm" style="width:auto;">
+                                <option value="up"   {% if lane_direction != 'down' %}selected{% endif %}>{{ t.disp_lanes_up }}</option>
+                                <option value="down" {% if lane_direction == 'down' %}selected{% endif %}>{{ t.disp_lanes_down }}</option>
+                            </select>
+                            <div class="form-text">{{ t.disp_lane_order_help }}</div>
+                        </div>
+                        {{ round_checks('phone', round_names_phone) }}
+                        <span id="phones-save-note" class="small ms-2" role="status" aria-live="polite"></span>
+                    </div></div>
+                </form></div></div>
+                </div>

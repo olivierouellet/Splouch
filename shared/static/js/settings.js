@@ -331,6 +331,7 @@ autoSave(document.getElementById('display-settings-form'), 'display-save-note', 
         return _localeChanged();
     },
 });
+autoSave(document.getElementById('phones-settings-form'), 'phones-save-note');
 autoSave(document.getElementById('theme_update_form'), 'theme-save-note');
 
 // ── Race detection ────────────────────────────────────────────────────────

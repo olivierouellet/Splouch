@@ -212,8 +212,8 @@ async def route_settings(request: Request):
 # file that routes join onto a folder and serve or delete (`/picker_image`,
 # `/splash_delete`, `/theme_delete`), so they are only ever set by a handler that
 # reduces the value to a bare filename first. The two-way choices are checked
-# against their pair by the Display handler, which the sweep would undo by storing
-# whatever text came in.
+# against their pair by the Display and Phones handlers, which the sweep would
+# undo by storing whatever text came in.
 _NOT_SWEPT = {
     "lap_direction",
     "lane_direction",
@@ -363,6 +363,26 @@ def _users_action(form):
     else:
         return "users_error_name"
     return None
+
+
+def _save_rounds(form, audience):
+    """Store which Lenex rounds follow the event name for *audience*; True if changed.
+
+    Checkboxes named per key rather than after the setting, so the generic sweep
+    never sees them; validated against `ROUND_NAMES` so a stale form cannot store
+    a key no locale has a word for.
+    """
+    setting = f"round_names_{audience}"
+    shown = [k for k in ROUND_NAMES if f"round_{audience}_{k}" in form]
+    if shown == list(state.settings.get(setting, ROUND_NAMES)):
+        return False
+    state.settings[setting] = shown
+    # The name is composed into the frame, so a board would keep the old one
+    # until the next heat; the start list is cached by every Schedule tab and by
+    # the cloud until told to re-fetch.
+    send_event_info()
+    announce_schedule()
+    return True
 
 
 def _settings_view(request, form):
@@ -555,34 +575,26 @@ def _settings_view(request, form):
             ):
                 state.settings["lap_direction"] = dir_val
                 modified = True
-            # Same reason: a phone reads it as the meet's starting lane order.
+            for key in ("locale", "label_style"):
+                if key in form and state.settings.get(key) != form.get(key):
+                    state.settings[key] = form.get(key)
+                    modified = True
+            if _save_rounds(form, "board"):
+                modified = True
+
+        # Scoreboard → Display's sibling under Phones: its own form, so neither
+        # card's save clears the other's checkboxes.
+        if "phones_settings_submit" in form:
+            # Validated like `lap_direction`: a phone reads it as the meet's
+            # starting lane order.
             lanes_val = form.get("lane_direction", "up")
             if lanes_val in ("up", "down") and lanes_val != state.settings.get(
                 "lane_direction", "up"
             ):
                 state.settings["lane_direction"] = lanes_val
                 modified = True
-            for key in ("locale", "label_style"):
-                if key in form and state.settings.get(key) != form.get(key):
-                    state.settings[key] = form.get(key)
-                    modified = True
-            # Which Lenex rounds follow the event name. Checkboxes named per key
-            # rather than after the setting, so the generic sweep below never sees
-            # them; validated against `ROUND_NAMES` so a stale form cannot store a
-            # key no locale has a word for.
-            rounds_changed = False
-            for audience in ("board", "phone"):
-                setting = f"round_names_{audience}"
-                shown = [k for k in ROUND_NAMES if f"round_{audience}_{k}" in form]
-                if shown != list(state.settings.get(setting, ROUND_NAMES)):
-                    state.settings[setting] = shown
-                    modified = rounds_changed = True
-            if rounds_changed:
-                # The name is composed into the frame, so a board would keep the
-                # old one until the next heat; the start list is cached by every
-                # Schedule tab and by the cloud until told to re-fetch.
-                send_event_info()
-                announce_schedule()
+            if _save_rounds(form, "phone"):
+                modified = True
 
         if "splash_settings_submit" in form:
             # meet_title moved here with its input: it heads the splash screen on
@@ -858,6 +870,7 @@ def _settings_view(request, form):
                 relay.update_metadata()
             if (
                 "display_settings_submit" in form
+                or "phones_settings_submit" in form
                 or "theme_update_submit" in form
                 or "splash_settings_submit" in form
                 or console_changed

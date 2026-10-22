@@ -76,7 +76,11 @@
                         <a class="nav-link sub" data-target="#tab-theme"><i class="bi bi-brush me-2"></i>{{ t.nav_theme }}</a>
                     </div>
 
-                    <a class="nav-link" data-target="#tab-cloud"><i class="bi bi-cloud me-2"></i>{{ t.nav_cloud }}</a>
+                    <a class="nav-link group-toggle" data-bs-toggle="collapse" href="#grp-phones" role="button" aria-expanded="false" aria-controls="grp-phones"><span><i class="bi bi-phone me-2"></i>{{ t.nav_phones }}</span><span class="caret">▸</span></a>
+                    <div class="collapse" id="grp-phones">
+                        <a class="nav-link sub" data-target="#tab-phones"><i class="bi bi-card-heading me-2"></i>{{ t.nav_display }}</a>
+                        <a class="nav-link sub" data-target="#tab-cloud"><i class="bi bi-cloud me-2"></i>{{ t.nav_cloud }}</a>
+                    </div>
 
                     <hr class="my-2">
 
@@ -167,8 +171,8 @@
             {% endif %}
             <div class="tab-content">
 
-        <!-- One file per tab, in `settings/`. The three grouped tabs
-             (appearance, netgroup, devtools) are wrappers that include their own
+        <!-- One file per tab, in `settings/`. The grouped tabs
+             (appearance, phonegroup, netgroup, devtools) are wrappers that include their own
              children, so the files mirror what the sidebar shows.
 
              The include tags sit at column 0 on purpose: whitespace before a
@@ -195,6 +199,9 @@
 
         <!-- ── Appearance ─────────────────────────────────────────── -->
 {% include 'settings/appearance.html' %}
+
+        <!-- ── Phones group ───────────────────────────────────────────── -->
+{% include 'settings/phonegroup.html' %}
 
         <!-- ── Network group ──────────────────────────────────────────── -->
 {% include 'settings/netgroup.html' %}
