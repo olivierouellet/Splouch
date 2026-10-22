@@ -33,6 +33,23 @@
                 {% endif %}
                 {% endfor %}
             </div>
+            {# The TV's own lane order and results order — each copied from
+               Displays → Appearance when the TV first connected. #}
+            {% for key, choices in (('lane_direction', (('up', t.tvs_lanes_up), ('down', t.tvs_lanes_down))),
+                                    ('results_sort', (('lane', t.disp_by_lane), ('place', t.disp_by_position)))) %}
+            {% if key != 'results_sort' or 'results' in views %}
+            <div class="btn-group btn-group-sm" role="group" aria-label="{{ t.tvs_lane_order if key == 'lane_direction' else t.tvs_sort }}">
+                {% for value, word in choices %}
+                {% if d[key] == value %}
+                <button type="button" class="btn btn-primary" aria-pressed="true">{{ word }}</button>
+                {% else %}
+                <button type="button" class="btn btn-outline-secondary" aria-pressed="false" data-hold
+                        data-hold-fn="optionDisplay" data-key="{{ key }}" data-value="{{ value }}">{{ word }}</button>
+                {% endif %}
+                {% endfor %}
+            </div>
+            {% endif %}
+            {% endfor %}
             {% if d.connected %}
                 {% if d.identify_left %}
                 <button type="button" class="btn btn-success btn-sm" onclick="identifyDisplay(this, false)"

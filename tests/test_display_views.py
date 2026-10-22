@@ -47,6 +47,8 @@ def server(monkeypatch):
     monkeypatch.setattr(state, "_test_saved_decoder", None)
     monkeypatch.setattr(state, "board", {"current_event": "3", "lane_name1": "Roy"})
     monkeypatch.setattr(state, "save_settings", lambda: None)
+    monkeypatch.setitem(state.settings, "board_lane_direction", "up")
+    monkeypatch.setitem(state.settings, "results_sort", "lane")
     submitted = []
     monkeypatch.setattr(bus, "submit", lambda coro: submitted.append(coro))
     yield submitted
@@ -72,7 +74,10 @@ def _set_view(view):
 def test_a_new_tv_starts_live(server):
     ws = _connect()
     assert state.settings["displays"][ID_A]["view"] == "live"
-    assert ws.sent[0] == {"event": "display_view", "data": {"view": "live"}}
+    assert ws.sent[0] == {
+        "event": "display_view",
+        "data": {"view": "live", "lane_direction": "up", "results_sort": "lane"},
+    }
 
 
 def test_live_comes_with_the_board(server):
@@ -87,7 +92,8 @@ def test_switching_reaches_the_tv(server):
     ws = _connect()
     ws.sent.clear()
     assert _set_view("results") == {"ok": True}
-    assert ws.sent == [{"event": "display_view", "data": {"view": "results"}}]
+    assert ws.events() == ["display_view"]
+    assert ws.sent[0]["data"]["view"] == "results"
     assert state.settings["displays"][ID_A]["view"] == "results"
     ws.sent.clear()
     _set_view("live")
@@ -99,7 +105,7 @@ def test_a_tv_not_connected_takes_it_on_connect(server):
     state._display_sockets.clear()
     assert _set_view("results") == {"ok": True}
     ws = _connect()
-    assert ws.sent[0]["data"] == {"view": "results"}
+    assert ws.sent[0]["data"]["view"] == "results"
 
 
 def test_an_unknown_view_is_refused(server):
@@ -111,6 +117,55 @@ def test_switching_is_allowed_mid_race(server, monkeypatch):
     monkeypatch.setattr(state, "_running_lanes", {1}, raising=False)
     _connect()
     assert _set_view("results") == {"ok": True}
+
+
+# ── Each TV's lane order and results order ─────────────────────────────────────
+
+
+def _set_option(key, value):
+    return asyncio.run(
+        displays.route_display_option(
+            displays.OptionBody(device_id=ID_A, key=key, value=value)
+        )
+    )
+
+
+def test_a_new_tv_copies_the_pools_choices(server):
+    state.settings["board_lane_direction"] = "down"
+    state.settings["results_sort"] = "place"
+    ws = _connect()
+    entry = state.settings["displays"][ID_A]
+    assert (entry["lane_direction"], entry["results_sort"]) == ("down", "place")
+    assert ws.sent[0]["data"]["lane_direction"] == "down"
+    assert ws.sent[0]["data"]["results_sort"] == "place"
+
+
+def test_the_pool_changing_later_moves_no_tv(server):
+    """A copy, not a link: a TV the operator set up stays as it was."""
+    _connect()
+    state.settings["board_lane_direction"] = "down"
+    state.settings["results_sort"] = "place"
+    ws = _connect()
+    assert ws.sent[0]["data"]["lane_direction"] == "up"
+    assert ws.sent[0]["data"]["results_sort"] == "lane"
+
+
+def test_an_option_change_reaches_the_tv(server):
+    ws = _connect()
+    ws.sent.clear()
+    assert _set_option("lane_direction", "down") == {"ok": True}
+    assert state.settings["displays"][ID_A]["lane_direction"] == "down"
+    assert ws.sent[0]["event"] == "display_view"
+    assert ws.sent[0]["data"]["lane_direction"] == "down"
+
+
+@pytest.mark.parametrize(
+    ("key", "value"),
+    [("lane_direction", "sideways"), ("results_sort", "x"), ("name", "up")],
+)
+def test_an_unknown_option_is_refused(server, key, value):
+    _connect()
+    assert _set_option(key, value).status_code == 409
 
 
 # ── A meet with no timing console ──────────────────────────────────────────────
@@ -141,7 +196,7 @@ def test_tvs_on_results_go_back_live(server, monkeypatch):
     asyncio.run(coro)
     server.clear()
     assert ws.events() == ["display_view", "update_scoreboard"]
-    assert ws.sent[0]["data"] == {"view": "live"}
+    assert ws.sent[0]["data"]["view"] == "live"
 
 
 def test_a_tv_offline_through_the_change_comes_back_live(server, monkeypatch):
@@ -150,7 +205,7 @@ def test_a_tv_offline_through_the_change_comes_back_live(server, monkeypatch):
     state._display_sockets.clear()
     monkeypatch.setattr(state, "_decoder", Decoder(timed=False))
     ws = _connect()
-    assert ws.sent[0]["data"] == {"view": "live"}
+    assert ws.sent[0]["data"]["view"] == "live"
 
 
 def test_the_settings_list_offers_only_what_the_meet_feeds(server, monkeypatch):
@@ -298,6 +353,47 @@ def test_the_app_switches_and_ignores_the_live_board(qt_app, monkeypatch):
         assert app.results_link is None and not app.window.results_mode
         app._on_frame("update_scoreboard", {"current_event": "9", "lane_name1": "X"})
         assert app.window.rows[0].name_label.text() == "X"
+    finally:
+        app.link.stop()
+        app._stop_results_link()
+
+
+def test_last_lane_on_top(board):
+    board.set_lane_direction("down")
+    layout = board.content.layout()
+    on_screen = [layout.itemAt(i).widget() for i in range(1, layout.count())]
+    assert [row.lane for row in on_screen] == [6, 5, 4, 3, 2, 1]
+    board.apply_update({"lane_name6": "Roy"})
+    assert board.rows[5].name_label.text() == "Roy", "a lane keeps its own row"
+    board.set_lane_direction("up")
+    on_screen = [layout.itemAt(i).widget() for i in range(1, layout.count())]
+    assert [row.lane for row in on_screen] == [1, 2, 3, 4, 5, 6]
+
+
+def test_a_ranking_still_starts_at_the_top(board):
+    """With the last lane on top, first place is the top row, not lane 1's."""
+    board.set_lane_direction("down")
+    board.set_results_mode(True)
+    board.show_results(SNAPSHOT, sort="place")
+    top_down = board.rows_top_down()
+    assert [row.name_label.text() for row in top_down[:3]] == ["Roy", "Lee", "Tran"]
+    assert [row.lane_label.text() for row in top_down[:3]] == ["4", "2", "5"]
+
+
+def test_the_app_takes_the_tvs_own_order(qt_app, monkeypatch):
+    from scoreboard.app import ScoreboardApp
+    from scoreboard.client import ServerLink
+
+    monkeypatch.setattr(ServerLink, "start", lambda self: None)
+    app = ScoreboardApp("http://127.0.0.1:1", fullscreen=False)
+    try:
+        frame = {"view": "results", "lane_direction": "down", "results_sort": "lane"}
+        app._on_frame("display_view", frame)
+        assert app.window.lane_direction == "down"
+        app._on_results_frame("results_snapshot", SNAPSHOT)
+        assert app.window.rows[3].name_label.text() == "Roy"
+        app._on_frame("display_view", {**frame, "results_sort": "place"})
+        assert app.window.rows_top_down()[0].name_label.text() == "Roy", "re-ranked"
     finally:
         app.link.stop()
         app._stop_results_link()

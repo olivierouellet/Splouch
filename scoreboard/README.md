@@ -359,6 +359,12 @@ false takes it back there (`R-02`). By lane, a lane with no result keeps its row
 empty; by place, rows rank top-down and an unfilled rank has no lane number. The
 empty rows are not still water (`L-25`) — neither view draws it yet.
 
+**Lane order and results order** are each TV's own, in the same `display_view`.
+A new TV copies the pool's (Displays → Appearance) when it first registers, and
+keeps its own after. Last lane on top moves the rows rather than renumbering them,
+so every lane keeps its row, stripe and frames; only a ranking cares which row is
+on top, and by place first place is the top row either way.
+
 Cloning a configured SD card clones the ID. The server sees two connections on it
 and flags the row; delete `display-id` on one Pi and restart it.
 

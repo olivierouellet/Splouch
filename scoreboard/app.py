@@ -88,6 +88,9 @@ class ScoreboardApp:
         # says otherwise — it does on every connect — and not remembered across a
         # restart: with no server there is nothing to show in any view.
         self.view = "live"
+        # This TV's results order, from the same frame; the lane order lives on
+        # the window.
+        self.sort = "lane"
         # The second link the results view opens on `/ws/results`, and the last
         # snapshot it brought, for a window rebuilt on a lane-count change.
         self.results_link: ServerLink | None = None
@@ -256,10 +259,11 @@ class ScoreboardApp:
             self.window.update_requested.connect(self._on_menu_update)
             self.window.snapshot.update(snapshot)
             self.window.refresh()
+            self.window.set_lane_direction(old_window.lane_direction)
             if self.view == "results":
                 self.window.set_results_mode(True)
                 if self._last_results:
-                    self.window.show_results(self._last_results)
+                    self.window.show_results(self._last_results, self.sort)
             self.window.set_status(status, detail)
             self._show(self.window, was_full)
             old_window.close()
@@ -450,6 +454,16 @@ class ScoreboardApp:
 
     # ── Views (Settings → Displays → TVs) ──────────────────────────────────────
 
+    def _on_display_view(self, data: dict):
+        """The server's word on this TV: its view, lane order and results order."""
+        self.window.set_lane_direction(str(data.get("lane_direction", "up")))
+        sort = "place" if data.get("results_sort") == "place" else "lane"
+        resort = sort != self.sort
+        self.sort = sort
+        self._set_view(str(data.get("view", "live")))
+        if resort and self.view == "results" and self._last_results:
+            self.window.show_results(self._last_results, self.sort)
+
     def _set_view(self, view: str):
         """Live or Results. Each starts empty: the server follows `display_view`
         with the live board, and `/ws/results` opens with its last snapshot."""
@@ -484,7 +498,7 @@ class ScoreboardApp:
         if event == "results_snapshot" and isinstance(data, dict):
             if data.get("lanes"):
                 self._last_results = data
-            self.window.show_results(data)
+            self.window.show_results(data, self.sort)
         elif event == "meet_live" and not (data or {}).get("live"):
             # Nothing feeds the results any more: back to the waiting line rather
             # than holding times that now read as current (docs/app.md `R-02`).
@@ -498,7 +512,7 @@ class ScoreboardApp:
 
     def _on_frame(self, event: str, data):
         if event == "display_view":
-            self._set_view(str((data or {}).get("view", "live")))
+            self._on_display_view(data or {})
             return
         if self.view == "results" and event in (
             "update_scoreboard",

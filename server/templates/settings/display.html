@@ -60,6 +60,17 @@
                             <div class="panel-eyebrow">{{ t.disp_results_order }}</div>
                             <div class="form-check form-check-inline"><input class="form-check-input" type="radio" id="rs_lane"  name="results_sort" value="lane"  {% if results_sort == 'lane' %}checked{% endif %}><label class="form-check-label" for="rs_lane">{{ t.disp_by_lane }}</label></div>
                             <div class="form-check form-check-inline"><input class="form-check-input" type="radio" id="rs_place" name="results_sort" value="place" {% if results_sort == 'place' %}checked{% endif %}><label class="form-check-label" for="rs_place">{{ t.disp_by_position }}</label></div>
+                            <div class="form-text">{{ t.disp_results_order_help }}</div>
+                        </div>
+                        {# Only a default: each TV takes it once, when it first connects,
+                           then has its own under TVs (routes/displays.register_display). #}
+                        <div class="mb-3">
+                            <label for="board_lane_direction" class="form-label">{{ t.disp_lane_order }}</label>
+                            <select id="board_lane_direction" name="board_lane_direction" class="form-select form-select-sm" style="width:auto;">
+                                <option value="up"   {% if board_lane_direction != 'down' %}selected{% endif %}>{{ t.disp_lanes_up }}</option>
+                                <option value="down" {% if board_lane_direction == 'down' %}selected{% endif %}>{{ t.disp_lanes_down }}</option>
+                            </select>
+                            <div class="form-text">{{ t.disp_board_lane_order_help }}</div>
                         </div>
                         {{ round_checks('board', round_names_board) }}
                         <span id="display-save-note" class="small ms-2" role="status" aria-live="polite"></span>

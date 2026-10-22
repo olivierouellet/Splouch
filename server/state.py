@@ -142,8 +142,13 @@ settings: dict[str, Any] = {
     # For a pool whose only stand faces the lanes the other way round.
     "lane_direction": "up",
     "results_sort": "lane",
+    # Which way a new TV lists the lanes ('up' = first lane at the top). Copied into
+    # the TV's own entry when it first registers, then that is the TV's to change
+    # under Settings → Displays → TVs; changing this later moves no TV.
+    "board_lane_direction": "up",
     # Every TV that has registered, by the ID it made up on first launch
-    # (scoreboard/identity.py): {device_id: {"name", "hostname"}}. Kept after it
+    # (scoreboard/identity.py): {device_id: {"name", "hostname", "view",
+    # "lane_direction", "results_sort"}}. Kept after it
     # disconnects, so a TV keeps its name across a reboot or a meet.
     "displays": {},
     "active_theme": "default",

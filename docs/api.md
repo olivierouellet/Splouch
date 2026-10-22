@@ -83,7 +83,7 @@ same reason.
 | `reset` | `{}` | what is on the board is stale — clear it (§2.2) |
 | `reload` | `{}` | settings/theme changed — client should re-fetch config and redraw |
 | `update` | `{ "target": "<ref>" }` | move to *ref* and restart (native clients only) |
-| `display_view` | `{ "view": "live"\|"results" }` | to one TV only: which view to show; sent after `register` and on every change (native clients only) |
+| `display_view` | `{ "view": "live"\|"results", "lane_direction": "up"\|"down", "results_sort": "lane"\|"place" }` | to one TV only: what to show and how; sent after `register` and on every change (native clients only) |
 | `identify` | `{ "active": bool, "seconds"?: int }` | to one TV only: turn the wall clock green for *seconds*, or stop early (native clients only) |
 
 #### 2.1 `meet_live`
@@ -162,6 +162,12 @@ shows only the waiting line (`app.md` `R-01`), and a disconnect or `meet_live` f
 takes it back there (`R-02`). The server offers Results only when the console times
 (`console.timed`, §6), and moves a TV on it back to Live when the console changes to
 one that does not. A TV that is not connected gets its view on connect.
+
+`lane_direction` (`down` = last lane on top, both views) and `results_sort` are the
+TV's own. A new TV copies them from the pool's (Displays → Appearance:
+`board_lane_direction`, `results_sort`) when it first registers; later changes to
+the pool's move no TV. By place, first place is the top row whichever way the
+lanes run.
 
 **`identify`** is sent by `POST /display_identify` to the sockets of one
 `device_id`. The display runs its own timer for `seconds`, so it goes back to normal

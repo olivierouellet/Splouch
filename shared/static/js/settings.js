@@ -1049,6 +1049,14 @@ function viewDisplay(el) {
     _tvPost('/display_view', { device_id: _tvId(el), view: el.getAttribute('data-view') });
 }
 
+function optionDisplay(el) {
+    _tvPost('/display_option', {
+        device_id: _tvId(el),
+        key: el.getAttribute('data-key'),
+        value: el.getAttribute('data-value'),
+    });
+}
+
 function renameDisplay(input) {
     _tvPost('/display_name', { device_id: _tvId(input), name: input.value });
 }

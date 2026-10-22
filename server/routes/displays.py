@@ -27,6 +27,12 @@ _ID = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}
 # What a TV can show, in Settings order. A view the meet cannot feed is not offered,
 # and a TV on one goes back to Live — see available_views.
 VIEWS = ("live", "results")
+# Each TV's own choices beside its view, with what they may be. A new TV takes the
+# pool's value for each once, when it first registers (`_pool_default`).
+OPTIONS = {
+    "lane_direction": ("up", "down"),
+    "results_sort": ("lane", "place"),
+}
 # How long Identify keeps the TV's clock green.
 IDENTIFY_SECONDS = 10
 NAME_MAX = 40
@@ -44,6 +50,19 @@ def available_views() -> list[str]:
     return views
 
 
+def _pool_default(key: str) -> str:
+    """The pool's value for an option, from Displays → Appearance."""
+    source = "board_lane_direction" if key == "lane_direction" else key
+    value = state.settings.get(source, OPTIONS[key][0])
+    return value if value in OPTIONS[key] else OPTIONS[key][0]
+
+
+def option_of(device_id: str, key: str) -> str:
+    entry = state.settings.get("displays", {}).get(device_id) or {}
+    value = entry.get(key)
+    return value if value in OPTIONS[key] else _pool_default(key)
+
+
 def view_of(device_id: str) -> str:
     """The view this TV shows: its own, or Live when the meet cannot feed it."""
     entry = state.settings.get("displays", {}).get(device_id) or {}
@@ -55,8 +74,9 @@ async def send_view(sockets, device_id: str) -> None:
     """Tell a TV which view to show. Going to Live, the board follows — the
     TV dropped it while on another view, and frames are partial (§5.1)."""
     view = view_of(device_id)
+    frame = {"view": view, **{key: option_of(device_id, key) for key in OPTIONS}}
     for ws in list(sockets):
-        await bus.manager.send(ws, "display_view", {"view": view})
+        await bus.manager.send(ws, "display_view", frame)
         if view == "live" and state.board:
             await bus.manager.send(ws, "update_scoreboard", dict(state.board))
 
@@ -103,10 +123,17 @@ def register_display(ws, client: dict, payload: dict) -> str | None:
     entry = displays.get(device_id)
     hostname = client.get("hostname", "")
     if entry is None:
-        displays[device_id] = {"name": "", "hostname": hostname, "view": "live"}
-        state.save_settings()
-    elif entry.get("hostname") != hostname:
+        entry = displays[device_id] = {"name": "", "hostname": hostname, "view": "live"}
+        changed = True
+    else:
+        changed = entry.get("hostname") != hostname
         entry["hostname"] = hostname
+    # Copied, not followed: the TV keeps these when the pool's change later.
+    for key in OPTIONS:
+        if entry.get(key) not in OPTIONS[key]:
+            entry[key] = _pool_default(key)
+            changed = True
+    if changed:
         state.save_settings()
     return device_id
 
@@ -161,6 +188,7 @@ def display_rows() -> list[dict]:
                 "copies": len(conns),
                 "identify_left": _identify_left(device_id) if conns else 0,
                 "view": view_of(device_id),
+                **{key: option_of(device_id, key) for key in OPTIONS},
             }
         )
     rows.sort(
@@ -206,6 +234,11 @@ class NameBody(DisplayRef):
 
 class ViewBody(DisplayRef):
     view: str
+
+
+class OptionBody(DisplayRef):
+    key: str
+    value: str
 
 
 def _not_found():
@@ -255,6 +288,26 @@ async def route_display_view(body: ViewBody):
             {"error": "This meet cannot show that view."}, status_code=409
         )
     entry["view"] = body.view
+    state.save_settings()
+    sockets = state._display_sockets.get(body.device_id)
+    if sockets:
+        await send_view(set(sockets), body.device_id)
+    return {"ok": True}
+
+
+@router.post(
+    "/display_option",
+    response_model=ActionResult,
+    dependencies=[Depends(require_login)],
+)
+async def route_display_option(body: OptionBody):
+    """Set a TV's lane order or results order. Allowed mid-race, as the view is."""
+    entry = state.settings.get("displays", {}).get(body.device_id)
+    if entry is None:
+        return _not_found()
+    if body.value not in OPTIONS.get(body.key, ()):
+        return JSONResponse({"error": "Not a choice for this."}, status_code=409)
+    entry[body.key] = body.value
     state.save_settings()
     sockets = state._display_sockets.get(body.device_id)
     if sockets:

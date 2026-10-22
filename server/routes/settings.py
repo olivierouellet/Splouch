@@ -218,6 +218,7 @@ async def route_settings(request: Request):
 _NOT_SWEPT = {
     "lap_direction",
     "lane_direction",
+    "board_lane_direction",
     "results_sort",
     "username",
     "users",
@@ -568,6 +569,12 @@ def _settings_view(request, form):
                 "results_sort", "lane"
             ):
                 state.settings["results_sort"] = sort_val
+                modified = True
+            board_dir = form.get("board_lane_direction", "up")
+            if board_dir in ("up", "down") and board_dir != state.settings.get(
+                "board_lane_direction", "up"
+            ):
+                state.settings["board_lane_direction"] = board_dir
                 modified = True
             # Validated against the pair rather than stored as given: this reaches
             # every board through the relay's settings block, and an unknown value
@@ -982,6 +989,7 @@ def _settings_view(request, form):
         round_names_board=state.settings.get("round_names_board", ROUND_NAMES),
         round_names_phone=state.settings.get("round_names_phone", ROUND_NAMES),
         results_sort=state.settings.get("results_sort", "lane"),
+        board_lane_direction=state.settings.get("board_lane_direction", "up"),
         active_theme=state.settings.get("active_theme", "default"),
         theme_list=state.list_builtin_themes(),
         custom_theme_list=state.list_custom_themes(),

@@ -213,3 +213,12 @@ def test_unparseable_input_leaves_the_setting_alone(monkeypatch):
     monkeypatch.setitem(state.settings, "num_lanes", 8)
     _post({"some_other_submit": "1", "num_lanes": "eight"}, monkeypatch)
     assert state.settings["num_lanes"] == 8
+
+
+@pytest.mark.parametrize(("posted", "saved"), [("down", "down"), ("sideways", "up")])
+def test_the_display_form_saves_the_boards_lane_order(posted, saved, monkeypatch):
+    """Only a default for new TVs (routes/displays.register_display), checked
+    against its pair like the other two-way choices."""
+    monkeypatch.setitem(state.settings, "board_lane_direction", "up")
+    _post({"display_settings_submit": "1", "board_lane_direction": posted}, monkeypatch)
+    assert state.settings["board_lane_direction"] == saved

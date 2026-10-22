@@ -1196,6 +1196,10 @@ class BoardWindow(QWidget):
             row = LaneRow(lane, cfg)
             self.rows.append(row)
             content.addWidget(row, 2)
+        # 'up' is the first lane at the top. Each TV's own, from Settings →
+        # Displays → TVs — see set_lane_direction, which re-stacks the rows here.
+        self.lane_direction = "up"
+        self._content_layout = content
 
         self._content_opacity = QGraphicsOpacityEffect(self.content)
         self._content_opacity.setOpacity(1.0)
@@ -2147,6 +2151,27 @@ class BoardWindow(QWidget):
         for row in self.rows:
             row.update_from(self.snapshot)
 
+    def set_lane_direction(self, direction: str):
+        """Put the last lane at the top ('down') or the first ('up').
+
+        The rows are moved, not renumbered: each keeps its lane, its stripe and
+        everything addressed to it, so the live board needs nothing else. Only a
+        ranking cares which row is on top — see show_results.
+        """
+        direction = "down" if direction == "down" else "up"
+        if direction == self.lane_direction:
+            return
+        self.lane_direction = direction
+        layout = self._content_layout
+        for row in self.rows:
+            layout.removeWidget(row)
+        for row in reversed(self.rows) if direction == "down" else self.rows:
+            layout.addWidget(row, 2)
+
+    def rows_top_down(self) -> list:
+        """The rows in the order they are on screen."""
+        return list(reversed(self.rows)) if self.lane_direction == "down" else self.rows
+
     # ── Results view ───────────────────────────────────────────────────────────
     # Settings → Displays → TVs can put this TV on Results: the last confirmed heat
     # from `/ws/results`, held still — the phones' Results tab (docs/app.md §4) on
@@ -2194,13 +2219,16 @@ class BoardWindow(QWidget):
                     return 99
 
             lanes.sort(key=lambda r: (rank(r), _int(r.get("channel"))))
+        # Keyed by the row's lane. A ranking fills the rows as they stand on
+        # screen, so with the last lane on top first place is still the top row.
         by_row = {}
+        top_down = [row.lane for row in self.rows_top_down()]
         for index, r in enumerate(lanes, 1):
-            row = (
-                _int(r.get("channel")) - self.cfg.first_lane + 1
-                if not by_place
-                else index
-            )
+            if by_place:
+                if index <= len(top_down):
+                    by_row[top_down[index - 1]] = r
+                continue
+            row = _int(r.get("channel")) - self.cfg.first_lane + 1
             if 1 <= row <= len(self.rows):
                 by_row[row] = r
 
