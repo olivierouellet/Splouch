@@ -4,7 +4,7 @@ Thanks for taking an interest. Splouch runs on a pool deck, on two Raspberry Pis
 no internet — so the bar for a change is not just "it works here", it is "it still works
 at 8am on meet day with nobody to debug it". That shapes most of what follows.
 
-By participating you agree to the [Code of Conduct](CODE_OF_CONDUCT.md).
+By participating you agree to the [Code of Conduct](CODE_OF_CONDUCT.md). If you use AI tools, read the [AI policy](AI_POLICY.md) first.
 
 ---
 
