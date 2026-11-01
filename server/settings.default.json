@@ -21,6 +21,7 @@
   "show_laps": false,
   "lap_direction": "up",
   "lane_direction": "up",
+  "event_names_as_is": [],
   "round_names_board": [
     "timed_final",
     "fastest_heat",

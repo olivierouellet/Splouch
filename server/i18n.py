@@ -199,7 +199,7 @@ _DIST_WITH_UNIT = re.compile(
 _DIST_BARE = re.compile(r"\b(\d+\s*[xX]\s*\d+|\d+)\b")
 
 
-def parse_event_name(raw, round_key=""):
+def parse_event_name(raw, round_key="", as_is=False):
     """Decompose a raw event name into language-neutral parts.
 
     Keys, not words: ``stroke``, ``gender`` and ``age_key`` name entries in a
@@ -213,9 +213,25 @@ def parse_event_name(raw, round_key=""):
 
     ``round`` (``final`` / ``semifinal``) is not in the name at all: it comes from
     the Lenex EVENT and is passed in, so the parts carry everything a composer needs.
+
+    ``as_is`` skips the parse: every part is empty but ``raw`` and ``round``, so
+    every composer falls back to the name as the meet file has it. That is for a
+    meet whose names are not swimming's (artistic swimming: `Duet Free Routine`
+    would otherwise read as "Freestyle"), chosen per meet in Settings → Meet.
     """
     if not raw:
         return None
+    if as_is:
+        return {
+            "raw": raw,
+            "dist": "",
+            "stroke": "",
+            "relay": False,
+            "gender": "",
+            "age": "",
+            "age_key": "",
+            "round": round_key,
+        }
     s = raw.strip()
 
     gender = ""
@@ -284,8 +300,8 @@ def parse_event_name(raw, round_key=""):
     }
 
 
-def translate_event_name(raw, ev, round_key=""):
+def translate_event_name(raw, ev, round_key="", as_is=False):
     """One raw name rendered in one locale — ``compose(parse(raw))``."""
     if not ev or not raw:
         return raw
-    return compose_event_name(parse_event_name(raw, round_key), ev)
+    return compose_event_name(parse_event_name(raw, round_key, as_is), ev)

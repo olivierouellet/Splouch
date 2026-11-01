@@ -432,6 +432,14 @@ composes from the parts follows the phone choice. Compose as `dist + unit`, stro
 field rides on `results_snapshot` (§5.2) and each heat of `GET /meet/{id}/schedule`
 (§5.8), as `name_parts` in the relay's `schedule_snapshot` (§5.5).
 
+**Names as is.** The operator can turn the parse off for one meet (Settings → Meet
+Setup), for names that are not swimming's: artistic swimming's `Duet Free Routine`
+would otherwise parse to `stroke: "freestyle"` and lose the rest. Then every part is
+empty but `raw` and `round`, `event_name` is `raw` (then `separator` and the round
+word, as above), and a client composing from the parts falls back to `raw` the same
+way — in the meet's language whatever the reader's, because nothing was parsed to
+translate. No new field: a client that composes as above needs no change.
+
 **Event 0** is the console's test race (every Gen7 sequence has one; any CTS can be
 set to it). `current_event` is `"0"`, `current_heat` the console's, `event_name` is
 the `event_name` vocabulary's `test_race` in the meet's language, and

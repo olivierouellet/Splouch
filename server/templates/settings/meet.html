@@ -60,6 +60,14 @@
                     {% if active_meet_file %}
                     <div id="meet-update-msg" class="small mt-2" style="display:none;"></div>
                     <p class="small text-body-secondary mt-1 mb-0">{{ t.meet_update_hint | safe }}</p>
+                    <form action="/settings" method="POST" class="mt-3">
+                        <input type="hidden" name="names_as_is_submit" value="1">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="names_as_is" name="names_as_is" value="1" {% if names_as_is %}checked{% endif %} onchange="_fsubmit(this.form)">
+                            <label class="form-check-label" for="names_as_is">{{ t.meet_names_as_is }}</label>
+                        </div>
+                        <div class="form-text">{{ t.meet_names_as_is_hint }}</div>
+                    </form>
                     {% endif %}
                 </div></div>
             <div class="card mt-3"><div class="card-body">

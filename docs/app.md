@@ -1136,6 +1136,11 @@ paused stays paused. iOS: a `Toggle` in the sheet's first section, the bell
 
 ## Changelog
 
+- **v3, amended** (2026-10-31, no bump) — a meet can show its event names as is
+  ([`api.md`](api.md) §5.1): every `event_name_parts` field empty but `raw` and
+  `round`. No wire change: `T-11`'s fall back to `raw` already renders it, with the
+  round in the reader's language.
+
 - **v3, amended** (2026-10-22, no bump) — no more `sport`. It was always swimming;
   `GET /meets` and `GET /meet/{id}/config` stop sending it. A client that still
   searches it searches an empty field.

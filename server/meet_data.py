@@ -80,6 +80,7 @@ def get_event_name_display(event_num):
         _raw_event_name(event_num),
         state.load_event_translations(),
         shown_round(event_num, "board"),
+        state.event_names_as_is(),
     )
 
 
@@ -108,7 +109,9 @@ def get_event_name_parts(event_num):
             "kind": "test_race",
         }
     return state.parse_event_name(
-        _raw_event_name(event_num), shown_round(event_num, "phone")
+        _raw_event_name(event_num),
+        shown_round(event_num, "phone"),
+        state.event_names_as_is(),
     )
 
 
@@ -283,14 +286,15 @@ def _build_meet_data():
     m = state.meet
     if m.start_list:
         ev_trans = state.load_event_translations()
+        as_is = state.event_names_as_is()
         event_names = {
             num: state.translate_event_name(
-                name, ev_trans, shown_round(num, "board", m)
+                name, ev_trans, shown_round(num, "board", m), as_is
             )
             for num, name in m.event_names.items()
         }
         event_name_parts = {
-            num: state.parse_event_name(name, shown_round(num, "phone", m))
+            num: state.parse_event_name(name, shown_round(num, "phone", m), as_is)
             for num, name in m.event_names.items()
         }
         events_grouped = [(ev, sorted(m.start_list[ev])) for ev in sorted(m.start_list)]

@@ -393,6 +393,23 @@ def _save_rounds(form, audience):
     return True
 
 
+def _save_names_as_is(form):
+    """Store whether the loaded meet's event names show unparsed; True if changed."""
+    uid = state._active_meet_uid
+    if not uid:
+        return False
+    wanted = "names_as_is" in form
+    if wanted == state.event_names_as_is(uid):
+        return False
+    uids = [u for u in state.settings.get("event_names_as_is", []) if u != uid]
+    state.settings["event_names_as_is"] = [*uids, uid] if wanted else uids
+    # Same reach as a round change (`_save_rounds`): the name is in every frame
+    # and in every cached schedule.
+    send_event_info()
+    announce_schedule()
+    return True
+
+
 def _settings_view(request, form):
     users_error = account_error = None
     if request.method == "POST":
@@ -463,6 +480,9 @@ def _settings_view(request, form):
                     )
                 )
                 send_event_info()
+
+        if "names_as_is_submit" in form and _save_names_as_is(form):
+            modified = True
 
         if "timing_settings_submit" in form:
             changed = False
@@ -991,6 +1011,7 @@ def _settings_view(request, form):
         show_laps=state.settings.get("show_laps", False),
         lap_direction=state.settings.get("lap_direction", "up"),
         lane_direction=state.settings.get("lane_direction", "up"),
+        names_as_is=state.event_names_as_is(),
         round_names=ROUND_NAMES,
         round_words=state.i18n_bundle(ui_lang)["event_name"],
         round_names_board=state.settings.get("round_names_board", ROUND_NAMES),

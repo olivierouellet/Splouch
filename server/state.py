@@ -413,6 +413,14 @@ def save_meet_profile(uid):
     profiles[uid] = {f: _profile_field(f) for f in CLOUD_PROFILE_FIELDS}
 
 
+# Meets whose event names show as the file has them, unparsed (i18n.parse_event_name
+# `as_is`), by meet_uid(). Not in the meet profile: a new meet is seeded from the
+# last one's profile, and a swim meet after an artistic one must not inherit this.
+def event_names_as_is(uid=None):
+    uid = _active_meet_uid if uid is None else uid
+    return bool(uid) and uid in settings.get("event_names_as_is", [])
+
+
 # ── Console log capture ──────────────────────────────────────────────────────
 # Keep the most recent console output (the same lines that go to the journal) in
 # a RAM ring buffer so the operator can download it or save it to flash on demand
