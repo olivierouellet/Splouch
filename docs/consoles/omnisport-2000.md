@@ -6,12 +6,12 @@ The OmniSport has several outputs. Pick the console, then the output you wired, 
 
 | Output (second menu) | Port | Console menu (swimming, from Main Menu) | Decoder |
 | --- | --- | --- | --- |
+| **J2/J3 Scoreboard outputs set to OMEGA** | J2 or J3 (1/4" jack) | 4-4-1 Scoreboard Outputs → OMEGA, 1-1 Scoreboard ON | Swiss Timing scoreboard lines (no event/heat) |
 | **J5 RTD — Results set to OMNI2000** | J5 RTD | 4-4-2 RTD Port → RTD, 4-4-3 Results Port → OMNI 2000 | Daktronics RTD, lines from offset 222 |
 | **J5 RTD — Results set to OMNI6000** | J5 RTD | 4-4-2 RTD Port → RTD, 4-4-3 Results Port → OMNI 6000 | Daktronics RTD, lines from offset 200 |
 | **J5 RTD port set to CTS** | J5 RTD | 4-4-2 RTD Port → CTS | Colorado legacy (unconfirmed) |
-| **Ethernet — RTD over the network** | ETHERNET jack | 4-7-1 Network Enable → ON | Daktronics RTD over UDP broadcast (layout is an option) |
 | **J6 Results port set to CTS** | J6 Results | 4-4-3 Results Port → CTS | Colorado legacy (unconfirmed) |
-| **J2/J3 Scoreboard outputs set to OMEGA** | J2 or J3 (1/4" jack) | 4-4-1 Scoreboard Outputs → OMEGA, 1-1 Scoreboard ON | Swiss Timing scoreboard lines (no event/heat) |
+| **Ethernet — RTD over the network** | ETHERNET jack | 4-7-1 Network Enable → ON | Daktronics RTD over UDP broadcast (layout is an option) |
 
 The Results Port setting (4-4-3) chooses the RTD item numbers sent on J5 too ("Selecting Omni 6000 transmits Omni 6000 RTD item numbers on the RTD output", ED-13312), hence two J5 entries.
 
@@ -55,6 +55,14 @@ Options shown for the RTD outputs:
 
 Follow the [general procedure](../admin.md#capturing-at-the-pool). Photograph the console's *Setup Comm Ports*, *Setup RTD/Matrix Scoreboard* (RTD Offset) and *Setup Network* menus.
 
+### J2/J3 Scoreboard outputs set to OMEGA
+
+1. **Console:** 4-4-1 Scoreboard Outputs → OMEGA. The scoreboard output must be on: 1-1 *SCBD IS ON*. While it is OFF, J2/J3 stay blank until the next race starts.
+2. **Wire:** 1/4" plug into J2 or J3 (tip = current loop +, ring = current loop −, sleeve = GND) to a 20 mA current loop converter, then to the Pi. The other jack can still feed the pool's scoreboard.
+3. **Splouch:** `OmniSport 2000` → `J2/J3 Scoreboard outputs set to OMEGA`.
+4. **Check:** packets start `01 14 53 30 32 02 08` and end `04`. Garbage → **Baud rate** / **Serial format**; lanes and places swapped → **Scoreboard line order**.
+5. **Record:** `.raw`.
+
 ### J5 RTD — Results set to OMNI2000 / OMNI6000
 
 1. **Console:** RTD Port → RTD; Results Port → OMNI 2000 (or OMNI 6000 for the other entry); Swimming loaded.
@@ -62,14 +70,6 @@ Follow the [general procedure](../admin.md#capturing-at-the-pool). Photograph th
 3. **Splouch:** `OmniSport 2000` → the matching `J5 RTD — Results set to …`; **RTD offset** as on the console.
 4. **Check:** *Connected*. Packets start `16 30 30 30 30 30 30 30 30 01 30 30 34 32 31` (SYN, `00000000`, SOH, `00421`); during a race the running time packet repeats several times a second. Running time but no lane times → check the Results setting matches the entry.
 5. **Record:** `.raw`, then `.serial` once lane times show.
-
-### Ethernet — RTD over the network
-
-1. **Console:** Setup Network → Network Enable ON; note the IP address and **RTD Port #**.
-2. **Network:** the console on the Pi's **Ethernet** port (`eth0`), same subnet. Splouch only listens there, not on Wi-Fi. With the console's standard address (192.168.0.55–58) the Pi needs a 192.168.0.x address; broadcasts do not cross a router.
-3. **Splouch:** `OmniSport 2000` → `Ethernet — RTD over the network`; **RTD network port** = the console's RTD Port #; **RTD layout** to match the Results setting.
-4. **Check:** *Listening: UDP port 21000 on eth0 (192.168.0.x)*; *no IPv4 address on eth0* → the Ethernet cable or its address; the Serial Monitor shows the same `16 30 30 … 30 30 34 32 31` packets as J5.
-5. **Record:** `.raw` (each datagram ends with a blank line). As a backup, on the Pi: `sudo tcpdump -i eth0 -w omnisport.pcap udp port 21000`.
 
 ### J5 RTD port set to CTS / J6 Results port set to CTS
 
@@ -79,10 +79,10 @@ Follow the [general procedure](../admin.md#capturing-at-the-pool). Photograph th
 4. **Check:** short packets, each a byte `80`–`FF` followed by a few below `80`, scrolling constantly. Garbage → **Serial parity** None.
 5. **Record:** `.raw`.
 
-### J2/J3 Scoreboard outputs set to OMEGA
+### Ethernet — RTD over the network
 
-1. **Console:** 4-4-1 Scoreboard Outputs → OMEGA. The scoreboard output must be on: 1-1 *SCBD IS ON*. While it is OFF, J2/J3 stay blank until the next race starts.
-2. **Wire:** 1/4" plug into J2 or J3 (tip = current loop +, ring = current loop −, sleeve = GND) to a 20 mA current loop converter, then to the Pi. The other jack can still feed the pool's scoreboard.
-3. **Splouch:** `OmniSport 2000` → `J2/J3 Scoreboard outputs set to OMEGA`.
-4. **Check:** packets start `01 14 53 30 32 02 08` and end `04`. Garbage → **Baud rate** / **Serial format**; lanes and places swapped → **Scoreboard line order**.
-5. **Record:** `.raw`.
+1. **Console:** Setup Network → Network Enable ON; note the IP address and **RTD Port #**.
+2. **Network:** the console on the Pi's **Ethernet** port (`eth0`), same subnet. Splouch only listens there, not on Wi-Fi. With the console's standard address (192.168.0.55–58) the Pi needs a 192.168.0.x address; broadcasts do not cross a router.
+3. **Splouch:** `OmniSport 2000` → `Ethernet — RTD over the network`; **RTD network port** = the console's RTD Port #; **RTD layout** to match the Results setting.
+4. **Check:** *Listening: UDP port 21000 on eth0 (192.168.0.x)*; *no IPv4 address on eth0* → the Ethernet cable or its address; the Serial Monitor shows the same `16 30 30 … 30 30 34 32 31` packets as J5.
+5. **Record:** `.raw` (each datagram ends with a blank line). As a backup, on the Pi: `sudo tcpdump -i eth0 -w omnisport.pcap udp port 21000`.

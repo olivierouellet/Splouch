@@ -38,13 +38,14 @@ def test_every_console_output_builds_its_decoder():
 
 def test_menu_groups_outputs_under_their_console():
     menu = dict(console_models())
+    # The console's Comm Ports menu order (4-4-1 J2/J3, 4-4-2 J5, 4-4-3 J6), then 4-7.
     assert [k for k, _ in menu["OmniSport 2000 (Daktronics)"]] == [
+        "dak_os2000_omega",
         "dak_os2000_rtd",
         "dak_os2000_rtd_omni6000",
         "dak_os2000_cts",
-        "dak_os2000_udp",
         "dak_os2000_j6_cts",
-        "dak_os2000_omega",
+        "dak_os2000_udp",
     ]
     assert [k for k, _ in menu["ARES 21 (Swiss Timing Omega)"]] == [
         "ares21_ertd",
