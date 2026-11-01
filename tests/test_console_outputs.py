@@ -15,6 +15,7 @@ from console_decoders import (
     DECODERS,
     console_models,
     decoder_config,
+    default_output,
     make_decoder,
     option_specs,
     option_values,
@@ -47,6 +48,13 @@ def test_menu_groups_outputs_under_their_console():
         "dak_os2000_j6_cts",
         "dak_os2000_udp",
     ]
+    # Choosing the model picks J5 RTD, not the first entry; others fall back to first.
+    assert default_output("OmniSport 2000 (Daktronics)") == "dak_os2000_rtd"
+    assert (
+        default_output("ARES 21 (Swiss Timing Omega)")
+        == menu["ARES 21 (Swiss Timing Omega)"][0][0]
+    )
+    assert default_output("No such console") is None
     assert [k for k, _ in menu["ARES 21 (Swiss Timing Omega)"]] == [
         "ares21_ertd",
         "ares21_unt4",

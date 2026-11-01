@@ -41,6 +41,8 @@ class ConsoleEntry:
     out). `preset` is fixed decoder configuration this output implies — the
     OmniSport's line base, say — and `options` the `DecoderOption` keys its menu
     shows, each with this console's default (None keeps the decoder's).
+    `default` marks the output picked when the model is chosen; without one, the
+    model's first output is.
     """
 
     key: str
@@ -54,6 +56,7 @@ class ConsoleEntry:
     doc: str
     preset: dict = field(default_factory=dict)
     options: dict = field(default_factory=dict)
+    default: bool = False
 
     @property
     def label(self) -> str:
@@ -187,6 +190,7 @@ CONSOLES: list[ConsoleEntry] = [
         doc="omnisport-2000.md",
         preset={"rtd_line_base": 222},
         options={"rtd_offset": None},
+        default=True,
     ),
     ConsoleEntry(
         "dak_os2000_rtd_omni6000",
@@ -367,6 +371,18 @@ def console_models() -> list[tuple[str, list[tuple[str, str]]]]:
         if e is not None:
             models.setdefault(e.model, []).append((e.key, e.output))
     return list(models.items())
+
+
+def default_output(model: str) -> str | None:
+    """The output picked when `model` is chosen: its `default` one, else its first."""
+    outputs = dict(console_models()).get(model)
+    if not outputs:
+        return None
+    for key, _ in outputs:
+        e = console_entry(key)
+        if e is not None and e.default:
+            return key
+    return outputs[0][0]
 
 
 def option_specs(console_type: str) -> list[tuple[DecoderOption, str]]:

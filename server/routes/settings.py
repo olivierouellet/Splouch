@@ -19,6 +19,7 @@ from console_decoders import (
     console_info_for,
     console_models,
     decoder_config,
+    default_output,
     load_custom_decoders,
     make_decoder,
     option_specs,
@@ -327,7 +328,7 @@ def _console_from_form(form):
 
     The first menu picks a model; when the second still holds an output of the
     previous model (it is only re-rendered after the post), take the new model's
-    first output.
+    default output.
     """
     want = form.get("console_type", "").strip()
     model = form.get("console_model", "").strip()
@@ -336,8 +337,7 @@ def _console_from_form(form):
     for key, _ in dict(console_models()).get(model, []):
         if key == want:
             return want
-    outputs = dict(console_models()).get(model)
-    return outputs[0][0] if outputs else want
+    return default_output(model) or want
 
 
 def _users_action(form):
