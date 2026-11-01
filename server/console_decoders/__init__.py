@@ -228,10 +228,11 @@ CONSOLES: list[ConsoleEntry] = [
     ConsoleEntry(
         "dak_os2000_omega",
         _DAK,
-        "Scoreboard port set to OMEGA",
+        "J2/J3 Scoreboard outputs set to OMEGA",
         "swiss_scb",
-        adapter="USB-to-RS232 (DB9)",
-        wiring="Scoreboard port, console menu Scbrd Port → OMEGA",
+        adapter="20 mA current loop to USB (or to RS-232 + USB-to-RS232)",
+        wiring='1/4" jack to J2 or J3 (tip +, ring −), console menu 4-4-1 '
+        "Scoreboard Outputs → OMEGA, 1-1 Scoreboard ON",
         protocol="Swiss Timing scoreboard lines · serial settings unconfirmed",
         tested=False,
         doc="omnisport-2000.md",

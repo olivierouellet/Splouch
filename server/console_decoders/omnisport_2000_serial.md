@@ -30,7 +30,7 @@ Console settings, in the console's *PORT CONFIGURATIONS* menu:
 
 | Menu | Values | Effect on J5 |
 | --- | --- | --- |
-| 1. Scbrd Port | M-DROP, M-LINE, **OMEGA**, M-CAST | OMEGA sends Swiss Timing scoreboard lines on the scoreboard port — see `swiss_scoreboard_serial.md` |
+| 1. Scbrd Port | M-DROP, M-LINE, **OMEGA**, M-CAST | OMEGA sends Swiss Timing scoreboard lines on J2/J3 (1/4" jacks, 20 mA current loop: tip +, ring −); needs 1-1 Scoreboard ON — see `swiss_scoreboard_serial.md` |
 | 2. RTD Port | **RTD**, CTS | RTD packets are sent only in RTD mode. CTS runs at half the speed (9600) — presumably the Colorado legacy stream, unconfirmed |
 | 3. Results | OMNI6000, **OMNI2000**, CTS | Moves the swimming layout: result lines at **222** (OMNI2000) or **200** (OMNI6000) |
 | RTD Offset | 0K, 5K, 10K, 15K | Adds 5000·k to every offset sent |
@@ -43,7 +43,7 @@ a unidirectional protocol, utilizing the standard CTS scoreboard information." A
 
 Settings → Timing offers one entry per combination: *J5 RTD — Results set to OMNI2000*,
 *… OMNI6000*, *J5 RTD port set to CTS*, *Ethernet — RTD over the network*, *J6 Results
-port set to CTS*, *Scoreboard port set to OMEGA*. The OMNI 2000 / OMNI 6000 results
+port set to CTS*, *J2/J3 Scoreboard outputs set to OMEGA*. The OMNI 2000 / OMNI 6000 results
 protocols on J6 are not documented and not decoded.
 
 ### Ethernet

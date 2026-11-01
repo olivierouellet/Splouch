@@ -6,7 +6,7 @@
 > `swiss_scb`).
 
 Console entries: **ARES 21 — SCB — UNT4 / Calypso / Piccolo / GALACTICA**
-(`ares21_unt4`) and **OmniSport 2000 — Scoreboard port set to OMEGA**
+(`ares21_unt4`) and **OmniSport 2000 — J2/J3 Scoreboard outputs set to OMEGA**
 (`dak_os2000_omega`).
 
 ---
@@ -15,7 +15,7 @@ Console entries: **ARES 21 — SCB — UNT4 / Calypso / Piccolo / GALACTICA**
 
 | Parameter | ARES 21 | OmniSport 2000 |
 | --------- | ------- | -------------- |
-| Connector | IF-ARES SCB, Sub-D 9 F: pin 4 LD+, 3 LD−, 7 GND (RS-485); 9/8 = 20 mA | Scoreboard port, *Scbrd Port → OMEGA* |
+| Connector | IF-ARES SCB, Sub-D 9 F: pin 4 LD+, 3 LD−, 7 GND (RS-485); 9/8 = 20 mA | J2 or J3, 1/4" jack: tip CL+, ring CL−, sleeve GND (20 mA current loop), *Scoreboard Outputs → OMEGA* |
 | Baud / format | not documented — options, 9600 7-E-1 by default | not documented — options, 9600 7-E-1 by default |
 
 ---
