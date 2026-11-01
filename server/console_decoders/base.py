@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from typing import TypeIs
 
 
 @dataclass
@@ -37,7 +38,9 @@ class DecoderOption:
     only while that console is selected, and stores each console's choices apart, so
     switching consoles never carries a value across.
 
-    The value reaches the decoder as `cfg[key]` — always a string, one of `choices`.
+    The value reaches the decoder as `cfg[key]` — always a string, one of `choices`,
+    or, when `custom_range` is set, any whole number in that inclusive range (a
+    console setting the operator types, like a network port).
     `label`, `help` and each choice's label are English; the panel file can replace
     them (`console_opt_<key>`, `console_opt_<key>_help`, `console_opt_<key>_<value>`).
     """
@@ -47,6 +50,18 @@ class DecoderOption:
     choices: tuple[tuple[str, str], ...]
     default: str
     help: str = ""
+    custom_range: tuple[int, int] | None = None
+
+    def accepts(self, value: object) -> TypeIs[str]:
+        """Whether `value` is one this option can hold: a choice, or a custom number."""
+        if not isinstance(value, str):
+            return False
+        if value in {c for c, _ in self.choices}:
+            return True
+        if self.custom_range is None or not value.isascii() or not value.isdigit():
+            return False
+        low, high = self.custom_range
+        return low <= int(value) <= high
 
 
 # A CTS timer's Quick Options → EVT/HT swap (System 6 F870 p.40, Gen7 F1034 p.23):

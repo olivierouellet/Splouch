@@ -34,11 +34,19 @@
                         {% for opt in console_option_fields %}
                         <div class="mb-3">
                             <label for="console_opt_{{ opt.key }}" class="form-label">{{ opt.label }}</label>
-                            <select id="console_opt_{{ opt.key }}" name="console_opt_{{ opt.key }}" class="form-select form-select-sm" style="max-width:360px;" onchange="_fsubmit(this.form)">
+                            {# With a custom range, "Custom…" reveals a number field instead of
+                               posting; the field posts once a number is typed. #}
+                            <select id="console_opt_{{ opt.key }}" name="console_opt_{{ opt.key }}" class="form-select form-select-sm" style="max-width:360px;" onchange="{% if opt.custom_range %}if (this.value === 'custom') { var c = document.getElementById('console_opt_{{ opt.key }}_custom'); c.hidden = false; c.focus(); } else { _fsubmit(this.form); }{% else %}_fsubmit(this.form){% endif %}">
                             {% for value, label in opt.choices %}
                                 <option value="{{value}}" {% if value == opt.value %}selected{% endif %}>{{label}}{% if value == opt.default %} ({{ t.timing_option_default }}){% endif %}</option>
                             {% endfor %}
+                            {% if opt.custom_range %}
+                                <option value="custom" {% if opt.is_custom %}selected{% endif %}>{{ t.timing_option_custom }}</option>
+                            {% endif %}
                             </select>
+                            {% if opt.custom_range %}
+                            <input id="console_opt_{{ opt.key }}_custom" name="console_opt_{{ opt.key }}_custom" type="number" inputmode="numeric" class="form-control form-control-sm mt-2" style="max-width:160px;" min="{{ opt.custom_range[0] }}" max="{{ opt.custom_range[1] }}" step="1" value="{% if opt.is_custom %}{{ opt.value }}{% endif %}" aria-label="{{ opt.label }} — {{ t.timing_option_custom }}" onchange="if (this.checkValidity() && this.value) { _fsubmit(this.form); }" {% if not opt.is_custom %}hidden{% endif %}>
+                            {% endif %}
                             {% if opt.help %}<div class="form-text">{{ opt.help }}</div>{% endif %}
                         </div>
                         {% endfor %}

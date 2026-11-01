@@ -307,17 +307,21 @@ def _console_option_fields(t, console_type):
     values = option_values(console_type, state.settings)
     fields = []
     for opt, default in option_specs(console_type):
+        value = values[opt.key]
         fields.append(
             {
                 "key": opt.key,
                 "label": t.get(f"console_opt_{opt.key}", opt.label),
                 "help": t.get(f"console_opt_{opt.key}_help", opt.help),
-                "value": values[opt.key],
+                "value": value,
                 "default": default,
                 "choices": [
                     (value, t.get(f"console_opt_{opt.key}_{value}", label))
                     for value, label in opt.choices
                 ],
+                # A typed value: the select shows "Custom…" and the number field it.
+                "custom_range": opt.custom_range,
+                "is_custom": value not in {c for c, _ in opt.choices},
             }
         )
     return fields
@@ -486,7 +490,9 @@ def _settings_view(request, form):
                 mine = dict(saved.get(ct) or {})
                 for opt, _ in option_specs(ct):
                     val = form.get(f"console_opt_{opt.key}", "")
-                    if val in {c for c, _ in opt.choices} and val != current[opt.key]:
+                    if val == "custom" and opt.custom_range:
+                        val = form.get(f"console_opt_{opt.key}_custom", "").strip()
+                    if opt.accepts(val) and val != current[opt.key]:
                         mine[opt.key] = val
                         changed = modified = True
                 if mine != (saved.get(ct) or {}):

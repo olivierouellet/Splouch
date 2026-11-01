@@ -39,7 +39,11 @@ class Omnisport2000Decoder(RtdSwimmingDecoder):
                 ("3002", "3002 (Galaxy)"),
             ),
             default="21000",
-            help="The console's Setup Network → RTD Port # setting.",
+            help="The console's Setup Network → RTD Port # setting (menu 4-7-5). "
+            "Custom: 1024 to 65535.",
+            # The console's 2-CUST takes any port; below 1024 the server, not
+            # running as root, could not listen anyway.
+            custom_range=(1024, 65535),
         ),
         DecoderOption(
             key="serial_baud",

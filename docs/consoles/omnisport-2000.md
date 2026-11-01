@@ -51,7 +51,7 @@ In **Settings → Timing**:
 Options shown for the RTD outputs:
 
 - **RTD offset** — must match the console's *RTD Offset* menu (0K, 5K, 10K, 15K). Leave at 0K unless the venue changed it.
-- Ethernet only: **RTD network port** (the console's *RTD Port #*, 21000 by default) and **RTD layout** (lines at 222 for Results set to OMNI2000, at 200 for OMNI6000).
+- Ethernet only: **RTD network port** (the console's *RTD Port #*, menu 4-7-5, 21000 by default; pick **Custom…** and type it when the console uses *2-CUST*, 1024 to 65535) and **RTD layout** (lines at 222 for Results set to OMNI2000, at 200 for OMNI6000).
 
 ## Capturing at the pool
 
@@ -85,6 +85,6 @@ Follow the [general procedure](../admin.md#capturing-at-the-pool). Photograph th
 
 1. **Console:** Setup Network → Network Enable ON; note the IP address and **RTD Port #**.
 2. **Network:** the console on the Pi's **Ethernet** port (`eth0`), same subnet. Splouch only listens there, not on Wi-Fi. With the console's standard address (192.168.0.55–58) the Pi needs a 192.168.0.x address; broadcasts do not cross a router.
-3. **Splouch:** `OmniSport 2000` → `Ethernet — RTD over the network`; **RTD network port** = the console's RTD Port #; **RTD layout** to match the Results setting.
+3. **Splouch:** `OmniSport 2000` → `Ethernet — RTD over the network`; **RTD network port** = the console's RTD Port # (**Custom…** for any other number); **RTD layout** to match the Results setting.
 4. **Check:** *Listening: UDP port 21000 on eth0 (192.168.0.x)*; *no IPv4 address on eth0* → the Ethernet cable or its address; the Serial Monitor shows the same `16 30 30 … 30 30 34 32 31` packets as J5.
 5. **Record:** `.raw` (each datagram ends with a blank line). As a backup, on the Pi: `sudo tcpdump -i eth0 -w omnisport.pcap udp port 21000`.

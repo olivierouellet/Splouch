@@ -405,7 +405,7 @@ def option_values(console_type: str, settings: dict) -> dict[str, str]:
     values = {}
     for opt, default in option_specs(console_type):
         v = saved.get(opt.key)
-        values[opt.key] = v if v in {c for c, _ in opt.choices} else default
+        values[opt.key] = v if opt.accepts(v) else default
     return values
 
 

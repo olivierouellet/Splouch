@@ -232,6 +232,68 @@ def test_the_timing_tab_shows_only_the_selected_consoles_options():
     assert "console_opt_" not in cts
     assert '<input type="hidden" name="console_type" value="cts_sys5">' in cts
     assert 'name="console_opt_cts_event_module"' in render("cts_sys6")
+    # A typed RTD port: hidden until "Custom…" is picked, shown filled once saved.
+    udp = render("dak_os2000_udp")
+    assert '<option value="custom" >' in udp
+    assert 'name="console_opt_udp_port_custom"' in udp and 'value="" ' in udp
+    assert "console_opt_udp_port_custom" not in render("dak_os2000_rtd")
+
+
+def test_a_custom_option_value_is_bounded():
+    from console_decoders.omnisport_2000 import Omnisport2000Decoder as Dec
+
+    port = next(o for o in Dec.OPTIONS if o.key == "udp_port")
+    assert port.accepts("21000") and port.accepts("18000") and port.accepts("65535")
+    for bad in ("1023", "65536", "", "abc", "18000.5", "-1", "١٨٠٠٠", None):
+        assert not port.accepts(bad), bad
+    # An option without a range keeps to its choices.
+    baud = next(o for o in Dec.OPTIONS if o.key == "serial_baud")
+    assert not baud.accepts("4800")
+
+
+def test_a_custom_rtd_port_is_saved_and_listened_on(monkeypatch):
+    form = {
+        "console_model": "OmniSport 2000 (Daktronics)",
+        "console_type": "dak_os2000_udp",
+        "console_opt_udp_port": "custom",
+        "console_opt_udp_port_custom": "18000",
+    }
+    _post(monkeypatch, form, console="dak_os2000_udp")
+    assert state.settings["console_options"] == {
+        "dak_os2000_udp": {"udp_port": "18000"}
+    }
+    assert cast(Omnisport2000Decoder, state._decoder).udp_port == 18000
+
+
+def test_an_out_of_range_custom_port_is_ignored(monkeypatch):
+    for typed in ("80", "70000", ""):
+        _post(
+            monkeypatch,
+            {
+                "console_model": "OmniSport 2000 (Daktronics)",
+                "console_type": "dak_os2000_udp",
+                "console_opt_udp_port": "custom",
+                "console_opt_udp_port_custom": typed,
+            },
+            console="dak_os2000_udp",
+        )
+        assert state.settings["console_options"] == {}, typed
+        assert cast(Omnisport2000Decoder, state._decoder).udp_port == 21000
+
+
+def test_a_custom_value_shows_as_custom_in_the_form(monkeypatch):
+    from routes.settings import _console_option_fields
+
+    monkeypatch.setitem(
+        state.settings,
+        "console_options",
+        {"dak_os2000_udp": {"udp_port": "18000"}},
+    )
+    t = state.settings_strings("en")
+    field = next(
+        f for f in _console_option_fields(t, "dak_os2000_udp") if f["key"] == "udp_port"
+    )
+    assert (field["value"], field["is_custom"]) == ("18000", True)
 
 
 # ── CTS legacy: the character table ────────────────────────────────────────────
