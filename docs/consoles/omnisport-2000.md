@@ -17,6 +17,8 @@ The Results Port setting (4-4-3) chooses the RTD item numbers sent on J5 too ("S
 
 The J5 RTD and Ethernet outputs are the recommended ones. J6 is the Results Port for meet management software: its default settings, OMNI 2000 and OMNI 6000, are bi-directional protocols Splouch does not decode; set to CTS it sends "the standard CTS scoreboard information" (ED-13312), which Splouch reads — Meet Manager must then read CTS on that port too.
 
+**Not supported:** J2/J3 set to MULTIDROP or MULTILINE (Daktronics scoreboard protocols, not published), and J6 set to OMNI 2000 or OMNI 6000 (the bi-directional link with Meet Manager, not documented). Use J5 RTD or Ethernet instead. A `.raw` capture of one of these outputs is welcome: see [Capturing at the pool](#capturing-at-the-pool).
+
 ## Ethernet
 
 Consoles shipped from June 2013 have an ETHERNET jack. With *Setup Network → Network Enable* ON, the console broadcasts RTD as UDP packets. Its standard IP address is 192.168.0.55–58 (OMNI1–4) and its standard RTD port 21000–21003 (OMNI1–4); 3002 is used for Galaxy message centers. Put the Splouch server on the same network and subnet; no cable or adapter is needed.
