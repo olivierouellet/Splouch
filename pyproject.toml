@@ -10,7 +10,7 @@ dependencies = [
     "itsdangerous",
     "pyserial",
     "websocket-client",
-    "pillow>=12.3.0",
+    "pillow>=13.0.0",
     # The Pi renders its own QR code so an operator can print one (docs/app.md
     # `P-16`). Pure Python and no system libraries: `qrencode` would be an apt
     # package to add to every install, and `qrcode` renders through Pillow, while
