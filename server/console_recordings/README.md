@@ -18,7 +18,7 @@ and, while one plays under a stand-in, says which console is driving the board.
 How the console is known (`worker.recording_console`):
 
 - **A `<name>.console` file** beside the recording holds its console key, e.g.
-  `dak_os2000_rtd`. Only `omnisport_2000.raw` has one.
+  `dak_os2000_rtd`. Only the two OmniSport captures have one.
 - **A built-in without one** is CTS Gen6 — every recording shipped before the
   Omnisport one.
 - **An uploaded recording** is the operator's own console's output, so it plays under
@@ -78,6 +78,7 @@ way, if it is ever needed, is `xxd -r -p session.raw > session.cap`.
 | `real_console6.raw` | 1 · 50m Freestyle | 1 | 8 | — | — | captured, no finish |
 | `real_race_25y_breast.raw` | 28 · 25m Breaststroke (swum in yards) | 1 | 6 | — | — | captured, whole race |
 | `omnisport_2000.raw` | 5 · 100m Butterfly | 1 | 6 (2–7) | — | — | captured (Omnisport 2000), no finish |
+| `omnisport_2000_udp_100fly_2heats.serial` | 58 · 100m Butterfly (final) | 2 | 10 / 9 (lanes 0–9) | 50m | 58s (heat 2) | captured (Omnisport 2000, UDP), whole race, anonymised |
 
 **Course.** All four authored races are long course, and the splits are what say
 so: the 100m touches once and the 200m three times, so each length is 50m. The
@@ -113,6 +114,30 @@ times; it is kept for the wire format rather than the race. Its companion `.lxf`
 named the event `Event 1` — the string `lenex_parser` falls back to when an event has
 neither a name nor a `SWIMSTYLE`, written into the file and then read back as though
 it were a title. Its own seed times are 24.87–25.89, so it is a 50m.
+
+### `omnisport_2000_udp_100fly_2heats.serial`
+
+A real OmniSport 2000 over Ethernet (`dak_os2000_udp`, UDP 21000) at a meet: event 58,
+women's 100m butterfly final, two heats in a 25m pool numbered 0–9 with touchpads at
+one end. It opens on the previous heat's results cycling on the single-line display;
+the first heat starts 49.5 s in. Heat 2 is announced on the console's next-heat page
+(sub-code `01`) 58 s before its start, and has nobody in lane 9. Each 50m split is
+held by the console for about 14.5 s, then blanked. Replay it with Settings → Meet →
+Pool at **10 lanes, first lane 0, 25m**.
+
+**Anonymised.** The capture carried the swimmers' real names and club codes. Every
+15-character name became `NAGEURnn, Test` and every club `CLBA`…`CLBG`, at the same
+offsets and widths, with each packet's checksum recomputed; nothing else changed, and
+it decodes to the same lane updates as the original. The companion `.lxf` is
+authored to match — the meet's own file had no start list for the final yet, and
+holds personal data besides. One more edit: the console sent its next-heat page as
+one packet of ~600 bytes, which the recorder of the day cut at 512 (the decoder's old
+cap) into two lines. A `.serial` line is one packet, so the two are joined here as a
+recording made today would write them.
+
+`tests/test_console_recordings.py` replays it through the worker and holds it to the
+race: splits held without a place, the heat changing before the gun, lane 9 never
+running.
 
 ### `real_race_25y_breast.raw`
 

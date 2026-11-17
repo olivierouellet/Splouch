@@ -639,7 +639,7 @@ class _FrozenClock:
 def played(monkeypatch):
     """Play a recording for real and return [(recording time, frame), …]."""
 
-    def run(name):
+    def run(name, console="cts_sys6", num_lanes=8, first_lane=1):
         import bus
         import relay
         import state
@@ -662,12 +662,13 @@ def played(monkeypatch):
         )
         monkeypatch.setattr(relay, "relay_emit", lambda ev, d=None: None)
         monkeypatch.setattr(worker, "_drain_cmds", lambda: None)
-        monkeypatch.setitem(state.settings, "num_lanes", 8)
+        monkeypatch.setitem(state.settings, "num_lanes", num_lanes)
+        monkeypatch.setitem(state.settings, "first_lane", first_lane)
         monkeypatch.setattr(state, "_worker_gen", 1, raising=False)
         monkeypatch.setattr(state, "update", {}, raising=False)
         monkeypatch.setattr(state, "_running_lanes", set(), raising=False)
         monkeypatch.setattr(
-            state, "_decoder", make_decoder("cts_sys6", state.settings), raising=False
+            state, "_decoder", make_decoder(console, state.settings), raising=False
         )
         state.set_lenex(load_lenex(os.path.join(RECORDINGS, name + ".lxf")))
 
@@ -716,3 +717,61 @@ def test_the_start_list_really_is_on_screen_for_as_long_as_it_claims(name, playe
         f"{name}: {race - names:.2f}s between names and race, "
         f"expected {START_LIST_SECONDS[name]}s"
     )
+
+
+# ── The OmniSport capture ─────────────────────────────────────────────────────
+
+OMNI_UDP = "omnisport_2000_udp_100fly_2heats"
+
+
+def _lane_states(frames):
+    """[(time, lane, key, value)] for every running/place/time change, in order."""
+    out = []
+    for t, f in frames:
+        for key, value in f.items():
+            m = re.fullmatch(r"lane_(running|place|time)(\d+)", key)
+            if m:
+                out.append((t, int(m.group(2)), m.group(1), value))
+    return out
+
+
+def test_omnisport_capture_replays_as_the_pool_swam(played):
+    """A real OmniSport 2000 over Ethernet: 2 × 100m fly, lanes 0–9, 50m splits.
+
+    What the board got wrong on the day, each pinned to the capture: the lanes kept
+    running through their 50m splits, showed a place there, the heat number changed
+    only with the gun, and heat 2's empty lane 9 ran to the end.
+    """
+    frames = played(OMNI_UDP, console="dak_os2000_udp", num_lanes=10, first_lane=0)
+    states = _lane_states(frames)
+    heats = [(t, f["current_heat"]) for t, f in frames if "current_heat" in f]
+    heat2 = next(t for t, h in heats if h == "2")
+    gun2 = next(t for t, ln, k, v in states if t > heat2 and k == "running" and v)
+    assert gun2 - heat2 > 30, "heat 2 is announced when the operator moves to it"
+
+    # Lane 6 (row 7) touches first at 50m in heat 1: it stops on 36.98, no place,
+    # and swims on when the console clears the line.
+    row7 = [(t, k, v) for t, ln, k, v in states if ln == 7 and t < heat2]
+    split = next(i for i, (_, k, v) in enumerate(row7) if k == "time" and v == "36.98")
+    after = [(k, v) for _, k, v in row7[split:]]
+    assert ("running", False) in after[:3]
+    assert ("place", "1") not in after[: after.index(("running", True))]
+    assert after[after.index(("running", True)) - 2 :][:2] == [
+        ("time", ""),
+        ("place", " "),
+    ]
+
+    # Heat 2 has nobody in lane 9 (row 10): it never runs, and the heat ends.
+    assert not [
+        v for t, ln, k, v in states if t > heat2 and ln == 10 and k == "running" and v
+    ]
+    last = {}
+    for t, ln, k, v in states:
+        if t > heat2:
+            last[(ln, k)] = v
+    assert not any(v for (ln, k), v in last.items() if k == "running")
+    assert last[(5, "place")] == "1" and last[(5, "time")] == "1:08.05"
+
+    # The names come from the companion meet file, before the gun.
+    names = next(t for t, f in frames if t >= heat2 and f.get("lane_name1"))
+    assert names < gun2
