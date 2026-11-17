@@ -25,3 +25,9 @@ updates:
       prefix: "[Tooling]"
     labels:
       - dependencies
+    # init and analyze refuse to run at different versions, so a PR that moves
+    # one of them alone fails CodeQL. One PR moves both.
+    groups:
+      codeql-action:
+        patterns:
+          - github/codeql-action*
