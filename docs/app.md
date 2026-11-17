@@ -712,7 +712,7 @@ hundreds.
 | `S-06` | Auto-scroll to current heat once per appearance | re-armed on foreground | all | must |
 | `S-07` | Empty state, no meet file | `mobile.no_schedule` / `mobile.no_meet` | all | must |
 | [`S-22`](#s-22) | Lane time = best one known: official result (or its status) > console time > seed. Each its own colour, official also bolder | `lane.result_time` / `result_status`, `console_time`, `seed_time` ([`api.md`](api.md) §5.8); live `results_snapshot` patches console times; colours `schedule_seed` / `_console` / `_official` (§6.1) | all | should |
-| [`S-23`](#s-23) | Official or console-timed heat: tap its times or its `±` → gaps to the seed, spring back after 4 s or on a second tap | `heat.official`, `lane.result_delta_seconds` / `result_delta_better`, else `console_time` − `seed_time` | all | could |
+| [`S-23`](#s-23) | Official or console-timed heat: tap its times or its `±` → gaps to the seed, spring back after 4 s or on a second tap. A status lane shows its console time, then its gap for the last 2 s | `heat.official`, `lane.result_delta_seconds` / `result_delta_better`, else `console_time` − `seed_time` | all | could |
 | [`S-24`](#s-24) | A prelim and its final under one event number are two cards, each in its place in running order and named with its round; each keeps its own console times and results. A heat is its event, heat **and** round | `GET /meet/{id}/schedule?rounds=1` (Pi: `/schedule.json?rounds=1`), `heat.round` ([`api.md`](api.md) §5.8); `S-05`'s rounds | all | should |
 | [`S-25`](#s-25) | A heat with its own age group shows it beside the event name (`· 13-14`); a heat whose round has no swimmer yet says so (`mobile.not_seeded`) instead of showing empty lanes | `heat.age`, `heat.seeded` ([`api.md`](api.md) §5.8); missing → `""`, `true` | all | could |
 | [`S-26`](#s-26) | A heading above the first heat of each session: its name from the meet file (`Samedi am`), else `mobile.session` (`Session 2`) | `heat.session`, `heat.session_name` ([`api.md`](api.md) §5.8); missing → 0, `""` (no heading) | all | could |
@@ -747,9 +747,15 @@ On `official` heats and on heats with a lane's `console_time`, the whole heat at
 Gap = `result_delta_seconds`; before the heat is official, a lane's `console_time` −
 `seed_time`, computed on the server's rule (hundredths, negative = better, level is not).
 Both in the scoreboard's delta form and colours (`delta_better` green, `delta_worse`
-grey). A status lane shows its `console_time` in the console colour instead (its status
-if none); a lane without a seed shows `NT`. Back after 4 s or a second tap; a heat turning
-official ends the swap. The swap is animated the platform's own way, instant under
+grey). A lane without a seed shows `NT`. Back after 4 s or a second tap; a heat turning
+official ends the swap.
+
+A status lane (`DSQ`, `DNS`…) has no `result_delta_seconds`, so it tells its swim in two
+halves: its `console_time` in the console colour for the first 2 s, then
+`console_time` − `seed_time` on the same rule for the last 2 s, back to the status
+after. With no `console_time` it keeps its status throughout; with no seed or a seed
+from another course (`S-27`) it keeps its console time throughout. The other lanes
+don't wait: they show their gaps for the whole 4 s. The swap is animated the platform's own way, instant under
 reduce-motion (`X-09`). A visible `±` on the heat, in the official or console colour,
 says it can be tapped, is itself a tap target, and is the screen reader's action
 (`mobile.show_seed_diff`).
@@ -1172,6 +1178,13 @@ paused stays paused. iOS: a `Toggle` in the sheet's first section, the bell
 ---
 
 ## Changelog
+
+- **v3, amended** (2026-11-17, no bump) — a status lane's gap. Clients only: no
+  server change. A client still on the old rule shows a status lane's console time for
+  the whole 4 s.
+
+  - **Changed**: `S-23` (a status lane with a console time and a seed shows the console
+    time for 2 s, then console − seed for the last 2 s).
 
 - **v3, amended** (2026-11-17, no bump) — session headings and a seed's course.
   Additive: `session` and `session_name` on schedule heats, `seed_course` on their
