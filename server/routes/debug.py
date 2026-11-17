@@ -26,7 +26,14 @@ import state
 from console_decoders import CONSOLE_OPTIONS
 from meet_data import announce_schedule, send_event_info
 from meet_parsers.lenex_parser import load_lenex
-from meet_parsers.meet_file import is_csv, is_meet_file, load_structured
+from meet_parsers.meet_file import (
+    extension,
+    is_csv,
+    is_upload,
+    load_structured,
+    store,
+    stored_name,
+)
 from web import (
     ActionResult,
     EnabledFlag,
@@ -299,10 +306,15 @@ def _test_meet_upload(file):
         return {"ok": False, "error": "Test meet already loaded"}
     if not isinstance(file, UploadFile) or not file.filename:
         return {"ok": False, "error": "No file provided"}
-    if not is_meet_file(file.filename):
-        return {"ok": False, "error": "File must be .lxf, .hy3 or .csv"}
-    dest = os.path.join(state.TEST_MEET_FOLDER, os.path.basename(file.filename))
-    save_upload(file, dest)
+    if not is_upload(file.filename):
+        return {"ok": False, "error": "File must be .lxf, .hy3 (or its .zip) or .csv"}
+    dest = os.path.join(state.TEST_MEET_FOLDER, stored_name(file.filename))
+    tmp = os.path.join(state.TEST_MEET_FOLDER, ".upload" + extension(file.filename))
+    save_upload(file, tmp)
+    try:
+        store(tmp, dest, file.filename)
+    except ValueError as e:
+        return {"ok": False, "error": str(e)}
     try:
         if is_csv(dest):
             state.load_event_info(dest)

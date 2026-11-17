@@ -1,10 +1,23 @@
 """Hy-Tek `.hy3` exports: the layout checked against a real Team Manager file,
 the records here written by hand (no real swimmer in the repo)."""
 
+import io
+import zipfile
+
+import pytest
+
 import state
 from meet_data import build_heats, get_event_name_display, heat_order
+from meet_parsers import meet_file
 from meet_parsers.hy3_parser import load_hy3
-from meet_parsers.meet_file import is_meet_file, load_structured, meet_files
+from meet_parsers.meet_file import (
+    is_meet_file,
+    is_upload,
+    load_structured,
+    meet_files,
+    store,
+    stored_name,
+)
 
 
 def _line(code, *fields):
@@ -228,3 +241,101 @@ def test_a_hy3_is_a_meet_file_in_any_case(tmp_path):
     path = tmp_path / "HFILE001.HY3"
     path.write_bytes(("\r\n".join(HEADER) + "\r\n").encode("cp1252"))
     assert load_structured(str(path)).meet_info["name"] == "Summer Invitational"
+
+
+# ── A Meet Manager zip ────────────────────────────────────────────────────────
+
+
+def _hy3_bytes(*lines):
+    return ("\r\n".join([*HEADER, *lines, "Z0"]) + "\r\n").encode("cp1252")
+
+
+def _zip(**members):
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as z:
+        for name, data in members.items():
+            z.writestr(name, data)
+    return buf.getvalue()
+
+
+def test_a_zip_is_kept_as_the_hy3_inside_it(tmp_path):
+    """Named after the zip: every Hy-Tek export's `.hy3` is `HFILE001.HY3`."""
+    tmp = tmp_path / ".upload.zip"
+    tmp.write_bytes(_zip(**{"HFILE001.HY3": _hy3_bytes(), "CFILE001.CL2": b"x"}))
+    assert is_upload("Meet-Entries001.ZIP") and not is_meet_file("m.zip")
+    dest = tmp_path / stored_name("Meet-Entries001.ZIP")
+    store(str(tmp), str(dest), "Meet-Entries001.ZIP")
+    assert dest.name == "Meet-Entries001.hy3"
+    assert not tmp.exists()
+    assert load_hy3(str(dest)).meet_info["name"] == "Summer Invitational"
+    # Anything else is moved as it is.
+    other = tmp_path / ".upload.lxf"
+    other.write_bytes(b"lenex")
+    store(str(other), str(tmp_path / "m.lxf"), "m.lxf")
+    assert (tmp_path / "m.lxf").read_bytes() == b"lenex" and not other.exists()
+
+
+@pytest.mark.parametrize(
+    ("data", "error"),
+    [
+        (_zip(**{"CFILE001.CL2": b"x"}), "no .hy3"),
+        (_zip(**{"a.hy3": b"x", "b/B.HY3": b"y"}), "more than one"),
+        (b"not a zip", "not a zip"),
+    ],
+)
+def test_a_zip_that_is_not_a_hytek_export_is_refused(tmp_path, data, error):
+    tmp = tmp_path / ".upload.zip"
+    tmp.write_bytes(data)
+    with pytest.raises(ValueError, match=error):
+        store(str(tmp), str(tmp_path / "m.hy3"), "m.zip")
+    assert not tmp.exists() and not (tmp_path / "m.hy3").exists()
+
+
+def test_a_zip_bomb_stops_at_the_cap(tmp_path, monkeypatch):
+    monkeypatch.setattr(meet_file, "MAX_HY3_BYTES", 1000)
+    tmp = tmp_path / ".upload.zip"
+    tmp.write_bytes(_zip(**{"HFILE001.HY3": b" " * 5000}))
+    with pytest.raises(ValueError, match="too large"):
+        store(str(tmp), str(tmp_path / "m.hy3"), "m.zip")
+
+
+class _Upload:
+    """What `save_upload` reads of a Starlette UploadFile."""
+
+    def __init__(self, data, filename):
+        self.file = io.BytesIO(data)
+        self.filename = filename
+
+
+def test_a_zip_updates_a_hy3_meet_in_place(tmp_path, monkeypatch):
+    """Meet Manager's re-export, results in, straight from its zip."""
+    import routes.settings as settings_routes
+
+    meet_dir = tmp_path / "meet"
+    meet_dir.mkdir()
+    seeded = (_event("E1", 11, 25, sid=1), _round("E2", "P", 1, 3))
+    (meet_dir / "Meet.hy3").write_bytes(_hy3_bytes(*seeded))
+    monkeypatch.setattr(state, "MEET_FOLDER", str(meet_dir))
+    monkeypatch.setattr(state, "CONSOLE_TIMES_DIR", str(tmp_path))
+    monkeypatch.setattr(state, "_test_session", None)
+    monkeypatch.setattr(state, "_active_meet_file", "Meet.hy3")
+    state.set_lenex(load_hy3(str(meet_dir / "Meet.hy3")))
+    monkeypatch.setattr(state, "_active_meet_uid", state.meet_uid())
+    monkeypatch.setattr(settings_routes, "send_event_info", lambda: None)
+    monkeypatch.setattr(settings_routes, "announce_schedule", lambda: None)
+    swum = (_event("E1", 11, 25, sid=1), _round("E2", "P", 1, 3, time="27.01"))
+    try:
+        out = settings_routes._meet_update_file(
+            _Upload(_zip(**{"HFILE001.HY3": _hy3_bytes(*swum)}), "Meet001.zip")
+        )
+        assert out["ok"] is True, out
+        assert state.meet.results[11][1][3]["time"] == "00:00:27.01"
+        assert sorted(p.name for p in meet_dir.iterdir()) == ["Meet.hy3"]
+
+        bad = settings_routes._meet_update_file(_Upload(b"nope", "Meet001.zip"))
+        assert bad == {
+            "ok": False,
+            "error": "Could not read that file: not a zip file.",
+        }
+    finally:
+        state.clear_meet()

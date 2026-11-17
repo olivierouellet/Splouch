@@ -41,7 +41,7 @@
                     <div class="d-flex flex-wrap align-items-center gap-1">
                         <div class="file-picker flex-shrink-0">
                             <label class="btn btn-secondary btn-sm m-0" style="cursor:pointer; white-space:nowrap;">
-                                {{ t.meet_add_file }}<input form="meet_upload_form" id="meet_file" name="meet_file" type="file" accept=".csv,.lxf,.hy3" style="display:none;" onchange="_fsubmit(document.getElementById('meet_upload_form'))">
+                                {{ t.meet_add_file }}<input form="meet_upload_form" id="meet_file" name="meet_file" type="file" accept=".csv,.lxf,.hy3,.zip" style="display:none;" onchange="_fsubmit(document.getElementById('meet_upload_form'))">
                             </label>
                             <span class="file-msg small text-body-secondary ms-1"></span>
                         </div>
@@ -49,7 +49,7 @@
                             {% if active_meet_file %}
                             <a id="meet-preview-btn" href="{{ '/hytek_preview' if active_meet_file.endswith('.csv') else '/lenex_preview' }}" class="btn btn-secondary btn-sm flex-shrink-0">{{ t.btn_preview }}</a>
                             <label class="btn btn-secondary btn-sm m-0 flex-shrink-0" style="cursor:pointer; white-space:nowrap;">
-                                {{ t.meet_update_file_btn }}<input id="meet_update_file" type="file" accept=".csv,.lxf,.hy3" style="display:none;" onchange="updateMeetFile(this)">
+                                {{ t.meet_update_file_btn }}<input id="meet_update_file" type="file" accept=".csv,.lxf,.hy3,.zip" style="display:none;" onchange="updateMeetFile(this)">
                             </label>
                             <button class="btn btn-outline-danger btn-sm flex-shrink-0" type="button" data-hold data-hold-fn="meetDeleteHeld" data-hold-label="{{ t.hold_delete }}">{{ t.btn_delete }}</button>
                             <button class="btn btn-outline-danger btn-sm flex-shrink-0" type="button" data-hold data-hold-href="/meet_clear" data-hold-label="{{ t.hold_delete_all }}">{{ t.btn_delete_all }}</button>

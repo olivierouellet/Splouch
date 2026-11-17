@@ -33,10 +33,13 @@ from meet_data import (
 )
 from meet_parsers.lenex_parser import ROUND_NAMES
 from meet_parsers.meet_file import (
+    extension,
     is_csv,
-    is_meet_file,
+    is_upload,
     load_structured,
     meet_files,
+    store,
+    stored_name,
 )
 from routes.debug import terminal_commands
 from routes.displays import tell_views
@@ -170,8 +173,10 @@ def _meet_update_file(file):
         return {"ok": False, "error": "No meet is loaded to update."}
     if not file or not file.filename:
         return {"ok": False, "error": "No file selected."}
-    ext = os.path.splitext(file.filename)[1].lower()
-    active_ext = os.path.splitext(state._active_meet_file)[1].lower()
+    # A zip is checked as the `.hy3` it holds, so it can update a `.hy3` meet.
+    name = stored_name(file.filename)
+    ext = extension(name)
+    active_ext = extension(state._active_meet_file)
     if ext != active_ext:
         return {
             "ok": False,
@@ -179,9 +184,14 @@ def _meet_update_file(file):
         }
 
     tmp = os.path.join(state.MEET_FOLDER, ".update_candidate" + ext)
-    save_upload(file, tmp)
+    raw = os.path.join(state.MEET_FOLDER, ".update_upload" + extension(file.filename))
+    save_upload(file, raw)
     try:
-        new_uid = _candidate_meet_uid(tmp, file.filename)
+        store(raw, tmp, file.filename)
+    except ValueError as e:
+        return {"ok": False, "error": f"Could not read that file: {e}."}
+    try:
+        new_uid = _candidate_meet_uid(tmp, name)
     except Exception:
         os.remove(tmp)
         return {"ok": False, "error": "Could not read that file."}
@@ -440,11 +450,20 @@ def _settings_view(request, form):
 
         if "meet_file" in form and state._test_session is None:
             file = form["meet_file"]
-            if file and file.filename and is_meet_file(file.filename):
+            if file and file.filename and is_upload(file.filename):
                 # Keep other meet files (e.g. each day of a split meet); only
                 # the uploaded name is overwritten. Manage the rest via Delete.
-                dest = os.path.join(state.MEET_FOLDER, os.path.basename(file.filename))
-                save_upload(file, dest)
+                dest = os.path.join(state.MEET_FOLDER, stored_name(file.filename))
+                tmp = os.path.join(
+                    state.MEET_FOLDER, ".upload" + extension(file.filename)
+                )
+                save_upload(file, tmp)
+                try:
+                    store(tmp, dest, file.filename)
+                except ValueError as e:
+                    return PlainTextResponse(
+                        f"Could not read {os.path.basename(file.filename)}: {e}"
+                    )
                 err = _load_meet_file(dest)
                 if err:
                     return PlainTextResponse(err)
