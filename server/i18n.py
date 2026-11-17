@@ -252,9 +252,20 @@ def parse_event_name(raw, round_key="", as_is=False):
         age = "< " + num
         s_rest = s[: age_m.start()] + s[age_m.end() :]
     else:
-        range_m = re.search(r"\b(\d{1,2}-\d{1,2})\b", s)
-        if range_m:
-            age = range_m.group(1)
+        # `13 & Over`, `13 and over`, `13+`: written `13+`, as `age_band` writes a
+        # Lenex AGEGROUP with no upper limit. Before this the band was dropped,
+        # and in a name with no distance unit its `13` was read as the distance.
+        over_m = re.search(
+            r"\b(\d{1,2})\s*(?:(?:&|and)\s*[Oo]ver\b|\+)", s, re.IGNORECASE
+        )
+        range_m = re.search(r"\b(\d{1,2})-(\d{1,2})\b", s)
+        if over_m:
+            age = over_m.group(1) + "+"
+            s_rest = s[: over_m.start()] + s[over_m.end() :]
+        elif range_m:
+            lo, hi = range_m.groups()
+            # One age, `8-8`, reads as `age_band` writes it: `8`.
+            age = lo if lo == hi else f"{lo}-{hi}"
             s_rest = s[: range_m.start()] + s[range_m.end() :]
         elif re.search(r"\bopen\b", s, re.IGNORECASE):
             age_key = "open"

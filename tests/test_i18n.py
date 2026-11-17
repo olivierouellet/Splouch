@@ -1072,3 +1072,18 @@ def test_no_string_a_template_reads_as_t_dot_key_is_shadowed_by_dict():
     assert not offenders, (
         "these keys render as a dict method, not their string: " + ", ".join(offenders)
     )
+
+
+@pytest.mark.parametrize(
+    ("raw", "age", "dist"),
+    [
+        ("Women 15 & Over 100 Individual Medley", "15+", "100"),
+        ("Mixed 13 and over 200 Freestyle Relay", "13+", "200"),
+        ("Boys 17+ 50 Free", "17+", "50"),
+        ("Girls 8-8 25 Backstroke", "8", "25"),
+        ("Girls 9-10 50 Fly", "9-10", "50"),
+    ],
+)
+def test_an_open_ended_or_single_age_band_parses(raw, age, dist):
+    parts = state.parse_event_name(raw)
+    assert (parts["age"], parts["dist"]) == (age, dist)
