@@ -519,7 +519,8 @@ def test_the_schedule_keeps_the_events_name(pi):
     ("pool", "lanes"),
     [
         ('<POOL name="Centre" lanemin="0" lanemax="9"/>', [0, 9]),
-        ('<POOL lanemax="8"/>', [1, 8]),
+        ('<POOL lanemax="9"/>', [0, 9]),
+        ('<POOL lanemin="1" lanemax="9"/>', [1, 9]),
         ('<POOL name="Centre"/>', None),
         ('<POOL lanemax="x"/>', None),
         ('<POOL lanemin="3" lanemax="8"/>', None),
@@ -527,9 +528,17 @@ def test_the_schedule_keeps_the_events_name(pi):
     ],
 )
 def test_the_files_pool_lanes(pool, lanes):
-    """Settings checks its lanes against these (Settings → Meet)."""
+    """Settings checks its lanes against these (Settings → Meet). The meet seeds
+    lane 0, which a POOL without `lanemin` counts as its first lane."""
     xml = MEET.replace('course="SCM">', f'course="SCM">{pool}').replace("{final}", "")
     assert load_lenex(_lxf(xml)).meet_info.get("lanes_lenex") == lanes
+
+
+def test_a_pool_without_lane_0_starts_at_lane_1():
+    """No `lanemin` and no swim in lane 0: lanes 1 to `lanemax`."""
+    xml = MEET.replace('course="SCM">', 'course="SCM"><POOL lanemax="8"/>')
+    xml = xml.replace('lane="0"', 'lane="1"').replace("{final}", "")
+    assert load_lenex(_lxf(xml)).meet_info["lanes_lenex"] == [1, 8]
 
 
 @pytest.mark.parametrize("audience", ["board", "phone"])

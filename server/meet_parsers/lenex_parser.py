@@ -84,13 +84,17 @@ def age_band(agemin, agemax):
     return ""
 
 
-def _pool_lanes(pool_el):
-    """``[first, last]`` lane of a POOL, ``None`` without a usable `lanemax`."""
+def _pool_lanes(pool_el, uses_lane_0=False):
+    """``[first, last]`` lane of a POOL, ``None`` without a usable `lanemax`.
+
+    Without a `lanemin`, the pool starts at lane 1 unless the file seeds or times
+    a swim in lane 0: SPLASH writes only `lanemax` for a pool numbered 0–9.
+    """
     if pool_el is None:
         return None
     try:
         last = int(pool_el.get("lanemax", ""))
-        first = int(pool_el.get("lanemin") or 1)
+        first = int(pool_el.get("lanemin") or (0 if uses_lane_0 else 1))
     except ValueError:
         return None
     if first not in (0, 1) or not first < last <= 12:
@@ -589,7 +593,12 @@ def load_lenex(path):
         meet_info["pool"] = pool_el.get("name", "") if pool_el is not None else ""
         # The pool's lanes as the file has them, for Settings to check its own
         # against: `lanemin` is 1 unless the pool is numbered from lane 0.
-        lanes = _pool_lanes(pool_el)
+        uses_lane_0 = any(
+            (el.get("lane") or "").strip() == "0"
+            for tag in ("ENTRY", "RESULT")
+            for el in find(meet_el, tag)
+        )
+        lanes = _pool_lanes(pool_el, uses_lane_0)
         if lanes:
             meet_info["lanes_lenex"] = lanes
         meet_info["sessions"] = [
