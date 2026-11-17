@@ -33,8 +33,9 @@ Append `?test` to `/live` to overlay mode buttons (Intro, Running, Results, Next
 
 1. In Splash Meet Manager: **File → Export → Lenex** → save as a `.lxf` file.
 2. In **Settings → Meet Setup**, click **Add Meet File** and upload the `.lxf` — swimmer and
-   club names go live on the scoreboard immediately. *(Alternatively, upload a Hytek `.csv`
-   event schedule so event names appear in the header.)*
+   club names go live on the scoreboard immediately. *(Alternatively, upload a Hy-Tek
+   `.hy3` export, unzipped — names, heats and relay swimmers — or a Hy-Tek `.csv` heat
+   sheet.)*
 3. Turn on Pi #2: the TV boots straight into the scoreboard. Any other screen can open
    `http://splouch.local/` in a browser.
 4. Start the timing console — times appear automatically as heats run.
@@ -60,7 +61,7 @@ times, which need a console. Full guide: [manual.md](consoles/manual.md).
 
 | Tab | Description |
 | --- | --- |
-| **Meet Setup** | Upload Lenex `.lxf` / Hytek `.csv` meet files; pool length, touchpads, lane count, first lane (1, or 0 for a pool numbered from lane 0); **Show event names as in the meet file**, for the loaded meet only: names are shown as written instead of read as swimming events and translated (artistic swimming, diving), the round still added |
+| **Meet Setup** | Upload Lenex `.lxf` / Hy-Tek `.hy3` or `.csv` meet files; pool length, touchpads, lane count, first lane (1, or 0 for a pool numbered from lane 0); **Show event names as in the meet file**, for the loaded meet only: names are shown as written instead of read as swimming events and translated (artistic swimming, diving), the round still added |
 | **Timing** | Console model, then which of its outputs is wired, its decoder options (shown only for that console), serial port, connection status, serial monitor (raw hex packets), finish debounce. Choosing **Manual — no timing console** drops the port, badge and monitor and links to `/manual` |
 | **Clock** | Sync with NTP; set date and time manually when offline; install/remove Adafruit PiRTC (DS3231) hardware clock |
 | **Appearance** (Displays) | Show/hide column headers and columns (Name, Club, Delta, Position); podium highlighting; the lane order and results order a new TV starts with (results order also sets this Pi's web pages); which Lenex rounds (Final, Prelims, …) follow the event name on the scoreboard |
@@ -92,7 +93,7 @@ stays open on the LAN, as the displays need it.
 
 | Path | Contents |
 | --- | --- |
-| `~/SplouchData/meet/` | Lenex `.lxf` and Hytek `.csv` meet files (uploaded via Meet Setup, or [placed here manually](#manual-and-cli-reference)) |
+| `~/SplouchData/meet/` | Lenex `.lxf` and Hy-Tek `.hy3` / `.csv` meet files (uploaded via Meet Setup, or [placed here manually](#manual-and-cli-reference)) |
 | `~/SplouchData/images/` | Sponsor or club logo images for the splash screen |
 | `~/SplouchData/icons/` | Home-screen icon for the phone pages (Cloud tab) |
 | `~/SplouchData/picker/` | Meet image shown on the cloud's meet picker (Cloud tab) |
@@ -338,7 +339,7 @@ lower-level tools for when you're SSH'd into Pi #1.
 
 ### Load meet files manually
 
-Instead of uploading in **Meet Setup**, copy `.lxf` / `.csv` files to `~/SplouchData/meet/`.
+Instead of uploading in **Meet Setup**, copy `.lxf` / `.hy3` / `.csv` files to `~/SplouchData/meet/`.
 They appear in the Meet Setup file dropdown — select one to load it live.
 
 ### Service management
@@ -412,8 +413,8 @@ Heat) sur le tableau — utile pour tester sans console branchée.
 1. Dans Splash Meet Manager : **Fichier → Exporter → Lenex** → enregistrez un fichier `.lxf`.
 2. Dans **Réglages → Compétition**, cliquez sur **Ajouter un fichier** et téléversez le
    `.lxf` — les noms des nageurs et des clubs apparaissent aussitôt sur le tableau.
-   *(Sinon, téléversez un programme d'épreuves Hytek `.csv` pour que le nom des épreuves
-   s'affiche dans l'en-tête.)*
+   *(Sinon, téléversez un export Hy-Tek `.hy3`, décompressé — noms, séries et nageurs des
+   relais — ou une feuille de séries Hy-Tek `.csv`.)*
 3. Allumez le Pi n° 2 : le téléviseur démarre directement sur le tableau. Tout autre écran peut
    ouvrir `http://splouch.local/` dans un navigateur.
 4. Démarrez la console de chronométrage — les temps apparaissent automatiquement au fil des
@@ -437,7 +438,7 @@ la série et chaque nageur — tout sauf les temps, qui exigent une console. Gui
 
 | Onglet | Description |
 | --- | --- |
-| **Compétition** | Téléverser les fichiers Lenex `.lxf` / Hytek `.csv` ; longueur du bassin, plaques de touche, nombre de couloirs ; **Afficher les noms d’épreuve tels quels**, pour la compétition chargée seulement : les noms sont affichés tels qu’écrits au lieu d’être lus comme des épreuves de natation et traduits (natation artistique, plongeon), le tour toujours ajouté |
+| **Compétition** | Téléverser les fichiers Lenex `.lxf` / Hy-Tek `.hy3` ou `.csv` ; longueur du bassin, plaques de touche, nombre de couloirs ; **Afficher les noms d’épreuve tels quels**, pour la compétition chargée seulement : les noms sont affichés tels qu’écrits au lieu d’être lus comme des épreuves de natation et traduits (natation artistique, plongeon), le tour toujours ajouté |
 | **Chronométrage** | Type de console et port série, état de la connexion, moniteur série (paquets hexadécimaux bruts), anti-rebond d'arrivée. Choisir **Manuel — sans console de chronométrage** retire le port, le badge et le moniteur, et renvoie vers `/manual` |
 | **Horloge** | Synchronisation NTP ; réglage manuel de la date et de l'heure hors ligne ; installer/retirer l'horloge matérielle Adafruit PiRTC (DS3231) |
 | **Affichage** | Afficher/masquer les en-têtes et les colonnes (Nom, Club, Écart, Position) ; mise en valeur du podium ; quelles phases Lenex (Finale, Préliminaires, …) suivent le nom de l’épreuve, une fois pour le tableau et une fois pour les téléphones ; l’ordre dans lequel les applis listent les couloirs tant qu’un spectateur ne les inverse pas (dernier couloir en haut pour des gradins qui les voient ainsi) |
@@ -468,7 +469,7 @@ en ont besoin.
 
 | Chemin | Contenu |
 | --- | --- |
-| `~/SplouchData/meet/` | Fichiers de compétition Lenex `.lxf` et Hytek `.csv` (téléversés via Compétition, ou [déposés ici à la main](#référence-manuelle-et-cli)) |
+| `~/SplouchData/meet/` | Fichiers de compétition Lenex `.lxf` et Hy-Tek `.hy3` / `.csv` (téléversés via Compétition, ou [déposés ici à la main](#référence-manuelle-et-cli)) |
 | `~/SplouchData/images/` | Logos de commanditaires ou de clubs pour l'écran d'accueil |
 | `~/SplouchData/icons/` | Icône d'écran d'accueil des pages mobiles (onglet Nuage) |
 | `~/SplouchData/picker/` | Image de la compétition dans le sélecteur du cloud (onglet Nuage) |
@@ -662,7 +663,7 @@ n° 1.
 
 #### Charger des fichiers de compétition à la main
 
-Au lieu de les téléverser dans **Compétition**, copiez les fichiers `.lxf` / `.csv` dans
+Au lieu de les téléverser dans **Compétition**, copiez les fichiers `.lxf` / `.hy3` / `.csv` dans
 `~/SplouchData/meet/`. Ils apparaissent dans la liste déroulante de Compétition —
 sélectionnez-en un pour le charger en direct.
 

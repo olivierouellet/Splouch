@@ -8,6 +8,7 @@ from pydantic import BaseModel
 
 import state
 from meet_data import _build_meet_data, build_heats, meet_changed, send_event_info
+from meet_parsers.meet_file import meet_files
 from web import client_strings, redirect, render, require_login, require_role
 
 router = APIRouter(tags=["Meet"])
@@ -139,11 +140,7 @@ def route_lenex_preview(request: Request):
     "/meet_status", response_model=MeetStatus, dependencies=[Depends(require_login)]
 )
 def route_meet_status():
-    file_list = sorted(
-        os.path.basename(f)
-        for f in glob.glob(os.path.join(state.MEET_FOLDER, "*.csv"))
-        + glob.glob(os.path.join(state.MEET_FOLDER, "*.lxf"))
-    )
+    file_list = sorted(os.path.basename(f) for f in meet_files(state.MEET_FOLDER))
     return {
         "file_list": file_list,
         "active": state._active_meet_file,
@@ -190,9 +187,7 @@ def route_meet_keep_listed():
 
 @router.get("/meet_clear", dependencies=[Depends(require_login)])
 def route_meet_clear():
-    for f in glob.glob(os.path.join(state.MEET_FOLDER, "*.csv")) + glob.glob(
-        os.path.join(state.MEET_FOLDER, "*.lxf")
-    ):
+    for f in meet_files(state.MEET_FOLDER):
         os.remove(f)
     # Every meet file is gone, so every meet's console times go with them.
     for f in glob.glob(os.path.join(state.CONSOLE_TIMES_DIR, "*.jsonl")):

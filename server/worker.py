@@ -34,7 +34,7 @@ from meet_data import (
     heat_step,
     send_event_info,
 )
-from meet_parsers.lenex_parser import load_lenex
+from meet_parsers.meet_file import is_csv, load_structured
 from splouch_times import wire_time
 
 
@@ -56,10 +56,10 @@ def _load_meet_from_disk(filename):
     if not filename or not os.path.isfile(path):
         return False
     try:
-        if path.lower().endswith(".csv"):
+        if is_csv(path):
             state.load_event_info(path)
         else:
-            state.set_lenex(load_lenex(path))
+            state.set_lenex(load_structured(path))
         return True
     except Exception:
         print(f"[test] could not restore {filename}", flush=True)

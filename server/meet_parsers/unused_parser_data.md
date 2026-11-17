@@ -83,3 +83,18 @@ computed per-entry (typically 6).
 | **Age** | `row.index("Age", lane_header, 107) + column_offset` | Individual events only. Integer string, e.g. `"10"`. |
 | **Relay member names** | Rows 105–108 after the relay entry | Each row is `"Lastname, Firstname Age"`. Up to 4 swimmers per relay team. |
 | **Qualifying standard** | Two rows after seed time value | A label like `"DIST"`, `"AAA"`, `"BB"`. Not always present. |
+
+---
+
+## Hy-Tek HY3
+
+Read by `hy3_parser.load_hy3`; columns 1-based. Not read yet:
+
+| Record | Field | Notes |
+| --- | --- | --- |
+| `D1` | nickname 49-68, birth date 89-96, age 97-99 | The preferred name, and the swimmer's age. |
+| `E1` / `F1` | converted seed 43-50, exhibition 84 (`X`) | An exhibition swimmer is shown like any other. |
+| `E2` / `F2` | course 12, places 27-33, reaction times | |
+| `G1` | splits | Official splits. |
+| `H1` / `H2` | disqualification text | The reason for a `DSQ`. |
+| `C2` / `C3` | team address and contacts | |

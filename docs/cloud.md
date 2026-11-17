@@ -26,7 +26,7 @@ The relay is two apps on one VM: a **worker** that carries a meet's live frames,
 
 - Pi #1 opens a single outbound connection — works behind double-NAT with no port forwarding required.
 - The cloud server re-emits events to all attendees; Pi #1 is unaffected by attendee load.
-- Only scoreboard, results, and schedule data is exposed — meet files (`.lxf`, `.csv`) are never sent.
+- Only scoreboard, results, and schedule data is exposed — meet files (`.lxf`, `.hy3`, `.csv`) are never sent.
 - Multiple organizers can share one cloud server simultaneously, each with their own revocable key.
 - Caddy handles HTTPS and auto-renews Let's Encrypt certificates — no manual certificate management.
 
@@ -587,7 +587,7 @@ compétitions, le panneau d'administration et les données
 - Le serveur cloud relaie les événements à tous les spectateurs ; leur nombre n'affecte pas
   le Pi n° 1.
 - Seules les données du tableau, des résultats et du programme sont exposées — les fichiers
-  de compétition (`.lxf`, `.csv`) ne sont jamais envoyés.
+  de compétition (`.lxf`, `.hy3`, `.csv`) ne sont jamais envoyés.
 - Plusieurs organisateurs peuvent partager un même serveur cloud en même temps, chacun avec
   sa propre clé révocable.
 - Caddy gère le HTTPS et renouvelle automatiquement les certificats Let's Encrypt — aucune

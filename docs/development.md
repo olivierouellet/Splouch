@@ -58,7 +58,7 @@ Pi #1 /dev/ttyUSB0
   │     emit → /results channel    → results pages
   │
   ├── meet_data.py
-  │     Lenex / Hytek lookup → swimmer name + club per lane
+  │     Lenex / Hy-Tek lookup → swimmer name + club per lane
   │
   └── relay.py (optional)
         outbound WebSocket to cloud server

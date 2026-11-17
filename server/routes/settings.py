@@ -1,4 +1,3 @@
-import glob
 import json
 import os
 import re
@@ -32,7 +31,13 @@ from meet_data import (
     results_summary,
     send_event_info,
 )
-from meet_parsers.lenex_parser import ROUND_NAMES, load_lenex
+from meet_parsers.lenex_parser import ROUND_NAMES
+from meet_parsers.meet_file import (
+    is_csv,
+    is_meet_file,
+    load_structured,
+    meet_files,
+)
 from routes.debug import terminal_commands
 from routes.displays import tell_views
 from routes.qr import invite as qr_invite
@@ -78,10 +83,10 @@ def _load_meet_file(path):
     state._results_prev_race_finished = False
     state._finish_timer_gen += 1
     try:
-        if path.endswith(".csv"):
+        if is_csv(path):
             state.load_event_info(path)
         else:
-            state.set_lenex(load_lenex(path))
+            state.set_lenex(load_structured(path))
     except Exception:
         state.clear_meet()
         traceback.print_exc()
@@ -118,10 +123,10 @@ def _reload_same_meet(path):
     Returns an error string or None.
     """
     try:
-        if path.endswith(".csv"):
+        if is_csv(path):
             state.load_event_info(path)
         else:
-            state.set_lenex(load_lenex(path))
+            state.set_lenex(load_structured(path))
     except Exception:
         traceback.print_exc()
         return f"Could not read {os.path.basename(path)} — see the log"
@@ -138,9 +143,9 @@ def _candidate_meet_uid(path, name):
     meet_uid() computed when the meet was first loaded.
     """
     base = os.path.basename(name)
-    if path.endswith(".csv"):
+    if is_csv(path):
         return state.uid_from_meet_info({}, base)
-    data = load_lenex(path)
+    data = load_structured(path)
     return state.uid_from_meet_info(data.meet_info, base)
 
 
@@ -435,19 +440,15 @@ def _settings_view(request, form):
 
         if "meet_file" in form and state._test_session is None:
             file = form["meet_file"]
-            if file and file.filename:
-                ext = os.path.splitext(file.filename)[1].lower()
-                if ext in (".csv", ".lxf"):
-                    # Keep other meet files (e.g. each day of a split meet); only
-                    # the uploaded name is overwritten. Manage the rest via Delete.
-                    dest = os.path.join(
-                        state.MEET_FOLDER, os.path.basename(file.filename)
-                    )
-                    save_upload(file, dest)
-                    err = _load_meet_file(dest)
-                    if err:
-                        return PlainTextResponse(err)
-                    modified = True
+            if file and file.filename and is_meet_file(file.filename):
+                # Keep other meet files (e.g. each day of a split meet); only
+                # the uploaded name is overwritten. Manage the rest via Delete.
+                dest = os.path.join(state.MEET_FOLDER, os.path.basename(file.filename))
+                save_upload(file, dest)
+                err = _load_meet_file(dest)
+                if err:
+                    return PlainTextResponse(err)
+                modified = True
 
         if "meet_file_load_submit" in form and state._test_session is None:
             selected = form.get("meet_file_select", "").strip()
@@ -946,11 +947,7 @@ def _settings_view(request, form):
         if os.path.isfile(os.path.join(state.IMAGES_DIR, f))
     )
 
-    meet_file_list = sorted(
-        os.path.basename(f)
-        for f in glob.glob(os.path.join(state.MEET_FOLDER, "*.csv"))
-        + glob.glob(os.path.join(state.MEET_FOLDER, "*.lxf"))
-    )
+    meet_file_list = sorted(os.path.basename(f) for f in meet_files(state.MEET_FOLDER))
 
     ui_lang = state.ui_locale(request)
     # Whether the user has explicitly pinned a panel language (vs. "Auto"). Only

@@ -1,7 +1,6 @@
 import base64
 import collections
 import contextlib
-import glob
 import hashlib
 import importlib.util
 import json
@@ -33,7 +32,7 @@ from i18n import (
     translate_event_name as translate_event_name,
 )
 from meet_parsers.hytek_parser import HytekParser
-from meet_parsers.lenex_parser import load_lenex
+from meet_parsers.meet_file import STRUCTURED, load_structured, meet_files
 
 # Re-export only — nothing in this module reads these. The redundant `X as X` is
 # what says so: it is the explicit re-export form, so this block keeps being
@@ -1056,14 +1055,14 @@ def load_settings():
     merge_theme_defaults()
     if migrate_password():
         save_settings()
-    csv_files = glob.glob(os.path.join(MEET_FOLDER, "*.csv"))
+    csv_files = meet_files(MEET_FOLDER, (".csv",))
     if csv_files:
         with contextlib.suppress(Exception):
             load_event_info(max(csv_files, key=os.path.getmtime))
-    lxf_files = glob.glob(os.path.join(MEET_FOLDER, "*.lxf"))
-    if lxf_files:
+    structured = meet_files(MEET_FOLDER, tuple(STRUCTURED))
+    if structured:
         with contextlib.suppress(Exception):
-            set_lenex(load_lenex(max(lxf_files, key=os.path.getmtime)))
+            set_lenex(load_structured(max(structured, key=os.path.getmtime)))
     _apply_console_type()
 
 
