@@ -503,6 +503,7 @@ def test_omnisport_a_nameless_line_is_an_empty_lane():
     assert d.feed(_rtd(0, "    0.1  ")).get("lane_running2") is True
     stopped = d.feed(_rtd(_line_offset(2), _named_line(2, "")))
     assert stopped["lane_running2"] is False
+    assert stopped["lane_time2"] == ""
 
 
 def test_omnisport_a_line_erased_whole_after_the_gun_is_a_scratch():
@@ -511,7 +512,11 @@ def test_omnisport_a_line_erased_whole_after_the_gun_is_a_scratch():
     for n in range(1, 5):
         d.feed(_rtd(_line_offset(n), _named_line(n - 1, f"SWIMMER {n}")))
     d.feed(_rtd(0, "    0.1  "))
-    assert d.feed(_rtd(_line_offset(1), " " * 36)) == {"lane_running1": False}
+    assert d.feed(_rtd(_line_offset(1), " " * 36)) == {
+        "lane_running1": False,
+        "lane_time1": "",
+        "lane_place1": " ",
+    }, "stopped and blanked: no frozen clock left in the cell"
     for n in range(2, 5):
         d.feed(
             _rtd(_line_offset(n), _named_line(n - 1, f"SWIMMER {n}", str(n), "58.21"))
@@ -525,6 +530,18 @@ def test_omnisport_an_erased_line_out_of_lane_order_says_nothing():
     d.feed(_rtd(_line_offset(1), _named_line(2, "SWIMMER 3")))
     d.feed(_rtd(0, "    0.1  "))
     assert d.feed(_rtd(_line_offset(2), " " * 36)) == {}
+
+
+def test_omnisport_a_line_never_a_lanes_says_nothing_when_rewritten_blank():
+    """Line 4 was blank from the start (a 3-lane heat): blank again is no scratch."""
+    d = Omnisport2000Decoder({"num_lanes": 4, "first_lane": 0})
+    for n in range(1, 4):
+        d.feed(_rtd(_line_offset(n), _named_line(n - 1, f"SWIMMER {n}")))
+    d.set_heat_lanes({1, 2, 3, 4})
+    d._named.clear()  # the console's names are not what is under test
+    d.feed(_rtd(0, "    0.1  "))
+    assert d.feed(_rtd(_line_offset(4), " " * 36)) == {}
+    assert d.lane_running[4] is True
 
 
 def _preview(offset: int, data: str) -> list[int]:

@@ -149,6 +149,9 @@ class RtdSwimmingDecoder(ConsoleDecoder):
         # Whether the console's own line for a lane carries a swimmer's name, from
         # the last write of that line on either page.
         self._named: dict[int, bool] = {}
+        # The lane each line last carried, so an erased line is known to be that
+        # lane's, and not a line that was blank all along.
+        self._line_lane: dict[int, int] = {}
         self.lane_times: dict[int, str] = {}
         self.lane_places: dict[int, str] = {}
         self.lane_running: dict[int, bool] = {}
@@ -438,11 +441,16 @@ class RtdSwimmingDecoder(ConsoleDecoder):
         Seen on an OmniSport a few seconds after the gun, for a lane whose swimmer
         did not start. Its lane comes from its position — only while the other lines
         say the board is in lane order — and a lane that holds a time is left alone:
-        the blank line is then a re-sort, not a scratch.
+        the blank line is then a re-sort, not a scratch. The line must also have
+        carried that very lane before, so a line that was never a lane's says
+        nothing.
         """
+        was = self._line_lane.pop(n, 0)
         if not self._race_active or self._field(base, LINE_STRIDE).strip():
             return
-        if not 1 <= n <= self.num_lanes or not self._lines_in_lane_order():
+        if was != n or not 1 <= n <= self.num_lanes:
+            return
+        if not self._lines_in_lane_order():
             return
         self._named[n] = False
         if (
@@ -450,8 +458,21 @@ class RtdSwimmingDecoder(ConsoleDecoder):
             and not self.lane_times.get(n)
             and n not in self._held
         ):
-            self.lane_running[n] = False
-            updates[f"lane_running{n}"] = False
+            self._empty_lane(n, updates)
+
+    def _empty_lane(self, lane: int, updates: dict) -> None:
+        """Stop a lane nobody swims in, and blank its cell.
+
+        `lane_running=False` alone leaves the clock's last frame in the cell — the
+        browser keeps what it painted, the Qt board flashes it as a locked time —
+        so the time and place are sent blank with it: an empty lane shows nothing.
+        """
+        self.lane_running[lane] = False
+        self.lane_times[lane] = ""
+        self.lane_places[lane] = " "
+        updates[f"lane_running{lane}"] = False
+        updates[f"lane_time{lane}"] = ""
+        updates[f"lane_place{lane}"] = " "
 
     def _read_line(self, n: int, base: int, max_lengths: int, updates: dict) -> None:
         result = self._line_result(n, base)
@@ -461,6 +482,7 @@ class RtdSwimmingDecoder(ConsoleDecoder):
         if not 1 <= lane <= self.num_lanes:
             self._erased_line(n, base, updates)
             return
+        self._line_lane[n] = lane
         named = bool(self._field(base + LINE_NAME[0], LINE_NAME[1]).strip())
         self._named[lane] = named
 
@@ -485,8 +507,7 @@ class RtdSwimmingDecoder(ConsoleDecoder):
             ):
                 # The console names its swimmers and this lane has none: nobody
                 # will ever touch here, so it must not hold the heat open.
-                self.lane_running[lane] = False
-                updates[f"lane_running{lane}"] = False
+                self._empty_lane(lane, updates)
             return
         if not raw_time:
             return
