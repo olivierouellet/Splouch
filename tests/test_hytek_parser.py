@@ -108,3 +108,46 @@ class TestHytekParser:
             make_row("#1 Girls 100 Freestyle", 1, 3, "Smith, Jane", "AQUA")
         )
         assert loader.get_display_string(1, 1, 9) == ""
+
+
+def _seeded(event_spec, heat, lane, name, seed):
+    row = make_row(event_spec, heat, lane, name, "AQUA")
+    row[LANE_HEADER + 4 + 6] = seed  # "Seed Time" value, at its header + offset
+    return row
+
+
+def test_a_scratched_swimmer_leaves_the_lane_empty():
+    """As a Lenex meet's withdrawn swimmer does; the heat itself stays."""
+    loader = load_rows(
+        _seeded("#1 Girls 100 Free", 1, 3, "Smith, Jane", "1:05.00"),
+        _seeded("#1 Girls 100 Free", 1, 4, "Doe, Mary", "SCR"),
+        _seeded("#1 Girls 100 Free", 2, 4, "Roy, Julie", "SCR"),
+        _seeded("#1 Girls 100 Free", 1, 5, "Lee, Ann", "NT"),
+    )
+    assert sorted(loader.events[(1, 1)]) == [3, 5]
+    assert loader.events[(1, 2)] == {}
+    assert loader.seed_times[(1, 1)] == {3: "1:05.00", 5: ""}
+
+
+def test_a_hytek_event_counts_its_lengths_from_its_name(monkeypatch):
+    """No distance column: `expected_splits` stayed 0 and no board counted laps."""
+    import meet_data
+    import state
+
+    loader = load_rows(
+        make_row("#1 Girls 100 Freestyle", 1, 3, "Smith, Jane", "AQUA"),
+        make_row("#2 Mixed 4x50 Free Relay", 1, 3, "", "AQUA", relay=True),
+        make_row("#3 Mixed 200 Medley Relay", 1, 3, "", "AQUA", relay=True),
+        make_row("#4 Fun Swim", 1, 3, "Smith, Jane", "AQUA"),
+    )
+    monkeypatch.setattr(state, "meet", state._Meet(event_info=loader))
+    assert [meet_data.event_distance(ev) for ev in (1, 2, 3, 4, 9)] == [
+        100,
+        200,
+        200,
+        0,
+        0,
+    ]
+    # The meet file's own distance wins over the name's.
+    monkeypatch.setattr(state.meet, "event_distances", {1: 50})
+    assert meet_data.event_distance(1) == 50

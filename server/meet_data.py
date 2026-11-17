@@ -55,6 +55,24 @@ def _raw_event_name(event_num):
     return m.event_names.get(event_num) or m.event_info.get_event_name(event_num)
 
 
+def event_distance(event_num, m=None):
+    """The distance *event_num* swims, in the pool's unit; 0 when unknown.
+
+    The meet file's when it says (Lenex SWIMSTYLE), else read from the event's
+    name: a Hy-Tek CSV has no distance column, only `100 Free`, and without one
+    `expected_splits` stayed 0 and no board counted laps. A relay named `4x50`
+    swims 200.
+    """
+    m = m or state.meet
+    if event_num in m.event_distances:
+        return m.event_distances[event_num]
+    parts = state.parse_event_name(_raw_event_name(event_num)) or {}
+    legs, x, leg = parts.get("dist", "").lower().partition("x")
+    if x:
+        return int(legs) * int(leg) if legs.isdigit() and leg.isdigit() else 0
+    return int(legs) if legs.isdigit() else 0
+
+
 def _round_shown(kind, shared, audience):
     """*kind* (a round key) if *audience* is shown it, else ``""``. A phone is
     always shown the round of a number several rounds share: its Schedule lists

@@ -11,7 +11,7 @@ CSV column layout (observed in MM4–MM8 exports):
     "Relay"      — relay events: relay letter (A/B/…) at +offset
     "Age"        — swimmer age at +offset
     "Team"       — club/team code at +offset
-    "Seed Time"  — seed time string at +offset ("NT" / "SCR" = no seed)
+    "Seed Time"  — seed time string at +offset ("NT" = no seed, "SCR" = scratched)
     "Heat N of M Finals" — heat label at offset-1
 
   Column offset is 6, 7, or 8 depending on the MM version; auto-detected
@@ -104,13 +104,19 @@ class HytekParser:
 
         # ── Seed time ─────────────────────────────────────────────────────────
         seed = ""
+        key = (event_num, heat_num)
         if "Seed Time" in headers:
             raw_seed = row[lane_hdr + headers.index("Seed Time") + offset]
-            if raw_seed not in ("NT", "SCR", ""):
+            if raw_seed == "SCR":
+                # Scratched: the lane stays empty, as a Lenex meet's withdrawn
+                # swimmer's does. The heat is still kept, even if all scratched.
+                self.events.setdefault(key, {})
+                self.seed_times.setdefault(key, {})
+                return
+            if raw_seed not in ("NT", ""):
                 seed = raw_seed
 
         # ── Store ──────────────────────────────────────────────────────────────
-        key = (event_num, heat_num)
         self.events.setdefault(key, {})[lane_num] = entry
         self.seed_times.setdefault(key, {})[lane_num] = seed
 

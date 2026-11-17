@@ -24,6 +24,7 @@ from meet_data import (
     announce_schedule,
     current_round,
     delta_fields,
+    event_distance,
     get_event_name_display,
     get_event_name_parts,
     get_lane_alt,
@@ -295,7 +296,7 @@ def _on_event_changed(updates, ev, ht):
     updates["event_name_parts"] = get_event_name_parts(ev, ht)
     updates["heat_time"] = m.heat_times.get(ev, {}).get(ht, "")
     pool_len = int(state.settings.get("pool_length", 25))
-    dist = m.event_distances.get(ev, 0)
+    dist = event_distance(ev, m)
     updates["expected_splits"] = (dist // pool_len) if (dist and pool_len) else 0
     # How much one counted split is worth in this pool (docs/api.md §5.1). Both
     # numbers come from the venue, not from the console: a display needs them to know
