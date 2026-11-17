@@ -39,7 +39,7 @@ Weighed and left for later, most useful first. Each changes the apps' contract
 
 | Attribute | Example | Notes |
 | --- | --- | --- |
-| `technique` | `"BREASTSTROKE"` | Used in some masters meets to specify a non-standard stroke variation. |
+| `code` | `"KICK25"` | A special event's short code; its `name` is used instead. |
 
 ### `RESULT` element
 
@@ -57,7 +57,7 @@ Parsed since Meet Manager results reach the Schedule (`swimtime`, `status`, `lan
 
 | Attribute | Example | Notes |
 | --- | --- | --- |
-| `name` | `"Club de natation Avantage"` | Full club name. Currently only `shortname` (e.g. `"AVAN"`) is used. |
+| `name` | `"Club de natation Avantage"` | Full club name. Used only for a relay team's name, and as a lane's club when there is no `shortname` or `code`. |
 | `nation` | `"CAN"` | Country of the club. |
 
 ### `EVENT` / `HEAT` links between rounds

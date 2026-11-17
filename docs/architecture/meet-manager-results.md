@@ -35,7 +35,7 @@ One .lxf holds both the current start list and the results entered so far. A sin
 - Which results to keep, by heat status:
   - `OFFICIAL` and `SEEDED`: **kept**.
   - `INOFFICIAL`: **dropped**. The console time stands in, and by upload time these heats should all be official.
-  - **No status attribute**: **dropped**.
+  - **No status attribute**: the EVENT's status decides; **dropped** without one, unless the file writes no status on any heat or event (an exporter that does not track it), whose results are **kept**.
 - New `LenexData.results`: `{ev: {heat: {lane: {"time": str, "status": str}}}}`. `status` is a Lenex result status (`DSQ`, `DNS`, `DNF`, `WDR`, `EXH`, `SICK`) or empty.
 - **Time format rule (all three times):** the data and wire form is always `HH:MM:SS.hh`. Console times are normalised to it too. Only the display drops a leading `00:` (shown as `MM:SS.hh`, or whatever form each client already uses for seeds). A status with a missing or `NT` time leaves the time empty.
 - The existing safety caps are unchanged.

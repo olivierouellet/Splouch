@@ -38,6 +38,7 @@ prelims      = "Préliminaires"
 fastest_heat = "Série la plus rapide"
 swimoff      = "Barrage"
 timed_final  = "Finale par temps"
+time_trial   = "Essai de temps"
 test_race    = "Course test"
 
 [aliases]

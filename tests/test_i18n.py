@@ -799,6 +799,7 @@ def test_a_round_follows_the_name_in_the_readers_language(lang, expected):
         "fastest_heat",
         "swimoff",
         "timed_final",
+        "time_trial",
     ],
 )
 @pytest.mark.parametrize("lang", ["en", "fr", "es"])

@@ -425,7 +425,7 @@ one broadcast frame serves viewers reading in different languages (`app.md` `T-0
 only one of `age`/`age_key` is ever set. `round` comes from the Lenex EVENT `round`,
 never from the name: `FIN` → `final`, `SEM` → `semifinal`, `QUA` → `quarterfinal`,
 `PRE` → `prelims`, `FHT` → `fastest_heat`, `TIM` → `timed_final`, and `SOP` / `SOQ`
-/ `SOS` → `swimoff`; no `round`, or an unknown code, is `""`. The operator picks
+/ `SOS` → `swimoff`, `TIMETRIAL` → `time_trial`; no `round`, or an unknown code, is `""`. The operator picks
 which rounds show, separately for boards and phones (Settings → Displays →
 Appearance and Settings → Phones → Appearance): the **board** choice decides whether `event_name` ends with the round, the **phone**
 choice whether `round` is set here — so one frame serves both, and a phone that
@@ -711,7 +711,7 @@ for that reason, not because the heat is. An older server sends neither: read `"
 `true` (`app.md` `S-25`).
 
 `seed_course` is the course the seed was swum in when it is not the meet's — `LCM`,
-`SCM` or `SCY`, from the Lenex ENTRY's `entrycourse` or the `.hy3`'s seed course —
+`SCM` or `SCY`, from the Lenex ENTRY's `entrycourse` (against its session's course, else the meet's) or the `.hy3`'s seed course —
 and `""` otherwise, which is nearly always. A long-course seed at a short-course meet
 is no gap at all, so no delta is drawn to it, here or on the board (§5.1 `lane_delta<i>`);
 show the seed with its course beside it (`app.md` `S-27`). Absent from an older server:
@@ -725,7 +725,8 @@ server: read 0 and `""`.
 
 `official` on a heat is true once every lane with a `name` has a `result_time` or a
 `result_status` (`S-23`). Official results come only from heats Meet Manager marks
-`OFFICIAL` or `SEEDED`. Console times arrive between fetches in `results_snapshot`
+`OFFICIAL` or `SEEDED` — the heat's own status, else its event's; a file that writes no status at
+all has its results taken as they are. Console times arrive between fetches in `results_snapshot`
 (§5.2): its `lanes[].channel` is the lane, its `time` is `SS.hh` or `M:SS.hh`.
 
 Every heat in running order — the file's, which is its sessions', not the event
@@ -736,7 +737,8 @@ final like its prelim. A heat is then its `event`, `heat` **and** `round`: `roun
 round's key (`prelims`, `final`, … — the vocabulary of `event_name_parts.round`, §5.1),
 or `""` for a number with one round, which is nearly every number. Without
 `?rounds=1`, each number lists its **live** round only — the last the file has seeded,
-the one the console is on — so a client that keys its cards by event and heat never
+the one the console is on; fastest heats (`fastest_heat`) wait until the rest of their
+event is official — so a client that keys its cards by event and heat never
 sees two alike. With `?rounds=1`, every round is listed, each in its own place in
 running order, with its own console times and results (`app.md` `S-24`). Either way
 the heat's `event_name_parts.round` is set for a shared number, whatever the

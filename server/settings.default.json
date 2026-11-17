@@ -29,7 +29,8 @@
     "quarterfinal",
     "semifinal",
     "final",
-    "swimoff"
+    "swimoff",
+    "time_trial"
   ],
   "round_names_phone": [
     "timed_final",
@@ -38,7 +39,8 @@
     "quarterfinal",
     "semifinal",
     "final",
-    "swimoff"
+    "swimoff",
+    "time_trial"
   ],
   "heat_age_board": true,
   "heat_age_phone": true,
