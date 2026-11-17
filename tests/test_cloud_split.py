@@ -14,8 +14,10 @@ cannot be reached at all.
 import asyncio
 import json
 from types import SimpleNamespace
+from typing import cast
 
 import pytest
+from fastapi import Request
 
 import cloud_control
 import cloud_node
@@ -221,7 +223,8 @@ def test_a_finished_meet_is_served_from_the_node_after_a_restart(wired):
     asyncio.run(cs._on_relay_disconnect("sid-1"))
     cloud_meetstore.close()  # a fresh process
     cloud_node._records.clear()
-    assert cs.route_meet_schedule(meet_id)["heats"][0]["event"] == 1
+    no_query = cast(Request, SimpleNamespace(query_params={}))
+    assert cs.route_meet_schedule(meet_id, no_query)["heats"][0]["event"] == 1
     assert cs.route_meet_config(meet_id)["live"] is False
 
 

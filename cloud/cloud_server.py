@@ -390,11 +390,10 @@ def route_results(request: Request):
     )
 
 
-def _console_key(ev, rounds):
-    """The `console_times` key of event *ev*: `"15/final"` for a number the meet
-    gives several rounds (`rounds`, from `schedule_snapshot`), else `"15"`."""
-    ev = str(ev)
-    return f"{ev}/{rounds[ev]}" if rounds.get(ev) else ev
+def _console_key(ev, rnd):
+    """The `console_times` key of a round: `"15/final"` for a number the meet gives
+    several rounds, else `"15"`."""
+    return f"{ev}/{rnd}" if rnd else str(ev)
 
 
 def _merge_console_times(console, snap, rounds=None):
@@ -415,28 +414,62 @@ def _merge_console_times(console, snap, rounds=None):
     }
     if not (ev and ht and lanes):
         return None
-    key = _console_key(ev, rounds or {})
+    key = _console_key(ev, (rounds or {}).get(ev, ""))
     return {**console, key: {**console.get(key, {}), ht: lanes}}
 
 
-def _build_heats_json(sched, console=None):
+def _schedule_rounds(sched, all_rounds):
+    """The rounds of a `schedule_snapshot` in running order, each as
+    (event, round, name, name_parts, times, start_list, results, heats) — every
+    round when *all_rounds* and the Pi sent them (`order`), else the live ones."""
+    rounds = sched.get("rounds", {})
+    live = {str(ev): heats for ev, heats in sched["events"]}
+    order = sched.get("order") if all_rounds else None
+    slots = order or [[ev, rounds.get(str(ev), "")] for ev, _ in sched["events"]]
+    other = sched.get("other_rounds", {})
+    for ev, rnd in slots:
+        ev_str = str(ev)
+        if rnd and rounds.get(ev_str) != rnd:
+            r = other.get(f"{ev_str}/{rnd}")
+            if r is None:
+                continue
+            yield (
+                ev,
+                rnd,
+                r.get("name", ""),
+                r.get("name_parts"),
+                r.get("times", {}),
+                r.get("start_list", {}),
+                r.get("results", {}),
+                r.get("heats", []),
+            )
+        elif ev_str in live:
+            yield (
+                ev,
+                rnd,
+                sched.get("names", {}).get(ev_str, ""),
+                sched.get("name_parts", {}).get(ev_str),
+                sched.get("times", {}).get(ev_str, {}),
+                sched.get("start_list", {}).get(ev_str, {}),
+                sched.get("results", {}).get(ev_str, {}),
+                live[ev_str],
+            )
+
+
+def _build_heats_json(sched, console=None, all_rounds=False):
     if not sched or not sched.get("events"):
         return []
-    names = sched.get("names", {})
-    name_parts = sched.get("name_parts", {})
-    times = sched.get("times", {})
-    start_list = sched.get("start_list", {})
-    results = sched.get("results", {})
-    rounds = sched.get("rounds", {})
     console = console or {}
     heats = []
-    for ev, sorted_heats in sched["events"]:
-        ev_str = str(ev)
-        for ht in sorted_heats:
+    for ev, rnd, name, parts, times, start_list, results, heat_nums in _schedule_rounds(
+        sched, all_rounds
+    ):
+        round_console = console.get(_console_key(ev, rnd), {})
+        for ht in heat_nums:
             ht_str = str(ht)
-            lanes_data = start_list.get(ev_str, {}).get(ht_str, {})
-            heat_results = results.get(ev_str, {}).get(ht_str, {})
-            heat_console = console.get(_console_key(ev_str, rounds), {}).get(ht_str, {})
+            lanes_data = start_list.get(ht_str, {})
+            heat_results = results.get(ht_str, {})
+            heat_console = round_console.get(ht_str, {})
             lanes = []
             for lane_str in sorted(
                 lanes_data, key=lambda x: int(x) if x.lstrip("-").isdigit() else 0
@@ -463,9 +496,10 @@ def _build_heats_json(sched, console=None):
                 {
                     "event": ev,
                     "heat": ht,
-                    "event_name": names.get(ev_str, ""),
-                    "event_name_parts": name_parts.get(ev_str),
-                    "time": times.get(ev_str, {}).get(ht_str, ""),
+                    "round": rnd,
+                    "event_name": name,
+                    "event_name_parts": parts,
+                    "time": times.get(ht_str, ""),
                     "official": heat_official(lanes),
                     "lanes": lanes,
                 }
@@ -481,7 +515,7 @@ def route_schedule(request: Request):
         return render(request, "offline.html")
     s = meet.get("settings", {})
     sched = meet.get("schedule_data", {})
-    heats = _build_heats_json(sched, meet.get("console_times"))
+    heats = _build_heats_json(sched, meet.get("console_times"), all_rounds=True)
     return render(
         request,
         "schedule.html",
@@ -530,19 +564,22 @@ def route_meet_config(meet_id: str):
 
 
 @app.get("/meet/{meet_id}/schedule", tags=["Public"])
-def route_meet_schedule(meet_id: str):
+def route_meet_schedule(meet_id: str, request: Request):
     """A meet's full start list as JSON — what ``/mobile/schedule`` embeds.
 
     Same structure as the page's ``heats_json``: every heat in running order,
     each with its lanes. An empty ``heats`` means the meet is loaded but carries
     no schedule yet, which is not an error — the client shows its no-schedule
-    state and waits for ``schedule_update`` on ``/ws/schedule``."""
+    state and waits for ``schedule_update`` on ``/ws/schedule``. ``?rounds=1``
+    lists every round of a number several share (docs/api.md §5.8)."""
     meet = meet_for(meet_id)
     if not meet:
         raise HTTPException(404)
     return {
         "heats": _build_heats_json(
-            meet.get("schedule_data", {}), meet.get("console_times")
+            meet.get("schedule_data", {}),
+            meet.get("console_times"),
+            all_rounds=request.query_params.get("rounds") == "1",
         )
     }
 
