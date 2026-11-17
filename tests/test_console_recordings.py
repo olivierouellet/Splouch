@@ -770,6 +770,12 @@ def test_omnisport_capture_replays_as_the_pool_swam(played):
     ]
     assert row1[-1][1] is False and row1[-1][0] - gun1 < 10
     finished1 = {ln: v for t, ln, k, v in states if t < heat2 and k == "running"}
+    # …and leaves the row empty: the meet file's swimmer is blanked with it, then
+    # given back by heat 2's page, which carries lane 0 again.
+    names1 = [(t, f["lane_name1"]) for t, f in frames if "lane_name1" in f]
+    scratch = next(t for t, n in names1 if t > gun1 and not n)
+    assert scratch - gun1 < 10
+    assert next(n for t, n in names1 if t >= heat2), "heat 2's lane 0 is named"
     assert not any(finished1.values()), "heat 1 never finished"
 
     # Heat 2 has nobody in lane 9 (row 10): it never runs, and the heat ends.

@@ -516,12 +516,34 @@ def test_omnisport_a_line_erased_whole_after_the_gun_is_a_scratch():
         "lane_running1": False,
         "lane_time1": "",
         "lane_place1": " ",
+        "scratch_changed": True,
     }, "stopped and blanked: no frozen clock left in the cell"
+    assert d.scratched_lanes() == {1}
     for n in range(2, 5):
         d.feed(
             _rtd(_line_offset(n), _named_line(n - 1, f"SWIMMER {n}", str(n), "58.21"))
         )
     assert d.race_finished()
+
+
+def test_omnisport_a_scratch_before_the_gun_keeps_the_lane_out():
+    d = Omnisport2000Decoder({"num_lanes": 3, "first_lane": 0})
+    for n in range(1, 4):
+        d.feed(_rtd(_line_offset(n), _named_line(n - 1, f"SWIMMER {n}")))
+    assert d.feed(_rtd(_line_offset(2), " " * 36)) == {"scratch_changed": True}
+    started = d.feed(_rtd(0, "    0.1  "))
+    assert started.get("lane_running1") and started.get("lane_running3")
+    assert "lane_running2" not in started
+
+
+def test_omnisport_a_line_carrying_the_lane_again_lifts_the_scratch():
+    """The next heat's lines — or the operator undoing it — give the row back."""
+    d = Omnisport2000Decoder({"num_lanes": 3, "first_lane": 0})
+    for n in range(1, 4):
+        d.feed(_rtd(_line_offset(n), _named_line(n - 1, f"SWIMMER {n}")))
+    d.feed(_rtd(_line_offset(2), " " * 36))
+    back = d.feed(_preview(_line_offset(2), _named_line(1, "NEXT HEAT")))
+    assert back == {"scratch_changed": True} and not d.scratched_lanes()
 
 
 def test_omnisport_an_erased_line_out_of_lane_order_says_nothing():

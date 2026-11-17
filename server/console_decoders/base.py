@@ -259,6 +259,17 @@ class ConsoleDecoder(ABC):
         """
         return 0
 
+    def scratched_lanes(self) -> frozenset[int]:
+        """Board rows the console itself has marked as having nobody in them.
+
+        Not a start list: a console that erases a lane's line (an OmniSport, for a
+        swimmer who does not start) says so on the wire, and the board then shows the
+        row empty — no name, no club — whatever the meet file says. Most consoles
+        cannot say it, and return nothing. A change is announced with the
+        `scratch_changed` update key, which the app layer consumes.
+        """
+        return frozenset()
+
     def set_heat_lanes(self, lanes) -> None:
         """Supply the lanes that have a swimmer in the current heat.
 

@@ -35,10 +35,13 @@ def test_rows_and_lanes_default(monkeypatch):
 
 def test_the_meet_file_is_read_by_lane(lane_zero, monkeypatch):
     asked = []
+    # Read through `meet_data.board_lane_parts`, which asks these two by lane.
     monkeypatch.setattr(
-        worker, "get_lane_parts", lambda ev, ht, lane: asked.append(lane) or ("", "")
+        meet_data,
+        "get_lane_parts",
+        lambda ev, ht, lane: asked.append(lane) or ("", ""),
     )
-    monkeypatch.setattr(worker, "get_lane_alt", lambda ev, ht, lane: "")
+    monkeypatch.setattr(meet_data, "get_lane_alt", lambda ev, ht, lane: "")
     monkeypatch.setattr(worker, "get_lane_seed_time", lambda ev, ht, lane: "")
     monkeypatch.setattr(worker, "_get_next_heats", lambda *a, **k: [])
     monkeypatch.setattr(state, "_decoder", make_decoder("cts_sys6", state.settings))

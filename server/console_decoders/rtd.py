@@ -152,6 +152,10 @@ class RtdSwimmingDecoder(ConsoleDecoder):
         # The lane each line last carried, so an erased line is known to be that
         # lane's, and not a line that was blank all along.
         self._line_lane: dict[int, int] = {}
+        # Rows whose line the console erased whole: nobody swims there. Kept across
+        # a heat change and lifted only when a line carries the lane again, as the
+        # next heat's lines do — the console may name the heat after it erased one.
+        self._scratched: set[int] = set()
         self.lane_times: dict[int, str] = {}
         self.lane_places: dict[int, str] = {}
         self.lane_running: dict[int, bool] = {}
@@ -183,6 +187,14 @@ class RtdSwimmingDecoder(ConsoleDecoder):
         self.sub_codes = None if sub == "any" else ((sub,) if sub else self.SUB_CODES)
         self.offset_shift = int(cfg.get("rtd_offset", 0) or 0)
         self.first_lane = first_lane_of(cfg)
+
+    def scratched_lanes(self) -> frozenset[int]:
+        return frozenset(self._scratched)
+
+    def _unscratch(self, lane: int, updates: dict) -> None:
+        if lane in self._scratched:
+            self._scratched.discard(lane)
+            updates["scratch_changed"] = True
 
     def lanes_to_start(self) -> list[int]:
         """The start lists' lanes — and, when the console names swimmers, only those.
@@ -346,6 +358,7 @@ class RtdSwimmingDecoder(ConsoleDecoder):
                 lane = int(lane_text) - self.first_lane + 1
                 name = self._field(base + LINE_NAME[0], LINE_NAME[1], self._preview)
                 self._named[lane] = bool(name.strip())
+                self._unscratch(lane, updates)
         return updates
 
     def _collect_updates(self, lo: int, hi: int) -> dict:
@@ -436,28 +449,35 @@ class RtdSwimmingDecoder(ConsoleDecoder):
         return seen
 
     def _erased_line(self, n: int, base: int, updates: dict) -> None:
-        """A line blanked whole, lane number included, during a race: no swimmer.
+        """A line blanked whole, lane number included: a scratch.
 
         Seen on an OmniSport a few seconds after the gun, for a lane whose swimmer
-        did not start. Its lane comes from its position — only while the other lines
-        say the board is in lane order — and a lane that holds a time is left alone:
-        the blank line is then a re-sort, not a scratch. The line must also have
-        carried that very lane before, so a line that was never a lane's says
-        nothing.
+        did not start; the operator can do it before the gun as well. Its lane comes
+        from its position, so every guard is about being sure of that:
+
+        * the line carried that very lane just before — a line that was never a
+          lane's (a spare row in a short heat) says nothing;
+        * every other line is in lane order — sorted by place, a position is no lane;
+        * the lane holds no time and is not at a split — the blank line is then a
+          re-sort, not a scratch.
+
+        The row goes empty on the board: chrono stopped and blank, and the name and
+        club blanked by the app layer (`scratched_lanes`).
         """
         was = self._line_lane.pop(n, 0)
-        if not self._race_active or self._field(base, LINE_STRIDE).strip():
+        if self._field(base, LINE_STRIDE).strip():
             return
         if was != n or not 1 <= n <= self.num_lanes:
+            return
+        if self.lane_times.get(n) or n in self._held:
             return
         if not self._lines_in_lane_order():
             return
         self._named[n] = False
-        if (
-            self.lane_running.get(n)
-            and not self.lane_times.get(n)
-            and n not in self._held
-        ):
+        if n not in self._scratched:
+            self._scratched.add(n)
+            updates["scratch_changed"] = True
+        if self.lane_running.get(n):
             self._empty_lane(n, updates)
 
     def _empty_lane(self, lane: int, updates: dict) -> None:
@@ -483,6 +503,7 @@ class RtdSwimmingDecoder(ConsoleDecoder):
             self._erased_line(n, base, updates)
             return
         self._line_lane[n] = lane
+        self._unscratch(lane, updates)
         named = bool(self._field(base + LINE_NAME[0], LINE_NAME[1]).strip())
         self._named[lane] = named
 

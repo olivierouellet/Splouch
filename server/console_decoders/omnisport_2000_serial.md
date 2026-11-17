@@ -168,7 +168,7 @@ the decoder always uses the line's own lane number.
 | Result line blank in place and time after a split | The console's split hold is over: time cleared, `lane_running=True` |
 | Result line with place + time, lengths ≥ maximum (or either is blank) | `lane_time`, `lane_place`, `lane_splits`, `lane_running=False` — the finish |
 | Result line with a lane but no name, blank result | That lane is empty: `lane_running=False`, when the console names any swimmer |
-| Result line blanked whole (lane number too) during a race | A scratch: the line's position gives its lane, only while every other line is in lane order; `lane_running=False` unless the lane has a time |
+| Result line blanked whole (lane number too), before or during a race | A scratch, when the line carried that lane just before, every other line is in lane order and the lane has no time: the row goes empty — chrono stopped and blank, and `scratched_lanes()` makes the app blank its name and club (`scratch_changed`). Lifted when a line, on either page, carries the lane again |
 
 A line with a time but no place is ignored: it may be showing the running clock.
 Times are normalised to `M:SS.CC` / `SS.CC`; thousandths are truncated.

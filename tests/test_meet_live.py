@@ -133,6 +133,9 @@ def _header(last_event_sent, monkeypatch):
         def __init__(self, last):
             self.last_event_sent = last
 
+        def scratched_lanes(self):
+            return frozenset()
+
     out = []
     monkeypatch.setattr(state, "_decoder", _Decoder(last_event_sent), raising=False)
     monkeypatch.setattr(bus_mod, "emit", lambda ch, ev, d=None: out.append(d))

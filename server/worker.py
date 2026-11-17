@@ -22,13 +22,12 @@ from meet_data import (
     _build_results_snapshot,
     _get_next_heats,
     announce_schedule,
+    board_lane_parts,
     current_round,
     delta_fields,
     event_distance,
     get_event_name_display,
     get_event_name_parts,
-    get_lane_alt,
-    get_lane_parts,
     get_lane_seed_time,
     has_heat,
     heat_step,
@@ -309,12 +308,12 @@ def _on_event_changed(updates, ev, ht):
     # number, which is the row minus one in a pool numbered from lane 0.
     for i in range(1, 13):
         lane = state.lane_of(i)
-        name, club = get_lane_parts(ev, ht, lane)
+        name, club, alt = board_lane_parts(ev, ht, i)
         if name:
             heat_lanes.append(i)
         updates[f"lane_name{i}"] = name
         updates[f"lane_club{i}"] = club
-        updates[f"lane_name_alt{i}"] = get_lane_alt(ev, ht, lane)
+        updates[f"lane_name_alt{i}"] = alt
         st = get_lane_seed_time(ev, ht, lane)
         if st:
             seed_times[i] = st
@@ -328,6 +327,24 @@ def _on_event_changed(updates, ev, ht):
     }
     bus.emit("/results", "next_heats", next_heats_data)
     relay.relay_emit("next_heats", next_heats_data)
+
+
+def _on_scratch_changed(updates):
+    """The console scratched a lane, or gave one back: re-send who is in each row.
+
+    Every row, not just the one that moved — the set is small and this keeps one
+    path for it. The heat is the decoder's, as `send_event_info` reads it.
+    """
+    ev, ht = state._decoder.last_event_sent
+    if (ev, ht) == (0, 0):
+        return
+    scratched = state._decoder.scratched_lanes()
+    print(f"[scratch] rows {sorted(scratched) or 'none'}", flush=True)
+    for i in range(1, 13):
+        name, club, alt = board_lane_parts(ev, ht, i)
+        updates[f"lane_name{i}"] = name
+        updates[f"lane_club{i}"] = club
+        updates[f"lane_name_alt{i}"] = alt
 
 
 def _add_lane_deltas(updates):
@@ -681,6 +698,9 @@ def _apply_updates(updates):
         ev, ht = updates.pop("event_changed")
         print(f"[event] Event {ev} Heat {ht}", flush=True)
         _on_event_changed(updates, ev, ht)
+
+    if updates.pop("scratch_changed", False):
+        _on_scratch_changed(updates)
 
     _add_lane_deltas(updates)
     state.update.update(updates)

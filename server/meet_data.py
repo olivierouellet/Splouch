@@ -214,6 +214,20 @@ def get_lane_parts(event_num, heat_num, lane):
         return "", s.strip()
 
 
+def board_lane_parts(event_num, heat_num, row):
+    """(name, club, alt) for a row of the live board.
+
+    The meet file's, unless the console has scratched the row (`scratched_lanes`):
+    its swimmer is not in the water, so the row shows nobody. Only the live board —
+    a start list or the next heats still list the entry.
+    """
+    if row in state._decoder.scratched_lanes():
+        return "", "", ""
+    lane = state.lane_of(row)
+    name, club = get_lane_parts(event_num, heat_num, lane)
+    return name, club, get_lane_alt(event_num, heat_num, lane)
+
+
 def get_lane_alt(event_num, heat_num, lane):
     """Return alternate display string for relay lanes (first names), else ''."""
     try:
@@ -689,13 +703,13 @@ def send_event_info():
     # Stopping at 10 left lanes 11 and 12 un-named on a reconnect or a `next_heat`,
     # still showing the previous heat's swimmers while the rest of the board moved on.
     for i in range(1, 13):
-        name, club = get_lane_parts(ev, ht, state.lane_of(i))
+        name, club, alt = board_lane_parts(ev, ht, i)
         u[f"lane_name{i}"] = name
         u[f"lane_club{i}"] = club
         u[f"lane_delta{i}"] = ""
         u[f"lane_delta_seconds{i}"] = None
         u[f"lane_delta_better{i}"] = None
-        u[f"lane_name_alt{i}"] = get_lane_alt(ev, ht, state.lane_of(i))
+        u[f"lane_name_alt{i}"] = alt
     state.record_board(u)
     bus.emit("/scoreboard", "update_scoreboard", u)
     relay.relay_emit("update_scoreboard", u)
