@@ -210,3 +210,75 @@ class TestArchiveVariants:
         buf.seek(0)
         with pytest.raises(ValueError, match="No Lenex XML"):
             load_lenex(buf)
+
+
+# ── Relay reserves ─────────────────────────────────────────────────────────────
+
+RELAY_CLUBS = """
+  <CLUBS>
+    <CLUB name="Aqua Club" shortname="AQUA">
+      <ATHLETES>
+        <ATHLETE athleteid="1" lastname="A" firstname="Ann"/>
+        <ATHLETE athleteid="2" lastname="B" firstname="Bea"/>
+        <ATHLETE athleteid="3" lastname="C" firstname="Cat"/>
+        <ATHLETE athleteid="4" lastname="D" firstname="Dee"/>
+        <ATHLETE athleteid="5" lastname="E" firstname="Eve"/>
+        <ATHLETE athleteid="6" lastname="F" firstname="Fay"/>
+      </ATHLETES>
+      <RELAYS><RELAY relayid="r1" name="Aqua A"/></RELAYS>
+    </CLUB>
+  </CLUBS>
+"""
+
+
+def relay_xml(relaycount, positions):
+    style = f' relaycount="{relaycount}"' if relaycount else ""
+    rps = "".join(
+        f'<RELAYPOSITION athleteid="{aid}" number="{num}"/>' for aid, num in positions
+    )
+    return f"""<?xml version="1.0" encoding="UTF-8"?>
+<LENEX xmlns="lenex/3.0" version="3.0">
+  <MEETS><MEET name="Test Meet">
+    <SESSIONS><SESSION><EVENTS>
+      <EVENT number="7" gender="F">
+        <SWIMSTYLE distance="50" stroke="FREE"{style}/>
+        <HEATS><HEAT number="1"><ENTRIES>
+          <ENTRY lane="4"><RELAY relayid="r1" name="Aqua A"/>
+            <RELAYPOSITIONS>{rps}</RELAYPOSITIONS>
+          </ENTRY>
+        </ENTRIES></HEAT></HEATS>
+      </EVENT>
+    </EVENTS></SESSION></SESSIONS>
+    {RELAY_CLUBS}
+  </MEET></MEETS>
+</LENEX>"""
+
+
+def relay_firsts(relaycount, positions):
+    data = load_lenex(make_lxf(relay_xml(relaycount, positions)))
+    return [s["first"] for s in data.start_list[7][1][4]["swimmers"]]
+
+
+def test_relay_legs_are_kept_in_order():
+    legs = [("4", 4), ("2", 2), ("1", 1), ("3", 3)]
+    assert relay_firsts(4, legs) == ["Ann", "Bea", "Cat", "Dee"]
+
+
+def test_a_relay_reserve_past_the_last_leg_is_left_out():
+    positions = [("1", 1), ("2", 2), ("3", 3), ("4", 4), ("5", 5), ("6", 6)]
+    assert relay_firsts(4, positions) == ["Ann", "Bea", "Cat", "Dee"]
+
+
+def test_a_relay_reserve_numbered_below_1_is_left_out():
+    positions = [("5", -1), ("6", 0), ("1", 1), ("2", 2), ("3", 3), ("4", 4)]
+    assert relay_firsts(4, positions) == ["Ann", "Bea", "Cat", "Dee"]
+
+
+def test_a_relay_position_that_is_not_a_number_is_left_out():
+    positions = [("5", "R"), ("1", 1), ("2", 2), ("3", 3), ("4", 4)]
+    assert relay_firsts(4, positions) == ["Ann", "Bea", "Cat", "Dee"]
+
+
+def test_without_a_relaycount_every_leg_from_1_up_is_kept():
+    positions = [("6", -1), ("1", 1), ("2", 2), ("3", 3), ("4", 4)]
+    assert relay_firsts(None, positions) == ["Ann", "Bea", "Cat", "Dee"]

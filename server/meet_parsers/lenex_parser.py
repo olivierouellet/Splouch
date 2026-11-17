@@ -316,6 +316,7 @@ def load_lenex(path):
     times = {}  # round → {heat_number: daytime_str}
     ages = {}  # round → {heat_number: age band}, for a heat with its own age group
     distances = {}  # round → distance in metres
+    relay_legs = {}  # round → its SWIMSTYLE's `relaycount`, when above 1
     eventid_map = {}  # eventid → round (Splash-style)
     heatid_map = {}  # heatid → (round, heat_number)
     kept_heats = set()  # (round, heat_number) whose results are shown
@@ -341,6 +342,9 @@ def load_lenex(path):
                 distances[rnd] = int(style.get("distance", 0)) * max(
                     int(style.get("relaycount") or 1), 1
                 )
+            with contextlib.suppress(ValueError, TypeError):
+                if int(style.get("relaycount") or 1) > 1:
+                    relay_legs[rnd] = int(style.get("relaycount"))
         eid = event.get("eventid", "")
         if eid:
             eventid_map[eid] = rnd
@@ -373,19 +377,31 @@ def load_lenex(path):
         lane = (el.get("lane") or "").strip()
         return int(lane) if lane.isdigit() else None
 
-    def _relay_swimmers(entry):
-        """Return sorted list of {'pos': int, 'name': str} for RELAYPOSITION children."""
+    def _relay_swimmers(entry, rnd):
+        """Return sorted list of {'pos': int, 'name': str} for RELAYPOSITION children.
+
+        Only the legs: a RELAYPOSITION numbered outside 1 to the event's
+        `relaycount` is a reserve, who does not swim. Without a `relaycount`
+        above 1 every position from 1 up is kept.
+        """
+        legs = relay_legs.get(rnd)
         swimmers = []
         for rp in find(entry, "RELAYPOSITION"):
             r_aid = rp.get("athleteid", "")
             if not r_aid:
+                continue
+            try:
+                pos = int(rp.get("number", ""))
+            except ValueError:
+                continue
+            if pos < 1 or (legs and pos > legs):
                 continue
             last, first = athletes.get(r_aid, ("", ""))
             swimmer_name = f"{first} {last}".strip()
             if swimmer_name:
                 swimmers.append(
                     {
-                        "pos": int(rp.get("number", 0)),
+                        "pos": pos,
                         "name": swimmer_name,
                         "first": first,
                     }
@@ -411,7 +427,7 @@ def load_lenex(path):
             name = relay_el.get("name", "") if relay_el is not None else ""
             rid = relay_el.get("relayid", "") if relay_el is not None else ""
             club = relay_clubs.get(rid, "")
-            swimmers = _relay_swimmers(entry)
+            swimmers = _relay_swimmers(entry, rnd)
         starts[rnd][h_num][lane] = {
             "name": name,
             "club": club,
@@ -510,7 +526,7 @@ def load_lenex(path):
                         "club": club_short,
                         "seed_time": entry.get("entrytime", ""),
                         "seed_course": _seed_course(entry),
-                        "swimmers": _relay_swimmers(entry),
+                        "swimmers": _relay_swimmers(entry, rnd),
                     }
 
     # Results — RESULT elements, wherever the exporter put them: inside a HEAT
