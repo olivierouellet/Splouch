@@ -417,6 +417,10 @@
         .heat-card.heat-current { outline: 2px solid var(--color-time); outline-offset: -2px; }
         .heat-card { scroll-margin-top: 70px; }
         .heat-not-seeded { padding: 6px 12px; opacity: 0.7; font-style: italic; }
+        .session-heading {
+            padding: 14px 12px 6px; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.04em; color: var(--color-time);
+        }
 
         /* ── Empty states ── */
         #waiting {
@@ -511,6 +515,8 @@ const TIME_WORDS = {{ {
     'SICK': t.status_sick or 'Sick',
 } | tojson }};
 const NOT_SEEDED = {{ (t.not_seeded or 'Not seeded yet') | tojson }};
+// A session the meet file gives no name (docs/app.md `S-26`).
+const SESSION_WORD = {{ (t.session or 'Session {n}') | tojson }};
 // How long an official heat shows its gaps to the seed before springing back (`S-23`).
 const DIFF_MS = 4000;
 
@@ -550,6 +556,16 @@ function formatDelta(sec) {
     var cc = (c < 10 ? '0' : '') + c;
     return (sec < 0 ? '-' : '+') + (m ? m + ':' + (s < 10 ? '0' : '') + s : String(s)) + '.' + cc;
 }
+// A seed, with its course when it is not the meet's (`S-27`): no gap is drawn to it.
+function seedText(lane) {
+    var seed = lane.seed_time ? displayTime(lane.seed_time) : 'NT';
+    return lane.seed_time && lane.seed_course ? seed + ' ' + lane.seed_course : seed;
+}
+// The heading a heat's session draws above its first card (`S-26`), '' for none.
+function sessionLabel(h) {
+    if (!h.session) return '';
+    return h.session_name || SESSION_WORD.replace('{n}', String(h.session));
+}
 // What a lane's time cell shows: `{text, cls, spoken}`, or null for nothing.
 function laneTime(lane, diff) {
     var status = lane.result_status;
@@ -560,7 +576,7 @@ function laneTime(lane, diff) {
                          spoken: TIME_WORDS.console + ' ' + displayTime(lane.console_time) };
             }
         } else if (lane.result_delta_seconds == null) {
-            var seed = lane.seed_time ? displayTime(lane.seed_time) : 'NT';
+            var seed = seedText(lane);
             return { text: seed, cls: 'time-seed', spoken: TIME_WORDS.seed + ' ' + seed };
         } else {
             var d = formatDelta(lane.result_delta_seconds);
@@ -578,8 +594,8 @@ function laneTime(lane, diff) {
                  spoken: TIME_WORDS.console + ' ' + displayTime(lane.console_time) };
     }
     if (lane.seed_time) {
-        return { text: displayTime(lane.seed_time), cls: 'time-seed',
-                 spoken: TIME_WORDS.seed + ' ' + displayTime(lane.seed_time) };
+        return { text: seedText(lane), cls: 'time-seed',
+                 spoken: TIME_WORDS.seed + ' ' + seedText(lane) };
     }
     return null;
 }
@@ -747,6 +763,10 @@ function renderSchedule() {
     var matchCount = 0;
     var heatIndex = 0;
     var currentHeatIdx = -1;
+    // With session headings at level 2, each heat sits under one at level 3.
+    var hasSessions = HEATS.some(function(h) { return !!h.session; });
+    var heatLevel = hasSessions ? '3' : '2';
+    var lastSession = null;
     if (upcomingOnly && currentEvent !== null && currentHeat !== null) {
         for (var k = 0; k < HEATS.length; k++) {
             if (keyOf(HEATS[k]) === currentKey()) {
@@ -768,6 +788,12 @@ function renderSchedule() {
         var heatClass = (heatIndex % 2 === 0) ? 'heat-even' : 'heat-odd';
         heatIndex++;
         var diff = !!diffHeats[key];
+        // A heading where the session changes, over the cards a filter leaves.
+        if (h.session && h.session !== lastSession) {
+            html += '<div class="session-heading" role="heading" aria-level="2">' +
+                    esc(sessionLabel(h)) + '</div>';
+        }
+        lastSession = h.session || null;
         html += '<div class="heat-card ' + heatClass + (isCurrent ? ' heat-current' : '') +
                 (h.official ? ' heat-official' : '') +
                 '" data-key="' + esc(key) + '">';
@@ -778,7 +804,7 @@ function renderSchedule() {
         var spoken = [SPOKEN_LABELS.event + ' ' + evStr, SPOKEN_LABELS.heat + ' ' + htStr];
         if (heatName) spoken.push(heatName);
         if (h.time) spoken.push(h.time);
-        html += '<div class="heat-header" role="heading" aria-level="2" aria-label="' +
+        html += '<div class="heat-header" role="heading" aria-level="' + heatLevel + '" aria-label="' +
                 esc(spoken.join(', ')) + '">';
         html += '<span class="heat-title" aria-hidden="true">' +
                 esc(LABELS.event) + ' <span class="heat-num">' + esc(evStr) + '</span>  ' +

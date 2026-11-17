@@ -9,7 +9,8 @@ Fixed-width lines, one record each, the code in columns 1-2. Columns below are
   C1  team: code 3-7, name 8-37 — the swimmers after it are its own
   D1  swimmer: meet ID 4-8, last name 9-28, first name 29-48
   E1  individual entry: swimmer ID 4-8, gender 14, gender/age 15, distance 16-21,
-      stroke 22, age min 23-25 and max 26-28, event number 39-42, seed 52-59
+      stroke 22, age min 23-25 and max 26-28, event number 39-42, seed 52-59,
+      seed course 60
   F1  relay entry: team 3-7, relay letter 8, then E1's columns from 14 on
   E2  one round of the entry above (F2 for a relay): round 3 (P prelims, F
       finals, S swim-off), time 4-11, time code 13, heat 21-23, lane 24-26
@@ -94,6 +95,12 @@ def _time(text):
     if not h:
         return ""
     return wire_time(f"{h // 6000}:{h // 100 % 60:02d}.{h % 100:02d}")
+
+
+def _seed_course(line, meet_course):
+    """The seed's course (col 60) when it is not the meet's, else ""."""
+    course = _COURSES.get(_col(line, 60, 1).upper(), "")
+    return course if course and meet_course and course != meet_course else ""
 
 
 def _date(text):
@@ -213,6 +220,7 @@ def load_hy3(path):
                     "name": name,
                     "club": club,
                     "seed_time": _time(_col(line, 52, 8)),
+                    "seed_course": _seed_course(line, meet_info.get("course", "")),
                     "swimmers": [],
                 },
             )
@@ -278,6 +286,8 @@ def load_hy3(path):
                         "live": live[ev] == letter,
                         "name": names.get(ev, f"Event {ev}"),
                         "date": "",
+                        "session": 0,
+                        "session_name": "",
                         "start_list": starts[ev][letter],
                         "heat_times": {},
                         "heat_ages": {},
@@ -293,6 +303,8 @@ def load_hy3(path):
     if len(dates) == 1:
         meet_info["sessions"] = [
             {
+                "number": 0,
+                "name": "",
                 "date": dates[0],
                 "daytime": "",
                 "endtime": "",

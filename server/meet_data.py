@@ -43,9 +43,12 @@ def delta_fields(finish_str, seed_str):
 
 
 def get_lane_seed_time(event_num, heat_num, lane):
+    """The seed the board measures a finish against (`lane_delta<i>`): none for a
+    seed swum in another course than the meet's (docs/api.md §5.1)."""
     m = state.meet
     try:
-        return m.start_list[event_num][heat_num][lane].get("seed_time", "")
+        entry = m.start_list[event_num][heat_num][lane]
+        return "" if entry.get("seed_course") else entry.get("seed_time", "")
     except (KeyError, TypeError):
         return m.event_info.get_seed_time(event_num, heat_num, lane)
 
@@ -459,6 +462,8 @@ def schedule_rounds(all_rounds=False):
                 "round": r["round"],
                 "live": r["live"],
                 "date": r["date"],
+                "session": r.get("session", 0),
+                "session_name": r.get("session_name", ""),
                 "event_name": board_name(
                     r["name"], _round_shown(r["kind"], bool(r["round"]), "board")
                 ),
@@ -480,6 +485,8 @@ def schedule_rounds(all_rounds=False):
             "round": "",
             "live": True,
             "date": "",
+            "session": 0,
+            "session_name": "",
             "event_name": data["event_names"].get(ev, ""),
             "event_name_parts": data.get("event_name_parts", {}).get(ev),
             "start_list": {
@@ -518,12 +525,14 @@ def build_heats(all_rounds=False):
             for lane in sorted(r["start_list"][ht]):
                 entry = r["start_list"][ht][lane]
                 seed = entry.get("seed_time", "")
+                seed_course = entry.get("seed_course", "")
                 lanes_out.append(
                     {
                         "lane": lane,
                         "name": entry.get("name", ""),
                         "club": entry.get("club", ""),
                         "seed_time": seed,
+                        "seed_course": seed_course,
                         "swimmers": [
                             {
                                 "pos": s.get("pos", 0),
@@ -533,7 +542,10 @@ def build_heats(all_rounds=False):
                             for s in entry.get("swimmers", [])
                         ],
                         **lane_times(
-                            seed, heat_console.get(lane), heat_results.get(lane)
+                            seed,
+                            heat_console.get(lane),
+                            heat_results.get(lane),
+                            seed_course,
                         ),
                     }
                 )
@@ -547,6 +559,9 @@ def build_heats(all_rounds=False):
                     "time": r["heat_times"].get(ht, ""),
                     "age": r["heat_ages"].get(ht, ""),
                     "seeded": seeded,
+                    # Where a heading goes on the Schedule (`S-26`).
+                    "session": r["session"],
+                    "session_name": r["session_name"],
                     "official": heat_official(lanes_out),
                     "lanes": lanes_out,
                 }

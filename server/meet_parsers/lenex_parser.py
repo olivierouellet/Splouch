@@ -98,6 +98,12 @@ def _pool_lanes(pool_el):
     return [first, last]
 
 
+def _session_number(session):
+    """A SESSION's `number`, 0 for none or one that is not a number."""
+    num = (session.get("number", "") if session is not None else "").strip()
+    return int(num) if num.isdigit() else 0
+
+
 class _PrologRead(Exception):
     """The root element began: the prolog held no DOCTYPE."""
 
@@ -186,7 +192,11 @@ def load_lenex(path):
 
     Returns a LenexData:
         event_names  — {event_number: str}
-        start_list   — {event_number: {heat_number: {lane: {'name': str, 'club': str}}}}
+        start_list   — {event_number: {heat_number: {lane: {'name': str, 'club': str,
+                       'seed_time': str, 'seed_course': str, 'swimmers': list}}}};
+                       `seed_course` is the ENTRY's `entrycourse` when it is not
+                       the meet's (`LCM` for a long-course seed at a short-course
+                       meet), else "": a gap to such a seed means nothing.
         event_rounds — {event_number: round key}; see `ROUND_KEYS`
         results      — {event_number: {heat_number: {lane: {'time': str, 'status': str}}}},
                        only from heats whose status is in `KEPT_HEAT_STATUSES`.
@@ -198,7 +208,9 @@ def load_lenex(path):
                        dict with `event`, `round` (`""` for a number with one
                        round, else its `ROUND_KEYS` value, made unique within the
                        number), `kind` (its `ROUND_KEYS` value or `""`), `live`,
-                       `name`, `date` (its session's), and its own `start_list`,
+                       `name`, `date`, `session` and `session_name` (its
+                       SESSION's `number` and `name`; 0 and "" outside one),
+                       and its own `start_list`,
                        `heat_times`, `heat_ages` (`age_band` of a heat's own age
                        group) and `results`, keyed by heat as above.
 
@@ -343,6 +355,14 @@ def load_lenex(path):
             if heat.get("status", "").upper() in KEPT_HEAT_STATUSES:
                 kept_heats.add((rnd, h_num))
 
+    # The course every seed is measured in, unless its ENTRY says otherwise.
+    meet_el = find_first(root, "MEET")
+    meet_course = (meet_el.get("course", "") if meet_el is not None else "").upper()
+
+    def _seed_course(entry):
+        course = (entry.get("entrycourse") or "").upper()
+        return course if course and meet_course and course != meet_course else ""
+
     def _lane(el):
         """The element's `lane`, or None without one. Lane 0 is a lane: pools
         numbered 0–9 seed it."""
@@ -392,6 +412,7 @@ def load_lenex(path):
             "name": name,
             "club": club,
             "seed_time": entry.get("entrytime", ""),
+            "seed_course": _seed_course(entry),
             "swimmers": swimmers,
         }
 
@@ -484,6 +505,7 @@ def load_lenex(path):
                         "name": team_name,
                         "club": club_short,
                         "seed_time": entry.get("entrytime", ""),
+                        "seed_course": _seed_course(entry),
                         "swimmers": _relay_swimmers(entry),
                     }
 
@@ -556,7 +578,6 @@ def load_lenex(path):
     # Meet / pool / session metadata
     _course_to_metres = {"LCM": 50, "SCM": 25, "SCY": 25}
     meet_info = {}
-    meet_el = find_first(root, "MEET")
     if meet_el is not None:
         meet_info["name"] = meet_el.get("name", "")
         meet_info["city"] = meet_el.get("city", "")
@@ -573,6 +594,8 @@ def load_lenex(path):
             meet_info["lanes_lenex"] = lanes
         meet_info["sessions"] = [
             {
+                "number": _session_number(s),
+                "name": s.get("name", ""),
                 "date": s.get("date", ""),
                 "daytime": s.get("daytime", ""),
                 "endtime": s.get("endtime", ""),
@@ -591,12 +614,12 @@ def load_lenex(path):
             for s in find(meet_el, "SESSION")
         ]
 
-    round_dates = {}
+    round_sessions = {}  # round → its SESSION
     if meet_el is not None:
         for s in find(meet_el, "SESSION"):
             for e in find(s, "EVENT"):
                 if id(e) in round_of:
-                    round_dates[round_of[id(e)]] = s.get("date", "")
+                    round_sessions[round_of[id(e)]] = s
     rounds = [
         {
             "event": ev_num,
@@ -604,7 +627,12 @@ def load_lenex(path):
             "kind": round_key[r],
             "live": live[ev_num] == r,
             "name": names[r],
-            "date": round_dates.get(r, ""),
+            "date": round_sessions[r].get("date", "") if r in round_sessions else "",
+            # A heading on the Schedule where the session changes (`S-26`).
+            "session": _session_number(round_sessions.get(r)),
+            "session_name": (
+                round_sessions[r].get("name", "").strip() if r in round_sessions else ""
+            ),
             "start_list": starts[r],
             "heat_times": times[r],
             "heat_ages": ages[r],

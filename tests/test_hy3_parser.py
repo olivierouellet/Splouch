@@ -116,6 +116,7 @@ def test_a_seeded_export_gives_the_start_list(tmp_path):
                 "name": "Jane Smith",
                 "club": "AQUA",
                 "seed_time": "00:00:26.29",
+                "seed_course": "",
                 "swimmers": [],
             }
         },
@@ -125,6 +126,7 @@ def test_a_seeded_export_gives_the_start_list(tmp_path):
                 "name": "Mary Doe",
                 "club": "AQUA",
                 "seed_time": "00:02:05.34",
+                "seed_course": "",
                 "swimmers": [],
             }
         },
@@ -339,3 +341,19 @@ def test_a_zip_updates_a_hy3_meet_in_place(tmp_path, monkeypatch):
         }
     finally:
         state.clear_meet()
+
+
+def test_a_seed_from_another_course_is_marked(tmp_path):
+    """Column 60: an LCM seed at a short-course yards meet."""
+    line = _event("E1", 11, 50, seed="31.00", sid=1)
+    d = _load(
+        tmp_path,
+        line[:59] + "L" + line[60:],
+        _round("E2", "P", 1, 3),
+        _event("E1", 12, 50, seed="32.00", sid=2)[:59]
+        + "Y"
+        + _event("E1", 12, 50, seed="32.00", sid=2)[60:],
+        _round("E2", "P", 1, 4),
+    )
+    assert d.start_list[11][1][3]["seed_course"] == "LCM"
+    assert d.start_list[12][1][4]["seed_course"] == ""

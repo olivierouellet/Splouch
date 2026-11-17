@@ -419,9 +419,10 @@ def _merge_console_times(console, snap, rounds=None):
 
 
 def _schedule_rounds(sched, all_rounds):
-    """The rounds of a `schedule_snapshot` in running order, each as
-    (event, round, name, name_parts, times, ages, start_list, results, heats) — every
-    round when *all_rounds* and the Pi sent them (`order`), else the live ones."""
+    """The rounds of a `schedule_snapshot` in running order, each a dict of
+    `event`, `round`, `name`, `name_parts`, `times`, `ages`, `session`,
+    `start_list`, `results` and `heats` — every round when *all_rounds* and the Pi
+    sent them (`order`), else the live ones."""
     rounds = sched.get("rounds", {})
     live = {str(ev): heats for ev, heats in sched["events"]}
     order = sched.get("order") if all_rounds else None
@@ -433,29 +434,31 @@ def _schedule_rounds(sched, all_rounds):
             r = other.get(f"{ev_str}/{rnd}")
             if r is None:
                 continue
-            yield (
-                ev,
-                rnd,
-                r.get("name", ""),
-                r.get("name_parts"),
-                r.get("times", {}),
-                r.get("ages", {}),
-                r.get("start_list", {}),
-                r.get("results", {}),
-                r.get("heats", []),
-            )
+            yield {
+                "event": ev,
+                "round": rnd,
+                "name": r.get("name", ""),
+                "name_parts": r.get("name_parts"),
+                "times": r.get("times", {}),
+                "ages": r.get("ages", {}),
+                "session": r.get("session") or [0, ""],
+                "start_list": r.get("start_list", {}),
+                "results": r.get("results", {}),
+                "heats": r.get("heats", []),
+            }
         elif ev_str in live:
-            yield (
-                ev,
-                rnd,
-                sched.get("names", {}).get(ev_str, ""),
-                sched.get("name_parts", {}).get(ev_str),
-                sched.get("times", {}).get(ev_str, {}),
-                sched.get("ages", {}).get(ev_str, {}),
-                sched.get("start_list", {}).get(ev_str, {}),
-                sched.get("results", {}).get(ev_str, {}),
-                live[ev_str],
-            )
+            yield {
+                "event": ev,
+                "round": rnd,
+                "name": sched.get("names", {}).get(ev_str, ""),
+                "name_parts": sched.get("name_parts", {}).get(ev_str),
+                "times": sched.get("times", {}).get(ev_str, {}),
+                "ages": sched.get("ages", {}).get(ev_str, {}),
+                "session": sched.get("sessions", {}).get(ev_str) or [0, ""],
+                "start_list": sched.get("start_list", {}).get(ev_str, {}),
+                "results": sched.get("results", {}).get(ev_str, {}),
+                "heats": live[ev_str],
+            }
 
 
 def _build_heats_json(sched, console=None, all_rounds=False):
@@ -463,20 +466,13 @@ def _build_heats_json(sched, console=None, all_rounds=False):
         return []
     console = console or {}
     heats = []
-    for (
-        ev,
-        rnd,
-        name,
-        parts,
-        times,
-        ages,
-        start_list,
-        results,
-        heat_nums,
-    ) in _schedule_rounds(sched, all_rounds):
+    for r in _schedule_rounds(sched, all_rounds):
+        ev, rnd, times, ages = r["event"], r["round"], r["times"], r["ages"]
+        start_list, results = r["start_list"], r["results"]
+        session, session_name = r["session"]
         round_console = console.get(_console_key(ev, rnd), {})
         seeded = any(start_list.values())
-        for ht in heat_nums:
+        for ht in r["heats"]:
             ht_str = str(ht)
             lanes_data = start_list.get(ht_str, {})
             heat_results = results.get(ht_str, {})
@@ -487,6 +483,7 @@ def _build_heats_json(sched, console=None, all_rounds=False):
             ):
                 entry = lanes_data[lane_str]
                 seed = entry.get("seed_time", "")
+                seed_course = entry.get("seed_course", "")
                 lanes.append(
                     {
                         "lane": int(lane_str)
@@ -495,11 +492,13 @@ def _build_heats_json(sched, console=None, all_rounds=False):
                         "name": entry.get("name", ""),
                         "club": entry.get("club", ""),
                         "seed_time": seed,
+                        "seed_course": seed_course,
                         "swimmers": entry.get("swimmers", []),
                         **lane_times(
                             seed,
                             heat_console.get(lane_str),
                             heat_results.get(lane_str),
+                            seed_course,
                         ),
                     }
                 )
@@ -508,11 +507,13 @@ def _build_heats_json(sched, console=None, all_rounds=False):
                     "event": ev,
                     "heat": ht,
                     "round": rnd,
-                    "event_name": name,
-                    "event_name_parts": parts,
+                    "event_name": r["name"],
+                    "event_name_parts": r["name_parts"],
                     "time": times.get(ht_str, ""),
                     "age": ages.get(ht_str, ""),
                     "seeded": seeded,
+                    "session": session,
+                    "session_name": session_name,
                     "official": heat_official(lanes),
                     "lanes": lanes,
                 }

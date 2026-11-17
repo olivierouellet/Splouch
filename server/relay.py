@@ -434,6 +434,12 @@ def send_schedule(client=None, clear=False):
                 for r in all_rounds
                 if r["live"] and r["heat_ages"]
             },
+            # Each live round's session, for the Schedule's headings (§5.8).
+            "sessions": {
+                str(r["event"]): [r["session"], r["session_name"]]
+                for r in all_rounds
+                if r["live"] and r["session"]
+            },
             # Every round in running order, and those not live in full, for a
             # Schedule that lists them side by side (docs/api.md §5.5, §5.8).
             "order": [[r["event"], r["round"]] for r in all_rounds],
@@ -444,6 +450,7 @@ def send_schedule(client=None, clear=False):
                     "name_parts": r["event_name_parts"],
                     "times": {str(h): t for h, t in r["heat_times"].items()},
                     "ages": {str(h): a for h, a in r["heat_ages"].items()},
+                    "session": [r["session"], r["session_name"]],
                     "date": r["date"],
                     "start_list": _serialise_start_list({0: r["start_list"]})["0"],
                     "results": {
@@ -485,6 +492,7 @@ _EMPTY_SCHEDULE = {
     "order": [],
     "other_rounds": {},
     "ages": {},
+    "sessions": {},
 }
 
 
@@ -518,6 +526,7 @@ def _serialise_start_list(sl):
                     "name": entry.get("name", ""),
                     "club": entry.get("club", ""),
                     "seed_time": entry.get("seed_time", ""),
+                    "seed_course": entry.get("seed_course", ""),
                     "swimmers": entry.get("swimmers", []),
                 }
     return out

@@ -137,6 +137,7 @@ def test_a_seeded_final_takes_over_the_number(finals):
                 "name": "Jane Smith",
                 "club": "AQUA",
                 "seed_time": "00:01:00.50",
+                "seed_course": "",
                 "swimmers": [],
             }
         }
@@ -592,3 +593,84 @@ def test_a_relay_swims_every_leg(style, distance):
         f'<SWIMSTYLE {style} stroke="FREE"/>',
     ).replace("{final}", "")
     assert load_lenex(_lxf(xml)).event_distances.get(15) == distance
+
+
+# ── Session headings (docs/app.md `S-26`) and a seed's course (`S-27`) ─────────
+
+
+def _named_sessions(final=FINAL_SEEDED):
+    xml = MEET.replace(
+        '<SESSION number="1" date="2026-11-07"',
+        '<SESSION number="1" name="Samedi am" date="2026-11-07"',
+    )
+    return load_lenex(_lxf(xml.replace("{final}", final)))
+
+
+def test_each_heat_names_its_session(pi, monkeypatch):
+    import relay
+
+    state.set_lenex(_named_sessions())
+    heats = build_heats(all_rounds=True)
+    assert [
+        (h["event"], h["round"], h["session"], h["session_name"]) for h in heats
+    ] == [
+        (15, "prelims", 1, "Samedi am"),
+        (15, "prelims", 1, "Samedi am"),
+        (1, "", 1, "Samedi am"),
+        (15, "final", 2, ""),
+    ]
+    # The cloud serves the same, live rounds and the others alike.
+    sent = {}
+    monkeypatch.setattr(relay, "_local_only", lambda: False)
+    monkeypatch.setattr(relay, "_send_schedule_data", lambda c, d: sent.update(d))
+    relay.send_schedule()
+    sched = json.loads(json.dumps(sent))
+    for all_rounds in (False, True):
+        cloud = cs._build_heats_json(sched, {}, all_rounds)
+        assert [(h["session"], h["session_name"]) for h in cloud] == [
+            (h["session"], h["session_name"]) for h in build_heats(all_rounds)
+        ]
+
+
+def test_an_older_pi_sends_no_session():
+    """A snapshot from before `sessions`: no heading, rather than an error."""
+    sched = {
+        "events": [[3, [1]]],
+        "names": {"3": "50 Free"},
+        "start_list": {"3": {"1": {"4": {"name": "A", "seed_time": "00:00:30.00"}}}},
+    }
+    heat = cs._build_heats_json(sched)[0]
+    assert (heat["session"], heat["session_name"]) == (0, "")
+    assert heat["lanes"][0]["seed_course"] == ""
+
+
+def test_a_seed_from_another_course_has_no_gap(pi, monkeypatch):
+    """A long-course seed at a short-course meet: shown, but nothing measured
+    against it — on the Schedule, through the cloud, or on the board."""
+    import relay
+    from meet_data import get_lane_seed_time
+
+    xml = MEET.replace(
+        'lane="0" entrytime="00:01:01.00"/>',
+        'lane="0" entrytime="00:01:01.00" entrycourse="LCM"/>',
+    ).replace(
+        'lane="3" entrytime="00:01:02.00"/>',
+        'lane="3" entrytime="00:01:02.00" entrycourse="SCM"/>',
+    )
+    state.set_lenex(load_lenex(_lxf(xml.replace("{final}", ""))))
+    long_course = _heat(build_heats(), 15, 1)["lanes"][0]
+    assert long_course["seed_course"] == "LCM"
+    assert long_course["result_time"] == "00:01:00.50"
+    assert long_course["result_delta_seconds"] is None
+    # The meet's own course is no course to mention.
+    assert _heat(build_heats(), 15, 2)["lanes"][0]["seed_course"] == ""
+    assert get_lane_seed_time(15, 1, 0) == ""
+    assert get_lane_seed_time(15, 2, 3) == "00:01:02.00"
+
+    sent = {}
+    monkeypatch.setattr(relay, "_local_only", lambda: False)
+    monkeypatch.setattr(relay, "_send_schedule_data", lambda c, d: sent.update(d))
+    relay.send_schedule()
+    cloud = cs._build_heats_json(json.loads(json.dumps(sent)))
+    lane = next(h for h in cloud if (h["event"], h["heat"]) == (15, 1))["lanes"][0]
+    assert (lane["seed_course"], lane["result_delta_seconds"]) == ("LCM", None)

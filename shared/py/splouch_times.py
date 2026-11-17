@@ -49,14 +49,17 @@ def wire_time(s):
     return f"{h // 360000:02d}:{h // 6000 % 60:02d}:{h // 100 % 60:02d}.{h % 100:02d}"
 
 
-def lane_times(seed, console, result):
+def lane_times(seed, console, result, seed_course=""):
     """The fields a Schedule lane carries beside `seed_time` (docs/api.md §5.8).
 
     *result* is the official `{"time", "status"}` for the lane, or None. The delta
     is official − seed, as `results_snapshot` gives the console's (§5.2): negative
-    is faster. It is None when there is no seed, no official time, or the result
-    is not a finish.
+    is faster. It is None when there is no seed, no official time, the result is
+    not a finish, or the seed was swum in another course (*seed_course*): a long
+    course seed against a short course swim is no gap at all.
     """
+    if seed_course:
+        seed = ""
     result = result or {}
     r_time = result.get("time", "")
     r_status = result.get("status", "")

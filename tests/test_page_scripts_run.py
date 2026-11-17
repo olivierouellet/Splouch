@@ -11,13 +11,15 @@ list, while every substring assertion in `test_scoreboard_base_shared.py` still 
 
 import json
 import os
+import re
+import subprocess
 
 import pytest
 from jinja2 import Environment, FileSystemLoader
 
 import state
 from conftest import stub_url_for
-from jsc import HAS_JS_ENGINE, run_page
+from jsc import HAS_JS_ENGINE, js_argv, run_page
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -78,8 +80,9 @@ _HEATS = json.loads(
     '[{"event":3,"heat":1,"event_name":"50 Libre",'
     '"event_name_parts":{"raw":"50 Free","dist":"50","stroke":"freestyle",'
     '"relay":false,"gender":"","age":"","age_key":""},"time":"10:42",'
+    '"session":1,"session_name":"Samedi am",'
     '"lanes":[{"lane":4,"name":"Sørensen, Åse","club":"Île-des-Sœurs",'
-    '"seed_time":"0:27.10","swimmers":[]},'
+    '"seed_time":"0:27.10","seed_course":"LCM","swimmers":[]},'
     '{"lane":5,"name":"Relais A","club":"CAMO","seed_time":"",'
     '"swimmers":[{"pos":1,"name":"Élise Roy","first":"Élise"}]}]}]'
 )
@@ -272,3 +275,51 @@ def test_the_harness_notices_a_missing_static_file():
 
     with pytest.raises(PageScriptError, match="not in shared/static"):
         run_page('<script src="/static/js/no_such_file.js"></script>')
+
+
+def _schedule_function(src, name):
+    m = re.search(rf"^function {name}\(.*?^\}}", src, re.DOTALL | re.MULTILINE)
+    assert m, name
+    return m.group(0)
+
+
+@pytest.mark.skipif(not HAS_JS_ENGINE, reason="needs a JavaScript engine")
+def test_a_session_heading_and_a_seeds_course(tmp_path):
+    """`S-26` and `S-27`, through the page's own functions."""
+    with open(
+        os.path.join(REPO, "shared", "templates", "schedule.html"), encoding="utf-8"
+    ) as f:
+        page = f.read()
+    js = "\n".join(
+        [
+            "var SESSION_WORD = 'Séance {n}';",
+            *(
+                _schedule_function(page, n)
+                for n in ("displayTime", "seedText", "sessionLabel")
+            ),
+            "JSON.stringify([",
+            "  sessionLabel({session: 2, session_name: 'Samedi pm'}),",
+            "  sessionLabel({session: 3, session_name: ''}),",
+            "  sessionLabel({session: 0, session_name: ''}),",
+            "  sessionLabel({}),",
+            "  seedText({seed_time: '00:01:01.00', seed_course: 'LCM'}),",
+            "  seedText({seed_time: '00:01:01.00', seed_course: ''}),",
+            "  seedText({seed_time: '', seed_course: 'LCM'})",
+            "])",
+        ]
+    )
+    path = tmp_path / "s.js"
+    path.write_text(js, encoding="utf-8")
+    res = subprocess.run(
+        js_argv(str(path)), capture_output=True, text=True, check=False
+    )
+    assert res.returncode == 0, res.stderr
+    assert json.loads(res.stdout) == [
+        "Samedi pm",
+        "Séance 3",
+        "",
+        "",
+        "01:01.00 LCM",
+        "01:01.00",
+        "NT",
+    ]
