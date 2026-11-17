@@ -4,7 +4,7 @@
 > published capture.** The field layout comes from Daktronics' Input Template File
 > `OS2-Swimming.itf`; the framing and checksum were worked out from XY Kao's raw RTD
 > dump, and every address in that dump lands on a field boundary of the template.
-> Not yet run against a live console.
+> Checked against a UDP capture from a live console (see *What a capture over Ethernet showed*).
 
 ---
 
@@ -52,7 +52,7 @@ Consoles from June 2013 have an ETHERNET jack (*Setup Network*, off by default).
 is sent using UDP protocol as a broadcast packet." Standard IP 192.168.0.55–58
 (OMNI1–4); RTD port 21000–21003 (OMNI1–4, Daktronics DVX/DVN video), 3002 (Galaxy
 message center), or custom. Each datagram is decoded as RTD frames, the same as J5
-(`transport = "udp"`, `udp_port` option) — assumed, not yet confirmed by a capture.
+(`transport = "udp"`, `udp_port` option) — confirmed by a capture (below).
 
 ---
 
@@ -66,7 +66,7 @@ SYN  00000000  SOH  004 21 ooooo  STX  <data>  EOT  cc  ETB
 | Part | Meaning |
 | ---- | ------- |
 | `00000000` | Always zeros in the capture; counted in the checksum |
-| `004` | Message type: 4 = buffer write. The console also sends 001 (`01` + 2 digits), 003 (`01` + 4 digits), 008 (`21<data>`, no offset) and 900 (2 digits); all dropped |
+| `004` | Message type: 4 = buffer write. Sub-code `21` is the live page, `01` the next heat. The console also sends 001 (`01` + 2 digits), 003 (`01` + 4 digits), 008 (`21<data>`, no offset) and 900 (2 digits); all dropped |
 | `21` | Sub-code; an ARES sends `01` (or `00`) |
 | `ooooo` | Offset (5 digits), in characters, into the 4096-byte RTD buffer, plus 5000 × the RTD Offset setting |
 | `<data>` | ASCII written at that offset — may cover part of one field or run across several |
@@ -161,18 +161,34 @@ the decoder always uses the line's own lane number.
 
 | Field change | Emitted |
 | ------------ | ------- |
-| Event / heat | `current_event`, `current_heat`; on a new pair, `event_changed` and a lane reset |
-| Running time | `running_time` (as sent, stripped). Leaving zero is the start: lanes without a place go `lane_running=True`, only lanes with a swimmer in the start lists (`set_heat_lanes`; every lane when no meet is loaded), `dismiss_overlay`. Returning to zero re-arms the start for a restart |
-| Result line with place + time | `lane_time`, `lane_place`, `lane_splits` (= lengths completed) |
-| …and lengths ≥ maximum lengths (or either is blank) | `lane_running=False` — the finish |
-| Result line blank in place and time | lane time and place cleared |
+| Event / heat (live page, sub-code `21`) | `current_event`, `current_heat`; on a new pair, `event_changed` and a lane reset. The live page writes them only at the start |
+| Event / heat (next-heat page, sub-code `01`) | The same, the moment the operator moves to the next heat. Ignored while a race runs. Its lines say which lanes have a swimmer; it is never written over the live page |
+| Running time | `running_time`, normalised to `SS.CC` / `M:SS.CC` (the console counts in tenths). Leaving zero is the start: lanes without a place go `lane_running=True` — the start lists' lanes, and of those only the ones whose console line carries a name, when the console names any swimmer (a final not yet seeded in the meet file has no start list). `dismiss_overlay`. Returning to zero re-arms the start for a restart |
+| Result line, lengths < maximum (a split) | `lane_time`, `lane_splits`, `lane_running=False` — the lane holds its split. No place: the console's place at a split is the order at the wall, and the board shows a place for a finish only |
+| Result line blank in place and time after a split | The console's split hold is over: time cleared, `lane_running=True` |
+| Result line with place + time, lengths ≥ maximum (or either is blank) | `lane_time`, `lane_place`, `lane_splits`, `lane_running=False` — the finish |
+| Result line with a lane but no name, blank result | That lane is empty: `lane_running=False`, when the console names any swimmer |
 
 A line with a time but no place is ignored: it may be showing the running clock.
 Times are normalised to `M:SS.CC` / `SS.CC`; thousandths are truncated.
 
-Names, team scores and records are ignored — Lenex supplies the names.
+Names, team scores and records are not displayed — Lenex supplies the names. A
+line's name decides only whether its lane is empty.
 
----
+### What a capture over Ethernet showed
+
+A 2 × 100 m butterfly final (25 m pool, lanes 0–9, pads at one end), UDP on 21000:
+
+- Datagrams carry the same RTD frames as J5. The next-heat packet (`00401`, offset 9,
+  near 600 bytes) fills the whole page in one frame — titles, `058F02`, and ten lines
+  with seed times in the time field.
+- At the gun the console writes `0.0` at offset 0, then the ten lines with names and
+  blank results, then the titles and event/heat — the heat reaches the live page about
+  1.3 s after the start.
+- At each 50 m the line gets place, time and lengths `2`; about 14.5 s later the
+  place and time are blanked, the lengths kept. At the finish, lengths `4`.
+- The clock runs on after the last touch until the operator zeroes it (`0.00`), then
+  `Official Results` at 1484 and the lines re-sorted by place.
 
 ## Known Uncertainties (needs hardware validation)
 

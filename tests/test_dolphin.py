@@ -215,7 +215,7 @@ def _rtd(header: str, data: str) -> list[int]:
 @pytest.mark.parametrize("sub", ["21", "01", "37"])
 def test_gen7_rtd_accepts_any_sub_code_by_default(sub):
     d = cast(Omnisport2000Decoder, make_decoder("cts_gen7_rs485_rtd", {}))
-    assert d.feed(_rtd(f"004{sub}00000", "    0.1  "))["running_time"] == "0.1"
+    assert d.feed(_rtd(f"004{sub}00000", "    0.1  "))["running_time"] == "0.10"
 
 
 def test_gen7_omega_defaults_to_rank_mode():

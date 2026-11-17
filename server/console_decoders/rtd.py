@@ -39,6 +39,7 @@ BUFFER_SIZE = 4096
 
 # Offsets inside one result line.
 LINE_STRIDE = 36
+LINE_NAME = (0, 15)
 LINE_LANE = (20, 2)
 LINE_PLACE = (22, 3)
 LINE_TIME = (25, 9)
@@ -111,6 +112,12 @@ class RtdSwimmingDecoder(ConsoleDecoder):
 
     Subclasses set:
       SUB_CODES     — the two header digits after the type that this console sends.
+      PREVIEW_SUB_CODES — sub-codes of a second page the console fills with the
+                      *next* heat (an OmniSport's `01`): read for its event, heat and
+                      names only, never written over the live page.
+      SPLIT_HOLD    — the console blanks a line's place and time a while after a
+                      split, so the lane stops on the split until then. Off where
+                      that clearing is not known: the lane would stay stopped.
       LINE_BASE     — offset of result line 1, unless the console entry presets
                       `rtd_line_base`.
       LINE_IS_LANE  — when a line's own lane field is blank, take line n as lane n.
@@ -121,6 +128,8 @@ class RtdSwimmingDecoder(ConsoleDecoder):
 
     MESSAGE_TYPE = "004"
     SUB_CODES: tuple[str, ...] = ()
+    PREVIEW_SUB_CODES: tuple[str, ...] = ()
+    SPLIT_HOLD = False
     LINE_BASE = 0
     LINE_IS_LANE = False
     RESULT_FALLBACK = False
@@ -132,7 +141,14 @@ class RtdSwimmingDecoder(ConsoleDecoder):
 
     def __init__(self, cfg: dict) -> None:
         self._buf = bytearray(b" " * BUFFER_SIZE)
+        self._preview = bytearray(b" " * BUFFER_SIZE)
         self._race_active = False
+        # Lanes stopped at an intermediate time, waiting for the console to clear
+        # the line — the end of its split hold — to swim on.
+        self._held: set[int] = set()
+        # Whether the console's own line for a lane carries a swimmer's name, from
+        # the last write of that line on either page.
+        self._named: dict[int, bool] = {}
         self.lane_times: dict[int, str] = {}
         self.lane_places: dict[int, str] = {}
         self.lane_running: dict[int, bool] = {}
@@ -152,9 +168,10 @@ class RtdSwimmingDecoder(ConsoleDecoder):
 
     @property
     def max_packet_bytes(self) -> int:
-        # Framing is 27 bytes; the longest single field is a 30-character title, and
-        # a packet can run across several fields.
-        return 512
+        # A packet can run across several fields — an OmniSport fills its whole
+        # next-heat page in one, near 600 bytes — so the cap is the buffer plus its
+        # framing. Cut any shorter, such a packet loses its end and its checksum.
+        return BUFFER_SIZE + 32
 
     def configure(self, cfg: dict) -> None:
         self.num_lanes = int(cfg.get("num_lanes", 10))
@@ -163,6 +180,19 @@ class RtdSwimmingDecoder(ConsoleDecoder):
         self.sub_codes = None if sub == "any" else ((sub,) if sub else self.SUB_CODES)
         self.offset_shift = int(cfg.get("rtd_offset", 0) or 0)
         self.first_lane = first_lane_of(cfg)
+
+    def lanes_to_start(self) -> list[int]:
+        """The start lists' lanes — and, when the console names swimmers, only those.
+
+        With no start list for the heat (a final not yet seeded in the meet file)
+        the console's own lines are the only word on which lanes are empty: a line
+        with a lane number and no name has nobody in it. A console that sends no
+        names at all says nothing either way, and every lane still starts.
+        """
+        lanes = super().lanes_to_start()
+        if any(self._named.values()):
+            lanes = [n for n in lanes if self._named.get(n, False)]
+        return lanes
 
     def set_seed_times(self, times: dict) -> None:
         self.lane_seed_times = dict(times)
@@ -199,6 +229,7 @@ class RtdSwimmingDecoder(ConsoleDecoder):
             updates[f"lane_delta{i}"] = ""
             updates[f"lane_splits{i}"] = 0
         self.lane_seed_times.clear()
+        self._held.clear()
         self._race_active = False
         return updates
 
@@ -229,8 +260,12 @@ class RtdSwimmingDecoder(ConsoleDecoder):
             return {}
         if not header[5:].isdigit() or not header[3:5].isdigit():
             return {}
+        # A sub-code that is not the live page may be the console's next-heat page.
+        preview = False
         if self.sub_codes is not None and header[3:5] not in self.sub_codes:
-            return {}
+            if header[3:5] not in self.PREVIEW_SUB_CODES:
+                return {}
+            preview = True
 
         # Checksum: every byte after SYN up to and including EOT, summed mod 256,
         # sent as two hex digits. Only a packet that kept its SYN can be checked.
@@ -251,13 +286,17 @@ class RtdSwimmingDecoder(ConsoleDecoder):
         end = min(offset + len(data), BUFFER_SIZE)
         if offset >= end:
             return {}
+        if preview:
+            self._preview[offset:end] = data[: end - offset]
+            return self._collect_preview(offset, end)
         self._buf[offset:end] = data[: end - offset]
         return self._collect_updates(offset, end)
 
     # ── Buffer readout ────────────────────────────────────────────────────────
 
-    def _field(self, start: int, length: int) -> str:
-        return self._buf[start : start + length].decode("ascii", errors="replace")
+    def _field(self, start: int, length: int, buf: bytearray | None = None) -> str:
+        buf = self._buf if buf is None else buf
+        return buf[start : start + length].decode("ascii", errors="replace")
 
     def _event_heat(self, touched) -> tuple[int, int] | None:
         """(event, heat) when the fields holding them were just written, else None."""
@@ -267,27 +306,61 @@ class RtdSwimmingDecoder(ConsoleDecoder):
             self._field(*self.HEAT_NUMBER)
         )
 
+    def _announce_heat(self, ev_ht: tuple[int, int] | None, updates: dict) -> None:
+        if not (ev_ht and ev_ht[0] > 0 and ev_ht[1] > 0):
+            return
+        updates["current_event"] = str(ev_ht[0])
+        updates["current_heat"] = str(ev_ht[1])
+        if ev_ht != self.last_event_sent:
+            self.last_event_sent = ev_ht
+            updates.update(self.reset_lanes())
+            updates["event_changed"] = ev_ht
+
+    def _collect_preview(self, lo: int, hi: int) -> dict:
+        """The next-heat page: the heat the operator moved to, and who is in it.
+
+        An OmniSport writes its live page's event and heat only at the start, so
+        without this the board would show the last heat until the gun. Ignored while
+        a race runs: a heat change there would wipe the one in the water.
+        """
+        if self._race_active:
+            return {}
+
+        def touched(start: int, length: int) -> bool:
+            return start < hi and lo < start + length
+
+        updates: dict = {}
+        if touched(*self.EVENT_NUMBER) or touched(*self.HEAT_NUMBER):
+            ev = to_int(self._field(*self.EVENT_NUMBER, self._preview))
+            ht = to_int(self._field(*self.HEAT_NUMBER, self._preview))
+            self._announce_heat((ev, ht), updates)
+        for n in range(1, LINES + 1):
+            base = self.line_base + (n - 1) * LINE_STRIDE
+            if not touched(base, LINE_STRIDE):
+                continue
+            lane_text = self._field(base + LINE_LANE[0], LINE_LANE[1], self._preview)
+            if lane_text.strip().isdigit():
+                lane = int(lane_text) - self.first_lane + 1
+                name = self._field(base + LINE_NAME[0], LINE_NAME[1], self._preview)
+                self._named[lane] = bool(name.strip())
+        return updates
+
     def _collect_updates(self, lo: int, hi: int) -> dict:
         def touched(start: int, length: int) -> bool:
             return start < hi and lo < start + length
 
         updates: dict = {}
 
-        ev_ht = self._event_heat(touched)
-        if ev_ht and ev_ht[0] > 0 and ev_ht[1] > 0:
-            updates["current_event"] = str(ev_ht[0])
-            updates["current_heat"] = str(ev_ht[1])
-            if ev_ht != self.last_event_sent:
-                self.last_event_sent = ev_ht
-                updates.update(self.reset_lanes())
-                updates["event_changed"] = ev_ht
+        self._announce_heat(self._event_heat(touched), updates)
 
         if touched(*self.RUNNING_TIME):
-            t = self._field(*self.RUNNING_TIME).strip()
+            raw = self._field(*self.RUNNING_TIME).strip()
+            # The console counts in tenths ("41.6"); every client reads M:SS.CC.
+            t = parse_time(raw) if raw else ""
             if t != self.running_time:
                 self.running_time = t
                 updates["running_time"] = t
-            if is_zero_time(t):
+            if is_zero_time(raw):
                 # Clock back at zero: the console was reset, so the next time it
                 # moves is a new start — a restart of the same heat included.
                 self._race_active = False
@@ -349,15 +422,32 @@ class RtdSwimmingDecoder(ConsoleDecoder):
         lane, place, raw_time, lengths = result
         if not 1 <= lane <= self.num_lanes:
             return
+        named = bool(self._field(base + LINE_NAME[0], LINE_NAME[1]).strip())
+        self._named[lane] = named
 
         if not place:
             # No place, no result. A line with a time but no place may be showing
             # the running clock; a line blank in both has been cleared.
-            if not raw_time and self.lane_times.get(lane):
+            if raw_time:
+                return
+            if self.lane_times.get(lane):
                 self.lane_times[lane] = ""
                 self.lane_places[lane] = " "
                 updates[f"lane_time{lane}"] = ""
                 updates[f"lane_place{lane}"] = " "
+            if lane in self._held:
+                # The console's split hold is over: the swimmer goes on.
+                self._held.discard(lane)
+                if self._race_active and not self.lane_running.get(lane):
+                    self.lane_running[lane] = True
+                    updates[f"lane_running{lane}"] = True
+            elif (
+                not named and self.lane_running.get(lane) and any(self._named.values())
+            ):
+                # The console names its swimmers and this lane has none: nobody
+                # will ever touch here, so it must not hold the heat open.
+                self.lane_running[lane] = False
+                updates[f"lane_running{lane}"] = False
             return
         if not raw_time:
             return
@@ -366,9 +456,6 @@ class RtdSwimmingDecoder(ConsoleDecoder):
         if t != self.lane_times.get(lane, ""):
             self.lane_times[lane] = t
             updates[f"lane_time{lane}"] = t
-        if place != self.lane_places.get(lane, " "):
-            self.lane_places[lane] = place
-            updates[f"lane_place{lane}"] = place
         if lengths and lengths != self.lane_splits.get(lane, 0):
             self.lane_splits[lane] = lengths
             updates[f"lane_splits{lane}"] = lengths
@@ -376,6 +463,24 @@ class RtdSwimmingDecoder(ConsoleDecoder):
         # The race distance is known once the heat is loaded; until then — or in a
         # one-length race, where nothing counts — a placed time is a finish.
         finished = not max_lengths or not lengths or lengths >= max_lengths
-        if finished and self.lane_running.get(lane, False):
+        if not finished:
+            # An intermediate time. The lane stops on it, as a CTS lane does, until
+            # the console clears the line; the console's place here is only the
+            # order at the wall, and the board shows a place for a finish alone.
+            if self.lane_places.get(lane, " ").strip():
+                self.lane_places[lane] = " "
+                updates[f"lane_place{lane}"] = " "
+            if self.SPLIT_HOLD and self._race_active:
+                self._held.add(lane)
+                if self.lane_running.get(lane, False):
+                    self.lane_running[lane] = False
+                    updates[f"lane_running{lane}"] = False
+            return
+
+        self._held.discard(lane)
+        if place != self.lane_places.get(lane, " "):
+            self.lane_places[lane] = place
+            updates[f"lane_place{lane}"] = place
+        if self.lane_running.get(lane, False):
             self.lane_running[lane] = False
             updates[f"lane_running{lane}"] = False

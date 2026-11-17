@@ -444,11 +444,11 @@ def test_omnisport_checksum_matches_the_published_capture():
     """Packets copied byte for byte from xy-kao.com's RTD dump, checksums included."""
     d = Omnisport2000Decoder({"num_lanes": 8})
     assert d.feed(_rtd(0, "    0.1  ", "BD")) == {
-        "running_time": "0.1",
+        "running_time": "0.10",
         "dismiss_overlay": True,
         **{f"lane_running{i}": True for i in range(1, 9)},
     }
-    assert d.feed(_rtd(0, "    4.0  ", "C0"))["running_time"] == "4.0"
+    assert d.feed(_rtd(0, "    4.0  ", "C0"))["running_time"] == "4.00"
     assert d.feed(_rtd(0, "    4.1  ", "C0")) == {}, "a bad checksum is dropped"
 
 
@@ -465,10 +465,64 @@ def test_omnisport_split_then_finish_by_lane_number_not_line():
     split = d.feed(_rtd(_line_offset(1), _line(3, "1", "28.41", "2")))
     assert split["lane_time3"] == "28.41"
     assert split["lane_splits3"] == 2
-    assert "lane_running3" not in split, "a split does not stop the lane"
+    assert split["lane_running3"] is False, "the lane holds its split"
+    assert "lane_place3" not in split, "a place only at the finish"
     finish = d.feed(_rtd(_line_offset(1), _line(3, "1", "1:01.237", "4")))
     assert finish["lane_time3"] == "1:01.23"
-    assert finish["lane_running3"] is False
+    assert finish["lane_place3"] == "1"
+    assert d.lane_running[3] is False
+
+
+def _named_line(
+    lane: int, name: str, place: str = "", time: str = "", lengths: str = ""
+) -> str:
+    return f"{name:<15}{'':5}{lane:>2}{place:>3}{time:<9}{lengths:>2}"
+
+
+def test_omnisport_split_hold_ends_when_the_console_clears_the_line():
+    d = _dak()
+    d.feed(_rtd(0, "    1.0  "))
+    d.feed(_rtd(_line_offset(3), _named_line(3, "SMITH, Ann", "1", "28.41", "2")))
+    cleared = d.feed(_rtd(_line_offset(3), _named_line(3, "SMITH, Ann", "", "", "2")))
+    assert cleared["lane_time3"] == ""
+    assert cleared["lane_running3"] is True, "the swimmer goes on after the hold"
+    assert not d.race_finished()
+
+
+def test_omnisport_a_nameless_line_is_an_empty_lane():
+    """No start list (a final not seeded yet): the console's names say who swims."""
+    d = _dak()
+    d.feed(_rtd(_line_offset(1), _named_line(1, "SMITH, Ann")))
+    d.feed(_rtd(_line_offset(2), _named_line(2, "")))
+    started = d.feed(_rtd(0, "    0.1  "))
+    assert started.get("lane_running1") is True
+    assert "lane_running2" not in started
+    # Stale names at the gun: the line rewritten without a name stops the lane.
+    d.feed(_rtd(0, "    0.0  "))
+    d.feed(_rtd(_line_offset(2), _named_line(2, "JONES, Bea")))
+    assert d.feed(_rtd(0, "    0.1  ")).get("lane_running2") is True
+    stopped = d.feed(_rtd(_line_offset(2), _named_line(2, "")))
+    assert stopped["lane_running2"] is False
+
+
+def _preview(offset: int, data: str) -> list[int]:
+    body = [*b"00000000", 0x01, *f"004010{offset:04d}".encode(), 0x02]
+    body += [*data.encode(), 0x04]
+    return [0x16, *body, *f"{sum(body) & 0xFF:02X}".encode(), 0x17]
+
+
+def test_omnisport_next_heat_page_changes_the_heat_before_the_start():
+    """Sub-code 01 carries the heat the operator moved to; the live page waits for the gun."""
+    d = _dak()
+    updates = d.feed(_preview(99, "005F02"))
+    assert updates["event_changed"] == (5, 2)
+    assert d.feed(_rtd(99, f"  5 {' 2':2}")).get("event_changed") is None
+
+
+def test_omnisport_next_heat_page_is_ignored_during_a_race():
+    d = _dak()
+    d.feed(_rtd(0, "    1.0  "))
+    assert d.feed(_preview(99, "005F02")) == {}
 
 
 def test_omnisport_partial_field_write_lands_in_place():
@@ -669,15 +723,12 @@ def test_ares_template_line_gives_lane_place_time_and_lengths():
     d.feed(_ares_rtd(99, f"  7 {' 2':2}{'':20}F 4"))  # event 7 heat 2, 4 lengths
     d.feed(_ares_rtd(0, "    0.1  "))
     split = d.feed(_ares_rtd(_ares_line(1), _line(5, "2", "31.07", "2")))
-    assert (split["lane_time5"], split["lane_place5"], split["lane_splits5"]) == (
-        "31.07",
-        "2",
-        2,
-    )
-    assert "lane_running5" not in split, "a split does not stop the lane"
+    assert (split["lane_time5"], split["lane_splits5"]) == ("31.07", 2)
+    assert "lane_place5" not in split, "a place only at the finish"
+    assert "lane_running5" not in split, "no split hold on the ARES"
     finish = d.feed(_ares_rtd(_ares_line(1), _line(5, "1", "1:04.882", "4")))
     assert finish["lane_time5"] == "1:04.88"
-    assert finish["lane_running5"] is False
+    assert finish["lane_place5"] == "1"
 
 
 def test_ares_partial_write_lands_in_place():
@@ -706,7 +757,7 @@ def test_ares_event_from_number_fields_or_title():
 def test_ares_bad_checksum_is_dropped():
     d = Ares21Decoder({"num_lanes": 8})
     assert d.feed(_ares_rtd(0, "    0.1  ", checksum="00")) == {}
-    assert d.feed(_ares_rtd(0, "    0.1  "))["running_time"] == "0.1"
+    assert d.feed(_ares_rtd(0, "    0.1  "))["running_time"] == "0.10"
 
 
 def test_ares_and_omnisport_prefixes_do_not_cross():

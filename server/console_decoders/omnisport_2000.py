@@ -23,6 +23,11 @@ class Omnisport2000Decoder(RtdSwimmingDecoder):
     """
 
     SUB_CODES = ("21",)
+    # The next heat, sent the moment the operator moves to it: same layout, its
+    # own page. The live page names the heat only at the start.
+    PREVIEW_SUB_CODES = ("01",)
+    # Seen on a live console: place and time blanked about 14.5 s after each split.
+    SPLIT_HOLD = True
     LINE_BASE = 222
     OPTIONS = (
         RTD_OFFSET_OPTION,

@@ -366,7 +366,7 @@ def test_rtd_offset_is_subtracted():
         "console_options": {"dak_os2000_rtd": {"rtd_offset": "5000"}},
     }
     d = make_decoder("dak_os2000_rtd", cfg)
-    assert d.feed(_rtd("0042105000", "    0.1  "))["running_time"] == "0.1"
+    assert d.feed(_rtd("0042105000", "    0.1  "))["running_time"] == "0.10"
     assert d.feed(_rtd("0042100000", "    0.2  ")) == {}, "below the offset"
 
 
@@ -378,7 +378,7 @@ def test_other_message_types_are_dropped():
 
 def test_ares_accepts_sub_code_00():
     d = Ares21Decoder({"num_lanes": 8})
-    assert d.feed(_rtd("0040000000", "    0.1  "))["running_time"] == "0.1"
+    assert d.feed(_rtd("0040000000", "    0.1  "))["running_time"] == "0.10"
 
 
 def test_ares_ertd_line_time_after_a_space():
