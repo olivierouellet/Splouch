@@ -473,6 +473,22 @@ function reset_state() {
     if (_leave_results_timer) { clearTimeout(_leave_results_timer); _leave_results_timer = null; }
 }
 
+/* A reset empties the result cells, not just their columns. `mode_to_intro` only
+   folds the columns away — on a heat change the new heat's own frame blanks them —
+   but after a reset the next frame may carry no heat at all (a test session ending
+   on a console that has none): with nobody running the page reads that as a heat
+   over, `mode_to_results` opens the columns again, and the replay's times and places
+   come back under an empty start list. The phone board's intro already does this. */
+function clear_lane_results() {
+    for (var i = 1; i <= NUM_LANES; i++) {
+        document.getElementById('lane_time' + i).textContent = '';
+        document.getElementById('lane_place' + i).textContent = '';
+        lane_delta_html[i] = '';
+        lane_splits_n[i] = 0;
+        renderDelta(i);
+    }
+}
+
 function mode_to_intro() {
     brief_results = false;
     stop_chrono();
@@ -599,7 +615,7 @@ function mode_to_results() {
     socket.on('reload', function() { location.reload(); });
     /* The server says this board is stale — a test session just ended and the
        real meet is back. Same pair as `connect` and `test_mode` use. */
-    socket.on('reset', function() { reset_state(); mode_to_intro(); });
+    socket.on('reset', function() { reset_state(); clear_lane_results(); mode_to_intro(); });
     socket.on('display_overlay', function(d) { show_overlay(d.active); });
     socket.on('columns_state', function(d) { if (d.hidden) collapse_cols(); else expand_cols(); });
     socket.on('race_finished', function() {
@@ -705,7 +721,12 @@ function mode_to_results() {
         }
 
         if (current_state != 1) {
+            /* Over means results to show: nobody swimming, nobody timed but unplaced,
+               and at least one lane with a time or a place. An empty board is not a
+               heat that ended — after a reset with no heat to put back it would open
+               the result columns over nothing. */
             var all_done = true;
+            var any_result = false;
             for (var i = 1; i <= NUM_LANES; i++) {
                 if (((i in lane_running) && lane_running[i]) ||
                     ((i in lane_place_blank) && lane_place_blank[i] &&
@@ -713,8 +734,11 @@ function mode_to_results() {
                     all_done = false;
                     break;
                 }
+                if (((i in lane_time_blank) && !lane_time_blank[i]) ||
+                    ((i in lane_place_blank) && !lane_place_blank[i]))
+                    any_result = true;
             }
-            if (all_done) current_state = 3;
+            if (all_done && any_result) current_state = 3;
         }
 
         var running_now = false;

@@ -391,6 +391,7 @@ and an empty board skips it, since two seconds of dissolving nothing just looks 
 | test badge | `.test-overlay` — bottom 2.5vh, `0.6vh 2.5vw`, 2.2vh bold, `0.15em`, radius 6, `row_text` at 75%, `bg` text | same proportions, same 75% | match |
 | — session start | `reset_state(); mode_to_intro()` | `BoardWindow.reset()` from `app._on_frame` | match |
 | — session stop | badge down, board untouched | same | match |
+| — `reset` (session over, real meet back) | `reset_state(); clear_lane_results(); mode_to_intro()` — the result cells emptied, and an empty board is never taken for a finished heat (`any_result`) | `BoardWindow.reset()`, which clears every row | match |
 | cold-boot waiting screen | — | full-screen, opaque, `set_status()` | **Qt only** — the browser has no equivalent; a kiosk with a blank TV needs to say why |
 | link-lost badge | — | a pill, top centre, plus a frozen tinted clock | **Qt only** — `/live` shows stale data silently, which is worse |
 | operator menu | — | `OperatorMenu`, centred panel on **F1** | **Qt only** — a browser tab has an address bar and a keyboard the user already owns; a kiosk has neither |
