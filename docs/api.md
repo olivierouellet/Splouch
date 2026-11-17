@@ -377,6 +377,7 @@ Lane keys are 1-indexed (`<i>` = 1…12).
 | `lane_time<i>` | string | finish/split time, e.g. `"0:25.61"` |
 | `lane_place<i>` | string | rank, space when none |
 | `lane_running<i>` | bool | lane clock active |
+| `lane_at_split<i>` | bool | `lane_place<i>` is the order at a wall mid-race, not a finish. A board that reads "heat over" from places (the kiosk and the Qt board) counts this lane as still swimming. Sent only by an RTD console set to show places at splits (Settings → Timing, *Places at a split*); absent means `false`. The apps ignore it |
 | `lane_delta<i>` | string | **HTML** `<span class="delta-better\|delta-worse">±s.hh</span>` vs seed (for the browser) |
 | `lane_delta_seconds<i>` | float\|null | **structured** signed delta vs seed in seconds (negative = faster); `null` when no seed/time, or the seed was swum in another course (§5.8 `seed_course`) |
 | `lane_delta_better<i>` | bool\|null | `true` when faster than seed; `null` when no delta |
@@ -1024,6 +1025,9 @@ can tell the console has stopped talking to it. Faces, both palettes: `family`
 ---
 
 ## Changelog
+
+- **Added since v2, additive**: `lane_at_split<i>` in `update_scoreboard` (§5.1), for a
+  board that reads the end of a heat from places. The apps read none, so they ignore it.
 
 - **Added since v2, additive**: `results_pending` in `update_scoreboard` (§5.1), for a
   board that tints a podium. The apps tint none (`app.md` `L-19`), so they ignore it.

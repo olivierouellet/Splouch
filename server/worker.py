@@ -354,6 +354,8 @@ def _add_lane_deltas(updates):
             continue
         if not updates.get(f"lane_place{i}", " ").strip():
             continue
+        if state._decoder.lane_at_split(i):
+            continue
         if i not in state._decoder.lane_seed_times:
             continue
         html, secs, better = delta_fields(lane_time, state._decoder.lane_seed_times[i])

@@ -36,6 +36,8 @@ In the admin UI (**Settings → Timing**), set:
 
 Results posted by place (*Post Race by Place*, or the scoreboard set to place order) land on each swimmer's lane: Splouch reads the lane number each scoreboard line shows. In a pool of 11 or 12 lanes, show lanes 10-12 as letters (A, B, C), not emulated as 0, 1, 2 — a `1` then could be lane 1 or 11, and reads as lane 1.
 
+Keep the console from showing places at splits. A CTS lane carries no length count, so its place is the only sign that the swimmer has finished: a place at a split ends that lane's race on the board, and can end the whole heat early.
+
 Event 0 shows live as a test race (`EV 0 · Test race`) and is never published as a result.
 
 Options:

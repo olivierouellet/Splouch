@@ -4,6 +4,7 @@ from .rtd import (
     RTD_OFFSET_OPTION,
     RTD_PREVIEW_SUB_CODE_OPTION,
     RTD_SPLIT_HOLD_OPTION,
+    RTD_SPLIT_PLACES_OPTION,
     RTD_SUB_CODE_OPTION,
     RTD_VALIDATES_OPTION,
     RtdSwimmingDecoder,
@@ -37,6 +38,7 @@ class Omnisport2000Decoder(RtdSwimmingDecoder):
         RTD_LINE_BASE_OPTION,
         RTD_SUB_CODE_OPTION,
         RTD_SPLIT_HOLD_OPTION,
+        RTD_SPLIT_PLACES_OPTION,
         RTD_PREVIEW_SUB_CODE_OPTION,
         RTD_VALIDATES_OPTION,
         DecoderOption(

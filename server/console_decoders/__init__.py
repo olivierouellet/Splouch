@@ -136,6 +136,7 @@ CONSOLES: list[ConsoleEntry] = [
             "serial_baud": None,
             "serial_format": None,
             "rtd_offset": None,
+            "rtd_split_places": None,
             # Unknown on a Gen7 until a capture: off keeps the plain behaviour.
             "rtd_split_hold": "off",
             "rtd_preview_sub_code": "none",
@@ -193,7 +194,7 @@ CONSOLES: list[ConsoleEntry] = [
         tested=False,
         doc="omnisport-2000.md",
         preset={"rtd_line_base": 222, "rtd_validates": True},
-        options={"rtd_offset": None},
+        options={"rtd_offset": None, "rtd_split_places": None},
         default=True,
     ),
     ConsoleEntry(
@@ -207,7 +208,7 @@ CONSOLES: list[ConsoleEntry] = [
         tested=False,
         doc="omnisport-2000.md",
         preset={"rtd_line_base": 200, "rtd_validates": True},
-        options={"rtd_offset": None},
+        options={"rtd_offset": None, "rtd_split_places": None},
     ),
     ConsoleEntry(
         "dak_os2000_cts",
@@ -244,7 +245,12 @@ CONSOLES: list[ConsoleEntry] = [
         tested=False,
         doc="omnisport-2000.md",
         preset={"transport": "udp", "rtd_validates": True},
-        options={"udp_port": None, "rtd_line_base": None, "rtd_offset": None},
+        options={
+            "udp_port": None,
+            "rtd_line_base": None,
+            "rtd_offset": None,
+            "rtd_split_places": None,
+        },
     ),
     ConsoleEntry(
         "ares21_ertd",

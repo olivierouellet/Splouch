@@ -593,6 +593,25 @@ def test_a_timed_but_unplaced_lane_holds_the_podium_back(board, qt_app):
     assert not board._podium_shown
 
 
+def test_a_place_at_a_split_is_not_a_finish(board, qt_app):
+    """`lane_at_split<i>`: every lane held and placed at a turn is not a heat over."""
+    board.apply_update({"current_event": "3", "current_heat": "1"})
+    board.apply_update(
+        {
+            "lane_time1": "28.41",
+            "lane_place1": "1",
+            "lane_at_split1": True,
+            "lane_time2": "28.90",
+            "lane_place2": "2",
+            "lane_at_split2": True,
+        }
+    )
+    qt_app.processEvents()
+    assert not board.heat_is_done()
+    board.apply_update({"lane_at_split1": False, "lane_at_split2": False})
+    assert board.heat_is_done()
+
+
 def test_the_podium_steps_down_the_three_rows(board, qt_app):
     board.apply_update({"current_event": "3", "current_heat": "1"})
     board.apply_update({"running_time": "0.00", "lane_running1": True})

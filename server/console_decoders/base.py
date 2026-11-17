@@ -272,6 +272,14 @@ class ConsoleDecoder(ABC):
         """
         return False
 
+    def lane_at_split(self, lane: int) -> bool:
+        """True when the lane shows a place for an intermediate time, not a finish.
+
+        Only a console that says which length each time is can know: its deltas
+        and its finished heat must not take that place for a result.
+        """
+        return False
+
     def scratched_lanes(self) -> frozenset[int]:
         """Board rows the console itself has marked as having nobody in them.
 

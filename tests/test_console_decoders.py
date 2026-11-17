@@ -642,6 +642,37 @@ def test_gen7_rtd_waits_for_official_results_only_when_chosen():
     assert d.feed(_rtd(1484, "Official Results"))["results_official"] is True
 
 
+def test_rtd_places_at_a_split_show_but_never_finish():
+    d = Omnisport2000Decoder(
+        decoder_config(
+            "dak_os2000_rtd",
+            {
+                "num_lanes": 2,
+                "console_options": {"dak_os2000_rtd": {"rtd_split_places": "on"}},
+            },
+        )
+    )
+    d.feed(_rtd(99, f"  5 {' 1':2}{'':20}F 4"))
+    d.feed(_rtd(0, "    1.0  "))
+    split = d.feed(_rtd(_line_offset(1), _line(1, "1", "28.41", "2")))
+    assert split["lane_place1"] == "1" and split["lane_at_split1"] is True
+    assert d.lane_at_split(1)
+    d.feed(_rtd(_line_offset(2), _line(2, "2", "28.90", "2")))
+    assert not d.race_finished(), "both lanes held on a placed split"
+    cleared = d.feed(_rtd(_line_offset(1), _line(1)))
+    assert cleared["lane_place1"] == " " and cleared["lane_at_split1"] is False
+    finish = d.feed(_rtd(_line_offset(2), _line(2, "1", "1:01.23", "4")))
+    assert finish["lane_place2"] == "1" and finish["lane_at_split2"] is False
+    assert d.reset_lanes().get("lane_at_split1") is None
+
+
+def test_rtd_places_at_a_split_stay_hidden_by_default():
+    d = _dak()
+    d.feed(_rtd(0, "    1.0  "))
+    split = d.feed(_rtd(_line_offset(1), _line(3, "1", "28.41", "2")))
+    assert "lane_at_split3" not in split and not d.lane_at_split(3)
+
+
 def test_omnisport_entries_keep_their_behaviours():
     d = Omnisport2000Decoder(decoder_config("dak_os2000_rtd", {"num_lanes": 8}))
     assert d.split_hold and d.preview_sub_codes == ("01",) and d.validates_results

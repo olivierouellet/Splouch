@@ -127,6 +127,14 @@ RTD_PREVIEW_SUB_CODE_OPTION = DecoderOption(
     "moves to it. If the board shows the next heat's names during a race, "
     "choose 01.",
 )
+RTD_SPLIT_PLACES_OPTION = DecoderOption(
+    key="rtd_split_places",
+    label="Places at a split",
+    choices=(("off", "Hidden until the finish"), ("on", "Shown at each split")),
+    default="off",
+    help="RTD says which length each time is, so a place at a split never "
+    "finishes the race.",
+)
 RTD_VALIDATES_OPTION = DecoderOption(
     key="rtd_validates",
     label="Podium colours",
@@ -182,6 +190,9 @@ class RtdSwimmingDecoder(ConsoleDecoder):
         # Lanes stopped at an intermediate time, waiting for the console to clear
         # the line — the end of its split hold — to swim on.
         self._held: set[int] = set()
+        # Lanes showing an intermediate time with its place (`rtd_split_places`):
+        # placed, yet not finished.
+        self._at_split: set[int] = set()
         # Whether the console's own line for a lane carries a swimmer's name, from
         # the last write of that line on either page.
         self._named: dict[int, bool] = {}
@@ -227,6 +238,7 @@ class RtdSwimmingDecoder(ConsoleDecoder):
         # one that never comes would hold every heat's results until the fallback.
         validates = cfg.get("rtd_validates", False)
         self._validates = validates is True or validates == "on"
+        self.split_places = cfg.get("rtd_split_places") == "on"
         hold = cfg.get("rtd_split_hold")
         self.split_hold = self.SPLIT_HOLD if hold in (None, "") else hold == "on"
         preview = str(cfg.get("rtd_preview_sub_code", "") or "")
@@ -299,10 +311,29 @@ class RtdSwimmingDecoder(ConsoleDecoder):
             updates[f"lane_splits{i}"] = 0
         self.lane_seed_times.clear()
         self._held.clear()
+        for lane in self._at_split:
+            updates[f"lane_at_split{lane}"] = False
+        self._at_split.clear()
         self._race_active = False
         return updates
 
+    def lane_at_split(self, lane: int) -> bool:
+        return lane in self._at_split
+
+    def _mark_split(self, lane: int, at_split: bool, updates: dict) -> None:
+        """Say `lane_at_split<i>` when it changes: the boards' "heat over" counts
+        a placed lane as finished, and this place is not a finish."""
+        if at_split == (lane in self._at_split):
+            return
+        if at_split:
+            self._at_split.add(lane)
+        else:
+            self._at_split.discard(lane)
+        updates[f"lane_at_split{lane}"] = at_split
+
     def race_finished(self) -> bool:
+        if self._at_split:
+            return False
         any_placed = False
         for i in range(1, self.num_lanes + 1):
             if self.lane_running.get(i):
@@ -578,6 +609,7 @@ class RtdSwimmingDecoder(ConsoleDecoder):
                 self.lane_places[lane] = " "
                 updates[f"lane_time{lane}"] = ""
                 updates[f"lane_place{lane}"] = " "
+            self._mark_split(lane, False, updates)
             if lane in self._held:
                 # The console's split hold is over: the swimmer goes on.
                 self._held.discard(lane)
@@ -607,11 +639,13 @@ class RtdSwimmingDecoder(ConsoleDecoder):
         finished = not max_lengths or not lengths or lengths >= max_lengths
         if not finished:
             # An intermediate time. The lane stops on it, as a CTS lane does, until
-            # the console clears the line; the console's place here is only the
-            # order at the wall, and the board shows a place for a finish alone.
-            if self.lane_places.get(lane, " ").strip():
-                self.lane_places[lane] = " "
-                updates[f"lane_place{lane}"] = " "
+            # the console clears the line. The console's place here is only the
+            # order at the wall: shown when the operator chose so, never a finish.
+            shown = place if self.split_places else " "
+            self._mark_split(lane, bool(shown.strip()), updates)
+            if shown != self.lane_places.get(lane, " "):
+                self.lane_places[lane] = shown
+                updates[f"lane_place{lane}"] = shown
             if self.split_hold and self._race_active:
                 self._held.add(lane)
                 if self.lane_running.get(lane, False):
@@ -620,6 +654,7 @@ class RtdSwimmingDecoder(ConsoleDecoder):
             return
 
         self._held.discard(lane)
+        self._mark_split(lane, False, updates)
         if place != self.lane_places.get(lane, " "):
             self.lane_places[lane] = place
             updates[f"lane_place{lane}"] = place

@@ -98,3 +98,36 @@ def test_the_podium_waits_for_a_validating_console():
     )
     ws = '<script src="/static/js/ws.js"></script>'
     run_page(html.replace(ws, ws + _SOCKET, 1).replace("</body>", _PODIUM))
+
+
+_SPLIT_PLACES = r"""<script>
+function assert(ok, msg) { if (!ok) throw new Error(msg); }
+var frame = __h['update_scoreboard'];
+frame({current_event: '58', current_heat: '1', lane_name1: 'A', lane_name2: 'B'});
+frame({lane_running1: true, lane_running2: true, running_time: '0.10'});
+frame({lane_time1: '28.41', lane_place1: '1', lane_running1: false,
+       lane_at_split1: true});
+frame({lane_time2: '28.90', lane_place2: '2', lane_running2: false,
+       lane_at_split2: true, running_time: '29.00'});
+assert(current_state !== 3, 'a turn with every lane placed ended the heat');
+frame({lane_time1: '1:01.23', lane_place1: '1', lane_at_split1: false});
+frame({lane_time2: '1:02.05', lane_place2: '2', lane_at_split2: false});
+assert(current_state === 3, 'the finish should end the heat');
+</script></body>"""
+
+
+@pytest.mark.skipif(
+    not HAS_JS_ENGINE, reason="needs a JavaScript engine (osascript or node)"
+)
+def test_a_place_at_a_split_does_not_end_the_heat():
+    html = _render(
+        "server/templates",
+        "live.html",
+        show_laps=False,
+        nosplash=True,
+        test_background=False,
+        carousel_images=[],
+        carousel_interval=10,
+    )
+    ws = '<script src="/static/js/ws.js"></script>'
+    run_page(html.replace(ws, ws + _SOCKET, 1).replace("</body>", _SPLIT_PLACES))

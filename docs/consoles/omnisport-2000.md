@@ -51,6 +51,7 @@ In **Settings → Timing**:
 Options shown for the RTD outputs:
 
 - **RTD offset** — must match the console's *RTD Offset* menu (0K, 5K, 10K, 15K). Leave at 0K unless the venue changed it.
+- **Places at a split** — hidden until the finish by default, as a CTS console shows them with places on splits turned off. Shown, each split carries the order at that wall; RTD says which length every time is, so the heat still ends only at the finish.
 - Ethernet only: **RTD network port** (the console's *RTD Port #*, menu 4-7-5, 21000 by default; pick **Custom…** and type it when the console uses *2-CUST*, 1024 to 65535) and **RTD layout** (lines at 222 for Results set to OMNI2000, at 200 for OMNI6000).
 
 ## Capturing at the pool

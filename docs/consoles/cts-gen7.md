@@ -41,7 +41,7 @@ Options, per output:
 - Gen7 serial output — **Pool** (1 by default): the pool this Splouch shows, as numbered in the Gen7's course setup. A Gen7 running several pools sends them all on this output. Until a two-pool capture confirms it, a second pool is safest on its own RS-485 or legacy output, mapped to that pool in *Input / Output Course Mappings*.
 - Gen7 serial output, Legacy scoreboard output, RS-485 set to CTS Legacy — **Event / heat on scoreboard**: match *Quick Options → EVT/HT*. Swapped puts event and heat on module 0D and the team scores on 0C.
 - RS-485 set to CTS Legacy — **Serial parity**
-- RS-485 set to Daktronics RTD — **RTD layout** (lines at 222 or 200), **RTD header sub-code** (any by default), **Baud rate**, **Serial format**, **RTD offset**, and three OmniSport behaviours a Gen7 may or may not share, off by default: **Lane chrono at a split**, **Next-heat page**, **Podium colours**
+- RS-485 set to Daktronics RTD — **RTD layout** (lines at 222 or 200), **RTD header sub-code** (any by default), **Baud rate**, **Serial format**, **RTD offset**, **Places at a split** (hidden by default), and three OmniSport behaviours a Gen7 may or may not share, off by default: **Lane chrono at a split**, **Next-heat page**, **Podium colours**
 - RS-485 set to Omega — **Scoreboard line order** (rank mode by default), **Baud rate**, **Serial format**
 
 Results posted by place (*Lane Module Order* set to Place, or a result posted by place) land on each swimmer's lane: Splouch reads the lane number each scoreboard line shows. In a pool of 11 or 12 lanes, keep **Two Digit Lane and Place Display** on A,B,C or Letters — a `1` could be lane 1 or 11, and reads as lane 1.

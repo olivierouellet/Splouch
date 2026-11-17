@@ -259,6 +259,9 @@ class LaneRow(QFrame):
         # arrives at the end of the heat, not the moment a place lands — see
         # BoardWindow.highlight_podium.
         self._place = ""
+        # `lane_at_split<i>`: the place is the order at a wall mid-race, not a
+        # finish (an RTD console set to show places at splits).
+        self.at_split = False
         # Whether the delta cell is currently showing a lap count rather than a
         # delta, and whether that lap is the final stretch — `apply_theme` needs both
         # to know which of the three colours the cell owes after a reload.
@@ -663,7 +666,8 @@ class LaneRow(QFrame):
         i = self.lane
         if not self.cfg.show_laps:
             return None, False
-        if (snapshot.get(f"lane_place{i}", "") or "").strip():
+        at_split = bool(snapshot.get(f"lane_at_split{i}"))
+        if (snapshot.get(f"lane_place{i}", "") or "").strip() and not at_split:
             return None, False
         if fmt_delta(snapshot.get(f"lane_delta_seconds{i}")):
             return None, False
@@ -723,6 +727,7 @@ class LaneRow(QFrame):
         # row gold while everyone else is still swimming.
         place = (snapshot.get(f"lane_place{i}", "") or "").strip()
         self._place = place
+        self.at_split = bool(snapshot.get(f"lane_at_split{i}"))
         self.place_label.setText(place)
         self.drop_stale_podium(_PODIUM_FADE_MS)
 
@@ -1789,7 +1794,14 @@ class BoardWindow(QWidget):
             key
             for key in self.snapshot
             if key.startswith(
-                ("lane_time", "lane_place", "lane_delta", "lane_running", "lane_splits")
+                (
+                    "lane_time",
+                    "lane_place",
+                    "lane_delta",
+                    "lane_running",
+                    "lane_splits",
+                    "lane_at_split",
+                )
             )
             and key not in keep
         ]
@@ -1809,7 +1821,7 @@ class BoardWindow(QWidget):
         checks that there is something to reveal.
         """
         for row in self.rows:
-            if row.running:
+            if row.running or row.at_split:
                 return False
             if row.time_label.text() and not row.place_label.text():
                 return False

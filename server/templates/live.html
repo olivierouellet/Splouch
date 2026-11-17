@@ -37,6 +37,9 @@ var LAP_DIRECTION    = {{ lap_direction | default('up', true) | tojson }};
 var SHOW_PODIUM = {{ show_podium | tojson }};
 var lane_running = {};
 var lane_place_blank = {};
+/* A lane showing a place for a split (an RTD console set to show them): placed, not
+   finished. */
+var lane_at_split = {};
 var lane_time_blank = {};
 var lane_name_blank = {};
 var last_event = 0;
@@ -364,7 +367,7 @@ var split_step      = 1;
 function lapVisible(i) {
     if (!SHOW_LAPS) return false;
     if (!((lane_delta_html[i] || '').trim() === '')) return false;
-    if ((i in lane_place_blank) && !lane_place_blank[i]) return false;
+    if ((i in lane_place_blank) && !lane_place_blank[i] && !lane_at_split[i]) return false;
     if (lane_splits_n[i] > 0) return true;
     /* Nothing swum yet, and here the two directions part company. Counting up has
        nothing to say — a column of noughts under a start list is noise. Counting
@@ -473,6 +476,7 @@ function reset_state() {
     last_heat = 0;
     lane_running = {};
     lane_place_blank = {};
+    lane_at_split = {};
     lane_time_blank = {};
     lane_name_blank = {};
     lane_splits_n = {};
@@ -686,6 +690,11 @@ function mode_to_results() {
                 lane_place_blank[pi] = (s[k].trim() === "");
                 delta_lanes[pi] = true;          /* a place ends the lap */
             }
+            if (k.startsWith("lane_at_split")) {
+                var si = k.replace("lane_at_split", "");
+                lane_at_split[si] = !!s[k];
+                delta_lanes[si] = true;
+            }
             if (k.startsWith("lane_name")) names_changed = true;
             if (k.startsWith("lane_name") && !k.startsWith("lane_name_alt"))
                 lane_name_blank[k.replace("lane_name", "")] = (s[k].trim() === "");
@@ -710,7 +719,8 @@ function mode_to_results() {
         if ("running_time" in s) {
             var any_running = false;
             for (var i = 1; i <= NUM_LANES; i++) {
-                if ((lane_running[i] || false) || (lane_place_blank[i] && !lane_time_blank[i])) { any_running = true; break; }
+                if ((lane_running[i] || false) || lane_at_split[i] ||
+                    (lane_place_blank[i] && !lane_time_blank[i])) { any_running = true; break; }
             }
             if (any_running) {
                 var h = parseHundredths(s["running_time"]);
@@ -740,7 +750,7 @@ function mode_to_results() {
             var all_done = true;
             var any_result = false;
             for (var i = 1; i <= NUM_LANES; i++) {
-                if (((i in lane_running) && lane_running[i]) ||
+                if (((i in lane_running) && lane_running[i]) || lane_at_split[i] ||
                     ((i in lane_place_blank) && lane_place_blank[i] &&
                      (i in lane_time_blank)  && !lane_time_blank[i])) {
                     all_done = false;
