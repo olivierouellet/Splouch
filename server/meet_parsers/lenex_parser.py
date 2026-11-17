@@ -84,6 +84,20 @@ def age_band(agemin, agemax):
     return ""
 
 
+def _pool_lanes(pool_el):
+    """``[first, last]`` lane of a POOL, ``None`` without a usable `lanemax`."""
+    if pool_el is None:
+        return None
+    try:
+        last = int(pool_el.get("lanemax", ""))
+        first = int(pool_el.get("lanemin") or 1)
+    except ValueError:
+        return None
+    if first not in (0, 1) or not first < last <= 12:
+        return None
+    return [first, last]
+
+
 class _PrologRead(Exception):
     """The root element began: the prolog held no DOCTYPE."""
 
@@ -548,6 +562,11 @@ def load_lenex(path):
         meet_info["course"] = course
         pool_el = find_first(meet_el, "POOL")
         meet_info["pool"] = pool_el.get("name", "") if pool_el is not None else ""
+        # The pool's lanes as the file has them, for Settings to check its own
+        # against: `lanemin` is 1 unless the pool is numbered from lane 0.
+        lanes = _pool_lanes(pool_el)
+        if lanes:
+            meet_info["lanes_lenex"] = lanes
         meet_info["sessions"] = [
             {
                 "date": s.get("date", ""),

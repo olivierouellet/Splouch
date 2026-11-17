@@ -1,6 +1,6 @@
 {# Which Lenex rounds follow the event name, once per audience: the board in
    Displays → Appearance, the phones in Phones → Appearance. #}
-{% macro round_checks(audience, shown) %}
+{% macro round_checks(audience, shown, heat_age, gender) %}
                         <div class="mb-3">
                             <div class="panel-eyebrow">{{ t.disp_rounds_shown }}</div>
                             <div class="row row-cols-2 row-cols-sm-3 g-1">
@@ -9,5 +9,13 @@
                             {% endfor %}
                             </div>
                             <div class="form-text">{{ t.disp_rounds_help }}</div>
+                        </div>
+                        <div class="mb-3">
+                            <div class="form-check"><input class="form-check-input" type="checkbox" id="heat_age_{{ audience }}" name="heat_age_{{ audience }}" value="1" {% if heat_age %}checked{% endif %}><label class="form-check-label" for="heat_age_{{ audience }}">{{ t.disp_heat_age }}</label></div>
+                            <div class="form-text">{{ t.disp_heat_age_help }}</div>
+                        </div>
+                        <div class="mb-3">
+                            <div class="form-check"><input class="form-check-input" type="checkbox" id="name_gender_{{ audience }}" name="name_gender_{{ audience }}" value="1" {% if gender %}checked{% endif %}><label class="form-check-label" for="name_gender_{{ audience }}">{{ t.disp_name_gender }}</label></div>
+                            <div class="form-text">{{ t.disp_name_gender_help }}</div>
                         </div>
 {% endmacro %}

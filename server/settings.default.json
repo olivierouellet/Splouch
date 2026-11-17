@@ -40,6 +40,10 @@
     "final",
     "swimoff"
   ],
+  "heat_age_board": true,
+  "heat_age_phone": true,
+  "name_gender_board": true,
+  "name_gender_phone": true,
   "active_theme": "default",
   "theme_colors": {
     "bg": "#0d0d0d",

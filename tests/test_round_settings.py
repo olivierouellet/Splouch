@@ -117,6 +117,8 @@ def test_saving_unchanged_rounds_announces_nothing(final_meet, monkeypatch):
     form = {"display_settings_submit": "1", "phones_settings_submit": "1"}
     for audience in ("board", "phone"):
         form.update({f"round_{audience}_{k}": "1" for k in ROUND_NAMES})
+        form[f"heat_age_{audience}"] = "1"
+        form[f"name_gender_{audience}"] = "1"
     emitted = _post(form, monkeypatch)
     assert ("/schedule", "schedule_update") not in emitted
 
@@ -167,3 +169,32 @@ def test_the_phones_group_holds_display_and_cloud():
     assert 'data-target="#tab-cloud"' in group
     scoreboard = src.split('id="grp-appearance"')[1].split("</div>")[0]
     assert "#tab-phones" not in scoreboard
+
+
+@pytest.mark.parametrize(
+    "submit,audience,other",
+    [
+        ("display_settings_submit", "board", "phone"),
+        ("phones_settings_submit", "phone", "board"),
+    ],
+)
+@pytest.mark.parametrize("box", ["heat_age", "name_gender"])
+def test_each_form_stores_its_name_boxes(
+    final_meet, monkeypatch, submit, audience, other, box
+):
+    """Unticked on one form, the heat's age group or the gender leaves that
+    audience's name only."""
+    for a in (audience, other):
+        for b in ("heat_age", "name_gender"):
+            monkeypatch.setitem(state.settings, f"{b}_{a}", True)
+    form = {submit: "1", **{f"round_{audience}_{k}": "1" for k in ROUND_NAMES}}
+    form.update({f"heat_age_{audience}": "1", f"name_gender_{audience}": "1"})
+    del form[f"{box}_{audience}"]
+    emitted = _post(form, monkeypatch)
+    assert state.settings[f"{box}_{audience}"] is False
+    assert state.settings[f"{box}_{other}"] is True
+    assert ("/scoreboard", "update_scoreboard") in emitted
+    assert ("/schedule", "schedule_update") in emitted
+    form[f"{box}_{audience}"] = "1"
+    _post(form, monkeypatch)
+    assert state.settings[f"{box}_{audience}"] is True

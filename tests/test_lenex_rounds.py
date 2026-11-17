@@ -484,3 +484,92 @@ def test_the_cloud_serves_the_heat_labels(pi, monkeypatch):
         assert [(h["age"], h["seeded"]) for h in cloud] == [
             (h["age"], h["seeded"]) for h in pi_heats
         ]
+
+
+def test_the_live_frames_name_the_heats_age_group(pi, monkeypatch):
+    """On the board, in Results and in Next heats the name is the heat's: heat 2
+    of an open final is the 17+ (docs/api.md §5.1)."""
+    state.set_lenex(_finals_by_age())
+    monkeypatch.setattr(state._decoder, "last_event_sent", (15, 2))
+    sent = []
+    monkeypatch.setattr("meet_data.bus.emit", lambda ns, ev, d: sent.append(d))
+    monkeypatch.setattr("meet_data.relay.relay_emit", lambda ev, d: None)
+    send_event_info()
+    assert sent[0]["event_name_parts"]["age"] == "17+"
+    assert "17+" in sent[0]["event_name"]
+    assert _build_results_snapshot()["event_name_parts"]["age"] == "17+"
+    nxt = _get_next_heats(1, 1)
+    assert [h["event_name_parts"]["age"] for h in nxt] == ["11-12", "17+"]
+    assert "11-12" in nxt[0]["event_name"]
+    # A heat with no age group of its own keeps the event's name.
+    monkeypatch.setattr(state._decoder, "last_event_sent", (1, 1))
+    assert _build_results_snapshot()["event_name_parts"]["age"] == ""
+
+
+def test_the_schedule_keeps_the_events_name(pi):
+    """The Schedule shows the age beside the name (`S-25`), not in it."""
+    state.set_lenex(_finals_by_age())
+    heat = _heat(build_heats(), 15, 2)
+    assert heat["age"] == "17+"
+    assert heat["event_name_parts"]["age"] == ""
+
+
+@pytest.mark.parametrize(
+    ("pool", "lanes"),
+    [
+        ('<POOL name="Centre" lanemin="0" lanemax="9"/>', [0, 9]),
+        ('<POOL lanemax="8"/>', [1, 8]),
+        ('<POOL name="Centre"/>', None),
+        ('<POOL lanemax="x"/>', None),
+        ('<POOL lanemin="3" lanemax="8"/>', None),
+        ("", None),
+    ],
+)
+def test_the_files_pool_lanes(pool, lanes):
+    """Settings checks its lanes against these (Settings → Meet)."""
+    xml = MEET.replace('course="SCM">', f'course="SCM">{pool}').replace("{final}", "")
+    assert load_lenex(_lxf(xml)).meet_info.get("lanes_lenex") == lanes
+
+
+@pytest.mark.parametrize("audience", ["board", "phone"])
+def test_settings_can_keep_the_heats_age_out_of_the_name(pi, monkeypatch, audience):
+    """Settings → Displays and Settings → Phones, one box each: the board decides
+    `event_name`, the phones `event_name_parts` (docs/api.md §5.1)."""
+    from meet_data import get_event_name_display, get_event_name_parts
+
+    state.set_lenex(_finals_by_age())
+    monkeypatch.setitem(state.settings, f"heat_age_{audience}", False)
+    board, phone = get_event_name_display(15, 2), get_event_name_parts(15, 2)
+    assert ("17+" in board) is (audience == "phone")
+    assert (phone["age"] == "17+") is (audience == "board")
+    # The Schedule's `age` (`S-25`) is the phones': their box hides it too, on
+    # the Pi and through the cloud.
+    assert (_heat(build_heats(), 15, 2)["age"] == "17+") is (audience == "board")
+    import relay
+
+    sent = {}
+    monkeypatch.setattr(relay, "_local_only", lambda: False)
+    monkeypatch.setattr(relay, "_send_schedule_data", lambda c, d: sent.update(d))
+    relay.send_schedule()
+    cloud = cs._build_heats_json(json.loads(json.dumps(sent)), {}, True)
+    assert [h["age"] for h in cloud] == [h["age"] for h in build_heats(True)]
+
+
+@pytest.mark.parametrize("audience", ["board", "phone"])
+def test_settings_can_keep_the_gender_out_of_the_name(pi, monkeypatch, audience):
+    """Everywhere the audience reads a name: live, and on the Schedule."""
+    from meet_data import get_event_name_display, get_event_name_parts
+
+    xml = MEET.replace('name="100 Free"', 'name="100 Free Girls"').replace(
+        "{final}", FINAL_SEEDED
+    )
+    state.set_lenex(load_lenex(_lxf(xml)))
+    monkeypatch.setitem(state.settings, "locale", "en")
+    monkeypatch.setitem(state.settings, f"name_gender_{audience}", False)
+    board, phone = get_event_name_display(15, 1), get_event_name_parts(15, 1)
+    heat = _heat(build_heats(), 15, 1)
+    assert ("Girls" in board) is (audience == "phone")
+    assert ("Girls" in heat["event_name"]) is (audience == "phone")
+    assert (phone["gender"] == "girls") is (audience == "board")
+    assert (heat["event_name_parts"]["gender"] == "girls") is (audience == "board")
+    assert phone["stroke"] == "freestyle"

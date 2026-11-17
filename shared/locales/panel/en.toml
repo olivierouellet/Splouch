@@ -454,6 +454,7 @@ touchpads_both        = "Both ends"
 touchpads_one         = "One end only"
 touchpads_hint        = "One end: touch = 2 splits."
 lenex_pool_warning    = "⚠ Lenex says {lenex} m — using your {pool} m."
+lenex_lanes_warning   = "⚠ Lenex says lanes {first}–{last} — using your {pool_first}–{pool_last}."
 
 # Account
 account_user_name          = "User Name"
@@ -632,6 +633,10 @@ disp_results_order_help    = "This Pi's web pages, and each new TV. A TV's own o
 disp_board_lane_order_help = "For each new TV. A TV's own order is under TVs."
 disp_rounds_shown          = "Rounds shown"
 disp_rounds_help           = "Added after the event name, from a Lenex meet file."
+disp_heat_age              = "Heat’s age group in the event name"
+disp_heat_age_help         = "For a final seeded one heat per age group, from a Lenex meet file: “100 m Freestyle — Girls 13-14”."
+disp_name_gender           = "Gender in the event name"
+disp_name_gender_help      = "Untick for a meet where every event is mixed, or the gender is plain from the age group: “100 m Freestyle — 13-14”."
 disp_phones                = "Phones"
 disp_lane_order            = "Lane order"
 disp_lanes_up              = "First lane at the top"

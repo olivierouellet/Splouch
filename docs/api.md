@@ -441,6 +441,23 @@ word, as above), and a client composing from the parts falls back to `raw` the s
 way — in the meet's language whatever the reader's, because nothing was parsed to
 translate. No new field: a client that composes as above needs no change.
 
+**A heat's own age group.** Splash seeds a final one heat per age group, and
+the heat says which (§5.8 `age`). Here, on `results_snapshot` (§5.2) and on each of
+`next_heats` (§5.3), the name is the **heat's**: its band replaces the event's in
+`age` (and clears `age_key`), so `event_name` reads `100 m libre  —  Filles 13-14`
+for heat 2 of an open final. Not for a name that parsed to nothing or is shown as
+is, nor for an audience the operator keeps it from (below). No new field: a client
+that composes as above needs no change. The Schedule's names stay the event's, with
+`age` beside them (`app.md` `S-25`).
+
+**Age group and gender per audience.** Like the rounds, the operator chooses
+separately for boards and phones (Settings → Displays → Appearance and Settings →
+Phones → Appearance) whether a heat's own age group goes in the name, as above, and
+whether the gender does. The board choices decide `event_name`, the phone choices
+the parts — `gender` is `""` when it is hidden — wherever a name is sent, the
+Schedule's included (§5.5, §5.8). Hiding the age group from phones also sends the
+Schedule's `age` as `""`. Not for a name that parsed to nothing or is shown as is.
+
 **Event 0** is the console's test race (every Gen7 sequence has one; any CTS can be
 set to it). `current_event` is `"0"`, `current_heat` the console's, `event_name` is
 the `event_name` vocabulary's `test_race` in the meet's language, and
@@ -678,7 +695,7 @@ A lane's three times (`app.md` `S-22`), every one `HH:MM:SS.hh` or `""`:
 `age` is the heat's own age group when the meet file gives it one — a final seeded one
 heat per age group — as a band of numbers like `event_name_parts.age` (§5.1): `"13-14"`,
 `"< 7"` (7 and under), `"17+"`, `"8"`; `""` when the heat has none, which is nearly
-always. `seeded` is false while the heat's round has no swimmer in any heat yet — a
+always, or when the operator hides it from phones (§5.1). `seeded` is false while the heat's round has no swimmer in any heat yet — a
 final before its prelims are swum and the file re-exported — and its `lanes` are empty
 for that reason, not because the heat is. An older server sends neither: read `""` and
 `true` (`app.md` `S-25`).

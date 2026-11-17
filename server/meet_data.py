@@ -89,18 +89,67 @@ def current_round(event_num, m=None):
 TEST_EVENT = 0
 
 
-def get_event_name_display(event_num):
-    if event_num == TEST_EVENT:
-        return state.load_event_translations().get("test_race", "Test race")
-    return state.translate_event_name(
-        _raw_event_name(event_num),
-        state.load_event_translations(),
-        shown_round(event_num, "board"),
-        state.event_names_as_is(),
+def heat_age_shown(audience):
+    """Does Settings put a heat's own age group in *audience*'s event name — and,
+    for phones, beside it on the Schedule (`heat_age_<audience>`)?"""
+    return bool(state.settings.get(f"heat_age_{audience}", True))
+
+
+def heat_age(event_num, heat_num, m=None):
+    """The age group of heat *heat_num* of *event_num*'s live round, as a band
+    (`"13-14"`), ``""`` when the heat has none of its own: a final seeded one heat
+    per age group (docs/api.md §5.8 `age`)."""
+    m = m or state.meet
+    for r in m.rounds:
+        if r["live"] and r["event"] == event_num:
+            return r["heat_ages"].get(heat_num, "")
+    return ""
+
+
+def _shown_parts(parts, audience, age=""):
+    """*parts* as Settings shows them to *audience* (docs/api.md §5.1): the heat's
+    own age group *age* in place of the event's, and no gender if it is hidden
+    (`name_gender_<audience>`). Not for a name that parsed to nothing, which every
+    composer shows as `raw`, nor one shown as the file has it."""
+    if not parts or not (parts.get("dist") or parts.get("stroke")):
+        return parts
+    if age and heat_age_shown(audience):
+        parts = {**parts, "age": age, "age_key": ""}
+    if not state.settings.get(f"name_gender_{audience}", True):
+        parts = {**parts, "gender": ""}
+    return parts
+
+
+def board_name(raw, round_key, age=""):
+    """*raw* composed for the boards, in the meet's language: `event_name`."""
+    parts = _shown_parts(
+        state.parse_event_name(raw, round_key, state.event_names_as_is()),
+        "board",
+        age,
+    )
+    return state.compose_event_name(parts, state.load_event_translations()) or raw
+
+
+def phone_parts(raw, round_key, age=""):
+    """*raw* as parts for the phones to compose: `event_name_parts`."""
+    return _shown_parts(
+        state.parse_event_name(raw, round_key, state.event_names_as_is()),
+        "phone",
+        age,
     )
 
 
-def get_event_name_parts(event_num):
+def get_event_name_display(event_num, heat_num=0):
+    if event_num == TEST_EVENT:
+        return state.load_event_translations().get("test_race", "Test race")
+    return board_name(
+        _raw_event_name(event_num),
+        shown_round(event_num, "board"),
+        heat_age(event_num, heat_num),
+    )
+
+
+def get_event_name_parts(event_num, heat_num=0):
     """The same name, language-neutral, for a client rendering in its own language.
 
     Travels beside `event_name` rather than replacing it (api.md §5.1): a client
@@ -124,10 +173,10 @@ def get_event_name_parts(event_num):
             "round": "",
             "kind": "test_race",
         }
-    return state.parse_event_name(
+    return phone_parts(
         _raw_event_name(event_num),
         shown_round(event_num, "phone"),
-        state.event_names_as_is(),
+        heat_age(event_num, heat_num),
     )
 
 
@@ -243,8 +292,8 @@ def _get_next_heats(after_event=0, after_heat=0, n=3, num_lanes=8):
                 "event": ev,
                 "heat": ht,
                 "round": current_round(ev, m),
-                "event_name": get_event_name_display(ev),
-                "event_name_parts": get_event_name_parts(ev),
+                "event_name": get_event_name_display(ev, ht),
+                "event_name_parts": get_event_name_parts(ev, ht),
                 "time": m.heat_times.get(ev, {}).get(ht, ""),
                 "swimmers": swimmers,
             }
@@ -300,8 +349,8 @@ def _build_results_snapshot():
         "event": str(ev) if ev else "",
         "heat": str(ht) if ht else "",
         "round": current_round(ev),
-        "event_name": get_event_name_display(ev) if ev else "",
-        "event_name_parts": get_event_name_parts(ev) if ev else None,
+        "event_name": get_event_name_display(ev, ht) if ev else "",
+        "event_name_parts": get_event_name_parts(ev, ht) if ev else None,
         # Lanes without a final time are omitted above; 'sort' lets the client
         # place each result in the row matching its lane (lane mode) so a missing
         # lane leaves a blank row instead of shifting the lanes below it up.
@@ -314,16 +363,12 @@ def _build_meet_data():
     """Normalize Lenex or Hytek data into a unified structure for meet/schedule views."""
     m = state.meet
     if m.start_list:
-        ev_trans = state.load_event_translations()
-        as_is = state.event_names_as_is()
         event_names = {
-            num: state.translate_event_name(
-                name, ev_trans, shown_round(num, "board", m), as_is
-            )
+            num: board_name(name, shown_round(num, "board", m))
             for num, name in m.event_names.items()
         }
         event_name_parts = {
-            num: state.parse_event_name(name, shown_round(num, "phone", m), as_is)
+            num: phone_parts(name, shown_round(num, "phone", m))
             for num, name in m.event_names.items()
         }
         # Running order: the file's, which is its sessions' (docs/api.md §5.8).
@@ -379,26 +424,23 @@ def schedule_rounds(all_rounds=False):
     """
     m = state.meet
     if m.rounds:
-        ev_trans = state.load_event_translations()
-        as_is = state.event_names_as_is()
+        # The Schedule's `age` is for phones; their box hides it (`S-25`).
+        ages_shown = heat_age_shown("phone")
         return [
             {
                 "event": r["event"],
                 "round": r["round"],
                 "live": r["live"],
                 "date": r["date"],
-                "event_name": state.translate_event_name(
-                    r["name"],
-                    ev_trans,
-                    _round_shown(r["kind"], bool(r["round"]), "board"),
-                    as_is,
+                "event_name": board_name(
+                    r["name"], _round_shown(r["kind"], bool(r["round"]), "board")
                 ),
-                "event_name_parts": state.parse_event_name(
-                    r["name"], _round_shown(r["kind"], bool(r["round"]), "phone"), as_is
+                "event_name_parts": phone_parts(
+                    r["name"], _round_shown(r["kind"], bool(r["round"]), "phone")
                 ),
                 "start_list": r["start_list"],
                 "heat_times": r["heat_times"],
-                "heat_ages": r["heat_ages"],
+                "heat_ages": r["heat_ages"] if ages_shown else {},
                 "results": r["results"],
             }
             for r in m.rounds
@@ -587,8 +629,8 @@ def send_event_info():
         "current_event": str(ev) if started else "",
         "current_heat": str(ht) if started else "",
         "current_round": current_round(ev) if started else "",
-        "event_name": get_event_name_display(ev) if started else "",
-        "event_name_parts": get_event_name_parts(ev) if started else None,
+        "event_name": get_event_name_display(ev, ht) if started else "",
+        "event_name_parts": get_event_name_parts(ev, ht) if started else None,
     }
     # 12, not 10: Settings offers a 12-lane pool and every other producer of these
     # keys covers 1-12 (`worker._load_heat_names`, each decoder's `reset_lanes`).

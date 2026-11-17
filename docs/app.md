@@ -1156,6 +1156,13 @@ paused stays paused. iOS: a `Toggle` in the sheet's first section, the bell
 
 ## Changelog
 
+- **v3, amended** (2026-11-17, no bump) — a live heat's age group. On the board,
+  in Results and in Next heats, `event_name` and `event_name_parts.age` are the
+  heat's when it has its own age group ([`api.md`](api.md) §5.1). Settings can keep
+  that age group, and the gender, out of the board's or the phones' names; hidden
+  from phones, the age group leaves the Schedule's `heat.age` blank too. No new
+  field: a client that composes from the parts shows all of it unchanged.
+
 - **v3, amended** (2026-11-16, no bump) — a heat's age group and an unseeded round.
   Additive: `age` and `seeded` on schedule heats, `mobile.not_seeded`. A client that
   ignores them shows the event name alone and an empty card, as before.

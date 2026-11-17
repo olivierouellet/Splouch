@@ -146,6 +146,7 @@ def _globals():
         "pool_length": int(state.settings.get("pool_length", 25)),
         "touchpad_sides": int(state.settings.get("touchpad_sides", 1)),
         "lenex_pool_length": int(state.meet.meet_info.get("pool_length_lenex") or 0),
+        "lenex_lanes": state.meet.meet_info.get("lanes_lenex"),
         "theme_colors": {
             **state.DEFAULT_THEME_COLORS,
             **state.settings.get("theme_colors", {}),

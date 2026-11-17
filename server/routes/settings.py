@@ -380,7 +380,8 @@ def _users_action(form):
 
 
 def _save_rounds(form, audience):
-    """Store which Lenex rounds follow the event name for *audience*; True if changed.
+    """Store which Lenex rounds follow the event name for *audience*, and whether
+    a heat's own age group and the gender go in it; True if any changed.
 
     Checkboxes named per key rather than after the setting, so the generic sweep
     never sees them; validated against `ROUND_NAMES` so a stale form cannot store
@@ -388,9 +389,15 @@ def _save_rounds(form, audience):
     """
     setting = f"round_names_{audience}"
     shown = [k for k in ROUND_NAMES if f"round_{audience}_{k}" in form]
-    if shown == list(state.settings.get(setting, ROUND_NAMES)):
+    boxes = {
+        key: key in form for key in (f"heat_age_{audience}", f"name_gender_{audience}")
+    }
+    if shown == list(state.settings.get(setting, ROUND_NAMES)) and all(
+        on == state.settings.get(key, True) for key, on in boxes.items()
+    ):
         return False
     state.settings[setting] = shown
+    state.settings.update(boxes)
     # The name is composed into the frame, so a board would keep the old one
     # until the next heat; the start list is cached by every Schedule tab and by
     # the cloud until told to re-fetch.
@@ -1022,6 +1029,10 @@ def _settings_view(request, form):
         round_words=state.i18n_bundle(ui_lang)["event_name"],
         round_names_board=state.settings.get("round_names_board", ROUND_NAMES),
         round_names_phone=state.settings.get("round_names_phone", ROUND_NAMES),
+        heat_age_board=state.settings.get("heat_age_board", True),
+        heat_age_phone=state.settings.get("heat_age_phone", True),
+        name_gender_board=state.settings.get("name_gender_board", True),
+        name_gender_phone=state.settings.get("name_gender_phone", True),
         results_sort=state.settings.get("results_sort", "lane"),
         board_lane_direction=state.settings.get("board_lane_direction", "up"),
         active_theme=state.settings.get("active_theme", "default"),

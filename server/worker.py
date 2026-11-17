@@ -291,8 +291,8 @@ def _list_sessions():
 def _on_event_changed(updates, ev, ht):
     m = state.meet
     updates["current_round"] = current_round(ev, m)
-    updates["event_name"] = get_event_name_display(ev)
-    updates["event_name_parts"] = get_event_name_parts(ev)
+    updates["event_name"] = get_event_name_display(ev, ht)
+    updates["event_name_parts"] = get_event_name_parts(ev, ht)
     updates["heat_time"] = m.heat_times.get(ev, {}).get(ht, "")
     pool_len = int(state.settings.get("pool_length", 25))
     dist = m.event_distances.get(ev, 0)

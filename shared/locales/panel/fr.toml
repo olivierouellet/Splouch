@@ -445,6 +445,7 @@ touchpads_both        = "Aux deux extrémités"
 touchpads_one         = "À une seule extrémité"
 touchpads_hint        = "Un bout : 1 touche = 2 passages."
 lenex_pool_warning    = "⚠ Lenex indique {lenex} m — votre {pool} m sera utilisé."
+lenex_lanes_warning   = "⚠ Lenex indique les couloirs {first} à {last} — vos couloirs {pool_first} à {pool_last} seront utilisés."
 
 # Compte
 account_user_name          = "Nom d'utilisateur"
@@ -623,6 +624,10 @@ disp_results_order_help    = "Les pages web de ce Pi, et chaque nouveau télévi
 disp_board_lane_order_help = "Pour chaque nouveau téléviseur. L'ordre propre à un téléviseur est sous Téléviseurs."
 disp_rounds_shown          = "Phases affichées"
 disp_rounds_help           = "Ajoutée après le nom de l’épreuve, depuis un fichier Lenex."
+disp_heat_age              = "Groupe d’âge de la série dans le nom de l’épreuve"
+disp_heat_age_help         = "Pour une finale répartie en une série par groupe d’âge, depuis un fichier Lenex : « 100 m libre — Filles 13-14 »."
+disp_name_gender           = "Genre dans le nom de l’épreuve"
+disp_name_gender_help      = "Décochez pour une compétition où toutes les épreuves sont mixtes, ou quand le groupe d’âge suffit : « 100 m libre — 13-14 »."
 disp_phones                = "Téléphones"
 disp_lane_order            = "Ordre des couloirs"
 disp_lanes_up              = "Premier couloir en haut"

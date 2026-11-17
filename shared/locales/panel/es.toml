@@ -445,6 +445,7 @@ touchpads_both        = "Ambos extremos"
 touchpads_one         = "Solo un extremo"
 touchpads_hint        = "Un extremo: 1 toque = 2 parciales."
 lenex_pool_warning    = "⚠ Lenex indica {lenex} m — se usa su {pool} m."
+lenex_lanes_warning   = "⚠ Lenex indica las calles {first}–{last} — se usan sus {pool_first}–{pool_last}."
 
 # Cuenta
 account_user_name          = "Nombre de usuario"
@@ -623,6 +624,10 @@ disp_results_order_help    = "Las páginas web de este Pi, y cada televisor nuev
 disp_board_lane_order_help = "Para cada televisor nuevo. El orden propio de un televisor está en Televisores."
 disp_rounds_shown          = "Fases mostradas"
 disp_rounds_help           = "Se añade tras el nombre de la prueba, desde un archivo Lenex."
+disp_heat_age              = "Grupo de edad de la serie en el nombre de la prueba"
+disp_heat_age_help         = "Para una final con una serie por grupo de edad, desde un archivo Lenex: «100 m libre — Niñas 13-14»."
+disp_name_gender           = "Género en el nombre de la prueba"
+disp_name_gender_help      = "Desmárquelo en una competición donde todas las pruebas son mixtas, o cuando basta el grupo de edad: «100 m libre — 13-14»."
 disp_phones                = "Teléfonos"
 disp_lane_order            = "Orden de calles"
 disp_lanes_up              = "Primera calle arriba"

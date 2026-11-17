@@ -108,6 +108,14 @@
                         </select>
                         <div class="form-text">{{ t.touchpads_hint }}</div>
                     </div>
+                    {% if lenex_lanes %}
+                    {% set pool_last = first_lane + num_lanes - 1 %}
+                    {% if lenex_lanes != [first_lane, pool_last] %}
+                    <div class="alert alert-warning py-1 px-2 mb-2 small">
+                        {{ t.lenex_lanes_warning.format(first=lenex_lanes[0], last=lenex_lanes[1], pool_first=first_lane, pool_last=pool_last) }}
+                    </div>
+                    {% endif %}
+                    {% endif %}
                     {% if lenex_pool_length and lenex_pool_length != pool_length %}
                     <div class="alert alert-warning py-1 px-2 mb-0 small">
                         {{ t.lenex_pool_warning.format(lenex=lenex_pool_length, pool=pool_length) }}

@@ -58,7 +58,6 @@ Parsed since Meet Manager results reach the Schedule (`swimtime`, `status`, `lan
 | Attribute | Example | Notes |
 | --- | --- | --- |
 | `EVENT preveventid` | `"1337"` | The prelim a final is seeded from. Rounds sharing a number are read apart and listed side by side (`load_lenex`), but nothing pairs a final with its prelim yet. |
-| `HEAT agegroupid` | `"1440"` | The age group a finals heat is for (`AGEGROUP agemin`/`agemax`). |
 
 ### `SESSION` element
 
