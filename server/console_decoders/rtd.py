@@ -135,6 +135,8 @@ class RtdSwimmingDecoder(ConsoleDecoder):
     RESULT_FALLBACK = False
 
     RUNNING_TIME = (0, 9)
+    # "Official Results" once the operator validates the heat, blank otherwise.
+    OFFICIAL = (1484, 16)
     EVENT_NUMBER = (99, 3)
     HEAT_NUMBER = (103, 2)
     MAX_LENGTHS = (126, 2)
@@ -187,6 +189,13 @@ class RtdSwimmingDecoder(ConsoleDecoder):
         self.sub_codes = None if sub == "any" else ((sub,) if sub else self.SUB_CODES)
         self.offset_shift = int(cfg.get("rtd_offset", 0) or 0)
         self.first_lane = first_lane_of(cfg)
+        # Only where the console is known to write the official flag — waiting for
+        # one that never comes would hold every heat's results until the fallback.
+        self._validates = bool(cfg.get("rtd_validates", False))
+
+    @property
+    def validates_results(self) -> bool:
+        return self._validates
 
     def scratched_lanes(self) -> frozenset[int]:
         return frozenset(self._scratched)
@@ -390,6 +399,11 @@ class RtdSwimmingDecoder(ConsoleDecoder):
                         self.lane_running[i] = True
                         updates[f"lane_running{i}"] = True
                 updates["dismiss_overlay"] = True
+
+        if self._validates and touched(*self.OFFICIAL):
+            # Reported on every write, not on a change: a console that never blanks
+            # it between heats would otherwise validate only its first heat.
+            updates["results_official"] = bool(self._field(*self.OFFICIAL).strip())
 
         max_lengths = to_int(self._field(*self.MAX_LENGTHS))
         for n in range(1, LINES + 1):

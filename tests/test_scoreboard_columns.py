@@ -907,3 +907,33 @@ def test_the_reveal_still_waits_for_the_heat_to_be_over(board, qt_app):
 
     assert not board._podium_shown, "revealed while lane 2 was still swimming"
     assert board.rows[0]._current_bg.lower() == board.rows[0]._base_bg.lower()
+
+
+def test_a_validating_console_holds_the_podium_until_race_finished(board, qt_app):
+    """`results_pending`: every lane is placed, but places may still change."""
+    board.apply_update({"current_event": "58", "current_heat": "1"})
+    board.apply_update({"lane_running1": True, "lane_running2": True})
+    board.apply_update(
+        {
+            "lane_running1": False,
+            "lane_time1": "1:30.57",
+            "lane_place1": "1",
+            "lane_running2": False,
+            "lane_time2": "1:38.48",
+            "lane_place2": "2",
+            "results_pending": True,
+        }
+    )
+    qt_app.processEvents()
+    assert board.heat_is_done()
+    assert not board._podium_shown, "the podium came before the validation"
+
+    # The correction moves the winner; the podium is revealed on the final places.
+    board.apply_update(
+        {"lane_time2": "1:23.24", "lane_place2": "1", "lane_place1": "2"}
+    )
+    board.apply_update({"results_pending": False})
+    board.results_pending = False  # what `app` does on `race_finished`
+    board.highlight_podium()
+    assert board._podium_shown
+    assert board.rows[1].podium_place() == 1

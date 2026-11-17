@@ -90,6 +90,10 @@ _PTY_AVAILABLE = all(importlib.util.find_spec(m) for m in ("fcntl", "pty", "term
 # publishing the results snapshot (worker.py). The Timing pane warns when the running
 # value is off this and offers it back, so it is named rather than repeated.
 FINISH_DEBOUNCE_DEFAULT = 3.0
+# How long a finished heat waits for a console's "Official Results" before its
+# results are published anyway — the console may never send one (a validation
+# skipped, a cable pulled). A validation that comes later re-publishes them.
+VALIDATION_TIMEOUT = 60.0
 
 # How long a lane's clock must stay stopped before the decoder counts a completed
 # length. The Timing pane warns when the running value is off this and offers it
@@ -541,6 +545,9 @@ _serial_status = {"state": "idle", "msg": ""}
 # it captured still matches, so any advance invalidates stale tasks; exactness is
 # irrelevant. No lock needed.
 _finish_timer_gen: int = 0
+# A finished heat whose console validates results (`validates_results`), waiting
+# for it to say they are official. Worker thread only.
+_awaiting_validation: bool = False
 _scoreboard_clients = {}
 # The sockets each registered TV is connected on, by device ID — a set, because a
 # cloned SD card puts two Pis on one ID, and Identify should light both. Touched

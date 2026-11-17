@@ -691,3 +691,17 @@ def test_cts_show_definitions_changes_no_lane():
 
 def test_the_pool_option_shows_on_the_gen7_serial_output_only():
     assert {e.key for e in CONSOLES if "gen7_pool" in e.options} == {"cts_gen7_serial"}
+
+
+@pytest.mark.parametrize(
+    ("key", "validates"),
+    [
+        ("dak_os2000_rtd", True),
+        ("dak_os2000_rtd_omni6000", True),
+        ("dak_os2000_udp", True),
+        ("cts_gen7_rs485_rtd", False),
+        ("cts_sys6", False),
+    ],
+)
+def test_only_the_omnisport_waits_for_validation(key, validates):
+    assert make_decoder(key, {"num_lanes": 8}).validates_results is validates

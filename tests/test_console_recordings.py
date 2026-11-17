@@ -653,13 +653,15 @@ def played(monkeypatch):
         # One patch, not two: `worker.bus` and `meet_data.bus` are the same module
         # object, so patching both replaced the collector with the second stub and
         # every frame vanished.
-        monkeypatch.setattr(
-            bus,
-            "emit",
-            lambda ch, ev, d=None: (
-                frames.append((clock.t, d)) if ev == "update_scoreboard" else None
-            ),
-        )
+        # Every event too, for a test about more than the board's frames.
+        player.events.clear()
+
+        def emit(ch, ev, d=None):
+            player.events.append((clock.t, ev, d))
+            if ev == "update_scoreboard":
+                frames.append((clock.t, d))
+
+        monkeypatch.setattr(bus, "emit", emit)
         monkeypatch.setattr(relay, "relay_emit", lambda ev, d=None: None)
         monkeypatch.setattr(worker, "_drain_cmds", lambda: None)
         monkeypatch.setitem(state.settings, "num_lanes", num_lanes)
@@ -676,7 +678,19 @@ def played(monkeypatch):
         base = frames[0][0] if frames else 0.0
         return [(round(t - base, 2), f) for t, f in frames]
 
-    return run
+    player = _Player(run)
+    return player
+
+
+class _Player:
+    """`played(...)` returns the board's frames; `played.events`, every event."""
+
+    def __init__(self, run):
+        self._run = run
+        self.events: list = []
+
+    def __call__(self, *args, **kwargs):
+        return self._run(*args, **kwargs)
 
 
 def _first(frames, predicate):
@@ -805,3 +819,46 @@ def test_a_serial_plays_at_its_own_timestamps_not_in_bursts(played):
     clock = [t for t, f in frames if f.get("running_time", "0.00") != "0.00"][:300]
     gaps = [b - a for a, b in zip(clock, clock[1:], strict=False)]
     assert min(gaps) > 0.05 and max(gaps) < 0.15, (min(gaps), max(gaps))
+
+
+def test_omnisport_results_wait_for_the_consoles_validation(played, monkeypatch):
+    """Heat 1's last touch is at 2:16.44; the console then corrects four lanes from
+    backup times — the winner moves from lane 4 to lane 6 — and only then writes
+    "Official Results". The podium and the published results wait for that word.
+    """
+    import bus
+
+    # No timers: the validation decides here, not the fallback.
+    monkeypatch.setattr(bus, "run_bg", lambda fn, *a: None)
+    played(OMNI_UDP, console="dak_os2000_udp", num_lanes=10, first_lane=0)
+    events = played.events
+    pending = [
+        (t, d["results_pending"])
+        for t, ev, d in events
+        if ev == "update_scoreboard" and "results_pending" in (d or {})
+    ]
+    finished = [t for t, ev, _ in events if ev == "race_finished"]
+    snaps = [(t, d) for t, ev, d in events if ev == "results_snapshot"]
+
+    assert [v for _, v in pending] == [True, False, True, False], pending
+    assert len(finished) == 2 and len(snaps) == 2
+    # Heat 1: held from the last touch to the validation, ~19s later.
+    held = pending[1][0] - pending[0][0]
+    assert 15 < held < 25, held
+    assert finished[0] == pending[1][0] == snaps[0][0]
+    heat1 = {r["channel"]: (r["place"], r["time"]) for r in snaps[0][1]["lanes"]}
+    assert heat1[6] == ("1", "1:23.24"), "the published winner is the corrected one"
+    assert heat1[3] == ("4", "1:32.77")
+    # Heat 2's one correction, lane 7, is in its results too.
+    heat2 = {r["channel"]: (r["place"], r["time"]) for r in snaps[1][1]["lanes"]}
+    assert heat2[7] == ("4", "1:13.75")
+
+
+def test_a_console_that_cannot_validate_sends_no_results_pending(played):
+    """The CTS path is untouched: no `results_pending`, ever."""
+    played("100m_freestyle")
+    assert not [
+        d
+        for _, ev, d in played.events
+        if ev == "update_scoreboard" and "results_pending" in (d or {})
+    ]

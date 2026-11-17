@@ -61,3 +61,40 @@ def test_a_reset_with_no_heat_to_put_back_leaves_the_board_empty():
     ws = '<script src="/static/js/ws.js"></script>'
     assert ws in html
     run_page(html.replace(ws, ws + _SOCKET, 1).replace("</body>", _DRIVE))
+
+
+_PODIUM = r"""<script>
+function assert(ok, msg) { if (!ok) throw new Error(msg); }
+var reveals = 0;
+highlight_podium = function () { reveals++; };
+var frame = __h['update_scoreboard'];
+frame({current_event: '58', current_heat: '1', lane_name1: 'A', lane_name2: 'B'});
+frame({lane_running1: true, lane_running2: true, running_time: '0.10'});
+frame({lane_time1: '1:30.57', lane_place1: '1', lane_running1: false});
+frame({lane_time2: '1:38.48', lane_place2: '2', lane_running2: false,
+       results_pending: true});
+assert(current_state === 3, 'the heat should read as over');
+assert(reveals === 0, 'the podium came before the validation');
+frame({lane_time2: '1:23.24', lane_place2: '1', lane_place1: '2'});
+assert(reveals === 0, 'a correction revealed the podium');
+frame({results_pending: false});
+__h['race_finished']({});
+assert(reveals === 1, 'the validation never revealed the podium: ' + reveals);
+</script></body>"""
+
+
+@pytest.mark.skipif(
+    not HAS_JS_ENGINE, reason="needs a JavaScript engine (osascript or node)"
+)
+def test_the_podium_waits_for_a_validating_console():
+    html = _render(
+        "server/templates",
+        "live.html",
+        show_laps=False,
+        nosplash=True,
+        test_background=False,
+        carousel_images=[],
+        carousel_interval=10,
+    )
+    ws = '<script src="/static/js/ws.js"></script>'
+    run_page(html.replace(ws, ws + _SOCKET, 1).replace("</body>", _PODIUM))

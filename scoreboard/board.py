@@ -1116,6 +1116,10 @@ class BoardWindow(QWidget):
         # timers have to be cancellable — see highlight_podium.
         self._podium_timers = []
         self._podium_shown = False
+        # `results_pending` from the server: the console validates its results and
+        # has not yet, so places may still change — the podium waits for
+        # `race_finished`. False for every console that cannot validate.
+        self.results_pending = False
         # While True, frames merge into the snapshot but are not painted: the
         # outgoing heat stays on screen until the fade hides it.
         self.paused = False
@@ -2048,6 +2052,8 @@ class BoardWindow(QWidget):
         if not isinstance(data, dict):
             return
         self.snapshot.update(data)
+        if "results_pending" in data:
+            self.results_pending = bool(data["results_pending"])
 
         # Running flags first: they decide whether the rows redrawn below take
         # their time from `lane_time<i>` or leave it to the ticker.
@@ -2172,7 +2178,7 @@ class BoardWindow(QWidget):
         # The heat being over is what releases the podium, mirroring the browser's
         # move into the results screen. `highlight_podium` is a no-op until there is
         # a podium to show, so an empty board between heats does not consume it.
-        if not self.paused and self.heat_is_done():
+        if not self.paused and self.heat_is_done() and not self.results_pending:
             self.highlight_podium()
 
         self._sync_clock()
@@ -2398,6 +2404,7 @@ class BoardWindow(QWidget):
 
     def reset(self):
         self.stop_clock()
+        self.results_pending = False
         self.cancel_heat_transition()
         self._clear_podium_timers()
         self._podium_shown = False

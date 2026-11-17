@@ -266,6 +266,7 @@ trade-off `FitLabel` makes everywhere else.
 | Aspect | `/live` | Qt board | Status |
 | --- | --- | --- | --- |
 | when | at race end only — `mode_to_results()` and `race_finished` | the same condition, evaluated at the end of `apply_update`, plus `race_finished` | match |
+| — validating console | `results_pending` holds `mode_to_results()`'s reveal; `race_finished` clears it; a row whose place left the podium loses its tint | `results_pending` gates the `apply_update` reveal; `race_finished` clears it | match |
 | order | gold, silver, bronze at 0 / 400 / 800ms | same | match |
 | fade in | 0.5s `background-color` transition | 500ms interpolated `QVariantAnimation` | match |
 | fade out | same transition, at the heat change | `fade_podium_out`, step 1 of the dissolve | match |

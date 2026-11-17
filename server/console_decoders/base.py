@@ -259,6 +259,19 @@ class ConsoleDecoder(ABC):
         """
         return 0
 
+    @property
+    def validates_results(self) -> bool:
+        """True when the console says when a heat's results are official.
+
+        Such a console corrects times and places after the last touch (backup
+        buttons, a judge's call) and then marks the heat official; it reports that
+        with the `results_official` update key, which the app layer consumes. The
+        server then holds the published results, and the boards their podium, until
+        it does. False for every console that cannot say: the results are confirmed
+        a debounce after the last place, as they always were.
+        """
+        return False
+
     def scratched_lanes(self) -> frozenset[int]:
         """Board rows the console itself has marked as having nobody in them.
 

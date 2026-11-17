@@ -188,7 +188,7 @@ CONSOLES: list[ConsoleEntry] = [
         protocol="RS-232 · 19200 baud · 8-N-1 · Daktronics RTD",
         tested=False,
         doc="omnisport-2000.md",
-        preset={"rtd_line_base": 222},
+        preset={"rtd_line_base": 222, "rtd_validates": True},
         options={"rtd_offset": None},
         default=True,
     ),
@@ -202,7 +202,7 @@ CONSOLES: list[ConsoleEntry] = [
         protocol="RS-232 · 19200 baud · 8-N-1 · Daktronics RTD",
         tested=False,
         doc="omnisport-2000.md",
-        preset={"rtd_line_base": 200},
+        preset={"rtd_line_base": 200, "rtd_validates": True},
         options={"rtd_offset": None},
     ),
     ConsoleEntry(
@@ -239,7 +239,7 @@ CONSOLES: list[ConsoleEntry] = [
         protocol="UDP broadcast · Daktronics RTD (consoles from June 2013)",
         tested=False,
         doc="omnisport-2000.md",
-        preset={"transport": "udp"},
+        preset={"transport": "udp", "rtd_validates": True},
         options={"udp_port": None, "rtd_line_base": None, "rtd_offset": None},
     ),
     ConsoleEntry(

@@ -84,6 +84,7 @@ def _load_meet_file(path):
     state.clear_meet()
     state._last_results_snapshot = {}
     state._results_prev_race_finished = False
+    state._awaiting_validation = False
     state._finish_timer_gen += 1
     try:
         if is_csv(path):

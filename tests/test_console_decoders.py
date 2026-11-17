@@ -566,6 +566,20 @@ def test_omnisport_a_line_never_a_lanes_says_nothing_when_rewritten_blank():
     assert d.lane_running[4] is True
 
 
+def test_omnisport_reports_its_official_results_flag():
+    d = Omnisport2000Decoder({"num_lanes": 8, "rtd_validates": True})
+    assert d.validates_results
+    assert d.feed(_rtd(1484, "Official Results"))["results_official"] is True
+    assert d.feed(_rtd(1484, " " * 16))["results_official"] is False
+
+
+def test_rtd_without_the_preset_does_not_validate():
+    """A Gen7 set to RTD shares the decoder but was never seen writing the flag."""
+    d = Omnisport2000Decoder({"num_lanes": 8})
+    assert not d.validates_results
+    assert "results_official" not in d.feed(_rtd(1484, "Official Results"))
+
+
 def _preview(offset: int, data: str) -> list[int]:
     body = [*b"00000000", 0x01, *f"004010{offset:04d}".encode(), 0x02]
     body += [*data.encode(), 0x04]

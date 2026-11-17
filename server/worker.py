@@ -442,6 +442,39 @@ def _remember_console_times(snap):
         state.record_console_heat(ev, ht, lanes)
 
 
+def _emit_results_pending(pending):
+    """Tell the boards whether the podium must wait (docs/api.md §5.1)."""
+    data = {"results_pending": pending}
+    state.record_board(data)
+    bus.emit("/scoreboard", "update_scoreboard", data)
+    relay.relay_emit("update_scoreboard", data)
+
+
+def _confirm_results(snap, reason):
+    """Publish a heat's results as final — `race_finished` and the snapshot.
+
+    Runs on the worker thread when it is the console's validation, its absence or a
+    heat change that decides; the plain debounce of a console that cannot validate
+    keeps its own path below.
+    """
+    state._last_results_snapshot = snap
+    was_pending = state._awaiting_validation
+    state._awaiting_validation = False
+    print(f"[race-state] results confirmed ({reason})", flush=True)
+    _remember_console_times(snap)
+    if was_pending:
+        _emit_results_pending(False)
+    bus.emit("/scoreboard", "race_finished", {})
+    bus.emit("/results", "results_snapshot", snap)
+    relay.relay_emit("results_snapshot", snap)
+
+
+def _validation_timeout(gen):
+    if state._finish_timer_gen != gen or not state._awaiting_validation:
+        return
+    _confirm_results(_build_results_snapshot(), "no validation from the console")
+
+
 def _on_race_state_changed(now_finished, updates=None):
     prev = state._results_prev_race_finished
 
@@ -460,7 +493,28 @@ def _on_race_state_changed(now_finished, updates=None):
         print("[race-state] test race finished — not published", flush=True)
         state._results_prev_race_finished = now_finished
         return
-    if now_finished and not prev:
+    if now_finished and not prev and state._decoder.validates_results:
+        # Every lane is in, but the console corrects after the last touch and then
+        # says when the heat is official: the results wait for that. Kept fresh in
+        # the meantime by `_apply_updates`, so whatever ends the wait publishes the
+        # corrected heat.
+        state._last_results_snapshot = _build_results_snapshot()
+        state._finish_timer_gen += 1
+        state._awaiting_validation = True
+        print("[race-state] waiting for the console's validation", flush=True)
+        _emit_results_pending(True)
+
+        def _timeout_task(gen=state._finish_timer_gen):
+            time.sleep(
+                float(
+                    state.settings.get("validation_timeout", state.VALIDATION_TIMEOUT)
+                )
+            )
+            state._worker_cmds.put(lambda g=gen: _validation_timeout(g))
+
+        bus.run_bg(_timeout_task)
+
+    elif now_finished and not prev:
         state._last_results_snapshot = _build_results_snapshot()
         state._finish_timer_gen += 1
 
@@ -487,6 +541,10 @@ def _on_race_state_changed(now_finished, updates=None):
         # blank the board and flicker the display. Only reset if a genuine
         # re-start is still un-finished after the debounce window.
         state._finish_timer_gen += 1
+        if state._awaiting_validation:
+            # A lane back in the water: nothing to validate any more.
+            state._awaiting_validation = False
+            _emit_results_pending(False)
 
         def _reset_task(gen=state._finish_timer_gen):
             time.sleep(float(state.settings.get("reset_debounce", 1.0)))
@@ -554,6 +612,7 @@ def _worker_set_heat(ev, ht):
     # this function has already done.
     state._finish_timer_gen += 1
     state._results_prev_race_finished = False
+    state._awaiting_validation = False
     state._running_lanes.clear()
 
     state.update.update(updates)
@@ -581,6 +640,7 @@ def _worker_clear_heat():
 
     state._finish_timer_gen += 1
     state._results_prev_race_finished = False
+    state._awaiting_validation = False
     state._running_lanes.clear()
 
     state.record_board(updates)
@@ -694,6 +754,14 @@ def _apply_updates(updates):
     if updates.pop("dismiss_overlay", False):
         _auto_dismiss_overlay()
 
+    official = updates.pop("results_official", None)
+
+    if "event_changed" in updates and state._awaiting_validation:
+        # The operator moved on before validating: the heat being left is published
+        # as it stood — its last corrections included — before its lanes go.
+        state._finish_timer_gen += 1
+        _confirm_results(state._last_results_snapshot, "next heat before validation")
+
     if "event_changed" in updates:
         ev, ht = updates.pop("event_changed")
         print(f"[event] Event {ev} Heat {ht}", flush=True)
@@ -707,6 +775,20 @@ def _apply_updates(updates):
 
     _emit_scoreboard_update()
     _on_race_state_changed(state._decoder.race_finished(), updates)
+
+    if state._awaiting_validation and any(
+        k.startswith(("lane_time", "lane_place")) for k in updates
+    ):
+        # A correction while the heat waits: the published results must carry it.
+        state._last_results_snapshot = _build_results_snapshot()
+
+    if official and state._results_prev_race_finished:
+        snap = _build_results_snapshot()
+        # Waiting, or already published by the fallback and changed since: either
+        # way the console's word is the final one.
+        if state._awaiting_validation or snap != state._last_results_snapshot:
+            state._finish_timer_gen += 1
+            _confirm_results(snap, "validated by the console")
 
 
 def _tick():

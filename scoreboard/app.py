@@ -667,7 +667,9 @@ class ScoreboardApp:
             # ticker would keep counting up over the final times.
             self.window.stop_clock()
             # And the same backstop for the podium, which the browser also reveals
-            # from this event. It is a no-op once the reveal has already run.
+            # from this event. It is a no-op once the reveal has already run. It is
+            # also the end of a validation wait: the places are final now.
+            self.window.results_pending = False
             self.window.highlight_podium()
         elif event == "update":
             self._on_update(data)

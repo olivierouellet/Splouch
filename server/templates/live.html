@@ -297,6 +297,11 @@ function init() {
     requestAnimationFrame(fitHeaderCells);   /* the labels are server-rendered */
 }
 
+/* `results_pending` from the server: this console validates its results and has
+   not yet, so places can still change after the last touch. The podium waits for
+   `race_finished`. Never true for a console that cannot validate. */
+var results_pending = false;
+
 function highlight_podium() {
     if (!SHOW_PODIUM) return;
     _podium_timers.forEach(function(t) { clearTimeout(t); });
@@ -304,7 +309,11 @@ function highlight_podium() {
     var by_place = {};
     document.querySelectorAll('[id^="lane_place"]').forEach(function(el) {
         var place = parseInt(el.textContent.trim());
-        if (place >= 1 && place <= 3) by_place[place] = el.parentElement;
+        var row = el.parentElement;
+        if (place >= 1 && place <= 3) by_place[place] = row;
+        /* A row whose place moved off the podium since the last reveal loses its
+           tint — a correction after the finish can do that. */
+        else row.classList.remove('podium-gold', 'podium-silver', 'podium-bronze');
     });
     var delays = {1: 0, 2: 400, 3: 800};
     [1, 2, 3].forEach(function(place) {
@@ -457,6 +466,7 @@ function collapse_cols() {
 }
 
 function reset_state() {
+    results_pending = false;
     current_state = 0;
     last_state = 0;
     last_event = 0;
@@ -516,7 +526,7 @@ function mode_to_results() {
     stop_chrono();
     set_header_mode(true);
     expand_cols();
-    highlight_podium();
+    if (!results_pending) highlight_podium();
 }
 
 </script>
@@ -619,6 +629,7 @@ function mode_to_results() {
     socket.on('display_overlay', function(d) { show_overlay(d.active); });
     socket.on('columns_state', function(d) { if (d.hidden) collapse_cols(); else expand_cols(); });
     socket.on('race_finished', function() {
+        results_pending = false;   /* confirmed: the places are final */
         if ((last_event + '|' + last_heat) === _podium_race_key) highlight_podium();
     });
     socket.on('test_mode', function(d) {
@@ -632,6 +643,7 @@ function mode_to_results() {
         /* Both halves of the lap test are board-wide and arrive with the heat, so
            they are read before any lane is rendered below. */
         if ("expected_splits" in s) expected_splits = s["expected_splits"] || 0;
+        if ("results_pending" in s) results_pending = !!s["results_pending"];
         if ("split_step" in s)      split_step      = s["split_step"] || 1;
 
         var names_changed = false;
