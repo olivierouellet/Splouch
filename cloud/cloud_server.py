@@ -420,7 +420,7 @@ def _merge_console_times(console, snap, rounds=None):
 
 def _schedule_rounds(sched, all_rounds):
     """The rounds of a `schedule_snapshot` in running order, each as
-    (event, round, name, name_parts, times, start_list, results, heats) — every
+    (event, round, name, name_parts, times, ages, start_list, results, heats) — every
     round when *all_rounds* and the Pi sent them (`order`), else the live ones."""
     rounds = sched.get("rounds", {})
     live = {str(ev): heats for ev, heats in sched["events"]}
@@ -439,6 +439,7 @@ def _schedule_rounds(sched, all_rounds):
                 r.get("name", ""),
                 r.get("name_parts"),
                 r.get("times", {}),
+                r.get("ages", {}),
                 r.get("start_list", {}),
                 r.get("results", {}),
                 r.get("heats", []),
@@ -450,6 +451,7 @@ def _schedule_rounds(sched, all_rounds):
                 sched.get("names", {}).get(ev_str, ""),
                 sched.get("name_parts", {}).get(ev_str),
                 sched.get("times", {}).get(ev_str, {}),
+                sched.get("ages", {}).get(ev_str, {}),
                 sched.get("start_list", {}).get(ev_str, {}),
                 sched.get("results", {}).get(ev_str, {}),
                 live[ev_str],
@@ -461,10 +463,19 @@ def _build_heats_json(sched, console=None, all_rounds=False):
         return []
     console = console or {}
     heats = []
-    for ev, rnd, name, parts, times, start_list, results, heat_nums in _schedule_rounds(
-        sched, all_rounds
-    ):
+    for (
+        ev,
+        rnd,
+        name,
+        parts,
+        times,
+        ages,
+        start_list,
+        results,
+        heat_nums,
+    ) in _schedule_rounds(sched, all_rounds):
         round_console = console.get(_console_key(ev, rnd), {})
+        seeded = any(start_list.values())
         for ht in heat_nums:
             ht_str = str(ht)
             lanes_data = start_list.get(ht_str, {})
@@ -500,6 +511,8 @@ def _build_heats_json(sched, console=None, all_rounds=False):
                     "event_name": name,
                     "event_name_parts": parts,
                     "time": times.get(ht_str, ""),
+                    "age": ages.get(ht_str, ""),
+                    "seeded": seeded,
                     "official": heat_official(lanes),
                     "lanes": lanes,
                 }

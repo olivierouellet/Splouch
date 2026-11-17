@@ -23,7 +23,7 @@ from meet_data import (
     results_summary,
     send_event_info,
 )
-from meet_parsers.lenex_parser import load_lenex
+from meet_parsers.lenex_parser import age_band, load_lenex
 
 
 def _lxf(xml):
@@ -361,6 +361,8 @@ def test_the_cloud_serves_every_round_as_the_pi_does(pi, monkeypatch, prelims, f
                 h["event_name"],
                 h["event_name_parts"],
                 h["time"],
+                h["age"],
+                h["seeded"],
                 h["official"],
                 [
                     (
@@ -419,3 +421,66 @@ def test_notifications_count_heats_in_session_order(pi, monkeypatch, finals):
     heats = cloud_follows.build_heats(sched, 0)
     assert [(h.event, h.heat, h.index) for h in heats] == [(1, 1, 0), (15, 1, 1)]
     assert sched["dates"]["15"] == "2026-11-07"
+
+
+# ── Heat labels (docs/app.md `S-25`) ──────────────────────────────────────────
+
+
+@pytest.mark.parametrize(
+    ("agemin", "agemax", "band"),
+    [
+        ("13", "14", "13-14"),
+        ("-1", "7", "< 7"),
+        ("17", "-1", "17+"),
+        ("8", "8", "8"),
+        ("-1", "-1", ""),
+        (None, None, ""),
+    ],
+)
+def test_an_age_group_reads_as_a_band(agemin, agemax, band):
+    assert age_band(agemin, agemax) == band
+
+
+def _finals_by_age():
+    """The final split by age, one heat per group, as Splash seeds it."""
+    xml = MEET.replace(
+        '<HEATS><HEAT heatid="9" number="1" daytime="16:10" status="SEEDED"/></HEATS>',
+        '<AGEGROUPS><AGEGROUP agegroupid="91" agemin="11" agemax="12"/>'
+        '<AGEGROUP agegroupid="92" agemin="17" agemax="-1"/></AGEGROUPS>'
+        '<HEATS><HEAT heatid="9" number="1" agegroupid="91" status="SEEDED"/>'
+        '<HEAT heatid="10" number="2" agegroupid="92" status="SEEDED"/></HEATS>',
+    )
+    return load_lenex(_lxf(xml.replace("{final}", FINAL_SEEDED)))
+
+
+def test_a_finals_heat_names_its_age_group(pi):
+    state.set_lenex(_finals_by_age())
+    heats = build_heats(all_rounds=True)
+    assert [h["age"] for h in heats if h["round"] == "final"] == ["11-12", "17+"]
+    assert _heat(heats, 15, 1, "prelims")["age"] == ""
+
+
+def test_an_unseeded_round_says_so(pi, prelims, finals):
+    state.set_lenex(prelims)
+    heats = build_heats(all_rounds=True)
+    assert _heat(heats, 15, 1, "final")["seeded"] is False
+    assert _heat(heats, 15, 1, "prelims")["seeded"] is True
+    state.set_lenex(finals)
+    assert _heat(build_heats(all_rounds=True), 15, 1, "final")["seeded"] is True
+
+
+def test_the_cloud_serves_the_heat_labels(pi, monkeypatch):
+    import relay
+
+    state.set_lenex(_finals_by_age())
+    sent = {}
+    monkeypatch.setattr(relay, "_local_only", lambda: False)
+    monkeypatch.setattr(relay, "_send_schedule_data", lambda c, d: sent.update(d))
+    relay.send_schedule()
+    sched = json.loads(json.dumps(sent))
+    for all_rounds in (False, True):
+        cloud = cs._build_heats_json(sched, {}, all_rounds)
+        pi_heats = build_heats(all_rounds)
+        assert [(h["age"], h["seeded"]) for h in cloud] == [
+            (h["age"], h["seeded"]) for h in pi_heats
+        ]

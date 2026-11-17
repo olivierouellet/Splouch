@@ -65,6 +65,25 @@ ROUND_NAMES = tuple(dict.fromkeys(ROUND_KEYS.values()))
 MAX_XML_BYTES = 64 * 1024 * 1024
 
 
+def age_band(agemin, agemax):
+    """An AGEGROUP's ages as `event_name_parts.age` writes a band, numbers only:
+    `"13-14"`, `"< 7"` (7 and under), `"17+"`, `"8"`; `""` for no limit either way.
+    Lenex writes no limit as `-1`."""
+
+    def num(v):
+        v = (v or "").strip()
+        return int(v) if v.isdigit() and int(v) > 0 else None
+
+    lo, hi = num(agemin), num(agemax)
+    if lo and hi:
+        return str(lo) if lo == hi else f"{lo}-{hi}"
+    if hi:
+        return f"< {hi}"
+    if lo:
+        return f"{lo}+"
+    return ""
+
+
 class _PrologRead(Exception):
     """The root element began: the prolog held no DOCTYPE."""
 
@@ -166,7 +185,8 @@ def load_lenex(path):
                        round, else its `ROUND_KEYS` value, made unique within the
                        number), `kind` (its `ROUND_KEYS` value or `""`), `live`,
                        `name`, `date` (its session's), and its own `start_list`,
-                       `heat_times` and `results`, keyed by heat as above.
+                       `heat_times`, `heat_ages` (`age_band` of a heat's own age
+                       group) and `results`, keyed by heat as above.
 
     One event number can hold several rounds: Splash numbers a prelim and its
     final the same, and the console only ever sends the number. Each round is read
@@ -264,6 +284,7 @@ def load_lenex(path):
     names = {}  # round → event name
     starts = {}  # round → {heat_number: {lane: entry}}
     times = {}  # round → {heat_number: daytime_str}
+    ages = {}  # round → {heat_number: age band}, for a heat with its own age group
     distances = {}  # round → distance in metres
     eventid_map = {}  # eventid → round (Splash-style)
     heatid_map = {}  # heatid → (round, heat_number)
@@ -276,6 +297,12 @@ def load_lenex(path):
         names[rnd] = event_name_str(event)
         starts[rnd] = {}
         times[rnd] = {}
+        ages[rnd] = {}
+        age_groups = {
+            g.get("agegroupid"): age_band(g.get("agemin"), g.get("agemax"))
+            for g in find(event, "AGEGROUP")
+            if g.get("agegroupid")
+        }
         style = find_first(event, "SWIMSTYLE")
         if style is not None:
             with contextlib.suppress(ValueError, TypeError):
@@ -289,6 +316,9 @@ def load_lenex(path):
             daytime = heat.get("daytime", "")
             if daytime:
                 times[rnd][h_num] = daytime
+            # A finals heat per age group (Splash): the heat says which.
+            if age_groups.get(heat.get("agegroupid", "")):
+                ages[rnd][h_num] = age_groups[heat.get("agegroupid")]
             hid = heat.get("heatid", "")
             if hid:
                 heatid_map[hid] = (rnd, h_num)
@@ -554,6 +584,7 @@ def load_lenex(path):
             "date": round_dates.get(r, ""),
             "start_list": starts[r],
             "heat_times": times[r],
+            "heat_ages": ages[r],
             "results": round_results.get(r, {}),
         }
         for r, ev_num in enumerate(round_number)

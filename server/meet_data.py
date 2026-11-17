@@ -398,6 +398,7 @@ def schedule_rounds(all_rounds=False):
                 ),
                 "start_list": r["start_list"],
                 "heat_times": r["heat_times"],
+                "heat_ages": r["heat_ages"],
                 "results": r["results"],
             }
             for r in m.rounds
@@ -416,6 +417,7 @@ def schedule_rounds(all_rounds=False):
                 ht: data["start_list"].get(ev, {}).get(ht, {}) for ht in heats
             },
             "heat_times": data["heat_times"].get(ev, {}),
+            "heat_ages": {},
             "results": data["results"].get(ev, {}),
         }
         for ev, heats in data["events_grouped"]
@@ -438,6 +440,8 @@ def build_heats(all_rounds=False):
     heats_out = []
     for r in schedule_rounds(all_rounds):
         ev, rnd = r["event"], r["round"]
+        # A round with no swimmer yet: a final before its prelims are swum (S-25).
+        seeded = any(r["start_list"].values())
         for ht in sorted(r["start_list"]):
             heat_results = r["results"].get(ht, {})
             heat_console = console.get((ev, ht, rnd), {})
@@ -472,6 +476,8 @@ def build_heats(all_rounds=False):
                     "event_name": r["event_name"],
                     "event_name_parts": r["event_name_parts"],
                     "time": r["heat_times"].get(ht, ""),
+                    "age": r["heat_ages"].get(ht, ""),
+                    "seeded": seeded,
                     "official": heat_official(lanes_out),
                     "lanes": lanes_out,
                 }

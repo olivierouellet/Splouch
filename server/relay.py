@@ -428,6 +428,12 @@ def send_schedule(client=None, clear=False):
             # The round each shared event number holds, so the cloud keeps a
             # prelim's console times apart from its final's (§5.5).
             "rounds": {str(ev): r for ev, r in m.live_rounds.items()},
+            # A heat's own age group, finals heat by heat (§5.8 `age`).
+            "ages": {
+                str(r["event"]): {str(h): a for h, a in r["heat_ages"].items()}
+                for r in all_rounds
+                if r["live"] and r["heat_ages"]
+            },
             # Every round in running order, and those not live in full, for a
             # Schedule that lists them side by side (docs/api.md §5.5, §5.8).
             "order": [[r["event"], r["round"]] for r in all_rounds],
@@ -437,6 +443,7 @@ def send_schedule(client=None, clear=False):
                     "name": r["event_name"],
                     "name_parts": r["event_name_parts"],
                     "times": {str(h): t for h, t in r["heat_times"].items()},
+                    "ages": {str(h): a for h, a in r["heat_ages"].items()},
                     "date": r["date"],
                     "start_list": _serialise_start_list({0: r["start_list"]})["0"],
                     "results": {
@@ -477,6 +484,7 @@ _EMPTY_SCHEDULE = {
     "rounds": {},
     "order": [],
     "other_rounds": {},
+    "ages": {},
 }
 
 

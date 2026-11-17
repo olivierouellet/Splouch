@@ -416,6 +416,7 @@
         .heat-card.heat-current .heat-header { background: var(--color-header-border); }
         .heat-card.heat-current { outline: 2px solid var(--color-time); outline-offset: -2px; }
         .heat-card { scroll-margin-top: 70px; }
+        .heat-not-seeded { padding: 6px 12px; opacity: 0.7; font-style: italic; }
 
         /* ── Empty states ── */
         #waiting {
@@ -509,6 +510,7 @@ const TIME_WORDS = {{ {
     'WDR': t.status_wdr or 'Withdrawn',
     'SICK': t.status_sick or 'Sick',
 } | tojson }};
+const NOT_SEEDED = {{ (t.not_seeded or 'Not seeded yet') | tojson }};
 // How long an official heat shows its gaps to the seed before springing back (`S-23`).
 const DIFF_MS = 4000;
 
@@ -771,6 +773,8 @@ function renderSchedule() {
                 '" data-key="' + esc(key) + '">';
         // One line: what the heat is on the left, when it swims on the right.
         var heatName = eventNameOf(h);
+        // A finals heat per age group says which (`S-25`).
+        if (h.age) heatName = heatName ? heatName + ' · ' + h.age : h.age;
         var spoken = [SPOKEN_LABELS.event + ' ' + evStr, SPOKEN_LABELS.heat + ' ' + htStr];
         if (heatName) spoken.push(heatName);
         if (h.time) spoken.push(h.time);
@@ -787,7 +791,12 @@ function renderSchedule() {
                     ' aria-label="' + esc(TIME_WORDS.show_diff) + '"' +
                     ' data-key="' + esc(key) + '">±</button>';
         }
-        html += '</div><div class="swimmer-list" role="list">';
+        html += '</div>';
+        // A round with no swimmer yet: its prelims are not swum (`S-25`).
+        if (h.seeded === false) {
+            html += '<div class="heat-not-seeded">' + esc(NOT_SEEDED) + '</div>';
+        }
+        html += '<div class="swimmer-list" role="list">';
         for (var j = 0; j < visibleLanes.length; j++) {
             var lane = visibleLanes[j];
             /* The drawn row is hidden from the reader, who hears `laneSpoken`. */
