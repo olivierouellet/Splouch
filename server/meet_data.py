@@ -398,6 +398,15 @@ def _build_meet_data():
         ] or [(ev, sorted(m.start_list[ev])) for ev in sorted(m.start_list)]
         return {
             "events_grouped": events_grouped,
+            # Each live round's session, for /meet's headings (docs/app.md `S-26`).
+            "event_sessions": {
+                r["event"]: {
+                    "number": r.get("session", 0),
+                    "name": r.get("session_name", ""),
+                }
+                for r in m.rounds
+                if r["live"]
+            },
             "event_names": event_names,
             "event_name_parts": event_name_parts,
             "start_list": m.start_list,
@@ -429,6 +438,7 @@ def _build_meet_data():
     # the Schedule translated, nor followed Settings → Meet's or the name boxes.
     return {
         "events_grouped": events_grouped,
+        "event_sessions": {},
         "event_names": {
             num: board_name(name, shown_round(num, "board", m))
             for num, name in info.event_names.items()

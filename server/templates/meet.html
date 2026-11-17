@@ -21,6 +21,11 @@ body {
 .lp-meta span + span::before { content: " \00b7 "; }
 
 .ev-group { margin-bottom: 22px; }
+.session-heading {
+    font-size: 0.95em; font-weight: 700; letter-spacing: .04em;
+    text-transform: uppercase; color: #ddd;
+    margin: 28px 0 12px;
+}
 .ev-label {
     font-size: 0.72em; font-weight: 700; letter-spacing: .08em;
     text-transform: uppercase; color: #5a9bd5;
@@ -94,6 +99,7 @@ body {
     .heat-card thead th,
     .heat-card tbody td { padding: 3px 8px; color: #000; background: #fff !important; }
     .ev-label { color: #3a7bd5; border-color: #3a7bd5; page-break-after: avoid; }
+    .session-heading { color: #000; page-break-after: avoid; }
     .lp-meet-title { color: #000; }
     .lp-meta { color: #444; }
     @page { margin: 1.5cm; }
@@ -115,7 +121,7 @@ body {
             <div class="lp-meta">
                 {% if meet_info.get('pool') %}<span>{{ meet_info.pool }}</span>{% endif %}
                 {% for s in meet_info.get('sessions', []) %}
-                <span>{{ s.date }}{% if s.daytime %} {{ s.daytime }}{% if s.endtime %}&ndash;{{ s.endtime }}{% endif %}{% endif %}{% if s.warmupfrom %} ({{ strings.get('warmup', 'warm-up') }} {{ s.warmupfrom }}{% if s.warmupuntil %}&ndash;{{ s.warmupuntil }}{% endif %}){% endif %}</span>
+                <span>{% if s.name %}{{ s.name }}: {% endif %}{{ s.date }}{% if s.daytime %} {{ s.daytime }}{% if s.endtime %}&ndash;{{ s.endtime }}{% endif %}{% endif %}{% if s.warmupfrom %} ({{ strings.get('warmup', 'warm-up') }} {{ s.warmupfrom }}{% if s.warmupuntil %}&ndash;{{ s.warmupuntil }}{% endif %}){% endif %}</span>
                 {% endfor %}
             </div>
         </div>
@@ -135,7 +141,7 @@ body {
         <div class="lp-meta">
             {% if meet_info.get('pool') %}<span>{{ meet_info.pool }}</span>{% endif %}
             {% for s in meet_info.get('sessions', []) %}
-            <span>{{ s.date }}{% if s.daytime %} {{ s.daytime }}{% if s.endtime %}&ndash;{{ s.endtime }}{% endif %}{% endif %}</span>
+            <span>{% if s.name %}{{ s.name }}: {% endif %}{{ s.date }}{% if s.daytime %} {{ s.daytime }}{% if s.endtime %}&ndash;{{ s.endtime }}{% endif %}{% endif %}</span>
             {% endfor %}
         </div>
     </div>
@@ -144,7 +150,14 @@ body {
     <p style="color:#666; font-size:0.9em;">{{ strings.get('no_file', 'No meet file loaded.') }}</p>
     {% endif %}
 
+    {# A heading where the session changes, as on the Schedule (docs/app.md `S-26`). #}
+    {% set ns = namespace(session=0) %}
     {% for event, heats in events_grouped %}
+    {% set sess = (event_sessions or {}).get(event, {}) %}
+    {% if sess.get('number') and sess.number != ns.session %}
+    <h2 class="session-heading">{{ sess.name or (strings.get('session', 'Session') ~ ' ' ~ sess.number) }}</h2>
+    {% endif %}
+    {% set ns.session = sess.get('number') or ns.session %}
     <div class="ev-group">
         <div class="ev-label">
             {{ labels.event }} {{ event }}{% if event in event_names %} &mdash; {{ event_names[event] }}{% endif %}

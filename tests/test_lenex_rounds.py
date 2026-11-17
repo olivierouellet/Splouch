@@ -641,6 +641,35 @@ def test_each_heat_names_its_session(pi, monkeypatch):
         ]
 
 
+def test_the_meet_preview_heads_each_session(pi):
+    """/meet draws the Schedule's headings (`S-26`), and names each session in its
+    header: the file's name, else the numbered word."""
+    import re
+
+    from starlette.requests import Request
+
+    import app as pi_app
+    from routes.meet import route_meet
+
+    state.set_lenex(_named_sessions())
+    request = Request(
+        {
+            "type": "http",
+            "method": "GET",
+            "path": "/meet",
+            "query_string": b"",
+            "headers": [],
+            "session": {},
+            "app": pi_app.app,
+            "router": pi_app.app.router,
+        }
+    )
+    html = route_meet(request).body.decode()
+    headings = re.findall(r'<h2 class="session-heading">([^<]*)</h2>', html)
+    assert headings == ["Samedi am", "Session 2"]
+    assert "Samedi am: 2026-11-07" in html
+
+
 def test_an_older_pi_sends_no_session():
     """A snapshot from before `sessions`: no heading, rather than an error."""
     sched = {
