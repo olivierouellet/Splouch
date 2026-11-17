@@ -323,3 +323,75 @@ def test_a_session_heading_and_a_seeds_course(tmp_path):
         "01:01.00",
         "NT",
     ]
+
+
+@pytest.mark.skipif(not HAS_JS_ENGINE, reason="needs a JavaScript engine")
+def test_the_gap_to_the_seed(tmp_path):
+    """`S-23`, through the page's own functions: what a tapped lane shows in each
+    half of the swap, and which heats swap at all."""
+    with open(
+        os.path.join(REPO, "shared", "templates", "schedule.html"), encoding="utf-8"
+    ) as f:
+        page = f.read()
+    js = "\n".join(
+        [
+            "var TIME_WORDS = {seed: 's', console: 'c', official: 'o', diff: 'd',",
+            " DSQ: 'Disqualified'};",
+            *(
+                _schedule_function(page, n)
+                for n in (
+                    "displayTime",
+                    "formatDelta",
+                    "seedText",
+                    "hundredths",
+                    "consoleGap",
+                    "gapTime",
+                    "laneTime",
+                    "swaps",
+                )
+            ),
+            "var seed = '00:01:02.40', con = '00:01:01.90';",
+            "var dsq = {result_status: 'DSQ', console_time: con, seed_time: seed};",
+            "var dsqNoConsole = {result_status: 'DSQ', console_time: '', seed_time: seed};",
+            "var dsqNoSeed = {result_status: 'DSQ', console_time: con, seed_time: ''};",
+            "var dsqLcm = {result_status: 'DSQ', console_time: con, seed_time: seed,",
+            " seed_course: 'LCM'};",
+            "var official = {result_time: '00:01:03.00', console_time: con, seed_time: seed,",
+            " result_delta_seconds: 0.6, result_delta_better: false};",
+            "var timed = {console_time: con, seed_time: '1:02.40'};",
+            "var notYet = {console_time: '', seed_time: seed};",
+            "function at(lane, phase) { var t = laneTime(lane, phase); return t.text + ' ' + t.cls; }",
+            "JSON.stringify([",
+            "  at(dsq, 0), at(dsq, 1), at(dsq, 2),",
+            "  at(dsqNoConsole, 1), at(dsqNoConsole, 2),",
+            "  at(dsqNoSeed, 2), at(dsqLcm, 2),",
+            "  at(official, 1), at(official, 2),",
+            "  at(timed, 1), at(notYet, 1),",
+            "  swaps({official: true, lanes: [notYet]}),",
+            "  swaps({official: false, lanes: [notYet, timed]}),",
+            "  swaps({official: false, lanes: [notYet]})",
+            "])",
+        ]
+    )
+    path = tmp_path / "s.js"
+    path.write_text(js, encoding="utf-8")
+    res = subprocess.run(
+        js_argv(str(path)), capture_output=True, text=True, check=False
+    )
+    assert res.returncode == 0, res.stderr
+    assert json.loads(res.stdout) == [
+        "DSQ time-official",
+        "01:01.90 time-console",
+        "-0.50 time-better",
+        "DSQ time-official",
+        "DSQ time-official",
+        "01:01.90 time-console",
+        "01:01.90 time-console",
+        "+0.60 time-worse",
+        "+0.60 time-worse",
+        "-0.50 time-better",
+        "01:02.40 time-seed",
+        True,
+        True,
+        False,
+    ]

@@ -374,8 +374,8 @@
         .time-official { color: var(--color-schedule-official); font-weight: 700; }
         .time-better   { color: var(--color-delta-better); font-weight: 700; }
         .time-worse    { color: var(--color-delta-worse); font-weight: 700; }
-        /* `S-23`: an official heat's times swap with their gap to the seed. */
-        .heat-official .lane-time { cursor: pointer; }
+        /* `S-23`: an official or console-timed heat's times swap with their gap to the seed. */
+        .heat-swaps .lane-time { cursor: pointer; }
         .diff-btn {
             flex-shrink: 0;
             background: none;
@@ -388,6 +388,7 @@
             padding: 2px 5px;
             cursor: pointer;
         }
+        .diff-btn.diff-console { color: var(--color-schedule-console); }
         .diff-btn[aria-pressed="true"] { background: var(--color-header-border); }
         @keyframes time-swap {
             from { opacity: 0; transform: translateY(0.35em); }
@@ -517,7 +518,8 @@ const TIME_WORDS = {{ {
 const NOT_SEEDED = {{ (t.not_seeded or 'Not seeded yet') | tojson }};
 // A session the meet file gives no name (docs/app.md `S-26`).
 const SESSION_WORD = {{ (t.session or 'Session {n}') | tojson }};
-// How long an official heat shows its gaps to the seed before springing back (`S-23`).
+// How long a heat shows its gaps to the seed before springing back (`S-23`). A
+// status lane shows its console time for the first half, its gap for the second.
 const DIFF_MS = 4000;
 
 // The attendance id for `join_meet`, or '' while the spectator refuses counting
@@ -566,22 +568,54 @@ function sessionLabel(h) {
     if (!h.session) return '';
     return h.session_name || SESSION_WORD.replace('{n}', String(h.session));
 }
+// A time in hundredths: `HH:MM:SS.hh` as the schedule carries it, or a seed as
+// Hytek wrote it (`58.21`, `1:02.34`) — the server's own `hundredths`. null when
+// empty, zero or not a time.
+function hundredths(t) {
+    t = String(t || '').trim();
+    var m = /^(\d+):(\d{2}):(\d{2})\.(\d{2})$/.exec(t);
+    var h = m ? ((parseInt(m[1], 10) * 60 + parseInt(m[2], 10)) * 60 + parseInt(m[3], 10)) * 100 +
+                parseInt(m[4], 10) : null;
+    if (!m) {
+        m = /^(?:(\d+):)?(\d{1,2})\.(\d{2})$/.exec(t);
+        if (!m) return null;
+        h = (parseInt(m[1] || '0', 10) * 60 + parseInt(m[2], 10)) * 100 + parseInt(m[3], 10);
+    }
+    return h > 0 ? h : null;
+}
+// `console_time` − `seed_time` in seconds, on the server's rule, or null: no
+// console time, no seed, or a seed from another course (`S-27`).
+function consoleGap(lane) {
+    if (lane.seed_course) return null;
+    var c = hundredths(lane.console_time), s = hundredths(lane.seed_time);
+    return c == null || s == null ? null : (c - s) / 100;
+}
+function gapTime(sec, better) {
+    var d = formatDelta(sec);
+    return { text: d, cls: better ? 'time-better' : 'time-worse', spoken: TIME_WORDS.diff + ' ' + d };
+}
 // What a lane's time cell shows: `{text, cls, spoken}`, or null for nothing.
-function laneTime(lane, diff) {
+// *phase* is the `S-23` swap: 0 off, 1 its first half, 2 its second.
+function laneTime(lane, phase) {
     var status = lane.result_status;
-    if (diff) {
+    var gap;
+    if (phase) {
         if (status) {
+            // A status has no official gap: its console time, then the console's gap.
+            gap = phase === 2 ? consoleGap(lane) : null;
+            if (gap != null) return gapTime(gap, gap < 0);
             if (lane.console_time) {
                 return { text: displayTime(lane.console_time), cls: 'time-console',
                          spoken: TIME_WORDS.console + ' ' + displayTime(lane.console_time) };
             }
-        } else if (lane.result_delta_seconds == null) {
+        } else if (lane.result_delta_seconds != null) {
+            return gapTime(lane.result_delta_seconds, lane.result_delta_better);
+        } else {
+            // Not official yet: the console's own gap.
+            gap = lane.result_time ? null : consoleGap(lane);
+            if (gap != null) return gapTime(gap, gap < 0);
             var seed = seedText(lane);
             return { text: seed, cls: 'time-seed', spoken: TIME_WORDS.seed + ' ' + seed };
-        } else {
-            var d = formatDelta(lane.result_delta_seconds);
-            return { text: d, cls: lane.result_delta_better ? 'time-better' : 'time-worse',
-                     spoken: TIME_WORDS.diff + ' ' + d };
         }
     }
     if (status) return { text: status, cls: 'time-official', spoken: TIME_WORDS[status] || status };
@@ -606,8 +640,20 @@ function laneTime(lane, diff) {
 function heatKey(ev, ht, rnd) { return String(ev) + '/' + String(ht) + '/' + String(rnd || ''); }
 function keyOf(h) { return heatKey(h.event, h.heat, h.round); }
 function currentKey() { return heatKey(currentEvent, currentHeat, currentRound); }
-// Official heats currently showing their gaps to the seed → their spring-back timer.
+// Heats currently showing their gaps to the seed → `{phase, timer}` (`S-23`).
 var diffHeats = {};
+function diffPhase(key) { return diffHeats[key] ? diffHeats[key].phase : 0; }
+// A heat that swaps on a tap: an official one, or one the console has timed.
+function swaps(h) {
+    return !!h.official || h.lanes.some(function(lane) { return !!lane.console_time; });
+}
+// The `±` that says so, in the official or console colour.
+function diffButton(h, key, phase) {
+    return '<button type="button" class="diff-btn' + (h.official ? '' : ' diff-console') + '"' +
+           ' aria-pressed="' + !!phase + '"' +
+           ' aria-label="' + esc(TIME_WORDS.show_diff) + '"' +
+           ' data-key="' + esc(key) + '">±</button>';
+}
 
 function laneDisplayName(lane) {
     if (lane.swimmers && lane.swimmers.length > 0) {
@@ -618,10 +664,10 @@ function laneDisplayName(lane) {
 }
 /* One utterance per lane, in the server's long column words, rather than four
    unlabelled stops — `NT` alone tells a listener nothing (docs/app.md `X-03`). */
-function laneSpoken(lane, diff) {
+function laneSpoken(lane, phase) {
     var parts = [SPOKEN_LABELS.lane + ' ' + lane.lane, laneDisplayName(lane)];
     if (lane.club) parts.push(SPOKEN_LABELS.club + ' ' + lane.club);
-    var lt = laneTime(lane, diff);
+    var lt = laneTime(lane, phase);
     if (lt) parts.push(lt.spoken);
     return parts.join(', ');
 }
@@ -632,18 +678,23 @@ function refreshHeatTimes(h) {
     var key = keyOf(h);
     var card = document.querySelector('.heat-card[data-key="' + CSS.escape(key) + '"]');
     if (!card) return;
-    var diff = !!diffHeats[key];
+    var phase = diffPhase(key);
+    // The console's first times make a heat tappable: give it its `±`.
+    if (swaps(h) && !card.querySelector('.diff-btn')) {
+        card.classList.add('heat-swaps');
+        card.querySelector('.heat-header').insertAdjacentHTML('beforeend', diffButton(h, key, phase));
+    }
     var btn = card.querySelector('.diff-btn');
-    if (btn) btn.setAttribute('aria-pressed', String(diff));
+    if (btn) btn.setAttribute('aria-pressed', String(!!phase));
     card.querySelectorAll('.swimmer-row').forEach(function(row) {
         var lane = null;
         for (var i = 0; i < h.lanes.length; i++) {
             if (String(h.lanes[i].lane) === row.dataset.lane) { lane = h.lanes[i]; break; }
         }
         if (!lane) return;
-        row.querySelector('.sr-only').textContent = laneSpoken(lane, diff);
+        row.querySelector('.sr-only').textContent = laneSpoken(lane, phase);
         var cell = row.querySelector('.lane-time');
-        var lt = laneTime(lane, diff);
+        var lt = laneTime(lane, phase);
         if (!lt) { if (cell) cell.remove(); return; }
         if (!cell) {
             cell = document.createElement('span');
@@ -660,15 +711,21 @@ function refreshHeatTimes(h) {
 
 function toggleDiff(key) {
     var h = HEATS.find(function(x) { return keyOf(x) === key; });
-    if (!h || !h.official) return;
-    if (diffHeats[key]) {
-        clearTimeout(diffHeats[key]);
+    if (!h || !swaps(h)) return;
+    var d = diffHeats[key];
+    if (d) {
+        clearTimeout(d.timer);
         delete diffHeats[key];
     } else {
-        diffHeats[key] = setTimeout(function() {
-            delete diffHeats[key];
+        d = diffHeats[key] = { phase: 1 };
+        d.timer = setTimeout(function() {
+            d.phase = 2;  // only a status lane changes: console time → its gap
             refreshHeatTimes(h);
-        }, DIFF_MS);
+            d.timer = setTimeout(function() {
+                delete diffHeats[key];
+                refreshHeatTimes(h);
+            }, DIFF_MS / 2);
+        }, DIFF_MS / 2);
     }
     refreshHeatTimes(h);
 }
@@ -787,7 +844,7 @@ function renderSchedule() {
         var isCurrent = key === currentKey();
         var heatClass = (heatIndex % 2 === 0) ? 'heat-even' : 'heat-odd';
         heatIndex++;
-        var diff = !!diffHeats[key];
+        var phase = diffPhase(key);
         // A heading where the session changes, over the cards a filter leaves.
         if (h.session && h.session !== lastSession) {
             html += '<div class="session-heading" role="heading" aria-level="2">' +
@@ -795,7 +852,7 @@ function renderSchedule() {
         }
         lastSession = h.session || null;
         html += '<div class="heat-card ' + heatClass + (isCurrent ? ' heat-current' : '') +
-                (h.official ? ' heat-official' : '') +
+                (swaps(h) ? ' heat-swaps' : '') +
                 '" data-key="' + esc(key) + '">';
         // One line: what the heat is on the left, when it swims on the right.
         var heatName = eventNameOf(h);
@@ -812,11 +869,7 @@ function renderSchedule() {
         html += '<span class="heat-name" aria-hidden="true">' + esc(heatName || '') + '</span>';
         if (h.time) html += '<span class="heat-time" aria-hidden="true">' + esc(h.time) + '</span>';
         /* The visible hint and the screen reader's way in to `S-23`. */
-        if (h.official) {
-            html += '<button type="button" class="diff-btn" aria-pressed="' + diff + '"' +
-                    ' aria-label="' + esc(TIME_WORDS.show_diff) + '"' +
-                    ' data-key="' + esc(key) + '">±</button>';
-        }
+        if (swaps(h)) html += diffButton(h, key, phase);
         html += '</div>';
         // A round with no swimmer yet: its prelims are not swum (`S-25`).
         if (h.seeded === false) {
@@ -826,9 +879,9 @@ function renderSchedule() {
         for (var j = 0; j < visibleLanes.length; j++) {
             var lane = visibleLanes[j];
             /* The drawn row is hidden from the reader, who hears `laneSpoken`. */
-            var lt = laneTime(lane, diff);
+            var lt = laneTime(lane, phase);
             html += '<div class="swimmer-row" role="listitem" data-lane="' + esc(lane.lane) + '">';
-            html += '<span class="sr-only">' + esc(laneSpoken(lane, diff)) + '</span>';
+            html += '<span class="sr-only">' + esc(laneSpoken(lane, phase)) + '</span>';
             html += '<div class="lane-num" aria-hidden="true">' + esc(lane.lane) + '</div>';
             html += '<div class="swimmer-name" aria-hidden="true">' + esc(laneDisplayName(lane)) + '</div>';
             if (lane.club) html += '<span class="swimmer-club" aria-hidden="true">' + esc(lane.club) + '</span>';
@@ -975,7 +1028,7 @@ document.getElementById('suggestions').addEventListener('click', function(e) {
 
 document.getElementById('schedule').addEventListener('click', function(e) {
     var btn = e.target.closest('.diff-btn');
-    var card = e.target.closest('.heat-official');
+    var card = e.target.closest('.heat-swaps');
     if (btn) toggleDiff(btn.dataset.key);
     else if (card && e.target.closest('.lane-time')) toggleDiff(card.dataset.key);
 });
