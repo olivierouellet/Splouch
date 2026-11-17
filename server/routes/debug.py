@@ -311,10 +311,9 @@ def _test_meet_upload(file):
     dest = os.path.join(state.TEST_MEET_FOLDER, stored_name(file.filename))
     tmp = os.path.join(state.TEST_MEET_FOLDER, ".upload" + extension(file.filename))
     save_upload(file, tmp)
-    try:
-        store(tmp, dest, file.filename)
-    except ValueError as e:
-        return {"ok": False, "error": str(e)}
+    error = store(tmp, dest, file.filename)
+    if error:
+        return {"ok": False, "error": error}
     try:
         if is_csv(dest):
             state.load_event_info(dest)

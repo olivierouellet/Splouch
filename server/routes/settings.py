@@ -187,10 +187,9 @@ def _meet_update_file(file):
     tmp = os.path.join(state.MEET_FOLDER, ".update_candidate" + ext)
     raw = os.path.join(state.MEET_FOLDER, ".update_upload" + extension(file.filename))
     save_upload(file, raw)
-    try:
-        store(raw, tmp, file.filename)
-    except ValueError as e:
-        return {"ok": False, "error": f"Could not read that file: {e}."}
+    error = store(raw, tmp, file.filename)
+    if error:
+        return {"ok": False, "error": f"Could not read that file: {error}."}
     try:
         new_uid = _candidate_meet_uid(tmp, name)
     except Exception:
@@ -459,11 +458,10 @@ def _settings_view(request, form):
                     state.MEET_FOLDER, ".upload" + extension(file.filename)
                 )
                 save_upload(file, tmp)
-                try:
-                    store(tmp, dest, file.filename)
-                except ValueError as e:
+                error = store(tmp, dest, file.filename)
+                if error:
                     return PlainTextResponse(
-                        f"Could not read {os.path.basename(file.filename)}: {e}"
+                        f"Could not read {os.path.basename(file.filename)}: {error}"
                     )
                 err = _load_meet_file(dest)
                 if err:

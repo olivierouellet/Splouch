@@ -9,6 +9,7 @@ case-sensitive.
 import glob
 import os
 import zipfile
+import zlib
 
 from meet_parsers.hy3_parser import MAX_HY3_BYTES, load_hy3
 from meet_parsers.lenex_parser import load_lenex
@@ -64,20 +65,28 @@ def stored_name(filename):
 
 def store(tmp, dest, filename):
     """Move an upload saved at *tmp* to *dest*, unzipping it when *filename* is
-    a zip. *tmp* is gone afterwards either way. ValueError for a zip that is not
-    a Hy-Tek export: no `.hy3` in it, several, or one past `MAX_HY3_BYTES`."""
+    a zip. *tmp* is gone afterwards either way. Returns None, or why a zip is not
+    a Hy-Tek export: no `.hy3` in it, several, one past `MAX_HY3_BYTES`, or a zip
+    Python cannot read (encrypted, truncated, an unsupported compression).
+
+    A fixed message rather than an exception, so the routes show the uploader a
+    reason without passing an exception's text to the page."""
     if extension(filename) != ZIP:
         os.replace(tmp, dest)
-        return
+        return None
     try:
-        data = _hy3_in_zip(tmp)
+        data, error = _hy3_in_zip(tmp)
     finally:
         os.remove(tmp)
+    if error:
+        return error
     with open(dest, "wb") as f:
         f.write(data)
+    return None
 
 
 def _hy3_in_zip(path):
+    """`(data, None)`, or `(None, why)` for a zip that is not a Hy-Tek export."""
     try:
         with zipfile.ZipFile(path) as z:
             found = [
@@ -86,7 +95,7 @@ def _hy3_in_zip(path):
                 if not i.is_dir() and extension(i.filename) == ".hy3"
             ]
             if len(found) != 1:
-                raise ValueError(
+                return None, (
                     "no .hy3 file in the zip"
                     if not found
                     else "more than one .hy3 file in the zip"
@@ -95,8 +104,12 @@ def _hy3_in_zip(path):
             # zip bomb claims a small one.
             with z.open(found[0]) as f:
                 data = f.read(MAX_HY3_BYTES + 1)
-    except zipfile.BadZipFile as e:
-        raise ValueError("not a zip file") from e
+    except zipfile.BadZipFile:
+        return None, "not a zip file"
+    # RuntimeError: encrypted. NotImplementedError: a compression Python lacks.
+    # zlib.error and EOFError: a damaged or truncated member.
+    except (RuntimeError, NotImplementedError, zlib.error, EOFError, OSError):
+        return None, "the zip could not be read"
     if len(data) > MAX_HY3_BYTES:
-        raise ValueError("the .hy3 in the zip is too large")
-    return data
+        return None, "the .hy3 in the zip is too large"
+    return data, None

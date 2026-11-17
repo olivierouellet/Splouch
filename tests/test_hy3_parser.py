@@ -260,6 +260,17 @@ def _zip(**members):
     return buf.getvalue()
 
 
+def _encrypted_zip():
+    """A zip whose member is flagged encrypted: `zipfile` cannot write one, so
+    the flag is set in both headers after the fact."""
+    data = bytearray(_zip(**{"HFILE001.HY3": b"x"}))
+    local = data.index(b"PK\x03\x04")
+    central = data.index(b"PK\x01\x02")
+    data[local + 6] |= 1
+    data[central + 8] |= 1
+    return bytes(data)
+
+
 def test_a_zip_is_kept_as_the_hy3_inside_it(tmp_path):
     """Named after the zip: every Hy-Tek export's `.hy3` is `HFILE001.HY3`."""
     tmp = tmp_path / ".upload.zip"
@@ -283,13 +294,14 @@ def test_a_zip_is_kept_as_the_hy3_inside_it(tmp_path):
         (_zip(**{"CFILE001.CL2": b"x"}), "no .hy3"),
         (_zip(**{"a.hy3": b"x", "b/B.HY3": b"y"}), "more than one"),
         (b"not a zip", "not a zip"),
+        (_zip(**{"HFILE001.HY3": _hy3_bytes()})[:-30], "not a zip"),
+        (_encrypted_zip(), "could not be read"),
     ],
 )
 def test_a_zip_that_is_not_a_hytek_export_is_refused(tmp_path, data, error):
     tmp = tmp_path / ".upload.zip"
     tmp.write_bytes(data)
-    with pytest.raises(ValueError, match=error):
-        store(str(tmp), str(tmp_path / "m.hy3"), "m.zip")
+    assert error in store(str(tmp), str(tmp_path / "m.hy3"), "m.zip")
     assert not tmp.exists() and not (tmp_path / "m.hy3").exists()
 
 
@@ -297,8 +309,7 @@ def test_a_zip_bomb_stops_at_the_cap(tmp_path, monkeypatch):
     monkeypatch.setattr(meet_file, "MAX_HY3_BYTES", 1000)
     tmp = tmp_path / ".upload.zip"
     tmp.write_bytes(_zip(**{"HFILE001.HY3": b" " * 5000}))
-    with pytest.raises(ValueError, match="too large"):
-        store(str(tmp), str(tmp_path / "m.hy3"), "m.zip")
+    assert "too large" in store(str(tmp), str(tmp_path / "m.hy3"), "m.zip")
 
 
 class _Upload:
