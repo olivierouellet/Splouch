@@ -424,6 +424,9 @@ def send_schedule(client=None, clear=False):
             # them (docs/app.md `N-05`). Absent for an event no session names.
             "dates": _event_dates(md.get("meet_info", {})),
             "start_list": _serialise_start_list(md["start_list"]),
+            # The round each shared event number holds, so the cloud keeps a
+            # prelim's console times apart from its final's (§5.5).
+            "rounds": {str(ev): r for ev, r in m.live_rounds.items()},
             # Meet Manager's official results (docs/app.md `S-22`). Console times
             # are not sent: the cloud keeps its own from `results_snapshot`.
             "results": {
@@ -451,6 +454,7 @@ _EMPTY_SCHEDULE = {
     "dates": {},
     "start_list": {},
     "results": {},
+    "rounds": {},
 }
 
 

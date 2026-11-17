@@ -53,11 +53,24 @@ Parsed since Meet Manager results reach the Schedule (`swimtime`, `status`, `lan
 | `name` | `"Club de natation Avantage"` | Full club name. Currently only `shortname` (e.g. `"AVAN"`) is used. |
 | `nation` | `"CAN"` | Country of the club. |
 
-### `RELAY` / `RELAYPOSITIONS`
+### `EVENT` / `HEAT` links between rounds
 
-The `RELAY` element under `CLUB` can contain `RELAYPOSITION` child elements,
-each with an `athleteid`, a `number` (leg 1–4), and optionally a `reactiontime`
-and split. The full relay team roster is therefore available but not parsed.
+| Attribute | Example | Notes |
+| --- | --- | --- |
+| `EVENT preveventid` | `"1337"` | The prelim a final is seeded from. Rounds sharing a number are read apart, but only the live one is shown (`load_lenex`). |
+| `HEAT agegroupid` | `"1440"` | The age group a finals heat is for (`AGEGROUP agemin`/`agemax`). |
+
+### `SESSION` element
+
+| Attribute | Example | Notes |
+| --- | --- | --- |
+| `name` | `"Samedi pm"` | Only `date`, `daytime`, `endtime` and the warm-up times are read. |
+
+### `ENTRY` (Splash)
+
+| Attribute | Example | Notes |
+| --- | --- | --- |
+| `splash.pbest` / `splash.sbest` | `"00:01:02.34"` | Personal and season best, Splash only. |
 
 ---
 

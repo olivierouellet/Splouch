@@ -213,6 +213,7 @@ class _Meet:
         "event_rounds",
         "event_info",
         "results",
+        "live_rounds",
     )
 
     def __init__(
@@ -225,6 +226,7 @@ class _Meet:
         event_rounds=None,
         event_info=None,
         results=None,
+        live_rounds=None,
     ):
         self.event_names = event_names or {}
         self.start_list = start_list or {}
@@ -235,6 +237,9 @@ class _Meet:
         self.event_info = event_info if event_info is not None else HytekParser()
         # Official results from Meet Manager; see `lenex_parser.load_lenex`.
         self.results = results or {}
+        # {event: round key} for a number the file gives more than one round,
+        # naming the round the other fields hold; see `lenex_parser.load_lenex`.
+        self.live_rounds = live_rounds or {}
 
 
 meet = _Meet()
@@ -251,6 +256,7 @@ def set_lenex(data):
         event_distances=data.event_distances,
         event_rounds=data.event_rounds,
         results=data.results,
+        live_rounds=data.live_rounds,
     )
     load_console_times()
 
@@ -273,8 +279,10 @@ def clear_meet():
 
 # The console's time for every finished heat of the loaded meet, so the Schedule
 # can show it until Meet Manager's official result replaces it:
-# {(event, heat): {lane: "HH:MM:SS.hh"}}. Swapped whole, never mutated in place,
-# like `meet`.
+# {(event, heat, round): {lane: "HH:MM:SS.hh"}}. `round` is the event's
+# `meet.live_rounds` entry when the heat was swum, "" for a number with one round:
+# a prelim and its final share their numbers, and the final's heat 1 must not
+# show the prelim's times. Swapped whole, never mutated in place, like `meet`.
 #
 # Kept on disk as one append-only line per finished heat — a few hundred small
 # appends a meet day, no rewrite and no fsync, because most Pis run from an SD
@@ -297,9 +305,12 @@ def load_console_times():
                 for line in f:
                     try:
                         rec = json.loads(line)
-                        out[(int(rec["event"]), int(rec["heat"]))] = {
-                            int(lane): t for lane, t in rec["lanes"].items()
-                        }
+                        key = (
+                            int(rec["event"]),
+                            int(rec["heat"]),
+                            rec.get("round", ""),
+                        )
+                        out[key] = {int(lane): t for lane, t in rec["lanes"].items()}
                     except (ValueError, KeyError, TypeError, AttributeError):
                         continue  # a line torn by a power cut
         except OSError:
@@ -315,21 +326,29 @@ def record_console_heat(event, heat, lanes):
     global console_times
     if not event or not heat:
         return
+    rnd = meet.live_rounds.get(event, "")
     updated = dict(console_times)
-    updated[(event, heat)] = dict(lanes)
+    updated[(event, heat, rnd)] = dict(lanes)
     console_times = updated
     uid = meet_uid()
     if not uid or _test_session is not None or _test_meet_active:
         return
-    line = json.dumps(
-        {"event": event, "heat": heat, "lanes": {str(k): v for k, v in lanes.items()}}
-    )
+    rec = {"event": event, "heat": heat, "lanes": {str(k): v for k, v in lanes.items()}}
+    if rnd:
+        rec["round"] = rnd
+    line = json.dumps(rec)
     try:
         os.makedirs(CONSOLE_TIMES_DIR, exist_ok=True)
         with open(_console_times_path(uid), "a", encoding="utf-8") as f:
             f.write(line + "\n")
     except OSError as e:
         print(f"[console_times] could not save: {e!r}", flush=True)
+
+
+def console_heat(event, heat, m=None):
+    """The console's times for a heat of the loaded meet's live round, or {}."""
+    m = m or meet
+    return console_times.get((event, heat, m.live_rounds.get(event, "")), {})
 
 
 def discard_console_times():

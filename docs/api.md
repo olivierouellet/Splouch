@@ -551,13 +551,18 @@ table: `labels` is the operator's pick, resolved from the same file.
 { "events": [ [3, [1,2]] ], "names": { "3": "…" }, "times": { "3": { "1": "10:42" } },
   "dates": { "3": "2026-10-10" },
   "start_list": { "3": { "1": { "1": { "name":"…","club":"…","seed_time":"…","swimmers":[…] } } } },
-  "results": { "3": { "1": { "1": { "time": "00:01:01.90", "status": "" } } } } }
+  "results": { "3": { "1": { "1": { "time": "00:01:01.90", "status": "" } } } },
+  "rounds": { "15": "final" } }
 ```
 
 `dates` puts a day on `times`, which are times of day: each event's Lenex session date,
 for the cloud's heat notifications (§5.13). An event no dated session names is absent.
 `results` are Meet Manager's official results (§5.8). No console times: the cloud keeps
 its own from the `results_snapshot` frames it relays, and stores them with the meet.
+`rounds` names the round an event number holds, only for a number the meet file
+gives more than one (a prelim and its final): the rest describe that round. The cloud
+keeps console times per round with it, so a final's heat 1 does not show its prelim
+heat 1's times. Absent from an older Pi.
 
 ### 5.6 `GET /meets`
 

@@ -17,6 +17,7 @@ class LenexData(NamedTuple):
     event_distances: dict
     event_rounds: dict
     results: dict
+    live_rounds: dict
 
 
 # HEAT `status` values whose results Splouch shows as official. `INOFFICIAL` is
@@ -28,6 +29,11 @@ KEPT_HEAT_STATUSES = {"OFFICIAL", "SEEDED"}
 # RESULT `status` values that are not a finish (Lenex 3.0). `EXH` (exhibition) is
 # a finish with a valid time, so it is not here.
 NON_FINISH_STATUSES = {"DSQ", "DNS", "DNF", "WDR", "SICK"}
+
+# ENTRY `status` values of a swimmer who will not swim, whose lane stays empty:
+# withdrawn, sick, rejected (Lenex 3.0) and Splash's declared non-start. `EXH`
+# (exhibition) swims, so it is not here.
+NOT_SWIMMING_ENTRY_STATUSES = {"WDR", "SICK", "RJC", "DNS"}
 
 
 # EVENT `round` codes, as `[event_name]` vocabulary keys. Every code the Lenex
@@ -152,6 +158,16 @@ def load_lenex(path):
                        only from heats whose status is in `KEPT_HEAT_STATUSES`.
                        `time` is `HH:MM:SS.hh` or `""`; `status` is one of
                        `NON_FINISH_STATUSES` or `""`.
+        live_rounds  — {event_number: round key}, only for a number the file uses
+                       for more than one round.
+
+    One event number can hold several rounds: Splash numbers a prelim and its
+    final the same, and the console only ever sends the number. Each round is read
+    on its own, then every number-keyed field holds the number's *live* round: the
+    last one in the file with a swimmer seeded in it. A final has no swimmers until
+    its prelims are swum and the file re-exported, so the board follows the meet
+    from the file alone — not from a clock, which a Pi with no network may not
+    have right. A session lists only the numbers whose live round it holds.
     """
     tree = _open_lenex_xml(path)
 
@@ -231,42 +247,52 @@ def load_lenex(path):
             return " ".join(p for p in parts if p)
         return f"Event {event.get('number', '')}"
 
-    # Build event names and start list — pass 1: events and heats
-    event_names = {}
-    start_list = {}
-    heat_times = {}  # {event_num: {heat_num: daytime_str}}
-    event_distances = {}  # {event_num: int} distance in metres
-    event_rounds = {}  # {event_num: round key}
-    eventid_map = {}  # eventid  → event_number  (Splash-style)
-    heatid_map = {}  # heatid   → (event_number, heat_number)
-    kept_heats = set()  # (event_number, heat_number) whose results are shown
+    # Pass 1: events and heats. Everything is keyed by *round*, the EVENT
+    # element's position in the file, until the live round of each number is
+    # picked at the end: two rounds can share a number (see the docstring).
+    events = find(root, "EVENT")
+    round_number = []  # round → event number
+    round_key = []  # round → `ROUND_KEYS` value, or ""
+    round_of = {}  # id(EVENT element) → round
+    names = {}  # round → event name
+    starts = {}  # round → {heat_number: {lane: entry}}
+    times = {}  # round → {heat_number: daytime_str}
+    distances = {}  # round → distance in metres
+    eventid_map = {}  # eventid → round (Splash-style)
+    heatid_map = {}  # heatid → (round, heat_number)
+    kept_heats = set()  # (round, heat_number) whose results are shown
 
-    for event in find(root, "EVENT"):
-        ev_num = int(event.get("number"))
-        event_names[ev_num] = event_name_str(event)
-        start_list[ev_num] = {}
-        heat_times[ev_num] = {}
-        round_key = ROUND_KEYS.get(event.get("round", "").upper())
-        if round_key:
-            event_rounds[ev_num] = round_key
+    for rnd, event in enumerate(events):
+        round_of[id(event)] = rnd
+        round_number.append(int(event.get("number")))
+        round_key.append(ROUND_KEYS.get(event.get("round", "").upper(), ""))
+        names[rnd] = event_name_str(event)
+        starts[rnd] = {}
+        times[rnd] = {}
         style = find_first(event, "SWIMSTYLE")
         if style is not None:
             with contextlib.suppress(ValueError, TypeError):
-                event_distances[ev_num] = int(style.get("distance", 0))
+                distances[rnd] = int(style.get("distance", 0))
         eid = event.get("eventid", "")
         if eid:
-            eventid_map[eid] = ev_num
+            eventid_map[eid] = rnd
         for heat in find(event, "HEAT"):
             h_num = int(heat.get("number"))
-            start_list[ev_num][h_num] = {}
+            starts[rnd][h_num] = {}
             daytime = heat.get("daytime", "")
             if daytime:
-                heat_times[ev_num][h_num] = daytime
+                times[rnd][h_num] = daytime
             hid = heat.get("heatid", "")
             if hid:
-                heatid_map[hid] = (ev_num, h_num)
+                heatid_map[hid] = (rnd, h_num)
             if heat.get("status", "").upper() in KEPT_HEAT_STATUSES:
-                kept_heats.add((ev_num, h_num))
+                kept_heats.add((rnd, h_num))
+
+    def _lane(el):
+        """The element's `lane`, or None without one. Lane 0 is a lane: pools
+        numbered 0–9 seed it."""
+        lane = (el.get("lane") or "").strip()
+        return int(lane) if lane.isdigit() else None
 
     def _relay_swimmers(entry):
         """Return sorted list of {'pos': int, 'name': str} for RELAYPOSITION children."""
@@ -288,9 +314,11 @@ def load_lenex(path):
         swimmers.sort(key=lambda x: x["pos"])
         return swimmers
 
-    def _add_entry(entry, ev_num, h_num, aid=None):
-        lane = int(entry.get("lane", 0))
-        if not lane:
+    def _add_entry(entry, rnd, h_num, aid=None):
+        lane = _lane(entry)
+        if lane is None:
+            return
+        if entry.get("status", "").upper() in NOT_SWIMMING_ENTRY_STATUSES:
             return
         if aid is None:
             aid = entry.get("athleteid", "")
@@ -305,7 +333,7 @@ def load_lenex(path):
             rid = relay_el.get("relayid", "") if relay_el is not None else ""
             club = relay_clubs.get(rid, "")
             swimmers = _relay_swimmers(entry)
-        start_list[ev_num][h_num][lane] = {
+        starts[rnd][h_num][lane] = {
             "name": name,
             "club": club,
             "seed_time": entry.get("entrytime", ""),
@@ -324,31 +352,27 @@ def load_lenex(path):
     #   CLUB > ATHLETES > ATHLETE (athleteid) > ENTRIES > ENTRY (has eventid/heatid, lane)
 
     any_entry_in_heat = any(
-        find(heat, "ENTRY")
-        for event in find(root, "EVENT")
-        for heat in find(event, "HEAT")
+        find(heat, "ENTRY") for event in events for heat in find(event, "HEAT")
     )
     any_entry_in_event = any(
         find_direct(entries_el, "ENTRY")
-        for event in find(root, "EVENT")
+        for event in events
         for entries_el in find_direct(event, "ENTRIES")
     )
 
     # Structure A — ENTRY nested inside HEAT.
     if any_entry_in_heat:
-        for event in find(root, "EVENT"):
-            ev_num = int(event.get("number"))
+        for rnd, event in enumerate(events):
             for heat in find(event, "HEAT"):
                 h_num = int(heat.get("number"))
                 for entry in find(heat, "ENTRY"):
-                    _add_entry(entry, ev_num, h_num)
+                    _add_entry(entry, rnd, h_num)
 
     # Structure B — ENTRIES directly under EVENT, linked to a heat by heatid.
     # Real Lenex 3.0 files leave the HEATs empty and list every entry here, so
     # this runs independently of Structure A (not only alongside it).
     if any_entry_in_event:
-        for event in find(root, "EVENT"):
-            ev_num = int(event.get("number"))
+        for rnd, event in enumerate(events):
             heatid_to_num = {
                 h.get("heatid", ""): int(h.get("number"))
                 for h in find(event, "HEAT")
@@ -359,7 +383,7 @@ def load_lenex(path):
                     hid = entry.get("heatid", "")
                     h_num = heatid_to_num.get(hid) or int(entry.get("heat", 0) or 0)
                     if h_num:
-                        _add_entry(entry, ev_num, h_num)
+                        _add_entry(entry, rnd, h_num)
 
     # Structure C (Splash) — entries under ATHLETE / RELAY, keyed by eventid+heatid.
     # Only when entries aren't already at the heat or event level.
@@ -372,18 +396,18 @@ def load_lenex(path):
             eid = entry.get("eventid", "")
             if eid and eid in eventid_map:
                 h_num = int(entry.get("heat", 0) or 0)
-                ev_num = eventid_map[eid]
-                if h_num in start_list.get(ev_num, {}):
-                    return ev_num, h_num
+                rnd = eventid_map[eid]
+                if h_num in starts[rnd]:
+                    return rnd, h_num
             return None, None
 
         # Individual swimmer entries
         for athlete in find(root, "ATHLETE"):
             aid = athlete.get("athleteid", "")
             for entry in find(athlete, "ENTRY"):
-                ev_num, h_num = _resolve_heat(entry)
-                if ev_num is not None:
-                    _add_entry(entry, ev_num, h_num, aid=aid)
+                rnd, h_num = _resolve_heat(entry)
+                if rnd is not None:
+                    _add_entry(entry, rnd, h_num, aid=aid)
 
         # Relay entries (CLUB > RELAY > ENTRIES > ENTRY)
         for club in find(root, "CLUB"):
@@ -395,13 +419,13 @@ def load_lenex(path):
                     f"{club_full} {relay_num}".strip() if relay_num else club_full
                 )
                 for entry in find(relay, "ENTRY"):
-                    ev_num, h_num = _resolve_heat(entry)
-                    if ev_num is None:
+                    rnd, h_num = _resolve_heat(entry)
+                    lane = _lane(entry)
+                    if rnd is None or lane is None:
                         continue
-                    lane = int(entry.get("lane", 0))
-                    if not lane:
+                    if entry.get("status", "").upper() in NOT_SWIMMING_ENTRY_STATUSES:
                         continue
-                    start_list[ev_num][h_num][lane] = {
+                    starts[rnd][h_num][lane] = {
                         "name": team_name,
                         "club": club_short,
                         "seed_time": entry.get("entrytime", ""),
@@ -412,34 +436,56 @@ def load_lenex(path):
     # (hand-written files), or under the ATHLETE / RELAY that swam it, linked to
     # its heat by `heatid` (Lenex 3.0, Splash). The heat is the one carrying the
     # status, so a result is kept only when its heat is.
-    results = {}
+    round_results = {}  # round → {heat_number: {lane: result}}
 
-    def _add_result(res, ev_num, h_num):
-        if (ev_num, h_num) not in kept_heats:
+    def _add_result(res, rnd, h_num):
+        if (rnd, h_num) not in kept_heats:
             return
-        lane = int(res.get("lane", 0) or 0)
-        if not lane:
+        lane = _lane(res)
+        if lane is None:
             return
         status = res.get("status", "").upper()
-        results.setdefault(ev_num, {}).setdefault(h_num, {})[lane] = {
+        round_results.setdefault(rnd, {}).setdefault(h_num, {})[lane] = {
             "time": wire_time(res.get("swimtime", "")),
             "status": status if status in NON_FINISH_STATUSES else "",
         }
 
     seen_results = set()
-    for event in find(root, "EVENT"):
-        ev_num = int(event.get("number"))
+    for rnd, event in enumerate(events):
         for heat in find(event, "HEAT"):
             h_num = int(heat.get("number"))
             for res in find(heat, "RESULT"):
                 seen_results.add(id(res))
-                _add_result(res, ev_num, h_num)
+                _add_result(res, rnd, h_num)
     for res in find(root, "RESULT"):
         if id(res) in seen_results:
             continue
         ev_h = heatid_map.get(res.get("heatid", ""))
         if ev_h:
             _add_result(res, *ev_h)
+
+    # Each number's live round: the last with a swimmer seeded, else its first.
+    rounds_of_number = {}
+    for rnd, ev_num in enumerate(round_number):
+        rounds_of_number.setdefault(ev_num, []).append(rnd)
+    live = {
+        ev_num: next(
+            (r for r in reversed(rnds) if any(starts[r].values())),
+            rnds[0],
+        )
+        for ev_num, rnds in rounds_of_number.items()
+    }
+    live_rounds = {
+        ev_num: round_key[live[ev_num]]
+        for ev_num, rnds in rounds_of_number.items()
+        if len(rnds) > 1
+    }
+    event_names = {n: names[r] for n, r in live.items()}
+    start_list = {n: starts[r] for n, r in live.items()}
+    heat_times = {n: times[r] for n, r in live.items()}
+    event_distances = {n: distances[r] for n, r in live.items() if r in distances}
+    event_rounds = {n: round_key[r] for n, r in live.items() if round_key[r]}
+    results = {n: round_results[r] for n, r in live.items() if r in round_results}
 
     # Meet / pool / session metadata
     _course_to_metres = {"LCM": 50, "SCM": 25, "SCY": 25}
@@ -463,10 +509,12 @@ def load_lenex(path):
                 "warmupuntil": s.get("warmupuntil", ""),
                 # Which events the session holds: a heat's `daytime` is a time of
                 # day, and this is what puts a date on it (docs/app.md `N-05`).
+                # A number shared by rounds is listed by its live round's session.
                 "events": [
                     int(e.get("number"))
                     for e in find(s, "EVENT")
                     if (e.get("number") or "").isdigit()
+                    and live.get(int(e.get("number"))) == round_of.get(id(e))
                 ],
             }
             for s in find(meet_el, "SESSION")
@@ -480,4 +528,5 @@ def load_lenex(path):
         event_distances=event_distances,
         event_rounds=event_rounds,
         results=results,
+        live_rounds=live_rounds,
     )

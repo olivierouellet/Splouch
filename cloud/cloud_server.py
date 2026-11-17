@@ -390,13 +390,21 @@ def route_results(request: Request):
     )
 
 
-def _merge_console_times(console, snap):
+def _console_key(ev, rounds):
+    """The `console_times` key of event *ev*: `"15/final"` for a number the meet
+    gives several rounds (`rounds`, from `schedule_snapshot`), else `"15"`."""
+    ev = str(ev)
+    return f"{ev}/{rounds[ev]}" if rounds.get(ev) else ev
+
+
+def _merge_console_times(console, snap, rounds=None):
     """*console* with the finished heat in *snap* (a `results_snapshot`) added, or
     None when the frame carries no heat or no time.
 
     The cloud's copy of the console times the Pi keeps (docs/app.md `S-22`),
     built from the frames it already relays rather than a new event:
-    {"event": {"heat": {"lane": "HH:MM:SS.hh"}}}. A new dict, never mutated in
+    {"event": {"heat": {"lane": "HH:MM:SS.hh"}}}, the event keyed by
+    `_console_key` with the round it holds now. A new dict, never mutated in
     place, so a reader on another thread sees the old one or the new one whole.
     """
     ev, ht = str(snap.get("event") or ""), str(snap.get("heat") or "")
@@ -407,7 +415,8 @@ def _merge_console_times(console, snap):
     }
     if not (ev and ht and lanes):
         return None
-    return {**console, ev: {**console.get(ev, {}), ht: lanes}}
+    key = _console_key(ev, rounds or {})
+    return {**console, key: {**console.get(key, {}), ht: lanes}}
 
 
 def _build_heats_json(sched, console=None):
@@ -418,6 +427,7 @@ def _build_heats_json(sched, console=None):
     times = sched.get("times", {})
     start_list = sched.get("start_list", {})
     results = sched.get("results", {})
+    rounds = sched.get("rounds", {})
     console = console or {}
     heats = []
     for ev, sorted_heats in sched["events"]:
@@ -426,7 +436,7 @@ def _build_heats_json(sched, console=None):
             ht_str = str(ht)
             lanes_data = start_list.get(ev_str, {}).get(ht_str, {})
             heat_results = results.get(ev_str, {}).get(ht_str, {})
-            heat_console = console.get(ev_str, {}).get(ht_str, {})
+            heat_console = console.get(_console_key(ev_str, rounds), {}).get(ht_str, {})
             lanes = []
             for lane_str in sorted(
                 lanes_data, key=lambda x: int(x) if x.lstrip("-").isdigit() else 0
@@ -854,7 +864,11 @@ async def _forward(sid, event, data):
     elif event == "results_snapshot":
         meet["last_results"] = data
         await manager.broadcast(_ch("results", meet_id), event, data)
-        console = _merge_console_times(meet.get("console_times") or {}, data)
+        console = _merge_console_times(
+            meet.get("console_times") or {},
+            data,
+            (meet.get("schedule_data") or {}).get("rounds"),
+        )
         if console is not None:
             meet["console_times"] = console
             await run_in_threadpool(

@@ -355,13 +355,13 @@ def build_heats():
     name_parts = data.get("event_name_parts", {})
     heat_times = data.get("heat_times", {})
     results = data.get("results", {})
-    console = state.console_times
+    m = state.meet
 
     heats_out = []
     for ev, heats in events_grouped:
         for ht in heats:
             heat_results = results.get(ev, {}).get(ht, {})
-            heat_console = console.get((ev, ht), {})
+            heat_console = state.console_heat(ev, ht, m)
             lanes_out = []
             for lane in sorted(start_list.get(ev, {}).get(ht, {})):
                 entry = start_list[ev][ht][lane]
@@ -399,14 +399,16 @@ def build_heats():
     return heats_out
 
 
-def results_summary(before, after):
+def results_summary(before, after, moved=()):
     """What a re-uploaded meet file changed in the official results, for `/mm`.
 
     *before* and *after* are `build_heats()` taken either side of the reload.
-    Each list holds `{"event", "heat", "lane", "name", ...}` items; heats that
-    became official carry no lane.
+    *moved* are the events whose number now holds another round (a final seeded
+    since): their heats are new, not changed. Each list holds
+    `{"event", "heat", "lane", "name", ...}` items; heats that became official
+    carry no lane.
     """
-    old = {(h["event"], h["heat"]): h for h in before}
+    old = {(h["event"], h["heat"]): h for h in before if h["event"] not in moved}
     official, statuses, corrected = [], [], []
     for h in after:
         key = (h["event"], h["heat"])

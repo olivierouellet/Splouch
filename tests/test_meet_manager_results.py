@@ -202,7 +202,7 @@ def test_console_times_survive_a_restart(pi_meet, splash):
     state.record_console_heat(1, 2, {3: "00:00:32.05"})  # the heat swum again
     state.console_times = {}
     state.set_lenex(splash)  # what a boot does
-    assert state.console_times == {(1, 2): {3: "00:00:32.05"}}
+    assert state.console_times == {(1, 2, ""): {3: "00:00:32.05"}}
 
 
 def test_a_torn_line_is_skipped(pi_meet, splash, tmp_path):
@@ -210,13 +210,13 @@ def test_a_torn_line_is_skipped(pi_meet, splash, tmp_path):
     with open(tmp_path / (state.meet_uid() + ".jsonl"), "a") as f:
         f.write('{"event": 1, "he')
     state.set_lenex(splash)
-    assert state.console_times == {(1, 2): {3: "00:00:32.10"}}
+    assert state.console_times == {(1, 2, ""): {3: "00:00:32.10"}}
 
 
 def test_a_test_replay_is_not_written_to_the_meet(pi_meet, monkeypatch, tmp_path):
     monkeypatch.setattr(state, "_test_session", "replay.serial")
     state.record_console_heat(1, 2, {3: "00:00:32.10"})
-    assert state.console_times[(1, 2)] == {3: "00:00:32.10"}
+    assert state.console_times[(1, 2, "")] == {3: "00:00:32.10"}
     assert os.listdir(tmp_path) == []
 
 
@@ -259,7 +259,7 @@ def test_a_same_meet_upload_keeps_the_live_heat(pi_meet, monkeypatch, tmp_path):
 
     assert out["ok"] is True
     assert state._last_results_snapshot is live
-    assert state.console_times[(1, 1)] == {3: "00:00:30.15"}
+    assert state.console_times[(1, 1, "")] == {3: "00:00:30.15"}
     assert emitted == ["schedule"]
     summary = out["summary"]
     assert {"event": 1, "heat": 1} in summary["official_heats"]

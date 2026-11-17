@@ -44,7 +44,7 @@ One .lxf holds both the current start list and the results entered so far. A sin
 
 ### On the Pi
 
-- `state.console_times`: an in-memory dict `{(ev, ht): {lane: time}}`, filled in `worker._on_race_state_changed` at the moment `_last_results_snapshot` is built. One write per finished heat.
+- `state.console_times`: an in-memory dict `{(ev, ht, round): {lane: time}}` (`round` is `""` unless the event number is shared by rounds, see `load_lenex`), filled in `worker._on_race_state_changed` at the moment `_last_results_snapshot` is built. One write per finished heat.
 - **SD-card friendly:**
   - Append one JSON line per finished heat (about 200 bytes: event, heat, lane times) to `~/SplouchData/meet/<meet_uid>.console.jsonl`.
   - Open in append mode, write, close, **no fsync**.

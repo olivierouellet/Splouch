@@ -195,12 +195,18 @@ def _meet_update_file(file):
     # Same meet: overwrite the current file in place and reload it.
     dest = os.path.join(state.MEET_FOLDER, state._active_meet_file)
     os.replace(tmp, dest)
-    before = build_heats()
+    before, rounds_before = build_heats(), state.meet.live_rounds
     err = _reload_same_meet(dest)
     if err:
         return {"ok": False, "error": "Failed to load the updated file."}
     state._meet_file_updated_at = time.time()
-    return {"ok": True, "summary": results_summary(before, build_heats())}
+    rounds_after = state.meet.live_rounds
+    moved = {
+        ev
+        for ev in rounds_before.keys() | rounds_after.keys()
+        if rounds_before.get(ev) != rounds_after.get(ev)
+    }
+    return {"ok": True, "summary": results_summary(before, build_heats(), moved)}
 
 
 @router.get("/settings", dependencies=[Depends(require_login)])
