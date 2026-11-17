@@ -120,7 +120,8 @@ it were a title. Its own seed times are 24.87–25.89, so it is a 50m.
 A real OmniSport 2000 over Ethernet (`dak_os2000_udp`, UDP 21000) at a meet: event 58,
 women's 100m butterfly final, two heats in a 25m pool numbered 0–9 with touchpads at
 one end. It opens on the previous heat's results cycling on the single-line display;
-the first heat starts 49.5 s in. Heat 2 is announced on the console's next-heat page
+the first heat starts 49.5 s in. Lane 0 of heat 1 is named at the start, then
+erased whole 4.4 s after the gun: its swimmer did not start. Heat 2 is announced on the console's next-heat page
 (sub-code `01`) 58 s before its start, and has nobody in lane 9. Each 50m split is
 held by the console for about 14.5 s, then blanked. Replay it with Settings → Meet →
 Pool at **10 lanes, first lane 0, 25m**.
@@ -136,8 +137,8 @@ cap) into two lines. A `.serial` line is one packet, so the two are joined here 
 recording made today would write them.
 
 `tests/test_console_recordings.py` replays it through the worker and holds it to the
-race: splits held without a place, the heat changing before the gun, lane 9 never
-running.
+race: splits held without a place, the heat changing before the gun, heat 1's
+lane 0 stopping at its erasure, heat 2's lane 9 never running.
 
 ### `real_race_25y_breast.raw`
 

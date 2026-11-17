@@ -740,7 +740,8 @@ def test_omnisport_capture_replays_as_the_pool_swam(played):
 
     What the board got wrong on the day, each pinned to the capture: the lanes kept
     running through their 50m splits, showed a place there, the heat number changed
-    only with the gun, and heat 2's empty lane 9 ran to the end.
+    only with the gun, heat 1's scratched lane 0 and heat 2's empty lane 9 ran to
+    the end — and so did the header clock, the heat never being over.
     """
     frames = played(OMNI_UDP, console="dak_os2000_udp", num_lanes=10, first_lane=0)
     states = _lane_states(frames)
@@ -760,6 +761,16 @@ def test_omnisport_capture_replays_as_the_pool_swam(played):
         ("time", ""),
         ("place", " "),
     ]
+
+    # Heat 1's lane 0 (row 1) is named at the gun, then erased whole: a scratch. It
+    # stops, so the heat ends with its last swimmer instead of running on.
+    gun1 = next(t for t, ln, k, v in states if k == "running" and v)
+    row1 = [
+        (t, v) for t, ln, k, v in states if ln == 1 and k == "running" and t < heat2
+    ]
+    assert row1[-1][1] is False and row1[-1][0] - gun1 < 10
+    finished1 = {ln: v for t, ln, k, v in states if t < heat2 and k == "running"}
+    assert not any(finished1.values()), "heat 1 never finished"
 
     # Heat 2 has nobody in lane 9 (row 10): it never runs, and the heat ends.
     assert not [

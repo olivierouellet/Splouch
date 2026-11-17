@@ -168,6 +168,7 @@ the decoder always uses the line's own lane number.
 | Result line blank in place and time after a split | The console's split hold is over: time cleared, `lane_running=True` |
 | Result line with place + time, lengths ≥ maximum (or either is blank) | `lane_time`, `lane_place`, `lane_splits`, `lane_running=False` — the finish |
 | Result line with a lane but no name, blank result | That lane is empty: `lane_running=False`, when the console names any swimmer |
+| Result line blanked whole (lane number too) during a race | A scratch: the line's position gives its lane, only while every other line is in lane order; `lane_running=False` unless the lane has a time |
 
 A line with a time but no place is ignored: it may be showing the running clock.
 Times are normalised to `M:SS.CC` / `SS.CC`; thousandths are truncated.
@@ -185,6 +186,8 @@ A 2 × 100 m butterfly final (25 m pool, lanes 0–9, pads at one end), UDP on 2
 - At the gun the console writes `0.0` at offset 0, then the ten lines with names and
   blank results, then the titles and event/heat — the heat reaches the live page about
   1.3 s after the start.
+- 4.4 s after the gun of heat 1 the console blanked line 1 whole — lane 0, named
+  at the start, never swam. Its result list later has nine lines.
 - At each 50 m the line gets place, time and lengths `2`; about 14.5 s later the
   place and time are blanked, the lengths kept. At the finish, lengths `4`.
 - The clock runs on after the last touch until the operator zeroes it (`0.00`), then

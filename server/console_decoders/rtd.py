@@ -415,12 +415,51 @@ class RtdSwimmingDecoder(ConsoleDecoder):
         place = before[-1] if before and before[-1].isdigit() else ""
         return n, place, m.group(), 0
 
+    def _lines_in_lane_order(self) -> bool:
+        """True when every line that names a lane names the one its position gives.
+
+        The board is in lane order during a race unless the console sorts by place,
+        and only then does a line's position say whose it is.
+        """
+        seen = False
+        for m in range(1, LINES + 1):
+            base = self.line_base + (m - 1) * LINE_STRIDE
+            text = self._field(base + LINE_LANE[0], LINE_LANE[1]).strip()
+            if not text:
+                continue
+            if not text.isdigit() or int(text) - self.first_lane + 1 != m:
+                return False
+            seen = True
+        return seen
+
+    def _erased_line(self, n: int, base: int, updates: dict) -> None:
+        """A line blanked whole, lane number included, during a race: no swimmer.
+
+        Seen on an OmniSport a few seconds after the gun, for a lane whose swimmer
+        did not start. Its lane comes from its position — only while the other lines
+        say the board is in lane order — and a lane that holds a time is left alone:
+        the blank line is then a re-sort, not a scratch.
+        """
+        if not self._race_active or self._field(base, LINE_STRIDE).strip():
+            return
+        if not 1 <= n <= self.num_lanes or not self._lines_in_lane_order():
+            return
+        self._named[n] = False
+        if (
+            self.lane_running.get(n)
+            and not self.lane_times.get(n)
+            and n not in self._held
+        ):
+            self.lane_running[n] = False
+            updates[f"lane_running{n}"] = False
+
     def _read_line(self, n: int, base: int, max_lengths: int, updates: dict) -> None:
         result = self._line_result(n, base)
         if result is None:
             return
         lane, place, raw_time, lengths = result
         if not 1 <= lane <= self.num_lanes:
+            self._erased_line(n, base, updates)
             return
         named = bool(self._field(base + LINE_NAME[0], LINE_NAME[1]).strip())
         self._named[lane] = named

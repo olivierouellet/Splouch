@@ -505,6 +505,28 @@ def test_omnisport_a_nameless_line_is_an_empty_lane():
     assert stopped["lane_running2"] is False
 
 
+def test_omnisport_a_line_erased_whole_after_the_gun_is_a_scratch():
+    """Lane 0 of a real heat: named at the start, blanked whole 4 s in, never swum."""
+    d = Omnisport2000Decoder({"num_lanes": 4, "first_lane": 0})
+    for n in range(1, 5):
+        d.feed(_rtd(_line_offset(n), _named_line(n - 1, f"SWIMMER {n}")))
+    d.feed(_rtd(0, "    0.1  "))
+    assert d.feed(_rtd(_line_offset(1), " " * 36)) == {"lane_running1": False}
+    for n in range(2, 5):
+        d.feed(
+            _rtd(_line_offset(n), _named_line(n - 1, f"SWIMMER {n}", str(n), "58.21"))
+        )
+    assert d.race_finished()
+
+
+def test_omnisport_an_erased_line_out_of_lane_order_says_nothing():
+    """Sorted by place, a line's position is not a lane: leave every lane running."""
+    d = Omnisport2000Decoder({"num_lanes": 4, "first_lane": 0})
+    d.feed(_rtd(_line_offset(1), _named_line(2, "SWIMMER 3")))
+    d.feed(_rtd(0, "    0.1  "))
+    assert d.feed(_rtd(_line_offset(2), " " * 36)) == {}
+
+
 def _preview(offset: int, data: str) -> list[int]:
     body = [*b"00000000", 0x01, *f"004010{offset:04d}".encode(), 0x02]
     body += [*data.encode(), 0x04]
