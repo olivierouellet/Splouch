@@ -378,7 +378,7 @@ Lane keys are 1-indexed (`<i>` = 1…12).
 | `lane_place<i>` | string | rank, space when none |
 | `lane_running<i>` | bool | lane clock active |
 | `lane_delta<i>` | string | **HTML** `<span class="delta-better\|delta-worse">±s.hh</span>` vs seed (for the browser) |
-| `lane_delta_seconds<i>` | float\|null | **structured** signed delta vs seed in seconds (negative = faster); `null` when no seed/time |
+| `lane_delta_seconds<i>` | float\|null | **structured** signed delta vs seed in seconds (negative = faster); `null` when no seed/time, or the seed was swum in another course (§5.8 `seed_course`) |
 | `lane_delta_better<i>` | bool\|null | `true` when faster than seed; `null` when no delta |
 | `lane_splits<i>` | int | lengths this lane has completed; `0` at the top of every heat. Native from a Quantum, an Omnisport 2000 or an ARES 21 (whose RTD line layout is inferred), inferred from touchpad stops on a CTS Gen6, counted from each lap and goal on a Seiko PT-8000, from the touch count on an ALGE TM-SWIM, and never raised at all by a Gen7. Also the reply to `adjust_splits` |
 
@@ -568,12 +568,15 @@ table: `labels` is the operator's pick, resolved from the same file.
 ```json
 { "events": [ [3, [1,2]] ], "names": { "3": "…" }, "times": { "3": { "1": "10:42" } },
   "dates": { "3": "2026-10-10" },
-  "start_list": { "3": { "1": { "1": { "name":"…","club":"…","seed_time":"…","swimmers":[…] } } } },
+  "start_list": { "3": { "1": { "1": { "name":"…","club":"…","seed_time":"…",
+                                       "seed_course":"","swimmers":[…] } } } },
   "results": { "3": { "1": { "1": { "time": "00:01:01.90", "status": "" } } } },
   "rounds": { "15": "final" }, "ages": { "15": { "2": "13-14" } },
+  "sessions": { "3": [1, "Samedi am"], "15": [2, "Samedi pm"] },
   "order": [ [15, "prelims"], [3, ""], [15, "final"] ],
   "other_rounds": { "15/prelims": { "heats": [1,2], "name": "…", "name_parts": { … },
-                                    "times": { … }, "date": "…", "start_list": { … },
+                                    "times": { … }, "date": "…", "session": [1, "Samedi am"],
+                                    "start_list": { … },
                                     "results": { … } } } }
 ```
 
@@ -588,7 +591,10 @@ heat 1's times. `ages` is each live heat's `age` (§5.8), for the heats that hav
 round in running order, and `other_rounds` holds the rounds that are not live (each
 with its own `ages`), keyed `"<event>/<round>"`, each with the fields above for its
 own heats — what the cloud serves for `?rounds=1` (§5.8). All three are absent from an
-older Pi: the cloud then serves its live rounds only.
+older Pi: the cloud then serves its live rounds only. `sessions` is each live round's
+Lenex session as `[number, name]`, for the rounds in one (each of `other_rounds` has
+its own `session`); `seed_course` is as in §5.8. An older Pi sends neither: the cloud
+serves `session` 0 and `seed_course` `""`.
 
 ### 5.6 `GET /meets`
 
@@ -673,8 +679,10 @@ picker's chrome — the language and label-style controls — comes from.
 ```json
 { "heats": [ { "event": 3, "heat": 1, "round": "", "event_name": "…", "time": "10:42",
                "age": "", "seeded": true, "official": false,
+               "session": 1, "session_name": "Samedi am",
                "lanes": [ { "lane": 4, "name": "…", "club": "…",
-                            "seed_time": "00:01:02.40", "swimmers": [ … ],
+                            "seed_time": "00:01:02.40", "seed_course": "",
+                            "swimmers": [ … ],
                             "console_time": "00:01:01.95",
                             "result_time": "", "result_status": "",
                             "result_delta_seconds": null,
@@ -689,7 +697,7 @@ A lane's three times (`app.md` `S-22`), every one `HH:MM:SS.hh` or `""`:
 | `console_time` | the timing console's finish, provisional |
 | `result_time` | official, validated in Meet Manager and uploaded on the Pi's `/mm` |
 | `result_status` | `DSQ`, `DNS`, `DNF`, `WDR`, `SICK`, or `""` for a finish |
-| `result_delta_seconds` | official − seed, negative = faster; `null` with no seed, no official time, or a status |
+| `result_delta_seconds` | official − seed, negative = faster; `null` with no seed, no official time, a status, or a `seed_course` |
 | `result_delta_better` | `result_delta_seconds < 0`; `null` when that is |
 
 `age` is the heat's own age group when the meet file gives it one — a final seeded one
@@ -699,6 +707,19 @@ always, or when the operator hides it from phones (§5.1). `seeded` is false whi
 final before its prelims are swum and the file re-exported — and its `lanes` are empty
 for that reason, not because the heat is. An older server sends neither: read `""` and
 `true` (`app.md` `S-25`).
+
+`seed_course` is the course the seed was swum in when it is not the meet's — `LCM`,
+`SCM` or `SCY`, from the Lenex ENTRY's `entrycourse` or the `.hy3`'s seed course —
+and `""` otherwise, which is nearly always. A long-course seed at a short-course meet
+is no gap at all, so no delta is drawn to it, here or on the board (§5.1 `lane_delta<i>`);
+show the seed with its course beside it (`app.md` `S-27`). Absent from an older server:
+read `""`.
+
+`session` and `session_name` are the Lenex session the heat's round is swum in: its
+`number`, and its `name` (`"Samedi am"`) or `""` when the file gives none. `session` is
+0 outside one — a Hy-Tek meet, a hand-made file — and then there is no heading. Draw
+one above the first heat of each session (`app.md` `S-26`). Absent from an older
+server: read 0 and `""`.
 
 `official` on a heat is true once every lane with a `name` has a `result_time` or a
 `result_status` (`S-23`). Official results come only from heats Meet Manager marks

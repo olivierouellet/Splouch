@@ -715,6 +715,8 @@ hundreds.
 | [`S-23`](#s-23) | Official or console-timed heat: tap its times or its `±` → gaps to the seed, spring back after 4 s or on a second tap | `heat.official`, `lane.result_delta_seconds` / `result_delta_better`, else `console_time` − `seed_time` | all | could |
 | [`S-24`](#s-24) | A prelim and its final under one event number are two cards, each in its place in running order and named with its round; each keeps its own console times and results. A heat is its event, heat **and** round | `GET /meet/{id}/schedule?rounds=1` (Pi: `/schedule.json?rounds=1`), `heat.round` ([`api.md`](api.md) §5.8); `S-05`'s rounds | all | should |
 | [`S-25`](#s-25) | A heat with its own age group shows it beside the event name (`· 13-14`); a heat whose round has no swimmer yet says so (`mobile.not_seeded`) instead of showing empty lanes | `heat.age`, `heat.seeded` ([`api.md`](api.md) §5.8); missing → `""`, `true` | all | could |
+| [`S-26`](#s-26) | A heading above the first heat of each session: its name from the meet file (`Samedi am`), else `mobile.session` (`Session 2`) | `heat.session`, `heat.session_name` ([`api.md`](api.md) §5.8); missing → 0, `""` (no heading) | all | could |
+| [`S-27`](#s-27) | A seed swum in another course than the meet's shows its course (`1:01.00 LCM`) and no gap is drawn to it | `lane.seed_course` ([`api.md`](api.md) §5.8); missing → `""` | all | could |
 
 #### <a id="s-01"></a>S-01 — short on card, long aloud
 
@@ -769,6 +771,21 @@ numbers only, so no translation. Draw it after the event name with ` · `, and s
 with the heading. `seeded: false` marks every heat of a round no swimmer is in yet —
 the Sunday final on Saturday: one line, `mobile.not_seeded`, in place of the lanes.
 A filter (`S-15`) hides such heats like any heat with no match.
+
+#### <a id="s-26"></a>S-26 — session headings
+
+The list runs in the meet file's session order (`S-24`), so a heading says where one
+session ends: before the first heat shown whose `session` differs from the heat above
+it, skipping 0. The text is `session_name`, else `mobile.session` with `{n}` the
+number. Under a filter (`S-15`) the heading goes over the first heat the filter
+leaves. A screen reader hears it as a heading one level above the heats'.
+
+#### <a id="s-27"></a>S-27 — a seed from another course
+
+`seed_course` is set only when the seed was swum in another course than the meet's —
+a long-course time at a short-course meet. Show the seed with the course after it
+(`1:01.00 LCM`), untranslated, and draw no gap to it: `result_delta_seconds` is `null`
+for that lane, and so is the board's `lane_delta_seconds<i>`.
 
 ### 5.2 Filtering
 
@@ -1155,6 +1172,14 @@ paused stays paused. iOS: a `Toggle` in the sheet's first section, the bell
 ---
 
 ## Changelog
+
+- **v3, amended** (2026-11-17, no bump) — session headings and a seed's course.
+  Additive: `session` and `session_name` on schedule heats, `seed_course` on their
+  lanes, `mobile.session`. A client that ignores them shows no headings and the seed
+  alone, as before. A lane whose seed is from another course now has no
+  `result_delta_seconds` and no board `lane_delta<i>`.
+
+  - **Added**: `S-26` (session headings), `S-27` (a seed from another course).
 
 - **v3, amended** (2026-11-17, no bump) — a live heat's age group. On the board,
   in Results and in Next heats, `event_name` and `event_name_parts.age` are the

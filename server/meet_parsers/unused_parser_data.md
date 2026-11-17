@@ -2,6 +2,20 @@
 
 Fields available in the parsed data that are not currently used by the scoreboard.
 
+## Next candidates
+
+Weighed and left for later, most useful first. Each changes the apps' contract
+(docs/api.md, docs/app.md) unless it says otherwise.
+
+| What | From | What it would give | Why not yet |
+| --- | --- | --- | --- |
+| **PB / season best** | Lenex `splash.pbest` / `splash.sbest` | A "new PB" mark on an official result | Splash files only; parser, contract and both apps |
+| **Official splits, reaction times, DSQ reason** | Lenex `RESULT` (`SPLITS`, `reactiontime`, `comment`); `.hy3` `G1`, `H1`/`H2` | What the officials record and the console does not | Large, and only useful once results are official |
+| **A final linked to its prelim** | Lenex `EVENT preveventid` | "Seeded from the prelims" on a final | Little gain: both rounds are already listed, each named with its round (`S-24`) |
+| **`.hy3` rounds, checked** | `.hy3` `E2`/`F2` column 3 | Confidence in the prelims/final mapping | The only sample is a Team Manager dual meet, all `P`; needs a recent Meet Manager prelims/finals export. No contract change |
+| **Relay swimmers and rounds in a Hy-Tek CSV** | CSV rows after a relay entry; the `Heat N of M Finals` label | What a `.hy3` already gives | Superseded by `.hy3`; would need a real CSV export to place the fields. No contract change |
+| **SDIF `.cl2` / `.sd3`** | USA Swimming's interchange format | Results from SwimTopia Meet Maestro or TeamUnify TouchPad | Carries no heats before the meet (checked on a sample), so it cannot drive the board; only if a club has no seeded `.hy3` or Lenex. No contract change |
+
 ---
 
 ## Lenex XML (.lxf)
@@ -14,12 +28,6 @@ Fields available in the parsed data that are not currently used by the scoreboar
 | `gender` | `"M"` / `"F"` | Per-swimmer gender, distinct from the event-level gender. |
 | `nation` | `"CAN"` | IOC 3-letter country code. |
 | `license` | `"123456"` | Club/federation registration number. |
-
-### `ENTRY` element
-
-| Attribute | Example | Notes |
-| --- | --- | --- |
-| `entrycourse` | `"SCM"` / `"LCM"` / `"SCY"` | Pool type the seed time was swum in. A SCY seed vs a SCM finish makes the delta less meaningful. |
 
 ### `EVENT` element
 
@@ -62,7 +70,7 @@ Parsed since Meet Manager results reach the Schedule (`swimtime`, `status`, `lan
 
 | Attribute | Example | Notes |
 | --- | --- | --- |
-| `name` | `"Samedi pm"` | Only `date`, `daytime`, `endtime` and the warm-up times are read. |
+| `maxentriesathlete`, `officialmeeting`, `teamleadermeeting` | `"3"` | Session rules and meeting times; `number`, `name`, `date`, `daytime`, `endtime` and the warm-up times are read. |
 
 ### `ENTRY` (Splash)
 
