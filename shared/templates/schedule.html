@@ -520,6 +520,7 @@ function splouchVid() { return SplouchCount.vid(); }
 var activeFilters = [];
 var currentEvent  = null;
 var currentHeat   = null;
+var currentRound  = '';
 var needsScroll   = true;
 var upcomingOnly  = false;
 var showAllHeats  = false;
@@ -581,7 +582,12 @@ function laneTime(lane, diff) {
     return null;
 }
 
-function heatKey(ev, ht) { return String(ev) + '/' + String(ht); }
+// A heat is its event, heat and round: a prelim and its final share their
+// numbers, and `round` tells them apart ("" for a number with one round; absent
+// from an older server, which never shares one). docs/app.md `S-24`.
+function heatKey(ev, ht, rnd) { return String(ev) + '/' + String(ht) + '/' + String(rnd || ''); }
+function keyOf(h) { return heatKey(h.event, h.heat, h.round); }
+function currentKey() { return heatKey(currentEvent, currentHeat, currentRound); }
 // Official heats currently showing their gaps to the seed → their spring-back timer.
 var diffHeats = {};
 
@@ -605,9 +611,8 @@ function laneSpoken(lane, diff) {
 // Redraw one heat's time cells in place, animated (`S-23`), without rebuilding
 // the list — a full render would scroll and lose the reader's place.
 function refreshHeatTimes(h) {
-    var key = heatKey(h.event, h.heat);
-    var card = document.querySelector('.heat-card[data-event="' + CSS.escape(String(h.event)) +
-                                      '"][data-heat="' + CSS.escape(String(h.heat)) + '"]');
+    var key = keyOf(h);
+    var card = document.querySelector('.heat-card[data-key="' + CSS.escape(key) + '"]');
     if (!card) return;
     var diff = !!diffHeats[key];
     var btn = card.querySelector('.diff-btn');
@@ -635,9 +640,8 @@ function refreshHeatTimes(h) {
     });
 }
 
-function toggleDiff(ev, ht) {
-    var key = heatKey(ev, ht);
-    var h = HEATS.find(function(x) { return heatKey(x.event, x.heat) === key; });
+function toggleDiff(key) {
+    var h = HEATS.find(function(x) { return keyOf(x) === key; });
     if (!h || !h.official) return;
     if (diffHeats[key]) {
         clearTimeout(diffHeats[key]);
@@ -743,7 +747,7 @@ function renderSchedule() {
     var currentHeatIdx = -1;
     if (upcomingOnly && currentEvent !== null && currentHeat !== null) {
         for (var k = 0; k < HEATS.length; k++) {
-            if (String(HEATS[k].event) === currentEvent && String(HEATS[k].heat) === currentHeat) {
+            if (keyOf(HEATS[k]) === currentKey()) {
                 currentHeatIdx = k;
                 break;
             }
@@ -757,13 +761,14 @@ function renderSchedule() {
         matchCount++;
         var evStr = String(h.event);
         var htStr = String(h.heat);
-        var isCurrent = evStr === currentEvent && htStr === currentHeat;
+        var key = keyOf(h);
+        var isCurrent = key === currentKey();
         var heatClass = (heatIndex % 2 === 0) ? 'heat-even' : 'heat-odd';
         heatIndex++;
-        var diff = !!diffHeats[heatKey(evStr, htStr)];
+        var diff = !!diffHeats[key];
         html += '<div class="heat-card ' + heatClass + (isCurrent ? ' heat-current' : '') +
                 (h.official ? ' heat-official' : '') +
-                '" data-event="' + esc(evStr) + '" data-heat="' + esc(htStr) + '">';
+                '" data-key="' + esc(key) + '">';
         // One line: what the heat is on the left, when it swims on the right.
         var heatName = eventNameOf(h);
         var spoken = [SPOKEN_LABELS.event + ' ' + evStr, SPOKEN_LABELS.heat + ' ' + htStr];
@@ -780,7 +785,7 @@ function renderSchedule() {
         if (h.official) {
             html += '<button type="button" class="diff-btn" aria-pressed="' + diff + '"' +
                     ' aria-label="' + esc(TIME_WORDS.show_diff) + '"' +
-                    ' data-event="' + esc(evStr) + '" data-heat="' + esc(htStr) + '">±</button>';
+                    ' data-key="' + esc(key) + '">±</button>';
         }
         html += '</div><div class="swimmer-list" role="list">';
         for (var j = 0; j < visibleLanes.length; j++) {
@@ -936,14 +941,14 @@ document.getElementById('suggestions').addEventListener('click', function(e) {
 document.getElementById('schedule').addEventListener('click', function(e) {
     var btn = e.target.closest('.diff-btn');
     var card = e.target.closest('.heat-official');
-    if (btn) toggleDiff(btn.dataset.event, btn.dataset.heat);
-    else if (card && e.target.closest('.lane-time')) toggleDiff(card.dataset.event, card.dataset.heat);
+    if (btn) toggleDiff(btn.dataset.key);
+    else if (card && e.target.closest('.lane-time')) toggleDiff(card.dataset.key);
 });
 
 function highlight() {
     var found = null;
     document.querySelectorAll('.heat-card').forEach(function(card) {
-        var match = card.dataset.event === currentEvent && card.dataset.heat === currentHeat;
+        var match = card.dataset.key === currentKey();
         card.classList.toggle('heat-current', match);
         if (match) found = card;
     });
@@ -979,10 +984,11 @@ var sockSchedule   = splouchSocket('{{ wbase or '' }}/ws/schedule');
 sockResults.on('results_snapshot', function(d) {
     currentEvent = String(d.event).trim();
     currentHeat  = String(d.heat).trim();
+    currentRound = String(d.round || '');
     // The finished heat's console times, patched in place (docs/app.md `S-22`):
     // the server keeps them too, so a page opened later gets them in HEATS.
-    var key = heatKey(currentEvent, currentHeat);
-    var h = HEATS.find(function(x) { return heatKey(x.event, x.heat) === key; });
+    var key = currentKey();
+    var h = HEATS.find(function(x) { return keyOf(x) === key; });
     if (h) {
         (d.lanes || []).forEach(function(r) {
             var t = wireTime(r.time);
@@ -999,6 +1005,7 @@ sockScoreboard.on('update_scoreboard', function(d) {
     var changed = false;
     if ('current_event' in d) { currentEvent = String(d.current_event).trim(); changed = true; }
     if ('current_heat'  in d) { currentHeat  = String(d.current_heat).trim();  changed = true; }
+    if ('current_round' in d) { currentRound = String(d.current_round || ''); changed = true; }
     if (changed) highlight();
 });
 // A new meet file was loaded — this page's HEATS are the previous meet's.

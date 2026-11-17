@@ -18,6 +18,7 @@ class LenexData(NamedTuple):
     event_rounds: dict
     results: dict
     live_rounds: dict
+    rounds: list
 
 
 # HEAT `status` values whose results Splouch shows as official. `INOFFICIAL` is
@@ -158,8 +159,14 @@ def load_lenex(path):
                        only from heats whose status is in `KEPT_HEAT_STATUSES`.
                        `time` is `HH:MM:SS.hh` or `""`; `status` is one of
                        `NON_FINISH_STATUSES` or `""`.
-        live_rounds  — {event_number: round key}, only for a number the file uses
-                       for more than one round.
+        live_rounds  — {event_number: round}, only for a number the file uses for
+                       more than one round: the live one's `round` in `rounds`.
+        rounds       — every round, live or not, in the file's running order: a
+                       dict with `event`, `round` (`""` for a number with one
+                       round, else its `ROUND_KEYS` value, made unique within the
+                       number), `kind` (its `ROUND_KEYS` value or `""`), `live`,
+                       `name`, `date` (its session's), and its own `start_list`,
+                       `heat_times` and `results`, keyed by heat as above.
 
     One event number can hold several rounds: Splash numbers a prelim and its
     final the same, and the console only ever sends the number. Each round is read
@@ -475,8 +482,19 @@ def load_lenex(path):
         )
         for ev_num, rnds in rounds_of_number.items()
     }
+    # A round's identity within its number, what console times are kept under:
+    # "" when the number has one round, else its key — suffixed in the odd file
+    # that gives one number two rounds of the same kind.
+    ident = [""] * len(round_number)
+    for rnds in rounds_of_number.values():
+        if len(rnds) > 1:
+            seen = {}
+            for r in rnds:
+                key = round_key[r] or "round"
+                seen[key] = seen.get(key, 0) + 1
+                ident[r] = key if seen[key] == 1 else f"{key}-{seen[key]}"
     live_rounds = {
-        ev_num: round_key[live[ev_num]]
+        ev_num: ident[live[ev_num]]
         for ev_num, rnds in rounds_of_number.items()
         if len(rnds) > 1
     }
@@ -520,6 +538,27 @@ def load_lenex(path):
             for s in find(meet_el, "SESSION")
         ]
 
+    round_dates = {}
+    if meet_el is not None:
+        for s in find(meet_el, "SESSION"):
+            for e in find(s, "EVENT"):
+                if id(e) in round_of:
+                    round_dates[round_of[id(e)]] = s.get("date", "")
+    rounds = [
+        {
+            "event": ev_num,
+            "round": ident[r],
+            "kind": round_key[r],
+            "live": live[ev_num] == r,
+            "name": names[r],
+            "date": round_dates.get(r, ""),
+            "start_list": starts[r],
+            "heat_times": times[r],
+            "results": round_results.get(r, {}),
+        }
+        for r, ev_num in enumerate(round_number)
+    ]
+
     return LenexData(
         event_names=event_names,
         start_list=start_list,
@@ -529,4 +568,5 @@ def load_lenex(path):
         event_rounds=event_rounds,
         results=results,
         live_rounds=live_rounds,
+        rounds=rounds,
     )

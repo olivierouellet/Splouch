@@ -19,8 +19,11 @@ import re
 import subprocess
 import tempfile
 from pathlib import Path
+from types import SimpleNamespace
+from typing import cast
 
 import pytest
+from fastapi import Request
 
 import cloud_server as cs
 import state
@@ -76,7 +79,9 @@ def pi_lanes(monkeypatch):
             meet_info={"name": "Invitation"},
         ),
     )
-    return meet_routes.route_schedule_json()["heats"][0]["lanes"]
+
+    no_query = cast(Request, SimpleNamespace(query_params={}))
+    return meet_routes.route_schedule_json(no_query)["heats"][0]["lanes"]
 
 
 @pytest.fixture

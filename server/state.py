@@ -214,6 +214,7 @@ class _Meet:
         "event_info",
         "results",
         "live_rounds",
+        "rounds",
     )
 
     def __init__(
@@ -227,6 +228,7 @@ class _Meet:
         event_info=None,
         results=None,
         live_rounds=None,
+        rounds=None,
     ):
         self.event_names = event_names or {}
         self.start_list = start_list or {}
@@ -240,6 +242,8 @@ class _Meet:
         # {event: round key} for a number the file gives more than one round,
         # naming the round the other fields hold; see `lenex_parser.load_lenex`.
         self.live_rounds = live_rounds or {}
+        # Every round in running order, live or not (`load_lenex`); [] for Hytek.
+        self.rounds = rounds or []
 
 
 meet = _Meet()
@@ -257,6 +261,7 @@ def set_lenex(data):
         event_rounds=data.event_rounds,
         results=data.results,
         live_rounds=data.live_rounds,
+        rounds=data.rounds,
     )
     load_console_times()
 
@@ -343,12 +348,6 @@ def record_console_heat(event, heat, lanes):
             f.write(line + "\n")
     except OSError as e:
         print(f"[console_times] could not save: {e!r}", flush=True)
-
-
-def console_heat(event, heat, m=None):
-    """The console's times for a heat of the loaded meet's live round, or {}."""
-    m = m or meet
-    return console_times.get((event, heat, m.live_rounds.get(event, "")), {})
 
 
 def discard_console_times():

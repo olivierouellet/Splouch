@@ -55,6 +55,16 @@ def _raw_event_name(event_num):
     return m.event_names.get(event_num) or m.event_info.get_event_name(event_num)
 
 
+def _round_shown(kind, shared, audience):
+    """*kind* (a round key) if *audience* is shown it, else ``""``. A phone is
+    always shown the round of a number several rounds share: its Schedule lists
+    them side by side, and two cards may not read the same (docs/app.md `S-24`)."""
+    if shared and audience == "phone":
+        return kind
+    shown = state.settings.get(f"round_names_{audience}", ROUND_NAMES)
+    return kind if kind in shown else ""
+
+
 def shown_round(event_num, audience, m=None):
     """The event's round key if Settings shows it to *audience*, else ``""``.
 
@@ -63,9 +73,15 @@ def shown_round(event_num, audience, m=None):
     `event_name_parts.round`, which every phone composes from instead.
     """
     m = m or state.meet
-    key = m.event_rounds.get(event_num, "")
-    shown = state.settings.get(f"round_names_{audience}", ROUND_NAMES)
-    return key if key in shown else ""
+    return _round_shown(
+        m.event_rounds.get(event_num, ""), event_num in m.live_rounds, audience
+    )
+
+
+def current_round(event_num, m=None):
+    """The round the live heat of *event_num* belongs to: its `round` in
+    `build_heats`, ``""`` for a number with one round (docs/api.md §5.1)."""
+    return (m or state.meet).live_rounds.get(event_num, "")
 
 
 # Event 0 is the console's test race (Gen7 F1034 p.24; any CTS can be set to it): in
@@ -215,6 +231,7 @@ def _get_next_heats(after_event=0, after_heat=0, n=3, num_lanes=8):
             {
                 "event": ev,
                 "heat": ht,
+                "round": current_round(ev, m),
                 "event_name": get_event_name_display(ev),
                 "event_name_parts": get_event_name_parts(ev),
                 "time": m.heat_times.get(ev, {}).get(ht, ""),
@@ -271,6 +288,7 @@ def _build_results_snapshot():
     return {
         "event": str(ev) if ev else "",
         "heat": str(ht) if ht else "",
+        "round": current_round(ev),
         "event_name": get_event_name_display(ev) if ev else "",
         "event_name_parts": get_event_name_parts(ev) if ev else None,
         # Lanes without a final time are omitted above; 'sort' lets the client
@@ -297,7 +315,10 @@ def _build_meet_data():
             num: state.parse_event_name(name, shown_round(num, "phone", m), as_is)
             for num, name in m.event_names.items()
         }
-        events_grouped = [(ev, sorted(m.start_list[ev])) for ev in sorted(m.start_list)]
+        # Running order: the file's, which is its sessions' (docs/api.md §5.8).
+        events_grouped = [
+            (r["event"], sorted(r["start_list"])) for r in m.rounds if r["live"]
+        ] or [(ev, sorted(m.start_list[ev])) for ev in sorted(m.start_list)]
         return {
             "events_grouped": events_grouped,
             "event_names": event_names,
@@ -337,34 +358,81 @@ def _build_meet_data():
     }
 
 
-def build_heats():
+def schedule_rounds(all_rounds=False):
+    """Each round of the loaded meet as the Schedule lists it, in running order:
+    `event`, `round`, its composed `event_name` and `event_name_parts`, and its
+    own `start_list`, `heat_times` and `results` keyed by heat.
+
+    Only the live round of each number unless *all_rounds*: a client that has not
+    asked for them keys its cards by event and heat alone (docs/api.md §5.8).
+    """
+    m = state.meet
+    if m.rounds:
+        ev_trans = state.load_event_translations()
+        as_is = state.event_names_as_is()
+        return [
+            {
+                "event": r["event"],
+                "round": r["round"],
+                "live": r["live"],
+                "date": r["date"],
+                "event_name": state.translate_event_name(
+                    r["name"],
+                    ev_trans,
+                    _round_shown(r["kind"], bool(r["round"]), "board"),
+                    as_is,
+                ),
+                "event_name_parts": state.parse_event_name(
+                    r["name"], _round_shown(r["kind"], bool(r["round"]), "phone"), as_is
+                ),
+                "start_list": r["start_list"],
+                "heat_times": r["heat_times"],
+                "results": r["results"],
+            }
+            for r in m.rounds
+            if all_rounds or r["live"]
+        ]
+    data = _build_meet_data()
+    return [
+        {
+            "event": ev,
+            "round": "",
+            "live": True,
+            "date": "",
+            "event_name": data["event_names"].get(ev, ""),
+            "event_name_parts": data.get("event_name_parts", {}).get(ev),
+            "start_list": {
+                ht: data["start_list"].get(ev, {}).get(ht, {}) for ht in heats
+            },
+            "heat_times": data["heat_times"].get(ev, {}),
+            "results": data["results"].get(ev, {}),
+        }
+        for ev, heats in data["events_grouped"]
+    ]
+
+
+def build_heats(all_rounds=False):
     """The start list as the phone Schedule tab consumes it — every heat in running
     order, each with its lanes. One builder for the HTML page and the JSON endpoint,
     so the two cannot drift (docs/app.md §0.2); the shape is the cloud's
-    `GET /meet/{id}/schedule` (docs/api.md §5.8).
+    `GET /meet/{id}/schedule` (docs/api.md §5.8). *all_rounds* lists every round of
+    a number several share, not only the live one (`schedule_rounds`).
 
     Lives here beside `_build_meet_data`, which it is a thin shaping layer over,
     rather than in `routes/meet.py` where it started: `/manual` needs the same list,
     and a route module importing another route module to get at meet logic is the
     wrong direction.
     """
-    data = _build_meet_data()
-    events_grouped = data.get("events_grouped", [])
-    start_list = data.get("start_list", {})
-    event_names = data.get("event_names", {})
-    name_parts = data.get("event_name_parts", {})
-    heat_times = data.get("heat_times", {})
-    results = data.get("results", {})
-    m = state.meet
-
+    console = state.console_times
     heats_out = []
-    for ev, heats in events_grouped:
-        for ht in heats:
-            heat_results = results.get(ev, {}).get(ht, {})
-            heat_console = state.console_heat(ev, ht, m)
+    for r in schedule_rounds(all_rounds):
+        ev, rnd = r["event"], r["round"]
+        for ht in sorted(r["start_list"]):
+            heat_results = r["results"].get(ht, {})
+            heat_console = console.get((ev, ht, rnd), {})
             lanes_out = []
-            for lane in sorted(start_list.get(ev, {}).get(ht, {})):
-                entry = start_list[ev][ht][lane]
+            for lane in sorted(r["start_list"][ht]):
+                entry = r["start_list"][ht][lane]
                 seed = entry.get("seed_time", "")
                 lanes_out.append(
                     {
@@ -389,9 +457,10 @@ def build_heats():
                 {
                     "event": ev,
                     "heat": ht,
-                    "event_name": event_names.get(ev, ""),
-                    "event_name_parts": name_parts.get(ev),
-                    "time": heat_times.get(ev, {}).get(ht, ""),
+                    "round": rnd,
+                    "event_name": r["event_name"],
+                    "event_name_parts": r["event_name_parts"],
+                    "time": r["heat_times"].get(ht, ""),
                     "official": heat_official(lanes_out),
                     "lanes": lanes_out,
                 }
@@ -500,6 +569,7 @@ def send_event_info():
     u = {
         "current_event": str(ev) if started else "",
         "current_heat": str(ht) if started else "",
+        "current_round": current_round(ev) if started else "",
         "event_name": get_event_name_display(ev) if started else "",
         "event_name_parts": get_event_name_parts(ev) if started else None,
     }

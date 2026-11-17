@@ -16,6 +16,16 @@ from fastapi import Request
 import state
 from routes import meet as meet_routes
 
+
+def _request(**query):
+    """What `route_schedule_json` reads of a request: its query string."""
+
+    class _R:
+        query_params = query
+
+    return cast(Request, _R())
+
+
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 _START_LIST = {
@@ -59,11 +69,11 @@ def loaded_meet(monkeypatch):
 def test_empty_heats_when_no_meet_is_loaded(monkeypatch):
     """Not an error: the client shows `S-07` and waits for `schedule_update`."""
     monkeypatch.setattr(state, "meet", state._Meet())
-    assert meet_routes.route_schedule_json() == {"heats": []}
+    assert meet_routes.route_schedule_json(_request()) == {"heats": []}
 
 
 def test_every_heat_in_running_order_with_its_lanes(loaded_meet):
-    heats = meet_routes.route_schedule_json()["heats"]
+    heats = meet_routes.route_schedule_json(_request())["heats"]
     assert [(h["event"], h["heat"]) for h in heats] == [(3, 1), (3, 2)]
     first = heats[0]
     # Composed in the meet's locale by the server, as `update_scoreboard.event_name` is.
@@ -78,7 +88,7 @@ def test_every_heat_in_running_order_with_its_lanes(loaded_meet):
 def test_carries_event_name_parts_like_the_cloud(loaded_meet):
     """`T-11` composes the name in the reader's language from these; the cloud's
     `GET /meet/{id}/schedule` has them, so the Pi's must too."""
-    parts = meet_routes.route_schedule_json()["heats"][0]["event_name_parts"]
+    parts = meet_routes.route_schedule_json(_request())["heats"][0]["event_name_parts"]
     assert parts["dist"] == "200"
     assert parts["stroke"] == "backstroke"
 
@@ -86,7 +96,7 @@ def test_carries_event_name_parts_like_the_cloud(loaded_meet):
 def test_a_final_carries_its_round(loaded_meet, monkeypatch):
     """`S-01`: the round rides in the parts and in the composed name."""
     monkeypatch.setattr(state.meet, "event_rounds", {3: "final"})
-    first = meet_routes.route_schedule_json()["heats"][0]
+    first = meet_routes.route_schedule_json(_request())["heats"][0]
     assert first["event_name_parts"]["round"] == "final"
     assert first["event_name"].endswith("Final")
 
@@ -104,5 +114,8 @@ def test_json_and_page_are_the_same_list(loaded_meet, monkeypatch):
     # `render` is patched out above, and it is the only thing that touches the
     # request — so there is nothing for a real one to carry here.
     meet_routes.route_schedule(request=cast(Request, None))
-    assert captured["heats"] == meet_routes.route_schedule_json()["heats"]
+    assert (
+        captured["heats"]
+        == meet_routes.route_schedule_json(_request(rounds="1"))["heats"]
+    )
     assert captured["has_meet"] is True

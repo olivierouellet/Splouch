@@ -14,7 +14,13 @@ import pytest
 
 import cloud_server as cs
 import state
-from meet_data import build_heats, results_summary
+from meet_data import (
+    _build_results_snapshot,
+    _get_next_heats,
+    build_heats,
+    results_summary,
+    send_event_info,
+)
 from meet_parsers.lenex_parser import load_lenex
 
 
@@ -165,11 +171,37 @@ def test_the_crash_this_was(finals):
     assert finals.start_list[15][1][4]["name"] == "Jane Smith"
 
 
+def test_every_round_is_kept_in_running_order(finals):
+    assert [
+        (r["event"], r["round"], r["live"], r["date"], sorted(r["start_list"]))
+        for r in finals.rounds
+    ] == [
+        (15, "prelims", False, "2026-11-07", [1, 2]),
+        (1, "", True, "2026-11-07", [1]),
+        (15, "final", True, "2026-11-07", [1]),
+    ]
+    assert finals.rounds[0]["results"][1][0]["time"] == "00:01:00.50"
+
+
+def test_two_rounds_of_one_kind_still_differ():
+    """An odd file: one number, two timed finals. Each keeps its own identity."""
+    xml = MEET.replace("{final}", FINAL_SEEDED).replace('"FIN"', '"PRE"')
+    data = load_lenex(_lxf(xml))
+    assert [r["round"] for r in data.rounds if r["event"] == 15] == [
+        "prelims",
+        "prelims-2",
+    ]
+
+
 # ── Console times ─────────────────────────────────────────────────────────────
 
 
-def _heat(heats, ev, ht):
-    return next(h for h in heats if (h["event"], h["heat"]) == (ev, ht))
+def _heat(heats, ev, ht, rnd=None):
+    return next(
+        h
+        for h in heats
+        if (h["event"], h["heat"]) == (ev, ht) and rnd in (None, h["round"])
+    )
 
 
 @pytest.fixture
@@ -188,7 +220,7 @@ def test_a_final_does_not_show_its_prelim_heats_times(pi, prelims, finals):
 
     state.set_lenex(finals)  # the re-export, between sessions
     assert _heat(build_heats(), 15, 1)["lanes"][0]["console_time"] == ""
-    # Kept, for the rounds side by side on the Schedule later.
+    # Kept, and shown on the prelims' own card (`S-24`).
     assert state.console_times == {(15, 1, "prelims"): {0: "00:01:00.48"}}
 
 
@@ -246,3 +278,113 @@ def test_the_cloud_keeps_a_rounds_console_times_apart(pi, monkeypatch, finals):
     assert lane["console_time"] == "00:00:59.90"
     # An older Pi's meet, with no `rounds`: keyed by the number, as before.
     assert cs._merge_console_times({}, snap) == {"15": {"1": {"4": "00:00:59.90"}}}
+
+
+# ── The Schedule (docs/app.md `S-24`) ─────────────────────────────────────────
+
+
+def test_a_client_that_did_not_ask_gets_the_live_round_only(pi, finals):
+    state.set_lenex(finals)
+    assert [(h["event"], h["heat"], h["round"]) for h in build_heats()] == [
+        (1, 1, ""),
+        (15, 1, "final"),
+    ]
+
+
+def test_every_round_in_running_order_when_asked(pi, prelims, finals):
+    state.set_lenex(prelims)
+    state.record_console_heat(15, 1, {0: "00:01:00.48"})
+    state.set_lenex(finals)
+    heats = build_heats(all_rounds=True)
+    assert [(h["event"], h["heat"], h["round"]) for h in heats] == [
+        (15, 1, "prelims"),
+        (15, 2, "prelims"),
+        (1, 1, ""),
+        (15, 1, "final"),
+    ]
+    prelim = _heat(heats, 15, 1, "prelims")["lanes"][0]
+    assert prelim["console_time"] == "00:01:00.48"
+    assert prelim["result_time"] == "00:01:00.50"
+    assert _heat(heats, 15, 1, "final")["time"] == "16:10"
+
+
+def test_a_shared_number_always_names_its_round_to_a_phone(pi, monkeypatch, finals):
+    """Two cards must not read the same, whatever Settings hides (`S-24`)."""
+    monkeypatch.setitem(state.settings, "round_names_phone", [])
+    state.set_lenex(finals)
+    heats = build_heats(all_rounds=True)
+    assert _heat(heats, 15, 1, "prelims")["event_name_parts"]["round"] == "prelims"
+    assert _heat(heats, 15, 1, "final")["event_name_parts"]["round"] == "final"
+    assert _heat(heats, 1, 1)["event_name_parts"]["round"] == ""
+
+
+def test_the_live_frames_name_the_round(pi, monkeypatch, finals):
+    state.set_lenex(finals)
+    monkeypatch.setattr(state._decoder, "last_event_sent", (15, 1))
+    sent = []
+    monkeypatch.setattr("meet_data.bus.emit", lambda ns, ev, d: sent.append(d))
+    monkeypatch.setattr("meet_data.relay.relay_emit", lambda ev, d: None)
+    send_event_info()
+    assert sent[0]["current_round"] == "final"
+    assert _build_results_snapshot()["round"] == "final"
+    assert [h["round"] for h in _get_next_heats(1, 1)] == ["final"]
+    monkeypatch.setattr(state._decoder, "last_event_sent", (1, 1))
+    assert _build_results_snapshot()["round"] == ""
+
+
+def test_the_cloud_serves_every_round_as_the_pi_does(pi, monkeypatch, prelims, finals):
+    import relay
+
+    state.set_lenex(prelims)
+    state.record_console_heat(15, 1, {0: "00:01:00.48"})
+    state.set_lenex(finals)
+    sent = {}
+    monkeypatch.setattr(relay, "_local_only", lambda: False)
+    monkeypatch.setattr(relay, "_send_schedule_data", lambda c, d: sent.update(d))
+    relay.send_schedule()
+    sched = json.loads(json.dumps(sent))  # through the wire
+    # The cloud heard the prelims' heat while they were live.
+    console = cs._merge_console_times(
+        {},
+        {"event": "15", "heat": "1", "lanes": [{"channel": 0, "time": "1:00.48"}]},
+        {"15": "prelims"},
+    )
+
+    def shape(heats):
+        return [
+            (
+                h["event"],
+                h["heat"],
+                h["round"],
+                h["event_name"],
+                h["event_name_parts"],
+                h["time"],
+                h["official"],
+                [
+                    (
+                        lane["lane"],
+                        lane["name"],
+                        lane["console_time"],
+                        lane["result_time"],
+                    )
+                    for lane in h["lanes"]
+                ],
+            )
+            for h in heats
+        ]
+
+    for all_rounds in (False, True):
+        assert shape(cs._build_heats_json(sched, console, all_rounds)) == shape(
+            build_heats(all_rounds)
+        )
+
+
+def test_an_older_pis_schedule_still_serves(pi):
+    """No `order` or `other_rounds`: every round asked for is the live one."""
+    sched = {
+        "events": [[3, [1]]],
+        "names": {"3": "50 Free"},
+        "start_list": {"3": {"1": {"4": {"name": "A", "club": "C"}}}},
+    }
+    heats = cs._build_heats_json(sched, {}, all_rounds=True)
+    assert [(h["event"], h["heat"], h["round"]) for h in heats] == [(3, 1, "")]

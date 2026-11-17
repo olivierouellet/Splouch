@@ -22,6 +22,7 @@ from meet_data import (
     _build_results_snapshot,
     _get_next_heats,
     announce_schedule,
+    current_round,
     delta_fields,
     get_event_name_display,
     get_event_name_parts,
@@ -289,6 +290,7 @@ def _list_sessions():
 
 def _on_event_changed(updates, ev, ht):
     m = state.meet
+    updates["current_round"] = current_round(ev, m)
     updates["event_name"] = get_event_name_display(ev)
     updates["event_name_parts"] = get_event_name_parts(ev)
     updates["heat_time"] = m.heat_times.get(ev, {}).get(ht, "")

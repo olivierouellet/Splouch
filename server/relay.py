@@ -397,7 +397,7 @@ def send_schedule(client=None, clear=False):
     """
     if _local_only():
         return
-    from meet_data import _build_meet_data
+    from meet_data import _build_meet_data, schedule_rounds
 
     m = state.meet
     if not (m.start_list or m.event_info.events):
@@ -406,6 +406,7 @@ def send_schedule(client=None, clear=False):
         return
     try:
         md = _build_meet_data()
+        all_rounds = schedule_rounds(all_rounds=True)
         data = {
             "events": [[ev, sorted(heats)] for ev, heats in md["events_grouped"]],
             "names": {str(k): v for k, v in md["event_names"].items()},
@@ -427,6 +428,25 @@ def send_schedule(client=None, clear=False):
             # The round each shared event number holds, so the cloud keeps a
             # prelim's console times apart from its final's (§5.5).
             "rounds": {str(ev): r for ev, r in m.live_rounds.items()},
+            # Every round in running order, and those not live in full, for a
+            # Schedule that lists them side by side (docs/api.md §5.5, §5.8).
+            "order": [[r["event"], r["round"]] for r in all_rounds],
+            "other_rounds": {
+                f"{r['event']}/{r['round']}": {
+                    "heats": sorted(r["start_list"]),
+                    "name": r["event_name"],
+                    "name_parts": r["event_name_parts"],
+                    "times": {str(h): t for h, t in r["heat_times"].items()},
+                    "date": r["date"],
+                    "start_list": _serialise_start_list({0: r["start_list"]})["0"],
+                    "results": {
+                        str(ht): {str(lane): v for lane, v in lanes.items()}
+                        for ht, lanes in r["results"].items()
+                    },
+                }
+                for r in all_rounds
+                if not r["live"]
+            },
             # Meet Manager's official results (docs/app.md `S-22`). Console times
             # are not sent: the cloud keeps its own from `results_snapshot`.
             "results": {
@@ -455,6 +475,8 @@ _EMPTY_SCHEDULE = {
     "start_list": {},
     "results": {},
     "rounds": {},
+    "order": [],
+    "other_rounds": {},
 }
 
 

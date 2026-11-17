@@ -53,19 +53,20 @@ def route_full_schedule(request: Request):
 
 
 @router.get("/schedule.json")
-def route_schedule_json():
+def route_schedule_json(request: Request):
     """The start list as JSON — what `/schedule` embeds, for native clients.
 
     The Pi's twin of the cloud's `GET /meet/{id}/schedule` (docs/api.md §4): one
     meet, so no id in the path. An empty `heats` means no meet file is loaded,
     which is not an error — the client shows its no-schedule state and waits for
-    `schedule_update` on `/ws/schedule`."""
-    return {"heats": build_heats()}
+    `schedule_update` on `/ws/schedule`. `?rounds=1` lists every round of a number
+    several share; without it, only the live one (docs/api.md §5.8)."""
+    return {"heats": build_heats(request.query_params.get("rounds") == "1")}
 
 
 @router.get("/schedule")
 def route_schedule(request: Request):
-    heats_out = build_heats()
+    heats_out = build_heats(all_rounds=True)
     meet_name = (
         state.meet.meet_info.get("name") or state.settings.get("meet_title") or ""
     )
