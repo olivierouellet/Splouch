@@ -800,3 +800,20 @@ def test_the_caption_says_only_how_to_use_the_buttons():
     assert "on_boards" not in page, (
         "the string is gone; nothing should still ask for it"
     )
+
+
+def test_a_hytek_schedule_names_events_like_the_board(monkeypatch):
+    """A CSV meet's Schedule sent the file's names as they were, with no parts:
+    never translated for a phone, and blind to the name boxes in Settings."""
+    _hytek_meet(
+        monkeypatch,
+        {(2, 1): {1: "CAMO Louis Gagné"}},
+        names={2: "Girls 11-12 100 Free"},
+    )
+    monkeypatch.setitem(state.settings, "locale", "en")
+    heat = meet_data.build_heats()[0]
+    assert heat["event_name"] == meet_data.get_event_name_display(2, 1)
+    assert heat["event_name_parts"] == meet_data.get_event_name_parts(2, 1)
+    assert heat["event_name_parts"]["gender"] == "girls"
+    monkeypatch.setitem(state.settings, "name_gender_phone", False)
+    assert meet_data.build_heats()[0]["event_name_parts"]["gender"] == ""

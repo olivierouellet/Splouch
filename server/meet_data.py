@@ -404,9 +404,18 @@ def _build_meet_data():
                 "seed_time": seed,
                 "swimmers": [],
             }
+    # Composed and parsed like a Lenex meet's: the file's own names never reached
+    # the Schedule translated, nor followed Settings → Meet's or the name boxes.
     return {
         "events_grouped": events_grouped,
-        "event_names": dict(info.event_names),
+        "event_names": {
+            num: board_name(name, shown_round(num, "board", m))
+            for num, name in info.event_names.items()
+        },
+        "event_name_parts": {
+            num: phone_parts(name, shown_round(num, "phone", m))
+            for num, name in info.event_names.items()
+        },
         "start_list": start_list,
         "heat_times": {},
         "meet_info": {},
