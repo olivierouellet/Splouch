@@ -423,7 +423,7 @@ hold_start      = "Hold to start…"
 
 # Meet Setup
 meet_howto_title      = "How to run a meet"
-meet_howto_1          = '''<strong>Splash Meet Manager</strong>: <em>File → Export → Lenex</em> → <code>.lxf</code>.'''
+meet_howto_1          = '''<strong>Splash Meet Manager</strong>: <em>Transfer → Export Entries</em>, check every box, then <em>Export</em> → <code>.lxf</code>.'''
 meet_howto_2          = '''<strong>Add Meet File</strong> → upload <code>.lxf</code>; names live on scoreboard at once. <em>Or</em> Hy-Tek <code>.hy3</code> export (names, heats and relay swimmers), or <code>.csv</code> heat sheet.'''
 meet_howto_3          = '''Scoreboard on TV: <a href="http://splouch.local/" target="_blank" rel="noopener"><code>http://splouch.local/</code></a> (Pi mDNS).'''
 meet_howto_4          = "Start timing console (or manual console) — times appear as heats run."

@@ -414,7 +414,7 @@ hold_start      = "Maintenir pour démarrer…"
 
 # Compétition
 meet_howto_title      = "Comment gérer une compétition"
-meet_howto_1          = '''<strong>Splash Meet Manager</strong> : <em>Fichier → Exporter → Lenex</em> → <code>.lxf</code>.'''
+meet_howto_1          = '''<strong>Splash Meet Manager</strong> : <em>Transfert → Exporter les inscriptions</em>, cocher toutes les cases, puis <em>Exporter</em> → <code>.lxf</code>.'''
 meet_howto_2          = '''<strong>Ajouter un fichier</strong> → téléverser le <code>.lxf</code> ; noms affichés aussitôt. <em>Ou</em> export Hy-Tek <code>.hy3</code> (noms, séries et nageurs des relais), ou feuille de séries <code>.csv</code>.'''
 meet_howto_3          = '''Tableau sur la télé : <a href="http://splouch.local/" target="_blank" rel="noopener"><code>http://splouch.local/</code></a> (mDNS du Pi).'''
 meet_howto_4          = "Démarrer la console de chronométrage (ou la console manuelle) — temps affichés à chaque série."

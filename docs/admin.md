@@ -31,7 +31,7 @@ Append `?test` to `/live` to overlay mode buttons (Intro, Running, Results, Next
 
 ## Meet-day workflow
 
-1. In Splash Meet Manager: **File → Export → Lenex** → save as a `.lxf` file.
+1. In Splash Meet Manager: **Transfer → Export Entries**, check every checkbox, then click **Export** → save as a `.lxf` file.
 2. In **Settings → Meet Setup**, click **Add Meet File** and upload the `.lxf` — swimmer and
    club names go live on the scoreboard immediately. *(Alternatively, upload a Hy-Tek
    `.hy3` export, or the `.zip` holding it — names, heats and relay swimmers — or a Hy-Tek `.csv` heat
@@ -410,7 +410,7 @@ Heat) sur le tableau — utile pour tester sans console branchée.
 
 ### Déroulement d'une compétition
 
-1. Dans Splash Meet Manager : **Fichier → Exporter → Lenex** → enregistrez un fichier `.lxf`.
+1. Dans Splash Meet Manager : **Transfert → Exporter les inscriptions**, cochez toutes les cases, puis cliquez sur **Exporter** → enregistrez un fichier `.lxf`.
 2. Dans **Réglages → Compétition**, cliquez sur **Ajouter un fichier** et téléversez le
    `.lxf` — les noms des nageurs et des clubs apparaissent aussitôt sur le tableau.
    *(Sinon, téléversez un export Hy-Tek `.hy3`, ou le `.zip` qui le contient — noms, séries et nageurs des
