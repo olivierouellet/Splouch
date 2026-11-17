@@ -553,7 +553,7 @@ table: `labels` is the operator's pick, resolved from the same file.
   "dates": { "3": "2026-10-10" },
   "start_list": { "3": { "1": { "1": { "name":"…","club":"…","seed_time":"…","swimmers":[…] } } } },
   "results": { "3": { "1": { "1": { "time": "00:01:01.90", "status": "" } } } },
-  "rounds": { "15": "final" },
+  "rounds": { "15": "final" }, "ages": { "15": { "2": "13-14" } },
   "order": [ [15, "prelims"], [3, ""], [15, "final"] ],
   "other_rounds": { "15/prelims": { "heats": [1,2], "name": "…", "name_parts": { … },
                                     "times": { … }, "date": "…", "start_list": { … },
@@ -567,8 +567,9 @@ its own from the `results_snapshot` frames it relays, and stores them with the m
 `rounds` names the round an event number holds, only for a number the meet file
 gives more than one (a prelim and its final): the rest describe that round. The cloud
 keeps console times per round with it, so a final's heat 1 does not show its prelim
-heat 1's times. `order` is every round in running order, and `other_rounds` holds the
-rounds that are not live, keyed `"<event>/<round>"`, each with the fields above for its
+heat 1's times. `ages` is each live heat's `age` (§5.8), for the heats that have one; `order` is every
+round in running order, and `other_rounds` holds the rounds that are not live (each
+with its own `ages`), keyed `"<event>/<round>"`, each with the fields above for its
 own heats — what the cloud serves for `?rounds=1` (§5.8). All three are absent from an
 older Pi: the cloud then serves its live rounds only.
 
@@ -654,7 +655,7 @@ picker's chrome — the language and label-style controls — comes from.
 
 ```json
 { "heats": [ { "event": 3, "heat": 1, "round": "", "event_name": "…", "time": "10:42",
-               "official": false,
+               "age": "", "seeded": true, "official": false,
                "lanes": [ { "lane": 4, "name": "…", "club": "…",
                             "seed_time": "00:01:02.40", "swimmers": [ … ],
                             "console_time": "00:01:01.95",
@@ -673,6 +674,14 @@ A lane's three times (`app.md` `S-22`), every one `HH:MM:SS.hh` or `""`:
 | `result_status` | `DSQ`, `DNS`, `DNF`, `WDR`, `SICK`, or `""` for a finish |
 | `result_delta_seconds` | official − seed, negative = faster; `null` with no seed, no official time, or a status |
 | `result_delta_better` | `result_delta_seconds < 0`; `null` when that is |
+
+`age` is the heat's own age group when the meet file gives it one — a final seeded one
+heat per age group — as a band of numbers like `event_name_parts.age` (§5.1): `"13-14"`,
+`"< 7"` (7 and under), `"17+"`, `"8"`; `""` when the heat has none, which is nearly
+always. `seeded` is false while the heat's round has no swimmer in any heat yet — a
+final before its prelims are swum and the file re-exported — and its `lanes` are empty
+for that reason, not because the heat is. An older server sends neither: read `""` and
+`true` (`app.md` `S-25`).
 
 `official` on a heat is true once every lane with a `name` has a `result_time` or a
 `result_status` (`S-23`). Official results come only from heats Meet Manager marks

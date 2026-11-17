@@ -714,6 +714,7 @@ hundreds.
 | [`S-22`](#s-22) | Lane time = best one known: official result (or its status) > console time > seed. Each its own colour, official also bolder | `lane.result_time` / `result_status`, `console_time`, `seed_time` ([`api.md`](api.md) §5.8); live `results_snapshot` patches console times; colours `schedule_seed` / `_console` / `_official` (§6.1) | all | should |
 | [`S-23`](#s-23) | Official or console-timed heat: tap its times or its `±` → gaps to the seed, spring back after 4 s or on a second tap | `heat.official`, `lane.result_delta_seconds` / `result_delta_better`, else `console_time` − `seed_time` | all | could |
 | [`S-24`](#s-24) | A prelim and its final under one event number are two cards, each in its place in running order and named with its round; each keeps its own console times and results. A heat is its event, heat **and** round | `GET /meet/{id}/schedule?rounds=1` (Pi: `/schedule.json?rounds=1`), `heat.round` ([`api.md`](api.md) §5.8); `S-05`'s rounds | all | should |
+| [`S-25`](#s-25) | A heat with its own age group shows it beside the event name (`· 13-14`); a heat whose round has no swimmer yet says so (`mobile.not_seeded`) instead of showing empty lanes | `heat.age`, `heat.seeded` ([`api.md`](api.md) §5.8); missing → `""`, `true` | all | could |
 
 #### <a id="s-01"></a>S-01 — short on card, long aloud
 
@@ -760,6 +761,14 @@ current heat (`S-05`), the `S-22` patch and the `S-23` toggle by event, heat and
 keyed by event and heat alone, two cards collide. The heading's round word comes from
 `event_name_parts.round` (`T-11`), always set for a shared number. A client that does
 not ask gets each number's live round only, which is what it showed before.
+
+#### <a id="s-25"></a>S-25 — which ages, not seeded yet
+
+Splash seeds a final one heat per age group: `heat.age` says which (`"13-14"`, `"17+"`),
+numbers only, so no translation. Draw it after the event name with ` · `, and say it
+with the heading. `seeded: false` marks every heat of a round no swimmer is in yet —
+the Sunday final on Saturday: one line, `mobile.not_seeded`, in place of the lanes.
+A filter (`S-15`) hides such heats like any heat with no match.
 
 ### 5.2 Filtering
 
@@ -1146,6 +1155,12 @@ paused stays paused. iOS: a `Toggle` in the sheet's first section, the bell
 ---
 
 ## Changelog
+
+- **v3, amended** (2026-11-16, no bump) — a heat's age group and an unseeded round.
+  Additive: `age` and `seeded` on schedule heats, `mobile.not_seeded`. A client that
+  ignores them shows the event name alone and an empty card, as before.
+
+  - **Added**: `S-25` (age group beside the name, *Not seeded yet*).
 
 - **v3, amended** (2026-11-16, no bump) — a prelim and its final under one event
   number. Additive and asked for: `?rounds=1` on the schedule, `round` on its heats,
