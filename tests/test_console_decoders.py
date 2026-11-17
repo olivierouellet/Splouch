@@ -600,6 +600,53 @@ def test_omnisport_next_heat_page_is_ignored_during_a_race():
     assert d.feed(_preview(99, "005F02")) == {}
 
 
+def _gen7(**options: str) -> Omnisport2000Decoder:
+    """A Gen7 set to RTD: the OmniSport behaviours are off until chosen on site."""
+    settings = {"num_lanes": 8, "console_options": {"cts_gen7_rs485_rtd": options}}
+    d = Omnisport2000Decoder(decoder_config("cts_gen7_rs485_rtd", settings))
+    d.feed(_rtd(99, f"  5 {' 1':2}{'':20}F 4"))
+    return d
+
+
+def test_gen7_rtd_keeps_running_through_a_split_by_default():
+    d = _gen7()
+    d.feed(_rtd(0, "    1.0  "))
+    split = d.feed(_rtd(_line_offset(1), _line(3, "1", "28.41", "2")))
+    assert "lane_running3" not in split and d.lane_running[3] is True
+    held = _gen7(rtd_split_hold="on")
+    held.feed(_rtd(0, "    1.0  "))
+    hold = held.feed(_rtd(_line_offset(1), _line(3, "1", "28.41", "2")))
+    assert hold["lane_running3"] is False
+
+
+def test_gen7_rtd_reads_sub_code_01_as_live_until_told_otherwise():
+    d = _gen7()
+    d.feed(_rtd(0, "    1.0  "))
+    assert d.feed(_preview(99, "005F02"))["event_changed"] == (5, 2)
+    d = _gen7(rtd_preview_sub_code="01")
+    d.feed(_rtd(0, "    1.0  "))
+    assert d.feed(_preview(99, "005F02")) == {}, "the next heat waits for the end"
+
+
+def test_gen7_rtd_a_live_sub_code_01_is_never_the_next_heat_page():
+    """Header sub-code 01 chosen as the live page wins over the next-heat option."""
+    d = _gen7(rtd_sub_code="01", rtd_preview_sub_code="01")
+    d.feed(_rtd(0, "    1.0  "))
+    assert d.feed(_preview(99, "005F02"))["event_changed"] == (5, 2)
+
+
+def test_gen7_rtd_waits_for_official_results_only_when_chosen():
+    assert not _gen7().validates_results
+    d = _gen7(rtd_validates="on")
+    assert d.validates_results
+    assert d.feed(_rtd(1484, "Official Results"))["results_official"] is True
+
+
+def test_omnisport_entries_keep_their_behaviours():
+    d = Omnisport2000Decoder(decoder_config("dak_os2000_rtd", {"num_lanes": 8}))
+    assert d.split_hold and d.preview_sub_codes == ("01",) and d.validates_results
+
+
 def test_omnisport_partial_field_write_lands_in_place():
     """A packet can carry just one field of a line; the rest of it stays put."""
     d = _dak()

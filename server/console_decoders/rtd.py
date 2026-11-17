@@ -105,6 +105,40 @@ RTD_SUB_CODE_OPTION = DecoderOption(
     default="any",
     help="The two digits after 004 in each packet header.",
 )
+# What an OmniSport capture showed and a Gen7 has not: each one on site, defaults
+# off for the Gen7 so an unknown console behaves as before.
+RTD_SPLIT_HOLD_OPTION = DecoderOption(
+    key="rtd_split_hold",
+    label="Lane chrono at a split",
+    choices=(
+        ("on", "Stops until the console clears the split"),
+        ("off", "Keeps running"),
+    ),
+    default="on",
+    help="Stops: as an OmniSport does. If lanes stay stopped after a split, "
+    "choose Keeps running.",
+)
+RTD_PREVIEW_SUB_CODE_OPTION = DecoderOption(
+    key="rtd_preview_sub_code",
+    label="Next-heat page",
+    choices=(("none", "None"), ("01", "Sub-code 01 (OmniSport)")),
+    default="01",
+    help="A page the console fills with the next heat as soon as the operator "
+    "moves to it. If the board shows the next heat's names during a race, "
+    "choose 01.",
+)
+RTD_VALIDATES_OPTION = DecoderOption(
+    key="rtd_validates",
+    label="Podium colours",
+    choices=(
+        ("off", "At the finish"),
+        ("on", "After \u201cOfficial Results\u201d"),
+    ),
+    default="off",
+    help="After: the console sends \u201cOfficial Results\u201d when the heat is "
+    "validated, as an OmniSport does. If it never does, colours appear "
+    "a minute after the finish.",
+)
 
 
 class RtdSwimmingDecoder(ConsoleDecoder):
@@ -191,7 +225,18 @@ class RtdSwimmingDecoder(ConsoleDecoder):
         self.first_lane = first_lane_of(cfg)
         # Only where the console is known to write the official flag — waiting for
         # one that never comes would hold every heat's results until the fallback.
-        self._validates = bool(cfg.get("rtd_validates", False))
+        validates = cfg.get("rtd_validates", False)
+        self._validates = validates is True or validates == "on"
+        hold = cfg.get("rtd_split_hold")
+        self.split_hold = self.SPLIT_HOLD if hold in (None, "") else hold == "on"
+        preview = str(cfg.get("rtd_preview_sub_code", "") or "")
+        self.preview_sub_codes = (
+            self.PREVIEW_SUB_CODES
+            if not preview
+            else ()
+            if preview == "none"
+            else (preview,)
+        )
 
     @property
     def validates_results(self) -> bool:
@@ -285,11 +330,13 @@ class RtdSwimmingDecoder(ConsoleDecoder):
         if not header[5:].isdigit() or not header[3:5].isdigit():
             return {}
         # A sub-code that is not the live page may be the console's next-heat page.
-        preview = False
-        if self.sub_codes is not None and header[3:5] not in self.sub_codes:
-            if header[3:5] not in self.PREVIEW_SUB_CODES:
-                return {}
-            preview = True
+        # With any sub-code accepted, a known next-heat page is still that page.
+        sub = header[3:5]
+        preview = sub in self.preview_sub_codes and (
+            self.sub_codes is None or sub not in self.sub_codes
+        )
+        if not preview and self.sub_codes is not None and sub not in self.sub_codes:
+            return {}
 
         # Checksum: every byte after SYN up to and including EOT, summed mod 256,
         # sent as two hex digits. Only a packet that kept its SYN can be checked.
@@ -565,7 +612,7 @@ class RtdSwimmingDecoder(ConsoleDecoder):
             if self.lane_places.get(lane, " ").strip():
                 self.lane_places[lane] = " "
                 updates[f"lane_place{lane}"] = " "
-            if self.SPLIT_HOLD and self._race_active:
+            if self.split_hold and self._race_active:
                 self._held.add(lane)
                 if self.lane_running.get(lane, False):
                     self.lane_running[lane] = False

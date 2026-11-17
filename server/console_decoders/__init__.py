@@ -136,6 +136,10 @@ CONSOLES: list[ConsoleEntry] = [
             "serial_baud": None,
             "serial_format": None,
             "rtd_offset": None,
+            # Unknown on a Gen7 until a capture: off keeps the plain behaviour.
+            "rtd_split_hold": "off",
+            "rtd_preview_sub_code": "none",
+            "rtd_validates": "off",
         },
     ),
     ConsoleEntry(
