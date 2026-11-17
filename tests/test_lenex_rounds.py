@@ -18,6 +18,8 @@ from meet_data import (
     _build_results_snapshot,
     _get_next_heats,
     build_heats,
+    heat_order,
+    heat_step,
     results_summary,
     send_event_info,
 )
@@ -388,3 +390,32 @@ def test_an_older_pis_schedule_still_serves(pi):
     }
     heats = cs._build_heats_json(sched, {}, all_rounds=True)
     assert [(h["event"], h["heat"], h["round"]) for h in heats] == [(3, 1, "")]
+
+
+# ── Running order beyond the Schedule ─────────────────────────────────────────
+
+
+def test_next_heat_follows_the_sessions(pi, finals):
+    """The Pi's Next heat walks the file's order: the final swims after the
+    morning's events, not between 14 and 16."""
+    state.set_lenex(finals)
+    assert heat_order() == [(1, 1), (15, 1)]
+    assert heat_step(1, 1) == (15, 1)
+    assert heat_step(15, 1) is None
+
+
+def test_notifications_count_heats_in_session_order(pi, monkeypatch, finals):
+    """The cloud's heats-before count (`N-05`) walks `events`, which the relay
+    sends in running order, each number dated by its live round's session."""
+    import cloud_follows
+    import relay
+
+    state.set_lenex(finals)
+    sent = {}
+    monkeypatch.setattr(relay, "_local_only", lambda: False)
+    monkeypatch.setattr(relay, "_send_schedule_data", lambda c, d: sent.update(d))
+    relay.send_schedule()
+    sched = json.loads(json.dumps(sent))
+    heats = cloud_follows.build_heats(sched, 0)
+    assert [(h.event, h.heat, h.index) for h in heats] == [(1, 1, 0), (15, 1, 1)]
+    assert sched["dates"]["15"] == "2026-11-07"

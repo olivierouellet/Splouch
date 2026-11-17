@@ -167,8 +167,19 @@ def heat_order() -> list[tuple[int, int]]:
     for a CSV meet, while `worker._worker_next_heat` read `event_info.events` and was
     blind to a Lenex one — so on any `.lxf` meet, the only meet most clubs have, the
     Next Heat button silently jumped to the (0, 0) sentinel and blanked the board.
+
+    Running order is the file's sessions', the Schedule's (docs/api.md §5.8): a
+    final numbered like its prelim swims in the evening, not between events 14
+    and 16. Each number's live round only — the one the console can be on.
     """
     m = state.meet
+    if m.rounds:
+        return [
+            (r["event"], ht)
+            for r in m.rounds
+            if r["live"]
+            for ht in sorted(r["start_list"])
+        ]
     if m.start_list:
         return [
             (ev, ht) for ev in sorted(m.start_list) for ht in sorted(m.start_list[ev])
