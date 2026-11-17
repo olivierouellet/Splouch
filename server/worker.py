@@ -796,6 +796,13 @@ def _play_recording(session_file, my_gen):
                     buf = []
                 continue
             buf = _ingest_byte(int(d.group(3), 16), buf)
+            # Byte-rate pacing is for a `.raw`, which has no time of its own. On a
+            # `.serial` the timestamps already did it, and `delay` still holds the
+            # gap just slept: anything over 0.1s slept a second time here, so a
+            # console clock sent every 0.1s arrived late, then two at once, and the
+            # board re-based backwards on each late frame.
+            if has_timestamps:
+                continue
             if delay > 0.1:
                 delay = 0
                 time.sleep(0.1)

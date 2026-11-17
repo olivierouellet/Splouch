@@ -786,3 +786,16 @@ def test_omnisport_capture_replays_as_the_pool_swam(played):
     # The names come from the companion meet file, before the gun.
     names = next(t for t, f in frames if t >= heat2 and f.get("lane_name1"))
     assert names < gun2
+
+
+def test_a_serial_plays_at_its_own_timestamps_not_in_bursts(played):
+    """The OmniSport sends its clock every 0.1s; the replay must too.
+
+    The `.raw` byte pacing used to run on a `.serial` as well, sleeping a second
+    0.1s after each timestamp gap over 0.1s: half the clock frames came late and
+    the rest in pairs, and the board's clock stuttered backwards on every late one.
+    """
+    frames = played(OMNI_UDP, console="dak_os2000_udp", num_lanes=10, first_lane=0)
+    clock = [t for t, f in frames if f.get("running_time", "0.00") != "0.00"][:300]
+    gaps = [b - a for a, b in zip(clock, clock[1:], strict=False)]
+    assert min(gaps) > 0.05 and max(gaps) < 0.15, (min(gaps), max(gaps))
