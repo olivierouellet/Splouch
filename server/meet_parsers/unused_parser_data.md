@@ -31,7 +31,6 @@ Fields available in the parsed data that are not currently used by the scoreboar
 
 | Attribute | Example | Notes |
 | --- | --- | --- |
-| `relaycount` | `"4"` | Number of relay legs. `1` for individual events. Could be used to detect relay without checking for missing `athleteid`. |
 | `technique` | `"BREASTSTROKE"` | Used in some masters meets to specify a non-standard stroke variation. |
 
 ### `RESULT` element

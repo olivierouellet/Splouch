@@ -319,8 +319,12 @@ def load_lenex(path):
         }
         style = find_first(event, "SWIMSTYLE")
         if style is not None:
+            # A relay's `distance` is one leg's (Lenex 3.0): a 4x50 is 50 with
+            # `relaycount` 4, and its lap count ended after the first swimmer.
             with contextlib.suppress(ValueError, TypeError):
-                distances[rnd] = int(style.get("distance", 0))
+                distances[rnd] = int(style.get("distance", 0)) * max(
+                    int(style.get("relaycount") or 1), 1
+                )
         eid = event.get("eventid", "")
         if eid:
             eventid_map[eid] = rnd

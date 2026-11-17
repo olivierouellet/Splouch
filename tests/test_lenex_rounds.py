@@ -573,3 +573,22 @@ def test_settings_can_keep_the_gender_out_of_the_name(pi, monkeypatch, audience)
     assert (phone["gender"] == "girls") is (audience == "board")
     assert (heat["event_name_parts"]["gender"] == "girls") is (audience == "board")
     assert phone["stroke"] == "freestyle"
+
+
+@pytest.mark.parametrize(
+    ("style", "distance"),
+    [
+        ('distance="50" relaycount="4"', 200),
+        ('distance="100" relaycount="1"', 100),
+        ('distance="100"', 100),
+        ('distance="50" relaycount="x"', None),
+    ],
+)
+def test_a_relay_swims_every_leg(style, distance):
+    """Lenex gives a relay's distance per leg: a 4x50 is 200 m of lengths to
+    count (`expected_splits`), not the first swimmer's 50."""
+    xml = MEET.replace(
+        '<SWIMSTYLE distance="100" stroke="FREE"/>',
+        f'<SWIMSTYLE {style} stroke="FREE"/>',
+    ).replace("{final}", "")
+    assert load_lenex(_lxf(xml)).event_distances.get(15) == distance
