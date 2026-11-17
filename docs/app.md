@@ -669,7 +669,7 @@ server line, so only on need. (2) Relay line goes. (3) Row type shrinks as one, 
 | ID | Feature | Level |
 | --- | --- | --- |
 | `L-18` | Carousel / fullscreen image overlay | n/a — images Pi-local, never relayed |
-| `L-19` | Podium highlight animation | n/a — Pi-local, `race_finished` not forwarded |
+| `L-19` | Podium highlight animation | n/a — Pi-local, `race_finished` not forwarded; so `results_pending` (`api.md` §5.1), which only holds a podium back, is ignored |
 | `L-20` | Animated operator-driven column show/hide | n/a — cloud columns always visible |
 | `L-21` | Any timed hold — kiosk `brief_results` flash, results pause, debounce | n/a — phone shows last frame, late joiner stays in step; `L-12` clock gates no transition |
 | `L-22` | Independent per-lane clock | n/a — console has one race clock, lanes mirror it; lane's own figure only as split `lane_time<i>`. See `L-12` |

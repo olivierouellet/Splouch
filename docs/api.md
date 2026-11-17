@@ -380,7 +380,7 @@ Lane keys are 1-indexed (`<i>` = 1…12).
 | `lane_delta<i>` | string | **HTML** `<span class="delta-better\|delta-worse">±s.hh</span>` vs seed (for the browser) |
 | `lane_delta_seconds<i>` | float\|null | **structured** signed delta vs seed in seconds (negative = faster); `null` when no seed/time, or the seed was swum in another course (§5.8 `seed_course`) |
 | `lane_delta_better<i>` | bool\|null | `true` when faster than seed; `null` when no delta |
-| `results_pending` | bool | every lane is in but the console has not yet marked the results official, so times and places may still change (backup times, a judge's call). Hold the podium until it goes back to `false` (or `race_finished`). Sent only by a console that validates — an Omnisport 2000; never by any other, so absent means `false`. Over the relay too |
+| `results_pending` | bool | every lane is in but the console has not yet marked the results official, so times and places may still change (backup times, a judge's call). A board that tints a podium holds it until this goes back to `false` (or `race_finished`) — the kiosk and the Qt board do; the apps tint none (`app.md` `L-19`) and ignore it. Sent only by a console that validates — an Omnisport 2000; never by any other, so absent means `false`. Over the relay too |
 | `lane_splits<i>` | int | lengths this lane has completed; `0` at the top of every heat. Native from a Quantum, an Omnisport 2000 or an ARES 21 (whose RTD line layout is inferred), inferred from touchpad stops on a CTS Gen6, counted from each lap and goal on a Seiko PT-8000, from the touch count on an ALGE TM-SWIM, and never raised at all by a Gen7. Also the reply to `adjust_splits` |
 
 > Native clients should use `lane_delta_seconds<i>` / `lane_delta_better<i>` and
@@ -1025,9 +1025,8 @@ can tell the console has stopped talking to it. Faces, both palettes: `family`
 
 ## Changelog
 
-- **Added since v2, additive**: `results_pending` in `update_scoreboard` (§5.1). A
-  client that ignores it shows the podium as soon as every lane is placed, which on a
-  console that corrects after the finish can tint the wrong rows.
+- **Added since v2, additive**: `results_pending` in `update_scoreboard` (§5.1), for a
+  board that tints a podium. The apps tint none (`app.md` `L-19`), so they ignore it.
 
 - **Removed since v2, the version stands**: `sport` in `GET /meets` (§5.6) and
   `GET /meet/{id}/config` (§4), and in the relay's `register` (§5.4). Splouch is a
