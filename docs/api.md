@@ -364,6 +364,7 @@ Lane keys are 1-indexed (`<i>` = 1…12).
 | key | type | notes |
 | --- | --- | --- |
 | `current_event`, `current_heat` | string | e.g. `"3"`, `"1"` — see the type note below |
+| `current_round` | string | the round of the current heat, as `round` in §5.8: `""` unless the meet gives its event number several rounds. Sent with every heat change; absent from an older server, read as `""` |
 | `event_name` | string | display name, composed in the **meet's** locale |
 | `event_name_parts` | object\|null | the same name, language-neutral, for a client rendering in a language the meet is not run in — see below |
 | `heat_time` | string | scheduled time, may be `""` |
@@ -456,7 +457,7 @@ entirely.
 ### 5.2 `results_snapshot`
 
 ```json
-{ "event": "3", "heat": "1", "event_name": "…", "sort": "lane"|"place",
+{ "event": "3", "heat": "1", "round": "", "event_name": "…", "sort": "lane"|"place",
   "lanes": [ { "channel": 4, "place": "1", "place_int": 1, "time": "2:20.92",
               "name": "…", "club": "…", "alt": "…",
               "delta": "<span …>", "delta_seconds": -0.46, "delta_better": true } ] }
@@ -474,7 +475,7 @@ Sent on `/ws/results` on connect, on every heat change, and whenever the loaded 
 changes (a new file, a re-export, a test's start lists in or out, or none).
 
 ```json
-{ "heats": [ { "event": 3, "heat": 1, "event_name": "…", "time": "10:42",
+{ "heats": [ { "event": 3, "heat": 1, "round": "", "event_name": "…", "time": "10:42",
               "swimmers": [ { "lane": 1, "name": "…", "club": "…", "alt": "…" } ] } ] }
 ```
 
@@ -552,7 +553,11 @@ table: `labels` is the operator's pick, resolved from the same file.
   "dates": { "3": "2026-10-10" },
   "start_list": { "3": { "1": { "1": { "name":"…","club":"…","seed_time":"…","swimmers":[…] } } } },
   "results": { "3": { "1": { "1": { "time": "00:01:01.90", "status": "" } } } },
-  "rounds": { "15": "final" } }
+  "rounds": { "15": "final" },
+  "order": [ [15, "prelims"], [3, ""], [15, "final"] ],
+  "other_rounds": { "15/prelims": { "heats": [1,2], "name": "…", "name_parts": { … },
+                                    "times": { … }, "date": "…", "start_list": { … },
+                                    "results": { … } } } }
 ```
 
 `dates` puts a day on `times`, which are times of day: each event's Lenex session date,
@@ -562,7 +567,10 @@ its own from the `results_snapshot` frames it relays, and stores them with the m
 `rounds` names the round an event number holds, only for a number the meet file
 gives more than one (a prelim and its final): the rest describe that round. The cloud
 keeps console times per round with it, so a final's heat 1 does not show its prelim
-heat 1's times. Absent from an older Pi.
+heat 1's times. `order` is every round in running order, and `other_rounds` holds the
+rounds that are not live, keyed `"<event>/<round>"`, each with the fields above for its
+own heats — what the cloud serves for `?rounds=1` (§5.8). All three are absent from an
+older Pi: the cloud then serves its live rounds only.
 
 ### 5.6 `GET /meets`
 
@@ -645,7 +653,7 @@ picker's chrome — the language and label-style controls — comes from.
 ### 5.8 `GET /meet/{meet_id}/schedule`
 
 ```json
-{ "heats": [ { "event": 3, "heat": 1, "event_name": "…", "time": "10:42",
+{ "heats": [ { "event": 3, "heat": 1, "round": "", "event_name": "…", "time": "10:42",
                "official": false,
                "lanes": [ { "lane": 4, "name": "…", "club": "…",
                             "seed_time": "00:01:02.40", "swimmers": [ … ],
@@ -671,8 +679,21 @@ A lane's three times (`app.md` `S-22`), every one `HH:MM:SS.hh` or `""`:
 `OFFICIAL` or `SEEDED`. Console times arrive between fetches in `results_snapshot`
 (§5.2): its `lanes[].channel` is the lane, its `time` is `SS.hh` or `M:SS.hh`.
 
-Every heat in running order — the whole start list, not just the next few
-(compare `next_heats`, §5.3). Heats with no entries still appear with an empty
+Every heat in running order — the file's, which is its sessions', not the event
+numbers' — the whole start list, not just the next few (compare `next_heats`, §5.3).
+
+**Rounds.** A meet file can give one event number several rounds — Splash numbers a
+final like its prelim. A heat is then its `event`, `heat` **and** `round`: `round` is the
+round's key (`prelims`, `final`, … — the vocabulary of `event_name_parts.round`, §5.1),
+or `""` for a number with one round, which is nearly every number. Without
+`?rounds=1`, each number lists its **live** round only — the last the file has seeded,
+the one the console is on — so a client that keys its cards by event and heat never
+sees two alike. With `?rounds=1`, every round is listed, each in its own place in
+running order, with its own console times and results (`app.md` `S-24`). Either way
+the heat's `event_name_parts.round` is set for a shared number, whatever the
+operator hides from phones, so two cards never read the same. `current_round` (§5.1),
+`results_snapshot.round` (§5.2) and `next_heats` (§5.3) name the live heat's round the
+same way; an older server sends no `round` anywhere, read as `""`. Heats with no entries still appear with an empty
 `lanes`. An empty `heats` is not an error: the meet is loaded but carries no
 schedule yet, and the client waits for `schedule_update` on `/ws/schedule`.
 `event` and `heat` are integers here (§5.1, type note). Each heat also carries

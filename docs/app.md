@@ -708,11 +708,12 @@ hundreds.
 | `S-02` | Card lists lanes: number, name, club, time (`S-22`) | `lanes[]` | all | must |
 | `S-03` | Relay: member first names joined by `·` | `lane.swimmers[].first`, else `.name` | all | should |
 | `S-04` | Alternating card backgrounds over *visible* cards → stripe survives filtering | — | all | should |
-| `S-05` | Current heat highlighted | off the *other* two sockets (§6 diagram), whichever spoke last: `update_scoreboard.current_event` / `current_heat`, `results_snapshot.event` / `heat`, compared **as strings** ([`api.md`](api.md) §5.1) | all | must |
+| `S-05` | Current heat highlighted | off the *other* two sockets (§6 diagram), whichever spoke last: `update_scoreboard.current_event` / `current_heat` / `current_round`, `results_snapshot.event` / `heat` / `round`, compared **as strings** ([`api.md`](api.md) §5.1); a missing round is `""` | all | must |
 | `S-06` | Auto-scroll to current heat once per appearance | re-armed on foreground | all | must |
 | `S-07` | Empty state, no meet file | `mobile.no_schedule` / `mobile.no_meet` | all | must |
 | [`S-22`](#s-22) | Lane time = best one known: official result (or its status) > console time > seed. Each its own colour, official also bolder | `lane.result_time` / `result_status`, `console_time`, `seed_time` ([`api.md`](api.md) §5.8); live `results_snapshot` patches console times; colours `schedule_seed` / `_console` / `_official` (§6.1) | all | should |
 | [`S-23`](#s-23) | Official or console-timed heat: tap its times or its `±` → gaps to the seed, spring back after 4 s or on a second tap | `heat.official`, `lane.result_delta_seconds` / `result_delta_better`, else `console_time` − `seed_time` | all | could |
+| [`S-24`](#s-24) | A prelim and its final under one event number are two cards, each in its place in running order and named with its round; each keeps its own console times and results. A heat is its event, heat **and** round | `GET /meet/{id}/schedule?rounds=1` (Pi: `/schedule.json?rounds=1`), `heat.round` ([`api.md`](api.md) §5.8); `S-05`'s rounds | all | should |
 
 #### <a id="s-01"></a>S-01 — short on card, long aloud
 
@@ -733,7 +734,7 @@ nothing. Words and event name `schedule_event`, numbers `schedule_name` — `L-0
 Hex values from [`api.md`](api.md) §6.1, copied key for key (`P-15`: never the operator's
 palette on a phone). Every time arrives `HH:MM:SS.hh`; drawn without a leading `00:`. A
 `results_snapshot` for a heat patches its lanes' `console_time` in place (`channel` =
-lane) — no re-fetch; a later page load gets them from the schedule. Screen reader names
+lane; the heat matched on event, heat and `round`, `S-24`) — no re-fetch; a later page load gets them from the schedule. Screen reader names
 the kind: `seed time …`, `console time …`, `official time …`, or the status spelled out
 (`mobile.time_seed` / `time_console` / `time_official` / `status_dsq`…).
 
@@ -749,6 +750,16 @@ official ends the swap. The swap is animated the platform's own way, instant und
 reduce-motion (`X-09`). A visible `±` on the heat, in the official or console colour,
 says it can be tapped, is itself a tap target, and is the screen reader's action
 (`mobile.show_seed_diff`).
+
+#### <a id="s-24"></a>S-24 — rounds under one number
+
+Splash numbers a final like its prelim, and the console only sends the number. A
+client that asks for `?rounds=1` gets both rounds, each heat carrying `round`
+(`"prelims"`, `"final"`, … or `""` when the number has one round). Key cards, the
+current heat (`S-05`), the `S-22` patch and the `S-23` toggle by event, heat and round:
+keyed by event and heat alone, two cards collide. The heading's round word comes from
+`event_name_parts.round` (`T-11`), always set for a shared number. A client that does
+not ask gets each number's live round only, which is what it showed before.
 
 ### 5.2 Filtering
 
@@ -1135,6 +1146,15 @@ paused stays paused. iOS: a `Toggle` in the sheet's first section, the bell
 ---
 
 ## Changelog
+
+- **v3, amended** (2026-11-16, no bump) — a prelim and its final under one event
+  number. Additive and asked for: `?rounds=1` on the schedule, `round` on its heats,
+  `current_round` and `results_snapshot.round`. A client that does not ask still gets
+  one card per event and heat — the live round. The schedule's running order is now
+  the meet file's sessions', not the event numbers'.
+
+  - **Added**: `S-24` (both rounds, each named, each with its own times).
+  - **Changed**: `S-05` (matched on the round too), `S-22` (patched on the round too).
 
 - **v3, amended** (2026-10-31, no bump) — a meet can show its event names as is
   ([`api.md`](api.md) §5.1): every `event_name_parts` field empty but `raw` and
