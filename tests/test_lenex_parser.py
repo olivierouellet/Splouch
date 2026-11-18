@@ -329,6 +329,44 @@ def test_an_event_name_from_its_swimstyle(style, name):
     assert load_lenex(_splash(_event(style))).event_names == {1: name}
 
 
+@pytest.mark.parametrize(
+    ("groups", "age"),
+    [
+        # A timed final scored by age groups: the whole span.
+        ([("-1", "7"), ("8", "8"), ("9", "9"), ("10", "10")], "≤10"),
+        ([("11", "12"), ("13", "14"), ("15", "16"), ("17", "-1")], "11+"),
+        ([("11", "-1")], "11+"),
+        ([("13", "14")], "13-14"),
+        ([("8", "8")], "8"),
+        # Open both ways, or no group: no age.
+        ([("-1", "-1")], ""),
+        ([], ""),
+    ],
+)
+def test_an_event_name_from_its_swimstyle_carries_its_ages(groups, age):
+    """Splash writes no name, only the SWIMSTYLE and the AGEGROUPs: the ages
+    reach the name, so the board, /meet and the apps show them."""
+    import state
+
+    agegroups = "".join(
+        f'<AGEGROUP agegroupid="{i}" agemin="{lo}" agemax="{hi}"/>'
+        for i, (lo, hi) in enumerate(groups, start=1)
+    )
+    event = (
+        '<EVENT eventid="1" number="1" gender="M">'
+        '<SWIMSTYLE distance="100" relaycount="1" stroke="MEDLEY"/>'
+        f"<AGEGROUPS>{agegroups}</AGEGROUPS>"
+        '<HEATS><HEAT heatid="1" number="1"/></HEATS></EVENT>'
+    )
+    parts = state.parse_event_name(load_lenex(_splash(event)).event_names[1])
+    assert (parts["dist"], parts["stroke"], parts["gender"], parts["age"]) == (
+        "100",
+        "medley",
+        "men",
+        age,
+    )
+
+
 def test_a_relay_name_reads_back_as_a_relay():
     import state
 

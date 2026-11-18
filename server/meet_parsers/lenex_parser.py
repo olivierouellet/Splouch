@@ -327,6 +327,34 @@ def load_lenex(path):
         "TURN": "Turn",
     }
 
+    def ages_str(event):
+        """The ages the event's AGEGROUPs span, written the way
+        `parse_event_name` reads a band back: `10 & Under`, `11 & Over`,
+        `11-12`, `8-8` for one age, `""` when any group is open both ways or
+        there is none. A timed final scored by age groups (`≤7`, `8`, `9`, `10`)
+        is the whole span, `≤10`; a heat with its own group says which
+        (`heat_ages`)."""
+        los, his = [], []
+        for g in find(event, "AGEGROUP"):
+            band = age_band(g.get("agemin"), g.get("agemax"))
+            if not band:
+                return ""
+            lo = (g.get("agemin") or "").strip()
+            hi = (g.get("agemax") or "").strip()
+            los.append(int(lo) if lo.isdigit() and int(lo) > 0 else None)
+            his.append(int(hi) if hi.isdigit() and int(hi) > 0 else None)
+        if not los:
+            return ""
+        lo = None if None in los else min(los)
+        hi = None if None in his else max(his)
+        if lo and hi:
+            return f"{lo}-{hi}"
+        if hi:
+            return f"{hi} & Under"
+        if lo:
+            return f"{lo} & Over"
+        return ""
+
     def event_name_str(event):
         prename = event.get("prename", "")
         name = event.get("name", "")
@@ -354,6 +382,7 @@ def load_lenex(path):
             distance = f"{legs}x{distance}"
         parts = [
             gender,
+            ages_str(event),
             distance,
             _stroke_map.get(
                 stroke, stroke.replace("_", " ").capitalize() if stroke else ""

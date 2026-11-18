@@ -1039,6 +1039,12 @@ can tell the console has stopped talking to it. Faces, both palettes: `family`
 
 ## Changelog
 
+- **Changed since v2, the version stands**: a Lenex event with no name (Splash writes
+  only its SWIMSTYLE) now carries its AGEGROUPs' ages in `event_name_parts.age` (§5.1):
+  the span of all of them, so a timed final scored `≤7`, `8`, `9`, `10` reads `≤10`,
+  and `11-12` to `17+` reads `11+`. A heat with its own age group still shows that one.
+  Clients render `age` verbatim, so nothing to change there.
+
 - **Added since v2, additive**: `schedule_seed_other` in both palettes (§6.1), the
   colour of a seed swum in another course (§5.8 `seed_course`, `app.md` `S-27`). A
   client that ignores it draws that seed in `schedule_seed`.
