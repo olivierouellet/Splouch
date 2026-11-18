@@ -367,6 +367,22 @@ def test_an_event_name_from_its_swimstyle_carries_its_ages(groups, age):
     )
 
 
+def test_a_final_seeded_by_age_group_leaves_the_span_to_its_heats():
+    """Each heat of a Splash final has its own age group, shown beside the name
+    (`S-25`): the span in the name too would read `11+ · 13-14`."""
+    event = (
+        '<EVENT eventid="1" number="1" gender="M" round="FIN">'
+        '<SWIMSTYLE distance="50" relaycount="1" stroke="FREE"/>'
+        '<AGEGROUPS><AGEGROUP agegroupid="1" agemin="11" agemax="12"/>'
+        '<AGEGROUP agegroupid="2" agemin="13" agemax="-1"/></AGEGROUPS>'
+        '<HEATS><HEAT heatid="1" number="1" agegroupid="1"/>'
+        '<HEAT heatid="2" number="2" agegroupid="2"/></HEATS></EVENT>'
+    )
+    data = load_lenex(_splash(event))
+    assert data.event_names[1] == "Men's 50 Freestyle"
+    assert data.rounds[0]["heat_ages"] == {1: "11-12", 2: "13+"}
+
+
 def test_a_relay_name_reads_back_as_a_relay():
     import state
 

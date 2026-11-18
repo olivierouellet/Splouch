@@ -593,7 +593,10 @@ def build_heats(all_rounds=False):
                     "heat": ht,
                     "round": rnd,
                     "event_name": r["event_name"],
-                    "event_name_parts": r["event_name_parts"],
+                    # The heat's own age group in the name (`S-25`).
+                    "event_name_parts": state.heat_name_parts(
+                        r["event_name_parts"], r["heat_ages"].get(ht, "")
+                    ),
                     "time": r["heat_times"].get(ht, ""),
                     "age": r["heat_ages"].get(ht, ""),
                     "seeded": seeded,

@@ -35,6 +35,7 @@ from splouch_i18n import (
     DEFAULT_THEME_FONTS,
     STYLED_LABEL_KEYS as STYLED_LABEL_KEYS,
     compose_event_name,
+    heat_name_parts as heat_name_parts,
     resolve_labels,
 )
 

@@ -57,7 +57,7 @@ from cloud_web import (
     _remember_prefs,
     render,
 )
-from splouch_i18n import DEFAULT_THEME_FONTS as _DEFAULT_FONTS
+from splouch_i18n import DEFAULT_THEME_FONTS as _DEFAULT_FONTS, heat_name_parts
 from splouch_times import heat_official, lane_times, wire_time
 
 _ch = cloud_bus.ch
@@ -508,7 +508,10 @@ def _build_heats_json(sched, console=None, all_rounds=False):
                     "heat": ht,
                     "round": rnd,
                     "event_name": r["name"],
-                    "event_name_parts": r["name_parts"],
+                    # The heat's own age group in the name (`S-25`).
+                    "event_name_parts": heat_name_parts(
+                        r["name_parts"], ages.get(ht_str, "")
+                    ),
                     "time": times.get(ht_str, ""),
                     "age": ages.get(ht_str, ""),
                     "seeded": seeded,

@@ -23,6 +23,7 @@ from i18n import (
     STYLED_LABEL_KEYS as STYLED_LABEL_KEYS,
     available_locales as available_locales,
     compose_event_name as compose_event_name,
+    heat_name_parts as heat_name_parts,
     list_builtin_themes as list_builtin_themes,
     list_custom_themes as list_custom_themes,
     list_locales,

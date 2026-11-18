@@ -306,3 +306,13 @@ def compose_event_name(parts, ev):
     if parts.get("round"):
         name += sep + ev.get(parts["round"], parts["round"])
     return name
+
+
+def heat_name_parts(parts, age):
+    """A heat's `event_name_parts`: the round's, with the heat's own age group *age*
+    in the age slot, so it composes `M 13-14 Fi` like a timed final's `M ≤10`
+    (docs/app.md `S-25`). The round's parts as they are when the heat has no age
+    of its own, or when they parsed to nothing a composer would put an age in."""
+    if not age or not parts or not (parts.get("dist") or parts.get("stroke")):
+        return parts
+    return {**parts, "age": age, "age_key": ""}

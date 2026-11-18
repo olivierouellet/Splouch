@@ -507,12 +507,21 @@ def test_the_live_frames_name_the_heats_age_group(pi, monkeypatch):
     assert _build_results_snapshot()["event_name_parts"]["age"] == ""
 
 
-def test_the_schedule_keeps_the_events_name(pi):
-    """The Schedule shows the age beside the name (`S-25`), not in it."""
+def test_the_schedule_puts_a_heats_age_in_its_name(pi):
+    """The Schedule composes a finals heat as `M 17+ Fi`, the age in the name's age
+    slot like a timed final's `M ≤10` (`S-25`); `age` stays beside it for the
+    screen reader and for a client that adds it only when the name lacks it."""
     state.set_lenex(_finals_by_age())
     heat = _heat(build_heats(), 15, 2)
     assert heat["age"] == "17+"
-    assert heat["event_name_parts"]["age"] == ""
+    assert heat["event_name_parts"]["age"] == "17+"
+    # The phones' box hides it in both.
+    state.settings["heat_age_phone"] = False
+    try:
+        heat = _heat(build_heats(), 15, 2)
+    finally:
+        state.settings.pop("heat_age_phone")
+    assert (heat["age"], heat["event_name_parts"]["age"]) == ("", "")
 
 
 @pytest.mark.parametrize(
@@ -680,6 +689,24 @@ def test_an_older_pi_sends_no_session():
     heat = cs._build_heats_json(sched)[0]
     assert (heat["session"], heat["session_name"]) == (0, "")
     assert heat["lanes"][0]["seed_course"] == ""
+
+
+def test_the_cloud_puts_a_heats_age_in_its_name():
+    """Through the cloud too, a finals heat composes `M 13-14 Fi` (`S-25`); a heat
+    with no age of its own keeps the round's parts."""
+    parts = {"raw": "Men's 50 Free", "dist": "50", "stroke": "freestyle",
+             "relay": False, "gender": "men", "age": "", "age_key": "",
+             "round": "final"}  # fmt: skip
+    sched = {
+        "events": [[3, [1, 2]]],
+        "names": {"3": "50 Free"},
+        "name_parts": {"3": parts},
+        "ages": {"3": {"1": "13-14"}},
+        "start_list": {"3": {"1": {}, "2": {}}},
+    }
+    heats = cs._build_heats_json(sched)
+    assert (heats[0]["age"], heats[0]["event_name_parts"]["age"]) == ("13-14", "13-14")
+    assert heats[1]["event_name_parts"] == parts
 
 
 def test_a_seed_from_another_course_has_no_gap(pi, monkeypatch):

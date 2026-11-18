@@ -332,10 +332,15 @@ def load_lenex(path):
         `parse_event_name` reads a band back: `10 & Under`, `11 & Over`,
         `11-12`, `8-8` for one age, `""` when any group is open both ways or
         there is none. A timed final scored by age groups (`≤7`, `8`, `9`, `10`)
-        is the whole span, `≤10`; a heat with its own group says which
-        (`heat_ages`)."""
+        is the whole span, `≤10`. None when a heat has a group of its own (a
+        final seeded one heat per age group): each heat says which
+        (`heat_ages`), and the span beside it would read twice, `11+ · 13-14`."""
+        groups = find(event, "AGEGROUP")
+        ids = {g.get("agegroupid") for g in groups if g.get("agegroupid")}
+        if any(h.get("agegroupid") in ids for h in find(event, "HEAT")):
+            return ""
         los, his = [], []
-        for g in find(event, "AGEGROUP"):
+        for g in groups:
             band = age_band(g.get("agemin"), g.get("agemax"))
             if not band:
                 return ""

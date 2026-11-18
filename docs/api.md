@@ -705,7 +705,9 @@ A lane's three times (`app.md` `S-22`), every one `HH:MM:SS.hh` or `""`:
 `age` is the heat's own age group when the meet file gives it one — a final seeded one
 heat per age group — as a band of numbers like `event_name_parts.age` (§5.1): `"13-14"`,
 `"≤7"` (7 and under), `"17+"`, `"8"`; `""` when the heat has none, which is nearly
-always, or when the operator hides it from phones (§5.1). `seeded` is false while the heat's round has no swimmer in any heat yet — a
+always, or when the operator hides it from phones (§5.1). A heat with one also carries it
+in its `event_name_parts.age`, in place of the event's, so the name composes with it
+(`app.md` `S-25`). `seeded` is false while the heat's round has no swimmer in any heat yet — a
 final before its prelims are swum and the file re-exported — and its `lanes` are empty
 for that reason, not because the heat is. An older server sends neither: read `""` and
 `true` (`app.md` `S-25`).
@@ -1042,7 +1044,9 @@ can tell the console has stopped talking to it. Faces, both palettes: `family`
 - **Changed since v2, the version stands**: a Lenex event with no name (Splash writes
   only its SWIMSTYLE) now carries its AGEGROUPs' ages in `event_name_parts.age` (§5.1):
   the span of all of them, so a timed final scored `≤7`, `8`, `9`, `10` reads `≤10`,
-  and `11-12` to `17+` reads `11+`. A heat with its own age group still shows that one.
+  and `11-12` to `17+` reads `11+`. An event whose heats have their own age groups (a
+  final seeded one heat per group) carries none in its name; on the Schedule (§5.8)
+  each such heat's `event_name_parts.age` is its own, beside `age` (`app.md` `S-25`).
   Clients render `age` verbatim, so nothing to change there.
 
 - **Added since v2, additive**: `schedule_seed_other` in both palettes (§6.1), the

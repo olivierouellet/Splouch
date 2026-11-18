@@ -863,8 +863,9 @@ function renderSchedule() {
         var heatName = composeEventName(h.event_name_parts, window.EVENT_VOCAB_SHORT) ||
                        eventNameOf(h);
         var spokenName = eventNameOf(h);
-        // A finals heat per age group says which (`S-25`).
-        if (h.age) {
+        // A finals heat per age group says which (`S-25`): in the name's age slot
+        // from a server that puts it there, `M 13-14 Fi`, else after it.
+        if (h.age && !(h.event_name_parts && h.event_name_parts.age === h.age)) {
             heatName = heatName ? heatName + ' · ' + h.age : h.age;
             spokenName = spokenName ? spokenName + ', ' + h.age : h.age;
         }
