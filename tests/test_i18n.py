@@ -651,16 +651,16 @@ def test_an_event_name_parses_into_keys_not_words():
     assert p["stroke"] == "backstroke"
     assert p["gender"] == "girls"
     assert p["dist"] == "200"
-    assert p["age"] == "< 12"  # a number needs no translation
+    assert p["age"] == "≤12"  # a number needs no translation
     assert p["age_key"] == ""
 
 
 @pytest.mark.parametrize(
     "lang, expected",
     [
-        ("en", "200 m Backstroke  —  Girls < 12"),
-        ("fr", "200 m dos  —  Filles < 12"),
-        ("es", "200 m espalda  —  Niñas < 12"),
+        ("en", "200 m Backstroke  —  Girls ≤12"),
+        ("fr", "200 m dos  —  Filles ≤12"),
+        ("es", "200 m espalda  —  Niñas ≤12"),
     ],
 )
 def test_one_parse_composes_in_every_shipped_language(lang, expected):
@@ -681,6 +681,12 @@ def test_both_servers_serve_the_event_name_vocabulary(build):
     assert ev["freestyle"] == "libre"
     assert ev["girls"] == "Filles"
     assert ev["unit"] and ev["separator"]
+
+
+def test_twelve_and_under_includes_twelve():
+    """`12 & Under` is 12 and younger: `≤12`, not `< 12`, which read as 11."""
+    assert state.parse_event_name("Girls 12 & Under 50 Free")["age"] == "≤12"
+    assert state.parse_event_name("Boys 13 & Over 50 Free")["age"] == "13+"
 
 
 # ── The distance, when it is glued to its unit ────────────────────────────────

@@ -139,7 +139,7 @@ Using this latitude = `done`, not `diverges`. Rows needing placement/format say 
 | **Pi** | the server at the pool, wired to the timing console; holds one meet |
 | **console** | the timing console (Quantum, CTS, Omnisport, ARES…) the Pi reads |
 | **kiosk** | the pool's big board — `server/templates/live.html` and the Qt display; not a phone |
-| **meet · event · heat** | the competition · one race type (`200 m backstroke, girls < 12`) · one swim of an event, a swimmer per lane |
+| **meet · event · heat** | the competition · one race type (`200 m backstroke, girls ≤12`) · one swim of an event, a swimmer per lane |
 | **split · length** | a lane's time at a wall touch · one pool length (a "lap" on screen) |
 | **frame** | one `update_scoreboard` message; partial (`L-10`) |
 | **snapshot** | one `results_snapshot`: a heat's results |
@@ -986,9 +986,9 @@ Build-time file and run-time cache share one shape, one decoder.
 
 Server splits event name into `event_name_parts` — distance, stroke, relay, gender, age,
 round — beside `event_name` ([`api.md`](api.md) §5.1); `GET /i18n/{lang}` → `event_name` holds
-words. `{dist: "200", stroke: "backstroke", gender: "girls", age: "< 12"}` + Spanish →
-`200 m espalda  —  Niñas < 12`: lookup + join of `dist + unit`, stroke, relay,
-`separator`, gender, age; `round` set → `separator` + its word (`… Niñas < 12  —  Final`).
+words. `{dist: "200", stroke: "backstroke", gender: "girls", age: "≤12"}` + Spanish →
+`200 m espalda  —  Niñas ≤12`: lookup + join of `dist + unit`, stroke, relay,
+`separator`, gender, age; `round` set → `separator` + its word (`… Niñas ≤12  —  Final`).
 Never re-implement split. Parts absent or compose to nothing →
 `event_name`.
 
@@ -1178,6 +1178,9 @@ paused stays paused. iOS: a `Toggle` in the sheet's first section, the bell
 ---
 
 ## Changelog
+
+- **v3, amended** (2026-11-17, no bump) — `12 & Under` reads `≤12`, not `< 12`
+  ([`api.md`](api.md) §5.1). Clients render `age` verbatim: nothing to change.
 
 - **v3, amended** (2026-11-17, no bump) — a status lane's gap. Clients only: no
   server change. A client still on the old rule shows a status lane's console time for

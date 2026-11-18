@@ -73,7 +73,7 @@ MAX_XML_BYTES = 64 * 1024 * 1024
 
 def age_band(agemin, agemax):
     """An AGEGROUP's ages as `event_name_parts.age` writes a band, numbers only:
-    `"13-14"`, `"< 7"` (7 and under), `"17+"`, `"8"`; `""` for no limit either way.
+    `"13-14"`, `"≤7"` (7 and under), `"17+"`, `"8"`; `""` for no limit either way.
     Lenex writes no limit as `-1`."""
 
     def num(v):
@@ -84,7 +84,7 @@ def age_band(agemin, agemax):
     if lo and hi:
         return str(lo) if lo == hi else f"{lo}-{hi}"
     if hi:
-        return f"< {hi}"
+        return f"≤{hi}"
     if lo:
         return f"{lo}+"
     return ""

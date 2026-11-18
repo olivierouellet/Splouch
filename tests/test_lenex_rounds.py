@@ -431,7 +431,7 @@ def test_notifications_count_heats_in_session_order(pi, monkeypatch, finals):
     ("agemin", "agemax", "band"),
     [
         ("13", "14", "13-14"),
-        ("-1", "7", "< 7"),
+        ("-1", "7", "≤7"),
         ("17", "-1", "17+"),
         ("8", "8", "8"),
         ("-1", "-1", ""),

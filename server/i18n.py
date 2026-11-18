@@ -208,7 +208,7 @@ def parse_event_name(raw, round_key="", as_is=False):
     get a Spanish event name (docs/app.md `T-04`, `T-06`) — the alternative is three
     client repos re-implementing the regexes below and drifting.
 
-    ``age`` carries a numeric band verbatim (``< 12``, ``12-13``) because a number
+    ``age`` carries a numeric band verbatim (``≤12``, ``12-13``) because a number
     needs no translation; ``age_key`` carries ``open`` / ``senior``, which do.
 
     ``round`` (``final`` / ``semifinal``) is not in the name at all: it comes from
@@ -249,7 +249,7 @@ def parse_event_name(raw, round_key="", as_is=False):
     )
     if age_m:
         num = age_m.group(1) or age_m.group(2)
-        age = "< " + num
+        age = "≤" + num
         s_rest = s[: age_m.start()] + s[age_m.end() :]
     else:
         # `13 & Over`, `13 and over`, `13+`: written `13+`, as `age_band` writes a

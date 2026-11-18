@@ -413,10 +413,10 @@ page does, and compares nothing numerically.
 one broadcast frame serves viewers reading in different languages (`app.md` `T-04`):
 
 ```json
-"event_name": "200 m dos  —  Filles < 12",
+"event_name": "200 m dos  —  Filles ≤12",
 "event_name_parts": { "raw": "200 Backstroke Girls 12 & Under",
                       "dist": "200", "stroke": "backstroke", "relay": false,
-                      "gender": "girls", "age": "< 12", "age_key": "",
+                      "gender": "girls", "age": "≤12", "age_key": "",
                       "round": "" }
 ```
 
@@ -431,7 +431,7 @@ Appearance and Settings → Phones → Appearance): the **board** choice decides
 choice whether `round` is set here — so one frame serves both, and a phone that
 composes from the parts follows the phone choice. Compose as `dist + unit`, stroke,
 `relay` — then `separator`, then gender and age; fall back to `raw` when nothing parsed; then, when `round` is set,
-`separator` and its word (`200 m dos  —  Filles < 12  —  Finale`). The same
+`separator` and its word (`200 m dos  —  Filles ≤12  —  Finale`). The same
 field rides on `results_snapshot` (§5.2) and each heat of `GET /meet/{id}/schedule`
 (§5.8), as `name_parts` in the relay's `schedule_snapshot` (§5.5).
 
@@ -704,7 +704,7 @@ A lane's three times (`app.md` `S-22`), every one `HH:MM:SS.hh` or `""`:
 
 `age` is the heat's own age group when the meet file gives it one — a final seeded one
 heat per age group — as a band of numbers like `event_name_parts.age` (§5.1): `"13-14"`,
-`"< 7"` (7 and under), `"17+"`, `"8"`; `""` when the heat has none, which is nearly
+`"≤7"` (7 and under), `"17+"`, `"8"`; `""` when the heat has none, which is nearly
 always, or when the operator hides it from phones (§5.1). `seeded` is false while the heat's round has no swimmer in any heat yet — a
 final before its prelims are swum and the file re-exported — and its `lanes` are empty
 for that reason, not because the heat is. An older server sends neither: read `""` and
@@ -916,7 +916,7 @@ config and `PUT` there. `503` this node cannot notify that platform.
 **What is sent** (`app.md` `N-05`, `N-06`) — at most once per device, heat and kind:
 
 - **APNs** — an alert: `title` the followed names in the heat, `body` e.g.
-  `In about 5 min · Event 12, heat 3, lane 4\n200 m dos  —  Filles < 12`;
+  `In about 5 min · Event 12, heat 3, lane 4\n200 m dos  —  Filles ≤12`;
   `interruption-level: time-sensitive`, `thread-id` = meet id, `apns-collapse-id`
   `<meet>:<event>:<heat>`, expires after 15 min. Custom keys `meet_id`, `event`, `heat`
   (integers) and `kind` (`upcoming` / `selected`).
@@ -1027,6 +1027,11 @@ can tell the console has stopped talking to it. Faces, both palettes: `family`
 ---
 
 ## Changelog
+
+- **Changed since v2, the version stands**: an age band with no lower limit is
+  written `≤12`, not `< 12` (`event_name_parts.age`, §5.1; schedule `age`, §5.8),
+  so `12 & Under` no longer reads as 11 and younger. Clients render `age`
+  verbatim, so nothing to change there; a client that matched on `"< "` must not.
 
 - **Added since v2, additive**: `lane_at_split<i>` in `update_scoreboard` (§5.1), for a
   board that reads the end of a heat from places. The apps read none, so they ignore it.
