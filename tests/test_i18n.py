@@ -183,6 +183,8 @@ def test_the_served_file_holds_only_what_a_spectator_reads():
         "meta",
         "labels",
         "event_name",
+        # The same words short, for the Schedule's cards (docs/app.md `S-01`).
+        "event_name_short",
         "aliases",
         "mobile",
         "display",
@@ -681,12 +683,91 @@ def test_both_servers_serve_the_event_name_vocabulary(build):
     assert ev["freestyle"] == "libre"
     assert ev["girls"] == "Filles"
     assert ev["unit"] and ev["separator"]
+    assert build("fr")["event_name_short"]["timed_final"] == "FD"
 
 
 def test_twelve_and_under_includes_twelve():
     """`12 & Under` is 12 and younger: `≤12`, not `< 12`, which read as 11."""
     assert state.parse_event_name("Girls 12 & Under 50 Free")["age"] == "≤12"
     assert state.parse_event_name("Boys 13 & Over 50 Free")["age"] == "13+"
+
+
+# ── The short name, for the Schedule's cards (`S-01`) ─────────────────────────
+# A card repeats its heading once per heat, and the long name was cropped on a
+# phone: `4x100 m quatre nages relais  —  Mixte 13-14  —  Série la plus rapide`.
+
+_SHORT_CASES = [
+    # raw, round, en, fr, es
+    (
+        "Mixed 13-14 4x100 Medley Relay",
+        "fastest_heat",
+        "4x100 Medley MX 13-14 FH",
+        "4x100 4N MX 13-14 SR",
+        "4x100 est MX 13-14 SR",
+    ),
+    (
+        "Women Senior 1500 Breaststroke",
+        "quarterfinal",
+        "1500 Breast W Sn QF",
+        "1500 brasse F Sn QF",
+        "1500 pecho F Sn CF",
+    ),
+    (
+        "Girls 10 & Under 50 Freestyle",
+        "final",
+        "50 Free G ≤10 Fi",
+        "50 libre F ≤10 Fi",
+        "50 libre NA ≤10 Fi",
+    ),
+    ("Boys 200 IM", "prelims", "200 IM B Pr", "200 4N G Pr", "200 est NO Pr"),
+    ("Men 4x50 Freestyle Relay", "", "4x50 Free M", "4x50 libre M", "4x50 libre M"),
+]
+
+
+@pytest.mark.parametrize("lang, col", [("en", 2), ("fr", 3), ("es", 4)])
+@pytest.mark.parametrize("case", _SHORT_CASES, ids=lambda c: c[0])
+def test_the_short_vocabulary_composes_a_card_sized_name(case, lang, col):
+    """No unit, no dashes, no relay word (`4x` says it) and a relay's medley not
+    called an IM — read off the vocabulary, so the composer has no short mode."""
+    parts = state.parse_event_name(case[0], case[1])
+    ev = state.i18n_bundle(lang)["event_name_short"]
+    assert state.compose_event_name(parts, ev) == case[col]
+
+
+def test_the_short_vocabulary_has_every_long_word():
+    """A word the short table lacks would render as its key (`fastest_heat`)."""
+    for lang in ("en", "fr", "es"):
+        b = state.i18n_bundle(lang)
+        assert set(b["event_name"]) <= set(b["event_name_short"]), lang
+
+
+def test_the_web_composes_the_short_name_as_the_server_does():
+    """`ws.js` is the web's composer and the apps' reference: same words, same
+    joins, for both vocabularies."""
+    import json
+
+    from jsc import HAS_JS_ENGINE, run_page
+    from test_lap_counts import _render
+
+    if not HAS_JS_ENGINE:
+        pytest.skip("needs a JavaScript engine")
+    checks = []
+    for case in _SHORT_CASES:
+        parts = state.parse_event_name(case[0], case[1])
+        for lang in ("en", "fr"):
+            for key in ("event_name", "event_name_short"):
+                ev = state.i18n_bundle(lang)[key]
+                want = state.compose_event_name(parts, ev)
+                checks.append([parts, ev, want])
+    script = (
+        "var checks = " + json.dumps(checks) + ";\n"
+        "for (var i = 0; i < checks.length; i++) {\n"
+        "  var got = composeEventName(checks[i][0], checks[i][1]);\n"
+        "  if (got !== checks[i][2]) throw new Error(got + ' != ' + checks[i][2]);\n"
+        "}\n"
+    )
+    page = _render("server/templates", "results.html", t={})
+    run_page(page.replace("</body>", f"<script>{script}</script></body>"))
 
 
 # ── The distance, when it is glued to its unit ────────────────────────────────

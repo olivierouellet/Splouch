@@ -488,7 +488,8 @@
 {# ws.js and the vocab first: the script below ends by calling renderSchedule(),
    which composes each heat's event name through eventNameOf() (docs/app.md `T-11`).
    Loaded after, the page died on a ReferenceError and rendered an empty list. #}
-<script>window.EVENT_VOCAB = {{ event_vocab | default({}, true) | tojson }};</script>
+<script>window.EVENT_VOCAB = {{ event_vocab | default({}, true) | tojson }};
+window.EVENT_VOCAB_SHORT = {{ event_vocab_short | default({}, true) | tojson }};</script>
 <script src="/static/js/ws.js"></script>
 <script src="/static/js/fold.js"></script>
 <script src="/static/js/count.js"></script>
@@ -854,12 +855,18 @@ function renderSchedule() {
         html += '<div class="heat-card ' + heatClass + (isCurrent ? ' heat-current' : '') +
                 (swaps(h) ? ' heat-swaps' : '') +
                 '" data-key="' + esc(key) + '">';
-        // One line: what the heat is on the left, when it swims on the right.
-        var heatName = eventNameOf(h);
+        // One line: what the heat is on the left, when it swims on the right. The
+        // card draws the short name, the reader hears the long one (`S-01`).
+        var heatName = composeEventName(h.event_name_parts, window.EVENT_VOCAB_SHORT) ||
+                       eventNameOf(h);
+        var spokenName = eventNameOf(h);
         // A finals heat per age group says which (`S-25`).
-        if (h.age) heatName = heatName ? heatName + ' · ' + h.age : h.age;
+        if (h.age) {
+            heatName = heatName ? heatName + ' · ' + h.age : h.age;
+            spokenName = spokenName ? spokenName + ', ' + h.age : h.age;
+        }
         var spoken = [SPOKEN_LABELS.event + ' ' + evStr, SPOKEN_LABELS.heat + ' ' + htStr];
-        if (heatName) spoken.push(heatName);
+        if (spokenName) spoken.push(spokenName);
         if (h.time) spoken.push(h.time);
         html += '<div class="heat-header" role="heading" aria-level="' + heatLevel + '" aria-label="' +
                 esc(spoken.join(', ')) + '">';

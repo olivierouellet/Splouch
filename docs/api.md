@@ -767,7 +767,9 @@ the server has no such locale.
   "labels":  { "short": { "event": "ÉP", "heat": "SÉR", "lane": "CL", … },
                "long":  { "event": "ÉPREUVE", "heat": "SÉRIE", "lane": "CL", … } },
   "event_name": { "unit": "m", "separator": "  —  ",
-                  "freestyle": "libre", "girls": "Filles", … } }
+                  "freestyle": "libre", "girls": "Filles", … },
+  "event_name_short": { "unit": "", "separator": " ", "relay": "",
+                        "freestyle": "libre", "girls": "F", "medley_relay": "4N", … } }
 ```
 
 - **English-merged per key**, the rule `display_strings` already follows: a
@@ -790,6 +792,14 @@ the server has no such locale.
 - **`event_name`** is the vocabulary `update_scoreboard.event_name_parts` composes
   against (§5.1) — strokes, genders, age words, the unit and the separator. It is
   what lets an event name follow the reader's language instead of the meet's.
+- **`event_name_short`** is the same vocabulary, short, for a name that repeats in
+  a narrow row — the Schedule's cards (`app.md` `S-01`). It has every key
+  `event_name` has, composes by the same rule, and needs no short mode in the
+  composer: its `unit` and `relay` are empty (the `4x` in `dist` already says
+  relay), its `separator` is one space, and its extra key `medley_relay` stands in
+  for `medley` on a relay, which is not an IM. `4x100 m quatre nages relais  —
+  Mixte 13-14  —  Série la plus rapide` reads `4x100 4N MX 13-14 SR`. An empty
+  `unit` means no unit, not the default `m`.
 - **`long` differs from `short` for `event` and `heat` only.** Every other header is
   a narrow column and carries its short word in both tables, so a client renders
   whichever table the user picked without a rule of its own (`app.md` `T-09`).
@@ -1027,6 +1037,11 @@ can tell the console has stopped talking to it. Faces, both palettes: `family`
 ---
 
 ## Changelog
+
+- **Added since v2, additive**: `GET /i18n/{lang}` → `event_name_short` (§5.9), the
+  short vocabulary the Schedule's cards compose against (`app.md` `S-01`). A
+  client that ignores it composes the long name, as before. French `timed_final`
+  now reads *Finale directe*, Splash's word.
 
 - **Changed since v2, the version stands**: an age band with no lower limit is
   written `≤12`, not `< 12` (`event_name_parts.age`, §5.1; schedule `age`, §5.8),

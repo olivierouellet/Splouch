@@ -710,9 +710,9 @@ def i18n_bundle(code=None):
     return i18n.i18n_bundle(code or _locale())
 
 
-def load_event_translations():
-    """The `[event_name]` vocabulary, in the meet's language."""
-    return i18n.event_translations(_locale())
+def load_event_translations(short=False):
+    """The `[event_name]` vocabulary, or its short twin, in the meet's language."""
+    return i18n.event_translations(_locale(), short)
 
 
 def load_preview_strings():

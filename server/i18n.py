@@ -126,9 +126,10 @@ def panel_strings(code, *sections):
     return out
 
 
-def event_translations(code):
-    """The `[event_name]` vocabulary a parsed event name is rendered against."""
-    return locale_section(code, "event_name")
+def event_translations(code, short=False):
+    """The `[event_name]` vocabulary a parsed event name is rendered against, or
+    `[event_name_short]`, the Schedule cards' (docs/app.md `S-01`)."""
+    return locale_section(code, "event_name_short" if short else "event_name")
 
 
 def _read_locale_name(path, fallback):

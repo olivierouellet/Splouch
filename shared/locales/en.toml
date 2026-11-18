@@ -41,6 +41,37 @@ timed_final  = "Timed final"
 time_trial   = "Time trial"
 test_race    = "Test race"
 
+# The same words, short, for where a name repeats in a narrow row: the Schedule's
+# cards (docs/app.md `S-01`). No unit and one space between the parts; `relay` is
+# empty because `4x100` already says it, and `medley_relay` stands in for `medley`
+# there, since a relay is not an IM.
+[event_name_short]
+unit         = ""
+separator    = " "
+girls        = "G"
+boys         = "B"
+women        = "W"
+men          = "M"
+mixed        = "MX"
+freestyle    = "Free"
+backstroke   = "Back"
+breaststroke = "Breast"
+butterfly    = "Fly"
+medley       = "IM"
+medley_relay = "Medley"
+relay        = ""
+open         = "Open"
+senior       = "Sn"
+final        = "Fi"
+semifinal    = "SF"
+quarterfinal = "QF"
+prelims      = "Pr"
+fastest_heat = "FH"
+swimoff      = "SO"
+timed_final  = "TF"
+time_trial   = "TT"
+test_race    = "Test"
+
 [aliases]
 phone    = "/mobile"
 cellular = "/mobile"

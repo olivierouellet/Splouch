@@ -704,7 +704,7 @@ hundreds.
 
 | ID | Feature | Driven by | Scope | Level |
 | --- | --- | --- | --- | --- |
-| [`S-01`](#s-01) | Each heat a card, one-line heading: `EV 12  HT 3` in **short** labels, event name, scheduled time trailing | `GET /meet/{id}/schedule` ([`api.md`](api.md) §5.8); Pi: `GET /schedule.json` | all | must |
+| [`S-01`](#s-01) | Each heat a card, one-line heading: `EV 12  HT 3` in **short** labels, **short** event name, scheduled time trailing | `GET /meet/{id}/schedule` ([`api.md`](api.md) §5.8); Pi: `GET /schedule.json` | all | must |
 | `S-02` | Card lists lanes: number, name, club, time (`S-22`) | `lanes[]` | all | must |
 | `S-03` | Relay: member first names joined by `·` | `lane.swimmers[].first`, else `.name` | all | should |
 | `S-04` | Alternating card backgrounds over *visible* cards → stripe survives filtering | — | all | should |
@@ -722,8 +722,11 @@ hundreds.
 
 Identifier repeats per card, its width is event name's → short labels (`short` table of
 `GET /i18n/{lang}`, or short form of `settings.labels`); board keeps long (`T-09`).
-Double space groups `EV 12` vs `HT 3` — no dash, not a range. No scheduled time → draw
-nothing. Words and event name `schedule_event`, numbers `schedule_name` — `L-01`'s split. The round is part of the name (`T-11` `round`), not a badge. Screen reader: `EVENT 12, HEAT 3, <name>, <time>`.
+Double space groups `EV 12` vs `HT 3` — no dash, not a range. The event name likewise:
+composed (`T-11`) against `GET /i18n/{lang}` → `event_name_short`, not `event_name` —
+`4x100 Medley MX 13-14 FH`, not `4x100 m Medley Relay  —  Mixed 13-14  —  Fastest heat`;
+no parts or no short vocabulary → the long name. No scheduled time → draw
+nothing. Words and event name `schedule_event`, numbers `schedule_name` — `L-01`'s split. The round is part of the name (`T-11` `round`), not a badge. Screen reader: `EVENT 12, HEAT 3, <long name>, <time>` — the long name, as `T-11` composes it for the Scoreboard; `MX` and `FH` are not words.
 
 #### <a id="s-22"></a>S-22 — three times, one cell
 
@@ -989,6 +992,9 @@ round — beside `event_name` ([`api.md`](api.md) §5.1); `GET /i18n/{lang}` →
 words. `{dist: "200", stroke: "backstroke", gender: "girls", age: "≤12"}` + Spanish →
 `200 m espalda  —  Niñas ≤12`: lookup + join of `dist + unit`, stroke, relay,
 `separator`, gender, age; `round` set → `separator` + its word (`… Niñas ≤12  —  Final`).
+Same join against `event_name_short` for a Schedule card (`S-01`): an empty `unit` is
+no unit (not `m`), an empty `relay` no word, and on a relay `medley_relay` replaces
+`medley` when the vocabulary has it → `200 esp NA ≤12 Fi`.
 Never re-implement split. Parts absent or compose to nothing →
 `event_name`.
 
@@ -1178,6 +1184,13 @@ paused stays paused. iOS: a `Toggle` in the sheet's first section, the bell
 ---
 
 ## Changelog
+
+- **v3, amended** (2026-11-17, no bump) — a short event name on the Schedule's cards.
+  Additive: `GET /i18n/{lang}` → `event_name_short` ([`api.md`](api.md) §5.9). A client
+  that ignores it shows the long name, cropped as before.
+
+  - **Changed**: `S-01` (the card draws the short name, the screen reader hears the
+    long one), `T-11` (the short vocabulary composes by the same join).
 
 - **v3, amended** (2026-11-17, no bump) — `12 & Under` reads `≤12`, not `< 12`
   ([`api.md`](api.md) §5.1). Clients render `age` verbatim: nothing to change.

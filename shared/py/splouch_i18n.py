@@ -251,6 +251,9 @@ def i18n_bundle(code, read_section, available):
         # The vocabulary an event name is composed from, so a client that took
         # `event_name_parts` can render it in this language (api.md §5.1, §5.9).
         "event_name": merged("event_name"),
+        # The same vocabulary, short: the Schedule's cards compose against it, where
+        # a name repeats once per heat in a narrow row (docs/app.md `S-01`).
+        "event_name_short": merged("event_name_short"),
         # Both styles, so language and short/long are one fetch. `long` differs from
         # `short` only for STYLED_LABEL_KEYS; the narrow columns are short in both.
         "labels": {style: resolve_labels(labels, style) for style in ("short", "long")},
@@ -262,7 +265,10 @@ def compose_event_name(parts, ev):
 
     The other half of the Pi's ``i18n.parse_event_name``, and the only half a client
     needs: a lookup and a join, no parsing. An unknown key renders as itself rather
-    than blank, the same floor `T-10` sets for every other string. Shared because
+    than blank, the same floor `T-10` sets for every other string. *ev* is either
+    vocabulary, ``[event_name]`` or ``[event_name_short]``: the short one has an
+    empty unit and relay word and a ``medley_relay``, so neither is a special case
+    beyond reading what is there. Shared because
     the relay composes too: a heat notification reads in the follower's language,
     not the meet's (docs/app.md `N-06`).
     """
@@ -275,9 +281,12 @@ def compose_event_name(parts, ev):
 
     left_parts = []
     if parts.get("dist"):
-        left_parts.append(parts["dist"] + " " + unit)
-    if parts.get("stroke"):
-        left_parts.append(ev.get(parts["stroke"], parts["stroke"]))
+        left_parts.append(parts["dist"] + (" " + unit if unit else ""))
+    stroke = parts.get("stroke")
+    if stroke == "medley" and parts.get("relay") and ev.get("medley_relay"):
+        stroke = "medley_relay"
+    if stroke:
+        left_parts.append(ev.get(stroke, stroke))
     if parts.get("relay") and ev.get("relay"):
         left_parts.append(ev["relay"])
     left = " ".join(left_parts)

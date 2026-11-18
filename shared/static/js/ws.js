@@ -249,9 +249,14 @@ function composeEventName(parts, vocab) {
     var word = function (k) {
         return k ? vocab[k] || k : '';
     };
+    /* Either vocabulary: the short one (`event_name_short`) has an empty unit and
+       relay word, and a `medley_relay` for a relay's medley, which is not an IM. */
+    var unit = 'unit' in vocab ? vocab.unit : 'm';
+    var stroke = parts.stroke;
+    if (stroke === 'medley' && parts.relay && vocab.medley_relay) stroke = 'medley_relay';
     var left = [];
-    if (parts.dist) left.push(parts.dist + ' ' + (vocab.unit || 'm'));
-    if (parts.stroke) left.push(word(parts.stroke));
+    if (parts.dist) left.push(unit ? parts.dist + ' ' + unit : parts.dist);
+    if (stroke) left.push(word(stroke));
     if (parts.relay && vocab.relay) left.push(vocab.relay);
     var age = parts.age || word(parts.age_key);
     var right = [word(parts.gender), age].filter(Boolean).join(' ');

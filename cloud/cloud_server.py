@@ -546,6 +546,8 @@ def route_schedule(request: Request):
             meet, _client_lang(request, meet), _client_style(request, meet)
         ),
         event_vocab=_strings(_client_lang(request, meet), "event_name"),
+        # The cards draw the short name, the screen reader hears the long one.
+        event_vocab_short=_strings(_client_lang(request, meet), "event_name_short"),
         **_client_palette(request),
         theme_fonts={**_DEFAULT_FONTS, **s.get("theme_fonts", {})},
         lang=_client_lang(request, meet),

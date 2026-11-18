@@ -273,6 +273,7 @@ def client_strings(request: HasClientPrefs, style: str = ""):
     the other one — the schedule's cards are short (docs/app.md `S-01`).
     `short_labels` is the short table whatever `style` is: the board header sets
     EVENT / HEAT inline on a short window, where the long words do not fit.
+    `event_vocab_short` is the vocabulary the schedule's cards compose names from.
     """
     lang, board_style = client_prefs(request)
     style = style or board_style
@@ -282,6 +283,7 @@ def client_strings(request: HasClientPrefs, style: str = ""):
             "labels": state.load_locale(style=style),
             "short_labels": state.load_locale(style="short"),
             "event_vocab": state.load_event_translations(),
+            "event_vocab_short": state.load_event_translations(short=True),
             "lang": lang,
             "ui_style": board_style,
         }
@@ -291,6 +293,7 @@ def client_strings(request: HasClientPrefs, style: str = ""):
         "labels": bundle["labels"][style],
         "short_labels": bundle["labels"]["short"],
         "event_vocab": bundle["event_name"],
+        "event_vocab_short": bundle["event_name_short"],
         "lang": lang,
         "ui_style": board_style,
     }
