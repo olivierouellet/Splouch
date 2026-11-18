@@ -413,18 +413,15 @@ def _build_meet_data():
         return {
             "events_grouped": events_grouped,
             # Each live round's session, for /meet's headings (docs/app.md `S-26`).
-            "event_sessions": {
-                r["event"]: {
-                    "number": r.get("session", 0),
-                    "name": r.get("session_name", ""),
-                }
-                for r in m.rounds
-                if r["live"]
-            },
             "event_names": event_names,
             "event_name_parts": event_name_parts,
             "start_list": m.start_list,
             "heat_times": m.heat_times,
+            # A heat's own age group (docs/api.md §5.8 `age`), for /full_schedule:
+            # a display page, so the board's box hides it.
+            "heat_ages": {r["event"]: r["heat_ages"] for r in m.rounds if r["live"]}
+            if heat_age_shown("board")
+            else {},
             "meet_info": m.meet_info,
             "results": m.results,
         }
@@ -452,7 +449,6 @@ def _build_meet_data():
     # the Schedule translated, nor followed Settings → Meet's or the name boxes.
     return {
         "events_grouped": events_grouped,
-        "event_sessions": {},
         "event_names": {
             num: board_name(name, shown_round(num, "board", m))
             for num, name in info.event_names.items()
@@ -463,23 +459,25 @@ def _build_meet_data():
         },
         "start_list": start_list,
         "heat_times": {},
+        "heat_ages": {},
         "meet_info": {},
         "results": {},
     }
 
 
-def schedule_rounds(all_rounds=False):
+def schedule_rounds(all_rounds=False, audience="phone"):
     """Each round of the loaded meet as the Schedule lists it, in running order:
     `event`, `round`, its composed `event_name` and `event_name_parts`, and its
-    own `start_list`, `heat_times` and `results` keyed by heat.
+    own `start_list`, `heat_times`, `heat_ages` and `results` keyed by heat.
 
     Only the live round of each number unless *all_rounds*: a client that has not
     asked for them keys its cards by event and heat alone (docs/api.md §5.8).
+    `heat_ages` follows *audience*'s box (`heat_age_<audience>`): the Schedule's
+    are for phones (`S-25`), /meet's for the board.
     """
     m = state.meet
     if m.rounds:
-        # The Schedule's `age` is for phones; their box hides it (`S-25`).
-        ages_shown = heat_age_shown("phone")
+        ages_shown = heat_age_shown(audience)
         return [
             {
                 "event": r["event"],

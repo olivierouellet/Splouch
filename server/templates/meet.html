@@ -53,6 +53,8 @@ body {
     padding: 1px 7px; font-weight: 700; white-space: nowrap; color: #aac8ff;
 }
 .heat-time { color: #7bc47b; font-weight: 700; font-size: 1.1em; }
+.heat-age { font-weight: 700; }
+.not-seeded { color: #888; font-style: italic; margin: 4px 0 10px; }
 
 .heat-card table { margin: 0; border: none; width: 100%; border-collapse: collapse; }
 .heat-card thead th {
@@ -146,28 +148,34 @@ body {
         </div>
     </div>
 
-    {% if not events_grouped %}
+    {% if not rounds %}
     <p style="color:#666; font-size:0.9em;">{{ strings.get('no_file', 'No meet file loaded.') }}</p>
     {% endif %}
 
     {# A heading where the session changes, as on the Schedule (docs/app.md `S-26`). #}
     {% set ns = namespace(session=0) %}
-    {% for event, heats in events_grouped %}
-    {% set sess = (event_sessions or {}).get(event, {}) %}
-    {% if sess.get('number') and sess.number != ns.session %}
-    <h2 class="session-heading">{{ sess.name or (strings.get('session', 'Session') ~ ' ' ~ sess.number) }}</h2>
+    {% for r in rounds %}
+    {% if r.session and r.session != ns.session %}
+    <h2 class="session-heading">{{ r.session_name or (strings.get('session', 'Session') ~ ' ' ~ r.session) }}</h2>
     {% endif %}
-    {% set ns.session = sess.get('number') or ns.session %}
+    {% set ns.session = r.session or ns.session %}
     <div class="ev-group">
         <div class="ev-label">
-            {{ labels.event }} {{ event }}{% if event in event_names %} &mdash; {{ event_names[event] }}{% endif %}
+            {{ labels.event }} {{ r.event }}{% if r.event_name %} &mdash; {{ r.event_name }}{% endif %}
         </div>
 
-        {% for heat in heats %}
+        {# A round no swimmer is in yet: the final before its prelims are swum (`S-25`). #}
+        {% set seeded = r.start_list.values() | select | list %}
+        {% if not seeded %}
+        <p class="not-seeded">{{ not_seeded }}</p>
+        {% endif %}
+        {% for heat in (r.start_list | sort if seeded else []) %}
         <div class="heat-card">
             <div class="heat-card-header">
                 <span class="heat-badge">{{ labels.heat }} {{ heat }}</span>
-                <span class="heat-time">{{ heat_times.get(event, {}).get(heat, '') }}</span>
+                {# The heat's own age group: a final seeded one heat per age group (`S-25`). #}
+                {% if r.heat_ages.get(heat) %}<span class="heat-age">{{ r.heat_ages[heat] }}</span>{% endif %}
+                <span class="heat-time">{{ r.heat_times.get(heat, '') }}</span>
             </div>
             <table>
                 <thead><tr>
@@ -177,8 +185,8 @@ body {
                     <th style="width:100px;">{{ strings.get('seed_time', 'Seed Time') }}</th>
                 </tr></thead>
                 <tbody>
-                {% for lane in start_list[event][heat] | sort %}
-                    {% set entry = start_list[event][heat][lane] %}
+                {% for lane in r.start_list[heat] | sort %}
+                    {% set entry = r.start_list[heat][lane] %}
                     <tr>
                         <td>{{ lane }}</td>
                         <td>
@@ -190,7 +198,11 @@ body {
                             {% endif %}
                         </td>
                         <td>{{ entry.club }}</td>
-                        <td>{{ entry.seed_time }}</td>
+                        {# Drawn without a leading `00:`, as on the Schedule (`S-22`). A seed
+                           from another course carries it (`S-27`): a printed page has the
+                           width, and loses a colour in black and white. #}
+                        {% set seed = entry.seed_time or '' %}
+                        <td>{{ seed[3:] if seed.startswith('00:') and seed | length > 8 else seed }}{% if seed and entry.get('seed_course') %} {{ entry.seed_course }}{% endif %}</td>
                     </tr>
                 {% endfor %}
                 </tbody>

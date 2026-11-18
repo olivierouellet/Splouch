@@ -7,7 +7,13 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 import state
-from meet_data import _build_meet_data, build_heats, meet_changed, send_event_info
+from meet_data import (
+    _build_meet_data,
+    build_heats,
+    meet_changed,
+    schedule_rounds,
+    send_event_info,
+)
 from meet_parsers.meet_file import meet_files
 from web import client_strings, redirect, render, require_login, require_role
 
@@ -29,6 +35,11 @@ def route_meet(request: Request):
         "meet.html",
         strings=state.load_preview_strings(),
         kiosk="kiosk" in request.query_params,
+        # Every round, as the Schedule's `?rounds=1` lists them (docs/app.md `S-24`):
+        # a seeded final does not take its prelims off the printed start list, and
+        # one not seeded yet says so (`S-25`). Ages follow the board's box.
+        rounds=schedule_rounds(all_rounds=True, audience="board"),
+        not_seeded=state._mobile_strings().get("not_seeded", "Not seeded yet"),
         **data,
     )
 

@@ -712,3 +712,83 @@ def test_a_seed_from_another_course_has_no_gap(pi, monkeypatch):
     cloud = cs._build_heats_json(json.loads(json.dumps(sent)))
     lane = next(h for h in cloud if (h["event"], h["heat"]) == (15, 1))["lanes"][0]
     assert (lane["seed_course"], lane["result_delta_seconds"]) == ("LCM", None)
+
+
+def test_the_meet_preview_shows_a_heats_age_and_seeds_without_hours(pi):
+    """/meet and /full_schedule draw a heat's own age group (`S-25`); /meet draws
+    a seed without its leading `00:`, as the Schedule does (`S-22`), with its course
+    when it is another (`S-27`), and keeps the prelims once the final is seeded
+    (`S-24`)."""
+    from starlette.requests import Request
+
+    import app as pi_app
+    from routes.meet import route_full_schedule, route_meet
+
+    xml = MEET.replace(
+        '<HEATS><HEAT heatid="9" number="1" daytime="16:10" status="SEEDED"/></HEATS>',
+        '<AGEGROUPS><AGEGROUP agegroupid="7" agemin="13" agemax="14"/></AGEGROUPS>'
+        '<HEATS><HEAT heatid="9" number="1" daytime="16:10" status="SEEDED"'
+        ' agegroupid="7"/></HEATS>',
+    ).replace("{final}", FINAL_SEEDED)
+    xml = xml.replace(
+        'entrytime="00:01:02.00"', 'entrytime="00:01:02.00" entrycourse="LCM"'
+    )
+    state.set_lenex(load_lenex(_lxf(xml)))
+
+    def page(route, path):
+        scope = {
+            "type": "http",
+            "method": "GET",
+            "path": path,
+            "query_string": b"",
+            "headers": [],
+            "session": {},
+            "app": pi_app.app,
+            "router": pi_app.app.router,
+        }
+        return route(Request(scope)).body.decode()
+
+    meet = page(route_meet, "/meet")
+    assert '<span class="heat-age">13-14</span>' in meet
+    assert "<td>01:00.50</td>" in meet
+    assert "00:01:00.50" not in meet
+    assert "Prelims" in meet and "Jane Smith" in meet.split("Final")[0]
+    # A seed from another course carries it on the printed page (`S-27`).
+    assert "<td>01:02.00 LCM</td>" in meet
+    assert "Final · 13-14</div>" in page(route_full_schedule, "/full_schedule")
+
+    state.settings["heat_age_board"] = False
+    try:
+        assert "heat-age" not in page(route_meet, "/meet").split("</style>")[-1]
+    finally:
+        state.settings.pop("heat_age_board")
+
+
+def test_the_meet_preview_says_a_final_is_not_seeded_yet(pi, prelims):
+    """A round no swimmer is in yet says so on /meet (`S-25`), as the Schedule does,
+    in place of its empty heats."""
+    import re
+
+    from starlette.requests import Request
+
+    import app as pi_app
+    from routes.meet import route_meet
+
+    state.set_lenex(prelims)
+    scope = {
+        "type": "http",
+        "method": "GET",
+        "path": "/meet",
+        "query_string": b"",
+        "headers": [],
+        "session": {},
+        "app": pi_app.app,
+        "router": pi_app.app.router,
+    }
+    html = route_meet(Request(scope)).body.decode()
+    groups = html.split('<div class="ev-group">')[1:]
+    assert len(groups) == 3  # the prelims, the timed final, the final
+    final = groups[-1]
+    assert '<p class="not-seeded">Not seeded yet</p>' in final
+    assert not re.search(r'class="heat-card"', final)
+    assert 'class="not-seeded"' not in groups[0]
