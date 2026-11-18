@@ -293,18 +293,19 @@ def test_a_session_heading_and_a_seeds_course(tmp_path):
     js = "\n".join(
         [
             "var SESSION_WORD = 'Séance {n}';",
+            "var TIME_WORDS = {seed: 'Seed time'};",
             *(
                 _schedule_function(page, n)
-                for n in ("displayTime", "seedText", "sessionLabel")
+                for n in ("displayTime", "seedTime", "sessionLabel")
             ),
             "JSON.stringify([",
             "  sessionLabel({session: 2, session_name: 'Samedi pm'}),",
             "  sessionLabel({session: 3, session_name: ''}),",
             "  sessionLabel({session: 0, session_name: ''}),",
             "  sessionLabel({}),",
-            "  seedText({seed_time: '00:01:01.00', seed_course: 'LCM'}),",
-            "  seedText({seed_time: '00:01:01.00', seed_course: ''}),",
-            "  seedText({seed_time: '', seed_course: 'LCM'})",
+            "  seedTime({seed_time: '00:01:01.00', seed_course: 'LCM'}),",
+            "  seedTime({seed_time: '00:01:01.00', seed_course: ''}),",
+            "  seedTime({seed_time: '', seed_course: 'LCM'})",
             "])",
         ]
     )
@@ -319,9 +320,13 @@ def test_a_session_heading_and_a_seeds_course(tmp_path):
         "Séance 3",
         "",
         "",
-        "01:01.00 LCM",
-        "01:01.00",
-        "NT",
+        {
+            "text": "01:01.00",
+            "cls": "time-seed time-seed-other",
+            "spoken": "Seed time 01:01.00 LCM",
+        },
+        {"text": "01:01.00", "cls": "time-seed", "spoken": "Seed time 01:01.00"},
+        {"text": "NT", "cls": "time-seed", "spoken": "Seed time NT"},
     ]
 
 
@@ -342,7 +347,7 @@ def test_the_gap_to_the_seed(tmp_path):
                 for n in (
                     "displayTime",
                     "formatDelta",
-                    "seedText",
+                    "seedTime",
                     "hundredths",
                     "consoleGap",
                     "gapTime",

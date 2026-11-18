@@ -57,6 +57,8 @@ DEFAULT_THEME_COLORS = {
     # the seed from the meet file, the console's provisional finish, and the result
     # Meet Manager validated. Read by the Schedule pages only, never by the board.
     "schedule_seed": "#e0e0e0",
+    # A seed swum in another course than the meet's (docs/app.md `S-27`).
+    "schedule_seed_other": "#3b9eff",
     "schedule_console": "#FFD700",
     "schedule_official": "#4ade80",
 }
@@ -94,6 +96,7 @@ LIGHT_THEME_COLORS = {
     "schedule_name": "#111111",
     "schedule_club": "#888888",
     "schedule_seed": "#111111",
+    "schedule_seed_other": "#7b1fa2",
     "schedule_console": "#0055aa",
     "schedule_official": "#2e7d32",
 }

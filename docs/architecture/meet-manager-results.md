@@ -97,6 +97,7 @@ Older app builds ignore unknown keys.
 | Lane state | Shows | Theme key | Dark | Light |
 | --- | --- | --- | --- | --- |
 | Nothing swum yet | seed time | `schedule_seed` | white | black |
+| Nothing swum yet, seed from another course | seed time | `schedule_seed_other` | blue | purple |
 | Console time, not yet official | console time | `schedule_console` | yellow | blue |
 | Official time | official time | `schedule_official` | bright green | green |
 | Official non-finish | localised `DSQ` / `DNS` / `DNF` … | `schedule_official` | bright green | green |

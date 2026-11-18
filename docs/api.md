@@ -714,7 +714,7 @@ for that reason, not because the heat is. An older server sends neither: read `"
 `SCM` or `SCY`, from the Lenex ENTRY's `entrycourse` (against its session's course, else the meet's) or the `.hy3`'s seed course —
 and `""` otherwise, which is nearly always. A long-course seed at a short-course meet
 is no gap at all, so no delta is drawn to it, here or on the board (§5.1 `lane_delta<i>`);
-show the seed with its course beside it (`app.md` `S-27`). Absent from an older server:
+draw the seed in `schedule_seed_other` (§6.1, `app.md` `S-27`). Absent from an older server:
 read `""`.
 
 `session` and `session_name` are the Lenex session the heat's round is swum in: its
@@ -1023,6 +1023,7 @@ them key for key; it never picks its own. Source of truth: `DEFAULT_THEME_COLORS
 | `schedule_name` | `#e0e0e0` | `#111111` |
 | `schedule_club` | `#666666` | `#888888` |
 | `schedule_seed` | `#e0e0e0` | `#111111` |
+| `schedule_seed_other` | `#3b9eff` | `#7b1fa2` |
 | `schedule_console` | `#FFD700` | `#0055aa` |
 | `schedule_official` | `#4ade80` | `#2e7d32` |
 
@@ -1037,6 +1038,10 @@ can tell the console has stopped talking to it. Faces, both palettes: `family`
 ---
 
 ## Changelog
+
+- **Added since v2, additive**: `schedule_seed_other` in both palettes (§6.1), the
+  colour of a seed swum in another course (§5.8 `seed_course`, `app.md` `S-27`). A
+  client that ignores it draws that seed in `schedule_seed`.
 
 - **Added since v2, additive**: `GET /i18n/{lang}` → `event_name_short` (§5.9), the
   short vocabulary the Schedule's cards compose against (`app.md` `S-01`). A

@@ -370,6 +370,9 @@
             padding-left: 0.4em;
         }
         .time-seed     { color: var(--color-schedule-seed); }
+        /* `S-27`: a seed swum in another course, in its own colour; no course suffix,
+           which would take the name's width for a rare case. */
+        .time-seed-other { color: var(--color-schedule-seed-other); }
         .time-console  { color: var(--color-schedule-console); }
         .time-official { color: var(--color-schedule-official); font-weight: 700; }
         .time-better   { color: var(--color-delta-better); font-weight: 700; }
@@ -559,10 +562,14 @@ function formatDelta(sec) {
     var cc = (c < 10 ? '0' : '') + c;
     return (sec < 0 ? '-' : '+') + (m ? m + ':' + (s < 10 ? '0' : '') + s : String(s)) + '.' + cc;
 }
-// A seed, with its course when it is not the meet's (`S-27`): no gap is drawn to it.
-function seedText(lane) {
+// A lane's seed as its time cell draws it. One from another course than the meet's
+// (`S-27`) is in its own colour, and the screen reader hears the course; no gap is
+// drawn to it.
+function seedTime(lane) {
     var seed = lane.seed_time ? displayTime(lane.seed_time) : 'NT';
-    return lane.seed_time && lane.seed_course ? seed + ' ' + lane.seed_course : seed;
+    var other = !!(lane.seed_time && lane.seed_course);
+    return { text: seed, cls: other ? 'time-seed time-seed-other' : 'time-seed',
+             spoken: TIME_WORDS.seed + ' ' + seed + (other ? ' ' + lane.seed_course : '') };
 }
 // The heading a heat's session draws above its first card (`S-26`), '' for none.
 function sessionLabel(h) {
@@ -615,8 +622,7 @@ function laneTime(lane, phase) {
             // Not official yet: the console's own gap.
             gap = lane.result_time ? null : consoleGap(lane);
             if (gap != null) return gapTime(gap, gap < 0);
-            var seed = seedText(lane);
-            return { text: seed, cls: 'time-seed', spoken: TIME_WORDS.seed + ' ' + seed };
+            return seedTime(lane);
         }
     }
     if (status) return { text: status, cls: 'time-official', spoken: TIME_WORDS[status] || status };
@@ -628,10 +634,7 @@ function laneTime(lane, phase) {
         return { text: displayTime(lane.console_time), cls: 'time-console',
                  spoken: TIME_WORDS.console + ' ' + displayTime(lane.console_time) };
     }
-    if (lane.seed_time) {
-        return { text: seedText(lane), cls: 'time-seed',
-                 spoken: TIME_WORDS.seed + ' ' + seedText(lane) };
-    }
+    if (lane.seed_time) return seedTime(lane);
     return null;
 }
 

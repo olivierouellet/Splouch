@@ -24,6 +24,7 @@ schedule_time        = "#00cfff"
 schedule_name        = "#b0ccff"
 schedule_club        = "#3a5a8a"
 schedule_seed        = "#b0ccff"
+schedule_seed_other  = "#d0a0ff"
 schedule_console     = "#FFD700"
 schedule_official    = "#00e676"
 
