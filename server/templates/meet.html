@@ -55,6 +55,7 @@ body {
 .heat-time { color: #7bc47b; font-weight: 700; font-size: 1.1em; }
 .heat-age { font-weight: 700; }
 .not-seeded { color: #888; font-style: italic; margin: 4px 0 10px; }
+.heat-not-seeded { margin: 0; padding: 6px 12px; }
 
 .heat-card table { margin: 0; border: none; width: 100%; border-collapse: collapse; }
 .heat-card thead th {
@@ -164,12 +165,14 @@ body {
             {{ labels.event }} {{ r.event }}{% if r.event_name %} &mdash; {{ r.event_name }}{% endif %}
         </div>
 
-        {# A round no swimmer is in yet: the final before its prelims are swum (`S-25`). #}
+        {# A round no swimmer is in yet: the final before its prelims are swum (`S-25`).
+           Its heats still show, with their age groups and times; each says it is not
+           seeded in place of its lanes. An event with no heat at all says it once. #}
         {% set seeded = r.start_list.values() | select | list %}
-        {% if not seeded %}
+        {% if not r.start_list %}
         <p class="not-seeded">{{ not_seeded }}</p>
         {% endif %}
-        {% for heat in (r.start_list | sort if seeded else []) %}
+        {% for heat in r.start_list | sort %}
         <div class="heat-card">
             <div class="heat-card-header">
                 <span class="heat-badge">{{ labels.heat }} {{ heat }}</span>
@@ -177,6 +180,9 @@ body {
                 {% if r.heat_ages.get(heat) %}<span class="heat-age">{{ r.heat_ages[heat] }}</span>{% endif %}
                 <span class="heat-time">{{ r.heat_times.get(heat, '') }}</span>
             </div>
+            {% if not seeded %}
+            <p class="not-seeded heat-not-seeded">{{ not_seeded }}</p>
+            {% else %}
             <table>
                 <thead><tr>
                     <th style="width:44px;">{{ labels.lane }}</th>
@@ -207,6 +213,7 @@ body {
                 {% endfor %}
                 </tbody>
             </table>
+            {% endif %}
         </div>
         {% endfor %}
     </div>

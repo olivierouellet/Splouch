@@ -792,10 +792,8 @@ def test_the_meet_preview_shows_a_heats_age_and_seeds_without_hours(pi):
 
 
 def test_the_meet_preview_says_a_final_is_not_seeded_yet(pi, prelims):
-    """A round no swimmer is in yet says so on /meet (`S-25`), as the Schedule does,
-    in place of its empty heats."""
-    import re
-
+    """A round no swimmer is in yet says so on /meet (`S-25`), as the Schedule does:
+    its heats still show, with their times, each saying so in place of its lanes."""
     from starlette.requests import Request
 
     import app as pi_app
@@ -816,9 +814,11 @@ def test_the_meet_preview_says_a_final_is_not_seeded_yet(pi, prelims):
     groups = html.split('<div class="ev-group">')[1:]
     assert len(groups) == 3  # the prelims, the timed final, the final
     final = groups[-1]
-    assert '<p class="not-seeded">Not seeded yet</p>' in final
-    assert not re.search(r'class="heat-card"', final)
-    assert 'class="not-seeded"' not in groups[0]
+    assert final.count('class="heat-card"') == 1
+    assert '<span class="heat-time">16:10</span>' in final
+    assert '<p class="not-seeded heat-not-seeded">Not seeded yet</p>' in final
+    assert "<table>" not in final
+    assert "not-seeded" not in groups[0]
 
 
 def test_the_meet_preview_shows_what_settings_hide(pi):
