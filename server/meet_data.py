@@ -151,6 +151,13 @@ def board_name(raw, round_key, age=""):
     return state.compose_event_name(parts, state.load_event_translations()) or raw
 
 
+def full_name(raw, round_key):
+    """*raw* composed with nothing Settings hides: its round and gender, whatever
+    the boxes say. For /meet, the start list printed for officials."""
+    parts = state.parse_event_name(raw, round_key, state.event_names_as_is())
+    return state.compose_event_name(parts, state.load_event_translations()) or raw
+
+
 def phone_parts(raw, round_key, age=""):
     """*raw* as parts for the phones to compose: `event_name_parts`."""
     return _shown_parts(
@@ -465,19 +472,20 @@ def _build_meet_data():
     }
 
 
-def schedule_rounds(all_rounds=False, audience="phone"):
+def schedule_rounds(all_rounds=False, everything=False):
     """Each round of the loaded meet as the Schedule lists it, in running order:
     `event`, `round`, its composed `event_name` and `event_name_parts`, and its
     own `start_list`, `heat_times`, `heat_ages` and `results` keyed by heat.
 
     Only the live round of each number unless *all_rounds*: a client that has not
     asked for them keys its cards by event and heat alone (docs/api.md §5.8).
-    `heat_ages` follows *audience*'s box (`heat_age_<audience>`): the Schedule's
-    are for phones (`S-25`), /meet's for the board.
+    `heat_ages` follows the phones' box (`heat_age_phone`, `S-25`). With
+    *everything*, for /meet, no box hides anything: every heat's age group, and
+    `event_name` with its round and gender (`full_name`).
     """
     m = state.meet
     if m.rounds:
-        ages_shown = heat_age_shown(audience)
+        ages_shown = everything or heat_age_shown("phone")
         return [
             {
                 "event": r["event"],
@@ -486,7 +494,9 @@ def schedule_rounds(all_rounds=False, audience="phone"):
                 "date": r["date"],
                 "session": r.get("session", 0),
                 "session_name": r.get("session_name", ""),
-                "event_name": board_name(
+                "event_name": full_name(r["name"], r["kind"])
+                if everything
+                else board_name(
                     r["name"], _round_shown(r["kind"], bool(r["round"]), "board")
                 ),
                 "event_name_parts": phone_parts(
@@ -509,7 +519,13 @@ def schedule_rounds(all_rounds=False, audience="phone"):
             "date": "",
             "session": 0,
             "session_name": "",
-            "event_name": data["event_names"].get(ev, ""),
+            "event_name": full_name(
+                m.event_names.get(ev)
+                or (m.event_info.event_names if m.event_info else {}).get(ev, ""),
+                m.event_rounds.get(ev, ""),
+            )
+            if everything
+            else data["event_names"].get(ev, ""),
             "event_name_parts": data.get("event_name_parts", {}).get(ev),
             "start_list": {
                 ht: data["start_list"].get(ev, {}).get(ht, {}) for ht in heats

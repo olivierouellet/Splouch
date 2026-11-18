@@ -792,3 +792,51 @@ def test_the_meet_preview_says_a_final_is_not_seeded_yet(pi, prelims):
     assert '<p class="not-seeded">Not seeded yet</p>' in final
     assert not re.search(r'class="heat-card"', final)
     assert 'class="not-seeded"' not in groups[0]
+
+
+def test_the_meet_preview_shows_what_settings_hide(pi):
+    """/meet is the officials' copy: a heat's age group, the round and the gender
+    show whatever the board and phone boxes say."""
+    from starlette.requests import Request
+
+    import app as pi_app
+    from routes.meet import route_meet
+
+    xml = MEET.replace(
+        '<HEATS><HEAT heatid="9" number="1" daytime="16:10" status="SEEDED"/></HEATS>',
+        '<AGEGROUPS><AGEGROUP agegroupid="7" agemin="13" agemax="14"/></AGEGROUPS>'
+        '<HEATS><HEAT heatid="9" number="1" daytime="16:10" status="SEEDED"'
+        ' agegroupid="7"/></HEATS>',
+    ).replace("{final}", FINAL_SEEDED)
+    assert 'agegroupid="7"/>' in xml
+    state.set_lenex(load_lenex(_lxf(xml)))
+    hidden = {
+        "heat_age_board": False,
+        "heat_age_phone": False,
+        "round_names_board": [],
+        "round_names_phone": [],
+        "name_gender_board": False,
+        "name_gender_phone": False,
+    }
+    saved = {k: state.settings.get(k) for k in hidden}
+    state.settings.update(hidden)
+    try:
+        scope = {
+            "type": "http",
+            "method": "GET",
+            "path": "/meet",
+            "query_string": b"",
+            "headers": [],
+            "session": {},
+            "app": pi_app.app,
+            "router": pi_app.app.router,
+        }
+        html = route_meet(Request(scope)).body.decode()
+    finally:
+        for k, v in saved.items():
+            if v is None:
+                state.settings.pop(k, None)
+            else:
+                state.settings[k] = v
+    assert '<span class="heat-age">13-14</span>' in html
+    assert "Prelims" in html and "Final" in html

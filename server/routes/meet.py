@@ -37,8 +37,9 @@ def route_meet(request: Request):
         kiosk="kiosk" in request.query_params,
         # Every round, as the Schedule's `?rounds=1` lists them (docs/app.md `S-24`):
         # a seeded final does not take its prelims off the printed start list, and
-        # one not seeded yet says so (`S-25`). Ages follow the board's box.
-        rounds=schedule_rounds(all_rounds=True, audience="board"),
+        # one not seeded yet says so (`S-25`). The officials' copy: no Settings box
+        # hides a heat's age group, a round or a gender here.
+        rounds=schedule_rounds(all_rounds=True, everything=True),
         not_seeded=state._mobile_strings().get("not_seeded", "Not seeded yet"),
         **data,
     )
