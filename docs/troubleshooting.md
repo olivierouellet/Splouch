@@ -204,6 +204,22 @@ the Pi's own screen), accept on the device, disconnect it, then enable the Pi's 
 
 </details>
 
+<details>
+<summary><strong>The WiFi asks for a username (eduroam, school or city networks)</strong></summary>
+
+**How it looks.** In **Settings → Network → WiFi Networks**, the network shows
+`802.1X`. These are WPA-Enterprise networks: each person signs in with their own
+account.
+
+**Fix.** Press **Connect** and enter the username and password the venue gives you.
+The defaults under **Advanced** (PEAP, MSCHAPv2) fit most networks. Enter the **Server
+domain** if the venue gives one: the Pi then checks the network's certificate, so a
+fake hotspot with the same name can't collect the password. If the connection fails
+with it, the network may use a private certificate: leave it blank. The password is
+saved on the Pi, so it rejoins after a restart.
+
+</details>
+
 ---
 
 <a id="troubleshooting-fr"></a>
@@ -422,5 +438,21 @@ de chaque onglet des Réglages indique *Cloud coupé : le WiFi redemande sa page
 connexion*. Le même appareil doit accepter à nouveau pendant que le Pi est hors de ce
 WiFi : désactiver le WiFi du Pi (par Ethernet ou l'écran du Pi), accepter sur
 l'appareil, le déconnecter, puis réactiver le WiFi du Pi.
+
+</details>
+
+<details>
+<summary><strong>Le WiFi demande un nom d'utilisateur (eduroam, réseaux d'école ou de ville)</strong></summary>
+
+**Symptôme.** Dans **Réglages → Réseau → Réseaux WiFi**, le réseau affiche `802.1X`.
+Ce sont des réseaux WPA-Entreprise : chacun se connecte avec son propre compte.
+
+**Solution.** Appuyer sur **Se connecter** et entrer le nom d'utilisateur et le mot de
+passe fournis par le site. Les valeurs par défaut sous **Avancé** (PEAP, MSCHAPv2)
+conviennent à la plupart des réseaux. Entrer le **Domaine du serveur** si le site en
+donne un : le Pi vérifie alors le certificat du réseau, et un faux point d'accès du
+même nom ne peut pas recueillir le mot de passe. Si la connexion échoue avec lui, le
+réseau utilise peut-être un certificat privé : le laisser vide. Le mot de passe est
+enregistré sur le Pi, qui se reconnecte après un redémarrage.
 
 </details>
