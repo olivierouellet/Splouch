@@ -769,6 +769,113 @@ function _applyWifiStatus(d) {
     }
     if (d.eth_gateway) document.getElementById('eth-gateway-input').value = d.eth_gateway;
     if (d.eth_dns) document.getElementById('eth-dns-input').value = d.eth_dns;
+    document.getElementById('eth-internet-input').checked = d.eth_internet !== false;
+    _ethInternetChanged();
+    document.getElementById('net-overlap-warn').style.display = d.overlap ? '' : 'none';
+    var mac = document.getElementById('wifi-mac-text');
+    mac.textContent = d.wifi_mac || '—';
+    if (d.wifi_mac_cloned) mac.textContent += ' (' + T.js_mac_borrowed + ')';
+    document.getElementById('btn-wifi-mac-reset').style.display = d.wifi_mac_cloned ? '' : 'none';
+}
+
+// Unticked: eth0 is a closed console network. The router becomes optional and the
+// internet and Cloud go over Wi-Fi (the server sets eth0 never to be the default
+// route).
+function _ethInternetChanged() {
+    var on = document.getElementById('eth-internet-input').checked;
+    document.getElementById('eth-console-hint').style.display = on ? 'none' : '';
+    document.getElementById('eth-dns-input').disabled = !on;
+}
+
+// Whether the Cloud answers, and through which port. A sign-in page (captive
+// portal) opens the Wi-Fi card's portal help.
+function checkConnectivity() {
+    var text = document.getElementById('net-conn-text');
+    var btn = document.getElementById('btn-net-conn');
+    btn.disabled = true;
+    _statusColor(text, 'muted');
+    text.textContent = T.net_mdns_checking;
+    fetch('/net_connectivity')
+        .then(function (r) {
+            return r.json();
+        })
+        .then(function (d) {
+            btn.disabled = false;
+            var via = d.via === 'wifi' ? T.net_wifi : d.via === 'ethernet' ? T.net_ethernet : '';
+            var msg = T['js_conn_' + d.state] || T.js_conn_unknown;
+            if (d.state === 'portal') {
+                _statusColor(text, 'err');
+                var help = /** @type {HTMLDetailsElement} */ (
+                    document.getElementById('wifi-portal')
+                );
+                help.open = true;
+            } else {
+                _statusColor(
+                    text,
+                    d.state === 'full' ? 'ok' : d.state === 'unknown' ? 'muted' : 'err',
+                );
+            }
+            text.textContent = via ? msg + ' · ' + T.js_conn_via + ' ' + via : msg;
+        })
+        .catch(function () {
+            btn.disabled = false;
+            _statusColor(text, 'err');
+            text.textContent = T.js_request_failed;
+        });
+}
+
+function _postWifiMac(mac) {
+    var status = document.getElementById('wifi-mac-status');
+    _statusColor(status, 'muted');
+    status.textContent = T.js_connecting;
+    fetch('/wifi_mac_set', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mac: mac }),
+    })
+        .then(function (r) {
+            return r.json();
+        })
+        .then(function (d) {
+            if (d.ok) {
+                _statusColor(status, 'ok');
+                status.textContent = T.js_connected_excl;
+                _netTabActive();
+            } else {
+                _statusColor(status, 'err');
+                status.textContent = d.error || T.js_failed;
+            }
+        })
+        .catch(function () {
+            // Settings reached over that same Wi-Fi drops while it reconnects.
+            _statusColor(status, 'muted');
+            status.textContent = T.js_mac_reconnect;
+        });
+}
+
+// Same rules as normalize_mac() on the server. Returns the address as
+// AA:BB:CC:DD:EE:FF, or '' when it isn't one a Wi-Fi card can have.
+function _normalizeMac(text) {
+    var hex = (text || '').replace(/[\s:.-]/g, '').toUpperCase();
+    if (!/^[0-9A-F]{12}$/.test(hex)) return '';
+    if (parseInt(hex.substr(0, 2), 16) & 1 || hex === '000000000000') return '';
+    return hex.match(/../g).join(':');
+}
+
+function setWifiMac() {
+    var mac = _normalizeMac(document.getElementById('wifi-mac-input').value);
+    var status = document.getElementById('wifi-mac-status');
+    if (!mac) {
+        _statusColor(status, 'err');
+        status.textContent = T.js_mac_bad;
+        return;
+    }
+    _postWifiMac(mac);
+}
+
+function resetWifiMac() {
+    document.getElementById('wifi-mac-input').value = '';
+    _postWifiMac('');
 }
 
 // Arm or disarm a press-and-hold on a toggle whose risky half is one state only
@@ -788,7 +895,11 @@ function setEthDhcp() {
     var status = document.getElementById('eth-ip-status');
     _statusColor(status, 'muted');
     status.textContent = T.js_applying;
-    fetch('/eth_dhcp_set', { method: 'POST' })
+    fetch('/eth_dhcp_set', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ internet: document.getElementById('eth-internet-input').checked }),
+    })
         .then(function (r) {
             return r.json();
         })
@@ -817,9 +928,10 @@ function _ipv4ToInt(s) {
 }
 
 // Same rules as the server's EthIP model and install.sh: a host address in an
-// /8–/30, a router inside that subnet, DNS optional (the router when blank).
+// /8–/30, a router inside that subnet, DNS optional (the router when blank). The
+// router is optional too when eth0 has no internet (`internet` false).
 // Returns the localized error, or '' when the form is valid.
-function _ethFormError(ip, prefix, gateway, dns) {
+function _ethFormError(ip, prefix, gateway, dns, internet) {
     if (!ip) return T.js_enter_ip;
     var a = _ipv4ToInt(ip);
     var p = parseInt(prefix, 10);
@@ -827,6 +939,7 @@ function _ethFormError(ip, prefix, gateway, dns) {
     var size = 2 ** (32 - p);
     var host = a % size;
     if (host === 0 || host === size - 1) return T.js_eth_bad_ip;
+    if (!gateway && !internet) return '';
     var g = _ipv4ToInt(gateway);
     if (g === null || g === a || Math.floor(g / size) !== Math.floor(a / size))
         return T.js_eth_bad_gateway;
@@ -839,8 +952,9 @@ function setEthIp() {
     var prefix = document.getElementById('eth-prefix-input').value.trim();
     var gateway = document.getElementById('eth-gateway-input').value.trim();
     var dns = document.getElementById('eth-dns-input').value.trim();
+    var internet = document.getElementById('eth-internet-input').checked;
     var status = document.getElementById('eth-ip-status');
-    var err = _ethFormError(ip, prefix, gateway, dns);
+    var err = _ethFormError(ip, prefix, gateway, dns, internet);
     if (err) {
         _statusColor(status, 'err');
         status.textContent = err;
@@ -851,7 +965,13 @@ function setEthIp() {
     fetch('/eth_ip_set', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ip: ip, prefix: prefix, gateway: gateway, dns: dns || null }),
+        body: JSON.stringify({
+            ip: ip,
+            prefix: prefix,
+            gateway: gateway || null,
+            dns: (internet && dns) || null,
+            internet: internet,
+        }),
     })
         .then(function (r) {
             return r.json();
@@ -882,6 +1002,7 @@ function _netTabActive() {
         .catch(function () {
             document.getElementById('wifi-status-text').textContent = T.js_error_loading_status;
         });
+    checkConnectivity();
 }
 
 function toggleWifi() {

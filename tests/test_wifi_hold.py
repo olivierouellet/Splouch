@@ -90,7 +90,7 @@ var T = {
     };
 function _statusColor() {{}}
 function _el() {{
-    return {{ attrs: {{}}, textContent: '', disabled: true,
+    return {{ attrs: {{}}, textContent: '', disabled: true, checked: true, style: {{}},
               setAttribute: function (k, v) {{ this.attrs[k] = v; }},
               removeAttribute: function (k) {{ delete this.attrs[k]; }},
               hasAttribute: function (k) {{ return k in this.attrs; }} }};

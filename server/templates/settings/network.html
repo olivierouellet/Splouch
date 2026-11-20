@@ -12,6 +12,13 @@
                             <span id="wifi-status-text" class="flex-fill small"></span>
                             <button id="btn-wifi-toggle" class="btn btn-secondary btn-sm text-nowrap" type="button" disabled style="touch-action:none;" data-hold-fn="toggleWifi">…</button>
                         </div>
+                        <!-- Internet: which port carries it, and whether the Cloud answers (a sign-in page in the way shows here) -->
+                        <div class="d-flex align-items-center gap-2 mt-2">
+                            <span class="text-body-secondary small" style="min-width:70px;">{{ t.net_internet }}</span>
+                            <span id="net-conn-text" class="flex-fill small text-body-secondary">—</span>
+                            <button id="btn-net-conn" type="button" class="btn btn-secondary btn-sm text-nowrap" style="min-width:80px;" onclick="checkConnectivity()">{{ t.net_mdns_check }}</button>
+                        </div>
+                        <div id="net-overlap-warn" class="small mt-2" style="display:none; color:var(--bs-warning-text-emphasis);">{{ t.net_overlap_warn }}</div>
                     </div></div>
 
                     <!-- Discovery (mDNS) block: checked on demand, a few seconds of lookups -->
@@ -51,6 +58,11 @@
                             <span class="text-body-secondary small ms-2">{{ t.net_eth_dns }}</span>
                             <input id="eth-dns-input" type="text" class="form-control form-control-sm" placeholder="{{ t.net_eth_dns_ph }}" maxlength="15" style="width:140px; flex:none;">
                         </div>
+                        <div class="form-check mb-1">
+                            <input class="form-check-input" type="checkbox" id="eth-internet-input" checked onchange="_ethInternetChanged()">
+                            <label class="form-check-label small" for="eth-internet-input">{{ t.net_eth_internet }}</label>
+                        </div>
+                        <div id="eth-console-hint" class="small text-body-secondary mb-2" style="display:none;">{{ t.net_eth_console_hint }}</div>
                         <div class="d-flex flex-wrap align-items-center gap-1 mb-2">
                             <button type="button" class="btn btn-secondary btn-sm text-nowrap" style="min-width:80px;" data-hold data-hold-fn="setEthIp" data-hold-label="{{ t.hold_apply }}">{{ t.net_static }}</button>
                             <button type="button" class="btn btn-secondary btn-sm text-nowrap" style="min-width:80px;" data-hold data-hold-fn="setEthDhcp" data-hold-label="{{ t.hold_apply }}">{{ t.net_dhcp }}</button>
@@ -70,6 +82,30 @@
                                     hx-on::before-request="document.getElementById('wifi-net-list').innerHTML = '<span class=&quot;text-body-secondary&quot;>{{ t.net_scanning }}</span>'">{{ t.net_scan }}</button>
                         </div>
                         <div id="wifi-net-list" class="small" style="min-height:32px;"><span class="text-body-secondary">{{ t.net_click_scan }}</span></div>
+
+                        <!-- Captive portal: the Pi borrows the MAC address of a device that accepted the sign-in page. Opens by itself when one is detected. -->
+                        <details id="wifi-portal" class="small mt-2">
+                            <summary>{{ t.net_portal_title }}</summary>
+                            <p class="mt-2 mb-2 text-body-secondary">{{ t.net_portal_intro }}</p>
+                            <ol class="ps-3 mb-2">
+                                <li class="mb-1">{{ t.net_portal_step_accept }}</li>
+                                <li class="mb-1">{{ t.net_portal_step_find }}</li>
+                                <li class="mb-1">{{ t.net_portal_step_leave }}</li>
+                                <li class="mb-1">{{ t.net_portal_step_apply }}</li>
+                            </ol>
+                            <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+                                <span class="text-body-secondary" style="min-width:70px;">{{ t.net_portal_pi_mac }}</span>
+                                <span id="wifi-mac-text" style="font-family:monospace;">—</span>
+                            </div>
+                            <div class="d-flex flex-wrap align-items-center gap-1 mb-2">
+                                <input id="wifi-mac-input" type="text" class="form-control form-control-sm" placeholder="AA:BB:CC:DD:EE:FF" maxlength="17" autocapitalize="characters" spellcheck="false" style="width:170px; flex:none; font-family:monospace;">
+                                <button type="button" class="btn btn-secondary btn-sm text-nowrap" style="min-width:80px;" data-hold data-hold-fn="setWifiMac" data-hold-label="{{ t.hold_apply }}">{{ t.net_portal_use_mac }}</button>
+                                <button id="btn-wifi-mac-reset" type="button" class="btn btn-secondary btn-sm text-nowrap" style="min-width:80px; display:none;" data-hold data-hold-fn="resetWifiMac" data-hold-label="{{ t.hold_apply }}">{{ t.net_portal_reset_mac }}</button>
+                            </div>
+                            <div id="wifi-mac-status" class="mb-1"></div>
+                            <div class="mb-1" style="color:var(--bs-warning-text-emphasis);">{{ t.net_portal_warn }}</div>
+                            <div class="text-body-secondary">{{ t.net_portal_other }}</div>
+                        </details>
 
                         <hr>
 
