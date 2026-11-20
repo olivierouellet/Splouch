@@ -1048,12 +1048,15 @@ document.getElementById('btn-wifi-toggle').addEventListener('click', function ()
 // #wifi-net-list. The "Connect" buttons in that fragment call showJoinForm().
 
 var _joinEnterprise = false;
+var _joinHidden = false;
 
 // `enterprise`: the network is WPA-Enterprise (802.1X, e.g. eduroam), which takes a
 // username too, and the Advanced settings.
 function showJoinForm(ssid, needsPassword, enterprise) {
     _joinSsid = ssid;
     _joinEnterprise = !!enterprise;
+    _joinHidden = false;
+    document.getElementById('wifi-join-other').style.setProperty('display', 'none', 'important');
     document.getElementById('wifi-join-user').value = '';
     document.getElementById('wifi-join-user').style.display = _joinEnterprise ? '' : 'none';
     document.getElementById('wifi-join-ent').style.display = _joinEnterprise ? '' : 'none';
@@ -1067,6 +1070,27 @@ function showJoinForm(ssid, needsPassword, enterprise) {
     else if (needsPassword) document.getElementById('wifi-join-pw').focus();
 }
 
+// A network that isn't in the scan (hidden): the operator names it and says what
+// security it has, which scanning would otherwise have told.
+function showOtherForm() {
+    showJoinForm('', true, false);
+    _joinHidden = true;
+    document.getElementById('wifi-join-ssid').textContent = T.net_other_network;
+    document.getElementById('wifi-join-other').style.removeProperty('display');
+    document.getElementById('wifi-join-ssid-input').value = '';
+    document.getElementById('wifi-join-sec').value = 'psk';
+    _joinSecChanged();
+    document.getElementById('wifi-join-ssid-input').focus();
+}
+
+function _joinSecChanged() {
+    var sec = document.getElementById('wifi-join-sec').value;
+    _joinEnterprise = sec === 'eap';
+    document.getElementById('wifi-join-pw').style.display = sec === 'open' ? 'none' : '';
+    document.getElementById('wifi-join-user').style.display = _joinEnterprise ? '' : 'none';
+    document.getElementById('wifi-join-ent').style.display = _joinEnterprise ? '' : 'none';
+}
+
 function cancelJoin() {
     document.getElementById('wifi-join-form').style.display = 'none';
 }
@@ -1075,6 +1099,16 @@ function connectWifi() {
     var pw = document.getElementById('wifi-join-pw').value;
     var status = document.getElementById('wifi-join-status');
     var body = { ssid: _joinSsid, password: pw };
+    if (_joinHidden) {
+        body.ssid = document.getElementById('wifi-join-ssid-input').value;
+        body.hidden = true;
+        if (document.getElementById('wifi-join-sec').value === 'open') body.password = '';
+        if (!body.ssid.trim()) {
+            _statusColor(status, 'err');
+            status.textContent = T.js_enter_ssid;
+            return;
+        }
+    }
     if (_joinEnterprise) {
         body.identity = document.getElementById('wifi-join-user').value.trim();
         if (!body.identity) {

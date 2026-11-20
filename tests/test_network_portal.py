@@ -524,7 +524,7 @@ def _body(**kw):
 
 def test_enterprise_password_goes_to_nmcli_on_stdin_only(monkeypatch):
     nm, edits = _enterprise(monkeypatch)
-    assert network._wifi_connect_enterprise(_body()) == {"ok": True}
+    assert network._wifi_connect_profile(_body()) == {"ok": True}
     every_arg = [a for call in nm for a in call] + [a for c, _ in edits for a in c]
     assert all("s3cret" not in a for a in every_arg)
     edit = [i for c, i in edits if c[:3] == ["nmcli", "con", "edit"]]
@@ -533,7 +533,7 @@ def test_enterprise_password_goes_to_nmcli_on_stdin_only(monkeypatch):
 
 def test_enterprise_profile(monkeypatch):
     nm, _ = _enterprise(monkeypatch)
-    network._wifi_connect_enterprise(_body())
+    network._wifi_connect_profile(_body())
     add = next(c for c in nm if c[:2] == ["con", "add"])
     p = dict(zip(add[4::2], add[5::2], strict=True))
     assert p["802-11-wireless.ssid"] == "eduroam"
@@ -556,7 +556,7 @@ def test_enterprise_with_a_domain_checks_the_certificate(monkeypatch):
         domain="radius.uni.edu",
         anonymous_identity="a@uni.edu",
     )
-    network._wifi_connect_enterprise(body)
+    network._wifi_connect_profile(body)
     add = next(c for c in nm if c[:2] == ["con", "add"])
     p = dict(zip(add[4::2], add[5::2], strict=True))
     assert p["802-1x.system-ca-certs"] == "yes"
@@ -567,7 +567,7 @@ def test_enterprise_with_a_domain_checks_the_certificate(monkeypatch):
 
 def test_enterprise_keeps_the_borrowed_mac(monkeypatch):
     nm, _ = _enterprise(monkeypatch, borrowed="3A\\:BB\\:CC\\:DD\\:EE\\:01\n")
-    network._wifi_connect_enterprise(_body())
+    network._wifi_connect_profile(_body())
     add = next(c for c in nm if c[:2] == ["con", "add"])
     p = dict(zip(add[4::2], add[5::2], strict=True))
     assert p["802-11-wireless.cloned-mac-address"] == "3A:BB:CC:DD:EE:01"
@@ -576,7 +576,7 @@ def test_enterprise_keeps_the_borrowed_mac(monkeypatch):
 def test_enterprise_failure_removes_the_profile(monkeypatch):
     # A wrong password would otherwise keep retrying in the background.
     nm, _ = _enterprise(monkeypatch, up_ok=False)
-    assert network._wifi_connect_enterprise(_body()).status_code == 400
+    assert network._wifi_connect_profile(_body()).status_code == 400
     assert nm[-1] == ["con", "delete", UUID]
 
 
@@ -598,12 +598,68 @@ def test_enterprise_fields_are_checked(fields):
 
 def test_a_username_selects_enterprise(monkeypatch):
     seen = []
-    monkeypatch.setattr(
-        network, "_wifi_connect_enterprise", lambda b: seen.append("ent")
-    )
+    monkeypatch.setattr(network, "_wifi_connect_profile", lambda b: seen.append("ent"))
     monkeypatch.setattr(network, "_wifi_connect", lambda s, p: seen.append("psk"))
     asyncio.run(network.route_wifi_connect(_body()))
     asyncio.run(
         network.route_wifi_connect(network.WifiConnect(ssid="Pool", password="x"))
     )
     assert seen == ["ent", "psk"]
+
+
+# ── Hidden networks ───────────────────────────────────────────────────────────
+
+
+def _hidden(**kw):
+    return network.WifiConnect.model_validate({"ssid": "Deck", "hidden": True, **kw})
+
+
+def _add_props(nm):
+    add = next(c for c in nm if c[:2] == ["con", "add"])
+    return dict(zip(add[4::2], add[5::2], strict=True))
+
+
+def test_hidden_wpa_network(monkeypatch):
+    nm, edits = _enterprise(monkeypatch)
+    assert network._wifi_connect_profile(_hidden(password="poolside1")) == {"ok": True}
+    p = _add_props(nm)
+    assert p["802-11-wireless.hidden"] == "yes"
+    assert p["802-11-wireless-security.key-mgmt"] == "wpa-psk"
+    assert "802-1x.identity" not in p
+    assert all("poolside1" not in a for c in nm for a in c)
+    edit = [i for c, i in edits if c[:3] == ["nmcli", "con", "edit"]]
+    assert edit == [
+        "set 802-11-wireless-security.psk poolside1\nsave persistent\nquit\n"
+    ]
+
+
+def test_hidden_open_network_has_no_secret(monkeypatch):
+    nm, edits = _enterprise(monkeypatch)
+    assert network._wifi_connect_profile(_hidden()) == {"ok": True}
+    p = _add_props(nm)
+    assert p["802-11-wireless.hidden"] == "yes"
+    assert "802-11-wireless-security.key-mgmt" not in p
+    assert not [c for c, _ in edits if c[:3] == ["nmcli", "con", "edit"]]
+    assert ["con", "up", UUID] in nm
+
+
+def test_hidden_enterprise_network(monkeypatch):
+    nm, _ = _enterprise(monkeypatch)
+    network._wifi_connect_profile(_hidden(identity="jo", password="pw"))
+    p = _add_props(nm)
+    assert p["802-11-wireless.hidden"] == "yes"
+    assert p["802-11-wireless-security.key-mgmt"] == "wpa-eap"
+
+
+def test_a_visible_network_has_no_hidden_flag(monkeypatch):
+    nm, _ = _enterprise(monkeypatch)
+    network._wifi_connect_profile(_body())
+    assert "802-11-wireless.hidden" not in _add_props(nm)
+
+
+def test_hidden_selects_the_profile_path(monkeypatch):
+    seen = []
+    monkeypatch.setattr(network, "_wifi_connect_profile", lambda b: seen.append("p"))
+    monkeypatch.setattr(network, "_wifi_connect", lambda s, p: seen.append("psk"))
+    asyncio.run(network.route_wifi_connect(_hidden(password="poolside1")))
+    assert seen == ["p"]

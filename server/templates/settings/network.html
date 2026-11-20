@@ -78,6 +78,7 @@
                         <!-- Network list -->
                         <div class="d-flex align-items-center mb-2">
                             <span class="fw-bold flex-fill">{{ t.net_wifi_networks }}</span>
+                            <button type="button" class="btn btn-secondary btn-sm text-nowrap me-1" onclick="showOtherForm()">{{ t.net_other_network }}</button>
                             <button type="button" class="btn btn-secondary btn-sm text-nowrap" style="min-width:80px;"
                                     hx-get="/wifi_scan" hx-target="#wifi-net-list" hx-disabled-elt="this"
                                     hx-on::before-request="document.getElementById('wifi-net-list').innerHTML = '<span class=&quot;text-body-secondary&quot;>{{ t.net_scanning }}</span>'">{{ t.net_scan }}</button>
@@ -125,6 +126,16 @@
                         <div id="wifi-join-form" class="mt-2 p-2 rounded border" style="display:none;">
                             <div class="fw-bold mb-1" id="wifi-join-ssid"></div>
                             <form class="d-flex flex-wrap gap-1" onsubmit="connectWifi(); return false;">
+                                <!-- Other network (hidden, not in the scan): its name and security, which scanning can't tell -->
+                                <div id="wifi-join-other" class="w-100 d-flex flex-wrap gap-1" style="display:none !important;">
+                                    <input type="text" id="wifi-join-ssid-input" class="form-control form-control-sm" style="flex:1; min-width:140px;"
+                                           maxlength="32" autocapitalize="none" spellcheck="false" placeholder="{{ t.net_other_ssid }}">
+                                    <select id="wifi-join-sec" class="form-select form-select-sm" style="width:auto;" onchange="_joinSecChanged()">
+                                        <option value="psk">{{ t.net_sec_psk }}</option>
+                                        <option value="open">{{ t.net_sec_open }}</option>
+                                        <option value="eap">{{ t.net_sec_eap }}</option>
+                                    </select>
+                                </div>
                                 <!-- WPA-Enterprise (802.1X) only: a username, and the Advanced block below -->
                                 <input type="text" id="wifi-join-user" class="form-control form-control-sm" style="display:none; flex:1; min-width:120px;"
                                        autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="{{ t.net_ent_identity }}">

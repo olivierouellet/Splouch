@@ -76,6 +76,10 @@ class WifiConnect(BaseModel):
     # The RADIUS server's domain. Set, the Pi checks the server's certificate
     # against the system CAs and that domain; blank, it checks nothing.
     domain: str = ""
+    # A network that doesn't broadcast its name: scanning can't find it or tell its
+    # security, so the profile is made from what the operator says (a password: WPA
+    # Personal; none: open; a username: Enterprise).
+    hidden: bool = False
 
     @model_validator(mode="after")
     def _plain_text(self):
@@ -451,8 +455,8 @@ def route_cloud_toggle():
 async def route_wifi_connect(body: WifiConnect):
     # nmcli connect can take up to 30 s — run it off the event loop so live
     # scoreboard broadcasts keep flowing while it works.
-    if body.identity:
-        return await run_in_threadpool(_wifi_connect_enterprise, body)
+    if body.identity or body.hidden:
+        return await run_in_threadpool(_wifi_connect_profile, body)
     return await run_in_threadpool(_wifi_connect, body.ssid, body.password)
 
 
@@ -507,28 +511,38 @@ def _wifi_connect(ssid, password):
         return JSONResponse({"error": failure("Connecting")}, status_code=500)
 
 
-def _wifi_connect_enterprise(body):
-    """Join a WPA-Enterprise network: a profile with no secret in it, the password
-    set through `nmcli con edit` on stdin, then brought up.
+def _wifi_connect_profile(body):
+    """Join a network `dev wifi connect` can't: WPA-Enterprise, or a hidden one.
 
-    `dev wifi connect` can't do 802.1X. The password must never be an argument,
-    where every process on the Pi can read it from `ps`, and it must be saved, or
-    the Pi can't rejoin after a reboot with nobody there to type it."""
+    A profile with no secret in it, the secret set through `nmcli con edit` on
+    stdin, then brought up. The secret must never be an argument, where every
+    process on the Pi can read it from `ps`, and it must be saved, or the Pi can't
+    rejoin after a reboot with nobody there to type it."""
     if not body.ssid:
         return JSONResponse({"error": "No SSID provided"}, status_code=400)
     try:
         borrowed = _replace_profile(body.ssid)
         props = [
             *("connection.id", body.ssid, "802-11-wireless.ssid", body.ssid),
-            # Off until the password is in, so it can't start without one.
+            # Off until the secret is in, so it can't start without one.
             *("connection.autoconnect", "no"),
-            *("802-11-wireless-security.key-mgmt", "wpa-eap"),
-            *("802-1x.eap", body.eap, "802-1x.phase2-auth", body.phase2),
-            *("802-1x.identity", body.identity),
         ]
-        if body.anonymous_identity:
+        if body.hidden:
+            props += ["802-11-wireless.hidden", "yes"]
+        secret = ""
+        if body.identity:
+            secret = "802-1x.password"
+            props += [
+                *("802-11-wireless-security.key-mgmt", "wpa-eap"),
+                *("802-1x.eap", body.eap, "802-1x.phase2-auth", body.phase2),
+                *("802-1x.identity", body.identity),
+            ]
+        elif body.password:
+            secret = "802-11-wireless-security.psk"
+            props += ["802-11-wireless-security.key-mgmt", "wpa-psk"]
+        if body.identity and body.anonymous_identity:
             props += ["802-1x.anonymous-identity", body.anonymous_identity]
-        if body.domain:
+        if body.identity and body.domain:
             props += ["802-1x.system-ca-certs", "yes"]
             props += ["802-1x.domain-suffix-match", body.domain]
         if borrowed:
@@ -541,22 +555,24 @@ def _wifi_connect_enterprise(body):
                 status_code=400,
             )
         uuid = uuid[1]
-        r = subprocess.run(
-            ["nmcli", "con", "edit", "uuid", uuid],
-            input=f"set 802-1x.password {body.password}\nsave persistent\nquit\n",
-            capture_output=True,
-            text=True,
-            timeout=15,
-            check=False,
-        )
-        if r.returncode != 0:
-            _nmcli("con", "delete", uuid)
-            return JSONResponse(
-                {"error": (r.stderr or r.stdout).strip() or "nmcli error"},
-                status_code=500,
+        if secret:
+            r = subprocess.run(
+                ["nmcli", "con", "edit", "uuid", uuid],
+                input=f"set {secret} {body.password}\nsave persistent\nquit\n",
+                capture_output=True,
+                text=True,
+                timeout=15,
+                check=False,
             )
+            if r.returncode != 0:
+                _nmcli("con", "delete", uuid)
+                return JSONResponse(
+                    {"error": (r.stderr or r.stdout).strip() or "nmcli error"},
+                    status_code=500,
+                )
         _nmcli("con", "mod", uuid, "connection.autoconnect", "yes")
-        # EAP takes longer than a PSK: a round trip to the venue's RADIUS server.
+        # EAP takes longer than a PSK (a round trip to the venue's RADIUS server),
+        # and a hidden network has to be probed for by name.
         r = _nmcli("con", "up", uuid, timeout=45)
         if r.returncode != 0:
             # A wrong password would otherwise keep retrying in the background.
