@@ -172,6 +172,12 @@ Ethernet then never takes the default route; **Internet** in *Status* should rea
 WiFi use the same addresses: pick the Ethernet address on another subnet if the
 console allows it.
 
+With no DHCP server on the console network, Ethernet on DHCP falls back to a
+`169.254.x.x` address (*Status* says *no DHCP server*): enough to hear a console that
+broadcasts to every network. *Status* then shows where the console sends from
+(*console 192.168.0.20, 5 s ago*); if it warns that the console is on another subnet,
+set a static address on that subnet.
+
 </details>
 
 <details>
@@ -190,6 +196,11 @@ device from that WiFi, then enter the address and hold **Use**. The Pi reconnect
 with it, and the portal sees the device it already let in. **Pi's own** puts the Pi's
 address back. Otherwise, ask the venue to let the Pi's MAC (shown there) through, or
 use a phone hotspot.
+
+**When the sign-in expires** (often after a few hours), a banner over every Settings
+tab says *Cloud down: the WiFi wants its sign-in page again*. The same device must
+accept again while the Pi is off that WiFi: disable the Pi's WiFi (from Ethernet or
+the Pi's own screen), accept on the device, disconnect it, then enable the Pi's WiFi.
 
 </details>
 
@@ -380,6 +391,12 @@ sous-réseaux qui se chevauchent, le réseau de la console et le WiFi utilisent 
 mêmes adresses : choisir l'adresse Ethernet sur un autre sous-réseau si la console le
 permet.
 
+Sans serveur DHCP sur le réseau de la console, Ethernet en DHCP se rabat sur une
+adresse `169.254.x.x` (*État* indique *pas de serveur DHCP*) : assez pour entendre une
+console qui diffuse à tous les réseaux. *État* montre alors d'où la console envoie
+(*console 192.168.0.20, il y a 5 s*) ; s'il signale que la console est sur un autre
+sous-réseau, donner une adresse statique sur ce sous-réseau.
+
 </details>
 
 <details>
@@ -399,5 +416,11 @@ appareil pour ce réseau, déconnecter l'appareil de ce WiFi, puis entrer l'adre
 maintenir **Utiliser**. Le Pi se reconnecte avec elle, et le portail voit l'appareil
 qu'il a déjà accepté. **Celle du Pi** remet l'adresse du Pi. Sinon, demander au site
 de laisser passer la MAC du Pi (affichée là), ou utiliser un partage de connexion.
+
+**Quand la connexion expire** (souvent après quelques heures), un bandeau au-dessus
+de chaque onglet des Réglages indique *Cloud coupé : le WiFi redemande sa page de
+connexion*. Le même appareil doit accepter à nouveau pendant que le Pi est hors de ce
+WiFi : désactiver le WiFi du Pi (par Ethernet ou l'écran du Pi), accepter sur
+l'appareil, le déconnecter, puis réactiver le WiFi du Pi.
 
 </details>
