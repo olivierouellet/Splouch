@@ -153,6 +153,46 @@ network (a phone hotspot works). A wrong clock gives similar errors — check `d
 
 </details>
 
+<details>
+<summary><strong>The console's UDP stream or the Cloud, never both</strong></summary>
+
+**How it looks.** The console broadcasts on a closed network plugged into the Pi's
+Ethernet port, and the internet comes over the venue WiFi. With Ethernet set up, the
+board gets the console but the Cloud drops; without it, the reverse.
+
+**Why.** Splouch assumed Ethernet was the venue router. A static address needed a
+router, and that router took the default route ahead of WiFi, so the Cloud's traffic
+went into the closed network and stopped there. A closed network rarely has a DHCP
+server either, so on DHCP Ethernet got no address and the UDP listener never opened.
+
+**Fix.** **Settings → Network → Ethernet Static IP**: untick *Ethernet has internet*,
+enter an address on the console's subnet (router left blank), and hold **Static**.
+Ethernet then never takes the default route; **Internet** in *Status* should read
+*via WiFi*. If *Status* warns about overlapping subnets, the console network and the
+WiFi use the same addresses: pick the Ethernet address on another subnet if the
+console allows it.
+
+</details>
+
+<details>
+<summary><strong>The venue WiFi has a sign-in page (captive portal)</strong></summary>
+
+**How it looks.** The Pi joins the WiFi and gets an address, but the Cloud never
+connects. **Settings → Network → Internet** reads *Sign-in page in the way*.
+
+**Why.** The portal lets through only the device that accepted it, by its MAC
+address. The Pi has no browser, and accepting it from Settings on another computer
+lets in that computer, not the Pi.
+
+**Fix.** Under **WiFi Networks → WiFi asks for a sign-in page?**: accept the portal on
+a phone or laptop, copy that device's WiFi address for this network, disconnect the
+device from that WiFi, then enter the address and hold **Use**. The Pi reconnects
+with it, and the portal sees the device it already let in. **Pi's own** puts the Pi's
+address back. Otherwise, ask the venue to let the Pi's MAC (shown there) through, or
+use a phone hotspot.
+
+</details>
+
 ---
 
 <a id="troubleshooting-fr"></a>
@@ -316,5 +356,48 @@ sudo rm -rf /var/lib/apt/lists/* && sudo apt update
 `deb.debian.org` et `archive.raspberrypi.com`, ou installez depuis un autre réseau (un
 partage de connexion de téléphone fonctionne). Une horloge erronée produit des erreurs
 semblables — vérifiez `date`.
+
+</details>
+
+<details>
+<summary><strong>Le flux UDP de la console ou le Cloud, jamais les deux</strong></summary>
+
+**Symptôme.** La console diffuse sur un réseau fermé branché au port Ethernet du Pi,
+et internet arrive par le WiFi du site. Avec Ethernet configuré, le tableau reçoit la
+console mais le Cloud décroche ; sans, c'est l'inverse.
+
+**Cause.** Splouch supposait qu'Ethernet était le routeur du site. Une adresse
+statique exigeait un routeur, qui prenait la route par défaut devant le WiFi : le
+trafic du Cloud partait dans le réseau fermé et s'y arrêtait. Un réseau fermé a
+rarement un serveur DHCP non plus : en DHCP, Ethernet n'avait pas d'adresse et
+l'écoute UDP ne s'ouvrait jamais.
+
+**Solution.** **Réglages → Réseau → IP statique Ethernet** : décocher *Ethernet a
+internet*, entrer une adresse sur le sous-réseau de la console (routeur vide) et
+maintenir **Statique**. Ethernet ne prend alors jamais la route par défaut ;
+**Internet** dans *État* devrait indiquer *par WiFi*. Si *État* signale des
+sous-réseaux qui se chevauchent, le réseau de la console et le WiFi utilisent les
+mêmes adresses : choisir l'adresse Ethernet sur un autre sous-réseau si la console le
+permet.
+
+</details>
+
+<details>
+<summary><strong>Le WiFi du site a une page de connexion (portail captif)</strong></summary>
+
+**Symptôme.** Le Pi rejoint le WiFi et obtient une adresse, mais le Cloud ne se
+connecte jamais. **Réglages → Réseau → Internet** indique *Page de connexion en
+travers*.
+
+**Cause.** Le portail ne laisse passer que l'appareil qui l'a accepté, par son adresse
+MAC. Le Pi n'a pas de navigateur, et l'accepter depuis les Réglages sur un autre
+ordinateur fait passer cet ordinateur, pas le Pi.
+
+**Solution.** Sous **Réseaux WiFi → Le WiFi demande une page de connexion ?** :
+accepter le portail sur un téléphone ou un portable, copier l'adresse WiFi de cet
+appareil pour ce réseau, déconnecter l'appareil de ce WiFi, puis entrer l'adresse et
+maintenir **Utiliser**. Le Pi se reconnecte avec elle, et le portail voit l'appareil
+qu'il a déjà accepté. **Celle du Pi** remet l'adresse du Pi. Sinon, demander au site
+de laisser passer la MAC du Pi (affichée là), ou utiliser un partage de connexion.
 
 </details>
