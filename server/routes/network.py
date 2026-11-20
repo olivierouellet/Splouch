@@ -4,6 +4,7 @@ import json
 import re
 import socket
 import subprocess
+import threading
 import time
 from urllib.parse import urlsplit
 
@@ -78,6 +79,11 @@ class WifiStatus(BaseModel):
     # eth0 and Wi-Fi on overlapping subnets: the Pi can't tell which port an
     # address on them is behind, so one of the two stops working.
     overlap: bool = False
+    # The console's address, as its last UDP datagram showed it, and how long ago
+    # (seconds). `console_subnet` is False when it's outside eth0's subnet.
+    console_from: str = ""
+    console_age: int = 0
+    console_subnet: bool = True
 
 
 class Connectivity(BaseModel):
@@ -101,6 +107,9 @@ class CloudStatus(BaseModel):
     # The region the cloud put this organizer in (`ca`, `us`, `mx`, `eu`), '' until the
     # Pi has an assignment. The admin's call; shown read-only.
     region: str = ""
+    # What the network watcher found while the relay can't reach the Cloud (see
+    # NetWatch), None while there's nothing to report.
+    network: Connectivity | None = None
 
 
 def _nmcli(*args, timeout=8):
@@ -163,6 +172,25 @@ def subnets_overlap(a, b):
     return net_a.overlaps(net_b)
 
 
+def console_source(source, eth_cidr, now):
+    """The WifiStatus fields for where the console's UDP comes from."""
+    address = (source or {}).get("address", "")
+    if not address:
+        return {}
+    inside = True
+    if eth_cidr:
+        try:
+            net = ipaddress.IPv4Interface(eth_cidr).network
+            inside = ipaddress.IPv4Address(address) in net
+        except ValueError:
+            pass
+    return {
+        "console_from": address,
+        "console_age": max(0, int(now - source.get("at", now))),
+        "console_subnet": inside,
+    }
+
+
 def _read_mac(device):
     if not device:
         return ""
@@ -180,6 +208,16 @@ def _active_wifi_uuid():
     for line in r.stdout.splitlines():
         uuid, typ = _split_terse(line, 2)
         if typ == "802-11-wireless":
+            return uuid
+    return ""
+
+
+def _profile_uuid(ssid):
+    """UUID of the saved Wi-Fi profile named `ssid`, '' when there is none."""
+    r = _nmcli("-t", "-f", "UUID,TYPE,NAME", "con", "show")
+    for line in r.stdout.splitlines():
+        uuid, typ, name = _split_terse(line, 3)
+        if typ == "802-11-wireless" and name == ssid:
             return uuid
     return ""
 
@@ -256,6 +294,7 @@ def route_wifi_status():
             "wifi_mac": _read_mac(wifi_dev),
             "wifi_mac_cloned": _cloned_mac(_active_wifi_uuid()),
             "overlap": subnets_overlap(eth_cidr, wifi_cidr),
+            **console_source(state._udp_source, eth_cidr, time.time()),
         }
     except FileNotFoundError:
         return JSONResponse({"error": "nmcli not found"}, status_code=503)
@@ -363,7 +402,7 @@ def route_wifi_toggle():
 def route_cloud_status():
     import relay
 
-    return relay.status()
+    return {**relay.status(), "network": WATCH.report()}
 
 
 @router.post(
@@ -376,7 +415,7 @@ def route_cloud_toggle():
         relay.stop()
     else:
         relay.start()
-    return relay.status()
+    return {**relay.status(), "network": WATCH.report()}
 
 
 @router.post(
@@ -399,6 +438,9 @@ def _wifi_connect(ssid, password):
         # `--` first: an SSID is attacker-chosen text off the air, and one
         # beginning with `-` would otherwise be parsed as an nmcli option rather
         # than as the name of a connection.
+        # A MAC address borrowed for a captive portal (see /wifi_mac_set) belongs
+        # to the network, so it survives the profile being made again.
+        borrowed = _cloned_mac(_profile_uuid(ssid))
         subprocess.run(
             ["sudo", "nmcli", "connection", "delete", "--", ssid],
             capture_output=True,
@@ -417,9 +459,13 @@ def _wifi_connect(ssid, password):
             timeout=30,
             check=False,
         )
-        if r.returncode == 0:
-            return {"ok": True}
-        return JSONResponse({"error": (r.stderr or r.stdout).strip()}, status_code=400)
+        if r.returncode != 0:
+            return JSONResponse(
+                {"error": (r.stderr or r.stdout).strip()}, status_code=400
+            )
+        if borrowed:
+            return _wifi_mac_set(borrowed)
+        return {"ok": True}
     except subprocess.TimeoutExpired:
         return JSONResponse({"error": "Timed out"}, status_code=500)
     except Exception:
@@ -469,19 +515,24 @@ def _eth_route_props(internet):
 )
 async def route_eth_dhcp_set(body: EthDhcp | None = None):
     # No body: as before, eth0 carries the internet.
-    internet = body.internet if body else True
-    return await run_in_threadpool(
-        _eth_apply,
-        "ipv4.method",
-        "auto",
-        "ipv4.addresses",
-        "",
-        "ipv4.gateway",
-        "",
-        "ipv4.dns",
-        "",
+    return await run_in_threadpool(_eth_dhcp, body.internet if body else True)
+
+
+def _eth_dhcp(internet):
+    props = (
+        *("ipv4.method", "auto", "ipv4.addresses", "", "ipv4.gateway", ""),
+        *("ipv4.dns", ""),
         *_eth_route_props(internet),
     )
+    # A closed console network seldom has a DHCP server, and without an address
+    # the UDP listener can't open. `fallback` gives eth0 a link-local 169.254.x.x
+    # address when no lease comes, enough to hear a console broadcasting to
+    # 255.255.255.255 (and to show where it sends from). NetworkManager after 1.48
+    # only: an older one refuses the value, so try again without it.
+    result = _eth_apply(*props, "ipv4.link-local", "fallback")
+    if not result["ok"] and "link-local" in result.get("error", ""):
+        result = _eth_apply(*props)
+    return result
 
 
 @router.post(
@@ -667,6 +718,75 @@ async def route_clients_fragment(request: Request):
         server_version=state.git_describe()["version"],
         t=state.settings_strings(state.ui_locale(request)),
     )
+
+
+# ── Watching the way out ──────────────────────────────────────────────────────
+# A portal's sign-in lasts hours, not a meet: when it lapses the Cloud drops and
+# nobody is looking at the Network tab. While the relay is meant to be connected
+# and isn't, this checks why once a minute; Settings shows a banner from the
+# result (it rides on /cloud_status, which the page already polls).
+
+
+class NetWatch:
+    TICK = 10  # s between looks at the relay
+    GRACE = 30  # s the relay may take to (re)connect before it counts as down
+    EVERY = 60  # s between probes while it stays down
+
+    def __init__(self, probe):
+        self._probe = probe
+        self._lock = threading.Lock()
+        self._report = None
+        self._down_since = None
+        self._probed_at = None
+
+    def report(self):
+        with self._lock:
+            return dict(self._report) if self._report else None
+
+    def tick(self, relay_status, now):
+        """One look. Probes (blocking) only when the relay has been down a while."""
+        if (
+            not (relay_status["url"] and relay_status["running"])
+            or relay_status["connected"]
+        ):
+            with self._lock:
+                self._report = None
+            self._down_since = self._probed_at = None
+            return
+        if self._down_since is None:
+            self._down_since = now
+        if now - self._down_since < self.GRACE:
+            return
+        if self._probed_at is not None and now - self._probed_at < self.EVERY:
+            return
+        self._probed_at = now
+        result = self._probe()
+        # 'full' means the Cloud answers and the relay will catch up: no banner.
+        with self._lock:
+            self._report = None if result["state"] in ("full", "unknown") else result
+
+    def run(self):
+        import relay
+
+        while True:
+            time.sleep(self.TICK)
+            try:
+                self.tick(relay.status(), time.monotonic())
+            except Exception as e:
+                # Anything: a watcher must outlive any one look.
+                print(f"[network] watch failed: {e}", flush=True)
+
+
+WATCH = NetWatch(lambda: connectivity())
+_watch_started = False
+
+
+def start_watch():
+    global _watch_started
+    if _watch_started:
+        return
+    _watch_started = True
+    threading.Thread(target=WATCH.run, daemon=True, name="net-watch").start()
 
 
 # ── Discovery (mDNS) ──────────────────────────────────────────────────────────

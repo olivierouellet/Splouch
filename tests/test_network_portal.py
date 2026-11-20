@@ -7,6 +7,10 @@ Two set-ups that used to leave the Pi with either the console or the Cloud, neve
   traffic goes into the closed network and stops there.
 * The venue Wi-Fi has a captive portal. The Pi has no browser, so the operator
   accepts the portal on a phone or laptop and the Pi borrows that device's MAC.
+
+And what follows from them: a closed network with no DHCP server (eth0 falls back
+to link-local, and Settings shows where the console sends from), and a portal
+sign-in that lapses mid-meet (a watcher notices the Cloud drop and says why).
 """
 
 import asyncio
@@ -289,3 +293,189 @@ def test_cloned_mac_reads_nmcli_escapes(monkeypatch, out, mac):
     done = subprocess.CompletedProcess([], 0, stdout=out, stderr="")
     monkeypatch.setattr(network, "_nmcli", lambda *a, **k: done)
     assert network._cloned_mac("uuid") == mac
+
+
+def test_reconnecting_keeps_the_borrowed_mac(monkeypatch):
+    """Connecting from the page deletes the profile first: the address borrowed for
+    the portal belongs to the network, so it goes back on the new profile."""
+    nm = []
+
+    def fake_nmcli(*args, timeout=8):
+        nm.append(list(args))
+        out = ""
+        if args[:4] == ("-t", "-f", "UUID,TYPE,NAME", "con"):
+            out = "old-uuid:802-11-wireless:Pool\\:Guest\nx:802-3-ethernet:Pool:Guest\n"
+        elif args[:2] == ("-g", "802-11-wireless.cloned-mac-address"):
+            out = "3A\\:BB\\:CC\\:DD\\:EE\\:01\n" if args[-1] == "old-uuid" else "\n"
+        elif args[:4] == ("-t", "-f", "UUID,TYPE", "con"):
+            out = "new-uuid:802-11-wireless\n"
+        return subprocess.CompletedProcess(args, 0, stdout=out, stderr="")
+
+    def fake_run(args, **kw):
+        return subprocess.CompletedProcess(args, 0, stdout="", stderr="")
+
+    monkeypatch.setattr(network, "_nmcli", fake_nmcli)
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    assert network._wifi_connect("Pool:Guest", "pw") == {"ok": True}
+    mac = "3A:BB:CC:DD:EE:01"
+    assert ["con", "mod", "new-uuid", "802-11-wireless.cloned-mac-address", mac] in nm
+    assert ["con", "up", "new-uuid"] in nm
+
+
+def test_reconnecting_without_a_borrowed_mac_changes_nothing(monkeypatch):
+    nm = []
+
+    def fake_nmcli(*args, timeout=8):
+        nm.append(list(args))
+        return subprocess.CompletedProcess(args, 0, stdout="", stderr="")
+
+    monkeypatch.setattr(network, "_nmcli", fake_nmcli)
+    monkeypatch.setattr(
+        subprocess,
+        "run",
+        lambda args, **kw: subprocess.CompletedProcess(args, 0, stdout="", stderr=""),
+    )
+    assert network._wifi_connect("Pool", "pw") == {"ok": True}
+    assert not [r for r in nm if r[:2] in (["con", "mod"], ["con", "up"])]
+
+
+# ── A console network without DHCP ────────────────────────────────────────────
+
+
+def test_dhcp_falls_back_to_link_local(applied):
+    network._eth_dhcp(False)
+    assert _props(applied[0])["ipv4.link-local"] == "fallback"
+
+
+def test_dhcp_retries_without_link_local_on_an_older_networkmanager(monkeypatch):
+    calls = []
+
+    def apply(*props):
+        calls.append(props)
+        if "ipv4.link-local" in props:
+            return {"ok": False, "error": "invalid 'ipv4.link-local': 'fallback'"}
+        return {"ok": True}
+
+    monkeypatch.setattr(network, "_eth_apply", apply)
+    assert network._eth_dhcp(True) == {"ok": True}
+    assert len(calls) == 2 and "ipv4.link-local" not in calls[1]
+
+
+def test_dhcp_does_not_retry_on_another_error(monkeypatch):
+    calls = []
+
+    def apply(*props):
+        calls.append(props)
+        return {"ok": False, "error": "nmcli error"}
+
+    monkeypatch.setattr(network, "_eth_apply", apply)
+    assert network._eth_dhcp(True)["ok"] is False
+    assert len(calls) == 1
+
+
+@pytest.mark.parametrize(
+    ("source", "eth", "fields"),
+    [
+        ({}, "192.168.0.10/24", {}),
+        (
+            {"address": "192.168.0.20", "at": 990.0},
+            "192.168.0.10/24",
+            {"console_from": "192.168.0.20", "console_age": 10, "console_subnet": True},
+        ),
+        # Link-local Pi, console on its own subnet: heard by limited broadcast only.
+        (
+            {"address": "192.168.0.20", "at": 1000.0},
+            "169.254.7.7/16",
+            {"console_from": "192.168.0.20", "console_age": 0, "console_subnet": False},
+        ),
+        (
+            {"address": "192.168.0.20", "at": 1000.0},
+            "",
+            {"console_from": "192.168.0.20", "console_age": 0, "console_subnet": True},
+        ),
+    ],
+)
+def test_console_source(source, eth, fields):
+    assert network.console_source(source, eth, 1000.0) == fields
+
+
+# ── Watching the Cloud while the meet runs ────────────────────────────────────
+
+UP = {"url": "https://cloud.example", "running": True, "connected": True}
+DOWN = {**UP, "connected": False}
+
+
+def _watch(answer="portal"):
+    probes = []
+
+    def probe():
+        probes.append(1)
+        return {"state": answer, "via": "wifi", "portal_url": ""}
+
+    return network.NetWatch(probe), probes
+
+
+def test_watch_waits_out_a_reconnect_before_probing():
+    w, probes = _watch()
+    w.tick(DOWN, 0)
+    w.tick(DOWN, w.GRACE - 1)
+    assert probes == [] and w.report() is None
+    w.tick(DOWN, w.GRACE)
+    assert probes == [1]
+    assert w.report() == {"state": "portal", "via": "wifi", "portal_url": ""}
+
+
+def test_watch_probes_once_a_minute_while_down():
+    w, probes = _watch("limited")
+    w.tick(DOWN, 0)
+    for t in range(w.GRACE, w.GRACE + w.EVERY, w.TICK):
+        w.tick(DOWN, t)
+    assert len(probes) == 1
+    w.tick(DOWN, w.GRACE + w.EVERY)
+    assert len(probes) == 2
+
+
+def test_watch_clears_when_the_relay_connects():
+    w, _ = _watch()
+    w.tick(DOWN, 0)
+    w.tick(DOWN, w.GRACE)
+    assert w.report()
+    w.tick(UP, w.GRACE + 1)
+    assert w.report() is None
+    # And a later drop gets its grace period again.
+    w.tick(DOWN, w.GRACE + 2)
+    assert w.report() is None
+
+
+@pytest.mark.parametrize(
+    "status",
+    [
+        {**DOWN, "running": False},  # the operator disconnected it
+        {**DOWN, "url": ""},  # no Cloud set up
+    ],
+)
+def test_watch_stays_quiet_when_the_cloud_is_not_wanted(status):
+    w, probes = _watch()
+    for t in range(0, 200, 10):
+        w.tick(status, t)
+    assert probes == [] and w.report() is None
+
+
+@pytest.mark.parametrize("answer", ["full", "unknown"])
+def test_watch_has_nothing_to_report_when_the_cloud_answers(answer):
+    w, _ = _watch(answer)
+    w.tick(DOWN, 0)
+    w.tick(DOWN, w.GRACE)
+    assert w.report() is None
+
+
+def test_cloud_status_carries_the_watch(monkeypatch):
+    import relay
+
+    monkeypatch.setattr(relay, "status", lambda: {**DOWN, "stats": None, "region": ""})
+    w, _ = _watch()
+    w.tick(DOWN, 0)
+    w.tick(DOWN, w.GRACE)
+    monkeypatch.setattr(network, "WATCH", w)
+    body = network.CloudStatus.model_validate(network.route_cloud_status())
+    assert body.network and body.network.state == "portal"

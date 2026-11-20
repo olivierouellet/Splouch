@@ -170,6 +170,17 @@
                 </div>
             </div>
             {% endif %}
+            <!-- The network watcher's finding while the Cloud is down (routes/network.py NetWatch), filled from /cloud_status -->
+            <div id="net-alert" style="display:none;">
+                <div class="alert alert-warning d-flex align-items-start gap-2 mb-3" role="alert">
+                    <i class="bi bi-wifi-off mt-1"></i>
+                    <div>
+                        <span id="net-alert-text"></span>
+                        <a href="#tab-network" class="alert-link"
+                           onclick="panelShowTab('#tab-network'); return false;">{{ t.nav_network }}</a>
+                    </div>
+                </div>
+            </div>
             <div class="tab-content">
 
         <!-- One file per tab, in `settings/`. The grouped tabs

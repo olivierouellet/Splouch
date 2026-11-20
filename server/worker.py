@@ -1147,9 +1147,10 @@ def _run_live_udp(my_gen):
                 while state._worker_gen == my_gen:
                     ready, _, _ = select.select(socks, [], [], 0.01)
                     for sock in ready:
-                        data, _ = sock.recvfrom(65535)
+                        data, src = sock.recvfrom(65535)
                         if not data:
                             continue
+                        state._udp_source = {"address": src[0], "at": time.time()}
                         buf = []
                         for c in data:
                             _record_raw_byte(c)

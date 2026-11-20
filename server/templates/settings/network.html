@@ -18,6 +18,7 @@
                             <span id="net-conn-text" class="flex-fill small text-body-secondary">—</span>
                             <button id="btn-net-conn" type="button" class="btn btn-secondary btn-sm text-nowrap" style="min-width:80px;" onclick="checkConnectivity()">{{ t.net_mdns_check }}</button>
                         </div>
+                        <div id="net-console-warn" class="small mt-2" style="display:none; color:var(--bs-warning-text-emphasis);"></div>
                         <div id="net-overlap-warn" class="small mt-2" style="display:none; color:var(--bs-warning-text-emphasis);">{{ t.net_overlap_warn }}</div>
                     </div></div>
 
@@ -104,6 +105,7 @@
                             </div>
                             <div id="wifi-mac-status" class="mb-1"></div>
                             <div class="mb-1" style="color:var(--bs-warning-text-emphasis);">{{ t.net_portal_warn }}</div>
+                            <div class="mb-1">{{ t.net_portal_expired }}</div>
                             <div class="text-body-secondary">{{ t.net_portal_other }}</div>
                         </details>
 

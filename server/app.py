@@ -108,11 +108,13 @@ async def lifespan(app: FastAPI):
     state.install_log_capture()
     import relay
     from console_decoders import load_custom_decoders
+    from routes.network import start_watch
     from routes.settings import _load_meet_file
 
     state.load_settings()
     load_custom_decoders(state.CUSTOM_DECODERS_FOLDER)
     relay.start()
+    start_watch()
     hardware.start()
     _register_locale_aliases()
     await asyncio.to_thread(_reload_last_meet, _load_meet_file)

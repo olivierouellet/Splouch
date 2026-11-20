@@ -539,6 +539,10 @@ _record_raw: bool = False
 _record_raw_count: int = 0
 _debug_serial: bool = False
 _serial_status = {"state": "idle", "msg": ""}
+# Where the last UDP datagram from the console came from: {"address", "at"} (epoch
+# seconds), empty until one arrives. Settings → Network shows it, so an operator on a
+# closed console network can pick an Ethernet address on the console's subnet.
+_udp_source = {}
 # Invalidation token for the finish/reset debounce. Bumped by the worker on every
 # finish/un-finish transition and by the meet-load handler to cancel pending tasks
 # across a meet change — so `+= 1` runs from two threads and a bump can be lost.

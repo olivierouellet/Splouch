@@ -760,6 +760,8 @@ function _applyWifiStatus(d) {
     if (d.eth_ip) {
         _statusColor(eip, 'ok');
         eip.textContent = d.eth_ip;
+        // 169.254.x.x: no DHCP server answered and eth0 fell back to link-local.
+        if (d.eth_ip.indexOf('169.254.') === 0) eip.textContent += ' (' + T.js_eth_link_local + ')';
     } else {
         _statusColor(eip, 'muted');
         eip.textContent = T.js_not_connected;
@@ -772,10 +774,24 @@ function _applyWifiStatus(d) {
     document.getElementById('eth-internet-input').checked = d.eth_internet !== false;
     _ethInternetChanged();
     document.getElementById('net-overlap-warn').style.display = d.overlap ? '' : 'none';
+    if (d.console_from) {
+        eip.textContent += ' · ' + _consoleSeen(d.console_from, d.console_age);
+    }
+    var cwarn = document.getElementById('net-console-warn');
+    var offSubnet = d.console_from && d.console_subnet === false;
+    if (offSubnet)
+        cwarn.textContent = T.js_console_other_subnet.replace('{address}', d.console_from);
+    cwarn.style.display = offSubnet ? '' : 'none';
     var mac = document.getElementById('wifi-mac-text');
     mac.textContent = d.wifi_mac || '—';
     if (d.wifi_mac_cloned) mac.textContent += ' (' + T.js_mac_borrowed + ')';
     document.getElementById('btn-wifi-mac-reset').style.display = d.wifi_mac_cloned ? '' : 'none';
+}
+
+// "console 192.168.0.20, 12 s ago": where the console's UDP comes from.
+function _consoleSeen(address, age) {
+    var ago = age < 90 ? age + ' s' : Math.round(age / 60) + ' min';
+    return T.js_console_seen.replace('{address}', address).replace('{age}', ago);
 }
 
 // Unticked: eth0 is a closed console network. The router becomes optional and the
@@ -2341,6 +2357,20 @@ function _applyCloudStatus(d) {
     }
     _applyCloudRegion(d);
     _applyCloudAttendance(d);
+    _applyNetAlert(d.network);
+}
+
+// The banner over every tab while the Cloud is down and the watcher knows why:
+// most often a captive portal whose sign-in lapsed mid-meet.
+function _applyNetAlert(net) {
+    var box = document.getElementById('net-alert');
+    var msg = net ? T['js_net_alert_' + net.state] : '';
+    box.style.display = msg ? '' : 'none';
+    document.getElementById('net-alert-text').textContent = msg || '';
+    if (net && net.state === 'portal') {
+        var help = /** @type {HTMLDetailsElement} */ (document.getElementById('wifi-portal'));
+        help.open = true;
+    }
 }
 
 // The region the cloud assigned, read-only: the cloud administrator's call.
