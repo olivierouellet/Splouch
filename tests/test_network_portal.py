@@ -479,3 +479,131 @@ def test_cloud_status_carries_the_watch(monkeypatch):
     monkeypatch.setattr(network, "WATCH", w)
     body = network.CloudStatus.model_validate(network.route_cloud_status())
     assert body.network and body.network.state == "portal"
+
+
+# ── WPA-Enterprise (802.1X) ───────────────────────────────────────────────────
+
+
+def _enterprise(monkeypatch, up_ok=True, borrowed=""):
+    """Run an enterprise connect against a fake nmcli; returns (nmcli calls, edits)."""
+    nm, edits = [], []
+
+    def fake_nmcli(*args, timeout=8):
+        nm.append(list(args))
+        out, rc = "", 0
+        if args[:2] == ("con", "add"):
+            out = (
+                "Connection 'eduroam' (1d4e3c42-8a0b-4a55-9d1e-2b7a6f0c9e11) "
+                "successfully added.\n"
+            )
+        elif args[:2] == ("-g", "802-11-wireless.cloned-mac-address"):
+            out = borrowed
+        elif args[:4] == ("-t", "-f", "UUID,TYPE,NAME", "con"):
+            out = "old:802-11-wireless:eduroam\n" if borrowed else ""
+        elif args[:2] == ("con", "up") and not up_ok:
+            rc = 4
+        return subprocess.CompletedProcess(args, rc, stdout=out, stderr="")
+
+    def fake_run(args, **kw):
+        edits.append((list(args), kw.get("input")))
+        return subprocess.CompletedProcess(args, 0, stdout="", stderr="")
+
+    monkeypatch.setattr(network, "_nmcli", fake_nmcli)
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    return nm, edits
+
+
+UUID = "1d4e3c42-8a0b-4a55-9d1e-2b7a6f0c9e11"
+
+
+def _body(**kw):
+    return network.WifiConnect.model_validate(
+        {"ssid": "eduroam", "password": "s3cret pw", "identity": "jo@uni.edu", **kw}
+    )
+
+
+def test_enterprise_password_goes_to_nmcli_on_stdin_only(monkeypatch):
+    nm, edits = _enterprise(monkeypatch)
+    assert network._wifi_connect_enterprise(_body()) == {"ok": True}
+    every_arg = [a for call in nm for a in call] + [a for c, _ in edits for a in c]
+    assert all("s3cret" not in a for a in every_arg)
+    edit = [i for c, i in edits if c[:3] == ["nmcli", "con", "edit"]]
+    assert edit == ["set 802-1x.password s3cret pw\nsave persistent\nquit\n"]
+
+
+def test_enterprise_profile(monkeypatch):
+    nm, _ = _enterprise(monkeypatch)
+    network._wifi_connect_enterprise(_body())
+    add = next(c for c in nm if c[:2] == ["con", "add"])
+    p = dict(zip(add[4::2], add[5::2], strict=True))
+    assert p["802-11-wireless.ssid"] == "eduroam"
+    assert p["802-11-wireless-security.key-mgmt"] == "wpa-eap"
+    assert p["802-1x.eap"] == "peap" and p["802-1x.phase2-auth"] == "mschapv2"
+    assert p["802-1x.identity"] == "jo@uni.edu"
+    # Created off, so it can't start before the password is in.
+    assert p["connection.autoconnect"] == "no"
+    assert "802-1x.system-ca-certs" not in p
+    order = [c[:2] for c in nm if c[0] == "con"]
+    assert order == [["con", "add"], ["con", "mod"], ["con", "up"]]
+    assert ["con", "mod", UUID, "connection.autoconnect", "yes"] in nm
+
+
+def test_enterprise_with_a_domain_checks_the_certificate(monkeypatch):
+    nm, _ = _enterprise(monkeypatch)
+    body = _body(
+        eap="ttls",
+        phase2="pap",
+        domain="radius.uni.edu",
+        anonymous_identity="a@uni.edu",
+    )
+    network._wifi_connect_enterprise(body)
+    add = next(c for c in nm if c[:2] == ["con", "add"])
+    p = dict(zip(add[4::2], add[5::2], strict=True))
+    assert p["802-1x.system-ca-certs"] == "yes"
+    assert p["802-1x.domain-suffix-match"] == "radius.uni.edu"
+    assert p["802-1x.anonymous-identity"] == "a@uni.edu"
+    assert p["802-1x.eap"] == "ttls" and p["802-1x.phase2-auth"] == "pap"
+
+
+def test_enterprise_keeps_the_borrowed_mac(monkeypatch):
+    nm, _ = _enterprise(monkeypatch, borrowed="3A\\:BB\\:CC\\:DD\\:EE\\:01\n")
+    network._wifi_connect_enterprise(_body())
+    add = next(c for c in nm if c[:2] == ["con", "add"])
+    p = dict(zip(add[4::2], add[5::2], strict=True))
+    assert p["802-11-wireless.cloned-mac-address"] == "3A:BB:CC:DD:EE:01"
+
+
+def test_enterprise_failure_removes_the_profile(monkeypatch):
+    # A wrong password would otherwise keep retrying in the background.
+    nm, _ = _enterprise(monkeypatch, up_ok=False)
+    assert network._wifi_connect_enterprise(_body()).status_code == 400
+    assert nm[-1] == ["con", "delete", UUID]
+
+
+@pytest.mark.parametrize(
+    "fields",
+    [
+        {"password": "a\nsave"},  # would end the `set` line and run another command
+        {"identity": "jo\r"},
+        {"domain": "not a domain"},
+        {"domain": "-x.edu"},
+        {"eap": "tls"},
+        {"phase2": "chap"},
+    ],
+)
+def test_enterprise_fields_are_checked(fields):
+    with pytest.raises(ValueError):
+        _body(**fields)
+
+
+def test_a_username_selects_enterprise(monkeypatch):
+    seen = []
+    monkeypatch.setattr(
+        network, "_wifi_connect_enterprise", lambda b: seen.append("ent")
+    )
+    monkeypatch.setattr(network, "_wifi_connect", lambda s, p: seen.append("psk"))
+    asyncio.run(network.route_wifi_connect(_body()))
+    asyncio.run(
+        network.route_wifi_connect(network.WifiConnect(ssid="Pool", password="x"))
+    )
+    assert seen == ["ent", "psk"]

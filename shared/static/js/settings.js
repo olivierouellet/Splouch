@@ -1047,15 +1047,24 @@ document.getElementById('btn-wifi-toggle').addEventListener('click', function ()
 // which renders settings/fetched/wifi_networks.html into
 // #wifi-net-list. The "Connect" buttons in that fragment call showJoinForm().
 
-function showJoinForm(ssid, needsPassword) {
+var _joinEnterprise = false;
+
+// `enterprise`: the network is WPA-Enterprise (802.1X, e.g. eduroam), which takes a
+// username too, and the Advanced settings.
+function showJoinForm(ssid, needsPassword, enterprise) {
     _joinSsid = ssid;
+    _joinEnterprise = !!enterprise;
+    document.getElementById('wifi-join-user').value = '';
+    document.getElementById('wifi-join-user').style.display = _joinEnterprise ? '' : 'none';
+    document.getElementById('wifi-join-ent').style.display = _joinEnterprise ? '' : 'none';
     document.getElementById('wifi-join-ssid').textContent = ssid;
     document.getElementById('wifi-join-pw').value = '';
     document.getElementById('wifi-join-pw').style.display = needsPassword ? '' : 'none';
     document.getElementById('wifi-join-status').textContent = '';
     document.getElementById('wifi-join-status').style.color = '';
     document.getElementById('wifi-join-form').style.display = '';
-    if (needsPassword) document.getElementById('wifi-join-pw').focus();
+    if (_joinEnterprise) document.getElementById('wifi-join-user').focus();
+    else if (needsPassword) document.getElementById('wifi-join-pw').focus();
 }
 
 function cancelJoin() {
@@ -1065,12 +1074,25 @@ function cancelJoin() {
 function connectWifi() {
     var pw = document.getElementById('wifi-join-pw').value;
     var status = document.getElementById('wifi-join-status');
+    var body = { ssid: _joinSsid, password: pw };
+    if (_joinEnterprise) {
+        body.identity = document.getElementById('wifi-join-user').value.trim();
+        if (!body.identity) {
+            _statusColor(status, 'err');
+            status.textContent = T.js_ent_need_identity;
+            return;
+        }
+        body.eap = document.getElementById('wifi-join-eap').value;
+        body.phase2 = document.getElementById('wifi-join-phase2').value;
+        body.anonymous_identity = document.getElementById('wifi-join-anon').value.trim();
+        body.domain = document.getElementById('wifi-join-domain').value.trim();
+    }
     _statusColor(status, 'muted');
     status.textContent = T.js_connecting;
     fetch('/wifi_connect', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ssid: _joinSsid, password: pw }),
+        body: JSON.stringify(body),
     })
         .then(function (r) {
             return r.json();

@@ -6,6 +6,7 @@ import socket
 import subprocess
 import threading
 import time
+from typing import Literal
 from urllib.parse import urlsplit
 
 from fastapi import APIRouter, Depends, Request
@@ -17,6 +18,12 @@ import state
 from web import ActionResult, EnabledFlag, failure, render, require_login
 
 router = APIRouter(tags=["Network"])
+
+
+_DOMAIN = re.compile(
+    r"^(?=.{1,253}$)([A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)*"
+    r"[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?$"
+)
 
 
 class EthIP(BaseModel):
@@ -60,6 +67,26 @@ class WifiMac(BaseModel):
 class WifiConnect(BaseModel):
     ssid: str = ""
     password: str = ""
+    # WPA2/WPA3-Enterprise (802.1X: eduroam, school and city networks) when
+    # `identity` is set. PEAP with MSCHAPv2 inside is what nearly all of them use.
+    identity: str = ""
+    eap: Literal["peap", "ttls"] = "peap"
+    phase2: Literal["mschapv2", "pap"] = "mschapv2"
+    anonymous_identity: str = ""
+    # The RADIUS server's domain. Set, the Pi checks the server's certificate
+    # against the system CAs and that domain; blank, it checks nothing.
+    domain: str = ""
+
+    @model_validator(mode="after")
+    def _plain_text(self):
+        # nmcli takes these as one line each (the password through `con edit`):
+        # a line break would end the value and start another command.
+        for name in ("ssid", "password", "identity", "anonymous_identity", "domain"):
+            if re.search(r"[\x00-\x1f\x7f]", getattr(self, name)):
+                raise ValueError(f"{name} can't contain control characters")
+        if self.domain and not _DOMAIN.match(self.domain):
+            raise ValueError(f"Not a domain name: {self.domain}")
+        return self
 
 
 class WifiStatus(BaseModel):
@@ -424,29 +451,37 @@ def route_cloud_toggle():
 async def route_wifi_connect(body: WifiConnect):
     # nmcli connect can take up to 30 s — run it off the event loop so live
     # scoreboard broadcasts keep flowing while it works.
+    if body.identity:
+        return await run_in_threadpool(_wifi_connect_enterprise, body)
     return await run_in_threadpool(_wifi_connect, body.ssid, body.password)
+
+
+def _replace_profile(ssid):
+    """Delete any saved profile for `ssid`; returns the MAC it was borrowing.
+
+    nmcli otherwise reuses an existing profile (e.g. from a previous attempt on an
+    open network) that lacks 802-11-wireless-security.key-mgmt, which then fails
+    validation once a password is supplied. A MAC address borrowed for a captive
+    portal (see /wifi_mac_set) belongs to the network, so it is read first and
+    survives the profile being made again."""
+    borrowed = _cloned_mac(_profile_uuid(ssid))
+    # `--` first: an SSID is attacker-chosen text off the air, and one beginning
+    # with `-` would otherwise be parsed as an nmcli option rather than as the name
+    # of a connection.
+    subprocess.run(
+        ["sudo", "nmcli", "connection", "delete", "--", ssid],
+        capture_output=True,
+        timeout=8,
+        check=False,
+    )
+    return borrowed
 
 
 def _wifi_connect(ssid, password):
     if not ssid:
         return JSONResponse({"error": "No SSID provided"}, status_code=400)
     try:
-        # Remove any stale connection profile for this SSID first. nmcli
-        # otherwise reuses an existing profile (e.g. from a previous attempt
-        # on an open network) that lacks 802-11-wireless-security.key-mgmt,
-        # which then fails validation once a password is supplied.
-        # `--` first: an SSID is attacker-chosen text off the air, and one
-        # beginning with `-` would otherwise be parsed as an nmcli option rather
-        # than as the name of a connection.
-        # A MAC address borrowed for a captive portal (see /wifi_mac_set) belongs
-        # to the network, so it survives the profile being made again.
-        borrowed = _cloned_mac(_profile_uuid(ssid))
-        subprocess.run(
-            ["sudo", "nmcli", "connection", "delete", "--", ssid],
-            capture_output=True,
-            timeout=8,
-            check=False,
-        )
+        borrowed = _replace_profile(ssid)
 
         # The password goes in on stdin, answering `--ask`'s prompt — never as an
         # argument, where every process on the Pi can read it from `ps` for as long
@@ -465,6 +500,71 @@ def _wifi_connect(ssid, password):
             )
         if borrowed:
             return _wifi_mac_set(borrowed)
+        return {"ok": True}
+    except subprocess.TimeoutExpired:
+        return JSONResponse({"error": "Timed out"}, status_code=500)
+    except Exception:
+        return JSONResponse({"error": failure("Connecting")}, status_code=500)
+
+
+def _wifi_connect_enterprise(body):
+    """Join a WPA-Enterprise network: a profile with no secret in it, the password
+    set through `nmcli con edit` on stdin, then brought up.
+
+    `dev wifi connect` can't do 802.1X. The password must never be an argument,
+    where every process on the Pi can read it from `ps`, and it must be saved, or
+    the Pi can't rejoin after a reboot with nobody there to type it."""
+    if not body.ssid:
+        return JSONResponse({"error": "No SSID provided"}, status_code=400)
+    try:
+        borrowed = _replace_profile(body.ssid)
+        props = [
+            *("connection.id", body.ssid, "802-11-wireless.ssid", body.ssid),
+            # Off until the password is in, so it can't start without one.
+            *("connection.autoconnect", "no"),
+            *("802-11-wireless-security.key-mgmt", "wpa-eap"),
+            *("802-1x.eap", body.eap, "802-1x.phase2-auth", body.phase2),
+            *("802-1x.identity", body.identity),
+        ]
+        if body.anonymous_identity:
+            props += ["802-1x.anonymous-identity", body.anonymous_identity]
+        if body.domain:
+            props += ["802-1x.system-ca-certs", "yes"]
+            props += ["802-1x.domain-suffix-match", body.domain]
+        if borrowed:
+            props += ["802-11-wireless.cloned-mac-address", borrowed]
+        r = _nmcli("con", "add", "type", "wifi", *props)
+        uuid = re.search(r"\(([0-9a-f-]{36})\)", r.stdout)
+        if r.returncode != 0 or not uuid:
+            return JSONResponse(
+                {"error": (r.stderr or r.stdout).strip() or "nmcli error"},
+                status_code=400,
+            )
+        uuid = uuid[1]
+        r = subprocess.run(
+            ["nmcli", "con", "edit", "uuid", uuid],
+            input=f"set 802-1x.password {body.password}\nsave persistent\nquit\n",
+            capture_output=True,
+            text=True,
+            timeout=15,
+            check=False,
+        )
+        if r.returncode != 0:
+            _nmcli("con", "delete", uuid)
+            return JSONResponse(
+                {"error": (r.stderr or r.stdout).strip() or "nmcli error"},
+                status_code=500,
+            )
+        _nmcli("con", "mod", uuid, "connection.autoconnect", "yes")
+        # EAP takes longer than a PSK: a round trip to the venue's RADIUS server.
+        r = _nmcli("con", "up", uuid, timeout=45)
+        if r.returncode != 0:
+            # A wrong password would otherwise keep retrying in the background.
+            _nmcli("con", "delete", uuid)
+            return JSONResponse(
+                {"error": (r.stderr or r.stdout).strip() or "nmcli error"},
+                status_code=400,
+            )
         return {"ok": True}
     except subprocess.TimeoutExpired:
         return JSONResponse({"error": "Timed out"}, status_code=500)

@@ -12,7 +12,7 @@
         {% if n.active %}
         <button type="button" class="btn btn-success btn-sm text-nowrap" style="min-width:80px;" disabled>{{ t.js_connected }}</button>
         {% else %}
-        <button type="button" class="btn btn-secondary btn-sm text-nowrap" style="min-width:80px;" onclick='showJoinForm({{ n.ssid | tojson }}, {{ 'true' if n.security else 'false' }})'>{{ t.net_connect }}</button>
+        <button type="button" class="btn btn-secondary btn-sm text-nowrap" style="min-width:80px;" onclick='showJoinForm({{ n.ssid | tojson }}, {{ 'true' if n.security else 'false' }}, {{ 'true' if '802.1X' in n.security else 'false' }})'>{{ t.net_connect }}</button>
         {% endif %}
     </div>
 </div>
