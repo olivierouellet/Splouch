@@ -220,6 +220,19 @@ saved on the Pi, so it rejoins after a restart.
 
 </details>
 
+<details>
+<summary><strong>Banner: the Pi's date looks wrong</strong></summary>
+
+**Why.** The Pi has no clock battery (unless one was added) and sets its date over the
+network at boot. Venue firewalls often block that, so the Pi runs on a stale date,
+and the Cloud's certificate then looks expired or not yet valid: the relay can't
+connect.
+
+**Fix.** **Settings → Clock**: sync, or set the date and time by hand. The Cloud
+reconnects within a minute.
+
+</details>
+
 ---
 
 <a id="troubleshooting-fr"></a>
@@ -454,5 +467,18 @@ donne un : le Pi vérifie alors le certificat du réseau, et un faux point d'acc
 même nom ne peut pas recueillir le mot de passe. Si la connexion échoue avec lui, le
 réseau utilise peut-être un certificat privé : le laisser vide. Le mot de passe est
 enregistré sur le Pi, qui se reconnecte après un redémarrage.
+
+</details>
+
+<details>
+<summary><strong>Bandeau : la date du Pi semble fausse</strong></summary>
+
+**Cause.** Le Pi n'a pas de pile d'horloge (sauf si on en a ajouté une) et règle sa
+date par le réseau au démarrage. Les pare-feu des sites bloquent souvent cela : le
+Pi tourne alors sur une date périmée, et le certificat du Cloud paraît expiré ou pas
+encore valide. Le relais ne peut pas se connecter.
+
+**Solution.** **Réglages → Horloge** : synchroniser, ou régler la date et l'heure à
+la main. Le Cloud se reconnecte en moins d'une minute.
 
 </details>
