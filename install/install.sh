@@ -261,7 +261,10 @@ configure_network() {
     done
 
     # Priority above NetworkManager's default wired profile, so ours wins at boot.
-    local -a base=(connection.autoconnect yes connection.autoconnect-priority 100)
+    # Retries 0 (keep trying): the venue router often boots after the Pi, and
+    # NetworkManager otherwise gives up for 5 minutes after 4 failed attempts.
+    local -a base=(connection.autoconnect yes connection.autoconnect-priority 100
+        connection.autoconnect-retries 0)
 
     if [[ ${choice:-1} == 1 ]]; then
         local -a dhcp=(ipv4.method auto ipv4.addresses "" ipv4.gateway "" ipv4.dns "")
