@@ -757,22 +757,44 @@ function _applyWifiStatus(d) {
         _statusColor(wtext, 'muted');
         wtext.textContent = T.js_not_connected;
     }
-    if (d.eth_ip) {
+    // Every wired port, eth0 first; the eth_* fields are eth0's for a server
+    // that predates the list.
+    _wired = d.wired || [
+        {
+            iface: 'eth0',
+            ip: d.eth_ip || '',
+            gateway: d.eth_gateway || '',
+            dns: d.eth_dns || '',
+            internet: d.eth_internet !== false,
+        },
+    ];
+    var two = _wired.length > 1;
+    var shown = _wired.filter(function (w) {
+        return w.ip;
+    });
+    if (shown.length) {
         _statusColor(eip, 'ok');
-        eip.textContent = d.eth_ip;
-        // 169.254.x.x: no DHCP server answered and eth0 fell back to link-local.
-        if (d.eth_ip.indexOf('169.254.') === 0) eip.textContent += ' (' + T.js_eth_link_local + ')';
+        eip.textContent = shown
+            .map(function (w) {
+                var text = (two ? w.iface + ' ' : '') + w.ip.split('/')[0];
+                // 169.254.x.x: no DHCP server answered, the port fell back to link-local.
+                if (w.ip.indexOf('169.254.') === 0) text += ' (' + T.js_eth_link_local + ')';
+                return text;
+            })
+            .join(' · ');
     } else {
         _statusColor(eip, 'muted');
         eip.textContent = T.js_not_connected;
     }
-    if (d.eth_ip) {
-        document.getElementById('eth-ip-input').value = d.eth_ip.split('/')[0];
-    }
-    if (d.eth_gateway) document.getElementById('eth-gateway-input').value = d.eth_gateway;
-    if (d.eth_dns) document.getElementById('eth-dns-input').value = d.eth_dns;
-    document.getElementById('eth-internet-input').checked = d.eth_internet !== false;
-    _ethInternetChanged();
+    var consoleIface = d.console_iface || 'eth0';
+    document.getElementById('console-iface-row').style.display =
+        two || consoleIface !== 'eth0' ? '' : 'none';
+    document.getElementById('console-iface-select').value = consoleIface;
+    document.getElementById('eth-port-select').style.display = two ? '' : 'none';
+    _fillEthForm(document.getElementById('eth-port-select').value || 'eth0');
+    document.getElementById('wifi-country-select').value = d.wifi_country || '';
+    document.getElementById('wifi-country-hint').style.display =
+        d.enabled && !d.wifi_country ? '' : 'none';
     document.getElementById('net-overlap-warn').style.display = d.overlap ? '' : 'none';
     if (d.console_from) {
         eip.textContent += ' · ' + _consoleSeen(d.console_from, d.console_age);
@@ -794,6 +816,87 @@ function _consoleSeen(address, age) {
     return T.js_console_seen.replace('{address}', address).replace('{age}', ago);
 }
 
+var _wired = [];
+
+// The Ethernet form, from one port's current addressing.
+function _fillEthForm(iface) {
+    var w = null;
+    for (var i = 0; i < _wired.length; i++) if (_wired[i].iface === iface) w = _wired[i];
+    if (!w) return;
+    if (w.ip) {
+        var parts = w.ip.split('/');
+        document.getElementById('eth-ip-input').value = parts[0];
+        if (parts[1]) document.getElementById('eth-prefix-input').value = parts[1];
+    }
+    if (w.gateway) document.getElementById('eth-gateway-input').value = w.gateway;
+    if (w.dns) document.getElementById('eth-dns-input').value = w.dns;
+    document.getElementById('eth-internet-input').checked = w.internet !== false;
+    _ethInternetChanged();
+}
+
+function _ethPortChanged() {
+    ['eth-ip-input', 'eth-gateway-input', 'eth-dns-input'].forEach(function (id) {
+        document.getElementById(id).value = '';
+    });
+    document.getElementById('eth-prefix-input').value = '24';
+    _fillEthForm(document.getElementById('eth-port-select').value);
+}
+
+function _ethPort() {
+    return document.getElementById('eth-port-select').value || 'eth0';
+}
+
+function _postJson(url, body, status, okText) {
+    _statusColor(status, 'muted');
+    status.textContent = T.js_applying;
+    fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+    })
+        .then(function (r) {
+            return r.json();
+        })
+        .then(function (d) {
+            _statusColor(status, d.ok ? 'ok' : 'err');
+            status.textContent = d.ok ? okText : d.error || T.js_failed;
+        })
+        .catch(function () {
+            _statusColor(status, 'err');
+            status.textContent = T.js_request_failed;
+        });
+}
+
+// Which wired port the console listener uses; it rebinds within 5 s.
+function setConsoleIface() {
+    _postJson(
+        '/console_iface_set',
+        { iface: document.getElementById('console-iface-select').value },
+        document.getElementById('console-iface-status'),
+        T.js_done,
+    );
+}
+
+function setCloudProxy() {
+    _postJson(
+        '/cloud_proxy_set',
+        { proxy: document.getElementById('cloud-proxy-input').value },
+        document.getElementById('cloud-proxy-status'),
+        T.js_proxy_saved,
+    );
+}
+
+function setWifiCountry() {
+    var country = document.getElementById('wifi-country-select').value;
+    var status = document.getElementById('wifi-country-status');
+    if (!country) {
+        _statusColor(status, 'err');
+        status.textContent = T.js_pick_country;
+        return;
+    }
+    _postJson('/wifi_country_set', { country: country }, status, T.js_done);
+}
+
 // Unticked: eth0 is a closed console network. The router becomes optional and the
 // internet and Cloud go over Wi-Fi (the server sets eth0 never to be the default
 // route).
@@ -801,6 +904,17 @@ function _ethInternetChanged() {
     var on = document.getElementById('eth-internet-input').checked;
     document.getElementById('eth-console-hint').style.display = on ? 'none' : '';
     document.getElementById('eth-dns-input').disabled = !on;
+}
+
+// The address the portal redirected to. It is the venue network's text, so it goes
+// in as text, and becomes a link only when it is plain http(s).
+function _showPortalLink(url) {
+    var box = document.getElementById('net-portal-link');
+    var a = /** @type {HTMLAnchorElement} */ (document.getElementById('net-portal-href'));
+    a.textContent = url || '';
+    if (/^https?:\/\//i.test(url || '')) a.href = url;
+    else a.removeAttribute('href');
+    box.style.display = url ? '' : 'none';
 }
 
 // Whether the Cloud answers, and through which port. A sign-in page (captive
@@ -832,6 +946,7 @@ function checkConnectivity() {
                 );
             }
             text.textContent = via ? msg + ' · ' + T.js_conn_via + ' ' + via : msg;
+            _showPortalLink(d.state === 'portal' ? d.portal_url : '');
         })
         .catch(function () {
             btn.disabled = false;
@@ -914,7 +1029,10 @@ function setEthDhcp() {
     fetch('/eth_dhcp_set', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ internet: document.getElementById('eth-internet-input').checked }),
+        body: JSON.stringify({
+            internet: document.getElementById('eth-internet-input').checked,
+            iface: _ethPort(),
+        }),
     })
         .then(function (r) {
             return r.json();
@@ -987,6 +1105,7 @@ function setEthIp() {
             gateway: gateway || null,
             dns: (internet && dns) || null,
             internet: internet,
+            iface: _ethPort(),
         }),
     })
         .then(function (r) {
@@ -2442,11 +2561,12 @@ function _applyCloudRegion(d) {
 
 // Country names in the panel's language, from the browser's own table; a browser
 // without it keeps the codes.
+// The Wi-Fi country list (`.country-names`) is every country, so it is also sorted
+// by name once named.
 (function () {
-    var sel = document.getElementById('cloud_country');
     // ES2020, newer than the lib these scripts are checked against.
     var DisplayNames = typeof Intl !== 'undefined' && /** @type {any} */ (Intl).DisplayNames;
-    if (!sel || !DisplayNames) return;
+    if (!DisplayNames) return;
     var names;
     try {
         names = new DisplayNames([document.documentElement.lang || 'en'], {
@@ -2455,8 +2575,23 @@ function _applyCloudRegion(d) {
     } catch (_e) {
         return;
     }
-    sel.querySelectorAll('option[value]').forEach(function (opt) {
+    function name(opt) {
         if (opt.value) opt.textContent = names.of(opt.value) || opt.value;
+    }
+    var cloud = document.getElementById('cloud_country');
+    if (cloud) cloud.querySelectorAll('option[value]').forEach(name);
+    document.querySelectorAll('.country-names').forEach(function (sel) {
+        var opts = Array.prototype.slice.call(sel.querySelectorAll('option[value]'));
+        opts.forEach(name);
+        opts.filter(function (o) {
+            return o.value;
+        })
+            .sort(function (a, b) {
+                return a.textContent.localeCompare(b.textContent);
+            })
+            .forEach(function (o) {
+                sel.appendChild(o);
+            });
     });
 })();
 

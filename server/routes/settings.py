@@ -43,6 +43,7 @@ from meet_parsers.meet_file import (
 )
 from routes.debug import terminal_commands
 from routes.displays import tell_views
+from routes.network import wifi_countries
 from routes.qr import invite as qr_invite
 from splouch_regions import COUNTRIES, clean_location, province_choices, province_code
 from web import credentials_stamp, render, require_login, require_role, save_upload
@@ -1075,6 +1076,8 @@ def _settings_view(request, form):
             state.settings.get("cloud_province", ""),
         ),
         countries=COUNTRIES,
+        wifi_countries=wifi_countries(),
+        cloud_proxy=state.settings.get("cloud_proxy", ""),
         provinces=province_choices(ui_lang),
         # docs/app.md `P-01`: a meet past its dates is off the cloud's picker,
         # unless its operator keeps it a while (`/meet_keep_listed`).

@@ -64,9 +64,9 @@ def test_the_worker_listens_for_rtd_datagrams(monkeypatch):
     packets: list[bytes] = []
     monkeypatch.setattr(worker, "_handle_packet", lambda b: packets.append(bytes(b)))
     monkeypatch.setattr(worker, "_set_serial_status", lambda *a: None)
-    monkeypatch.setattr(worker, "_eth_listen_addresses", lambda: ["127.0.0.1"])
+    monkeypatch.setattr(worker, "_eth_listen_addresses", lambda *a: ["127.0.0.1"])
     # As root (CI's container) SO_BINDTODEVICE holds, and eth0 never sees loopback.
-    monkeypatch.setattr(worker, "_UDP_IFACE", "lo")
+    monkeypatch.setattr(worker, "_udp_iface", lambda: "lo")
     decoder = Omnisport2000Decoder({"transport": "udp", "udp_port": str(port)})
     monkeypatch.setattr(state, "_decoder", decoder)
     monkeypatch.setattr(state, "_worker_gen", 1)
@@ -121,7 +121,7 @@ def test_the_worker_reports_a_missing_wired_address(monkeypatch):
         state._worker_gen = 2  # one attempt is enough
 
     monkeypatch.setattr(worker, "_set_serial_status", status)
-    monkeypatch.setattr(worker, "_eth_listen_addresses", list)
+    monkeypatch.setattr(worker, "_eth_listen_addresses", lambda *a: [])
     monkeypatch.setattr(state, "_decoder", Omnisport2000Decoder({"transport": "udp"}))
     monkeypatch.setattr(state, "_worker_gen", 1)
     worker._run_live_udp(1)

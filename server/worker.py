@@ -1072,20 +1072,28 @@ def _run_live_tcp(my_gen):
 
 
 # The Pi's wired port, as NetworkManager's `splouch-eth` profile names it.
-_UDP_IFACE = "eth0"
+# The wired ports a console can be on: the Pi's own, and a USB adapter, which
+# Raspberry Pi OS names eth1. Settings → Network picks one (`console_iface`), for a
+# console network that is separate from the venue's.
+WIRED_IFACES = ("eth0", "eth1")
 
 
-def _eth_listen_addresses():
+def _udp_iface():
+    iface = state.settings.get("console_iface") or "eth0"
+    return iface if iface in WIRED_IFACES else "eth0"
+
+
+def _eth_listen_addresses(iface=None):
     """The addresses a console on the wired network reaches this Pi at.
 
-    The Pi's own address on `_UDP_IFACE`, its subnet's broadcast and the limited
+    The Pi's own address on the console's port, its subnet's broadcast and the limited
     broadcast (255.255.255.255) — a socket bound to the Pi's address alone never
     sees a broadcast, and one bound to all interfaces also hears Wi-Fi and the
     Cloud relay. Empty when the port has no IPv4 address.
     """
     try:
         r = subprocess.run(
-            ["ip", "-j", "-4", "addr", "show", "dev", _UDP_IFACE],
+            ["ip", "-j", "-4", "addr", "show", "dev", iface or _udp_iface()],
             capture_output=True,
             text=True,
             timeout=3,
@@ -1103,7 +1111,7 @@ def _eth_listen_addresses():
     return []
 
 
-def _udp_socket(addr, port):
+def _udp_socket(addr, port, iface):
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -1112,9 +1120,7 @@ def _udp_socket(addr, port):
         # Linux only, and only with CAP_NET_RAW: keeps the limited broadcast to
         # the wired port. Without it the socket still binds, just less narrowly.
         with contextlib.suppress(AttributeError, OSError):
-            sock.setsockopt(
-                socket.SOL_SOCKET, socket.SO_BINDTODEVICE, _UDP_IFACE.encode()
-            )
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_BINDTODEVICE, iface.encode())
         sock.bind((addr, port))
     except OSError:
         sock.close()
@@ -1135,13 +1141,16 @@ def _run_live_udp(my_gen):
         port = state._decoder.udp_port
         _set_serial_status("opening", f"Listening on UDP port {port}…")
         try:
-            addrs = _eth_listen_addresses()
+            iface = _udp_iface()
+            addrs = _eth_listen_addresses(iface)
             if not addrs:
-                raise OSError(f"no IPv4 address on {_UDP_IFACE}")
+                raise OSError(f"no IPv4 address on {iface}")
             with contextlib.ExitStack() as stack:
-                socks = [stack.enter_context(_udp_socket(a, port)) for a in addrs]
+                socks = [
+                    stack.enter_context(_udp_socket(a, port, iface)) for a in addrs
+                ]
                 _set_serial_status(
-                    "open", f"Listening: UDP port {port} on {_UDP_IFACE} ({addrs[0]})"
+                    "open", f"Listening: UDP port {port} on {iface} ({addrs[0]})"
                 )
                 next_check = time.time() + 5
                 while state._worker_gen == my_gen:
@@ -1163,8 +1172,11 @@ def _run_live_udp(my_gen):
                         _tick()
                     if time.time() >= next_check:
                         next_check = time.time() + 5
-                        if _eth_listen_addresses() != addrs:
-                            break  # readdressed: rebind on the new subnet
+                        if (
+                            _udp_iface() != iface
+                            or _eth_listen_addresses(iface) != addrs
+                        ):
+                            break  # other port, or readdressed: rebind
         except OSError as e:
             err = str(e) or type(e).__name__
             print(f"Console UDP error: {err}")

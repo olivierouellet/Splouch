@@ -1,3 +1,4 @@
+import base64
 import http.client
 import ipaddress
 import json
@@ -15,6 +16,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field, model_validator
 from starlette.concurrency import run_in_threadpool
 
+import paths
 import state
 from web import ActionResult, EnabledFlag, failure, render, require_login
 
@@ -25,6 +27,13 @@ _DOMAIN = re.compile(
     r"^(?=.{1,253}$)([A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)*"
     r"[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?$"
 )
+
+
+# The wired ports Settings manages: the Pi's own, and a USB adapter (Raspberry Pi
+# OS names it eth1), for a console network kept apart from the venue's. Fixed
+# names, because the sudoers rules name each one's profile (see _eth_con).
+Wired = Literal["eth0", "eth1"]
+WIRED = ("eth0", "eth1")
 
 
 class EthIP(BaseModel):
@@ -39,6 +48,7 @@ class EthIP(BaseModel):
     gateway: ipaddress.IPv4Address | None = None
     dns: ipaddress.IPv4Address | None = None
     internet: bool = True
+    iface: Wired = "eth0"
 
     @model_validator(mode="after")
     def _in_subnet(self):
@@ -58,6 +68,15 @@ class EthIP(BaseModel):
 
 class EthDhcp(BaseModel):
     internet: bool = True
+    iface: Wired = "eth0"
+
+
+class ConsoleIface(BaseModel):
+    iface: Wired = "eth0"
+
+
+class WifiCountry(BaseModel):
+    country: str
 
 
 class WifiMac(BaseModel):
@@ -111,8 +130,16 @@ class WifiStatus(BaseModel):
     # eth0 and Wi-Fi on overlapping subnets: the Pi can't tell which port an
     # address on them is behind, so one of the two stops working.
     overlap: bool = False
+    # Every wired port present, eth0 first: {iface, ip (addr/prefix), gateway,
+    # dns, internet}. The eth_* fields above are eth0's, as before.
+    wired: list[dict] = []
+    # The wired port the console listener uses (the `console_iface` setting).
+    console_iface: str = "eth0"
+    # The Wi-Fi regulatory country (ISO code), '' while unset: then the radio stays
+    # on the world-wide minimum, and some 5 GHz networks never show up.
+    wifi_country: str = ""
     # The console's address, as its last UDP datagram showed it, and how long ago
-    # (seconds). `console_subnet` is False when it's outside eth0's subnet.
+    # (seconds). `console_subnet` is False when it's outside its port's subnet.
     console_from: str = ""
     console_age: int = 0
     console_subnet: bool = True
@@ -205,6 +232,19 @@ def subnets_overlap(a, b):
     return net_a.overlaps(net_b)
 
 
+def any_overlap(cidrs):
+    """Whether any two of these `addr/prefix` strings share a subnet."""
+    present = [c for c in cidrs if c]
+    return any(
+        subnets_overlap(a, b) for i, a in enumerate(present) for b in present[i + 1 :]
+    )
+
+
+def console_iface():
+    iface = state.settings.get("console_iface") or "eth0"
+    return iface if iface in WIRED else "eth0"
+
+
 def console_source(source, eth_cidr, now):
     """The WifiStatus fields for where the console's UDP comes from."""
     address = (source or {}).get("address", "")
@@ -273,7 +313,8 @@ def route_wifi_status():
         enabled = r.returncode == 0 and "enabled" in r.stdout.lower()
 
         r2 = _nmcli("-t", "-f", "DEVICE,TYPE", "--escape", "no", "device")
-        wifi_dev = eth_dev = ""
+        wifi_dev = ""
+        wired_devs = []
         for line in r2.stdout.splitlines():
             parts = line.split(":")
             if len(parts) < 2:
@@ -281,8 +322,9 @@ def route_wifi_status():
             dev, typ = parts[0], parts[1]
             if typ == "wifi" and not wifi_dev:
                 wifi_dev = dev
-            elif typ == "ethernet" and not eth_dev:
-                eth_dev = dev
+            elif typ == "ethernet" and dev in WIRED:
+                wired_devs.append(dev)
+        wired_devs.sort()
 
         def get_cidr(device):
             if not device:
@@ -314,20 +356,39 @@ def route_wifi_status():
                 break
 
         wifi_cidr = get_cidr(wifi_dev) if enabled else ""
-        eth_cidr = get_cidr(eth_dev)
-        never = _nmcli("-g", "ipv4.never-default", "con", "show", ETH_CON)
+        wired = []
+        for dev in wired_devs:
+            never = _nmcli("-g", "ipv4.never-default", "con", "show", _eth_con(dev))
+            wired.append(
+                {
+                    "iface": dev,
+                    "ip": get_cidr(dev),
+                    "gateway": get_field(dev, "IP4.GATEWAY"),
+                    "dns": get_field(dev, "IP4.DNS"),
+                    "internet": never.stdout.strip() != "yes",
+                }
+            )
+        by_iface = {w["iface"]: w for w in wired}
+        eth0 = by_iface.get("eth0", {})
+        console = console_iface()
+        cidrs = [wifi_cidr, *(w["ip"] for w in wired)]
         return {
             "enabled": enabled,
             "ssid": ssid,
             "wifi_ip": wifi_cidr.split("/")[0],
-            "eth_ip": eth_cidr.split("/")[0],
-            "eth_gateway": get_field(eth_dev, "IP4.GATEWAY"),
-            "eth_dns": get_field(eth_dev, "IP4.DNS"),
-            "eth_internet": never.stdout.strip() != "yes",
+            "eth_ip": eth0.get("ip", "").split("/")[0],
+            "eth_gateway": eth0.get("gateway", ""),
+            "eth_dns": eth0.get("dns", ""),
+            "eth_internet": eth0.get("internet", True),
             "wifi_mac": _read_mac(wifi_dev),
             "wifi_mac_cloned": _cloned_mac(_active_wifi_uuid()),
-            "overlap": subnets_overlap(eth_cidr, wifi_cidr),
-            **console_source(state._udp_source, eth_cidr, time.time()),
+            "overlap": any_overlap(cidrs),
+            "wired": wired,
+            "console_iface": console,
+            "wifi_country": wifi_country(),
+            **console_source(
+                state._udp_source, by_iface.get(console, {}).get("ip", ""), time.time()
+            ),
         }
     except FileNotFoundError:
         return JSONResponse({"error": "nmcli not found"}, status_code=503)
@@ -483,10 +544,10 @@ def keep_trying_profiles():
             continue
         if typ == "802-11-wireless":
             _nmcli("con", "mod", uuid, *KEEP_TRYING)
-        elif name == ETH_CON:
-            # Root's: the sudoers rule allows `con mod splouch-eth *`.
+        elif name in {_eth_con(i) for i in WIRED}:
+            # Root's: the sudoers rules allow `con mod splouch-eth[1] *`.
             subprocess.run(
-                ["sudo", "nmcli", "con", "mod", ETH_CON, *KEEP_TRYING],
+                ["sudo", "nmcli", "con", "mod", name, *KEEP_TRYING],
                 capture_output=True,
                 timeout=8,
                 check=False,
@@ -631,23 +692,30 @@ def _wifi_connect_profile(body):
 ETH_CON = "splouch-eth"
 
 
-def _eth_apply(*props):
+def _eth_con(iface):
+    """The NetworkManager profile for a wired port: `splouch-eth` for eth0 (as
+    install.sh names it), `splouch-eth1` for a USB adapter."""
+    return ETH_CON if iface == "eth0" else f"splouch-{iface}"
+
+
+def _eth_apply(iface, *props):
+    con = _eth_con(iface)
     try:
-        if _nmcli("-t", "con", "show", ETH_CON).returncode == 0:
-            cmd = ["sudo", "nmcli", "con", "mod", ETH_CON]
+        if _nmcli("-t", "con", "show", con).returncode == 0:
+            cmd = ["sudo", "nmcli", "con", "mod", con]
         else:
-            cmd = ["sudo", "nmcli", "con", "add", "type", "ethernet", "ifname", "eth0"]
-            cmd += ["con-name", ETH_CON]
+            cmd = ["sudo", "nmcli", "con", "add", "type", "ethernet", "ifname", iface]
+            cmd += ["con-name", con]
             cmd += ["connection.autoconnect", "yes"]
             cmd += ["connection.autoconnect-priority", "100"]
-            cmd += ["connection.autoconnect-retries", "0"]
+            cmd += [*KEEP_TRYING]
         r = subprocess.run(
             [*cmd, *props], capture_output=True, text=True, timeout=8, check=False
         )
         if r.returncode != 0:
             return {"ok": False, "error": r.stderr.strip() or "nmcli error"}
         subprocess.run(
-            ["sudo", "nmcli", "con", "up", ETH_CON],
+            ["sudo", "nmcli", "con", "up", con],
             capture_output=True,
             timeout=8,
             check=False,
@@ -669,10 +737,11 @@ def _eth_route_props(internet):
 )
 async def route_eth_dhcp_set(body: EthDhcp | None = None):
     # No body: as before, eth0 carries the internet.
-    return await run_in_threadpool(_eth_dhcp, body.internet if body else True)
+    body = body or EthDhcp()
+    return await run_in_threadpool(_eth_dhcp, body.internet, body.iface)
 
 
-def _eth_dhcp(internet):
+def _eth_dhcp(internet, iface="eth0"):
     props = (
         *("ipv4.method", "auto", "ipv4.addresses", "", "ipv4.gateway", ""),
         *("ipv4.dns", ""),
@@ -683,9 +752,9 @@ def _eth_dhcp(internet):
     # address when no lease comes, enough to hear a console broadcasting to
     # 255.255.255.255 (and to show where it sends from). NetworkManager after 1.48
     # only: an older one refuses the value, so try again without it.
-    result = _eth_apply(*props, "ipv4.link-local", "fallback")
+    result = _eth_apply(iface, *props, "ipv4.link-local", "fallback")
     if not result["ok"] and "link-local" in result.get("error", ""):
-        result = _eth_apply(*props)
+        result = _eth_apply(iface, *props)
     return result
 
 
@@ -699,6 +768,7 @@ async def route_eth_ip_set(body: EthIP):
     dns = str(body.dns or body.gateway) if body.internet else ""
     return await run_in_threadpool(
         _eth_apply,
+        body.iface,
         "ipv4.method",
         "manual",
         "ipv4.addresses",
@@ -709,6 +779,94 @@ async def route_eth_ip_set(body: EthIP):
         dns,
         *_eth_route_props(body.internet),
     )
+
+
+@router.post(
+    "/console_iface_set",
+    response_model=ActionResult,
+    dependencies=[Depends(require_login)],
+)
+def route_console_iface_set(body: ConsoleIface):
+    # The UDP listener checks every 5 s and rebinds on the new port by itself.
+    state.settings["console_iface"] = body.iface
+    state.save_settings()
+    return {"ok": True}
+
+
+# ── Wi-Fi country ─────────────────────────────────────────────────────────────
+# Which channels and transmit power the radio may use. Unset, it keeps to the
+# world-wide minimum, where some 5 GHz networks are never seen. Set through a
+# root-owned script that checks the code (install/scripts/wifi-country.sh): the
+# value ends up in the kernel command line.
+
+ISO_TABLE = "/usr/share/zoneinfo/iso3166.tab"
+
+
+def wifi_countries(path=ISO_TABLE):
+    """Every ISO 3166 code tzdata lists, sorted; the page draws the names."""
+    try:
+        with open(path, encoding="utf-8") as f:
+            codes = {ln.split("\t", 1)[0] for ln in f if ln[:1].isalpha()}
+    except OSError:
+        return []
+    return sorted(c for c in codes if re.fullmatch(r"[A-Z]{2}", c))
+
+
+def parse_reg(output):
+    """The global country from `iw reg get`, '' when unset (`00`)."""
+    for line in output.splitlines():
+        m = re.match(r"country ([A-Z0-9]{2}):", line.strip())
+        if m:
+            return "" if m[1] == "00" else m[1]
+    return ""
+
+
+def wifi_country():
+    r = _run(["iw", "reg", "get"], timeout=3)
+    return parse_reg(r.stdout) if r is not None else ""
+
+
+@router.post(
+    "/wifi_country_set",
+    response_model=ActionResult,
+    dependencies=[Depends(require_login)],
+)
+async def route_wifi_country_set(body: WifiCountry):
+    return await run_in_threadpool(_wifi_country_set, body.country)
+
+
+def _wifi_country_set(country):
+    if country not in wifi_countries():
+        return JSONResponse({"error": "Not a country code"}, status_code=400)
+    script = paths.privileged_script("wifi-country.sh")
+    r = _run(["sudo", "-n", script, country], timeout=30)
+    if r is None or r.returncode != 0:
+        err = (r.stderr or r.stdout).strip() if r is not None else ""
+        return JSONResponse({"error": err or "wifi-country.sh failed"}, status_code=500)
+    return {"ok": True}
+
+
+class CloudProxy(BaseModel):
+    proxy: str = ""
+
+
+@router.post(
+    "/cloud_proxy_set",
+    response_model=ActionResult,
+    dependencies=[Depends(require_login)],
+)
+def route_cloud_proxy_set(body: CloudProxy):
+    # An HTTP proxy for the Cloud relay, for venues that let nothing out without
+    # one. The relay reads it on its next connection attempt.
+    import relay
+
+    try:
+        relay.proxy_parts(body.proxy)
+    except ValueError as e:
+        return JSONResponse({"error": str(e)}, status_code=400)
+    state.settings["cloud_proxy"] = body.proxy.strip()
+    state.save_settings()
+    return {"ok": True}
 
 
 # ── Captive portal ────────────────────────────────────────────────────────────
@@ -737,14 +895,35 @@ def _default_via():
     return ""
 
 
-def _get(scheme, host, port, path, timeout):
-    """(status, Location, body) of one request that follows no redirect."""
-    cls = (
-        http.client.HTTPSConnection if scheme == "https" else http.client.HTTPConnection
-    )
-    conn = cls(host, port, timeout=timeout)
+def _get(scheme, host, port, path, timeout, proxy=None):
+    """(status, Location, body) of one request that follows no redirect.
+
+    Through `proxy` ((host, port, auth), see relay.proxy_parts) when given, the way
+    the relay goes: a CONNECT tunnel for HTTPS, an absolute URL for HTTP."""
+    headers = {"User-Agent": "Splouch connectivity"}
+    target = path
+    if proxy is None:
+        cls = (
+            http.client.HTTPSConnection
+            if scheme == "https"
+            else http.client.HTTPConnection
+        )
+        conn = cls(host, port, timeout=timeout)
+    else:
+        p_host, p_port, auth = proxy
+        auth_header = {}
+        if auth:
+            token = base64.b64encode(f"{auth[0]}:{auth[1]}".encode()).decode()
+            auth_header = {"Proxy-Authorization": f"Basic {token}"}
+        if scheme == "https":
+            conn = http.client.HTTPSConnection(p_host, p_port, timeout=timeout)
+            conn.set_tunnel(host, port or 443, headers=auth_header)
+        else:
+            conn = http.client.HTTPConnection(p_host, p_port, timeout=timeout)
+            target = f"http://{host}{':' + str(port) if port else ''}{path}"
+            headers.update(auth_header)
     try:
-        conn.request("GET", path, headers={"User-Agent": "Splouch connectivity"})
+        conn.request("GET", target, headers=headers)
         resp = conn.getresponse()
         return resp.status, resp.getheader("Location") or "", resp.read(512)
     finally:
@@ -814,9 +993,12 @@ def connectivity():
     via = _default_via()
     if not via:
         return {"state": "none", "via": "", "portal_url": ""}
+    import relay
+
     cloud = state.settings.get("cloud_relay_url", "")
+    proxy = relay._proxy()
     if cloud.strip():
-        result = classify(cloud)
+        result = classify(cloud, get=lambda *a: _get(*a, proxy=proxy))
     else:
         result = {"state": _nm_connectivity(), "portal_url": ""}
     return {**result, "via": via}

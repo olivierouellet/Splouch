@@ -7,6 +7,15 @@
                             <span class="text-body-secondary small" style="min-width:70px;">{{ t.net_ethernet }}</span>
                             <span id="eth-ip-text" class="flex-fill small"></span>
                         </div>
+                        <!-- Console port: shown once a second wired port (a USB adapter, eth1) is plugged in -->
+                        <div id="console-iface-row" style="display:none;"><div class="d-flex align-items-center gap-2 mb-2">
+                            <span class="text-body-secondary small" style="min-width:70px;">{{ t.net_console_port }}</span>
+                            <select id="console-iface-select" class="form-select form-select-sm" style="width:auto;" onchange="setConsoleIface()">
+                                <option value="eth0">eth0 ({{ t.net_port_builtin }})</option>
+                                <option value="eth1">eth1 ({{ t.net_port_usb }})</option>
+                            </select>
+                            <span id="console-iface-status" class="small"></span>
+                        </div></div>
                         <div class="d-flex align-items-center gap-2">
                             <span class="text-body-secondary small" style="min-width:70px;">{{ t.net_wifi }}</span>
                             <span id="wifi-status-text" class="flex-fill small"></span>
@@ -17,6 +26,11 @@
                             <span class="text-body-secondary small" style="min-width:70px;">{{ t.net_internet }}</span>
                             <span id="net-conn-text" class="flex-fill small text-body-secondary">—</span>
                             <button id="btn-net-conn" type="button" class="btn btn-secondary btn-sm text-nowrap" style="min-width:80px;" onclick="checkConnectivity()">{{ t.net_mdns_check }}</button>
+                        </div>
+                        <!-- The portal's own address, when it redirected to one: to open on the device that will accept it -->
+                        <div id="net-portal-link" class="small mt-1 text-break" style="display:none;">
+                            <span class="text-body-secondary">{{ t.net_portal_page }}</span>
+                            <a id="net-portal-href" target="_blank" rel="noopener noreferrer"></a>
                         </div>
                         <div id="net-console-warn" class="small mt-2" style="display:none; color:var(--bs-warning-text-emphasis);"></div>
                         <div id="net-overlap-warn" class="small mt-2" style="display:none; color:var(--bs-warning-text-emphasis);">{{ t.net_overlap_warn }}</div>
@@ -47,7 +61,13 @@
 
                     <!-- Ethernet block -->
                     <div class="card mb-3"><div class="card-body">
-                        <div class="panel-title">{{ t.net_eth_static_ip }}</div>
+                        <div class="d-flex align-items-center gap-2 mb-2">
+                            <span class="panel-title flex-fill mb-0">{{ t.net_eth_static_ip }}</span>
+                            <select id="eth-port-select" class="form-select form-select-sm" style="width:auto; display:none;" onchange="_ethPortChanged()">
+                                <option value="eth0">eth0</option>
+                                <option value="eth1">eth1</option>
+                            </select>
+                        </div>
                         <div class="d-flex flex-wrap align-items-center gap-1 mb-2">
                             <input id="eth-ip-input" type="text" class="form-control form-control-sm" placeholder="192.168.1.50" maxlength="15" style="width:140px; flex:none;">
                             <span class="text-body-secondary">/</span>
@@ -72,8 +92,34 @@
                         <div class="small" style="color:var(--bs-warning-text-emphasis);">{{ t.net_disconnect_warn }}</div>
                     </div></div>
 
+                    <!-- Web proxy: for venues (schools, offices) that let nothing out without one -->
+                    <div class="card mb-3"><div class="card-body">
+                        <div class="panel-title">{{ t.net_proxy_title }}</div>
+                        <div class="small text-body-secondary mb-2">{{ t.net_proxy_intro }}</div>
+                        <form class="d-flex flex-wrap align-items-center gap-1 mb-1" onsubmit="setCloudProxy(); return false;">
+                            <input id="cloud-proxy-input" type="text" class="form-control form-control-sm" value="{{ cloud_proxy }}"
+                                   placeholder="proxy.school.edu:3128" autocapitalize="none" spellcheck="false" style="width:240px; flex:none;">
+                            <button type="submit" class="btn btn-secondary btn-sm text-nowrap" style="min-width:80px;">{{ t.net_proxy_save }}</button>
+                        </form>
+                        <div id="cloud-proxy-status" class="small"></div>
+                    </div></div>
+
                     <!-- WiFi block -->
                     <div class="card"><div class="card-body">
+
+                        <!-- Wi-Fi country: unset, the radio keeps to the world-wide minimum and some 5 GHz networks never show -->
+                        <div class="d-flex flex-wrap align-items-center gap-1 mb-2">
+                            <span class="text-body-secondary small" style="min-width:70px;">{{ t.net_wifi_country }}</span>
+                            <select id="wifi-country-select" class="form-select form-select-sm country-names" style="width:auto; max-width:220px;">
+                                <option value="">{{ t.net_wifi_country_unset }}</option>
+                                {% for code in wifi_countries %}
+                                <option value="{{ code }}">{{ code }}</option>
+                                {% endfor %}
+                            </select>
+                            <button type="button" class="btn btn-secondary btn-sm text-nowrap" style="min-width:80px;" data-hold data-hold-fn="setWifiCountry" data-hold-label="{{ t.hold_apply }}">{{ t.net_wifi_country_set }}</button>
+                            <span id="wifi-country-status" class="small"></span>
+                        </div>
+                        <div id="wifi-country-hint" class="small mb-2" style="display:none; color:var(--bs-warning-text-emphasis);">{{ t.net_wifi_country_hint }}</div>
 
                         <!-- Network list -->
                         <div class="d-flex align-items-center mb-2">

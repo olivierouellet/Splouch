@@ -21,6 +21,7 @@ import os
 import threading
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 
 import state
@@ -53,6 +54,68 @@ def _api_url(url):
     return url + "/api/assign"
 
 
+def proxy_parts(text):
+    """`cloud_proxy` as (host, port, (user, password) | None), None when unset.
+
+    An HTTP proxy, for venues (schools, offices) that let nothing out without one:
+    `host:port`, `http://host:port`, or with `user:password@` before the host.
+    Raises ValueError for anything else."""
+    text = (text or "").strip()
+    if not text:
+        return None
+    if "://" not in text:
+        text = "http://" + text
+    parts = urllib.parse.urlsplit(text)
+    if parts.scheme != "http" or not parts.hostname or parts.path not in ("", "/"):
+        raise ValueError(f"Not an HTTP proxy address: {text}")
+    try:
+        port = parts.port or 8080
+    except ValueError as e:
+        raise ValueError(f"Not a port: {text}") from e
+    auth = None
+    if parts.username:
+        auth = (
+            urllib.parse.unquote(parts.username),
+            urllib.parse.unquote(parts.password or ""),
+        )
+    return parts.hostname, port, auth
+
+
+def _proxy():
+    try:
+        return proxy_parts(state.settings.get("cloud_proxy", ""))
+    except ValueError:
+        return None  # refused when saved; a hand-edited file falls back to none
+
+
+def _urlopen(req, timeout):
+    """urlopen, through `cloud_proxy` when one is set."""
+    proxy = _proxy()
+    if proxy is None:
+        return urllib.request.urlopen(req, timeout=timeout)
+    host, port, auth = proxy
+    cred = (
+        f"{urllib.parse.quote(auth[0])}:{urllib.parse.quote(auth[1])}@" if auth else ""
+    )
+    address = f"http://{cred}{host}:{port}"
+    opener = urllib.request.build_opener(
+        urllib.request.ProxyHandler({"http": address, "https": address})
+    )
+    return opener.open(req, timeout=timeout)
+
+
+def _ws_proxy_options():
+    """create_connection's keywords for `cloud_proxy`: a CONNECT tunnel."""
+    proxy = _proxy()
+    if proxy is None:
+        return {}
+    host, port, auth = proxy
+    options = {"http_proxy_host": host, "http_proxy_port": port, "proxy_type": "http"}
+    if auth:
+        options["http_proxy_auth"] = auth
+    return options
+
+
 class Refused(Exception):
     """The cloud refused the key — no point asking again soon."""
 
@@ -63,7 +126,7 @@ def _assign(url, key, meet_uid):
     req = urllib.request.Request(_api_url(url), data=body, method="POST")
     req.add_header("Content-Type", "application/json")
     try:
-        with urllib.request.urlopen(req, timeout=_ASSIGN_TIMEOUT) as resp:
+        with _urlopen(req, timeout=_ASSIGN_TIMEOUT) as resp:
             data = json.loads(resp.read())
     except urllib.error.HTTPError as e:
         if e.code == 403:
@@ -572,7 +635,9 @@ def _run(stop=None):
         ws = None
         try:
             try:
-                ws = create_connection(assignment["relay_url"], timeout=15)
+                ws = create_connection(
+                    assignment["relay_url"], timeout=15, **_ws_proxy_options()
+                )
             except Exception:
                 fails += 1
                 if fails >= _FAILS_BEFORE_REASSIGN:

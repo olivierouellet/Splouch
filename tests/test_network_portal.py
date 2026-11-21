@@ -33,9 +33,22 @@ from test_settings_eth_ip import _shipped
 
 @pytest.fixture
 def applied(monkeypatch):
-    calls = []
-    monkeypatch.setattr(network, "_eth_apply", lambda *p: calls.append(p) or {"ok": 1})
+    """The props each `_eth_apply` call got; `.ifaces` holds the port of each."""
+    calls = Calls()
+
+    def apply(iface, *props):
+        calls.append(props)
+        calls.ifaces.append(iface)
+        return {"ok": 1}
+
+    monkeypatch.setattr(network, "_eth_apply", apply)
     return calls
+
+
+class Calls(list):
+    def __init__(self):
+        super().__init__()
+        self.ifaces = []
 
 
 def _props(call):
@@ -352,7 +365,7 @@ def test_dhcp_falls_back_to_link_local(applied):
 def test_dhcp_retries_without_link_local_on_an_older_networkmanager(monkeypatch):
     calls = []
 
-    def apply(*props):
+    def apply(iface, *props):
         calls.append(props)
         if "ipv4.link-local" in props:
             return {"ok": False, "error": "invalid 'ipv4.link-local': 'fallback'"}
@@ -366,7 +379,7 @@ def test_dhcp_retries_without_link_local_on_an_older_networkmanager(monkeypatch)
 def test_dhcp_does_not_retry_on_another_error(monkeypatch):
     calls = []
 
-    def apply(*props):
+    def apply(iface, *props):
         calls.append(props)
         return {"ok": False, "error": "nmcli error"}
 
@@ -776,3 +789,311 @@ def test_the_watcher_reports_a_wrong_date():
     w.tick(DOWN, 0)
     w.tick(DOWN, w.GRACE)
     assert w.report()["state"] == "clock"
+
+
+# ── A second wired port (USB adapter, eth1) ───────────────────────────────────
+
+
+def test_each_port_has_its_own_profile():
+    assert network._eth_con("eth0") == "splouch-eth"  # as install.sh names it
+    assert network._eth_con("eth1") == "splouch-eth1"
+
+
+def test_eth_settings_go_to_the_chosen_port(applied):
+    body = network.EthIP.model_validate(
+        {"ip": "192.168.0.10", "internet": False, "iface": "eth1"}
+    )
+    asyncio.run(network.route_eth_ip_set(body))
+    asyncio.run(network.route_eth_dhcp_set(network.EthDhcp(iface="eth1")))
+    asyncio.run(network.route_eth_dhcp_set(None))
+    assert applied.ifaces == ["eth1", "eth1", "eth0"]
+
+
+@pytest.mark.parametrize("iface", ["eth2", "wlan0", "enx001122", "eth0; reboot"])
+def test_only_the_ports_sudo_allows(iface):
+    # The sudoers rules name splouch-eth and splouch-eth1 and nothing else.
+    with pytest.raises(ValueError):
+        network.EthDhcp(iface=iface)
+    with pytest.raises(ValueError):
+        network.ConsoleIface(iface=iface)
+
+
+def test_a_new_profile_is_bound_to_its_port(monkeypatch):
+    runs = []
+
+    def fake_run(args, **kw):
+        runs.append(list(args))
+        return subprocess.CompletedProcess(args, 0, stdout="", stderr="")
+
+    monkeypatch.setattr(
+        network,
+        "_nmcli",
+        lambda *a, **k: subprocess.CompletedProcess(a, 10, stdout="", stderr=""),
+    )
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    assert network._eth_apply("eth1", "ipv4.method", "auto") == {"ok": True}
+    add = runs[0]
+    assert add[:9] == [
+        "sudo",
+        "nmcli",
+        "con",
+        "add",
+        "type",
+        "ethernet",
+        "ifname",
+        "eth1",
+        "con-name",
+    ]
+    assert add[9] == "splouch-eth1"
+    assert runs[1] == ["sudo", "nmcli", "con", "up", "splouch-eth1"]
+
+
+def test_the_installer_grants_both_ports_and_nothing_wider():
+    src = (Path(network.__file__).parents[2] / "install" / "install.sh").read_text()
+    for con, iface in (("splouch-eth", "eth0"), ("splouch-eth1", "eth1")):
+        assert f"/usr/bin/nmcli con mod {con} *" in src
+        assert (
+            f"/usr/bin/nmcli con add type ethernet ifname {iface} con-name {con} *"
+            in src
+        )
+        assert f"/usr/bin/nmcli con up {con}" in src
+    assert "sudo ufw allow in on eth1" in src
+
+
+def test_console_port_setting(monkeypatch):
+    monkeypatch.setattr(state_mod(), "settings", {})
+    monkeypatch.setattr(state_mod(), "save_settings", lambda: None)
+    assert network.console_iface() == "eth0"
+    network.route_console_iface_set(network.ConsoleIface(iface="eth1"))
+    assert network.console_iface() == "eth1"
+    import worker
+
+    assert worker._udp_iface() == "eth1"
+    # A hand-edited value the sudoers rules don't cover falls back to eth0.
+    state_mod().settings["console_iface"] = "eth7"
+    assert network.console_iface() == "eth0" and worker._udp_iface() == "eth0"
+
+
+def state_mod():
+    import state
+
+    return state
+
+
+@pytest.mark.parametrize(
+    ("cidrs", "overlap"),
+    [
+        (["192.168.1.20/24", "192.168.1.50/24", "10.0.0.2/24"], True),  # wifi + eth0
+        (["192.168.1.20/24", "10.0.0.2/24", "10.0.0.9/24"], True),  # eth0 + eth1
+        (["192.168.1.20/24", "10.0.0.2/24", "169.254.3.3/16"], False),
+        (["", "10.0.0.2/24"], False),
+    ],
+)
+def test_any_overlap(cidrs, overlap):
+    assert network.any_overlap(cidrs) is overlap
+
+
+# ── Web proxy ─────────────────────────────────────────────────────────────────
+
+
+@pytest.mark.parametrize(
+    ("text", "parts"),
+    [
+        ("", None),
+        ("proxy.school.edu:3128", ("proxy.school.edu", 3128, None)),
+        ("http://10.0.0.1:8080/", ("10.0.0.1", 8080, None)),
+        ("proxy.school.edu", ("proxy.school.edu", 8080, None)),
+        ("http://jo:p%40ss@proxy:3128", ("proxy", 3128, ("jo", "p@ss"))),
+    ],
+)
+def test_proxy_parts(text, parts):
+    import relay
+
+    assert relay.proxy_parts(text) == parts
+
+
+@pytest.mark.parametrize(
+    "text",
+    ["socks5://proxy:1080", "https://proxy:443", "proxy:notaport", "http://p:1/x"],
+)
+def test_proxy_parts_refuses(text):
+    import relay
+
+    with pytest.raises(ValueError):
+        relay.proxy_parts(text)
+
+
+def test_saving_a_bad_proxy_is_refused(monkeypatch):
+    monkeypatch.setattr(state_mod(), "settings", {})
+    monkeypatch.setattr(state_mod(), "save_settings", lambda: None)
+    r = network.route_cloud_proxy_set(network.CloudProxy(proxy="socks5://x:1"))
+    assert r.status_code == 400 and "cloud_proxy" not in state_mod().settings
+    assert network.route_cloud_proxy_set(network.CloudProxy(proxy=" p:3128 ")) == {
+        "ok": True
+    }
+    assert state_mod().settings["cloud_proxy"] == "p:3128"
+
+
+def test_the_relay_tunnels_through_the_proxy(monkeypatch):
+    import relay
+
+    monkeypatch.setattr(state_mod(), "settings", {"cloud_proxy": "jo:pw@proxy:3128"})
+    assert relay._ws_proxy_options() == {
+        "http_proxy_host": "proxy",
+        "http_proxy_port": 3128,
+        "proxy_type": "http",
+        "http_proxy_auth": ("jo", "pw"),
+    }
+    state_mod().settings["cloud_proxy"] = ""
+    assert relay._ws_proxy_options() == {}
+
+
+def test_the_relay_assignment_goes_through_the_proxy(monkeypatch):
+    import urllib.request
+
+    import relay
+
+    seen = {}
+
+    class Opener:
+        def open(self, req, timeout):
+            seen["url"] = req.full_url
+            raise OSError("stop here")
+
+    def build_opener(handler):
+        seen["proxies"] = handler.proxies
+        return Opener()
+
+    monkeypatch.setattr(state_mod(), "settings", {"cloud_proxy": "proxy:3128"})
+    monkeypatch.setattr(urllib.request, "build_opener", build_opener)
+    with pytest.raises(OSError):
+        relay._urlopen(urllib.request.Request("https://cloud.example/api/assign"), 5)
+    assert seen["proxies"] == {
+        "http": "http://proxy:3128",
+        "https": "http://proxy:3128",
+    }
+
+
+class _Conn:
+    """Stands in for http.client's connections and records what was asked."""
+
+    made = []
+
+    def __init__(self, host, port, timeout):
+        self.host, self.port, self.tunnel, self.req = host, port, None, None
+        _Conn.made.append(self)
+
+    def set_tunnel(self, host, port, headers):
+        self.tunnel = (host, port, headers)
+
+    def request(self, method, target, headers):
+        self.req = (method, target, headers)
+
+    def getresponse(self):
+        class R:
+            status = 200
+
+            def getheader(self, name):
+                return ""
+
+            def read(self, n):
+                return b"ok"
+
+        return R()
+
+    def close(self):
+        pass
+
+
+def test_the_check_goes_through_the_proxy_like_the_relay(monkeypatch):
+    _Conn.made = []
+    monkeypatch.setattr(http.client, "HTTPSConnection", _Conn)
+    monkeypatch.setattr(http.client, "HTTPConnection", _Conn)
+    proxy = ("proxy", 3128, ("jo", "pw"))
+    network._get("https", "cloud.example", None, "/ping", 5, proxy=proxy)
+    network._get("http", "cloud.example", None, "/ping", 5, proxy=proxy)
+    tls, plain = _Conn.made
+    assert (tls.host, tls.port) == ("proxy", 3128)
+    assert tls.tunnel[:2] == ("cloud.example", 443)
+    assert tls.tunnel[2]["Proxy-Authorization"] == "Basic am86cHc="
+    assert plain.req[1] == "http://cloud.example/ping"
+    assert plain.req[2]["Proxy-Authorization"] == "Basic am86cHc="
+
+
+# ── Wi-Fi country ─────────────────────────────────────────────────────────────
+
+
+@pytest.mark.parametrize(
+    ("out", "code"),
+    [
+        ("global\ncountry CA: DFS-FCC\n\t(2402 - 2472 @ 40), (N/A, 30)\n", "CA"),
+        ("global\ncountry 00: DFS-UNSET\n", ""),
+        ("", ""),
+        # Per-radio sections follow the global one; the global one wins.
+        (
+            "global\ncountry FR: DFS-ETSI\n\nphy#0 (self-managed)\ncountry US: DFS-FCC\n",
+            "FR",
+        ),
+    ],
+)
+def test_parse_reg(out, code):
+    assert network.parse_reg(out) == code
+
+
+def test_wifi_countries_reads_tzdata(tmp_path):
+    tab = tmp_path / "iso3166.tab"
+    tab.write_text("# comment\nCA\tCanada\nFR\tFrance\nAD\tAndorra\n", encoding="utf-8")
+    assert network.wifi_countries(str(tab)) == ["AD", "CA", "FR"]
+    assert network.wifi_countries(str(tmp_path / "missing")) == []
+
+
+def test_setting_the_country_runs_the_root_owned_script(monkeypatch):
+    runs = []
+    monkeypatch.setattr(network, "wifi_countries", lambda: ["CA", "FR"])
+    monkeypatch.setattr(
+        network,
+        "_run",
+        lambda cmd, timeout=6: (
+            runs.append(cmd)
+            or subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+        ),
+    )
+    assert network._wifi_country_set("CA") == {"ok": True}
+    assert runs[0][:2] == ["sudo", "-n"] and runs[0][2].endswith("wifi-country.sh")
+    assert runs[0][3] == "CA"
+    assert network._wifi_country_set("CA init=/bin/sh").status_code == 400
+    assert len(runs) == 1
+
+
+@pytest.mark.parametrize(
+    ("code", "rc"),
+    [("CA", 0), ("ca", 2), ("ZZ", 2), ("CA init=/bin/sh", 2), ("C", 2), ("", 2)],
+)
+def test_the_script_lets_only_a_country_code_through(tmp_path, code, rc):
+    """The script is the check (the value reaches the kernel command line): run it
+    with root, raspi-config and iw faked, against a fake tzdata table."""
+    script = (
+        Path(network.__file__).parents[2] / "install" / "scripts" / "wifi-country.sh"
+    )
+    src = script.read_text(encoding="utf-8")
+    tab = tmp_path / "iso3166.tab"
+    tab.write_text("CA\tCanada\nFR\tFrance\n", encoding="utf-8")
+    src = src.replace('"$(id -u)"', "0").replace(
+        "/usr/share/zoneinfo/iso3166.tab", str(tab)
+    )
+    src = src.replace("raspi-config nonint do_wifi_country", "echo raspi-config")
+    src = src.replace("command -v raspi-config", "true")
+    test_script = tmp_path / "wifi-country.sh"
+    test_script.write_text(src, encoding="utf-8")
+    r = subprocess.run(
+        ["bash", str(test_script), code], capture_output=True, text=True, check=False
+    )
+    assert r.returncode == rc, r.stderr
+    if rc == 0:
+        assert "raspi-config CA" in r.stdout
+
+
+def test_the_installer_installs_and_grants_the_script():
+    src = (Path(network.__file__).parents[2] / "install" / "install.sh").read_text()
+    assert "wifi-country.sh; do" in src
+    assert "$PRIV_DIR/wifi-country.sh *" in src
