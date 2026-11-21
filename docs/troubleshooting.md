@@ -233,6 +233,41 @@ reconnects within a minute.
 
 </details>
 
+<details>
+<summary><strong>Two wired networks: the venue router and the console</strong></summary>
+
+**Fix.** Plug a USB Ethernet adapter into the Pi (it appears as `eth1`). **Settings →
+Network** then shows a **Console** choice under *Status*: pick the port the console
+is on. The UDP listener moves to it within 5 s. The **Ethernet Static IP** card gets a
+port picker, so each port has its own addressing; untick *Ethernet has internet* on
+the console's port. A Pi installed before this needs a reinstall (the *Reinstall
+needed* banner): the firewall and sudo rules for `eth1` come from the installer.
+
+</details>
+
+<details>
+<summary><strong>The venue requires a web proxy (schools, offices)</strong></summary>
+
+**How it looks.** The network works, but the Cloud never connects, and
+**Internet** reads *Network, but Cloud unreachable*.
+
+**Fix.** **Settings → Network → Web proxy**: enter the address the venue gives you
+(`host:port`, or `user:password@host:port`) and **Save**. The Cloud connects through it
+from its next attempt, and the **Internet** check goes through it too.
+
+</details>
+
+<details>
+<summary><strong>A 5 GHz network doesn't show in the scan</strong></summary>
+
+**Why.** Until its country is set, the Pi's radio keeps to the world-wide minimum,
+where some 5 GHz channels are off.
+
+**Fix.** **Settings → Network → Country** (over the WiFi list): pick the country and
+hold **Set**, then **Scan** again. A Pi installed before this needs a reinstall first.
+
+</details>
+
 ---
 
 <a id="troubleshooting-fr"></a>
@@ -480,5 +515,42 @@ encore valide. Le relais ne peut pas se connecter.
 
 **Solution.** **Réglages → Horloge** : synchroniser, ou régler la date et l'heure à
 la main. Le Cloud se reconnecte en moins d'une minute.
+
+</details>
+
+<details>
+<summary><strong>Deux réseaux filaires : le routeur du site et la console</strong></summary>
+
+**Solution.** Brancher un adaptateur Ethernet USB au Pi (il apparaît comme `eth1`).
+**Réglages → Réseau** propose alors un choix **Console** sous *État* : choisir le port
+de la console. L'écoute UDP s'y déplace en 5 s. La carte **IP statique Ethernet** gagne
+un choix de port, pour l'adressage de chacun ; décocher *Ethernet a internet* sur le
+port de la console. Un Pi installé avant ceci doit être réinstallé (bandeau
+*Réinstallation requise*) : les règles de pare-feu et sudo pour `eth1` viennent de
+l'installateur.
+
+</details>
+
+<details>
+<summary><strong>Le site exige un proxy web (écoles, bureaux)</strong></summary>
+
+**Symptôme.** Le réseau fonctionne, mais le Cloud ne se connecte jamais, et
+**Internet** indique *Réseau, mais Cloud injoignable*.
+
+**Solution.** **Réglages → Réseau → Proxy web** : entrer l'adresse fournie par le site
+(`hôte:port`, ou `utilisateur:mot-de-passe@hôte:port`) et **Enregistrer**. Le Cloud
+passe par lui dès sa prochaine tentative, et la vérification **Internet** aussi.
+
+</details>
+
+<details>
+<summary><strong>Un réseau 5 GHz n'apparaît pas dans la liste</strong></summary>
+
+**Cause.** Tant que son pays n'est pas défini, la radio du Pi s'en tient au minimum
+mondial, où certains canaux 5 GHz sont coupés.
+
+**Solution.** **Réglages → Réseau → Pays** (au-dessus de la liste WiFi) : choisir le
+pays et maintenir **Définir**, puis **Analyser** à nouveau. Un Pi installé avant ceci
+doit d'abord être réinstallé.
 
 </details>
