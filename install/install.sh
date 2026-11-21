@@ -457,7 +457,7 @@ if [[ "$ROLE" == "server" ]]; then
     # of these bumps install/PROVISION_VERSION, so the panel asks for a reinstall.
     PRIV_DIR="/usr/local/lib/splouch"
     sudo install -d -o root -g root -m 0755 "$PRIV_DIR"
-    for _script in rtc_setup.sh refresh-service.sh mdns-aliases.sh; do
+    for _script in rtc_setup.sh refresh-service.sh mdns-aliases.sh wifi-country.sh; do
         sudo install -o root -g root -m 0755 "$INSTALL_DIR/install/scripts/$_script" "$PRIV_DIR/$_script"
     done
     echo "$INSTALL_DIR" | sudo tee "$PRIV_DIR/INSTALL_DIR" >/dev/null
@@ -472,8 +472,8 @@ if [[ "$ROLE" == "server" ]]; then
     sudo tee "$SUDOERS_FILE" >/dev/null <<EOF
 $TARGET_USER ALL=(ALL) NOPASSWD: /usr/bin/timedatectl set-ntp true, /usr/bin/timedatectl set-ntp false, /usr/bin/timedatectl set-time *, /usr/bin/systemctl restart systemd-timesyncd, /usr/bin/systemctl restart splouch, /usr/sbin/reboot "", /usr/sbin/poweroff ""
 $TARGET_USER ALL=(ALL) NOPASSWD: /usr/bin/apt-get update, /usr/bin/apt-get upgrade -y
-$TARGET_USER ALL=(ALL) NOPASSWD: /usr/bin/nmcli dev wifi rescan, /usr/bin/nmcli radio wifi on, /usr/bin/nmcli radio wifi off, /usr/bin/nmcli connection delete -- *, /usr/bin/nmcli con mod splouch-eth *, /usr/bin/nmcli con add type ethernet ifname eth0 con-name splouch-eth *, /usr/bin/nmcli con up splouch-eth
-$TARGET_USER ALL=(ALL) NOPASSWD: $PRIV_DIR/rtc_setup.sh enable, $PRIV_DIR/rtc_setup.sh disable, $PRIV_DIR/rtc_setup.sh status, $PRIV_DIR/refresh-service.sh ""
+$TARGET_USER ALL=(ALL) NOPASSWD: /usr/bin/nmcli dev wifi rescan, /usr/bin/nmcli radio wifi on, /usr/bin/nmcli radio wifi off, /usr/bin/nmcli connection delete -- *, /usr/bin/nmcli con mod splouch-eth *, /usr/bin/nmcli con add type ethernet ifname eth0 con-name splouch-eth *, /usr/bin/nmcli con up splouch-eth, /usr/bin/nmcli con mod splouch-eth1 *, /usr/bin/nmcli con add type ethernet ifname eth1 con-name splouch-eth1 *, /usr/bin/nmcli con up splouch-eth1
+$TARGET_USER ALL=(ALL) NOPASSWD: $PRIV_DIR/rtc_setup.sh enable, $PRIV_DIR/rtc_setup.sh disable, $PRIV_DIR/rtc_setup.sh status, $PRIV_DIR/refresh-service.sh "", $PRIV_DIR/wifi-country.sh *
 EOF
     sudo chmod 0440 "$SUDOERS_FILE"
     if sudo visudo -cf "$SUDOERS_FILE" >/dev/null; then
@@ -693,6 +693,9 @@ WALLEOF
     sudo ufw default deny incoming
     sudo ufw default allow outgoing
     sudo ufw allow in on eth0
+    # A USB Ethernet adapter, for a console network kept apart from the venue's
+    # (Settings → Network → Console port).
+    sudo ufw allow in on eth1
     sudo ufw allow in on wlan0
 
     # Browsers upgrade a typed `splouch.local` to https and only fall back to http
