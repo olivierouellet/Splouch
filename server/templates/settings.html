@@ -176,8 +176,10 @@
                     <i class="bi bi-wifi-off mt-1"></i>
                     <div>
                         <span id="net-alert-text"></span>
-                        <a href="#tab-network" class="alert-link"
+                        <a id="net-alert-network" href="#tab-network" class="alert-link"
                            onclick="panelShowTab('#tab-network'); return false;">{{ t.nav_network }}</a>
+                        <a id="net-alert-time" href="#tab-time" class="alert-link" style="display:none;"
+                           onclick="panelShowTab('#tab-time'); return false;">{{ t.nav_clock }}</a>
                     </div>
                 </div>
             </div>

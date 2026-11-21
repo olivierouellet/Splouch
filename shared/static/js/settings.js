@@ -2423,6 +2423,10 @@ function _applyNetAlert(net) {
     var msg = net ? T['js_net_alert_' + net.state] : '';
     box.style.display = msg ? '' : 'none';
     document.getElementById('net-alert-text').textContent = msg || '';
+    // A wrong date is fixed in the Time tab, everything else in Network.
+    var clock = !!net && net.state === 'clock';
+    document.getElementById('net-alert-time').style.display = clock ? '' : 'none';
+    document.getElementById('net-alert-network').style.display = clock ? 'none' : '';
     if (net && net.state === 'portal') {
         var help = /** @type {HTMLDetailsElement} */ (document.getElementById('wifi-portal'));
         help.open = true;

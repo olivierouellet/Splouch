@@ -3,6 +3,7 @@ import ipaddress
 import json
 import re
 import socket
+import ssl
 import subprocess
 import threading
 import time
@@ -119,8 +120,9 @@ class WifiStatus(BaseModel):
 
 class Connectivity(BaseModel):
     # full: the Cloud answers. portal: a sign-in page is in the way (captive
-    # portal). limited: a network, but the Cloud doesn't answer. none: no network
-    # out. unknown: no Cloud address to try and NetworkManager doesn't know.
+    # portal). clock: the Cloud is there, but the Pi's date is wrong, so its
+    # certificate fails. limited: a network, but the Cloud doesn't answer. none: no
+    # network out. unknown: no Cloud address to try and NetworkManager doesn't know.
     state: str
     # The port the internet goes through: 'ethernet', 'wifi' or ''.
     via: str = ""
@@ -460,6 +462,37 @@ async def route_wifi_connect(body: WifiConnect):
     return await run_in_threadpool(_wifi_connect, body.ssid, body.password)
 
 
+# NetworkManager gives up on a profile after 4 failed attempts and waits 5 minutes
+# before trying again. On a pool deck everything powers up at once and the venue
+# router is often the slowest to boot, so the Pi used to sit offline for those 5
+# minutes. 0: keep trying.
+KEEP_TRYING = ("connection.autoconnect-retries", "0")
+
+
+def keep_trying_profiles():
+    """Set KEEP_TRYING on profiles made before it existed (or by Raspberry Pi
+    Imager): every saved Wi-Fi profile, and `splouch-eth`. Once, at startup."""
+    try:
+        r = _nmcli("-t", "-f", "UUID,TYPE,NAME", "con", "show")
+    except (OSError, subprocess.SubprocessError):
+        return  # no NetworkManager here (a dev machine)
+    for line in r.stdout.splitlines():
+        uuid, typ, name = _split_terse(line, 3)
+        retries = _nmcli("-g", KEEP_TRYING[0], "con", "show", uuid).stdout.strip()
+        if retries == KEEP_TRYING[1]:
+            continue
+        if typ == "802-11-wireless":
+            _nmcli("con", "mod", uuid, *KEEP_TRYING)
+        elif name == ETH_CON:
+            # Root's: the sudoers rule allows `con mod splouch-eth *`.
+            subprocess.run(
+                ["sudo", "nmcli", "con", "mod", ETH_CON, *KEEP_TRYING],
+                capture_output=True,
+                timeout=8,
+                check=False,
+            )
+
+
 def _replace_profile(ssid):
     """Delete any saved profile for `ssid`; returns the MAC it was borrowing.
 
@@ -502,6 +535,9 @@ def _wifi_connect(ssid, password):
             return JSONResponse(
                 {"error": (r.stderr or r.stdout).strip()}, status_code=400
             )
+        uuid = _active_wifi_uuid()
+        if uuid:
+            _nmcli("con", "mod", uuid, *KEEP_TRYING)
         if borrowed:
             return _wifi_mac_set(borrowed)
         return {"ok": True}
@@ -526,6 +562,7 @@ def _wifi_connect_profile(body):
             *("connection.id", body.ssid, "802-11-wireless.ssid", body.ssid),
             # Off until the secret is in, so it can't start without one.
             *("connection.autoconnect", "no"),
+            *KEEP_TRYING,
         ]
         if body.hidden:
             props += ["802-11-wireless.hidden", "yes"]
@@ -603,6 +640,7 @@ def _eth_apply(*props):
             cmd += ["con-name", ETH_CON]
             cmd += ["connection.autoconnect", "yes"]
             cmd += ["connection.autoconnect-priority", "100"]
+            cmd += ["connection.autoconnect-retries", "0"]
         r = subprocess.run(
             [*cmd, *props], capture_output=True, text=True, timeout=8, check=False
         )
@@ -713,7 +751,13 @@ def _get(scheme, host, port, path, timeout):
         conn.close()
 
 
-def classify(cloud_url, get=_get, timeout=5):
+# OpenSSL's X509_V_ERR_CERT_NOT_YET_VALID and X509_V_ERR_CERT_HAS_EXPIRED.
+CERT_DATE_ERRORS = (9, 10)
+# Older than any Splouch release: a date before it is wrong, whatever else is.
+MIN_YEAR = 2026
+
+
+def classify(cloud_url, get=_get, timeout=5, now=time.time):
     """{'state', 'portal_url'} from asking the Cloud's /ping, which says `ok`.
 
     The real request goes the way the relay's does (HTTPS unless the Cloud is set
@@ -730,23 +774,31 @@ def classify(cloud_url, get=_get, timeout=5):
     host = parts.hostname
     if not host:
         return {"state": "unknown", "portal_url": ""}
+    # A Pi with no clock battery boots on a stale date, and venue firewalls often
+    # block network time: every certificate then looks expired or not yet valid.
+    clock = time.gmtime(now()).tm_year < MIN_YEAR
     try:
         status, _, body = get(parts.scheme, host, parts.port, "/ping", timeout)
         if status == 200 and body.strip() == b"ok":
             return {"state": "full", "portal_url": ""}
+    except ssl.SSLCertVerificationError as e:
+        clock = clock or e.verify_code in CERT_DATE_ERRORS
     except (OSError, http.client.HTTPException):
         pass
+    # Not reaching the Cloud with a wrong date: say the date, the thing to fix —
+    # unless a portal is in the way, which has to be dealt with first.
+    limited = {"state": "clock" if clock else "limited", "portal_url": ""}
     try:
         status, location, body = get("http", host, None, "/ping", timeout)
     except (OSError, http.client.HTTPException):
         # Nothing answers, not even a portal — but there is a route out.
-        return {"state": "limited", "portal_url": ""}
+        return limited
     if 300 <= status < 400:
         if urlsplit(location).hostname in (host, None):
-            return {"state": "limited", "portal_url": ""}
+            return limited
         return {"state": "portal", "portal_url": location}
     if status == 200 and body.strip() == b"ok":
-        return {"state": "limited", "portal_url": ""}
+        return limited
     return {"state": "portal", "portal_url": ""}
 
 
@@ -903,6 +955,9 @@ def start_watch():
         return
     _watch_started = True
     threading.Thread(target=WATCH.run, daemon=True, name="net-watch").start()
+    threading.Thread(
+        target=keep_trying_profiles, daemon=True, name="net-keep-trying"
+    ).start()
 
 
 # ── Discovery (mDNS) ──────────────────────────────────────────────────────────

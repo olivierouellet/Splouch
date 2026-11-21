@@ -17,8 +17,10 @@ import asyncio
 import http.client
 import json
 import os
+import ssl
 import subprocess
 import tempfile
+from pathlib import Path
 
 import pytest
 
@@ -663,3 +665,114 @@ def test_hidden_selects_the_profile_path(monkeypatch):
     monkeypatch.setattr(network, "_wifi_connect", lambda s, p: seen.append("psk"))
     asyncio.run(network.route_wifi_connect(_hidden(password="poolside1")))
     assert seen == ["p"]
+
+
+# ── Keep trying: a venue router that boots after the Pi ───────────────────────
+
+
+def test_new_profiles_keep_trying(monkeypatch):
+    nm, _ = _enterprise(monkeypatch)
+    network._wifi_connect_profile(_hidden(password="poolside1"))
+    assert _add_props(nm)["connection.autoconnect-retries"] == "0"
+
+
+def test_a_scanned_network_keeps_trying(monkeypatch):
+    nm = []
+
+    def fake_nmcli(*args, timeout=8):
+        nm.append(list(args))
+        out = "new-uuid:802-11-wireless\n" if args[:2] == ("-t", "-f") else ""
+        return subprocess.CompletedProcess(args, 0, stdout=out, stderr="")
+
+    monkeypatch.setattr(network, "_nmcli", fake_nmcli)
+    monkeypatch.setattr(
+        subprocess,
+        "run",
+        lambda args, **kw: subprocess.CompletedProcess(args, 0, stdout="", stderr=""),
+    )
+    assert network._wifi_connect("Pool", "pw") == {"ok": True}
+    assert ["con", "mod", "new-uuid", "connection.autoconnect-retries", "0"] in nm
+
+
+def test_existing_profiles_are_set_to_keep_trying(monkeypatch):
+    nm, sudo = [], []
+    retries = {"w1": "-1", "w2": "0", "e1": "-1", "o1": "-1"}
+
+    def fake_nmcli(*args, timeout=8):
+        nm.append(list(args))
+        out = ""
+        if args[:4] == ("-t", "-f", "UUID,TYPE,NAME", "con"):
+            out = (
+                "w1:802-11-wireless:Pool\nw2:802-11-wireless:Club\n"
+                "e1:802-3-ethernet:splouch-eth\no1:802-3-ethernet:Wired connection 1\n"
+            )
+        elif args[:2] == ("-g", "connection.autoconnect-retries"):
+            out = retries[args[-1]] + "\n"
+        return subprocess.CompletedProcess(args, 0, stdout=out, stderr="")
+
+    def fake_run(args, **kw):
+        sudo.append(list(args))
+        return subprocess.CompletedProcess(args, 0, stdout="", stderr="")
+
+    monkeypatch.setattr(network, "_nmcli", fake_nmcli)
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    network.keep_trying_profiles()
+    mods = [c for c in nm if c[:2] == ["con", "mod"]]
+    assert mods == [["con", "mod", "w1", "connection.autoconnect-retries", "0"]]
+    keep = ["connection.autoconnect-retries", "0"]
+    assert sudo == [["sudo", "nmcli", "con", "mod", "splouch-eth", *keep]]
+
+
+def test_keep_trying_without_networkmanager(monkeypatch):
+    def missing(*a, **k):
+        raise FileNotFoundError("nmcli")
+
+    monkeypatch.setattr(network, "_nmcli", missing)
+    network.keep_trying_profiles()  # a dev machine: nothing to do, no crash
+
+
+def test_the_installer_keeps_trying_too():
+    src = (Path(network.__file__).parents[2] / "install" / "install.sh").read_text()
+    assert "connection.autoconnect-retries 0" in src
+
+
+# ── A wrong clock ─────────────────────────────────────────────────────────────
+
+
+def _cert_error(code):
+    e = ssl.SSLCertVerificationError(1, "certificate verify failed")
+    e.verify_code = code
+    return e
+
+
+@pytest.mark.parametrize(
+    ("https", "http", "state"),
+    [
+        # Expired / not yet valid, and the Cloud's own redirect over HTTP: the date.
+        (_cert_error(10), (308, "https://cloud.example/ping", b""), "clock"),
+        (_cert_error(9), OSError("x"), "clock"),
+        # A portal comes first: it has to be dealt with before anything else.
+        (_cert_error(10), (302, "http://portal.venue.net/", b""), "portal"),
+        # Unknown issuer (19, 20): not the date.
+        (_cert_error(20), (308, "https://cloud.example/ping", b""), "limited"),
+    ],
+)
+def test_classify_tells_a_wrong_date(https, http, state):
+    get, _ = _fake({"https": https, "http": http})
+    assert network.classify("https://cloud.example", get=get)["state"] == state
+
+
+def test_a_date_before_any_release_is_wrong():
+    get, _ = _fake({"https": OSError("x"), "http": OSError("y")})
+
+    def jan_1970():  # a clock reset to the epoch
+        return 0.0
+
+    assert network.classify("cloud.example", get=get, now=jan_1970)["state"] == "clock"
+
+
+def test_the_watcher_reports_a_wrong_date():
+    w, _ = _watch("clock")
+    w.tick(DOWN, 0)
+    w.tick(DOWN, w.GRACE)
+    assert w.report()["state"] == "clock"
