@@ -327,17 +327,18 @@ def load_lenex(path):
         "TURN": "Turn",
     }
 
-    def ages_str(event):
+    def ages_str(event, heats):
         """The ages the event's AGEGROUPs span, written the way
         `parse_event_name` reads a band back: `10 & Under`, `11 & Over`,
         `11-12`, `8-8` for one age, `""` when any group is open both ways or
         there is none. A timed final scored by age groups (`≤7`, `8`, `9`, `10`)
-        is the whole span, `≤10`. None when a heat has a group of its own (a
-        final seeded one heat per age group): each heat says which
-        (`heat_ages`), and the span beside it would read twice, `11+ · 13-14`."""
+        is the whole span, `≤10`. None when one of the round's *heats* has a
+        group of its own (a final seeded one heat per age group): each heat says
+        which (`heat_ages`), and the span beside it would read twice,
+        `11+ · 13-14`."""
         groups = find(event, "AGEGROUP")
         ids = {g.get("agegroupid") for g in groups if g.get("agegroupid")}
-        if any(h.get("agegroupid") in ids for h in find(event, "HEAT")):
+        if any(h.get("agegroupid") in ids for h in heats):
             return ""
         los, his = [], []
         for g in groups:
@@ -360,7 +361,7 @@ def load_lenex(path):
             return f"{lo} & Over"
         return ""
 
-    def event_name_str(event):
+    def event_name_str(event, heats):
         prename = event.get("prename", "")
         name = event.get("name", "")
         if prename or name:
@@ -387,7 +388,7 @@ def load_lenex(path):
             distance = f"{legs}x{distance}"
         parts = [
             gender,
-            ages_str(event),
+            ages_str(event, heats),
             distance,
             _stroke_map.get(
                 stroke, stroke.replace("_", " ").capitalize() if stroke else ""
@@ -406,9 +407,73 @@ def load_lenex(path):
     session_of = {id(e): s for s in sessions for e in find(s, "EVENT")}
 
     events = find(root, "EVENT")
+    by_eventid = {e.get("eventid"): e for e in events if e.get("eventid")}
+
+    def _previous(event):
+        """The EVENT its `preveventid` names, None for none (-1) or one not in
+        the file."""
+        return by_eventid.get((event.get("preveventid") or "").strip())
+
+    def _primary(event):
+        """The EVENT whose round *event* is part of: itself, unless it is one of
+        Splash's extra heats. Splash swims the heats of a long timed final
+        (1500, 800) alternating with other events by giving each heat an EVENT
+        of its own, `round="EXTRAHEATS"` (not a Lenex 3.0 code), with the same
+        number and a `preveventid` naming the timed final, which holds the age
+        groups but no heats. The console sends the number and the heat, so the
+        heats are one round, the timed final's."""
+        if (event.get("round") or "").strip().upper() != "EXTRAHEATS":
+            return event
+        prev = _previous(event)
+        if prev is None or prev.get("number") != event.get("number"):
+            return event
+        return prev
+
+    def _age_groups(event):
+        """{agegroupid: band} of the AGEGROUPs a HEAT of *event* can name: its
+        own, then its previous event's. A fastest-heats EVENT may have no
+        AGEGROUPS (Lenex 3.0: "If round=FHT, then no AGEGROUPS element is
+        allowed"); its heats name its timed final's, as Splash's extra heats do."""
+        groups = {}
+        seen = set()
+        while event is not None and id(event) not in seen:
+            seen.add(id(event))
+            for g in find(event, "AGEGROUP"):
+                if g.get("agegroupid"):
+                    groups.setdefault(
+                        g.get("agegroupid"), age_band(g.get("agemin"), g.get("agemax"))
+                    )
+            event = _previous(event)
+        return groups
+
+    round_of = {}  # id(EVENT element) → round
+    primaries = []  # round → its EVENT element
+    members = []  # round → every EVENT element it is read from, in file order
+    for event in events:
+        primary = _primary(event)
+        if id(primary) not in round_of:
+            round_of[id(primary)] = len(primaries)
+            primaries.append(primary)
+            members.append([])
+        round_of[id(event)] = round_of[id(primary)]
+        members[round_of[id(event)]].append(event)
+    if any(len(m) > 1 for m in members):
+        # A merged round runs where its first heat is, not where its timed final
+        # (which has none) stands in the file.
+        position = {id(e): i for i, e in enumerate(events)}
+
+        def _runs_at(r):
+            swum = [e for e in members[r] if find(e, "HEAT")] or [primaries[r]]
+            return position[id(swum[0])]
+
+        order = sorted(range(len(primaries)), key=_runs_at)
+        primaries = [primaries[r] for r in order]
+        members = [members[r] for r in order]
+        round_of = {id(e): r for r, m in enumerate(members) for e in m}
+
     round_number = []  # round → event number
     round_key = []  # round → `ROUND_KEYS` value, or ""
-    round_of = {}  # id(EVENT element) → round
+    round_session = {}  # round → its SESSION: where its first heat is swum
     names = {}  # round → event name
     starts = {}  # round → {heat_number: {lane: entry}}
     times = {}  # round → {heat_number: daytime_str}
@@ -421,12 +486,15 @@ def load_lenex(path):
     round_status = {}  # round → its EVENT's `status`
     heat_status = {}  # (round, heat_number) → its HEAT's `status`
 
-    for rnd, event in enumerate(events):
-        round_of[id(event)] = rnd
+    for rnd, event in enumerate(primaries):
+        heats = [h for m in members[rnd] for h in find(m, "HEAT")]
         round_number.append(int(event.get("number")))
         round_key.append(ROUND_KEYS.get(event.get("round", "").upper(), ""))
-        names[rnd] = event_name_str(event)
-        session = session_of.get(id(event))
+        names[rnd] = event_name_str(event, heats)
+        swum_in = [m for m in members[rnd] if find(m, "HEAT")] or [event]
+        session = session_of.get(id(swum_in[0]))
+        if session is not None:
+            round_session[rnd] = session
         round_course[rnd] = (
             session.get("course", "") if session is not None else ""
         ).upper() or meet_course
@@ -434,11 +502,10 @@ def load_lenex(path):
         starts[rnd] = {}
         times[rnd] = {}
         ages[rnd] = {}
-        age_groups = {
-            g.get("agegroupid"): age_band(g.get("agemin"), g.get("agemax"))
-            for g in find(event, "AGEGROUP")
-            if g.get("agegroupid")
-        }
+        age_groups = {}
+        for m in members[rnd]:
+            for gid, band in _age_groups(m).items():
+                age_groups.setdefault(gid, band)
         style = find_first(event, "SWIMSTYLE")
         if style is not None:
             # A relay's `distance` is one leg's (Lenex 3.0): a 4x50 is 50 with
@@ -450,10 +517,10 @@ def load_lenex(path):
             with contextlib.suppress(ValueError, TypeError):
                 if int(style.get("relaycount") or 1) > 1:
                     relay_legs[rnd] = int(style.get("relaycount"))
-        eid = event.get("eventid", "")
-        if eid:
-            eventid_map[eid] = rnd
-        for heat in find(event, "HEAT"):
+        for m in members[rnd]:
+            if m.get("eventid"):
+                eventid_map[m.get("eventid")] = rnd
+        for heat in heats:
             h_num = int(heat.get("number"))
             starts[rnd][h_num] = {}
             daytime = heat.get("daytime", "")
@@ -570,7 +637,8 @@ def load_lenex(path):
 
     # Structure A — ENTRY nested inside HEAT.
     if any_entry_in_heat:
-        for rnd, event in enumerate(events):
+        for event in events:
+            rnd = round_of[id(event)]
             for heat in find(event, "HEAT"):
                 h_num = int(heat.get("number"))
                 for entry in find(heat, "ENTRY"):
@@ -580,17 +648,18 @@ def load_lenex(path):
     # Real Lenex 3.0 files leave the HEATs empty and list every entry here, so
     # this runs independently of Structure A (not only alongside it).
     if any_entry_in_event:
-        for rnd, event in enumerate(events):
+        for event in events:
+            rnd = round_of[id(event)]
+            # Any heat of the round: an extra heat's entry is listed under the
+            # timed final.
             heatid_to_num = {
-                h.get("heatid", ""): int(h.get("number"))
-                for h in find(event, "HEAT")
-                if h.get("heatid")
+                hid: h_num for hid, (r, h_num) in heatid_map.items() if r == rnd
             }
             for entries_el in find_direct(event, "ENTRIES"):
                 for entry in find_direct(entries_el, "ENTRY"):
                     hid = entry.get("heatid", "")
                     h_num = heatid_to_num.get(hid) or int(entry.get("heat", 0) or 0)
-                    if h_num:
+                    if h_num in starts[rnd]:
                         _add_entry(entry, rnd, h_num)
 
     # Structure C (Splash) — entries under ATHLETE / RELAY, keyed by eventid+heatid.
@@ -668,7 +737,8 @@ def load_lenex(path):
         }
 
     seen_results = set()
-    for rnd, event in enumerate(events):
+    for event in events:
+        rnd = round_of[id(event)]
         for heat in find(event, "HEAT"):
             h_num = int(heat.get("number"))
             for res in find(heat, "RESULT"):
@@ -778,23 +848,21 @@ def load_lenex(path):
                 "warmupuntil": s.get("warmupuntil", ""),
                 # Which events the session holds: a heat's `daytime` is a time of
                 # day, and this is what puts a date on it (docs/app.md `N-05`).
-                # A number shared by rounds is listed by its live round's session.
-                "events": [
-                    int(e.get("number"))
-                    for e in find(s, "EVENT")
-                    if (e.get("number") or "").isdigit()
-                    and live.get(int(e.get("number"))) == round_of.get(id(e))
-                ],
+                # A number shared by rounds is listed by its live round's
+                # session; a round by the session of its first heat.
+                "events": list(
+                    dict.fromkeys(
+                        int(e.get("number"))
+                        for e in find(s, "EVENT")
+                        if (e.get("number") or "").isdigit()
+                        and live.get(int(e.get("number"))) == round_of.get(id(e))
+                        and round_session.get(round_of[id(e)]) is s
+                    )
+                ),
             }
             for s in sessions
         ]
 
-    round_sessions = {  # round → its SESSION
-        round_of[id(e)]: s
-        for s in sessions
-        for e in find(s, "EVENT")
-        if id(e) in round_of
-    }
     rounds = [
         {
             "event": ev_num,
@@ -802,11 +870,11 @@ def load_lenex(path):
             "kind": round_key[r],
             "live": live[ev_num] == r,
             "name": names[r],
-            "date": round_sessions[r].get("date", "") if r in round_sessions else "",
+            "date": round_session[r].get("date", "") if r in round_session else "",
             # A heading on the Schedule where the session changes (`S-26`).
-            "session": _session_number(round_sessions.get(r)),
+            "session": _session_number(round_session.get(r)),
             "session_name": (
-                round_sessions[r].get("name", "").strip() if r in round_sessions else ""
+                round_session[r].get("name", "").strip() if r in round_session else ""
             ),
             "start_list": starts[r],
             "heat_times": times[r],

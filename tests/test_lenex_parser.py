@@ -562,3 +562,86 @@ def _fastest_heats(tim_status):
 def test_fastest_heats_wait_for_their_timed_final():
     assert _fastest_heats("INOFFICIAL").live_rounds == {1: "timed_final"}
     assert _fastest_heats("OFFICIAL").live_rounds == {1: "fastest_heat"}
+
+
+def _extra_heats_xml():
+    """Splash's 1500 swum alternating with other events: each heat an EVENT of
+    its own (`round="EXTRAHEATS"`), naming the timed final that holds the age
+    groups, which comes later in the file without heats."""
+    extra = (
+        '<EVENT eventid="{eid}" number="1" gender="F" round="EXTRAHEATS" '
+        'preveventid="1"><SWIMSTYLE distance="1500" relaycount="1" stroke="FREE"/>'
+        '<HEATS><HEAT heatid="{eid}" number="{heat}" daytime="{time}"{age}/></HEATS>'
+        "</EVENT>"
+    )
+    events = (
+        extra.format(eid=11, heat=1, time="17:15", age="")
+        + '<EVENT eventid="5" number="5" gender="M"><SWIMSTYLE distance="50" '
+        'relaycount="1" stroke="FREE"/><HEATS><HEAT heatid="5" number="1"/></HEATS>'
+        "</EVENT>"
+        + extra.format(eid=12, heat=2, time="17:58", age=' agegroupid="101"')
+        + '<EVENT eventid="1" number="1" gender="F" round="TIM">'
+        '<SWIMSTYLE distance="1500" relaycount="1" stroke="FREE"/>'
+        '<AGEGROUPS><AGEGROUP agegroupid="100" agemin="-1" agemax="12"/>'
+        '<AGEGROUP agegroupid="101" agemin="13" agemax="14"/></AGEGROUPS></EVENT>'
+    )
+    clubs = """<CLUB name="Aqua"><ATHLETES>
+      <ATHLETE athleteid="1" lastname="Un" firstname="Ann">
+        <ENTRIES><ENTRY eventid="1" heatid="11" lane="3"/></ENTRIES></ATHLETE>
+      <ATHLETE athleteid="2" lastname="Deux" firstname="Bea">
+        <ENTRIES><ENTRY eventid="1" heatid="12" lane="4"/></ENTRIES></ATHLETE>
+      </ATHLETES></CLUB>"""
+    return load_lenex(_splash(events, clubs))
+
+
+def test_splash_extra_heats_are_the_heats_of_their_timed_final():
+    data = _extra_heats_xml()
+    assert {h: list(lanes) for h, lanes in data.start_list[1].items()} == {
+        1: [3],
+        2: [4],
+    }
+    assert data.start_list[1][1][3]["name"] == "Ann Un"
+    assert data.start_list[1][2][4]["name"] == "Bea Deux"
+    assert data.heat_times[1] == {1: "17:15", 2: "17:58"}
+    assert data.event_rounds == {1: "timed_final"}
+    assert data.live_rounds == {}
+    assert data.event_distances[1] == 1500
+
+
+def test_splash_extra_heats_run_where_their_first_heat_is():
+    data = _extra_heats_xml()
+    assert [r["event"] for r in data.rounds] == [1, 5]
+    assert data.rounds[0]["heat_ages"] == {2: "13-14"}
+    assert data.meet_info["sessions"][0]["events"] == [1, 5]
+
+
+def test_extra_heats_naming_another_number_stay_a_round_of_their_own():
+    events = (
+        '<EVENT eventid="1" number="1" round="TIM"><SWIMSTYLE distance="800" '
+        'stroke="FREE"/></EVENT>'
+        '<EVENT eventid="2" number="2" round="EXTRAHEATS" preveventid="1">'
+        '<SWIMSTYLE distance="800" stroke="FREE"/>'
+        '<HEATS><HEAT heatid="2" number="1"/></HEATS></EVENT>'
+    )
+    data = load_lenex(_splash(events))
+    assert [(r["event"], r["kind"]) for r in data.rounds] == [
+        (1, "timed_final"),
+        (2, ""),
+    ]
+
+
+def test_fastest_heats_take_their_age_groups_from_their_timed_final():
+    """Lenex 3.0: a FHT EVENT may have no AGEGROUPS; its heats name the timed
+    final's."""
+    events = (
+        '<EVENT eventid="1" number="1" round="TIM"><SWIMSTYLE distance="400" '
+        'stroke="FREE"/><AGEGROUPS><AGEGROUP agegroupid="7" agemin="11" agemax="13"/>'
+        '<AGEGROUP agegroupid="8" agemin="14" agemax="-1"/></AGEGROUPS>'
+        '<HEATS><HEAT heatid="1" number="1"/></HEATS></EVENT>'
+        '<EVENT eventid="2" number="1" round="FHT" preveventid="1">'
+        '<SWIMSTYLE distance="400" stroke="FREE"/><HEATS>'
+        '<HEAT heatid="2" number="2" agegroupid="7"/>'
+        '<HEAT heatid="3" number="3" agegroupid="8"/></HEATS></EVENT>'
+    )
+    data = load_lenex(_splash(events))
+    assert data.rounds[1]["heat_ages"] == {2: "11-13", 3: "14+"}
