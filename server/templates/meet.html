@@ -90,14 +90,15 @@ body {
 .btn-print { background: #1e4d2b; color: #7bc47b; border: 1px solid #2a6038; }
 .btn-print:hover { background: #255c33; color: #9be89b; }
 
-/* On paper, as few pages as it can be read on: two columns of small type, a
-   heat a block that is never split, and no table header repeated on every heat
-   (the columns are lane, name, club, seed, the same on each). */
+/* On paper, as few pages as it can be read on, in portrait: each event's title
+   across the page, its heats two abreast below it, left to right. A heat is an
+   inline block, so no browser splits one across a page (Safari ignores
+   `break-inside` and CSS columns when printing). No table header on every heat:
+   the columns are lane, name, club, seed, the same on each. */
 @media print {
     body { background: #fff; color: #000; font-size: 7.5pt; line-height: 1.2; }
     .no-print { display: none !important; }
-    .container { max-width: 100%; padding: 0; column-count: 2; column-gap: 0.6cm; }
-    .lp-header { column-span: all; }
+    .container { max-width: 100%; padding: 0; }
     .lp-header { margin-bottom: 6px; }
     .lp-app-label { display: none; }
     .lp-meet-title { color: #000; font-size: 11pt; margin: 0; }
@@ -105,11 +106,17 @@ body {
     .lp-meta .lp-pool:not(:last-child) { margin-bottom: 0.3em; }
     .session-heading { color: #000; font-size: 9pt; margin: 6px 0 4px;
                        break-after: avoid; }
-    .ev-group { margin-bottom: 4px; }
+    /* A row of heats is a line: a page may end after any one of them. */
+    .ev-group { margin-bottom: 4px; orphans: 1; widows: 1; }
     .ev-label { color: #000; font-size: 8pt; letter-spacing: 0; border-color: #000;
                 padding-bottom: 1px; margin-bottom: 2px; break-after: avoid; }
-    .heat-card { border: none; border-radius: 0; margin-bottom: 3px;
+    .heat-card { display: inline-block; vertical-align: top; width: 48.5%;
+                 margin: 0 2% 3px 0; border: none; border-radius: 0;
                  break-inside: avoid; background: #fff; }
+    /* The right-hand heat of each row: the title is the group's first child. */
+    .ev-label ~ .heat-card:nth-child(odd) { margin-right: 0; }
+    /* A relay's only heat, its swimmers listed, takes the whole width. */
+    .ev-label + .heat-card:last-child:has(.swimmer-ol) { width: 100%; margin-right: 0; }
     .heat-card-header { background: none !important; color: #000 !important;
                         padding: 1px 0; gap: 6px; font-size: 7.5pt;
                         border-bottom: 0.5pt solid #999; }
