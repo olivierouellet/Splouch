@@ -111,10 +111,13 @@ def course_length(course):
 
 
 def _club_short(club):
-    """A CLUB's short name: the first of `shortname`, `code` and `name` that is
-    not empty. An UNATTACHED club may have none of them."""
+    """What a lane shows for a CLUB: the first of `code`, `shortname` and `name`
+    that is not blank. `code` is the federation's club code (`CNSH`), what a
+    narrow club column is made for; `shortname` is a short *name*, up to 20
+    characters (Lenex 3.0), which Splash fills with `Mustang Boucherville` or
+    `C.A.Y.O. De Dolbeau-Mistassini`. An UNATTACHED club may have none of them."""
     return next(
-        (v.strip() for k in ("shortname", "code", "name") if (v := club.get(k, ""))),
+        (v for k in ("code", "shortname", "name") if (v := club.get(k, "").strip())),
         "",
     )
 
@@ -308,18 +311,18 @@ def load_lenex(path):
         last = f"{a.get('nameprefix', '').strip()} {a.get('lastname', '')}".strip()
         athletes[aid] = (last, a.get("firstname", ""))
 
-    # Club lookup: athleteid → club shortname
+    # Club lookup: athleteid → what its lane shows for the club (`_club_short`)
     clubs = {}
-    # Relay lookup: relayid → club shortname
+    # Relay lookup: relayid → the same
     relay_clubs = {}
     for c in find(root, "CLUB"):
-        shortname = _club_short(c)
+        short = _club_short(c)
         for a in find(c, "ATHLETE"):
-            clubs[a.get("athleteid")] = shortname
+            clubs[a.get("athleteid")] = short
         for r in find(c, "RELAY"):
             rid = r.get("relayid", "")
             if rid:
-                relay_clubs[rid] = shortname
+                relay_clubs[rid] = short
 
     _gender_map = {"M": "Men's", "F": "Women's", "X": "Mixed"}
     _stroke_map = {

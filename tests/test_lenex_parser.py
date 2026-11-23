@@ -760,3 +760,22 @@ def test_a_file_without_statuses_keeps_the_last_seeded_round_live():
         )
     )
     assert data.live_rounds == {3: "final"}
+
+
+@pytest.mark.parametrize(
+    ("attrs", "club"),
+    [
+        # Splash: the federation's code, and a short *name* beside it.
+        ('code="MUST" shortname="Mustang Boucherville"', "MUST"),
+        ('code=" " shortname="Rouge et Or"', "Rouge et Or"),
+        ('shortname="AQUA"', "AQUA"),
+        ('code=""', "Club Name"),
+    ],
+)
+def test_a_lane_shows_the_clubs_code_before_its_short_name(attrs, club):
+    clubs = f"""<CLUB name="Club Name" {attrs}><ATHLETES>
+      <ATHLETE athleteid="1" lastname="Un" firstname="Ann">
+        <ENTRIES><ENTRY eventid="1" heatid="1" lane="3"/></ENTRIES>
+      </ATHLETE></ATHLETES></CLUB>"""
+    start = load_lenex(_splash(_event('distance="50" stroke="FREE"'), clubs)).start_list
+    assert start[1][1][3]["club"] == club

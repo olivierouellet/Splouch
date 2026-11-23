@@ -57,7 +57,7 @@ Parsed since Meet Manager results reach the Schedule (`swimtime`, `status`, `lan
 
 | Attribute | Example | Notes |
 | --- | --- | --- |
-| `name` | `"Club de natation Avantage"` | Full club name. Used only for a relay team's name, and as a lane's club when there is no `shortname` or `code`. |
+| `name` | `"Club de natation Avantage"` | Full club name. Used only for a relay team's name, and as a lane's club when there is no `code` or `shortname`. |
 | `nation` | `"CAN"` | Country of the club. |
 
 ### `EVENT` / `HEAT` links between rounds
