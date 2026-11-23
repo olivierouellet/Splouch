@@ -2,19 +2,20 @@
 # y administración del cloud. El inglés es el respaldo por clave; un idioma puede
 # omitir este archivo (docs/admin.md «Localisation»).
 [preview]
-meet          = "Competición"
-pool          = "Piscina"
-session       = "Sesión"
-seed_time     = "Tiempo de inscripción"
-warmup        = "calentamiento"
-no_file       = "No hay archivo Lenex cargado."
-no_hytek_file = "No hay archivo HyTek cargado."
-settings      = "Configuración"
-logout        = "Cerrar sesión"
-print         = "Imprimir"
-organizer     = "Organizador"
-host          = "Club anfitrión"
-lanes         = "{n} calles"
+meet           = "Competición"
+pool           = "Piscina"
+session        = "Sesión"
+seed_time      = "Tiempo de inscripción"
+warmup         = "calentamiento"
+no_file        = "No hay archivo Lenex cargado."
+no_hytek_file  = "No hay archivo HyTek cargado."
+settings       = "Configuración"
+logout         = "Cerrar sesión"
+print          = "Imprimir"
+print_sessions = "Sesiones a imprimir"
+organizer      = "Organizador"
+host           = "Club anfitrión"
+lanes          = "{n} calles"
 
 [cloud]
 admin_title     = "Administración Splouch"

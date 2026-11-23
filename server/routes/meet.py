@@ -43,21 +43,36 @@ def pool_details(meet_info, strings):
     return details
 
 
+def print_sessions(rounds, strings):
+    """``[(number, label)]``: the sessions /meet can print on their own, in the
+    order their headings come. A round with no session (`0`) has no heading, so
+    nothing to pick."""
+    sessions = {}
+    for r in rounds:
+        if r["session"] and r["session"] not in sessions:
+            sessions[r["session"]] = r["session_name"] or (
+                f"{strings.get('session', 'Session')} {r['session']}"
+            )
+    return list(sessions.items())
+
+
 @router.get("/meet")
 def route_meet(request: Request):
     data = _build_meet_data()
     strings = state.load_preview_strings()
+    # Every round, as the Schedule's `?rounds=1` lists them (docs/app.md `S-24`):
+    # a seeded final does not take its prelims off the printed start list, and
+    # one not seeded yet says so (`S-25`). The officials' copy: no Settings box
+    # hides a heat's age group, a round or a gender here.
+    rounds = schedule_rounds(all_rounds=True, everything=True)
     return render(
         request,
         "meet.html",
         strings=strings,
         pool_details=pool_details(data["meet_info"], strings),
         kiosk="kiosk" in request.query_params,
-        # Every round, as the Schedule's `?rounds=1` lists them (docs/app.md `S-24`):
-        # a seeded final does not take its prelims off the printed start list, and
-        # one not seeded yet says so (`S-25`). The officials' copy: no Settings box
-        # hides a heat's age group, a round or a gender here.
-        rounds=schedule_rounds(all_rounds=True, everything=True),
+        rounds=rounds,
+        print_sessions=print_sessions(rounds, strings),
         not_seeded=state._mobile_strings().get("not_seeded", "Not seeded yet"),
         **data,
     )

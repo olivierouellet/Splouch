@@ -2,19 +2,20 @@
 # et administration du cloud. L'anglais est le repli par clé ; une langue peut
 # omettre ce fichier (docs/admin.md « Localisation »).
 [preview]
-meet          = "Compétition"
-pool          = "Piscine"
-session       = "Session"
-seed_time     = "Temps d'inscription"
-warmup        = "échauffement"
-no_file       = "Aucun fichier Lenex chargé."
-no_hytek_file = "Aucun fichier HyTek chargé."
-settings      = "Paramètres"
-logout        = "Déconnexion"
-print         = "Imprimer"
-organizer     = "Organisateur"
-host          = "Club hôte"
-lanes         = "{n} couloirs"
+meet           = "Compétition"
+pool           = "Piscine"
+session        = "Session"
+seed_time      = "Temps d'inscription"
+warmup         = "échauffement"
+no_file        = "Aucun fichier Lenex chargé."
+no_hytek_file  = "Aucun fichier HyTek chargé."
+settings       = "Paramètres"
+logout         = "Déconnexion"
+print          = "Imprimer"
+print_sessions = "Sessions à imprimer"
+organizer      = "Organisateur"
+host           = "Club hôte"
+lanes          = "{n} couloirs"
 
 [cloud]
 admin_title     = "Administration Splouch"

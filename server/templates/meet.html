@@ -87,6 +87,9 @@ body {
     text-decoration: none; display: inline-block; cursor: pointer;
 }
 .btn-action:hover { background: #333; color: #fff; text-decoration: none; }
+.print-pick { font-size: 0.8em; color: #888; margin: -8px 0 18px; }
+.print-pick label { margin-right: 12px; white-space: nowrap; cursor: pointer; }
+.print-pick input { margin-right: 4px; vertical-align: -1px; }
 .btn-print { background: #1e4d2b; color: #7bc47b; border: 1px solid #2a6038; }
 .btn-print:hover { background: #255c33; color: #9be89b; }
 
@@ -104,8 +107,13 @@ body {
     .lp-meet-title { color: #000; font-size: 11pt; margin: 0; }
     .lp-meta { color: #444; font-size: 7.5pt; line-height: 1.3; }
     .lp-meta .lp-pool:not(:last-child) { margin-bottom: 0.3em; }
-    .session-heading { color: #000; font-size: 9pt; margin: 6px 0 4px;
+    .session-heading { color: #000; font-size: 9pt; margin: 0 0 4px;
                        break-after: avoid; }
+    /* Each session on a page of its own; the first printed one follows the
+       meet's header. */
+    .session-heading:not(.session-first) { break-before: page; }
+    /* A session not ticked next to the print button. */
+    .print-skip { display: none !important; }
     /* A row of heats is a line: a page may end after any one of them. */
     .ev-group { margin-bottom: 4px; orphans: 1; widows: 1; }
     .ev-label { color: #000; font-size: 8pt; letter-spacing: 0; border-color: #000;
@@ -161,7 +169,7 @@ body {
     </div>
     {% endif %}
     {% for s in meet_info.get('sessions', []) %}
-    <div>{% if s.name %}{{ s.name }}: {% endif %}{{ s.date }}{% if s.daytime %} {{ s.daytime }}{% if s.endtime %}&ndash;{{ s.endtime }}{% endif %}{% endif %}{% if warmups and s.warmupfrom %} ({{ strings.get('warmup', 'warm-up') }} {{ s.warmupfrom }}{% if s.warmupuntil %}&ndash;{{ s.warmupuntil }}{% endif %}){% endif %}</div>
+    <div data-session="{{ s.number }}">{% if s.name %}{{ s.name }}: {% endif %}{{ s.date }}{% if s.daytime %} {{ s.daytime }}{% if s.endtime %}&ndash;{{ s.endtime }}{% endif %}{% endif %}{% if warmups and s.warmupfrom %} ({{ strings.get('warmup', 'warm-up') }} {{ s.warmupfrom }}{% if s.warmupuntil %}&ndash;{{ s.warmupuntil }}{% endif %}){% endif %}</div>
     {% endfor %}
     {% if meet_info.get('dates') %}<div>{{ meet_info.dates | join(' – ') }}</div>{% endif %}
 </div>
@@ -185,6 +193,16 @@ body {
         {% endif %}
     </div>
 
+    {# Which sessions the print button prints: all of them, or one or two. #}
+    {% if not kiosk and print_sessions | length > 1 %}
+    <div class="print-pick no-print">
+        {{ strings.get('print_sessions', 'Sessions to print') }}:
+        {% for num, label in print_sessions %}
+        <label><input type="checkbox" data-print-session="{{ num }}" checked>{{ label }}</label>
+        {% endfor %}
+    </div>
+    {% endif %}
+
     <!-- Print-only header -->
     <div class="lp-header" style="display:none;" id="print-header">
         <div class="lp-app-label">Splouch</div>
@@ -200,13 +218,14 @@ body {
     {% endif %}
 
     {# A heading where the session changes, as on the Schedule (docs/app.md `S-26`). #}
-    {% set ns = namespace(session=0) %}
+    {% set ns = namespace(session=0, headed=false) %}
     {% for r in rounds %}
     {% if r.session and r.session != ns.session %}
-    <h2 class="session-heading">{{ r.session_name or (strings.get('session', 'Session') ~ ' ' ~ r.session) }}</h2>
+    <h2 class="session-heading{% if not ns.headed %} session-first{% endif %}" data-session="{{ r.session }}">{{ r.session_name or (strings.get('session', 'Session') ~ ' ' ~ r.session) }}</h2>
     {% endif %}
+    {% set ns.headed = ns.headed or r.session != 0 %}
     {% set ns.session = r.session or ns.session %}
-    <div class="ev-group">
+    <div class="ev-group" data-session="{{ r.session }}">
         <div class="ev-label">
             {{ labels.event }} {{ r.event }}{% if r.event_name %} &mdash; {{ r.event_name }}{% endif %}
         </div>
@@ -272,5 +291,30 @@ body {
 <style>
 @media print { #print-header { display: block !important; } }
 </style>
+<script>
+// Before any print (the button or the browser's own), hide the sessions not
+// ticked and start the first one left without a page break. Classic ES5.
+(function () {
+    var boxes = document.querySelectorAll('[data-print-session]');
+    if (!boxes.length) { return; }
+    function apply() {
+        var off = {}, i, el, first = true;
+        for (i = 0; i < boxes.length; i++) {
+            if (!boxes[i].checked) { off[boxes[i].getAttribute('data-print-session')] = true; }
+        }
+        var els = document.querySelectorAll('[data-session]');
+        for (i = 0; i < els.length; i++) {
+            el = els[i];
+            el.classList.toggle('print-skip', off[el.getAttribute('data-session')] === true);
+            if (el.classList.contains('session-heading')) {
+                el.classList.toggle('session-first', first && !off[el.getAttribute('data-session')]);
+                if (!off[el.getAttribute('data-session')]) { first = false; }
+            }
+        }
+    }
+    window.addEventListener('beforeprint', apply);
+    for (var i = 0; i < boxes.length; i++) { boxes[i].addEventListener('change', apply); }
+})();
+</script>
 </body>
 </html>

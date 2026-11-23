@@ -8,6 +8,7 @@ over the first and crashed on the first entry of a heat the second did not have.
 
 import io
 import json
+import re
 import zipfile
 
 import pytest
@@ -674,7 +675,7 @@ def test_the_meet_preview_heads_each_session(pi):
         }
     )
     html = route_meet(request).body.decode()
-    headings = re.findall(r'<h2 class="session-heading">([^<]*)</h2>', html)
+    headings = re.findall(r'<h2 class="session-heading[^"]*"[^>]*>([^<]*)</h2>', html)
     assert headings == ["Samedi am", "Session 2"]
     assert "Samedi am: 2026-11-07" in html
 
@@ -724,6 +725,29 @@ def test_the_meet_preview_says_who_runs_the_meet_and_where(pi):
     data.meet_info["hostclub"] = "Swimming Canada"  # the same club: said once
     state.set_lenex(data)
     assert "Host:" not in _meet_preview_html()
+
+
+def test_the_meet_preview_prints_the_sessions_picked(pi):
+    """A box per session beside the print button, and each session's heading and
+    events tagged with it; the first heading starts no new page."""
+    import re
+
+    state.set_lenex(_named_sessions())
+    html = _meet_preview_html()
+    boxes = re.findall(r'data-print-session="(\d+)" checked>([^<]*)<', html)
+    assert boxes == [("1", "Samedi am"), ("2", "Session 2")]
+    headings = re.findall(
+        r'<h2 class="session-heading([^"]*)" data-session="(\d+)"', html
+    )
+    assert headings == [(" session-first", "1"), ("", "2")]
+    assert 'class="ev-group" data-session="2"' in html
+
+
+def test_one_session_has_nothing_to_pick():
+    from routes.meet import print_sessions
+
+    rounds = [{"session": 0, "session_name": ""}, {"session": 1, "session_name": ""}]
+    assert print_sessions(rounds, {"session": "Séance"}) == [(1, "Séance 1")]
 
 
 def test_the_meet_preview_gives_a_multi_day_hytek_meets_dates(pi):
@@ -881,7 +905,7 @@ def test_the_meet_preview_says_a_final_is_not_seeded_yet(pi, prelims):
         "router": pi_app.app.router,
     }
     html = route_meet(Request(scope)).body.decode()
-    groups = html.split('<div class="ev-group">')[1:]
+    groups = re.split(r'<div class="ev-group"[^>]*>', html)[1:]
     assert len(groups) == 3  # the prelims, the timed final, the final
     final = groups[-1]
     assert final.count('class="heat-card"') == 1
