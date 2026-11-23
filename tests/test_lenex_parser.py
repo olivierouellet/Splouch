@@ -645,3 +645,43 @@ def test_fastest_heats_take_their_age_groups_from_their_timed_final():
     )
     data = load_lenex(_splash(events))
     assert data.rounds[1]["heat_ages"] == {2: "11-13", 3: "14+"}
+
+
+def test_an_event_or_heat_without_a_number_is_left_out_not_the_file():
+    """A number an exporter wrote wrong costs that event or heat, not the meet:
+    the file still loads, the board still has every other event."""
+    events = (
+        '<EVENT eventid="1" number="1x"><SWIMSTYLE distance="50" stroke="FREE"/>'
+        '<HEATS><HEAT heatid="1" number="1"/></HEATS></EVENT>'
+        '<EVENT eventid="2"><SWIMSTYLE distance="50" stroke="FREE"/>'
+        '<HEATS><HEAT heatid="2" number="1"/></HEATS></EVENT>'
+        '<EVENT eventid="3" number=" 3 "><SWIMSTYLE distance="50" stroke="FREE"/>'
+        '<HEATS><HEAT heatid="3" number="1"/><HEAT heatid="4" number=""/>'
+        '<HEAT heatid="5" number="two"/></HEATS></EVENT>'
+    )
+    clubs = """<CLUB name="Aqua"><ATHLETES>
+      <ATHLETE athleteid="1" lastname="Un" firstname="Ann"><ENTRIES>
+        <ENTRY eventid="3" heatid="3" lane="2"/>
+        <ENTRY eventid="3" heatid="5" lane="3"/>
+        <ENTRY eventid="3" heat="1b" lane="4"/>
+      </ENTRIES></ATHLETE></ATHLETES></CLUB>"""
+    data = load_lenex(_splash(events, clubs))
+    assert list(data.event_names) == [3]
+    assert {h: list(lanes) for h, lanes in data.start_list[3].items()} == {1: [2]}
+    assert data.meet_info["sessions"][0]["events"] == [3]
+
+
+def test_an_entrys_heat_number_that_is_not_one_is_skipped():
+    """Structure B: an ENTRY under its EVENT with no `heatid` falls back to a
+    `heat` number, which some exporters write; one that is not a number is
+    skipped rather than refusing the file."""
+    xml = lenex3_xml(
+        '<EVENT eventid="1" number="1"><SWIMSTYLE distance="50" stroke="FREE"/>'
+        '<HEATS><HEAT heatid="1" number="1"/></HEATS><ENTRIES>'
+        '<ENTRY athleteid="1" heat="1" lane="3"/>'
+        '<ENTRY athleteid="2" heat="A" lane="4"/>'
+        '<ENTRY athleteid="3" heat="9" lane="5"/>'
+        "</ENTRIES></EVENT>"
+    )
+    data = load_lenex(make_lxf(xml))
+    assert list(data.start_list[1][1]) == [3]

@@ -131,6 +131,15 @@ def _pool_lanes(pool_el, uses_lane_0=False):
     return [first, last]
 
 
+def _whole(value):
+    """*value* as a whole number, None when it is not one: a Lenex `n` attribute
+    that is missing or that an exporter wrote wrong. The element is then left
+    out rather than the file refused, so one bad event or heat cannot keep a
+    whole meet off the board."""
+    value = (value or "").strip()
+    return int(value) if value.isdigit() else None
+
+
 def _session_number(session):
     """A SESSION's `number`, 0 for none or one that is not a number."""
     num = (session.get("number", "") if session is not None else "").strip()
@@ -406,7 +415,8 @@ def load_lenex(path):
     sessions = find(meet_el, "SESSION") if meet_el is not None else []
     session_of = {id(e): s for s in sessions for e in find(s, "EVENT")}
 
-    events = find(root, "EVENT")
+    # An EVENT without a number is one the console cannot call: left out.
+    events = [e for e in find(root, "EVENT") if _whole(e.get("number")) is not None]
     by_eventid = {e.get("eventid"): e for e in events if e.get("eventid")}
 
     def _previous(event):
@@ -487,8 +497,13 @@ def load_lenex(path):
     heat_status = {}  # (round, heat_number) → its HEAT's `status`
 
     for rnd, event in enumerate(primaries):
-        heats = [h for m in members[rnd] for h in find(m, "HEAT")]
-        round_number.append(int(event.get("number")))
+        heats = [
+            h
+            for m in members[rnd]
+            for h in find(m, "HEAT")
+            if _whole(h.get("number")) is not None
+        ]
+        round_number.append(_whole(event.get("number")))
         round_key.append(ROUND_KEYS.get(event.get("round", "").upper(), ""))
         names[rnd] = event_name_str(event, heats)
         swum_in = [m for m in members[rnd] if find(m, "HEAT")] or [event]
@@ -521,7 +536,7 @@ def load_lenex(path):
             if m.get("eventid"):
                 eventid_map[m.get("eventid")] = rnd
         for heat in heats:
-            h_num = int(heat.get("number"))
+            h_num = _whole(heat.get("number"))
             starts[rnd][h_num] = {}
             daytime = heat.get("daytime", "")
             if daytime:
@@ -640,7 +655,9 @@ def load_lenex(path):
         for event in events:
             rnd = round_of[id(event)]
             for heat in find(event, "HEAT"):
-                h_num = int(heat.get("number"))
+                h_num = _whole(heat.get("number"))
+                if h_num is None:
+                    continue
                 for entry in find(heat, "ENTRY"):
                     _add_entry(entry, rnd, h_num)
 
@@ -658,7 +675,7 @@ def load_lenex(path):
             for entries_el in find_direct(event, "ENTRIES"):
                 for entry in find_direct(entries_el, "ENTRY"):
                     hid = entry.get("heatid", "")
-                    h_num = heatid_to_num.get(hid) or int(entry.get("heat", 0) or 0)
+                    h_num = heatid_to_num.get(hid) or _whole(entry.get("heat"))
                     if h_num in starts[rnd]:
                         _add_entry(entry, rnd, h_num)
 
@@ -672,7 +689,7 @@ def load_lenex(path):
                 return heatid_map[hid]
             eid = entry.get("eventid", "")
             if eid and eid in eventid_map:
-                h_num = int(entry.get("heat", 0) or 0)
+                h_num = _whole(entry.get("heat"))
                 rnd = eventid_map[eid]
                 if h_num in starts[rnd]:
                     return rnd, h_num
@@ -740,7 +757,9 @@ def load_lenex(path):
     for event in events:
         rnd = round_of[id(event)]
         for heat in find(event, "HEAT"):
-            h_num = int(heat.get("number"))
+            h_num = _whole(heat.get("number"))
+            if h_num is None:
+                continue
             for res in find(heat, "RESULT"):
                 seen_results.add(id(res))
                 _add_result(res, rnd, h_num)
@@ -852,10 +871,10 @@ def load_lenex(path):
                 # session; a round by the session of its first heat.
                 "events": list(
                     dict.fromkeys(
-                        int(e.get("number"))
+                        _whole(e.get("number"))
                         for e in find(s, "EVENT")
-                        if (e.get("number") or "").isdigit()
-                        and live.get(int(e.get("number"))) == round_of.get(id(e))
+                        if id(e) in round_of
+                        and live.get(_whole(e.get("number"))) == round_of[id(e)]
                         and round_session.get(round_of[id(e)]) is s
                     )
                 ),

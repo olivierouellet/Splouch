@@ -64,7 +64,7 @@ Parsed since Meet Manager results reach the Schedule (`swimtime`, `status`, `lan
 
 | Attribute | Example | Notes |
 | --- | --- | --- |
-| `EVENT preveventid` | `"1337"` | The prelim a final is seeded from. Rounds sharing a number are read apart and listed side by side (`load_lenex`), but nothing pairs a final with its prelim yet. |
+| `EVENT preveventid` | `"1337"` | The prelim a final is seeded from. Rounds sharing a number are read apart and listed side by side (`load_lenex`), but nothing pairs a final with its prelim yet. Read only to join Splash's extra heats (`round="EXTRAHEATS"`) to their timed final and to find a fastest heat's age groups. |
 
 ### `SESSION` element
 
