@@ -28,10 +28,12 @@ from meet_data import (
     announce_schedule,
     build_heats,
     meet_changed,
+    meet_summary,
+    meet_warning_groups,
     results_summary,
     send_event_info,
 )
-from meet_parsers.lenex_parser import ROUND_NAMES
+from meet_parsers.lenex_parser import ROUND_NAMES, MeetFileError
 from meet_parsers.meet_file import (
     extension,
     is_csv,
@@ -77,10 +79,23 @@ def _render_home_icon(name):
             os.remove(p)
 
 
+def _unreadable(path, error):
+    """Why *path* could not be read, for the page. A `MeetFileError` is a reason
+    the parser wrote for the operator (not XML, a zip with no .lef in it, too
+    large); anything else is a bug or a surprise, whose traceback goes to the
+    log rather than into the reply."""
+    name = os.path.basename(path)
+    if isinstance(error, MeetFileError):
+        return f"Could not read {name}: {error}"
+    traceback.print_exception(error)
+    return f"Could not read {name} — see the log"
+
+
 def _load_meet_file(path):
     """Clear current meet state and load *path* (Lenex or Hytek). Returns error string or None.
 
-    The traceback of a file that fails to parse goes to the log, not into the reply.
+    The traceback of a file that fails to parse goes to the log, not into the reply
+    (`_unreadable`).
     """
     state.clear_meet()
     state._last_results_snapshot = {}
@@ -92,10 +107,9 @@ def _load_meet_file(path):
             state.load_event_info(path)
         else:
             state.set_lenex(load_structured(path))
-    except Exception:
+    except Exception as e:
         state.clear_meet()
-        traceback.print_exc()
-        return f"Could not read {os.path.basename(path)} — see the log"
+        return _unreadable(path, e)
     state._active_meet_file = os.path.basename(path)
     state.settings["last_meet_file"] = state._active_meet_file
     # Switch to this meet's cloud-appearance profile (title, image, icon, …) so
@@ -132,9 +146,8 @@ def _reload_same_meet(path):
             state.load_event_info(path)
         else:
             state.set_lenex(load_structured(path))
-    except Exception:
-        traceback.print_exc()
-        return f"Could not read {os.path.basename(path)} — see the log"
+    except Exception as e:
+        return _unreadable(path, e)
     send_event_info()
     announce_schedule()
     return None
@@ -193,9 +206,9 @@ def _meet_update_file(file):
         return {"ok": False, "error": f"Could not read that file: {error}."}
     try:
         new_uid = _candidate_meet_uid(tmp, name)
-    except Exception:
+    except Exception as e:
         os.remove(tmp)
-        return {"ok": False, "error": "Could not read that file."}
+        return {"ok": False, "error": _unreadable(name, e)}
 
     if new_uid != state._active_meet_uid:
         os.remove(tmp)
@@ -214,7 +227,7 @@ def _meet_update_file(file):
     before, rounds_before = build_heats(), state.meet.live_rounds
     err = _reload_same_meet(dest)
     if err:
-        return {"ok": False, "error": "Failed to load the updated file."}
+        return {"ok": False, "error": err}
     state._meet_file_updated_at = time.time()
     rounds_after = state.meet.live_rounds
     moved = {
@@ -992,6 +1005,9 @@ def _settings_view(request, form):
         meet_file_list=meet_file_list,
         terminal_commands=terminal_commands(),
         active_meet_file=state._active_meet_file,
+        # What the loaded file holds, and what the parser left out of it.
+        meet_summary=meet_summary(),
+        meet_warnings=meet_warning_groups(t),
         meet_title=state.settings["meet_title"],
         serial_port=state.settings["serial_port"],
         serial_port_list=comm_port_list,

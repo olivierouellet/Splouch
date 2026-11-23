@@ -31,7 +31,7 @@ import datetime
 import re
 from typing import Any
 
-from meet_parsers.lenex_parser import LenexData
+from meet_parsers.lenex_parser import LenexData, MeetFileError
 from splouch_times import wire_time
 
 # The biggest file we will read. A season's merge export is a few MB.
@@ -152,9 +152,9 @@ def _read_lines(path):
     with open(path, "rb") as f:
         data = f.read(MAX_HY3_BYTES + 1)
     if len(data) > MAX_HY3_BYTES:
-        raise ValueError(
-            f"{path} is larger than {MAX_HY3_BYTES // (1024 * 1024)} MB; "
-            f"refusing to parse it."
+        raise MeetFileError(
+            f"the file is larger than {MAX_HY3_BYTES // (1024 * 1024)} MB; "
+            "refusing to parse it"
         )
     # Hy-Tek writes Windows-1252; every byte decodes, so a stray one cannot stop
     # the meet from loading.

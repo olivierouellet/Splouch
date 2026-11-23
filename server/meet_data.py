@@ -768,3 +768,64 @@ def send_event_info():
     state.record_board(u)
     bus.emit("/scoreboard", "update_scoreboard", u)
     relay.relay_emit("update_scoreboard", u)
+
+
+def meet_summary(m=None):
+    """What the loaded meet file holds, as Meet Setup shows it after a load: the
+    event numbers, and every round's heats and seated entries — a check at a
+    glance that a file did not load mostly empty. None with no meet."""
+    m = m or state.meet
+    if m.rounds:
+        heats = [h for r in m.rounds for h in r["start_list"].values()]
+        events = {r["event"] for r in m.rounds}
+    else:
+        heats = list(m.event_info.events.values())
+        events = {ev for ev, _ in m.event_info.events}
+    if not events:
+        return None
+    return {
+        "events": len(events),
+        "heats": len(heats),
+        "entries": sum(len(lanes) for lanes in heats),
+    }
+
+
+# How many of one kind of warning Meet Setup spells out; the rest are counted.
+WARNING_EXAMPLES = 3
+
+
+def meet_warning_groups(t, m=None):
+    """The parser's `warnings` (`load_lenex`) for Meet Setup, one group per kind
+    in the order each first appeared: `text` (`meet_warn_<key>` from the panel
+    strings *t*, with the count), the first `WARNING_EXAMPLES` placed by
+    `meet_warn_<key>_eg`, and how many `more` there are. The round is the event
+    name vocabulary's word, in the meet's language like the names it qualifies."""
+    m = m or state.meet
+    vocab = state.load_event_translations()
+    groups = {}
+    for w in m.warnings:
+        groups.setdefault(w["key"], []).append(w)
+    out = []
+    for key, items in groups.items():
+        head = t.get(f"meet_warn_{key}")
+        example = t.get(f"meet_warn_{key}_eg", "")
+        if not head:
+            continue
+        shown = []
+        for w in items[:WARNING_EXAMPLES]:
+            word = vocab.get(w.get("round") or "", w.get("round") or "")
+            values = {**w, "round": f" {word}" if word else ""}
+            try:
+                shown.append(example.format(**values))
+            except (KeyError, IndexError, ValueError):
+                # A translation naming a value this warning lacks: the headline
+                # still says what happened.
+                continue
+        out.append(
+            {
+                "text": head.format(n=len(items)),
+                "examples": shown,
+                "more": max(len(items) - WARNING_EXAMPLES, 0),
+            }
+        )
+    return out

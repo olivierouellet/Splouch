@@ -220,6 +220,7 @@ class _Meet:
         "results",
         "live_rounds",
         "rounds",
+        "warnings",
     )
 
     def __init__(
@@ -234,6 +235,7 @@ class _Meet:
         results=None,
         live_rounds=None,
         rounds=None,
+        warnings=(),
     ):
         self.event_names = event_names or {}
         self.start_list = start_list or {}
@@ -249,6 +251,8 @@ class _Meet:
         self.live_rounds = live_rounds or {}
         # Every round in running order, live or not (`load_lenex`); [] for Hytek.
         self.rounds = rounds or []
+        # What the parser left out, for Meet Setup (`load_lenex` `warnings`).
+        self.warnings = tuple(warnings)
 
 
 meet = _Meet()
@@ -267,6 +271,7 @@ def set_lenex(data):
         results=data.results,
         live_rounds=data.live_rounds,
         rounds=data.rounds,
+        warnings=data.warnings,
     )
     load_console_times()
 

@@ -60,6 +60,24 @@
                     {% if active_meet_file %}
                     <div id="meet-update-msg" class="small mt-2" style="display:none;"></div>
                     <p class="small text-body-secondary mt-1 mb-0">{{ t.meet_update_hint | safe }}</p>
+                    {# What the file holds, and what the parser left out of it. #}
+                    {% if meet_summary %}
+                    <p id="meet-summary" class="small mt-2 mb-0">{{ t.meet_summary.format(**meet_summary) }}</p>
+                    {% endif %}
+                    {% if meet_warnings %}
+                    <div id="meet-warnings" class="alert alert-warning py-1 px-2 mt-2 mb-0 small">
+                        <div class="fw-semibold">{{ t.meet_warn_title }}</div>
+                        <ul class="mb-0 ps-3">
+                            {% for g in meet_warnings %}
+                            <li>
+                                {{ g.text }}
+                                {% if g.examples %}: {{ g.examples | join('; ') }}{% endif %}
+                                {% if g.more %}{{ t.meet_warn_more.format(n=g.more) }}{% endif %}
+                            </li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                    {% endif %}
                     <form action="/settings" method="POST" class="mt-3">
                         <input type="hidden" name="names_as_is_submit" value="1">
                         <div class="form-check">

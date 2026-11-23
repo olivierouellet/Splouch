@@ -9,6 +9,11 @@ from splouch_i18n import FINAL_LETTERS
 from splouch_times import wire_time
 
 
+class MeetFileError(ValueError):
+    """A meet file Splouch refuses to read, with a reason written for the operator:
+    shown on the page, unlike an unexpected error's, which goes to the log."""
+
+
 class LenexData(NamedTuple):
     """What `load_lenex` returns; the shapes are in its docstring."""
 
@@ -21,6 +26,9 @@ class LenexData(NamedTuple):
     results: dict
     live_rounds: dict
     rounds: list
+    # What the parser left out or read another way, for Settings to show; see
+    # `load_lenex`. A `.hy3` has none.
+    warnings: tuple = ()
 
 
 # HEAT (or EVENT) `status` values whose results Splouch shows as official.
@@ -160,7 +168,7 @@ class _PrologRead(Exception):
 
 
 def _refuse_doctype(*_):
-    raise ValueError("Lenex file contains a DOCTYPE declaration; refusing to parse it.")
+    raise MeetFileError("the file contains a DOCTYPE declaration; refusing to parse it")
 
 
 def _check_no_doctype(data):
@@ -195,6 +203,20 @@ def _check_no_doctype(data):
         return  # malformed before the root: the real parse reports it
 
 
+def _parse_xml(data):
+    """*data* as an XML tree, once `_check_no_doctype` has let it through. A file
+    that is not well-formed XML says where it breaks, for the operator to show
+    whoever exported it."""
+    _check_no_doctype(data)
+    try:
+        return ET.ElementTree(ET.fromstring(data))
+    except ET.ParseError as e:
+        line, column = e.position
+        raise MeetFileError(
+            f"not well-formed XML at line {line}, column {column}"
+        ) from e
+
+
 def _open_lenex_xml(path):
     """Return the parsed XML tree for a Lenex file at *path*.
 
@@ -212,29 +234,27 @@ def _open_lenex_xml(path):
                 or (names[0] if len(names) == 1 else None)
             )
             if xml_name is None:
-                raise ValueError(
-                    f"No Lenex XML (.lef) found inside {path}; "
-                    f"archive contains: {', '.join(names) or '(empty)'}"
+                raise MeetFileError(
+                    "No Lenex XML (.lef) found inside the .lxf; "
+                    f"it contains: {', '.join(names) or '(nothing)'}"
                 )
             with z.open(xml_name) as fh:
                 data = fh.read(MAX_XML_BYTES + 1)
             if len(data) > MAX_XML_BYTES:
-                raise ValueError(
-                    f"Lenex XML inside {path} is larger than "
-                    f"{MAX_XML_BYTES // (1024 * 1024)} MB; refusing to parse it."
+                raise MeetFileError(
+                    "the Lenex XML inside is larger than "
+                    f"{MAX_XML_BYTES // (1024 * 1024)} MB; refusing to parse it"
                 )
-            _check_no_doctype(data)
-            return ET.ElementTree(ET.fromstring(data))
+            return _parse_xml(data)
     # Not a zip — assume a raw .lef/.xml Lenex document.
     with open(path, "rb") as fh:
         data = fh.read(MAX_XML_BYTES + 1)
     if len(data) > MAX_XML_BYTES:
-        raise ValueError(
-            f"{path} is larger than {MAX_XML_BYTES // (1024 * 1024)} MB; "
-            f"refusing to parse it."
+        raise MeetFileError(
+            f"the file is larger than {MAX_XML_BYTES // (1024 * 1024)} MB; "
+            "refusing to parse it"
         )
-    _check_no_doctype(data)
-    return ET.ElementTree(ET.fromstring(data))
+    return _parse_xml(data)
 
 
 def load_lenex(path):
@@ -265,6 +285,18 @@ def load_lenex(path):
                        `heat_times`, `heat_ages` (`age_band` of a heat's own age
                        group), `heat_finals` (a final's heat's HEAT `final`, one
                        of `FINAL_LETTERS`) and `results`, keyed by heat as above.
+        warnings     — what was left out, or read another way, in file order:
+                       each a dict with `key` and the values that place it.
+                       `event_no_number` (`eventid`), `heat_no_number` (`event`,
+                       `round`), `entry_no_heat` (`event`, `round`, `name`: it
+                       names a heat the round does not have), `entry_no_lane`
+                       (`event`, `round`, `heat`, `name`), `lane_twice` (the
+                       same and `lane`, `other`: the swimmer it replaced) and
+                       `extra_heats_alone` (`event`: Splash extra heats whose
+                       timed final is not in the file, read as a round of
+                       their own). `round` is a `ROUND_KEYS` value or `""`.
+                       Unknown round codes, statuses and final letters are
+                       not warned about: they are what exporters write.
 
     One event number can hold several rounds: Splash numbers a prelim and its
     final the same, and the console only ever sends the number. Each round is read
@@ -425,8 +457,20 @@ def load_lenex(path):
     sessions = find(meet_el, "SESSION") if meet_el is not None else []
     session_of = {id(e): s for s in sessions for e in find(s, "EVENT")}
 
+    # What was left out or read another way, for Settings to show the operator
+    # (`warnings` in the docstring).
+    warnings = []
+
+    def warn(key, **values):
+        warnings.append({"key": key, **values})
+
     # An EVENT without a number is one the console cannot call: left out.
-    events = [e for e in find(root, "EVENT") if _whole(e.get("number")) is not None]
+    events = []
+    for e in find(root, "EVENT"):
+        if _whole(e.get("number")) is None:
+            warn("event_no_number", eventid=(e.get("eventid") or "").strip())
+        else:
+            events.append(e)
     by_eventid = {e.get("eventid"): e for e in events if e.get("eventid")}
 
     def _previous(event):
@@ -471,6 +515,11 @@ def load_lenex(path):
     members = []  # round → every EVENT element it is read from, in file order
     for event in events:
         primary = _primary(event)
+        if (
+            primary is event
+            and (event.get("round") or "").strip().upper() == "EXTRAHEATS"
+        ):
+            warn("extra_heats_alone", event=_whole(event.get("number")))
         if id(primary) not in round_of:
             round_of[id(primary)] = len(primaries)
             primaries.append(primary)
@@ -508,14 +557,17 @@ def load_lenex(path):
     heat_status = {}  # (round, heat_number) → its HEAT's `status`
 
     for rnd, event in enumerate(primaries):
-        heats = [
-            h
-            for m in members[rnd]
-            for h in find(m, "HEAT")
-            if _whole(h.get("number")) is not None
-        ]
         round_number.append(_whole(event.get("number")))
         round_key.append(ROUND_KEYS.get(event.get("round", "").upper(), ""))
+        heats = []
+        for m in members[rnd]:
+            for h in find(m, "HEAT"):
+                if _whole(h.get("number")) is None:
+                    warn(
+                        "heat_no_number", event=round_number[rnd], round=round_key[rnd]
+                    )
+                else:
+                    heats.append(h)
         names[rnd] = event_name_str(event, heats)
         swum_in = [m for m in members[rnd] if find(m, "HEAT")] or [event]
         session = session_of.get(id(swum_in[0]))
@@ -621,17 +673,37 @@ def load_lenex(path):
         swimmers.sort(key=lambda x: x["pos"])
         return swimmers
 
-    def _add_entry(entry, rnd, h_num, aid=None):
-        lane = _lane(entry)
-        if lane is None:
-            return
+    def _athlete_name(aid):
+        last, first = athletes.get(aid, ("", ""))
+        return f"{first} {last}".strip()
+
+    def _place(entry, rnd, h_num, name, club, swimmers):
+        """Seat an entry in its lane: nothing without one, nobody who will not
+        swim. A lane two swimmers claim keeps the later, as it always has, and
+        says so; the same entry written twice (Splash does) is no error."""
         if entry.get("status", "").upper() in NOT_SWIMMING_ENTRY_STATUSES:
             return
+        lane = _lane(entry)
+        where = {"event": round_number[rnd], "round": round_key[rnd], "heat": h_num}
+        if lane is None:
+            warn("entry_no_lane", **where, name=name)
+            return
+        before = starts[rnd][h_num].get(lane)
+        if before is not None and (before["name"], before["club"]) != (name, club):
+            warn("lane_twice", **where, lane=lane, name=name, other=before["name"])
+        starts[rnd][h_num][lane] = {
+            "name": name,
+            "club": club,
+            "seed_time": entry.get("entrytime", ""),
+            "seed_course": _seed_course(entry, rnd),
+            "swimmers": swimmers,
+        }
+
+    def _add_entry(entry, rnd, h_num, aid=None):
         if aid is None:
             aid = entry.get("athleteid", "")
         if aid:
-            last, first = athletes.get(aid, ("", ""))
-            name = f"{first} {last}".strip()
+            name = _athlete_name(aid)
             club = clubs.get(aid, "")
             swimmers = []
         else:
@@ -640,13 +712,18 @@ def load_lenex(path):
             rid = relay_el.get("relayid", "") if relay_el is not None else ""
             club = relay_clubs.get(rid, "")
             swimmers = _relay_swimmers(entry, rnd)
-        starts[rnd][h_num][lane] = {
-            "name": name,
-            "club": club,
-            "seed_time": entry.get("entrytime", ""),
-            "seed_course": _seed_course(entry, rnd),
-            "swimmers": swimmers,
-        }
+        _place(entry, rnd, h_num, name, club, swimmers)
+
+    def _heat_missing(entry, rnd, name):
+        """An entry that names a heat the round does not have: left out. One
+        that names none is entered but not seeded yet, which is no error."""
+        if (entry.get("heatid") or "").strip() or (entry.get("heat") or "").strip():
+            warn(
+                "entry_no_heat",
+                event=round_number[rnd],
+                round=round_key[rnd],
+                name=name,
+            )
 
     # Pass 2: populate entries — detect which layout the file uses.
     #
@@ -696,6 +773,10 @@ def load_lenex(path):
                     h_num = heatid_to_num.get(hid) or _whole(entry.get("heat"))
                     if h_num in starts[rnd]:
                         _add_entry(entry, rnd, h_num)
+                    else:
+                        _heat_missing(
+                            entry, rnd, _athlete_name(entry.get("athleteid", ""))
+                        )
 
     # Structure C (Splash) — entries under ATHLETE / RELAY, keyed by eventid+heatid.
     # Only when entries aren't already at the heat or event level.
@@ -713,6 +794,13 @@ def load_lenex(path):
                     return rnd, h_num
             return None, None
 
+        def _unresolved(entry, name):
+            """An entry `_resolve_heat` could not seat, when its event is one
+            the file has: an event left out has said so already."""
+            rnd = eventid_map.get(entry.get("eventid", ""))
+            if rnd is not None:
+                _heat_missing(entry, rnd, name)
+
         # Individual swimmer entries
         for athlete in find(root, "ATHLETE"):
             aid = athlete.get("athleteid", "")
@@ -720,6 +808,8 @@ def load_lenex(path):
                 rnd, h_num = _resolve_heat(entry)
                 if rnd is not None:
                     _add_entry(entry, rnd, h_num, aid=aid)
+                else:
+                    _unresolved(entry, _athlete_name(aid))
 
         # Relay entries (CLUB > RELAY > ENTRIES > ENTRY)
         for club in find(root, "CLUB"):
@@ -739,19 +829,17 @@ def load_lenex(path):
                         swum[(rnd, h_num)] = _relay_swimmers(res, rnd)
                 for entry in find(relay, "ENTRY"):
                     rnd, h_num = _resolve_heat(entry)
-                    lane = _lane(entry)
-                    if rnd is None or lane is None:
+                    if rnd is None:
+                        _unresolved(entry, team_name)
                         continue
-                    if entry.get("status", "").upper() in NOT_SWIMMING_ENTRY_STATUSES:
-                        continue
-                    starts[rnd][h_num][lane] = {
-                        "name": team_name,
-                        "club": club_short,
-                        "seed_time": entry.get("entrytime", ""),
-                        "seed_course": _seed_course(entry, rnd),
-                        "swimmers": swum.get((rnd, h_num))
-                        or _relay_swimmers(entry, rnd),
-                    }
+                    _place(
+                        entry,
+                        rnd,
+                        h_num,
+                        team_name,
+                        club_short,
+                        swum.get((rnd, h_num)) or _relay_swimmers(entry, rnd),
+                    )
 
     # Results — RESULT elements, wherever the exporter put them: inside a HEAT
     # (hand-written files), or under the ATHLETE / RELAY that swam it, linked to
@@ -952,4 +1040,5 @@ def load_lenex(path):
         results=results,
         live_rounds=live_rounds,
         rounds=rounds,
+        warnings=tuple(warnings),
     )
