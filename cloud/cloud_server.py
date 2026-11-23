@@ -420,7 +420,7 @@ def _merge_console_times(console, snap, rounds=None):
 
 def _schedule_rounds(sched, all_rounds):
     """The rounds of a `schedule_snapshot` in running order, each a dict of
-    `event`, `round`, `name`, `name_parts`, `times`, `ages`, `session`,
+    `event`, `round`, `name`, `name_parts`, `times`, `ages`, `finals`, `session`,
     `start_list`, `results` and `heats` — every round when *all_rounds* and the Pi
     sent them (`order`), else the live ones."""
     rounds = sched.get("rounds", {})
@@ -441,6 +441,7 @@ def _schedule_rounds(sched, all_rounds):
                 "name_parts": r.get("name_parts"),
                 "times": r.get("times", {}),
                 "ages": r.get("ages", {}),
+                "finals": r.get("finals", {}),
                 "session": r.get("session") or [0, ""],
                 "start_list": r.get("start_list", {}),
                 "results": r.get("results", {}),
@@ -454,6 +455,7 @@ def _schedule_rounds(sched, all_rounds):
                 "name_parts": sched.get("name_parts", {}).get(ev_str),
                 "times": sched.get("times", {}).get(ev_str, {}),
                 "ages": sched.get("ages", {}).get(ev_str, {}),
+                "finals": sched.get("finals", {}).get(ev_str, {}),
                 "session": sched.get("sessions", {}).get(ev_str) or [0, ""],
                 "start_list": sched.get("start_list", {}).get(ev_str, {}),
                 "results": sched.get("results", {}).get(ev_str, {}),
@@ -508,9 +510,12 @@ def _build_heats_json(sched, console=None, all_rounds=False):
                     "heat": ht,
                     "round": rnd,
                     "event_name": r["name"],
-                    # The heat's own age group in the name (`S-25`).
+                    # The heat's own age group, and its A or B final, in the
+                    # name (`S-25`). `finals` is absent from an older Pi's.
                     "event_name_parts": heat_name_parts(
-                        r["name_parts"], ages.get(ht_str, "")
+                        r["name_parts"],
+                        ages.get(ht_str, ""),
+                        r["finals"].get(ht_str, ""),
                     ),
                     "time": times.get(ht_str, ""),
                     "age": ages.get(ht_str, ""),

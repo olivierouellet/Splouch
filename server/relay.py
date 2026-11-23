@@ -497,6 +497,12 @@ def send_schedule(client=None, clear=False):
                 for r in all_rounds
                 if r["live"] and r["heat_ages"]
             },
+            # Which final a heat is, A to D, for a final split in two (§5.1 `round`).
+            "finals": {
+                str(r["event"]): {str(h): f for h, f in r["heat_finals"].items()}
+                for r in all_rounds
+                if r["live"] and r["heat_finals"]
+            },
             # Each live round's session, for the Schedule's headings (§5.8).
             "sessions": {
                 str(r["event"]): [r["session"], r["session_name"]]
@@ -513,6 +519,7 @@ def send_schedule(client=None, clear=False):
                     "name_parts": r["event_name_parts"],
                     "times": {str(h): t for h, t in r["heat_times"].items()},
                     "ages": {str(h): a for h, a in r["heat_ages"].items()},
+                    "finals": {str(h): f for h, f in r["heat_finals"].items()},
                     "session": [r["session"], r["session_name"]],
                     "date": r["date"],
                     "start_list": _serialise_start_list({0: r["start_list"]})["0"],
@@ -555,6 +562,7 @@ _EMPTY_SCHEDULE = {
     "order": [],
     "other_rounds": {},
     "ages": {},
+    "finals": {},
     "sessions": {},
 }
 

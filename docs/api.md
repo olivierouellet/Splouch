@@ -425,7 +425,12 @@ one broadcast frame serves viewers reading in different languages (`app.md` `T-0
 only one of `age`/`age_key` is ever set. `round` comes from the Lenex EVENT `round`,
 never from the name: `FIN` → `final`, `SEM` → `semifinal`, `QUA` → `quarterfinal`,
 `PRE` → `prelims`, `FHT` → `fastest_heat`, `TIM` → `timed_final`, and `SOP` / `SOQ`
-/ `SOS` → `swimoff`, `TIMETRIAL` → `time_trial`; no `round`, or an unknown code, is `""`. The operator picks
+/ `SOS` → `swimoff`, `TIMETRIAL` → `time_trial`; no `round`, or an unknown code, is `""`.
+A heat of a final split by its HEAT `final` (Lenex 3.0: `A` to `D`) is `final_a` …
+`final_d` in place of `final`, so an age group's A and B finals do not read the same
+(`app.md` `S-25`); any other letter, Splash's `F` for an age group's only final
+included, is the plain `final`. It is the round word's, so it is shown only where
+`final` is. The operator picks
 which rounds show, separately for boards and phones (Settings → Displays →
 Appearance and Settings → Phones → Appearance): the **board** choice decides whether `event_name` ends with the round, the **phone**
 choice whether `round` is set here — so one frame serves both, and a phone that
@@ -596,7 +601,10 @@ own heats — what the cloud serves for `?rounds=1` (§5.8). All three are absen
 older Pi: the cloud then serves its live rounds only. `sessions` is each live round's
 Lenex session as `[number, name]`, for the rounds in one (each of `other_rounds` has
 its own `session`); `seed_course` is as in §5.8. An older Pi sends neither: the cloud
-serves `session` 0 and `seed_course` `""`.
+serves `session` 0 and `seed_course` `""`. `finals` is, like `ages`, per live event and
+heat, the letter of a heat of an A, B, C or D final (`"A"`; §5.1 `round`), and each of
+`other_rounds` has its own; the cloud puts it in the heat's `event_name_parts.round`
+(§5.8). An older Pi sends none: the cloud serves the round's `final`.
 
 ### 5.6 `GET /meets`
 
@@ -707,7 +715,8 @@ heat per age group — as a band of numbers like `event_name_parts.age` (§5.1):
 `"≤7"` (7 and under), `"17+"`, `"8"`; `""` when the heat has none, which is nearly
 always, or when the operator hides it from phones (§5.1). A heat with one also carries it
 in its `event_name_parts.age`, in place of the event's, so the name composes with it
-(`app.md` `S-25`). `seeded` is false while the heat's round has no swimmer in any heat yet — a
+(`app.md` `S-25`). A heat of an A or B final likewise carries `final_a` or `final_b` in its
+`event_name_parts.round` (§5.1). `seeded` is false while the heat's round has no swimmer in any heat yet — a
 final before its prelims are swum and the file re-exported — and its `lanes` are empty
 for that reason, not because the heat is. An older server sends neither: read `""` and
 `true` (`app.md` `S-25`).
@@ -1040,6 +1049,13 @@ can tell the console has stopped talking to it. Faces, both palettes: `family`
 ---
 
 ## Changelog
+
+- **Added since v2, additive**: `event_name_parts.round` can be `final_a` … `final_d`
+  for a heat of an A, B, C or D final (§5.1, §5.8), with those words in
+  `GET /i18n/{lang}` → `event_name` and `event_name_short` (§5.9); `finals` in
+  `schedule_snapshot` (§5.5). A client that composes against the server's vocabulary
+  (`app.md` `T-11`) shows `Final B` with no change. One that matches on
+  `round == "final"` must also take `final_*`.
 
 - **Changed since v2, the version stands**: a Lenex event with no name (Splash writes
   only its SWIMSTYLE) now carries its AGEGROUPs' ages in `event_name_parts.age` (§5.1):

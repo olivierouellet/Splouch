@@ -5,6 +5,7 @@ import zipfile
 from typing import NamedTuple
 from xml.parsers import expat
 
+from splouch_i18n import FINAL_LETTERS
 from splouch_times import wire_time
 
 
@@ -254,7 +255,8 @@ def load_lenex(path):
                        SESSION's `number` and `name`; 0 and "" outside one),
                        and its own `start_list`,
                        `heat_times`, `heat_ages` (`age_band` of a heat's own age
-                       group) and `results`, keyed by heat as above.
+                       group), `heat_finals` (a final's heat's HEAT `final`, one
+                       of `FINAL_LETTERS`) and `results`, keyed by heat as above.
 
     One event number can hold several rounds: Splash numbers a prelim and its
     final the same, and the console only ever sends the number. Each round is read
@@ -488,6 +490,7 @@ def load_lenex(path):
     starts = {}  # round → {heat_number: {lane: entry}}
     times = {}  # round → {heat_number: daytime_str}
     ages = {}  # round → {heat_number: age band}, for a heat with its own age group
+    finals = {}  # round → {heat_number: "A"…"D"}, for a heat of an A, B… final
     distances = {}  # round → distance in metres
     relay_legs = {}  # round → its SWIMSTYLE's `relaycount`, when above 1
     eventid_map = {}  # eventid → round (Splash-style)
@@ -517,6 +520,7 @@ def load_lenex(path):
         starts[rnd] = {}
         times[rnd] = {}
         ages[rnd] = {}
+        finals[rnd] = {}
         age_groups = {}
         for m in members[rnd]:
             for gid, band in _age_groups(m).items():
@@ -544,6 +548,12 @@ def load_lenex(path):
             # A finals heat per age group (Splash): the heat says which.
             if age_groups.get(heat.get("agegroupid", "")):
                 ages[rnd][h_num] = age_groups[heat.get("agegroupid")]
+            # An A or B final (Lenex 3.0: A to D). Anything else — Splash's `F`
+            # for an age group's only final, a letter no spec names — is the
+            # round's plain final.
+            letter = (heat.get("final") or "").strip().upper()
+            if letter in FINAL_LETTERS:
+                finals[rnd][h_num] = letter
             hid = heat.get("heatid", "")
             if hid:
                 heatid_map[hid] = (rnd, h_num)
@@ -898,6 +908,7 @@ def load_lenex(path):
             "start_list": starts[r],
             "heat_times": times[r],
             "heat_ages": ages[r],
+            "heat_finals": finals[r] if round_key[r] == "final" else {},
             "results": round_results.get(r, {}),
         }
         for r, ev_num in enumerate(round_number)

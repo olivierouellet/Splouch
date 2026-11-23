@@ -127,6 +127,24 @@ def heat_age(event_num, heat_num, m=None):
     return ""
 
 
+def heat_final(event_num, heat_num, m=None):
+    """The letter of the A, B, C or D final heat *heat_num* of *event_num*'s live
+    round is, ``""`` for none (docs/api.md §5.1 `round`)."""
+    m = m or state.meet
+    for r in m.rounds:
+        if r["live"] and r["event"] == event_num:
+            return r.get("heat_finals", {}).get(heat_num, "")
+    return ""
+
+
+def _heat_round(event_num, heat_num, audience):
+    """The round key *audience* is shown for heat *heat_num*: `final_b` for a B
+    final, else the event's (`shown_round`)."""
+    return state.heat_round(
+        shown_round(event_num, audience), heat_final(event_num, heat_num)
+    )
+
+
 def _shown_parts(parts, audience, age=""):
     """*parts* as Settings shows them to *audience* (docs/api.md §5.1): the heat's
     own age group *age* in place of the event's, and no gender if it is hidden
@@ -172,7 +190,7 @@ def get_event_name_display(event_num, heat_num=0):
         return state.load_event_translations().get("test_race", "Test race")
     return board_name(
         _raw_event_name(event_num),
-        shown_round(event_num, "board"),
+        _heat_round(event_num, heat_num, "board"),
         heat_age(event_num, heat_num),
     )
 
@@ -203,7 +221,7 @@ def get_event_name_parts(event_num, heat_num=0):
         }
     return phone_parts(
         _raw_event_name(event_num),
-        shown_round(event_num, "phone"),
+        _heat_round(event_num, heat_num, "phone"),
         heat_age(event_num, heat_num),
     )
 
@@ -429,6 +447,19 @@ def _build_meet_data():
             "heat_ages": {r["event"]: r["heat_ages"] for r in m.rounds if r["live"]}
             if heat_age_shown("board")
             else {},
+            # The name of a heat of an A or B final, which ends `Final B` rather
+            # than the event's `Final` (docs/api.md §5.1 `round`).
+            "heat_names": {
+                r["event"]: {
+                    ht: board_name(
+                        r["name"],
+                        state.heat_round(shown_round(r["event"], "board", m), letter),
+                    )
+                    for ht, letter in r["heat_finals"].items()
+                }
+                for r in m.rounds
+                if r["live"] and r.get("heat_finals")
+            },
             "meet_info": m.meet_info,
             "results": m.results,
         }
@@ -467,6 +498,7 @@ def _build_meet_data():
         "start_list": start_list,
         "heat_times": {},
         "heat_ages": {},
+        "heat_names": {},
         "meet_info": {},
         "results": {},
     }
@@ -475,7 +507,8 @@ def _build_meet_data():
 def schedule_rounds(all_rounds=False, everything=False):
     """Each round of the loaded meet as the Schedule lists it, in running order:
     `event`, `round`, its composed `event_name` and `event_name_parts`, and its
-    own `start_list`, `heat_times`, `heat_ages` and `results` keyed by heat.
+    own `start_list`, `heat_times`, `heat_ages`, `heat_finals` and `results`
+    keyed by heat.
 
     Only the live round of each number unless *all_rounds*: a client that has not
     asked for them keys its cards by event and heat alone (docs/api.md §5.8).
@@ -505,6 +538,7 @@ def schedule_rounds(all_rounds=False, everything=False):
                 "start_list": r["start_list"],
                 "heat_times": r["heat_times"],
                 "heat_ages": r["heat_ages"] if ages_shown else {},
+                "heat_finals": r.get("heat_finals", {}),
                 "results": r["results"],
             }
             for r in m.rounds
@@ -532,6 +566,7 @@ def schedule_rounds(all_rounds=False, everything=False):
             },
             "heat_times": data["heat_times"].get(ev, {}),
             "heat_ages": {},
+            "heat_finals": {},
             "results": data["results"].get(ev, {}),
         }
         for ev, heats in data["events_grouped"]
@@ -593,9 +628,12 @@ def build_heats(all_rounds=False):
                     "heat": ht,
                     "round": rnd,
                     "event_name": r["event_name"],
-                    # The heat's own age group in the name (`S-25`).
+                    # The heat's own age group, and its A or B final, in the
+                    # name (`S-25`).
                     "event_name_parts": state.heat_name_parts(
-                        r["event_name_parts"], r["heat_ages"].get(ht, "")
+                        r["event_name_parts"],
+                        r["heat_ages"].get(ht, ""),
+                        r["heat_finals"].get(ht, ""),
                     ),
                     "time": r["heat_times"].get(ht, ""),
                     "age": r["heat_ages"].get(ht, ""),

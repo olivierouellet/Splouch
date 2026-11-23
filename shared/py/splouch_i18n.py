@@ -308,11 +308,36 @@ def compose_event_name(parts, ev):
     return name
 
 
-def heat_name_parts(parts, age):
+# The letters a HEAT's `final` names an A, B, C or D final by (Lenex 3.0). Splash
+# also writes `F` on the one final of an age group not split into A and B: that is
+# the round's plain `final`, so it is not here.
+FINAL_LETTERS = ("A", "B", "C", "D")
+
+
+def heat_round(round_key, final):
+    """The round key a heat shows: `final_a` … `final_d` in place of `final` for a
+    heat of an A, B, C or D final (its HEAT `final`, one of `FINAL_LETTERS`), so
+    the two heats of one age group do not read the same (docs/app.md `S-25`).
+    *round_key* as it is otherwise, `""` (a round the audience is not shown)
+    included."""
+    letter = (final or "").strip().upper()
+    if round_key == "final" and letter in FINAL_LETTERS:
+        return f"final_{letter.lower()}"
+    return round_key
+
+
+def heat_name_parts(parts, age, final=""):
     """A heat's `event_name_parts`: the round's, with the heat's own age group *age*
-    in the age slot, so it composes `M 13-14 Fi` like a timed final's `M ≤10`
-    (docs/app.md `S-25`). The round's parts as they are when the heat has no age
-    of its own, or when they parsed to nothing a composer would put an age in."""
-    if not age or not parts or not (parts.get("dist") or parts.get("stroke")):
+    in the age slot, so it composes `M 13-14 Fi` like a timed final's `M ≤10`, and
+    its A or B final in the round slot, `M 13-14 Fi B` (docs/app.md `S-25`). The
+    age is left out when the parts parsed to nothing a composer would put an age
+    in; the round slot is filled whatever the name, as the round word is."""
+    if not parts:
+        return parts
+    if parts.get("round"):
+        shown = heat_round(parts["round"], final)
+        if shown != parts["round"]:
+            parts = {**parts, "round": shown}
+    if not age or not (parts.get("dist") or parts.get("stroke")):
         return parts
     return {**parts, "age": age, "age_key": ""}

@@ -178,6 +178,9 @@ body {
                 <span class="heat-badge">{{ labels.heat }} {{ heat }}</span>
                 {# The heat's own age group: a final seeded one heat per age group (`S-25`). #}
                 {% if r.heat_ages.get(heat) %}<span class="heat-age">{{ r.heat_ages[heat] }}</span>{% endif %}
+                {# Which final of that age group: A, B (docs/api.md §5.1 `round`). #}
+                {% set final = r.heat_finals.get(heat) %}
+                {% if final %}<span class="heat-age">{{ event_vocab.get('final_' ~ final | lower, 'Final ' ~ final) }}</span>{% endif %}
                 <span class="heat-time">{{ r.heat_times.get(heat, '') }}</span>
             </div>
             {% if not seeded %}

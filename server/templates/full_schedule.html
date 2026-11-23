@@ -166,10 +166,12 @@
                 <span class="heat-time">{{ heat_times[event][heat] }}</span>
                 {% endif %}
             </div>
-            {# The heat's own age group after the name, as on the Schedule (`S-25`). #}
+            {# The heat's own age group after the name, as on the Schedule, and its
+               A or B final in place of the round's word (`S-25`). #}
             {% set age = (heat_ages or {}).get(event, {}).get(heat) %}
-            {% if event in event_names or age %}
-            <div class="heat-name">{{ [event_names.get(event, ''), age] | select | join(' · ') }}</div>
+            {% set name = (heat_names or {}).get(event, {}).get(heat) or event_names.get(event, '') %}
+            {% if name or age %}
+            <div class="heat-name">{{ [name, age] | select | join(' · ') }}</div>
             {% endif %}
         </div>
         <div class="swimmer-list">

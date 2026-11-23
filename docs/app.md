@@ -714,7 +714,7 @@ hundreds.
 | [`S-22`](#s-22) | Lane time = best one known: official result (or its status) > console time > seed. Each its own colour, official also bolder | `lane.result_time` / `result_status`, `console_time`, `seed_time` ([`api.md`](api.md) §5.8); live `results_snapshot` patches console times; colours `schedule_seed` / `_console` / `_official` (§6.1) | all | should |
 | [`S-23`](#s-23) | Official or console-timed heat: tap its times or its `±` → gaps to the seed, spring back after 4 s or on a second tap. A status lane shows its console time, then its gap for the last 2 s | `heat.official`, `lane.result_delta_seconds` / `result_delta_better`, else `console_time` − `seed_time` | all | could |
 | [`S-24`](#s-24) | A prelim and its final under one event number are two cards, each in its place in running order and named with its round; each keeps its own console times and results. A heat is its event, heat **and** round | `GET /meet/{id}/schedule?rounds=1` (Pi: `/schedule.json?rounds=1`), `heat.round` ([`api.md`](api.md) §5.8); `S-05`'s rounds | all | should |
-| [`S-25`](#s-25) | A heat with its own age group shows it in the event name's age slot (`50 Free M 13-14 Fi`), as `event_name_parts` carries it; a heat whose round has no swimmer yet says so (`mobile.not_seeded`) instead of showing empty lanes | `heat.age`, `heat.event_name_parts.age`, `heat.seeded` ([`api.md`](api.md) §5.8); missing → `""`, `true` | all | could |
+| [`S-25`](#s-25) | A heat with its own age group shows it in the event name's age slot (`50 Free M 13-14 Fi`), and a heat of an A or B final says which in the round slot (`50 Free M 13-14 Fi B`), as `event_name_parts` carries them; a heat whose round has no swimmer yet says so (`mobile.not_seeded`) instead of showing empty lanes | `heat.age`, `heat.event_name_parts.age`, `heat.seeded` ([`api.md`](api.md) §5.8); missing → `""`, `true` | all | could |
 | [`S-26`](#s-26) | A heading above the first heat of each session: its name from the meet file (`Samedi am`), else `mobile.session` (`Session 2`) | `heat.session`, `heat.session_name` ([`api.md`](api.md) §5.8); missing → 0, `""` (no heading) | all | could |
 | [`S-27`](#s-27) | A seed swum in another course than the meet's is drawn in its own colour, with no course beside it, and no gap is drawn to it | `lane.seed_course` ([`api.md`](api.md) §5.8); missing → `""`; colour `schedule_seed_other` (§6.1) | all | could |
 
@@ -782,7 +782,10 @@ numbers only, so no translation. The server puts it in that heat's
 timed final's `50 Free M ≤10`, and the screen reader hears it with the long name.
 Draw `heat.age` after the name with ` · ` only when `event_name_parts.age` is not that
 same age: a server from before this sends the event's parts, and the age would
-otherwise be lost. `seeded: false` marks every heat of a round no swimmer is in yet —
+otherwise be lost. A final split into an A and a B final for one age group has two
+heats of that age: the server sets their `event_name_parts.round` to `final_a` and
+`final_b`, whose words are in the vocabulary like any round's (`T-11`), so the name
+reads `50 Free M 13-14 Fi B` with nothing for the app to add. `seeded: false` marks every heat of a round no swimmer is in yet —
 the Sunday final on Saturday: one line, `mobile.not_seeded`, in place of the lanes.
 A filter (`S-15`) hides such heats like any heat with no match.
 
@@ -1192,6 +1195,15 @@ paused stays paused. iOS: a `Toggle` in the sheet's first section, the bell
 ---
 
 ## Changelog
+
+- **v3, amended** (2026-11-22, no bump) — A and B finals. A heat of a final split by
+  its Lenex HEAT `final` carries `final_a` … `final_d` in `event_name_parts.round`,
+  composing `M 13-14 Fi B` ([`api.md`](api.md) §5.1). Additive: the words come with
+  `GET /i18n/{lang}`, so a client that composes against the server's vocabulary
+  needs no change.
+
+  - **Changed**: `S-25` (a heat's A or B final in the round slot). A client that
+    tests `round == "final"` must also take `final_*`.
 
 - **v3, amended** (2026-11-17, no bump) — a heat's age group in its name. A finals heat
   with its own age group carries it in its `event_name_parts.age`, so it composes

@@ -291,6 +291,7 @@ def load_hy3(path):
                         "start_list": starts[ev][letter],
                         "heat_times": {},
                         "heat_ages": {},
+                        "heat_finals": {},
                         "results": results.get((ev, letter), {}),
                     },
                 )

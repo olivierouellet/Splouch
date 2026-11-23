@@ -867,3 +867,113 @@ def test_the_meet_preview_shows_what_settings_hide(pi):
                 state.settings[k] = v
     assert '<span class="heat-age">13-14</span>' in html
     assert "Prelims" in html and "Final" in html
+
+
+def _a_and_b_finals():
+    """The final split into an A and a B final for one age group, and a single
+    final (Splash's `F`) for the other, as Splash seeds them."""
+    xml = MEET.replace(
+        '<HEATS><HEAT heatid="9" number="1" daytime="16:10" status="SEEDED"/></HEATS>',
+        '<AGEGROUPS><AGEGROUP agegroupid="91" agemin="13" agemax="14"/>'
+        '<AGEGROUP agegroupid="92" agemin="15" agemax="-1"/></AGEGROUPS>'
+        '<HEATS><HEAT heatid="9" number="1" agegroupid="91" final="A" status="SEEDED"/>'
+        '<HEAT heatid="10" number="2" agegroupid="91" final="b" status="SEEDED"/>'
+        '<HEAT heatid="11" number="3" agegroupid="92" final="F" status="SEEDED"/>'
+        "</HEATS>",
+    )
+    return load_lenex(_lxf(xml.replace("{final}", FINAL_SEEDED)))
+
+
+def test_an_a_and_a_b_final_are_named_apart():
+    data = _a_and_b_finals()
+    final = next(r for r in data.rounds if r["kind"] == "final")
+    assert final["heat_finals"] == {1: "A", 2: "B"}
+    # Only a final has an A and a B.
+    assert all(r["heat_finals"] == {} for r in data.rounds if r["kind"] != "final")
+
+
+def test_the_live_frames_name_an_a_or_b_final(pi, monkeypatch):
+    """The round slot is the heat's: `Final B` for heat 2, the plain `Final` for
+    a group's only final (docs/api.md §5.1 `round`)."""
+    state.set_lenex(_a_and_b_finals())
+    sent = []
+    monkeypatch.setattr("meet_data.bus.emit", lambda ns, ev, d: sent.append(d))
+    monkeypatch.setattr("meet_data.relay.relay_emit", lambda ev, d: None)
+    for heat, round_key, word in [(1, "final_a", "Final A"), (2, "final_b", "Final B"),
+                                  (3, "final", "Final")]:  # fmt: skip
+        monkeypatch.setattr(state._decoder, "last_event_sent", (15, heat))
+        send_event_info()
+        assert sent[-1]["event_name_parts"]["round"] == round_key
+        assert sent[-1]["event_name"].endswith(word)
+        assert _build_results_snapshot()["event_name_parts"]["round"] == round_key
+
+
+def test_a_hidden_final_hides_its_letter_too(pi, monkeypatch):
+    """The letter is the round word's: an audience not shown `final` is not shown
+    `Final B` either."""
+    state.set_lenex(_a_and_b_finals())
+    monkeypatch.setitem(state.settings, "round_names_board", ["prelims"])
+    monkeypatch.setitem(state.settings, "round_names_phone", ["prelims"])
+    monkeypatch.setattr(state._decoder, "last_event_sent", (15, 2))
+    snap = _build_results_snapshot()
+    # A number with two rounds always names its round to a phone (`S-24`).
+    assert snap["event_name_parts"]["round"] == "final_b"
+    assert "Final" not in snap["event_name"]
+
+
+def test_the_schedule_and_the_cloud_name_an_a_or_b_final(pi, monkeypatch):
+    import relay
+
+    state.set_lenex(_a_and_b_finals())
+    heats = build_heats()
+    assert [h["event_name_parts"]["round"] for h in heats if h["event"] == 15] == [
+        "final_a",
+        "final_b",
+        "final",
+    ]
+    sent = {}
+    monkeypatch.setattr(relay, "_local_only", lambda: False)
+    monkeypatch.setattr(relay, "_send_schedule_data", lambda c, d: sent.update(d))
+    relay.send_schedule()
+    sched = json.loads(json.dumps(sent))
+    for all_rounds in (False, True):
+        cloud = cs._build_heats_json(sched, {}, all_rounds)
+        assert [h["event_name_parts"] for h in cloud] == [
+            h["event_name_parts"] for h in build_heats(all_rounds)
+        ]
+
+
+def test_an_older_pi_sends_no_finals():
+    """A snapshot from before `finals`: the round's parts, rather than an error."""
+    parts = {"raw": "Men's 50 Free", "dist": "50", "stroke": "freestyle",
+             "relay": False, "gender": "men", "age": "", "age_key": "",
+             "round": "final"}  # fmt: skip
+    sched = {
+        "events": [[3, [1]]],
+        "names": {"3": "50 Free"},
+        "name_parts": {"3": parts},
+        "start_list": {"3": {"1": {}}},
+    }
+    assert cs._build_heats_json(sched)[0]["event_name_parts"] == parts
+
+
+def test_the_meet_preview_names_an_a_or_b_final(pi):
+    from starlette.requests import Request
+
+    import app as pi_app
+    from routes.meet import route_full_schedule, route_meet
+
+    state.set_lenex(_a_and_b_finals())
+
+    def page(route, path):
+        scope = {"type": "http", "method": "GET", "path": path, "query_string": b"",
+                 "headers": [], "session": {}, "app": pi_app.app,
+                 "router": pi_app.app.router}  # fmt: skip
+        return route(Request(scope)).body.decode()
+
+    meet = page(route_meet, "/meet")
+    assert '<span class="heat-age">Final A</span>' in meet
+    assert '<span class="heat-age">Final B</span>' in meet
+    full = page(route_full_schedule, "/full_schedule")
+    assert "Final B · 13-14</div>" in full
+    assert "Final · 15+</div>" in full
