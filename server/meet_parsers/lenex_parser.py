@@ -965,6 +965,10 @@ def load_lenex(path):
         meet_info["name"] = meet_el.get("name", "")
         meet_info["city"] = meet_el.get("city", "")
         meet_info["hostclub"] = meet_el.get("hostclub", "")
+        # What else the MEET says of itself: who runs it, where, by when entries
+        # closed and how it is timed (Lenex 3.0 MEET attributes).
+        for attr in ("organizer", "nation", "state", "deadline", "timing"):
+            meet_info[attr] = meet_el.get(attr, "").strip()
         # Without a meet `course`, every SESSION has one (Lenex 3.0); the meet's
         # is then theirs when they agree.
         course = meet_course
@@ -982,6 +986,19 @@ def load_lenex(path):
         )
         # The pool's name is FACILITY's since 2016; POOL `name` from older files.
         facility = next(iter(find_direct(meet_el, "FACILITY")), None)
+        # The pool's street address, as FACILITY gives it.
+        meet_info["facility_address"] = (
+            ", ".join(
+                v
+                for v in (
+                    facility.get(a, "").strip()
+                    for a in ("street", "street2", "zip", "city", "state", "nation")
+                )
+                if v
+            )
+            if facility is not None
+            else ""
+        )
         meet_info["pool"] = (
             (facility.get("name", "") if facility is not None else "")
             or (pool_el.get("name", "") if pool_el is not None else "")

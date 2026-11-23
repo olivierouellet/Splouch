@@ -806,3 +806,27 @@ def test_a_sport_class_typed_into_a_last_name_is_left_out(lastname, shown):
         _splash(_event('distance="400" stroke="FREE"'), clubs)
     ).start_list
     assert start[1][1][3]["name"] == shown
+
+
+def test_what_the_meet_says_of_itself():
+    info = load_lenex(
+        _splash(
+            _event('distance="50" stroke="FREE"'),
+            meet_attrs=(
+                'course="SCM" organizer="Swimming Canada" hostclub="Aqua Club" '
+                'nation="CAN" state="QC" deadline="2026-10-31" timing="AUTOMATIC"'
+            ),
+            meet_children=(
+                '<FACILITY name="Centre aquatique" street="1 rue du Parc" '
+                'zip="G1A 1A1" city="Québec" nation="CAN"/>'
+            ),
+        )
+    ).meet_info
+    assert {k: info[k] for k in ("organizer", "hostclub", "nation", "state")} == {
+        "organizer": "Swimming Canada",
+        "hostclub": "Aqua Club",
+        "nation": "CAN",
+        "state": "QC",
+    }
+    assert (info["deadline"], info["timing"]) == ("2026-10-31", "AUTOMATIC")
+    assert info["facility_address"] == "1 rue du Parc, G1A 1A1, Québec, CAN"
