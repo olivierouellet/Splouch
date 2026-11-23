@@ -18,7 +18,7 @@ body {
                 text-transform: uppercase; color: #666; margin-bottom: 2px; }
 .lp-meet-title { font-size: 1.3em; font-weight: 700; color: #fff; margin: 0 0 4px; }
 .lp-meta { font-size: 0.82em; color: #888; line-height: 1.5; }
-.lp-meta span { display: block; }
+.lp-meta span + span::before { content: " \00b7 "; }
 /* A blank line between the pool and the sessions under it. */
 .lp-meta .lp-pool:not(:last-child) { margin-bottom: 1.5em; }
 
@@ -112,6 +112,29 @@ body {
 </style>
 </head>
 <body>
+{#- Under the title: who runs the meet, its pool, then a line for each session
+    (or the meet's dates, for a Hy-Tek file over several days). -#}
+{% macro meet_meta(warmups) %}
+<div class="lp-meta">
+    {% set host = meet_info.get('hostclub') if meet_info.get('hostclub') != meet_info.get('organizer') else '' %}
+    {% if meet_info.get('organizer') or host %}
+    <div>
+        {% if meet_info.get('organizer') %}<span>{{ strings.get('organizer', 'Organizer') }}: {{ meet_info.organizer }}</span>{% endif %}
+        {% if host %}<span>{{ strings.get('host', 'Host') }}: {{ host }}</span>{% endif %}
+    </div>
+    {% endif %}
+    {% if meet_info.get('pool') or pool_details %}
+    <div class="lp-pool">
+        {% if meet_info.get('pool') %}<span>{{ meet_info.pool }}</span>{% endif %}
+        {% for d in pool_details %}<span>{{ d }}</span>{% endfor %}
+    </div>
+    {% endif %}
+    {% for s in meet_info.get('sessions', []) %}
+    <div>{% if s.name %}{{ s.name }}: {% endif %}{{ s.date }}{% if s.daytime %} {{ s.daytime }}{% if s.endtime %}&ndash;{{ s.endtime }}{% endif %}{% endif %}{% if warmups and s.warmupfrom %} ({{ strings.get('warmup', 'warm-up') }} {{ s.warmupfrom }}{% if s.warmupuntil %}&ndash;{{ s.warmupuntil }}{% endif %}){% endif %}</div>
+    {% endfor %}
+    {% if meet_info.get('dates') %}<div>{{ meet_info.dates | join(' – ') }}</div>{% endif %}
+</div>
+{% endmacro %}
 <div class="container">
 
     <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:18px;" class="no-print">
@@ -123,12 +146,7 @@ body {
                 <span style="font-weight:400; color:#888; font-size:.7em;">— {{ meet_info.city }}</span>
                 {% endif %}
             </div>
-            <div class="lp-meta">
-                {% if meet_info.get('pool') %}<span class="lp-pool">{{ meet_info.pool }}</span>{% endif %}
-                {% for s in meet_info.get('sessions', []) %}
-                <span>{% if s.name %}{{ s.name }}: {% endif %}{{ s.date }}{% if s.daytime %} {{ s.daytime }}{% if s.endtime %}&ndash;{{ s.endtime }}{% endif %}{% endif %}{% if s.warmupfrom %} ({{ strings.get('warmup', 'warm-up') }} {{ s.warmupfrom }}{% if s.warmupuntil %}&ndash;{{ s.warmupuntil }}{% endif %}){% endif %}</span>
-                {% endfor %}
-            </div>
+            {{ meet_meta(warmups=true) }}
         </div>
         {% if not kiosk %}
         <button type="button" onclick="window.print()" title="{{ strings.get('print', 'Print') }}"
@@ -143,12 +161,7 @@ body {
             {{ meet_info.name or strings.get('no_file', 'Meet Preview') }}
             {% if meet_info.get('city') %} — {{ meet_info.city }}{% endif %}
         </div>
-        <div class="lp-meta">
-            {% if meet_info.get('pool') %}<span class="lp-pool">{{ meet_info.pool }}</span>{% endif %}
-            {% for s in meet_info.get('sessions', []) %}
-            <span>{% if s.name %}{{ s.name }}: {% endif %}{{ s.date }}{% if s.daytime %} {{ s.daytime }}{% if s.endtime %}&ndash;{{ s.endtime }}{% endif %}{% endif %}</span>
-            {% endfor %}
-        </div>
+        {{ meet_meta(warmups=false) }}
     </div>
 
     {% if not rounds %}

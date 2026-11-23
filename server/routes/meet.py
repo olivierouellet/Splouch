@@ -27,13 +27,31 @@ class MeetStatus(BaseModel):
     playing: bool
 
 
+def pool_details(meet_info, strings):
+    """What the meet file says of its pool, after its name: ``["25 m", "8 lanes"]``.
+
+    A yard course is in yards; an `OPEN` course, or none, gives no length."""
+    details = []
+    length = int(meet_info.get("pool_length_lenex") or 0)
+    if length:
+        unit = "yd" if meet_info.get("course", "").startswith("SCY") else "m"
+        details.append(f"{length} {unit}")
+    lanes = meet_info.get("lanes_lenex")
+    if lanes:
+        count = lanes[1] - lanes[0] + 1
+        details.append(strings.get("lanes", "{n} lanes").format(n=count))
+    return details
+
+
 @router.get("/meet")
 def route_meet(request: Request):
     data = _build_meet_data()
+    strings = state.load_preview_strings()
     return render(
         request,
         "meet.html",
-        strings=state.load_preview_strings(),
+        strings=strings,
+        pool_details=pool_details(data["meet_info"], strings),
         kiosk="kiosk" in request.query_params,
         # Every round, as the Schedule's `?rounds=1` lists them (docs/app.md `S-24`):
         # a seeded final does not take its prelims off the printed start list, and

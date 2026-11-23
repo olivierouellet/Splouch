@@ -12,6 +12,9 @@ no_hytek_file = "No hay archivo HyTek cargado."
 settings      = "Configuración"
 logout        = "Cerrar sesión"
 print         = "Imprimir"
+organizer     = "Organizador"
+host          = "Club anfitrión"
+lanes         = "{n} calles"
 
 [cloud]
 admin_title     = "Administración Splouch"

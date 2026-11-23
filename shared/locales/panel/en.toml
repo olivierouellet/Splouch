@@ -12,6 +12,9 @@ no_hytek_file = "No HyTek file loaded."
 settings      = "Settings"
 logout        = "Log Out"
 print         = "Print"
+organizer     = "Organizer"
+host          = "Host"
+lanes         = "{n} lanes"
 
 [cloud]
 admin_title   = "Splouch Admin"

@@ -679,6 +679,76 @@ def test_the_meet_preview_heads_each_session(pi):
     assert "Samedi am: 2026-11-07" in html
 
 
+def _meet_preview_html():
+    from starlette.requests import Request
+
+    import app as pi_app
+    from routes.meet import route_meet
+
+    request = Request(
+        {
+            "type": "http",
+            "method": "GET",
+            "path": "/meet",
+            "query_string": b"",
+            "headers": [],
+            "session": {},
+            "app": pi_app.app,
+            "router": pi_app.app.router,
+        }
+    )
+    return route_meet(request).body.decode()
+
+
+def test_the_meet_preview_says_who_runs_the_meet_and_where(pi):
+    """The organizer, a host club that is someone else, and the pool: its name,
+    length and lanes on one line."""
+    data = _named_sessions()
+    data.meet_info.update(
+        organizer="Swimming Canada",
+        hostclub="Aqua Club",
+        pool="Centre aquatique",
+        lanes_lenex=[0, 9],
+    )
+    state.set_lenex(data)
+    html = _meet_preview_html()
+    assert "Organizer: Swimming Canada" in html
+    assert "Host: Aqua Club" in html
+    for part in (
+        "<span>Centre aquatique</span>",
+        "<span>25 m</span>",
+        "<span>10 lanes</span>",
+    ):
+        assert part in html
+
+    data.meet_info["hostclub"] = "Swimming Canada"  # the same club: said once
+    state.set_lenex(data)
+    assert "Host:" not in _meet_preview_html()
+
+
+def test_the_meet_preview_gives_a_multi_day_hytek_meets_dates(pi):
+    """A Hy-Tek file over several days has no sessions, only its first and last
+    day: the header gives those."""
+    data = _named_sessions()
+    data.meet_info.update(sessions=[], dates=["2026-06-01", "2026-06-03"])
+    state.set_lenex(data)
+    assert "2026-06-01 – 2026-06-03" in _meet_preview_html()
+
+
+@pytest.mark.parametrize(
+    ("info", "details"),
+    [
+        ({"pool_length_lenex": 50, "course": "LCM", "lanes_lenex": [1, 8]}, ["50 m", "8 lanes"]),
+        ({"pool_length_lenex": 25, "course": "SCY"}, ["25 yd"]),
+        ({"pool_length_lenex": 0, "course": "OPEN"}, []),
+    ],
+)  # fmt: skip
+def test_the_pools_length_and_lanes(info, details):
+    from routes.meet import pool_details
+
+    assert pool_details(info, {}) == details
+
+
 def test_an_older_pi_sends_no_session():
     """A snapshot from before `sessions`: no heading, rather than an error."""
     sched = {

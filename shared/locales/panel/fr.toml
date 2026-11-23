@@ -12,6 +12,9 @@ no_hytek_file = "Aucun fichier HyTek chargé."
 settings      = "Paramètres"
 logout        = "Déconnexion"
 print         = "Imprimer"
+organizer     = "Organisateur"
+host          = "Club hôte"
+lanes         = "{n} couloirs"
 
 [cloud]
 admin_title     = "Administration Splouch"
