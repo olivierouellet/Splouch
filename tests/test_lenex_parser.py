@@ -779,3 +779,30 @@ def test_a_lane_shows_the_clubs_code_before_its_short_name(attrs, club):
       </ATHLETE></ATHLETES></CLUB>"""
     start = load_lenex(_splash(_event('distance="50" stroke="FREE"'), clubs)).start_list
     assert start[1][1][3]["club"] == club
+
+
+@pytest.mark.parametrize(
+    ("lastname", "shown"),
+    [
+        ("Rivard_S10SB9SM10", "Aurélie Rivard"),
+        # Cut short by the registration's length limit.
+        ("Hunsicker_S10SB9SM1", "Aurélie Hunsicker"),
+        ("Tripp_S8SB7SM8 ", "Aurélie Tripp"),
+        ("Rivard", "Aurélie Rivard"),
+        # Not a sport class: kept as written.
+        ("Smith_Jones", "Aurélie Smith_Jones"),
+        ("Rivard_SB9", "Aurélie Rivard_SB9"),
+    ],
+)
+def test_a_sport_class_typed_into_a_last_name_is_left_out(lastname, shown):
+    """A federation types a para swimmer's class into the last name; the ATHLETE's
+    HANDICAP says it already, and the board shows the swimmer's name."""
+    clubs = f"""<CLUB name="Aqua" code="AQUA"><ATHLETES>
+      <ATHLETE athleteid="1" lastname="{lastname}" firstname="Aurélie">
+        <HANDICAP breast="9" free="10" medley="10"/>
+        <ENTRIES><ENTRY eventid="1" heatid="1" lane="3"/></ENTRIES>
+      </ATHLETE></ATHLETES></CLUB>"""
+    start = load_lenex(
+        _splash(_event('distance="400" stroke="FREE"'), clubs)
+    ).start_list
+    assert start[1][1][3]["name"] == shown

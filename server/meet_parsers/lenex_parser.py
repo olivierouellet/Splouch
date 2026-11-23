@@ -118,6 +118,21 @@ def course_length(course):
     return int(m.group(1)) if m else 0
 
 
+# A para swimmer's sport class typed into the last name, as a federation's
+# registration does (`Rivard_S10SB9SM10`), sometimes cut short by a length limit
+# (`Hunsicker_S10SB9SM1`). The class is the ATHLETE's HANDICAP element's to say
+# (Lenex 3.0), and a scoreboard name is no place for it. No name has an
+# underscore, so one followed by `S` and a digit starts nothing else.
+_SPORT_CLASS_SUFFIX = re.compile(r"_S\d[\dSBM]*$")
+
+
+def _last_name(athlete):
+    """An ATHLETE's last name as a board shows it: with its `nameprefix` ("van den
+    Hoogenband"), without a sport class typed into it."""
+    last = _SPORT_CLASS_SUFFIX.sub("", (athlete.get("lastname") or "").strip())
+    return f"{(athlete.get('nameprefix') or '').strip()} {last}".strip()
+
+
 def _club_short(club):
     """What a lane shows for a CLUB: the first of `code`, `shortname` and `name`
     that is not blank. `code` is the federation's club code (`CNSH`), what a
@@ -332,16 +347,15 @@ def load_lenex(path):
             return node.findall(f"{prefix}{tag}", ns)
         return node.findall(tag)
 
-    # Athlete lookup: athleteid → (lastname, firstname). The last name carries
-    # its `nameprefix` ("van den Hoogenband"). An ATHLETE without an id is a
-    # record holder in RECORDLISTS, not a swimmer at this meet.
+    # Athlete lookup: athleteid → (lastname, firstname); see `_last_name`. An
+    # ATHLETE without an id is a record holder in RECORDLISTS, not a swimmer at
+    # this meet.
     athletes = {}
     for a in find(root, "ATHLETE"):
         aid = a.get("athleteid")
         if not aid:
             continue
-        last = f"{a.get('nameprefix', '').strip()} {a.get('lastname', '')}".strip()
-        athletes[aid] = (last, a.get("firstname", ""))
+        athletes[aid] = (_last_name(a), a.get("firstname", ""))
 
     # Club lookup: athleteid → what its lane shows for the club (`_club_short`)
     clubs = {}
