@@ -17,8 +17,10 @@ body {
 .lp-app-label { font-size: 0.72em; font-weight: 600; letter-spacing: .1em;
                 text-transform: uppercase; color: #666; margin-bottom: 2px; }
 .lp-meet-title { font-size: 1.3em; font-weight: 700; color: #fff; margin: 0 0 4px; }
-.lp-meta { font-size: 0.82em; color: #888; }
-.lp-meta span + span::before { content: " \00b7 "; }
+.lp-meta { font-size: 0.82em; color: #888; line-height: 1.5; }
+.lp-meta span { display: block; }
+/* A blank line between the pool and the sessions under it. */
+.lp-meta .lp-pool:not(:last-child) { margin-bottom: 1.5em; }
 
 .ev-group { margin-bottom: 22px; }
 .session-heading {
@@ -122,7 +124,7 @@ body {
                 {% endif %}
             </div>
             <div class="lp-meta">
-                {% if meet_info.get('pool') %}<span>{{ meet_info.pool }}</span>{% endif %}
+                {% if meet_info.get('pool') %}<span class="lp-pool">{{ meet_info.pool }}</span>{% endif %}
                 {% for s in meet_info.get('sessions', []) %}
                 <span>{% if s.name %}{{ s.name }}: {% endif %}{{ s.date }}{% if s.daytime %} {{ s.daytime }}{% if s.endtime %}&ndash;{{ s.endtime }}{% endif %}{% endif %}{% if s.warmupfrom %} ({{ strings.get('warmup', 'warm-up') }} {{ s.warmupfrom }}{% if s.warmupuntil %}&ndash;{{ s.warmupuntil }}{% endif %}){% endif %}</span>
                 {% endfor %}
@@ -142,7 +144,7 @@ body {
             {% if meet_info.get('city') %} — {{ meet_info.city }}{% endif %}
         </div>
         <div class="lp-meta">
-            {% if meet_info.get('pool') %}<span>{{ meet_info.pool }}</span>{% endif %}
+            {% if meet_info.get('pool') %}<span class="lp-pool">{{ meet_info.pool }}</span>{% endif %}
             {% for s in meet_info.get('sessions', []) %}
             <span>{% if s.name %}{{ s.name }}: {% endif %}{{ s.date }}{% if s.daytime %} {{ s.daytime }}{% if s.endtime %}&ndash;{{ s.endtime }}{% endif %}{% endif %}</span>
             {% endfor %}
