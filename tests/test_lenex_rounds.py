@@ -728,14 +728,18 @@ def test_the_meet_preview_says_who_runs_the_meet_and_where(pi):
 
 
 def test_the_meet_preview_prints_the_sessions_picked(pi):
-    """A box per session beside the print button, and each session's heading and
-    events tagged with it; the first heading starts no new page."""
+    """A box on each session's line in the header, under the print button, and
+    each session's heading and events tagged with it; the first heading starts
+    no new page."""
     import re
 
     state.set_lenex(_named_sessions())
     html = _meet_preview_html()
-    boxes = re.findall(r'data-print-session="(\d+)" checked>([^<]*)<', html)
-    assert boxes == [("1", "Samedi am"), ("2", "Session 2")]
+    lines = re.findall(
+        r'data-session="(\d+)"><span>([^<:]*).*?data-print-session="(\d+)"', html
+    )
+    assert [(n, box) for n, _, box in lines] == [("1", "1"), ("2", "2")]
+    assert lines[0][1] == "Samedi am"  # the box is on the session's own line
     headings = re.findall(
         r'<h2 class="session-heading([^"]*)" data-session="(\d+)"', html
     )

@@ -87,9 +87,16 @@ body {
     text-decoration: none; display: inline-block; cursor: pointer;
 }
 .btn-action:hover { background: #333; color: #fff; text-decoration: none; }
-.print-pick { font-size: 0.8em; color: #888; margin: -8px 0 18px; }
-.print-pick label { margin-right: 12px; white-space: nowrap; cursor: pointer; }
-.print-pick input { margin-right: 4px; vertical-align: -1px; }
+/* The print button, top right, and under it a box on each session's line:
+   which sessions it prints. Both in one 32px column. */
+.lp-screen { position: relative; margin-bottom: 18px; }
+.lp-screen .lp-meet-title { padding-right: 40px; }
+.btn-print-icon { position: absolute; top: 0; right: 0; width: 32px; padding: 2px 0;
+                  background: none; border: none; cursor: pointer; color: #7bc47b;
+                  font-size: 1.4em; line-height: 1; text-align: center; }
+.lp-session { display: flex; align-items: center; }
+.lp-pick { margin-left: auto; width: 32px; flex-shrink: 0; text-align: center; }
+.lp-pick input { cursor: pointer; vertical-align: -1px; }
 .btn-print { background: #1e4d2b; color: #7bc47b; border: 1px solid #2a6038; }
 .btn-print:hover { background: #255c33; color: #9be89b; }
 
@@ -153,7 +160,7 @@ body {
 <body>
 {#- Under the title: who runs the meet, its pool, then a line for each session
     (or the meet's dates, for a Hy-Tek file over several days). -#}
-{% macro meet_meta(warmups) %}
+{% macro meet_meta(warmups, pick=false) %}
 <div class="lp-meta">
     {% set host = meet_info.get('hostclub') if meet_info.get('hostclub') != meet_info.get('organizer') else '' %}
     {% if meet_info.get('organizer') or host %}
@@ -169,14 +176,16 @@ body {
     </div>
     {% endif %}
     {% for s in meet_info.get('sessions', []) %}
-    <div data-session="{{ s.number }}">{% if s.name %}{{ s.name }}: {% endif %}{{ s.date }}{% if s.daytime %} {{ s.daytime }}{% if s.endtime %}&ndash;{{ s.endtime }}{% endif %}{% endif %}{% if warmups and s.warmupfrom %} ({{ strings.get('warmup', 'warm-up') }} {{ s.warmupfrom }}{% if s.warmupuntil %}&ndash;{{ s.warmupuntil }}{% endif %}){% endif %}</div>
+    <div class="lp-session" data-session="{{ s.number }}"><span>{% if s.name %}{{ s.name }}: {% endif %}{{ s.date }}{% if s.daytime %} {{ s.daytime }}{% if s.endtime %}&ndash;{{ s.endtime }}{% endif %}{% endif %}{% if warmups and s.warmupfrom %} ({{ strings.get('warmup', 'warm-up') }} {{ s.warmupfrom }}{% if s.warmupuntil %}&ndash;{{ s.warmupuntil }}{% endif %}){% endif %}</span>
+        {%- if pick %}<label class="lp-pick" title="{{ strings.get('print_session', 'Print this session') }}"><input type="checkbox" data-print-session="{{ s.number }}" checked></label>{% endif -%}
+    </div>
     {% endfor %}
     {% if meet_info.get('dates') %}<div>{{ meet_info.dates | join(' – ') }}</div>{% endif %}
 </div>
 {% endmacro %}
 <div class="container">
 
-    <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:18px;" class="no-print">
+    <div class="lp-screen no-print">
         <div class="lp-header" style="margin-bottom:0;">
             <div class="lp-app-label">Splouch</div>
             <div class="lp-meet-title">
@@ -185,23 +194,13 @@ body {
                 <span style="font-weight:400; color:#888; font-size:.7em;">— {{ meet_info.city }}</span>
                 {% endif %}
             </div>
-            {{ meet_meta(warmups=true) }}
+            {# Which sessions the print button prints: all of them, or one or two. #}
+            {{ meet_meta(warmups=true, pick=not kiosk and print_sessions | length > 1) }}
         </div>
         {% if not kiosk %}
-        <button type="button" onclick="window.print()" title="{{ strings.get('print', 'Print') }}"
-                style="margin-top:4px; flex-shrink:0; background:none; border:none; cursor:pointer; color:#7bc47b; font-size:1.4em; padding:2px 4px; line-height:1;">&#x1F5A8;</button>
+        <button type="button" class="btn-print-icon" onclick="window.print()" title="{{ strings.get('print', 'Print') }}">&#x1F5A8;</button>
         {% endif %}
     </div>
-
-    {# Which sessions the print button prints: all of them, or one or two. #}
-    {% if not kiosk and print_sessions | length > 1 %}
-    <div class="print-pick no-print">
-        {{ strings.get('print_sessions', 'Sessions to print') }}:
-        {% for num, label in print_sessions %}
-        <label><input type="checkbox" data-print-session="{{ num }}" checked>{{ label }}</label>
-        {% endfor %}
-    </div>
-    {% endif %}
 
     <!-- Print-only header -->
     <div class="lp-header" style="display:none;" id="print-header">
