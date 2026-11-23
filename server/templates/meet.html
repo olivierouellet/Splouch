@@ -18,7 +18,7 @@ body {
                 text-transform: uppercase; color: #666; margin-bottom: 2px; }
 .lp-meet-title { font-size: 1.3em; font-weight: 700; color: #fff; margin: 0 0 4px; }
 .lp-meta { font-size: 0.82em; color: #888; line-height: 1.5; }
-.lp-meta span + span::before { content: " \00b7 "; }
+.lp-meta span + span::before { content: " \00b7  "; }
 /* A blank line between the pool and the sessions under it. */
 .lp-meta .lp-pool:not(:last-child) { margin-bottom: 1.5em; }
 
@@ -90,24 +90,48 @@ body {
 .btn-print { background: #1e4d2b; color: #7bc47b; border: 1px solid #2a6038; }
 .btn-print:hover { background: #255c33; color: #9be89b; }
 
+/* On paper, as few pages as it can be read on: two columns of small type, a
+   heat a block that is never split, and no table header repeated on every heat
+   (the columns are lane, name, club, seed, the same on each). */
 @media print {
-    body { background: #fff; color: #000; font-size: 9pt; }
+    body { background: #fff; color: #000; font-size: 7.5pt; line-height: 1.2; }
     .no-print { display: none !important; }
-    .container { max-width: 100%; padding: 0; }
-    .heat-card { border: 1px solid #bbb; border-radius: 0; margin-bottom: 4px;
-                 page-break-inside: avoid; background: #fff; }
-    .heat-card-header { background: #2c3e50 !important;
-                        -webkit-print-color-adjust: exact;
-                        print-color-adjust: exact;
-                        color: #fff !important; padding: 3px 8px; }
-    .heat-card-header * { color: #fff !important; }
-    .heat-card thead th,
-    .heat-card tbody td { padding: 3px 8px; color: #000; background: #fff !important; }
-    .ev-label { color: #3a7bd5; border-color: #3a7bd5; page-break-after: avoid; }
-    .session-heading { color: #000; page-break-after: avoid; }
-    .lp-meet-title { color: #000; }
-    .lp-meta { color: #444; }
-    @page { margin: 1.5cm; }
+    .container { max-width: 100%; padding: 0; column-count: 2; column-gap: 0.6cm; }
+    .lp-header { column-span: all; }
+    .lp-header { margin-bottom: 6px; }
+    .lp-app-label { display: none; }
+    .lp-meet-title { color: #000; font-size: 11pt; margin: 0; }
+    .lp-meta { color: #444; font-size: 7.5pt; line-height: 1.3; }
+    .lp-meta .lp-pool:not(:last-child) { margin-bottom: 0.3em; }
+    .session-heading { color: #000; font-size: 9pt; margin: 6px 0 4px;
+                       break-after: avoid; }
+    .ev-group { margin-bottom: 4px; }
+    .ev-label { color: #000; font-size: 8pt; letter-spacing: 0; border-color: #000;
+                padding-bottom: 1px; margin-bottom: 2px; break-after: avoid; }
+    .heat-card { border: none; border-radius: 0; margin-bottom: 3px;
+                 break-inside: avoid; background: #fff; }
+    .heat-card-header { background: none !important; color: #000 !important;
+                        padding: 1px 0; gap: 6px; font-size: 7.5pt;
+                        border-bottom: 0.5pt solid #999; }
+    .heat-card-header * { color: #000 !important; }
+    .heat-badge { background: none; padding: 0; }
+    .heat-time { font-size: 1em; }
+    .heat-card thead { display: none; }
+    /* Fixed columns, so lane, club and seed line up from one heat to the next. */
+    .heat-card table { table-layout: fixed; }
+    .heat-card tbody td { padding: 0 3px; font-size: 7.5pt; color: #000;
+                          background: #fff !important; border-bottom: none;
+                          vertical-align: top; }
+    .heat-card tbody td:first-child { width: 1.6em; text-align: right; }
+    .heat-card tbody td:nth-child(3) { width: 5em; overflow: hidden; }
+    .heat-card tbody td:last-child { width: 7.8em; text-align: right; white-space: nowrap; }
+    .swimmer-ol, .swimmer-ol li { display: inline; padding: 0; margin: 0; }
+    .swimmer-ol { color: #444; }
+    .swimmer-ol::before { content: " \2014  "; }
+    .swimmer-ol li + li::before { content: ", "; }
+    .not-seeded { margin: 0 0 2px; }
+    .heat-not-seeded { padding: 0; }
+    @page { margin: 1cm; }
 }
 </style>
 </head>
