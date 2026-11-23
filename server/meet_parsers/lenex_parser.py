@@ -33,6 +33,11 @@ class LenexData(NamedTuple):
 # kept as they are.
 KEPT_HEAT_STATUSES = {"OFFICIAL", "SEEDED"}
 
+# HEAT (or EVENT) `status` values of a heat that has been swum: its results are
+# in, official or not (Lenex 3.0 `UNOFFICIAL`, Splash's `INOFFICIAL`). What a
+# swim-off waits for before its final takes the number (`load_lenex`).
+SWUM_HEAT_STATUSES = {"OFFICIAL", "UNOFFICIAL", "INOFFICIAL"}
+
 # RESULT `status` values that are not a finish (Lenex 3.0). `EXH` (exhibition) is
 # a finish with a valid time, so it is not here.
 NON_FINISH_STATUSES = {"DSQ", "DNS", "DNF", "WDR", "SICK"}
@@ -262,7 +267,7 @@ def load_lenex(path):
     final the same, and the console only ever sends the number. Each round is read
     on its own, then every number-keyed field holds the number's *live* round: the
     last one in the file with a swimmer seeded in it (fastest heats wait for
-    their timed final to be swum). A final has no swimmers until
+    their timed final to be swum, and a final for a swim-off before it). A final has no swimmers until
     its prelims are swum and the file re-exported, so the board follows the meet
     from the file alone — not from a clock, which a Pi with no network may not
     have right. A session lists only the numbers whose live round it holds.
@@ -791,11 +796,31 @@ def load_lenex(path):
             if lanes
         )
 
+    def _heat_swum(r, h_num):
+        status = heat_status.get((r, h_num)) or round_status[r]
+        return status in SWUM_HEAT_STATUSES or h_num in round_results.get(r, {})
+
     def _live(rnds):
         seeded = [r for r in rnds if any(starts[r].values())]
         if not seeded:
             return rnds[0]
         last = seeded[-1]
+        # A swim-off stays live until it is swum, even once the final after it is
+        # seeded: the console calls it by the same number and heat 1, and the
+        # final would put its own heat 1 on the board in place of the tied
+        # swimmers. Swum is the heat's status, not its results, which a Splash
+        # file often carries none of; a file that tracks no status cannot say,
+        # and the last seeded round is live as before.
+        if tracks_status:
+            pending = [
+                r
+                for r in seeded
+                if r < last
+                and round_key[r] == "swimoff"
+                and not all(_heat_swum(r, h) for h, lanes in starts[r].items() if lanes)
+            ]
+            if pending:
+                return pending[0]
         if round_key[last] == "fastest_heat":
             before = [r for r in seeded if r < last and not _swum(r)]
             if before:

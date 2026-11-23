@@ -749,7 +749,8 @@ round's key (`prelims`, `final`, … — the vocabulary of `event_name_parts.rou
 or `""` for a number with one round, which is nearly every number. Without
 `?rounds=1`, each number lists its **live** round only — the last the file has seeded,
 the one the console is on; fastest heats (`fastest_heat`) wait until the rest of their
-event is official — so a client that keys its cards by event and heat never
+event is official, and a final until a swim-off before it is swum (its heat
+`UNOFFICIAL` or `OFFICIAL`, or with results) — so a client that keys its cards by event and heat never
 sees two alike. With `?rounds=1`, every round is listed, each in its own place in
 running order, with its own console times and results (`app.md` `S-24`). Either way
 the heat's `event_name_parts.round` is set for a shared number, whatever the

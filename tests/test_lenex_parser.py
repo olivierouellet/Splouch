@@ -685,3 +685,78 @@ def test_an_entrys_heat_number_that_is_not_one_is_skipped():
     )
     data = load_lenex(make_lxf(xml))
     assert list(data.start_list[1][1]) == [3]
+
+
+def _swimoff(swimoff_status, final_seeded=True, results=False):
+    """Prelims, a swim-off for a tie, and the final, all event 3 (Splash)."""
+    events = (
+        '<EVENT eventid="1" number="3" round="PRE" status="OFFICIAL">'
+        '<SWIMSTYLE distance="50" stroke="BREAST"/>'
+        '<HEATS><HEAT heatid="1" number="1" status="OFFICIAL"/></HEATS></EVENT>'
+        '<EVENT eventid="2" number="3" round="SOP" preveventid="1">'
+        '<SWIMSTYLE distance="50" stroke="BREAST"/>'
+        f'<HEATS><HEAT heatid="2" number="1" status="{swimoff_status}"/></HEATS></EVENT>'
+        '<EVENT eventid="3" number="3" round="FIN" preveventid="1">'
+        '<SWIMSTYLE distance="50" stroke="BREAST"/>'
+        '<HEATS><HEAT heatid="3" number="1" status="SEEDED"/></HEATS></EVENT>'
+    )
+    final = '<ENTRY eventid="3" heatid="3" lane="4"/>' if final_seeded else ""
+    result = (
+        '<RESULTS><RESULT eventid="2" heatid="2" lane="4" swimtime="00:00:40.10"/>'
+        "</RESULTS>"
+        if results
+        else ""
+    )
+    clubs = f"""<CLUB name="Aqua"><ATHLETES>
+      <ATHLETE athleteid="1" lastname="Un" firstname="Ann"><ENTRIES>
+        <ENTRY eventid="1" heatid="1" lane="4"/>
+        <ENTRY eventid="2" heatid="2" lane="4"/>{final}
+      </ENTRIES>{result}</ATHLETE>
+      <ATHLETE athleteid="2" lastname="Deux" firstname="Bea"><ENTRIES>
+        <ENTRY eventid="1" heatid="1" lane="5"/>
+        <ENTRY eventid="2" heatid="2" lane="5"/>
+      </ENTRIES></ATHLETE></ATHLETES></CLUB>"""
+    return load_lenex(_splash(events, clubs))
+
+
+@pytest.mark.parametrize(
+    ("status", "results", "live"),
+    [
+        ("SEEDED", False, "swimoff"),
+        ("RUNNING", False, "swimoff"),
+        ("INOFFICIAL", False, "final"),
+        ("UNOFFICIAL", False, "final"),
+        ("OFFICIAL", False, "final"),
+        # Splash leaves a heat whose results were typed in by hand SEEDED.
+        ("SEEDED", True, "final"),
+    ],
+)
+def test_a_final_waits_for_its_swimoff(status, results, live):
+    """Seeded before the swim-off is swum, the final would put its own heat 1 on
+    the board when the console calls event 3 heat 1 for the tied swimmers."""
+    data = _swimoff(status, results=results)
+    assert data.live_rounds == {3: live}
+    # The swim-off's two tied swimmers, or the final's one.
+    assert sorted(data.start_list[3][1]) == ([4, 5] if live == "swimoff" else [4])
+
+
+def test_a_swimoff_before_its_final_is_seeded_is_live():
+    assert _swimoff("SEEDED", final_seeded=False).live_rounds == {3: "swimoff"}
+
+
+def test_a_file_without_statuses_keeps_the_last_seeded_round_live():
+    """Nothing says whether the swim-off was swum: the final takes the number, as
+    before the rule."""
+    data = load_lenex(
+        _splash(
+            '<EVENT eventid="2" number="3" round="SOP"><SWIMSTYLE distance="50" '
+            'stroke="FREE"/><HEATS><HEAT heatid="2" number="1"/></HEATS></EVENT>'
+            '<EVENT eventid="3" number="3" round="FIN"><SWIMSTYLE distance="50" '
+            'stroke="FREE"/><HEATS><HEAT heatid="3" number="1"/></HEATS></EVENT>',
+            """<CLUB name="Aqua"><ATHLETES><ATHLETE athleteid="1" lastname="Un"
+            firstname="Ann"><ENTRIES><ENTRY eventid="2" heatid="2" lane="4"/>
+            <ENTRY eventid="3" heatid="3" lane="4"/></ENTRIES></ATHLETE>
+            </ATHLETES></CLUB>""",
+        )
+    )
+    assert data.live_rounds == {3: "final"}
